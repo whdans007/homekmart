@@ -1,0 +1,14 @@
+# Prevent 404 errors for common missing resources
+RewriteEngine On
+
+# Handle favicon.ico requests - return empty response
+RewriteRule ^favicon\.ico$ - [R=204,L]
+
+# Handle missing requests - return empty response  
+RewriteRule ^missing/?$ - [R=204,L]
+
+# Fallback for other missing resources
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} \.(ico|png|jpg|gif|css|js|svg)$
+RewriteRule .* - [R=204,L]
