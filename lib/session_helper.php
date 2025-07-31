@@ -63,5 +63,3 @@ function try_login_from_cookie() {
         setcookie('remember_me', '', time() - 3600, '/');
     }
 }
-
-// Encoding fix
