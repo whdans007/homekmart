@@ -83,17 +83,17 @@ try {
     </div>
 <?php else: ?>
     <!-- Brands Table -->
-    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+    <div class="bg-white shadow overflow-hidden sm:rounded-md border border-gray-300">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+            <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">로고</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">브랜드명 (한글)</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">브랜드명 (영문)</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">생성일</th>
-                        <th scope="col" class="relative px-6 py-3">
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">ID</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">로고</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">브랜드명 (한글)</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">브랜드명 (영문)</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">생성일</th>
+                        <th scope="col" class="relative px-6 py-3 border border-gray-300">
                             <span class="sr-only">작업</span>
                         </th>
                     </tr>
@@ -101,8 +101,8 @@ try {
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php foreach ($brands as $brand): ?>
                         <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($brand['id']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($brand['id']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap border border-gray-300">
                                 <?php if (!empty($brand['logo_url'])): ?>
                                     <img src="<?php echo htmlspecialchars($brand['logo_url']); ?>" 
                                          alt="<?php echo htmlspecialchars($brand['name_ko']); ?>" 
@@ -113,10 +113,10 @@ try {
                                     </div>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($brand['name_ko']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($brand['name_en'] ?? '-'); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo date('Y-m-d', strtotime($brand['created_at'])); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($brand['name_ko']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($brand['name_en'] ?? '-'); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo date('Y-m-d', strtotime($brand['created_at'])); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border border-gray-300">
                                 <div class="flex space-x-2">
                                     <a href="edit_brand.php?id=<?php echo $brand['id']; ?>" 
                                        class="text-primary-600 hover:text-primary-900 transition-colors duration-200">
@@ -133,7 +133,7 @@ try {
                     <?php endforeach; ?>
                     <?php if (empty($brands)): ?>
                         <tr>
-                            <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500">
+                            <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-tags text-4xl text-gray-300 mb-4"></i>
                                     <p>등록된 브랜드가 없습니다.</p>

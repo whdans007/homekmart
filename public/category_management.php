@@ -80,16 +80,16 @@ try {
     </div>
 <?php else: ?>
     <!-- Categories Table -->
-    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+    <div class="bg-white shadow overflow-hidden sm:rounded-md border border-gray-300">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+            <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">카테고리명</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상위 카테고리</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">생성일</th>
-                        <th scope="col" class="relative px-6 py-3">
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">ID</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">카테고리명</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">상위 카테고리</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">생성일</th>
+                        <th scope="col" class="relative px-6 py-3 border border-gray-300">
                             <span class="sr-only">작업</span>
                         </th>
                     </tr>
@@ -97,9 +97,9 @@ try {
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php foreach ($categories as $category): ?>
                         <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($category['id']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($category['name']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($category['id']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($category['name']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
                                 <?php if ($category['parent_name']): ?>
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
                                         <?php echo htmlspecialchars($category['parent_name']); ?>
@@ -108,8 +108,8 @@ try {
                                     <span class="text-gray-400 italic">없음</span>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo date('Y-m-d', strtotime($category['created_at'])); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo date('Y-m-d', strtotime($category['created_at'])); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border border-gray-300">
                                 <div class="flex space-x-2 justify-end">
                                     <a href="edit_category.php?id=<?php echo $category['id']; ?>" class="text-primary-600 hover:text-primary-900 transition-colors duration-200">
                                         <i class="fas fa-edit mr-1"></i>수정
@@ -123,7 +123,7 @@ try {
                     <?php endforeach; ?>
                     <?php if (empty($categories)): ?>
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-sm text-gray-500">
+                            <td colspan="5" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-sitemap text-4xl text-gray-300 mb-4"></i>
                                     <p>등록된 카테고리가 없습니다.</p>

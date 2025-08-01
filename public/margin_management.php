@@ -121,15 +121,15 @@ try {
 
 
     <!-- 마진 규칙 목록 -->
-    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-300">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+            <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">카테고리</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">마진율 (%)</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">최근 수정일</th>
-                        <th scope="col" class="relative px-6 py-3">
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">카테고리</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">마진율 (%)</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">최근 수정일</th>
+                        <th scope="col" class="relative px-6 py-3 border border-gray-300">
                             <span class="sr-only">작업</span>
                         </th>
                     </tr>
@@ -137,7 +137,7 @@ try {
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php if (empty($margin_rules)): ?>
                         <tr>
-                            <td colspan="4" class="text-center py-12">
+                            <td colspan="4" class="text-center py-12 border border-gray-300">
                                 <i class="fas fa-info-circle text-5xl text-gray-400"></i>
                                 <h2 class="mt-4 text-lg font-medium text-gray-900">마진 규칙이 없습니다.</h2>
                                 <p class="mt-1 text-sm text-gray-500">새로운 마진 규칙을 추가해보세요.</p>
@@ -146,10 +146,10 @@ try {
                     <?php else: ?>
                         <?php foreach ($margin_rules as $rule): ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($rule['category_name']); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($rule['margin_percentage']); ?>%</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo date('Y-m-d H:i', strtotime($rule['updated_at'])); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($rule['category_name']); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($rule['margin_percentage']); ?>%</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo date('Y-m-d H:i', strtotime($rule['updated_at'])); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border border-gray-300">
                                     <a href="margin_management.php?delete_id=<?php echo $rule['id']; ?>" class="text-red-600 hover:text-red-900 ml-4" onclick="return confirm('정말로 이 마진 규칙을 삭제하시겠습니까?');">삭제</a>
                                 </td>
                             </tr>

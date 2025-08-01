@@ -106,19 +106,19 @@ try {
             </div>
         </div>
     <?php else: ?>
-        <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div class="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-300">
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
+                <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품명(한글)</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">브랜드</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">카테고리</th>
-                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">박스당 수량</th>
-                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">총 재고</th>
-                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-                            <th scope="col" class="relative px-6 py-3">
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">SKU</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">상품명(한글)</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">브랜드</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">카테고리</th>
+                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">박스당 수량</th>
+                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">총 재고</th>
+                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">상태</th>
+                            <th scope="col" class="relative px-6 py-3 border border-gray-300">
                                 <span class="sr-only">작업</span>
                             </th>
                         </tr>
@@ -126,30 +126,30 @@ try {
                     <tbody class="bg-white divide-y divide-gray-200">
                         <?php foreach ($products as $product): ?>
                             <tr class="hover:bg-gray-50 cursor-pointer product-row" data-product-id="<?php echo $product['id']; ?>">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500"><?php echo htmlspecialchars($product['sku']); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500 border border-gray-300"><?php echo htmlspecialchars($product['sku']); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap border border-gray-300">
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($product['name_ko']); ?></div>
                                     <div class="text-xs text-gray-500"><?php echo htmlspecialchars($product['name_en']); ?></div>
                                     <?php if ($product['barcode']): ?>
                                         <div class="text-xs text-gray-400">바코드: <?php echo htmlspecialchars($product['barcode']); ?></div>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($product['brand_name'] ?? 'N/A'); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($product['category_name'] ?? 'N/A'); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($product['brand_name'] ?? 'N/A'); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($product['category_name'] ?? 'N/A'); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center border border-gray-300">
                                     <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
                                         <?php echo number_format($product['pieces_per_box'] ?? 1); ?>개
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center"><?php echo number_format($product['total_stock'] ?? 0); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center border border-gray-300"><?php echo number_format($product['total_stock'] ?? 0); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center border border-gray-300">
                                     <?php if ($product['is_active']): ?>
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">활성</span>
                                     <?php else: ?>
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">비활성</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border border-gray-300">
                                     <a href="edit_product.php?id=<?php echo $product['id']; ?>" class="text-primary-600 hover:text-primary-900" onclick="event.stopPropagation();">수정</a>
                                     <a href="delete_product.php?id=<?php echo $product['id']; ?>" class="text-red-600 hover:text-red-900 ml-4" onclick="event.stopPropagation(); return confirm('정말로 이 상품을 삭제하시겠습니까?');">삭제</a>
                                 </td>
