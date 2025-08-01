@@ -296,7 +296,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="mt-1 p-3 bg-gray-100 border border-gray-300 rounded-md">
                         <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($existing_purchase['supplier_name']); ?></div>
                     </div>
-                    <input type="hidden" name="supplier_id" value="<?php echo $existing_purchase['supplier_id']; ?>">
+                    <input type="hidden" id="supplier_id" name="supplier_id" value="<?php echo $existing_purchase['supplier_id']; ?>">
                 <?php else: ?>
                     <!-- 신규 등록 모드에서는 검색 기능 제공 -->
                     <div class="relative mt-1">
@@ -697,7 +697,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // 거래처가 선택되지 않았으면 검색 차단
-        if (!supplierSelect.value) {
+        const supplierId = supplierSelect ? supplierSelect.value : document.getElementById('supplier_id').value;
+        if (!supplierId) {
             alert('거래처를 먼저 선택해주세요.');
             this.blur();
             return;

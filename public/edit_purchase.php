@@ -1,4 +1,9 @@
 <?php
+// 오류 로깅 활성화
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 $page_title = "매입 내역 상세보기";
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
@@ -167,6 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'delete_item' && isset($_POST['item_id'])) {
         $item_id = (int)$_POST['item_id'];
+        error_log("Processing delete_item for item_id: {$item_id}, purchase_id: {$purchase_id}");
         
         try {
             $conn->begin_transaction();
@@ -201,11 +207,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     
                     // 재고 트랜잭션 로그 기록
                     try {
-                        $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) SELECT id, ?, 'OUT', ?, ? FROM inventory WHERE product_id = ? AND store_id = ?");
-                        $remarks = "매입 상품 삭제 (Purchase Item ID: {$item_id})";
-                        $trans_stmt->bind_param("iisii", $_SESSION['user_id'], -$actual_quantity, $remarks, $item_info['product_id'], $item_info['store_id']);
-                        $trans_stmt->execute();
-                        $trans_stmt->close();
+                        // inventory_id를 먼저 조회
+                        $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
+                        $inv_id_stmt->bind_param("ii", $item_info['product_id'], $item_info['store_id']);
+                        $inv_id_stmt->execute();
+                        $inv_id_result = $inv_id_stmt->get_result();
+                        
+                        if ($inv_row = $inv_id_result->fetch_assoc()) {
+                            $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, 'OUT', ?, ?)");
+                            $remarks = "매입 상품 삭제 (Purchase Item ID: {$item_id})";
+                            $quantity_change = -$actual_quantity;
+                            $trans_stmt->bind_param("iiss", $inv_row['id'], $_SESSION['user_id'], $quantity_change, $remarks);
+                            $trans_stmt->execute();
+                            $trans_stmt->close();
+                        }
+                        $inv_id_stmt->close();
                     } catch (Exception $log_error) {
                         // 로그 기록 실패는 무시하고 계속 진행
                         error_log("Transaction log failed: " . $log_error->getMessage());
@@ -237,7 +253,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         } catch (Exception $e) {
             $conn->rollback();
-            $message = '상품 삭제에 실패했습니다: ' . $e->getMessage();
+            $error_msg = $e->getMessage();
+            error_log("Delete item failed: {$error_msg} for item_id: {$item_id}, purchase_id: {$purchase_id}");
+            $message = '상품 삭제에 실패했습니다: ' . $error_msg;
             $message_type = 'error';
         }
     }
@@ -291,12 +309,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         
                         // 재고 트랜잭션 로그 기록
                         try {
-                            $trans_type = $quantity_diff > 0 ? 'IN' : 'OUT';
-                            $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) SELECT id, ?, ?, ?, ? FROM inventory WHERE product_id = ? AND store_id = ?");
-                            $remarks = "매입 상품 수정 (Purchase Item ID: {$item_id})";
-                            $trans_stmt->bind_param("isisii", $_SESSION['user_id'], $trans_type, $quantity_diff, $remarks, $old_info['product_id'], $old_info['store_id']);
-                            $trans_stmt->execute();
-                            $trans_stmt->close();
+                            // inventory_id를 먼저 조회
+                            $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
+                            $inv_id_stmt->bind_param("ii", $old_info['product_id'], $old_info['store_id']);
+                            $inv_id_stmt->execute();
+                            $inv_id_result = $inv_id_stmt->get_result();
+                            
+                            if ($inv_row = $inv_id_result->fetch_assoc()) {
+                                $trans_type = $quantity_diff > 0 ? 'IN' : 'OUT';
+                                $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, ?, ?, ?)");
+                                $remarks = "매입 상품 수정 (Purchase Item ID: {$item_id})";
+                                $trans_stmt->bind_param("iisis", $inv_row['id'], $_SESSION['user_id'], $trans_type, $quantity_diff, $remarks);
+                                $trans_stmt->execute();
+                                $trans_stmt->close();
+                            }
+                            $inv_id_stmt->close();
                         } catch (Exception $log_error) {
                             // 로그 기록 실패는 무시하고 계속 진행
                             error_log("Transaction log failed: " . $log_error->getMessage());
@@ -845,7 +872,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const form = document.createElement('form');
                 form.id = 'update-form';
                 form.method = 'POST';
-                form.action = '';
+                form.action = window.location.pathname + window.location.search;
                 form.innerHTML = `
                     <input type="hidden" name="action" value="update_item">
                     <input type="hidden" name="item_id" value="${itemId}">
@@ -860,12 +887,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 삭제 버튼 클릭 시
-    document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', function(e) {
+    // 삭제 버튼 클릭 시 - 이벤트 위임 사용
+    document.addEventListener('click', function(e) {
+        // 삭제 버튼인지 확인
+        if (e.target.closest('.delete-btn')) {
             e.preventDefault();
-            const itemId = this.dataset.itemId;
-            console.log('삭제 버튼 클릭:', itemId);
+            const deleteBtn = e.target.closest('.delete-btn');
+            const itemId = deleteBtn.dataset.itemId;
+            console.log('삭제 버튼 클릭 (이벤트 위임):', itemId);
             
             if (confirm('이 상품을 매입 목록에서 삭제하시겠습니까?\n삭제하면 재고에서도 해당 수량이 차감됩니다.')) {
                 console.log('삭제 폼 제출 준비');
@@ -879,7 +908,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const form = document.createElement('form');
                 form.id = 'delete-form';
                 form.method = 'POST';
-                form.action = '';
+                form.action = window.location.pathname + window.location.search;
                 form.innerHTML = `
                     <input type="hidden" name="action" value="delete_item">
                     <input type="hidden" name="item_id" value="${itemId}">
@@ -888,17 +917,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('삭제 폼 제출');
                 form.submit();
             }
-        });
+        }
     });
     
     // 전체 매입 내역 삭제 버튼 클릭 시 (버튼이 존재할 때만)
     const deletePurchaseBtn = document.getElementById('delete-purchase-btn');
+    console.log('Delete button found:', deletePurchaseBtn);
     if (deletePurchaseBtn) {
+        console.log('Adding click listener to delete button');
         deletePurchaseBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        console.log('전체 매입 삭제 버튼 클릭');
+            e.preventDefault();
+            console.log('전체 매입 삭제 버튼 클릭');
         
-        if (confirm('이 매입 내역 전체를 삭제하시겠습니까?\\n\\n삭제된 매입 내역은 복원이 가능하며, 모든 매입 상품의 재고가 차감됩니다.\\n\\n계속하시겠습니까?')) {
+        if (confirm('이 매입 내역 전체를 삭제하시겠습니까?\n\n삭제된 매입 내역은 복원이 가능하며, 모든 매입 상품의 재고가 차감됩니다.\n\n계속하시겠습니까?')) {
             console.log('전체 매입 삭제 확인됨');
             
             // 기존 폼이 있다면 제거
@@ -910,7 +941,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const form = document.createElement('form');
             form.id = 'delete-purchase-form';
             form.method = 'POST';
-            form.action = '';
+            form.action = window.location.pathname + window.location.search;
             form.innerHTML = `
                 <input type="hidden" name="action" value="delete_purchase">
             `;
@@ -923,6 +954,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     
     console.log('이벤트 리스너 등록 완료');
+    
+    // 페이지 로드 완료 후 디버깅 정보 출력
+    console.log('DOM loaded, checking for buttons...');
+    console.log('All delete buttons:', document.querySelectorAll('.delete-btn'));
+    console.log('Purchase delete button:', document.getElementById('delete-purchase-btn'));
 });
 </script>
 

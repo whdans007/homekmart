@@ -83,15 +83,15 @@ try {
     </div>
 <?php else: ?>
     <!-- Stores Table -->
-    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+    <div class="bg-white shadow overflow-hidden sm:rounded-md border border-gray-300">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+            <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지점명</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">생성일</th>
-                        <th scope="col" class="relative px-6 py-3">
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">ID</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">지점명</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">생성일</th>
+                        <th scope="col" class="relative px-6 py-3 border border-gray-300">
                             <span class="sr-only">작업</span>
                         </th>
                     </tr>
@@ -99,10 +99,10 @@ try {
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php foreach ($stores as $store): ?>
                         <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($store['id']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($store['name']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo date('Y-m-d', strtotime($store['created_at'])); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($store['id']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($store['name']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo date('Y-m-d', strtotime($store['created_at'])); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border border-gray-300">
                                 <div class="flex space-x-2">
                                     <a href="edit_store.php?id=<?php echo $store['id']; ?>" 
                                        class="text-primary-600 hover:text-primary-900 transition-colors duration-200">
@@ -119,7 +119,7 @@ try {
                     <?php endforeach; ?>
                     <?php if (empty($stores)): ?>
                         <tr>
-                            <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-500">
+                            <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-store text-4xl text-gray-300 mb-4"></i>
                                     <p>등록된 지점이 없습니다.</p>

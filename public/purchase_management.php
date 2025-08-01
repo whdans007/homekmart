@@ -155,19 +155,19 @@ if (!$result) {
         </form>
     </div>
 
-    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-300">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+            <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">순번</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">거래번호</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">날짜</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">거래처</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">총 품목 수</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">총 입고수량</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">매입금액</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">순번</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">거래번호</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">날짜</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">거래처</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">총 품목 수</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">총 입고수량</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">매입금액</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">작업</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -175,24 +175,24 @@ if (!$result) {
                         <?php $row_number = 1; ?>
                         <?php while($row = $result->fetch_assoc()): ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center"><?php echo $row_number++; ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($row['purchase_id']); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($row['purchase_date']); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($row['supplier_name']); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"><?php echo htmlspecialchars($row['total_items']); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center border border-gray-300"><?php echo $row_number++; ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($row['purchase_id']); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($row['purchase_date']); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($row['supplier_name']); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300"><?php echo htmlspecialchars($row['total_items']); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300">
                                     <span class="font-medium"><?php echo number_format($row['total_pieces'] ?? 0); ?></span>
                                     <span class="text-xs text-gray-400 ml-1">개</span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right"><?php echo number_format($row['total_amount'], 0); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300"><?php echo number_format($row['total_amount'], 0); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium border border-gray-300">
                                     <a href="edit_purchase.php?id=<?php echo $row['purchase_id']; ?>" class="text-indigo-600 hover:text-indigo-900">상세보기</a>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" class="px-6 py-12 text-center text-sm text-gray-500">
+                            <td colspan="8" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-dolly-flatbed text-4xl text-gray-400"></i>
                                     <p class="mt-4">매입 내역이 없습니다.</p>
