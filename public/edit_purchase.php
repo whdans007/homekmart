@@ -475,7 +475,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 $check_deleted_at_column = $conn->query("SHOW COLUMNS FROM purchases LIKE 'deleted_at'");
 $has_deleted_at = $check_deleted_at_column->num_rows > 0;
 
-// Fetch purchase details (삭제되지 않은 매입만)
+// Fetch purchase details (삭제되지 않은 매입만 + 점포 정보)
 if ($has_deleted_at) {
     $stmt = $conn->prepare("SELECT p.*, s.name as supplier_name FROM purchases p JOIN suppliers s ON p.supplier_id = s.id WHERE p.purchase_id = ? AND p.deleted_at IS NULL");
 } else {
