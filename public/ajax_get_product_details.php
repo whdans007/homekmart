@@ -44,35 +44,51 @@ try {
         exit;
     }
 
-    // 재고 정보 조회 (지점별 - 현재 점포 우선)
+    // inventory 테이블의 컬럼 구조 확인
+    $cost_column_check = $pdo->prepare("SHOW COLUMNS FROM inventory LIKE 'cost_price'");
+    $cost_column_check->execute();
+    $has_cost_price_column = $cost_column_check->fetch();
+    
+    $selling_column_check = $pdo->prepare("SHOW COLUMNS FROM inventory LIKE 'selling_price'");
+    $selling_column_check->execute();
+    $has_selling_price_column = $selling_column_check->fetch();
+    
+    // 모든 지점 정보 조회 (원가/판매가 포함, 재고 관계없이 모든 점포 표시)
+    $price_columns = '';
+    $select_columns = '';
+    if ($has_selling_price_column) {
+        $price_columns .= ', i.selling_price';
+        $select_columns .= ', i.selling_price';
+    }
+    if ($has_cost_price_column) {
+        $price_columns .= ', i.cost_price';
+        $select_columns .= ', i.cost_price';
+    }
+    
     if ($current_store_id) {
+        // 현재 점포를 우선 표시하면서 모든 점포 조회
         $inv_stmt = $pdo->prepare("
-            SELECT i.quantity, s.name as store_name, s.id as store_id,
+            SELECT s.name as store_name, s.id as store_id{$select_columns},
                    CASE WHEN s.id = ? THEN 0 ELSE 1 END as sort_order
-            FROM inventory i
-            JOIN stores s ON i.store_id = s.id
-            WHERE i.product_id = ?
+            FROM stores s
+            LEFT JOIN inventory i ON s.id = i.store_id AND i.product_id = ?
             ORDER BY sort_order, s.name
         ");
         $inv_stmt->execute([$current_store_id, $product_id]);
     } else {
+        // 모든 점포 조회
         $inv_stmt = $pdo->prepare("
-            SELECT i.quantity, s.name as store_name, s.id as store_id
-            FROM inventory i
-            JOIN stores s ON i.store_id = s.id
-            WHERE i.product_id = ?
+            SELECT s.name as store_name, s.id as store_id{$select_columns}
+            FROM stores s
+            LEFT JOIN inventory i ON s.id = i.store_id AND i.product_id = ?
             ORDER BY s.name
         ");
         $inv_stmt->execute([$product_id]);
     }
     $product['inventory'] = $inv_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // 총 재고 계산
-    $total_stock = 0;
-    foreach ($product['inventory'] as $inv) {
-        $total_stock += $inv['quantity'];
-    }
-    $product['total_stock'] = $total_stock;
+    // 디버깅: 점포별 가격 데이터 로그
+    error_log("Product store pricing data: " . json_encode($product['inventory']));
 
     echo json_encode(['success' => true, 'data' => $product]);
 

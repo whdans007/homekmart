@@ -65,6 +65,7 @@ if (!empty($where_conditions)) {
 $sql = "SELECT 
     p.purchase_id, 
     p.purchase_date, 
+    p.created_at,
     s.name AS supplier_name, 
     p.total_items, 
     p.total_amount,
@@ -163,6 +164,7 @@ if (!$result) {
                         <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">순번</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">거래번호</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">날짜</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">등록시간</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">거래처</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">총 품목 수</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">총 입고수량</th>
@@ -178,6 +180,16 @@ if (!$result) {
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center border border-gray-300"><?php echo $row_number++; ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($row['purchase_id']); ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($row['purchase_date']); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
+                                    <?php 
+                                    if (!empty($row['created_at'])) {
+                                        $created_time = new DateTime($row['created_at']);
+                                        echo $created_time->format('H:i:s');
+                                    } else {
+                                        echo '-';
+                                    }
+                                    ?>
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($row['supplier_name']); ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300"><?php echo htmlspecialchars($row['total_items']); ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300">

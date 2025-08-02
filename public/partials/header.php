@@ -144,6 +144,11 @@ if (!empty($_SESSION['user_id'])) {
                                         <i class="fas fa-cog mr-3 text-gray-400 group-hover:text-gray-500"></i>
                                         환경설정
                                     </a>
+                                    
+                                    <a href="excel_test.php" class="<?php echo ($current_page == 'excel_test.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                        <i class="fas fa-file-excel mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                                        엑셀 테스트
+                                    </a>
                                     <?php endif; ?>
                                 </div>
                             </div>
