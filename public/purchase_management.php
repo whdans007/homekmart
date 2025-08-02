@@ -61,7 +61,7 @@ if (!empty($where_conditions)) {
     $where_clause = ' WHERE ' . implode(' AND ', $where_conditions);
 }
 
-// 매입 리스트 조회 (총 입고수량 낱개 환산 포함)
+// 매입 리스트 조회 (총 입고수량 낱개 환산 포함 + 점포 정보)
 $sql = "SELECT 
     p.purchase_id, 
     p.purchase_date, 
