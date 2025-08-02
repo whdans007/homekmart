@@ -321,6 +321,7 @@ try {
                                     <th class="px-3 py-2 text-left font-semibold text-gray-700">점포</th>
                                     <th class="px-3 py-2 text-right font-semibold text-gray-700">낱개 원가</th>
                                     <th class="px-3 py-2 text-right font-semibold text-gray-700">권장 판매가</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700">적용 마진</th>
                                     <th class="px-3 py-2 text-center font-semibold text-gray-700">선택</th>
                                 </tr>
                             </thead>
@@ -360,10 +361,16 @@ try {
                         </div>
                     </div>
                     <div class="mt-2 flex justify-between items-center">
-                        <span class="text-xs text-blue-600">
-                            <i class="fas fa-calculator mr-1"></i>
-                            마진율: <span id="margin-rate">0%</span>
-                        </span>
+                        <div class="flex space-x-4">
+                            <span class="text-xs text-blue-600">
+                                <i class="fas fa-calculator mr-1"></i>
+                                실제 마진율: <span id="margin-rate">0%</span>
+                            </span>
+                            <span class="text-xs text-gray-500" id="recommended-margin-info">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                권장 마진: <span id="recommended-margin-rate">30%</span>
+                            </span>
+                        </div>
                         <button id="cancel-pricing-btn" class="text-xs text-blue-600 hover:text-blue-800">
                             취소
                         </button>
@@ -637,6 +644,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td class="px-3 py-2 text-right font-mono">₩${item.unit_cost_per_piece_formatted}</td>
                 <td class="px-3 py-2 text-right font-semibold text-green-600">₩${item.suggested_selling_price.toLocaleString()}</td>
                 <td class="px-3 py-2 text-center">
+                    <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                        ${item.margin_rate}%
+                    </span>
+                </td>
+                <td class="px-3 py-2 text-center">
                     <button class="select-purchase-btn px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200">
                         선택
                     </button>
@@ -671,9 +683,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const pricingSection = document.getElementById('modal-pricing-section');
         const costDisplay = document.getElementById('selected-cost-display');
         const sellingPriceInput = document.getElementById('new-selling-price');
+        const recommendedMarginRate = document.getElementById('recommended-margin-rate');
         
         costDisplay.textContent = `₩${purchaseData.unit_cost_per_piece_formatted}`;
         sellingPriceInput.value = purchaseData.suggested_selling_price;
+        
+        // 권장 마진율 표시 (API에서 받은 데이터 사용)
+        if (purchaseData.margin_rate) {
+            recommendedMarginRate.textContent = `${purchaseData.margin_rate}%`;
+        }
+        
         updateMarginRate();
         
         pricingSection.classList.remove('hidden');

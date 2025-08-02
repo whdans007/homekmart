@@ -10,6 +10,7 @@ ob_start();
 try {
     require_once __DIR__ . '/../config/db_config.php';
     require_once __DIR__ . '/../lib/session_helper.php';
+    require_once __DIR__ . '/../lib/margin_helper.php';
 } catch (Exception $e) {
     ob_clean();
     header('Content-Type: application/json');
@@ -135,12 +136,18 @@ try {
     $stmt->execute($params);
     $purchase_history = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // 상품별 마진율 조회
+    $margin_rate = get_margin_rate_by_product($product_id, $pdo);
+    
     // 데이터 포맷팅
     foreach ($purchase_history as &$item) {
         $item['purchase_date_formatted'] = date('Y-m-d', strtotime($item['purchase_date']));
         $item['unit_price_formatted'] = number_format($item['unit_price']);
         $item['unit_cost_per_piece_formatted'] = number_format($item['unit_cost_per_piece'], 2);
-        $item['suggested_selling_price'] = round($item['unit_cost_per_piece'] * 1.3); // 30% 마진
+        
+        // 마진 관리에서 설정된 마진율 사용 (기본값: 30%)
+        $item['suggested_selling_price'] = calculate_suggested_price($item['unit_cost_per_piece'], $margin_rate);
+        $item['margin_rate'] = $margin_rate; // 프론트엔드에서 사용할 마진율 정보
     }
 
     ob_clean();
