@@ -64,8 +64,7 @@ try {
     $sql = "
         SELECT 
             p.id, p.sku, p.name_ko, p.name_en, p.is_active, p.pieces_per_box, p.barcode,
-            c.name as category_name, b.name_ko as brand_name, b.name_en as brand_name_en,
-            (SELECT SUM(quantity) FROM inventory WHERE product_id = p.id) as total_stock
+            c.name as category_name, b.name_ko as brand_name, b.name_en as brand_name_en
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
         LEFT JOIN brands b ON p.brand_id = b.id
@@ -137,7 +136,6 @@ try {
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">브랜드</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">카테고리</th>
                             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">박스당 수량</th>
-                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">총 재고</th>
                             <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">상태</th>
                             <th scope="col" class="relative px-6 py-3 border border-gray-300">
                                 <span class="sr-only">작업</span>
@@ -162,7 +160,6 @@ try {
                                         <?php echo number_format($product['pieces_per_box'] ?? 1); ?>개
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center border border-gray-300"><?php echo number_format($product['total_stock'] ?? 0); ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center border border-gray-300">
                                     <?php if ($product['is_active']): ?>
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">활성</span>
@@ -266,14 +263,6 @@ try {
                             <td class="px-4 py-2" id="modal-category"></td>
                         </tr>
                         <tr class="border-b">
-                            <td class="px-4 py-2 font-semibold bg-gray-50">원가</td>
-                            <td class="px-4 py-2 font-semibold text-green-700" id="modal-cost-price"></td>
-                        </tr>
-                        <tr class="border-b">
-                            <td class="px-4 py-2 font-semibold bg-gray-50">기본 판매가</td>
-                            <td class="px-4 py-2 font-semibold text-blue-700" id="modal-selling-price"></td>
-                        </tr>
-                        <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50">박스포장 정보</td>
                             <td class="px-4 py-2" id="modal-box-info"></td>
                         </tr>
@@ -292,12 +281,11 @@ try {
                     </tbody>
                 </table>
 
-                <!-- Inventory and Pricing by Store -->
-                <h4 class="text-lg font-semibold text-gray-800 mb-2">지점별 재고 및 가격</h4>
+                <!-- Pricing by Store -->
+                <h4 class="text-lg font-semibold text-gray-800 mb-2">지점별 원가 및 판매가</h4>
                 <div id="modal-inventory-wrapper">
                     <!-- JS will populate this -->
                 </div>
-                <p id="modal-total-stock" class="font-bold mt-2 text-right"></p>
 
                 <!-- Purchase History Section -->
                 <h4 class="text-lg font-semibold text-gray-800 mb-2 mt-6">최근 매입 이력</h4>
@@ -320,8 +308,6 @@ try {
                                     <th class="px-3 py-2 text-left font-semibold text-gray-700">거래처</th>
                                     <th class="px-3 py-2 text-left font-semibold text-gray-700">점포</th>
                                     <th class="px-3 py-2 text-right font-semibold text-gray-700">낱개 원가</th>
-                                    <th class="px-3 py-2 text-right font-semibold text-gray-700">권장 판매가</th>
-                                    <th class="px-3 py-2 text-center font-semibold text-gray-700">적용 마진</th>
                                     <th class="px-3 py-2 text-center font-semibold text-gray-700">선택</th>
                                 </tr>
                             </thead>
@@ -338,40 +324,64 @@ try {
 
                 <!-- Pricing Update Section -->
                 <div id="modal-pricing-section" class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4 hidden">
-                    <h5 class="font-semibold text-blue-800 mb-2">
+                    <h5 class="font-semibold text-blue-800 mb-3">
                         <i class="fas fa-tag mr-1"></i>
                         판매가 설정
                     </h5>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-sm font-medium text-blue-700 mb-1">선택된 원가</label>
-                            <div id="selected-cost-display" class="text-lg font-bold text-blue-900">₩ 0</div>
+                    
+                    <!-- 원가 정보 -->
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-blue-700 mb-1">선택된 원가</label>
+                        <div id="selected-cost-display" class="text-lg font-bold text-blue-900">₩ 0</div>
+                    </div>
+                    
+                    <!-- 마진율 선택 -->
+                    <div class="mb-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-sm font-medium text-blue-700">마진율 선택</label>
+                            <button id="configure-presets-btn" class="text-xs text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-cog mr-1"></i>설정
+                            </button>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-blue-700 mb-1">새 판매가</label>
-                            <div class="flex">
-                                <input type="number" id="new-selling-price" 
-                                       class="flex-1 px-3 py-2 border border-blue-300 rounded-l-md focus:ring-blue-500 focus:border-blue-500" 
-                                       placeholder="판매가 입력">
-                                <button id="apply-selling-price-btn" 
-                                        class="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">
-                                    적용
-                                </button>
-                            </div>
+                        <div id="margin-presets-container" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+                            <!-- 동적으로 생성될 마진율 버튼들 -->
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="number" id="custom-margin-input" 
+                                   class="w-20 px-2 py-1 text-sm border border-blue-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                                   placeholder="직접입력" min="0" max="100" step="0.1">
+                            <span class="text-sm text-gray-600">%</span>
+                            <button id="apply-custom-margin-btn" class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200">적용</button>
                         </div>
                     </div>
-                    <div class="mt-2 flex justify-between items-center">
+                    
+                    <!-- 계산된 판매가 -->
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-blue-700 mb-1">계산된 판매가</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="number" id="new-selling-price" 
+                                   class="flex-1 px-3 py-2 border border-blue-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                                   placeholder="판매가">
+                            <button id="apply-selling-price-btn" 
+                                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">
+                                적용
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 마진 정보 표시 -->
+                    <div class="flex justify-between items-center text-xs">
                         <div class="flex space-x-4">
-                            <span class="text-xs text-blue-600">
+                            <span class="text-blue-600">
                                 <i class="fas fa-calculator mr-1"></i>
                                 실제 마진율: <span id="margin-rate">0%</span>
                             </span>
-                            <span class="text-xs text-gray-500" id="recommended-margin-info">
+                            <span class="text-gray-500">
                                 <i class="fas fa-info-circle mr-1"></i>
                                 권장 마진: <span id="recommended-margin-rate">30%</span>
                             </span>
                         </div>
-                        <button id="cancel-pricing-btn" class="text-xs text-blue-600 hover:text-blue-800">
+                        <button id="cancel-pricing-btn" class="text-blue-600 hover:text-blue-800">
                             취소
                         </button>
                     </div>
@@ -381,6 +391,43 @@ try {
                 <div id="modal-image-content" class="mt-6 flex justify-start items-center">
                     <img id="modal-image" src="" alt="상품 이미지" class="w-[30px] h-[30px] rounded-md border bg-gray-100 object-contain">
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 마진율 프리셋 설정 모달 -->
+<div id="preset-config-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center p-4">
+    <div class="relative w-full max-w-md bg-white rounded-lg shadow-xl">
+        <!-- Modal Header -->
+        <div class="flex justify-between items-center p-4 border-b rounded-t-lg">
+            <h3 class="text-lg font-semibold text-gray-800">마진율 프리셋 설정</h3>
+            <button id="close-preset-modal-btn" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-4">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    마진율 설정 (쉼표로 구분)
+                </label>
+                <input type="text" id="presets-input" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                       placeholder="예: 20, 25, 30, 35">
+                <p class="mt-1 text-xs text-gray-500">
+                    0~100 사이의 숫자를 쉼표로 구분하여 입력하세요.
+                </p>
+            </div>
+            
+            <div class="flex justify-end space-x-3">
+                <button id="cancel-preset-btn" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">
+                    취소
+                </button>
+                <button id="save-preset-btn" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                    저장
+                </button>
             </div>
         </div>
     </div>
@@ -405,8 +452,6 @@ document.addEventListener('DOMContentLoaded', function() {
         description: document.getElementById('modal-description'),
         brand: document.getElementById('modal-brand'),
         category: document.getElementById('modal-category'),
-        costPrice: document.getElementById('modal-cost-price'),
-        sellingPrice: document.getElementById('modal-selling-price'),
         boxInfo: document.getElementById('modal-box-info'),
         inventoryWrapper: document.getElementById('modal-inventory-wrapper'),
         totalStock: document.getElementById('modal-total-stock'),
@@ -457,8 +502,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         modalContent.description.textContent = product.description || '등록된 상품 설명이 없습니다.';
                         modalContent.brand.textContent = product.brand_name_ko || 'N/A';
                         modalContent.category.textContent = product.category_name || 'N/A';
-                        modalContent.costPrice.textContent = `₩ ${parseFloat(product.cost_price || 0).toFixed(0)}`;
-                        modalContent.sellingPrice.textContent = `₩ ${parseFloat(product.selling_price || 0).toFixed(0)}`;
                         
                         // Barcode and Box packaging information
                         modalContent.barcode.textContent = product.barcode || '등록된 바코드 없음';
@@ -466,6 +509,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         modalContent.boxInfo.innerHTML = `<span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">${piecesPerBox}개/박스</span>`;
                         
                         // Inventory and Pricing by Store
+                        console.log('Product inventory data:', product.inventory);
                         modalContent.inventoryWrapper.innerHTML = '';
                         if (product.inventory && product.inventory.length > 0) {
                             const inventoryTable = document.createElement('table');
@@ -474,29 +518,31 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-4 py-2 font-semibold">지점</th>
-                                        <th class="px-4 py-2 font-semibold text-right">재고</th>
-                                        <th class="px-4 py-2 font-semibold text-right">지점 판매가</th>
+                                        <th class="px-4 py-2 font-semibold text-right">원가</th>
+                                        <th class="px-4 py-2 font-semibold text-right">판매가</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
                             `;
                             const tbody = inventoryTable.querySelector('tbody');
                             product.inventory.forEach(inv => {
-                                const storePrice = inv.selling_price ? `₱ ${parseFloat(inv.selling_price).toFixed(2)}` : `(기본가) ₱ ${parseFloat(product.selling_price || 0).toFixed(2)}`;
+                                console.log('Processing inventory item:', inv);
+                                const storeCostPrice = inv.cost_price ? `${parseFloat(inv.cost_price).toLocaleString()}` : '-';
+                                const storeSellingPrice = inv.selling_price ? `${parseFloat(inv.selling_price).toLocaleString()}` : '-';
+                                console.log('Formatted prices - Cost:', storeCostPrice, 'Selling:', storeSellingPrice);
                                 const row = document.createElement('tr');
                                 row.className = 'border-b';
                                 row.innerHTML = `
                                     <td class="px-4 py-2">${inv.store_name}</td>
-                                    <td class="px-4 py-2 text-right">${parseInt(inv.quantity)}개</td>
-                                    <td class="px-4 py-2 text-right font-semibold text-blue-700">${storePrice}</td>
+                                    <td class="px-4 py-2 text-right font-semibold text-green-700">${storeCostPrice}</td>
+                                    <td class="px-4 py-2 text-right font-semibold text-blue-700">${storeSellingPrice}</td>
                                 `;
                                 tbody.appendChild(row);
                             });
                             modalContent.inventoryWrapper.appendChild(inventoryTable);
                         } else {
-                            modalContent.inventoryWrapper.innerHTML = '<p class="text-slate-500">재고 정보 없음</p>';
+                            modalContent.inventoryWrapper.innerHTML = '<p class="text-slate-500">가격 정보 없음</p>';
                         }
-                        modalContent.totalStock.textContent = `총 재고: ${product.total_stock}개`;
 
                         // Image
                         if (product.image_url) {
@@ -539,6 +585,40 @@ document.addEventListener('DOMContentLoaded', function() {
     // Purchase History 관련 함수들
     let currentProductId = null;
     let selectedPurchaseData = null;
+    let marginPresets = [20, 25, 30, 35]; // 기본값
+
+    // 마진율 프리셋 로드
+    function loadMarginPresets() {
+        fetch('ajax_get_margin_presets.php')
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    marginPresets = result.data;
+                    updateMarginPresetButtons();
+                } else {
+                    console.error('마진율 프리셋 로드 실패:', result.message);
+                    updateMarginPresetButtons(); // 기본값 사용
+                }
+            })
+            .catch(error => {
+                console.error('마진율 프리셋 로드 오류:', error);
+                updateMarginPresetButtons(); // 기본값 사용
+            });
+    }
+
+    // 마진율 프리셋 버튼 업데이트
+    function updateMarginPresetButtons() {
+        const container = document.getElementById('margin-presets-container');
+        container.innerHTML = '';
+        
+        marginPresets.forEach(preset => {
+            const button = document.createElement('button');
+            button.className = 'margin-preset-btn px-3 py-2 text-sm border border-blue-300 rounded-md hover:bg-blue-100 focus:bg-blue-200';
+            button.dataset.margin = preset;
+            button.textContent = `${preset}%`;
+            container.appendChild(button);
+        });
+    }
 
     // 토스트 알림 함수
     function showToast(message, type = 'info') {
@@ -641,13 +721,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td class="px-3 py-2">${item.purchase_date_formatted}</td>
                 <td class="px-3 py-2">${item.supplier_name}</td>
                 <td class="px-3 py-2">${item.store_name || currentStoreName}</td>
-                <td class="px-3 py-2 text-right font-mono">₩${item.unit_cost_per_piece_formatted}</td>
-                <td class="px-3 py-2 text-right font-semibold text-green-600">₩${item.suggested_selling_price.toLocaleString()}</td>
-                <td class="px-3 py-2 text-center">
-                    <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                        ${item.margin_rate}%
-                    </span>
-                </td>
+                <td class="px-3 py-2 text-right font-mono">${item.unit_cost_per_piece_formatted}</td>
                 <td class="px-3 py-2 text-center">
                     <button class="select-purchase-btn px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200">
                         선택
@@ -685,17 +759,91 @@ document.addEventListener('DOMContentLoaded', function() {
         const sellingPriceInput = document.getElementById('new-selling-price');
         const recommendedMarginRate = document.getElementById('recommended-margin-rate');
         
-        costDisplay.textContent = `₩${purchaseData.unit_cost_per_piece_formatted}`;
-        sellingPriceInput.value = purchaseData.suggested_selling_price;
+        costDisplay.textContent = purchaseData.unit_cost_per_piece_formatted;
         
-        // 권장 마진율 표시 (API에서 받은 데이터 사용)
+        // 권장 마진율 표시 (마진 관리 시스템에서 받은 데이터 사용)
         if (purchaseData.margin_rate) {
             recommendedMarginRate.textContent = `${purchaseData.margin_rate}%`;
+            // 권장 마진율로 기본 판매가 계산
+            applyMarginRate(purchaseData.margin_rate);
+        } else {
+            // 기본값 사용
+            sellingPriceInput.value = purchaseData.suggested_selling_price;
+            updateMarginRate();
         }
         
-        updateMarginRate();
+        // 마진 버튼 이벤트 리스너 추가
+        setupMarginButtons();
         
         pricingSection.classList.remove('hidden');
+    }
+
+    function applyMarginRate(marginRate) {
+        if (!selectedPurchaseData) return;
+        
+        const costPrice = parseFloat(selectedPurchaseData.unit_cost_per_piece);
+        const sellingPrice = Math.round(costPrice * (1 + marginRate / 100));
+        
+        document.getElementById('new-selling-price').value = sellingPrice;
+        updateMarginRate();
+        
+        // 선택된 마진 버튼 강조
+        document.querySelectorAll('.margin-preset-btn').forEach(btn => {
+            btn.classList.remove('bg-blue-200', 'border-blue-500');
+            btn.classList.add('border-blue-300');
+            if (parseFloat(btn.dataset.margin) === marginRate) {
+                btn.classList.add('bg-blue-200', 'border-blue-500');
+                btn.classList.remove('border-blue-300');
+            }
+        });
+    }
+
+    function setupMarginButtons() {
+        // 기존 이벤트 리스너 제거 (중복 방지)
+        document.querySelectorAll('.margin-preset-btn').forEach(btn => {
+            btn.replaceWith(btn.cloneNode(true));
+        });
+        
+        const customMarginBtn = document.getElementById('apply-custom-margin-btn');
+        const customMarginInput = document.getElementById('custom-margin-input');
+        
+        customMarginBtn.replaceWith(customMarginBtn.cloneNode(true));
+        customMarginInput.replaceWith(customMarginInput.cloneNode(true));
+        
+        // 새로운 이벤트 리스너 추가
+        document.querySelectorAll('.margin-preset-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const marginRate = parseFloat(this.dataset.margin);
+                applyMarginRate(marginRate);
+                
+                // 커스텀 입력 필드 초기화
+                document.getElementById('custom-margin-input').value = '';
+            });
+        });
+        
+        // 커스텀 마진 적용 버튼
+        document.getElementById('apply-custom-margin-btn').addEventListener('click', function() {
+            const customMargin = parseFloat(document.getElementById('custom-margin-input').value);
+            if (isNaN(customMargin) || customMargin < 0 || customMargin > 100) {
+                showToast('0~100 사이의 올바른 마진율을 입력해주세요.', 'error');
+                return;
+            }
+            
+            applyMarginRate(customMargin);
+            
+            // 프리셋 버튼 선택 해제
+            document.querySelectorAll('.margin-preset-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-200', 'border-blue-500');
+                btn.classList.add('border-blue-300');
+            });
+        });
+        
+        // 커스텀 마진 입력 시 엔터키 처리
+        document.getElementById('custom-margin-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('apply-custom-margin-btn').click();
+            }
+        });
     }
 
     function updateMarginRate() {
@@ -736,6 +884,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData();
         formData.append('product_id', currentProductId);
         formData.append('selling_price', sellingPrice);
+        formData.append('cost_price', costPrice); // 선택된 원가 추가
         if (currentStoreId) {
             formData.append('store_id', currentStoreId);
         }
@@ -747,10 +896,58 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(result => {
             if (result.success) {
-                showToast('판매가가 성공적으로 설정되었습니다.', 'success');
+                showToast(result.message, 'success');
                 
-                // 현재 팝업의 판매가 정보 업데이트
-                modalContent.sellingPrice.textContent = `₩ ${result.selling_price}`;
+                // 상품 정보 새로고침 (지점별 재고 테이블 업데이트)
+                const productId = currentProductId;
+                const url = `ajax_get_product_details.php?id=${productId}${currentStoreId ? `&store_id=${currentStoreId}` : ''}`;
+                fetch(url)
+                    .then(response => response.json())
+                    .then(refreshResult => {
+                        if (refreshResult.success) {
+                            const product = refreshResult.data;
+                            
+                            // 지점별 재고 및 가격 테이블 업데이트
+                            modalContent.inventoryWrapper.innerHTML = '';
+                            if (product.inventory && product.inventory.length > 0) {
+                                const inventoryTable = document.createElement('table');
+                                inventoryTable.className = 'w-full text-sm text-left text-gray-600 border';
+                                inventoryTable.innerHTML = `
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-3 py-2 font-semibold">지점</th>
+                                            <th class="px-3 py-2 font-semibold text-right">재고</th>
+                                            <th class="px-3 py-2 font-semibold text-right">원가</th>
+                                            <th class="px-3 py-2 font-semibold text-right">판매가</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                `;
+                                const tbody = inventoryTable.querySelector('tbody');
+                                product.inventory.forEach(inv => {
+                                    console.log('Refresh - Processing inventory item:', inv);
+                                    const storeCostPrice = inv.cost_price ? `${parseFloat(inv.cost_price).toLocaleString()}` : '-';
+                                    const storeSellingPrice = inv.selling_price ? `${parseFloat(inv.selling_price).toLocaleString()}` : '-';
+                                    console.log('Refresh - Formatted prices - Cost:', storeCostPrice, 'Selling:', storeSellingPrice);
+                                    const row = document.createElement('tr');
+                                    row.className = 'border-b';
+                                    row.innerHTML = `
+                                        <td class="px-3 py-2">${inv.store_name}</td>
+                                        <td class="px-3 py-2 text-right">${parseInt(inv.quantity)}개</td>
+                                        <td class="px-3 py-2 text-right font-semibold text-green-700">${storeCostPrice}</td>
+                                        <td class="px-3 py-2 text-right font-semibold text-blue-700">${storeSellingPrice}</td>
+                                    `;
+                                    tbody.appendChild(row);
+                                });
+                                modalContent.inventoryWrapper.appendChild(inventoryTable);
+                            } else {
+                                modalContent.inventoryWrapper.innerHTML = '<p class="text-slate-500">재고 정보 없음</p>';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('상품 정보 새로고침 오류:', error);
+                    });
                 
                 // 판매가 설정 섹션 숨기기
                 document.getElementById('modal-pricing-section').classList.add('hidden');
@@ -781,6 +978,92 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.select-purchase-btn').forEach(btn => {
             btn.textContent = '선택';
             btn.className = 'select-purchase-btn px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200';
+        });
+        
+        // 마진 선택 상태 초기화
+        document.querySelectorAll('.margin-preset-btn').forEach(btn => {
+            btn.classList.remove('bg-blue-200', 'border-blue-500');
+            btn.classList.add('border-blue-300');
+        });
+        document.getElementById('custom-margin-input').value = '';
+        document.getElementById('new-selling-price').value = '';
+    });
+    
+    // 페이지 로드 시 마진율 프리셋 로드
+    loadMarginPresets();
+    
+    // 마진율 프리셋 설정 모달 관련
+    const presetConfigModal = document.getElementById('preset-config-modal');
+    const configurePresetsBtn = document.getElementById('configure-presets-btn');
+    const closePresetModalBtn = document.getElementById('close-preset-modal-btn');
+    const cancelPresetBtn = document.getElementById('cancel-preset-btn');
+    const savePresetBtn = document.getElementById('save-preset-btn');
+    const presetsInput = document.getElementById('presets-input');
+    
+    configurePresetsBtn.addEventListener('click', function() {
+        // 현재 프리셋을 입력 필드에 표시
+        presetsInput.value = marginPresets.join(', ');
+        presetConfigModal.classList.remove('hidden');
+    });
+    
+    closePresetModalBtn.addEventListener('click', function() {
+        presetConfigModal.classList.add('hidden');
+    });
+    
+    cancelPresetBtn.addEventListener('click', function() {
+        presetConfigModal.classList.add('hidden');
+    });
+    
+    presetConfigModal.addEventListener('click', function(e) {
+        if (e.target === presetConfigModal) {
+            presetConfigModal.classList.add('hidden');
+        }
+    });
+    
+    savePresetBtn.addEventListener('click', function() {
+        const presetsValue = presetsInput.value.trim();
+        if (!presetsValue) {
+            showToast('마진율을 입력해주세요.', 'error');
+            return;
+        }
+        
+        // 저장 중 표시
+        savePresetBtn.textContent = '저장 중...';
+        savePresetBtn.disabled = true;
+        
+        const formData = new FormData();
+        formData.append('presets', presetsValue);
+        
+        fetch('ajax_save_margin_presets.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(result => {
+            console.log('Save result:', result);
+            if (result.success) {
+                showToast(result.message, 'success');
+                marginPresets = result.data;
+                updateMarginPresetButtons();
+                presetConfigModal.classList.add('hidden');
+            } else {
+                showToast('오류: ' + result.message, 'error');
+                console.error('Save failed:', result.message);
+            }
+        })
+        .catch(error => {
+            console.error('프리셋 저장 오류:', error);
+            showToast('프리셋 저장 중 오류가 발생했습니다: ' + error.message, 'error');
+        })
+        .finally(() => {
+            savePresetBtn.textContent = '저장';
+            savePresetBtn.disabled = false;
         });
     });
 });

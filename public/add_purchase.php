@@ -82,6 +82,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($supplier_id) || empty($purchase_date) || empty($items)) {
         $message = "거래처, 매입 날짜, 그리고 최소 하나 이상의 품목을 입력해야 합니다.";
     } else {
+        // 연결 상태 확인 및 필요시 재연결
+        $connection_valid = false;
+        if (isset($conn) && ($conn instanceof mysqli)) {
+            try {
+                $connection_valid = $conn->ping();
+            } catch (Error $e) {
+                // ping() 실패 시 연결이 닫힌 상태
+                $connection_valid = false;
+            }
+        }
+        
+        if (!$connection_valid) {
+            $conn = get_db_connection();
+            if (!$conn) {
+                $message = "데이터베이스 연결에 실패했습니다.";
+                goto skip_processing;
+            }
+        }
+        
         $conn->begin_transaction();
         try {
             // 새로운 상품들만 처리 (기존 상품 제외)
@@ -89,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($items as $item) {
                 if (!empty($item['product_id']) && !empty($item['quantity']) && !empty($item['unit_price']) && empty($item['existing_item_id'])) {
                     $new_items[] = $item;
-                    $total_items += (int)$item['quantity'];
+                    $total_items += 1; // 품목 개수 증가 (수량이 아닌 품목 수)
                     $total_amount += (int)$item['quantity'] * (float)$item['unit_price'];
                 }
             }
@@ -98,14 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // 기존 매입에 상품 추가
                 $purchase_id = $edit_purchase_id;
             } else if (!$edit_purchase_id) {
-                // 새로운 매입 생성
-                foreach ($items as $item) {
-                    if (!empty($item['product_id']) && !empty($item['quantity']) && !empty($item['unit_price'])) {
-                        $total_items += (int)$item['quantity'];
-                        $total_amount += (int)$item['quantity'] * (float)$item['unit_price'];
-                    }
-                }
-                
+                // 새로운 매입 생성 - 이미 계산된 값 사용
                 $stmt = $conn->prepare("INSERT INTO purchases (supplier_id, purchase_date, total_amount, total_items) VALUES (?, ?, ?, ?)");
                 $stmt->bind_param("isdi", $supplier_id, $purchase_date, $total_amount, $total_items);
                 $stmt->execute();
@@ -217,6 +229,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = "매입 등록에 실패했습니다: " . $e->getMessage();
         }
     }
+    
+    skip_processing:
 }
 ?>
 
@@ -1065,7 +1079,17 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 <?php
-$conn->close();
+if (isset($conn) && $conn instanceof mysqli) {
+    try {
+        // 연결이 여전히 활성 상태인지 확인
+        if ($conn->ping()) {
+            $conn->close();
+        }
+    } catch (Error $e) {
+        // 이미 닫힌 연결이면 무시
+        error_log("Connection already closed: " . $e->getMessage());
+    }
+}
 require_once __DIR__ . '/partials/footer.php';
 ?>
 

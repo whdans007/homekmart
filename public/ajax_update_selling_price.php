@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $product_id = $_POST['product_id'] ?? 0;
 $selling_price = $_POST['selling_price'] ?? 0;
+$cost_price = $_POST['cost_price'] ?? null;
 $store_id = $_POST['store_id'] ?? null;
 
 if (empty($product_id) || empty($selling_price)) {
@@ -36,6 +37,12 @@ if (!is_numeric($selling_price) || $selling_price <= 0) {
     exit;
 }
 
+if ($cost_price !== null && (!is_numeric($cost_price) || $cost_price < 0)) {
+    ob_clean();
+    echo json_encode(['success' => false, 'message' => '올바른 원가를 입력해주세요.']);
+    exit;
+}
+
 try {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
@@ -48,37 +55,86 @@ try {
         $has_selling_price_column = $column_check->fetch();
         
         if ($has_selling_price_column) {
-            // inventory 테이블에 selling_price 컬럼이 있는 경우
-            $stmt = $pdo->prepare("
-                UPDATE inventory 
-                SET selling_price = ?, updated_at = NOW()
-                WHERE product_id = ? AND store_id = ?
-            ");
-            $stmt->execute([$selling_price, $product_id, $store_id]);
+            // inventory 테이블에 cost_price 컬럼이 있는지도 확인
+            $cost_column_check = $pdo->prepare("SHOW COLUMNS FROM inventory LIKE 'cost_price'");
+            $cost_column_check->execute();
+            $has_cost_price_column = $cost_column_check->fetch();
             
-            if ($stmt->rowCount() == 0) {
-                // 재고 레코드가 없으면 생성
+            // cost_price 컬럼이 없으면 추가
+            if (!$has_cost_price_column) {
+                try {
+                    $add_column = $pdo->prepare("ALTER TABLE inventory ADD COLUMN cost_price DECIMAL(10,2) DEFAULT NULL AFTER selling_price");
+                    $add_column->execute();
+                    $has_cost_price_column = true;
+                    error_log("Added cost_price column to inventory table");
+                } catch (PDOException $e) {
+                    error_log("Failed to add cost_price column: " . $e->getMessage());
+                    $has_cost_price_column = false;
+                }
+            }
+            
+            if ($has_cost_price_column && $cost_price !== null) {
+                // 원가와 판매가 모두 업데이트
                 $stmt = $pdo->prepare("
-                    INSERT INTO inventory (product_id, store_id, quantity, selling_price, created_at, updated_at)
-                    VALUES (?, ?, 0, ?, NOW(), NOW())
+                    UPDATE inventory 
+                    SET selling_price = ?, cost_price = ?, updated_at = NOW()
+                    WHERE product_id = ? AND store_id = ?
                 ");
-                $stmt->execute([$product_id, $store_id, $selling_price]);
+                $stmt->execute([$selling_price, $cost_price, $product_id, $store_id]);
+                
+                if ($stmt->rowCount() == 0) {
+                    // 재고 레코드가 없으면 생성
+                    $stmt = $pdo->prepare("
+                        INSERT INTO inventory (product_id, store_id, quantity, selling_price, cost_price, created_at, updated_at)
+                        VALUES (?, ?, 0, ?, ?, NOW(), NOW())
+                    ");
+                    $stmt->execute([$product_id, $store_id, $selling_price, $cost_price]);
+                }
+            } else {
+                // 판매가만 업데이트
+                $stmt = $pdo->prepare("
+                    UPDATE inventory 
+                    SET selling_price = ?, updated_at = NOW()
+                    WHERE product_id = ? AND store_id = ?
+                ");
+                $stmt->execute([$selling_price, $product_id, $store_id]);
+                
+                if ($stmt->rowCount() == 0) {
+                    // 재고 레코드가 없으면 생성
+                    $stmt = $pdo->prepare("
+                        INSERT INTO inventory (product_id, store_id, quantity, selling_price, created_at, updated_at)
+                        VALUES (?, ?, 0, ?, NOW(), NOW())
+                    ");
+                    $stmt->execute([$product_id, $store_id, $selling_price]);
+                }
             }
             
             ob_clean();
             echo json_encode([
                 'success' => true, 
-                'message' => '지점별 판매가가 성공적으로 설정되었습니다.',
-                'selling_price' => number_format($selling_price)
+                'message' => '지점별 ' . ($cost_price !== null ? '원가와 판매가가' : '판매가가') . ' 성공적으로 설정되었습니다.',
+                'selling_price' => number_format($selling_price, 0),
+                'cost_price' => $cost_price !== null ? number_format($cost_price, 0) : null
             ]);
         } else {
             // inventory 테이블에 selling_price 컬럼이 없는 경우 기본 판매가로 설정
-            $stmt = $pdo->prepare("
-                UPDATE products 
-                SET selling_price = ?, updated_at = NOW(), last_modified_by_user_id = ?
-                WHERE id = ?
-            ");
-            $stmt->execute([$selling_price, $_SESSION['user_id'], $product_id]);
+            if ($cost_price !== null) {
+                // 원가와 판매가 모두 업데이트
+                $stmt = $pdo->prepare("
+                    UPDATE products 
+                    SET selling_price = ?, cost_price = ?, updated_at = NOW(), last_modified_by_user_id = ?
+                    WHERE id = ?
+                ");
+                $stmt->execute([$selling_price, $cost_price, $_SESSION['user_id'], $product_id]);
+            } else {
+                // 판매가만 업데이트
+                $stmt = $pdo->prepare("
+                    UPDATE products 
+                    SET selling_price = ?, updated_at = NOW(), last_modified_by_user_id = ?
+                    WHERE id = ?
+                ");
+                $stmt->execute([$selling_price, $_SESSION['user_id'], $product_id]);
+            }
 
             if ($stmt->rowCount() == 0) {
                 ob_clean();
@@ -89,18 +145,30 @@ try {
             ob_clean();
             echo json_encode([
                 'success' => true, 
-                'message' => '기본 판매가가 성공적으로 설정되었습니다.',
-                'selling_price' => number_format($selling_price)
+                'message' => '기본 판매가' . ($cost_price !== null ? '와 원가가' : '가') . ' 성공적으로 설정되었습니다.',
+                'selling_price' => number_format($selling_price, 0),
+                'cost_price' => $cost_price !== null ? number_format($cost_price, 0) : null
             ]);
         }
     } else {
         // 기본 판매가 설정 (products 테이블)
-        $stmt = $pdo->prepare("
-            UPDATE products 
-            SET selling_price = ?, updated_at = NOW(), last_modified_by_user_id = ?
-            WHERE id = ?
-        ");
-        $stmt->execute([$selling_price, $_SESSION['user_id'], $product_id]);
+        if ($cost_price !== null) {
+            // 원가와 판매가 모두 업데이트
+            $stmt = $pdo->prepare("
+                UPDATE products 
+                SET selling_price = ?, cost_price = ?, updated_at = NOW(), last_modified_by_user_id = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$selling_price, $cost_price, $_SESSION['user_id'], $product_id]);
+        } else {
+            // 판매가만 업데이트
+            $stmt = $pdo->prepare("
+                UPDATE products 
+                SET selling_price = ?, updated_at = NOW(), last_modified_by_user_id = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$selling_price, $_SESSION['user_id'], $product_id]);
+        }
 
         if ($stmt->rowCount() == 0) {
             ob_clean();
@@ -111,8 +179,9 @@ try {
         ob_clean();
         echo json_encode([
             'success' => true, 
-            'message' => '기본 판매가가 성공적으로 설정되었습니다.',
-            'selling_price' => number_format($selling_price)
+            'message' => '기본 판매가' . ($cost_price !== null ? '와 원가가' : '가') . ' 성공적으로 설정되었습니다.',
+            'selling_price' => number_format($selling_price, 0),
+            'cost_price' => $cost_price !== null ? number_format($cost_price, 0) : null
         ]);
     }
 
