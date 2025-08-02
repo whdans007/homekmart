@@ -9,21 +9,10 @@ if (isset($_SESSION['flash'])) {
     unset($_SESSION['flash']);
 }
 
-// 관리자/총괄관리자만 접근 가능하도록 이중 확인
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_admin'])) {
-    echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'>
-            <div class='flex'>
-                <div class='flex-shrink-0'>
-                    <i class='fas fa-exclamation-circle text-red-400'></i>
-                </div>
-                <div class='ml-3'>
-                    <p class='text-sm text-red-800'>이 페이지에 접근할 권한이 없습니다.</p>
-                </div>
-            </div>
-          </div>";
-    require_once __DIR__ . '/partials/footer.php';
-    exit;
-}
+require_once __DIR__ . '/../lib/permission_helper.php';
+
+// 회원 관리 권한 확인
+require_permission('user_management');
 
 require_once __DIR__ . '/../config/db_config.php';
 
@@ -35,12 +24,26 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    $stmt = $pdo->query("
-        SELECT u.id, u.username, u.full_name, u.email, u.role, u.created_at, s.name as store_name
-        FROM users u
-        LEFT JOIN stores s ON u.store_id = s.id
-        ORDER BY u.id DESC
-    ");
+    // permissions 컬럼 존재 여부 확인
+    $column_check = $pdo->prepare("SHOW COLUMNS FROM users LIKE 'permissions'");
+    $column_check->execute();
+    $has_permissions_column = $column_check->fetch();
+    
+    if ($has_permissions_column) {
+        $stmt = $pdo->query("
+            SELECT u.id, u.username, u.full_name, u.email, u.role, u.created_at, u.permissions, s.name as store_name
+            FROM users u
+            LEFT JOIN stores s ON u.store_id = s.id
+            ORDER BY u.id DESC
+        ");
+    } else {
+        $stmt = $pdo->query("
+            SELECT u.id, u.username, u.full_name, u.email, u.role, u.created_at, s.name as store_name
+            FROM users u
+            LEFT JOIN stores s ON u.store_id = s.id
+            ORDER BY u.id DESC
+        ");
+    }
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
@@ -99,6 +102,9 @@ try {
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">이름</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">이메일</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">권한</th>
+                        <?php if ($has_permissions_column): ?>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">세부 권한</th>
+                        <?php endif; ?>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">소속 지점</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">가입일</th>
                         <th scope="col" class="relative px-6 py-3 border border-gray-300">
@@ -119,12 +125,75 @@ try {
                                     switch($user['role']) {
                                         case 'super_admin': echo 'bg-purple-100 text-purple-800'; break;
                                         case 'admin': echo 'bg-blue-100 text-blue-800'; break;
+                                        case 'staff': echo 'bg-green-100 text-green-800'; break;
+                                        case 'office_staff': echo 'bg-yellow-100 text-yellow-800'; break;
                                         default: echo 'bg-gray-100 text-gray-800'; break;
                                     }
+                                    $role_labels = [
+                                        'user' => '일반 사용자',
+                                        'staff' => '직원',
+                                        'office_staff' => '오피스 스텝',
+                                        'admin' => '관리자',
+                                        'super_admin' => '총괄 관리자'
+                                    ];
                                     ?>">
-                                    <?php echo htmlspecialchars($user['role']); ?>
+                                    <?php echo htmlspecialchars($role_labels[$user['role']] ?? $user['role']); ?>
                                 </span>
                             </td>
+                            <?php if ($has_permissions_column): ?>
+                            <td class="px-6 py-4 border border-gray-300">
+                                <?php 
+                                $permissions_info = '';
+                                if ($user['role'] === 'super_admin') {
+                                    $permissions_info = '<span class="text-xs text-purple-600">모든 권한</span>';
+                                } else if (!empty($user['permissions'])) {
+                                    $permissions = json_decode($user['permissions'], true);
+                                    if (is_array($permissions)) {
+                                        $active_permissions = array_filter($permissions);
+                                        $permission_labels = [
+                                            'admin_access' => '관리자',
+                                            'user_management' => '회원',
+                                            'store_management' => '지점',
+                                            'product_management' => '상품',
+                                            'purchase_management' => '매입',
+                                            'brand_management' => '브랜드',
+                                            'category_management' => '카테고리',
+                                            'supplier_management' => '공급처',
+                                            'settings' => '설정',
+                                            'shop_access' => '쇼핑',
+                                            'barcode_management' => '바코드',
+                                            'accounting_management' => '회계'
+                                        ];
+                                        
+                                        $permission_names = [];
+                                        foreach ($active_permissions as $perm => $value) {
+                                            if ($value && isset($permission_labels[$perm])) {
+                                                $permission_names[] = $permission_labels[$perm];
+                                            }
+                                        }
+                                        
+                                        if (!empty($permission_names)) {
+                                            $permissions_info = '<div class="flex flex-wrap gap-1">';
+                                            foreach (array_slice($permission_names, 0, 3) as $name) {
+                                                $permissions_info .= '<span class="inline-block px-1 py-0.5 text-xs bg-gray-100 text-gray-700 rounded">' . $name . '</span>';
+                                            }
+                                            if (count($permission_names) > 3) {
+                                                $permissions_info .= '<span class="text-xs text-gray-500">+' . (count($permission_names) - 3) . '</span>';
+                                            }
+                                            $permissions_info .= '</div>';
+                                        } else {
+                                            $permissions_info = '<span class="text-xs text-gray-400">권한 없음</span>';
+                                        }
+                                    } else {
+                                        $permissions_info = '<span class="text-xs text-gray-400">기본 권한</span>';
+                                    }
+                                } else {
+                                    $permissions_info = '<span class="text-xs text-gray-400">기본 권한</span>';
+                                }
+                                echo $permissions_info;
+                                ?>
+                            </td>
+                            <?php endif; ?>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
                                 <?php echo htmlspecialchars($user['store_name'] ?? '미지정'); ?>
                             </td>
@@ -148,7 +217,7 @@ try {
                     <?php endforeach; ?>
                     <?php if (empty($users)): ?>
                         <tr>
-                            <td colspan="8" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
+                            <td colspan="<?php echo $has_permissions_column ? '9' : '8'; ?>" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
                                     <p>등록된 회원이 없습니다.</p>
