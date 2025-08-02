@@ -10,6 +10,7 @@ if (!is_logged_in() || !in_array($_SESSION['role'], ['super_admin', 'admin'])) {
 }
 
 $product_id = $_GET['id'] ?? 0;
+$current_store_id = $_GET['store_id'] ?? null;
 
 if (empty($product_id)) {
     echo json_encode(['success' => false, 'message' => '상품 ID가 필요합니다.']);
@@ -43,15 +44,27 @@ try {
         exit;
     }
 
-    // 재고 정보 조회 (지점별)
-    $inv_stmt = $pdo->prepare("
-        SELECT i.quantity, s.name as store_name 
-        FROM inventory i
-        JOIN stores s ON i.store_id = s.id
-        WHERE i.product_id = ?
-        ORDER BY s.name
-    ");
-    $inv_stmt->execute([$product_id]);
+    // 재고 정보 조회 (지점별 - 현재 점포 우선)
+    if ($current_store_id) {
+        $inv_stmt = $pdo->prepare("
+            SELECT i.quantity, s.name as store_name, s.id as store_id,
+                   CASE WHEN s.id = ? THEN 0 ELSE 1 END as sort_order
+            FROM inventory i
+            JOIN stores s ON i.store_id = s.id
+            WHERE i.product_id = ?
+            ORDER BY sort_order, s.name
+        ");
+        $inv_stmt->execute([$current_store_id, $product_id]);
+    } else {
+        $inv_stmt = $pdo->prepare("
+            SELECT i.quantity, s.name as store_name, s.id as store_id
+            FROM inventory i
+            JOIN stores s ON i.store_id = s.id
+            WHERE i.product_id = ?
+            ORDER BY s.name
+        ");
+        $inv_stmt->execute([$product_id]);
+    }
     $product['inventory'] = $inv_stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // 총 재고 계산
