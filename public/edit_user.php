@@ -1,13 +1,10 @@
 <?php
 $page_title = "회원 수정 - HOME K MART";
 require_once __DIR__ . '/partials/header.php';
+require_once __DIR__ . '/../lib/permission_helper.php';
 
-// 관리자/총괄관리자만 접근 가능
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_admin'])) {
-    echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'><div class='flex'><div class='flex-shrink-0'><i class='fas fa-exclamation-circle text-red-400'></i></div><div class='ml-3'><p class='text-sm text-red-800'>이 페이지에 접근할 권한이 없습니다.</p></div></div></div>";
-    require_once __DIR__ . '/partials/footer.php';
-    exit;
-}
+// 회원 관리 권한 확인
+require_permission('user_management');
 
 require_once __DIR__ . '/../config/db_config.php';
 
@@ -26,8 +23,16 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // 수정할 회원 정보 가져오기
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+    // 수정할 회원 정보 가져오기 (permissions 컬럼 존재 여부 확인)
+    $column_check = $pdo->prepare("SHOW COLUMNS FROM users LIKE 'permissions'");
+    $column_check->execute();
+    $has_permissions_column = $column_check->fetch();
+    
+    if ($has_permissions_column) {
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+    } else {
+        $stmt = $pdo->prepare("SELECT id, username, full_name, email, role, store_id, created_at, updated_at FROM users WHERE id = ?");
+    }
     $stmt->execute([$user_id]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -56,7 +61,9 @@ try {
 // 현재 로그인한 사용자의 권한에 따라 변경 가능한 역할 정의
 $editable_roles = ['user'];
 if ($_SESSION['role'] === 'super_admin') {
-    $editable_roles[] = 'admin';
+    $editable_roles = array_merge($editable_roles, ['admin', 'staff', 'office_staff']);
+} elseif ($_SESSION['role'] === 'admin') {
+    $editable_roles = array_merge($editable_roles, ['staff', 'office_staff']);
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -65,6 +72,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $user['email'] = trim($_POST['email'] ?? '');
     $user['role'] = $_POST['role'] ?? $user['role'];
     $user['store_id'] = $_POST['store_id'] ?? $user['store_id'];
+    $permissions = $_POST['permissions'] ?? [];
     $password = $_POST['password'] ?? '';
     $password_confirm = $_POST['password_confirm'] ?? '';
 
@@ -96,8 +104,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if ($stmt->fetch()) {
                 $errors[] = "이미 사용 중인 이메일입니다.";
             } else {
-                $sql = "UPDATE users SET full_name = ?, email = ?, role = ?, store_id = ?";
-                $params = [$user['full_name'], $user['email'], $user['role'], $user['store_id'] ?: null];
+                // 권한 JSON 생성
+                $permissions_json = null;
+                if ($has_permissions_column) {
+                    if (!empty($permissions) && is_array($permissions)) {
+                        // 체크된 권한들을 true로, 나머지는 false로 설정
+                        $all_permissions = [
+                            'admin_access', 'user_management', 'store_management', 
+                            'product_management', 'purchase_management', 'brand_management',
+                            'category_management', 'supplier_management', 'settings', 'shop_access',
+                            'barcode_management', 'accounting_management'
+                        ];
+                        
+                        $final_permissions = [];
+                        foreach ($all_permissions as $perm) {
+                            $final_permissions[$perm] = in_array($perm, $permissions);
+                        }
+                        $permissions_json = json_encode($final_permissions);
+                    }
+                    
+                    $sql = "UPDATE users SET full_name = ?, email = ?, role = ?, store_id = ?, permissions = ?";
+                    $params = [$user['full_name'], $user['email'], $user['role'], $user['store_id'] ?: null, $permissions_json];
+                } else {
+                    $sql = "UPDATE users SET full_name = ?, email = ?, role = ?, store_id = ?";
+                    $params = [$user['full_name'], $user['email'], $user['role'], $user['store_id'] ?: null];
+                }
 
                 if (!empty($password)) {
                     $sql .= ", password = ?";
@@ -182,11 +213,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <label for="role" class="block text-sm font-medium text-gray-700">권한</label>
                 <select id="role" name="role" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm <?php if ($user['id'] == $_SESSION['user_id'] || $user['role'] === 'super_admin') echo 'bg-gray-100 cursor-not-allowed'; ?>" <?php if ($user['id'] == $_SESSION['user_id'] || $user['role'] === 'super_admin') echo 'disabled'; ?>>
                     <?php if ($user['role'] === 'super_admin'): ?>
-                        <option value="super_admin" selected>Super Admin</option>
+                        <option value="super_admin" selected>총괄 관리자</option>
                     <?php else: ?>
-                        <?php foreach ($editable_roles as $role_value): ?>
+                        <?php 
+                        $role_labels = [
+                            'user' => '일반 사용자',
+                            'staff' => '직원',
+                            'office_staff' => '오피스 스텝',
+                            'admin' => '관리자',
+                            'super_admin' => '총괄 관리자'
+                        ];
+                        foreach ($editable_roles as $role_value): ?>
                             <option value="<?php echo $role_value; ?>" <?php echo ($user['role'] === $role_value) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars(ucfirst($role_value)); ?>
+                                <?php echo htmlspecialchars($role_labels[$role_value] ?? ucfirst($role_value)); ?>
                             </option>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -208,6 +247,118 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <?php endforeach; ?>
                 </select>
             </div>
+        </div>
+    </div>
+    
+    <!-- Permissions Section -->
+    <div class="border-t border-gray-200 pt-8">
+        <h2 class="text-lg font-medium leading-6 text-gray-900">세부 권한 설정</h2>
+        <p class="mt-1 text-sm text-gray-500">사용자가 접근할 수 있는 기능을 개별적으로 설정합니다.</p>
+        
+        <div class="mt-6">
+            <div id="permissions-container" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <?php 
+                $all_permissions = [
+                    'admin_access' => '관리자 메뉴 접근',
+                    'user_management' => '회원 관리',
+                    'store_management' => '지점 관리',
+                    'product_management' => '상품 관리',
+                    'purchase_management' => '매입 관리',
+                    'brand_management' => '브랜드 관리',
+                    'category_management' => '카테고리 관리',
+                    'supplier_management' => '공급처 관리',
+                    'settings' => '환경 설정',
+                    'shop_access' => '쇼핑몰 접근',
+                    'barcode_management' => '바코드 관리',
+                    'accounting_management' => '회계 관리'
+                ];
+                
+                // 현재 사용자의 권한 가져오기
+                $current_permissions = [];
+                if ($has_permissions_column && !empty($user['permissions'])) {
+                    $current_permissions = json_decode($user['permissions'], true) ?? [];
+                } else {
+                    // permissions 컬럼이 없거나 비어있으면 기본 권한 사용
+                    $current_permissions = get_default_permissions($user['role']);
+                }
+                
+                // 권한 변경 가능 여부 체크
+                $is_disabled = ($user['role'] === 'super_admin') || ($user['id'] == $_SESSION['user_id']);
+                
+                foreach ($all_permissions as $perm_key => $perm_label): 
+                    $is_checked = isset($current_permissions[$perm_key]) ? $current_permissions[$perm_key] : false;
+                    
+                    // super_admin은 모든 권한이 체크되고 비활성화
+                    if ($user['role'] === 'super_admin') {
+                        $is_checked = true;
+                    }
+                ?>
+                <div class="relative flex items-start">
+                    <div class="flex items-center h-5">
+                        <input id="perm_<?php echo $perm_key; ?>" 
+                               name="permissions[]" 
+                               type="checkbox" 
+                               value="<?php echo $perm_key; ?>"
+                               <?php echo $is_checked ? 'checked' : ''; ?>
+                               <?php echo $is_disabled ? 'disabled' : ''; ?>
+                               class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-gray-300 rounded">
+                    </div>
+                    <div class="ml-3 text-sm">
+                        <label for="perm_<?php echo $perm_key; ?>" class="font-medium text-gray-700">
+                            <?php echo htmlspecialchars($perm_label); ?>
+                        </label>
+                        <?php if ($perm_key === 'shop_access'): ?>
+                        <p class="text-gray-500">일반 사용자는 이 권한만 가지는 것을 권장합니다.</p>
+                        <?php elseif ($perm_key === 'admin_access'): ?>
+                        <p class="text-gray-500">관리자 메뉴에 접근하려면 필수입니다.</p>
+                        <?php elseif ($perm_key === 'barcode_management'): ?>
+                        <p class="text-gray-500">바코드 출력 및 관리 기능입니다.</p>
+                        <?php elseif ($perm_key === 'accounting_management'): ?>
+                        <p class="text-gray-500">회계 데이터 입력 및 출력 기능입니다.</p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            
+            <?php if (!$is_disabled): ?>
+            <div class="mt-4 flex space-x-2">
+                <button type="button" id="preset-user" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-user mr-2"></i>일반 사용자
+                </button>
+                <button type="button" id="preset-staff" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-id-badge mr-2"></i>직원
+                </button>
+                <button type="button" id="preset-office-staff" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-calculator mr-2"></i>오피스 스텝
+                </button>
+                <button type="button" id="preset-admin" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-user-cog mr-2"></i>관리자
+                </button>
+                <button type="button" id="preset-super-admin" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-user-shield mr-2"></i>총괄 관리자
+                </button>
+                <button type="button" id="clear-all" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-times mr-2"></i>모두 해제
+                </button>
+            </div>
+            <?php endif; ?>
+            
+            <?php if ($user['role'] === 'super_admin'): ?>
+            <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p class="text-sm text-blue-800">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    총괄 관리자는 모든 권한을 자동으로 가지며 변경할 수 없습니다.
+                </p>
+            </div>
+            <?php elseif ($user['id'] == $_SESSION['user_id']): ?>
+            <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <p class="text-sm text-yellow-800">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                    자신의 권한은 변경할 수 없습니다.
+                </p>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
     
@@ -238,5 +389,101 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </button>
     </div>
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 권한 프리셋 정의
+    const presets = {
+        user: ['shop_access'],
+        staff: ['shop_access', 'barcode_management'],
+        office_staff: ['shop_access', 'barcode_management', 'accounting_management'],
+        admin: ['admin_access', 'user_management', 'product_management', 'purchase_management', 'brand_management', 'category_management', 'supplier_management', 'shop_access', 'barcode_management', 'accounting_management'],
+        super_admin: ['admin_access', 'user_management', 'store_management', 'product_management', 'purchase_management', 'brand_management', 'category_management', 'supplier_management', 'settings', 'shop_access', 'barcode_management', 'accounting_management']
+    };
+    
+    // 모든 체크박스 요소
+    const checkboxes = document.querySelectorAll('input[name="permissions[]"]');
+    
+    // 권한 설정 함수
+    function setPermissions(permissionList) {
+        checkboxes.forEach(checkbox => {
+            if (!checkbox.disabled) {
+                checkbox.checked = permissionList.includes(checkbox.value);
+            }
+        });
+    }
+    
+    // 프리셋 버튼 이벤트 리스너
+    document.getElementById('preset-user')?.addEventListener('click', function() {
+        setPermissions(presets.user);
+        document.getElementById('role').value = 'user';
+    });
+    
+    document.getElementById('preset-staff')?.addEventListener('click', function() {
+        setPermissions(presets.staff);
+        document.getElementById('role').value = 'staff';
+    });
+    
+    document.getElementById('preset-office-staff')?.addEventListener('click', function() {
+        setPermissions(presets.office_staff);
+        document.getElementById('role').value = 'office_staff';
+    });
+    
+    document.getElementById('preset-admin')?.addEventListener('click', function() {
+        setPermissions(presets.admin);
+        document.getElementById('role').value = 'admin';
+    });
+    
+    document.getElementById('preset-super-admin')?.addEventListener('click', function() {
+        setPermissions(presets.super_admin);
+        document.getElementById('role').value = 'super_admin';
+    });
+    
+    document.getElementById('clear-all')?.addEventListener('click', function() {
+        setPermissions([]);
+    });
+    
+    // 역할 변경 시 자동으로 권한 설정
+    document.getElementById('role')?.addEventListener('change', function() {
+        const role = this.value;
+        if (presets[role]) {
+            setPermissions(presets[role]);
+        }
+    });
+    
+    // 관리자 메뉴 접근 권한이 없으면 다른 관리 권한들도 자동으로 해제
+    const adminAccessCheckbox = document.getElementById('perm_admin_access');
+    if (adminAccessCheckbox) {
+        adminAccessCheckbox.addEventListener('change', function() {
+            if (!this.checked && !this.disabled) {
+                // 관리자 메뉴 접근이 해제되면 다른 관리 권한들도 해제
+                const adminPermissions = ['user_management', 'store_management', 'product_management', 'purchase_management', 'brand_management', 'category_management', 'supplier_management', 'settings'];
+                adminPermissions.forEach(perm => {
+                    const checkbox = document.getElementById('perm_' + perm);
+                    if (checkbox && !checkbox.disabled) {
+                        checkbox.checked = false;
+                    }
+                });
+                
+                // 역할도 user로 변경
+                document.getElementById('role').value = 'user';
+            }
+        });
+    }
+    
+    // 다른 관리 권한이 체크되면 자동으로 관리자 메뉴 접근 권한도 체크
+    const adminPermissions = ['user_management', 'store_management', 'product_management', 'purchase_management', 'brand_management', 'category_management', 'supplier_management', 'settings'];
+    adminPermissions.forEach(perm => {
+        const checkbox = document.getElementById('perm_' + perm);
+        if (checkbox) {
+            checkbox.addEventListener('change', function() {
+                if (this.checked && !this.disabled && adminAccessCheckbox && !adminAccessCheckbox.disabled) {
+                    adminAccessCheckbox.checked = true;
+                }
+            });
+        }
+    });
+});
+</script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
