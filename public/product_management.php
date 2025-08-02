@@ -14,6 +14,27 @@ $pdo = null;
 $products = [];
 $error_message = '';
 
+// 현재 사용자의 점포 정보 가져오기
+$current_store_name = '본점';
+$current_store_id = null;
+if (!empty($_SESSION['user_id'])) {
+    try {
+        $conn = get_db_connection();
+        $user_stmt = $conn->prepare("SELECT s.name as store_name, s.id as store_id FROM users u LEFT JOIN stores s ON u.store_id = s.id WHERE u.id = ?");
+        $user_stmt->bind_param("i", $_SESSION['user_id']);
+        $user_stmt->execute();
+        $user_result = $user_stmt->get_result();
+        if ($user_row = $user_result->fetch_assoc()) {
+            $current_store_name = $user_row['store_name'] ?? '본점';
+            $current_store_id = $user_row['store_id'];
+        }
+        $user_stmt->close();
+        $conn->close();
+    } catch (Exception $e) {
+        error_log("Store info error: " . $e->getMessage());
+    }
+}
+
 // 검색 및 페이징 변수
 $search_term = $_GET['search'] ?? '';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -194,7 +215,13 @@ try {
     <div class="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-lg shadow-xl flex flex-col">
         <!-- Modal Header -->
         <div class="flex justify-between items-center p-4 border-b rounded-t-lg">
-            <h3 class="text-xl font-semibold text-gray-800" id="modal-product-name">상품 상세 정보</h3>
+            <div>
+                <h3 class="text-xl font-semibold text-gray-800" id="modal-product-name">상품 상세 정보</h3>
+                <div class="flex items-center space-x-1 text-sm text-blue-600 mt-1">
+                    <i class="fas fa-store"></i>
+                    <span><?php echo htmlspecialchars($current_store_name); ?> 기준</span>
+                </div>
+            </div>
             <button id="close-modal-btn" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
                 <i class="fas fa-times text-xl"></i>
             </button>
@@ -272,6 +299,77 @@ try {
                 </div>
                 <p id="modal-total-stock" class="font-bold mt-2 text-right"></p>
 
+                <!-- Purchase History Section -->
+                <h4 class="text-lg font-semibold text-gray-800 mb-2 mt-6">최근 매입 이력</h4>
+                <div id="modal-purchase-history-wrapper" class="mb-4">
+                    <div id="purchase-history-loading" class="text-center py-4">
+                        <i class="fas fa-spinner fa-spin text-primary-600"></i>
+                        <span class="ml-2 text-gray-500">매입 이력 로딩 중...</span>
+                    </div>
+                    <div id="purchase-history-content" class="hidden">
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-3">
+                            <p class="text-sm text-yellow-800">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                매입 이력을 선택하면 해당 원가를 기준으로 판매가를 설정할 수 있습니다.
+                            </p>
+                        </div>
+                        <table id="purchase-history-table" class="w-full text-sm border border-gray-200 rounded-md">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-3 py-2 text-left font-semibold text-gray-700">매입일</th>
+                                    <th class="px-3 py-2 text-left font-semibold text-gray-700">거래처</th>
+                                    <th class="px-3 py-2 text-left font-semibold text-gray-700">점포</th>
+                                    <th class="px-3 py-2 text-right font-semibold text-gray-700">낱개 원가</th>
+                                    <th class="px-3 py-2 text-right font-semibold text-gray-700">권장 판매가</th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700">선택</th>
+                                </tr>
+                            </thead>
+                            <tbody id="purchase-history-tbody">
+                                <!-- 매입 이력이 여기에 동적으로 추가됩니다 -->
+                            </tbody>
+                        </table>
+                        <div id="no-purchase-history" class="text-center py-4 text-gray-500 hidden">
+                            <i class="fas fa-exclamation-circle text-2xl"></i>
+                            <p class="mt-2">매입 이력이 없습니다.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pricing Update Section -->
+                <div id="modal-pricing-section" class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4 hidden">
+                    <h5 class="font-semibold text-blue-800 mb-2">
+                        <i class="fas fa-tag mr-1"></i>
+                        판매가 설정
+                    </h5>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-blue-700 mb-1">선택된 원가</label>
+                            <div id="selected-cost-display" class="text-lg font-bold text-blue-900">₩ 0</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-blue-700 mb-1">새 판매가</label>
+                            <div class="flex">
+                                <input type="number" id="new-selling-price" 
+                                       class="flex-1 px-3 py-2 border border-blue-300 rounded-l-md focus:ring-blue-500 focus:border-blue-500" 
+                                       placeholder="판매가 입력">
+                                <button id="apply-selling-price-btn" 
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">
+                                    적용
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-2 flex justify-between items-center">
+                        <span class="text-xs text-blue-600">
+                            <i class="fas fa-calculator mr-1"></i>
+                            마진율: <span id="margin-rate">0%</span>
+                        </span>
+                        <button id="cancel-pricing-btn" class="text-xs text-blue-600 hover:text-blue-800">
+                            취소
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Image at the bottom -->
                 <div id="modal-image-content" class="mt-6 flex justify-start items-center">
                     <img id="modal-image" src="" alt="상품 이미지" class="w-[30px] h-[30px] rounded-md border bg-gray-100 object-contain">
@@ -283,6 +381,10 @@ try {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // 현재 점포 정보
+    const currentStoreId = <?php echo json_encode($current_store_id); ?>;
+    const currentStoreName = <?php echo json_encode($current_store_name); ?>;
+    
     const modal = document.getElementById('product-details-modal');
     const closeModalBtn = document.getElementById('close-modal-btn');
     const productRows = document.querySelectorAll('.product-row');
@@ -333,7 +435,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const productId = this.dataset.productId;
             showModal();
             
-            fetch(`ajax_get_product_details.php?id=${productId}`)
+            const url = `ajax_get_product_details.php?id=${productId}${currentStoreId ? `&store_id=${currentStoreId}` : ''}`;
+            fetch(url)
                 .then(response => response.json())
                 .then(result => {
                     if (result.success) {
@@ -406,6 +509,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         const lastModifiedDate = new Date(product.updated_at).toLocaleString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                         modalContent.lastModified.innerHTML = `최근 수정: ${lastModifiedDate} <br> by ${product.last_modified_by || 'N/A'}`;
 
+                        // Load purchase history
+                        loadPurchaseHistory(productId);
+
                         // Show content
                         modalContent.loading.style.display = 'none';
                         modalContent.bodyWrapper.classList.remove('hidden');
@@ -420,6 +526,242 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert('상품 정보를 불러오는 중 오류가 발생했습니다.');
                     hideModal();
                 });
+        });
+    });
+
+    // Purchase History 관련 함수들
+    let currentProductId = null;
+    let selectedPurchaseData = null;
+
+    // 토스트 알림 함수
+    function showToast(message, type = 'info') {
+        // 기존 토스트 제거
+        const existingToast = document.querySelector('.toast-notification');
+        if (existingToast) {
+            existingToast.remove();
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `toast-notification fixed top-4 right-4 z-50 px-4 py-3 rounded-md shadow-lg max-w-sm transition-all duration-300 ${
+            type === 'success' ? 'bg-green-500 text-white' : 
+            type === 'error' ? 'bg-red-500 text-white' : 
+            'bg-blue-500 text-white'
+        }`;
+        
+        toast.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
+                <span>${message}</span>
+                <button class="ml-3 text-white hover:text-gray-200" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+
+        document.body.appendChild(toast);
+
+        // 3초 후 자동 제거
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 3000);
+    }
+
+    function loadPurchaseHistory(productId) {
+        currentProductId = productId;
+        const loadingDiv = document.getElementById('purchase-history-loading');
+        const contentDiv = document.getElementById('purchase-history-content');
+        const noHistoryDiv = document.getElementById('no-purchase-history');
+        
+        // 로딩 상태 표시
+        loadingDiv.style.display = 'block';
+        contentDiv.classList.add('hidden');
+        
+        const purchaseUrl = `ajax_get_purchase_history.php?product_id=${productId}${currentStoreId ? `&store_id=${currentStoreId}` : ''}`;
+        fetch(purchaseUrl)
+            .then(response => response.json())
+            .then(result => {
+                loadingDiv.style.display = 'none';
+                
+                if (result.success) {
+                    if (result.data && result.data.length > 0) {
+                        populatePurchaseHistory(result.data);
+                        contentDiv.classList.remove('hidden');
+                        noHistoryDiv.classList.add('hidden');
+                    } else {
+                        // 매입 이력이 없는 경우
+                        contentDiv.classList.add('hidden');
+                        noHistoryDiv.classList.remove('hidden');
+                        if (result.message) {
+                            noHistoryDiv.innerHTML = `
+                                <div class="text-center py-4 text-gray-500">
+                                    <i class="fas fa-info-circle text-2xl"></i>
+                                    <p class="mt-2">${result.message}</p>
+                                </div>
+                            `;
+                        }
+                    }
+                } else {
+                    // API 오류인 경우
+                    contentDiv.classList.add('hidden');
+                    noHistoryDiv.innerHTML = `
+                        <div class="text-center py-4 text-red-500">
+                            <i class="fas fa-exclamation-triangle text-2xl"></i>
+                            <p class="mt-2">오류: ${result.message}</p>
+                        </div>
+                    `;
+                    noHistoryDiv.classList.remove('hidden');
+                }
+            })
+            .catch(error => {
+                console.error('매입 이력 로딩 오류:', error);
+                loadingDiv.innerHTML = '<p class="text-red-500"><i class="fas fa-exclamation-triangle mr-2"></i>매입 이력을 불러오는 중 오류가 발생했습니다.</p>';
+                showToast('매입 이력을 불러올 수 없습니다.', 'error');
+            });
+    }
+
+    function populatePurchaseHistory(historyData) {
+        const tbody = document.getElementById('purchase-history-tbody');
+        tbody.innerHTML = '';
+        
+        historyData.forEach((item, index) => {
+            const row = document.createElement('tr');
+            row.className = 'border-b hover:bg-gray-50 cursor-pointer';
+            row.dataset.purchaseIndex = index;
+            
+            row.innerHTML = `
+                <td class="px-3 py-2">${item.purchase_date_formatted}</td>
+                <td class="px-3 py-2">${item.supplier_name}</td>
+                <td class="px-3 py-2">${item.store_name || currentStoreName}</td>
+                <td class="px-3 py-2 text-right font-mono">₩${item.unit_cost_per_piece_formatted}</td>
+                <td class="px-3 py-2 text-right font-semibold text-green-600">₩${item.suggested_selling_price.toLocaleString()}</td>
+                <td class="px-3 py-2 text-center">
+                    <button class="select-purchase-btn px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200">
+                        선택
+                    </button>
+                </td>
+            `;
+            
+            // 선택 버튼 이벤트
+            const selectBtn = row.querySelector('.select-purchase-btn');
+            selectBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectPurchaseForPricing(item, selectBtn);
+            });
+            
+            tbody.appendChild(row);
+        });
+    }
+
+    function selectPurchaseForPricing(purchaseData, buttonElement) {
+        selectedPurchaseData = purchaseData;
+        
+        // 이전 선택 해제
+        document.querySelectorAll('.select-purchase-btn').forEach(btn => {
+            btn.textContent = '선택';
+            btn.className = 'select-purchase-btn px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200';
+        });
+        
+        // 현재 버튼 선택 상태로 변경
+        buttonElement.textContent = '선택됨';
+        buttonElement.className = 'select-purchase-btn px-2 py-1 bg-green-100 text-green-700 rounded text-xs';
+        
+        // 가격 설정 섹션 표시
+        const pricingSection = document.getElementById('modal-pricing-section');
+        const costDisplay = document.getElementById('selected-cost-display');
+        const sellingPriceInput = document.getElementById('new-selling-price');
+        
+        costDisplay.textContent = `₩${purchaseData.unit_cost_per_piece_formatted}`;
+        sellingPriceInput.value = purchaseData.suggested_selling_price;
+        updateMarginRate();
+        
+        pricingSection.classList.remove('hidden');
+    }
+
+    function updateMarginRate() {
+        if (!selectedPurchaseData) return;
+        
+        const costPrice = parseFloat(selectedPurchaseData.unit_cost_per_piece);
+        const sellingPrice = parseFloat(document.getElementById('new-selling-price').value) || 0;
+        const marginRate = costPrice > 0 ? ((sellingPrice - costPrice) / costPrice * 100).toFixed(1) : 0;
+        
+        document.getElementById('margin-rate').textContent = `${marginRate}%`;
+    }
+
+    // 이벤트 리스너
+    document.getElementById('new-selling-price').addEventListener('input', updateMarginRate);
+    
+    document.getElementById('apply-selling-price-btn').addEventListener('click', function() {
+        if (!selectedPurchaseData || !currentProductId) {
+            showToast('매입 이력을 먼저 선택해주세요.', 'error');
+            return;
+        }
+        
+        const sellingPrice = parseFloat(document.getElementById('new-selling-price').value);
+        if (!sellingPrice || sellingPrice <= 0) {
+            showToast('올바른 판매가를 입력해주세요.', 'error');
+            return;
+        }
+
+        // 매우 낮은 마진율 경고
+        const costPrice = parseFloat(selectedPurchaseData.unit_cost_per_piece);
+        const marginRate = ((sellingPrice - costPrice) / costPrice * 100);
+        if (marginRate < 5) {
+            if (!confirm(`마진율이 ${marginRate.toFixed(1)}%로 매우 낮습니다. 계속하시겠습니까?`)) {
+                return;
+            }
+        }
+        
+        // 판매가 업데이트 API 호출
+        const formData = new FormData();
+        formData.append('product_id', currentProductId);
+        formData.append('selling_price', sellingPrice);
+        if (currentStoreId) {
+            formData.append('store_id', currentStoreId);
+        }
+        
+        fetch('ajax_update_selling_price.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast('판매가가 성공적으로 설정되었습니다.', 'success');
+                
+                // 현재 팝업의 판매가 정보 업데이트
+                modalContent.sellingPrice.textContent = `₩ ${result.selling_price}`;
+                
+                // 판매가 설정 섹션 숨기기
+                document.getElementById('modal-pricing-section').classList.add('hidden');
+                
+                // 선택 초기화
+                selectedPurchaseData = null;
+                document.querySelectorAll('.select-purchase-btn').forEach(btn => {
+                    btn.textContent = '선택';
+                    btn.className = 'select-purchase-btn px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200';
+                });
+                
+            } else {
+                showToast('오류: ' + result.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('판매가 업데이트 오류:', error);
+            showToast('판매가 설정 중 오류가 발생했습니다.', 'error');
+        });
+    });
+    
+    document.getElementById('cancel-pricing-btn').addEventListener('click', function() {
+        // 판매가 설정 섹션 숨기기
+        document.getElementById('modal-pricing-section').classList.add('hidden');
+        
+        // 선택 초기화
+        selectedPurchaseData = null;
+        document.querySelectorAll('.select-purchase-btn').forEach(btn => {
+            btn.textContent = '선택';
+            btn.className = 'select-purchase-btn px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200';
         });
     });
 });

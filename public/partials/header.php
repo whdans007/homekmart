@@ -1,9 +1,32 @@
 <?php
 ob_start(); // 출력 버퍼링 시작
 require_once __DIR__ . '/../../lib/session_helper.php';
+require_once __DIR__ . '/../../config/db_config.php';
 ensure_logged_in();
 
 $current_page = basename($_SERVER['PHP_SELF']);
+
+// 현재 사용자의 점포 정보 가져오기
+$current_store_name = '본점';
+$current_store_id = null;
+if (!empty($_SESSION['user_id'])) {
+    try {
+        $conn = get_db_connection();
+        $user_stmt = $conn->prepare("SELECT s.name as store_name, s.id as store_id FROM users u LEFT JOIN stores s ON u.store_id = s.id WHERE u.id = ?");
+        $user_stmt->bind_param("i", $_SESSION['user_id']);
+        $user_stmt->execute();
+        $user_result = $user_stmt->get_result();
+        if ($user_row = $user_result->fetch_assoc()) {
+            $current_store_name = $user_row['store_name'] ?? '본점';
+            $current_store_id = $user_row['store_id'];
+        }
+        $user_stmt->close();
+        $conn->close();
+    } catch (Exception $e) {
+        // 오류 발생시 기본값 유지
+        error_log("Store info error: " . $e->getMessage());
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="ko">
@@ -107,8 +130,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <div class="ml-4 flex items-center md:ml-6">
                         <div class="flex items-center space-x-4">
                             <div class="text-sm text-gray-700">
-                                <span class="font-medium"><?php echo htmlspecialchars($_SESSION['full_name']); ?></span>
-                                <span class="text-gray-500">(<?php echo htmlspecialchars($_SESSION['role']); ?>)</span>
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-medium"><?php echo htmlspecialchars($_SESSION['full_name']); ?></span>
+                                    <span class="text-gray-500">(<?php echo htmlspecialchars($_SESSION['role']); ?>)</span>
+                                </div>
+                                <div class="flex items-center space-x-1 text-xs text-blue-600">
+                                    <i class="fas fa-store"></i>
+                                    <span class="font-medium"><?php echo htmlspecialchars($current_store_name); ?></span>
+                                </div>
                             </div>
                             <a href="logout.php" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200">
                                 <i class="fas fa-sign-out-alt mr-2"></i>
