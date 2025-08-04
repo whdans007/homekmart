@@ -7,9 +7,13 @@ $page_title = "상품 매입 관리";
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
-if (!is_logged_in() || !in_array($_SESSION['role'], ['super_admin', 'admin'])) {
-    echo "<div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative' role='alert'><strong class='font-bold'>접근 불가:</strong><span class='block sm:inline'> 이 페이지에 접근할 권한이 없습니다.</span></div>";
-    require_once __DIR__ . '/partials/footer.php';
+// 매입관리 권한 확인
+if (!has_permission('purchase_management')) {
+    $_SESSION['flash'] = [
+        'type' => 'error', 
+        'message' => '매입관리에 접근할 권한이 없습니다.'
+    ];
+    header('Location: shop.php');
     exit;
 }
 

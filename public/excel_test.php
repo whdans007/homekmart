@@ -16,6 +16,177 @@ if (!is_logged_in() || !in_array($_SESSION['role'], ['super_admin', 'admin'])) {
 $message = '';
 $excel_data = [];
 $headers = [];
+$save_result = '';
+
+// 데이터 저장 처리
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_data']) && isset($_POST['excel_data_json'])) {
+    $excel_data_json = json_decode($_POST['excel_data_json'], true);
+    $store_id = $_POST['target_store_id'] ?? $_SESSION['store_id'] ?? 1;
+    
+    // 점포 접근 권한 확인
+    $current_user_id = $_SESSION['user_id'] ?? null;
+    $current_user_role = $_SESSION['role'] ?? '';
+    $user_store_id = null;
+    
+    // 사용자의 실제 점포 ID 조회
+    try {
+        $auth_conn = get_db_connection();
+        $auth_stmt = $auth_conn->prepare("SELECT store_id FROM users WHERE id = ?");
+        $auth_stmt->bind_param("i", $current_user_id);
+        $auth_stmt->execute();
+        $auth_result = $auth_stmt->get_result();
+        if ($auth_result->num_rows > 0) {
+            $user_store_id = $auth_result->fetch_assoc()['store_id'];
+        }
+        $auth_stmt->close();
+        $auth_conn->close();
+    } catch (Exception $e) {
+        error_log("Auth check error: " . $e->getMessage());
+    }
+    
+    if ($current_user_role !== 'super_admin' && $store_id != $user_store_id) {
+        $save_result = "❌ 권한 오류: 선택한 점포에 대한 접근 권한이 없습니다. (선택한 점포: {$store_id}, 사용자 점포: {$user_store_id})";
+    } else {
+    
+    if ($excel_data_json && is_array($excel_data_json)) {
+        try {
+            $conn = get_db_connection();
+            $conn->autocommit(false); // 트랜잭션 시작
+            
+            $success_count = 0;
+            $error_count = 0;
+            $processed_items = [];
+            
+            // 상품 카테고리 ID 가져오기 (기본 카테고리 사용)
+            $default_category_stmt = $conn->prepare("SELECT id FROM categories ORDER BY id LIMIT 1");
+            $default_category_stmt->execute();
+            $default_category_result = $default_category_stmt->get_result();
+            $default_category_id = $default_category_result->num_rows > 0 ? $default_category_result->fetch_assoc()['id'] : 1;
+            $default_category_stmt->close();
+            
+            foreach ($excel_data_json as $index => $row) {
+                // 모든 데이터 처리 (제한 없음)
+                
+                $sku = trim($row[0] ?? '');
+                $name_en = trim($row[1] ?? '');
+                $cost_price = floatval($row[2] ?? 0);
+                $selling_price = floatval($row[3] ?? 0);
+                
+                // 원가가 없거나 0일 경우 0으로 설정 (음수는 0으로 변환)
+                if ($cost_price < 0) $cost_price = 0;
+                
+                // 판매가가 없거나 0일 경우 0으로 설정 (음수는 0으로 변환)
+                if ($selling_price < 0) $selling_price = 0;
+                
+                // 상세한 데이터 검증 (원가, 판매가 검증 제거 - SKU, 상품명만 검사)
+                $validation_errors = [];
+                if (empty($sku)) $validation_errors[] = "SKU 없음";
+                if (empty($name_en)) $validation_errors[] = "상품명 없음";
+                
+                if (!empty($validation_errors)) {
+                    $error_count++;
+                    $processed_items[] = "행 " . ($index + 1) . ": 필수 데이터 누락 (" . implode(", ", $validation_errors) . ")";
+                    $processed_items[] = "   → 데이터: SKU='$sku', 상품명='$name_en', 원가=$cost_price, 판매가=$selling_price";
+                    continue;
+                }
+                
+                try {
+                    // 1. 기존 상품 확인
+                    $check_stmt = $conn->prepare("SELECT id FROM products WHERE sku = ?");
+                    $check_stmt->bind_param("s", $sku);
+                    $check_stmt->execute();
+                    $check_result = $check_stmt->get_result();
+                    
+                    $product_id = null;
+                    
+                    if ($check_result->num_rows > 0) {
+                        // 기존 상품 업데이트
+                        $existing = $check_result->fetch_assoc();
+                        $product_id = $existing['id'];
+                        
+                        $update_stmt = $conn->prepare("
+                            UPDATE products 
+                            SET name_en = ?, cost_price = ?, selling_price = ?, last_modified_by_user_id = ?
+                            WHERE id = ?
+                        ");
+                        $update_stmt->bind_param("sddii", $name_en, $cost_price, $selling_price, $_SESSION['user_id'], $product_id);
+                        $update_stmt->execute();
+                        $update_stmt->close();
+                        
+                        $processed_items[] = "행 " . ($index + 1) . ": SKU {$sku} 기존 상품 업데이트";
+                    } else {
+                        // 새 상품 생성
+                        $name_ko = $name_en; // 한글명이 없으면 영문명 사용
+                        
+                        $insert_stmt = $conn->prepare("
+                            INSERT INTO products (sku, name_ko, name_en, category_id, cost_price, selling_price, is_active, last_modified_by_user_id, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, 1, ?, NOW(), NOW())
+                        ");
+                        $insert_stmt->bind_param("sssiddi", $sku, $name_ko, $name_en, $default_category_id, $cost_price, $selling_price, $_SESSION['user_id']);
+                        $insert_stmt->execute();
+                        $product_id = $insert_stmt->insert_id;
+                        $insert_stmt->close();
+                        
+                        $processed_items[] = "행 " . ($index + 1) . ": SKU {$sku} 신규 상품 생성 (ID: {$product_id})";
+                    }
+                    $check_stmt->close();
+                    
+                    // 2. 점포별 가격 정보 저장/업데이트 (inventory 테이블)
+                    if ($product_id) {
+                        $inventory_stmt = $conn->prepare("
+                            INSERT INTO inventory (product_id, store_id, selling_price, quantity, cost_price) 
+                            VALUES (?, ?, ?, 0, ?)
+                            ON DUPLICATE KEY UPDATE 
+                                selling_price = VALUES(selling_price),
+                                cost_price = VALUES(cost_price)
+                        ");
+                        $inventory_stmt->bind_param("iidd", $product_id, $store_id, $selling_price, $cost_price);
+                        $inventory_stmt->execute();
+                        $inventory_stmt->close();
+                        
+                        // 점포명 가져오기
+                        $store_name_stmt = $conn->prepare("SELECT name FROM stores WHERE id = ?");
+                        $store_name_stmt->bind_param("i", $store_id);
+                        $store_name_stmt->execute();
+                        $store_name_result = $store_name_stmt->get_result();
+                        $store_name = $store_name_result->num_rows > 0 ? $store_name_result->fetch_assoc()['name'] : "점포 ID {$store_id}";
+                        $store_name_stmt->close();
+                        
+                        $processed_items[] = "   → {$store_name}에 가격정보 저장 (원가: " . number_format($cost_price) . "원, 판매가: " . number_format($selling_price) . "원)";
+                    }
+                    
+                    $success_count++;
+                    
+                } catch (Exception $e) {
+                    $error_count++;
+                    $processed_items[] = "행 " . ($index + 1) . ": 오류 - " . $e->getMessage();
+                }
+            }
+            
+            // 성공한 데이터가 있으면 커밋, 모두 실패하면 롤백
+            if ($success_count > 0) {
+                $conn->commit();
+                if ($error_count == 0) {
+                    $save_result = "✅ 모든 데이터를 성공적으로 저장했습니다! ({$success_count}개)";
+                } else {
+                    $save_result = "⚠️ 부분 성공: {$success_count}개 저장됨, {$error_count}개 실패";
+                }
+            } else {
+                $conn->rollback();
+                $save_result = "❌ 모든 데이터 저장에 실패했습니다. (실패: {$error_count}개)";
+            }
+            
+            $save_result .= "\n\n처리 내역:\n" . implode("\n", $processed_items);
+            $conn->close();
+            
+        } catch (Exception $e) {
+            $save_result = "데이터 저장 오류: " . $e->getMessage();
+        }
+    } else {
+        $save_result = "저장할 데이터가 없습니다.";
+    }
+    } // 권한 체크 블록 종료
+}
 
 // 엑셀 파일 처리
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
@@ -245,6 +416,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
     </div>
 <?php endif; ?>
 
+<!-- 저장 결과 표시 -->
+<?php if (!empty($save_result)): ?>
+    <div class="mb-6 p-4 rounded-md <?php echo strpos($save_result, '오류') !== false || strpos($save_result, '실패') !== false ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-blue-50 text-blue-700 border border-blue-200'; ?>">
+        <h4 class="font-medium mb-2">
+            <i class="fas fa-database mr-2"></i>데이터 저장 결과
+        </h4>
+        <pre class="whitespace-pre-wrap text-sm"><?php echo htmlspecialchars($save_result); ?></pre>
+    </div>
+<?php endif; ?>
+
 <!-- 파일 업로드 폼 -->
 <div class="bg-white shadow rounded-lg p-6 mb-8">
     <h2 class="text-lg font-medium text-gray-900 mb-4">엑셀 파일 업로드</h2>
@@ -303,11 +484,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
             </div>
             <div class="bg-yellow-50 p-2 rounded">
                 <strong>컬럼7:</strong> 원가<br>
-                <span class="text-gray-600">Cost Price</span>
+                <span class="text-gray-600">Cost Price (0원 허용)</span>
             </div>
             <div class="bg-red-50 p-2 rounded">
                 <strong>컬럼8:</strong> 판매가<br>
-                <span class="text-gray-600">Selling Price</span>
+                <span class="text-gray-600">Selling Price (0원 허용)</span>
             </div>
         </div>
     </div>
@@ -427,23 +608,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
 
 <!-- 연결 분석 요약 -->
 <div class="mt-6 bg-white shadow rounded-lg p-6">
-    <h3 class="text-lg font-medium text-gray-900 mb-4">상품 연결 분석 요약</h3>
+    <h3 class="text-lg font-medium text-gray-900 mb-4">
+        <i class="fas fa-chart-line mr-2 text-blue-600"></i>
+        전체 데이터 상품 연결 분석 요약
+    </h3>
+    <p class="text-sm text-gray-600 mb-4">
+        <i class="fas fa-info-circle mr-1"></i>
+        엑셀 파일의 모든 데이터를 분석하여 데이터베이스와 연결 상태를 확인합니다.
+    </p>
     
     <?php
-    // 연결 분석 통계 계산
-    $total_rows = count($excel_data);
+    // 전체 엑셀 데이터에 대한 연결 분석 통계 계산 (표시된 데이터뿐만 아니라 전체 데이터)
+    $total_rows = isset($totalDataCount) ? $totalDataCount : count($excel_data);
     $existing_products = 0;
     $new_products = 0;
+    $invalid_data = 0;
+    $invalid_data_details = [];
     $price_differences = [];
     
-    foreach ($excel_data as $row) {
-        $sku = isset($row[0]) ? trim($row[0]) : '';
-        $excel_cost = isset($row[2]) ? (float)trim($row[2]) : 0;
-        $excel_selling = isset($row[3]) ? (float)trim($row[3]) : 0;
-        
-        if (!empty($sku)) {
+    // 전체 엑셀 데이터를 다시 읽어서 분석 (표시 제한 없이)
+    if (isset($actualMaxRow)) {
+        for ($analysis_row = 2; $analysis_row <= $actualMaxRow; $analysis_row++) {
             try {
-                // 새 데이터베이스 연결 생성
+                // 전체 데이터 행에서 필요한 컬럼 읽기
+                $sku_cell = $worksheet->getCell($columnLetters[1] . $analysis_row); // 컬럼2 (B)
+                $name_cell = $worksheet->getCell($columnLetters[2] . $analysis_row); // 컬럼3 (C) 
+                $cost_cell = $worksheet->getCell($columnLetters[6] . $analysis_row); // 컬럼7 (G)
+                $selling_cell = $worksheet->getCell($columnLetters[7] . $analysis_row); // 컬럼8 (H)
+                
+                $sku = trim($sku_cell->getValue() ?? '');
+                $name_en = trim($name_cell->getValue() ?? '');
+                $excel_cost = (float)($cost_cell->getValue() ?? 0);
+                $excel_selling = (float)($selling_cell->getValue() ?? 0);
+                
+                // 원가가 음수이면 0으로 설정
+                if ($excel_cost < 0) $excel_cost = 0;
+                
+                // 판매가가 음수이면 0으로 설정
+                if ($excel_selling < 0) $excel_selling = 0;
+                
+                // 데이터 유효성 검사 및 무효 사유 수집 (SKU, 상품명만 검사)
+                $invalid_reasons = [];
+                if (empty($sku)) $invalid_reasons[] = "SKU 없음";
+                if (empty($name_en)) $invalid_reasons[] = "상품명 없음";
+                
+                if (!empty($invalid_reasons)) {
+                    $invalid_data++;
+                    $invalid_data_details[] = [
+                        'row' => $analysis_row,
+                        'sku' => $sku,
+                        'name' => $name_en,
+                        'cost' => $excel_cost,
+                        'selling' => $excel_selling,
+                        'reasons' => $invalid_reasons
+                    ];
+                    continue;
+                }
+                
+                // 데이터베이스에서 기존 상품 검색
                 $analysis_conn = get_db_connection();
                 $search_stmt = $analysis_conn->prepare("SELECT cost_price, selling_price FROM products WHERE sku = ? LIMIT 1");
                 $search_stmt->bind_param("s", $sku);
@@ -470,15 +692,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
                 }
                 $search_stmt->close();
                 $analysis_conn->close();
+                
             } catch (Exception $e) {
-                error_log("Analysis connection error: " . $e->getMessage());
-                // 연결 오류가 있어도 계속 진행
+                error_log("Full analysis error at row {$analysis_row}: " . $e->getMessage());
+                $invalid_data++;
+                continue;
+            }
+        }
+    } else {
+        // fallback: 표시된 데이터만 분석
+        foreach ($excel_data as $row_index => $row) {
+            $sku = isset($row[0]) ? trim($row[0]) : '';
+            $name_en = isset($row[1]) ? trim($row[1]) : '';
+            $excel_cost = isset($row[2]) ? (float)trim($row[2]) : 0;
+            $excel_selling = isset($row[3]) ? (float)trim($row[3]) : 0;
+            
+            // 원가가 음수이면 0으로 설정
+            if ($excel_cost < 0) $excel_cost = 0;
+            
+            // 판매가가 음수이면 0으로 설정
+            if ($excel_selling < 0) $excel_selling = 0;
+            
+            // 데이터 유효성 검사 및 무효 사유 수집 (SKU, 상품명만 검사)
+            $invalid_reasons = [];
+            if (empty($sku)) $invalid_reasons[] = "SKU 없음";
+            if (empty($name_en)) $invalid_reasons[] = "상품명 없음";
+            
+            if (!empty($invalid_reasons)) {
+                $invalid_data++;
+                $invalid_data_details[] = [
+                    'row' => $row_index + 2, // 표시 데이터는 2행부터 시작
+                    'sku' => $sku,
+                    'name' => $name_en,
+                    'cost' => $excel_cost,
+                    'selling' => $excel_selling,
+                    'reasons' => $invalid_reasons
+                ];
+                continue;
+            }
+            
+            if (!empty($sku)) {
+                try {
+                    // 새 데이터베이스 연결 생성
+                    $analysis_conn = get_db_connection();
+                    $search_stmt = $analysis_conn->prepare("SELECT cost_price, selling_price FROM products WHERE sku = ? LIMIT 1");
+                    $search_stmt->bind_param("s", $sku);
+                    $search_stmt->execute();
+                    $search_result = $search_stmt->get_result();
+                    
+                    if ($search_result->num_rows > 0) {
+                        $existing_products++;
+                        $db_product = $search_result->fetch_assoc();
+                        $db_cost = (float)$db_product['cost_price'];
+                        $db_selling = (float)$db_product['selling_price'];
+                        
+                        if ($excel_cost != $db_cost || $excel_selling != $db_selling) {
+                            $price_differences[] = [
+                                'sku' => $sku,
+                                'excel_cost' => $excel_cost,
+                                'db_cost' => $db_cost,
+                                'excel_selling' => $excel_selling,
+                                'db_selling' => $db_selling
+                            ];
+                        }
+                    } else {
+                        $new_products++;
+                    }
+                    $search_stmt->close();
+                    $analysis_conn->close();
+                } catch (Exception $e) {
+                    error_log("Analysis connection error: " . $e->getMessage());
+                    // 연결 오류가 있어도 계속 진행
+                }
             }
         }
     }
     ?>
     
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="bg-blue-50 rounded-lg p-4">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
@@ -517,7 +808,113 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
                 </div>
             </div>
         </div>
+        
+        <div class="bg-yellow-50 rounded-lg p-4">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-2xl text-yellow-600"></i>
+                </div>
+                <div class="ml-4">
+                    <h4 class="text-lg font-medium text-yellow-900">무효 데이터</h4>
+                    <p class="text-2xl font-bold text-yellow-600"><?php echo $invalid_data; ?>개</p>
+                    <p class="text-sm text-yellow-700">누락/오류 데이터</p>
+                </div>
+            </div>
+        </div>
     </div>
+    
+    <?php if (count($invalid_data_details) > 0): ?>
+    <div class="mt-6">
+        <h4 class="text-md font-medium text-red-900 mb-3">
+            <i class="fas fa-times-circle mr-2"></i>
+            무효 데이터 상세 정보 (총 <?php echo count($invalid_data_details); ?>개)
+        </h4>
+        <div class="bg-red-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+            <div class="space-y-3">
+                <?php foreach (array_slice($invalid_data_details, 0, 20) as $invalid): ?>
+                <div class="bg-white border border-red-200 rounded-lg p-3">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center mb-2">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                    행 <?php echo $invalid['row']; ?>
+                                </span>
+                                <span class="ml-2 text-sm font-medium text-red-900">
+                                    무효 사유: <?php echo implode(', ', $invalid['reasons']); ?>
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                                <div>
+                                    <span class="text-gray-600">SKU:</span>
+                                    <span class="font-medium <?php echo empty($invalid['sku']) ? 'text-red-600 italic' : 'text-blue-600'; ?>">
+                                        <?php echo empty($invalid['sku']) ? '없음' : htmlspecialchars($invalid['sku']); ?>
+                                    </span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">상품명:</span>
+                                    <span class="font-medium <?php echo empty($invalid['name']) ? 'text-red-600 italic' : 'text-green-600'; ?>">
+                                        <?php echo empty($invalid['name']) ? '없음' : htmlspecialchars(mb_substr($invalid['name'], 0, 15) . (mb_strlen($invalid['name']) > 15 ? '...' : '')); ?>
+                                    </span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">원가:</span>
+                                    <span class="font-medium text-yellow-600">
+                                        <?php echo number_format($invalid['cost']); ?>원
+                                    </span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">판매가:</span>
+                                    <span class="font-medium <?php echo $invalid['selling'] <= 0 ? 'text-red-600' : 'text-purple-600'; ?>">
+                                        <?php echo $invalid['selling'] <= 0 ? '없음/0원' : number_format($invalid['selling']) . '원'; ?>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+                
+                <?php if (count($invalid_data_details) > 20): ?>
+                <div class="text-center py-2">
+                    <span class="text-sm text-gray-600">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        처음 20개만 표시됨. 총 <?php echo count($invalid_data_details); ?>개의 무효 데이터가 있습니다.
+                    </span>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        
+        <!-- 무효 데이터 유형별 통계 -->
+        <div class="mt-4 bg-gray-50 rounded-lg p-4">
+            <h5 class="font-medium text-gray-900 mb-3">
+                <i class="fas fa-chart-pie mr-2"></i>무효 사유별 통계
+            </h5>
+            <?php
+            $reason_stats = [];
+            foreach ($invalid_data_details as $invalid) {
+                foreach ($invalid['reasons'] as $reason) {
+                    if (!isset($reason_stats[$reason])) {
+                        $reason_stats[$reason] = 0;
+                    }
+                    $reason_stats[$reason]++;
+                }
+            }
+            ?>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <?php foreach ($reason_stats as $reason => $count): ?>
+                <div class="flex items-center justify-between p-2 bg-white rounded border">
+                    <span class="text-sm font-medium text-gray-700"><?php echo htmlspecialchars($reason); ?></span>
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <?php echo $count; ?>개
+                    </span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
     
     <?php if (count($price_differences) > 0): ?>
     <div class="mt-6">
@@ -526,7 +923,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
             가격 차이가 있는 상품 (<?php echo count($price_differences); ?>개)
         </h4>
         <div class="bg-orange-50 rounded-lg p-4 max-h-40 overflow-y-auto">
-            <?php foreach (array_slice($price_differences, 0, 5) as $diff): ?>
+            <?php foreach (array_slice($price_differences, 0, 10) as $diff): ?>
             <div class="mb-2 text-sm">
                 <strong>SKU: <?php echo htmlspecialchars($diff['sku']); ?></strong><br>
                 원가: 엑셀 <?php echo number_format($diff['excel_cost']); ?>원 ↔ DB <?php echo number_format($diff['db_cost']); ?>원<br>
@@ -548,6 +945,234 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
             <li><i class="fas fa-arrow-right mr-2 text-purple-500"></i>점포별 가격 설정 (inventory 테이블 연동)</li>
             <li><i class="fas fa-arrow-right mr-2 text-orange-500"></i>매입 내역에 새로운 상품 추가</li>
         </ul>
+    </div>
+    
+    <!-- 데이터 저장 영역 -->
+    <div class="mt-6 bg-green-50 border border-green-200 rounded-lg p-6">
+        <h4 class="text-md font-medium text-green-900 mb-4">
+            <i class="fas fa-database mr-2"></i>실제 데이터베이스에 저장하기
+        </h4>
+        <p class="text-sm text-green-800 mb-4">
+            위에 표시된 모든 데이터를 상품정보(products)와 점포별 가격정보(inventory)에 실제로 저장합니다.
+        </p>
+        
+        <!-- 데이터 검증 미리보기 -->
+        <?php if (!empty($excel_data)): ?>
+        <div class="mb-4 bg-white border border-gray-300 rounded-lg p-4">
+            <h5 class="font-medium text-gray-900 mb-3">
+                <i class="fas fa-check-circle mr-2"></i>저장 전 데이터 검증
+            </h5>
+            <div class="space-y-2 text-sm">
+                <?php 
+                $preview_data = array_slice($excel_data, 0, 10);
+                foreach ($preview_data as $index => $row): 
+                    $sku = trim($row[0] ?? '');
+                    $name_en = trim($row[1] ?? '');
+                    $cost_price = floatval($row[2] ?? 0);
+                    $selling_price = floatval($row[3] ?? 0);
+                    
+                    // 원가가 음수이면 0으로 설정
+                    if ($cost_price < 0) $cost_price = 0;
+                    
+                    // 판매가가 음수이면 0으로 설정
+                    if ($selling_price < 0) $selling_price = 0;
+                    
+                    $issues = [];
+                    if (empty($sku)) $issues[] = "SKU 없음";
+                    if (empty($name_en)) $issues[] = "상품명 없음";
+                    // 원가, 판매가 검증 제거 - 0원도 허용
+                    
+                    $status_class = empty($issues) ? 'text-green-600' : 'text-red-600';
+                    $status_icon = empty($issues) ? 'fa-check-circle' : 'fa-exclamation-triangle';
+                    $status_text = empty($issues) ? '검증 통과' : '오류: ' . implode(', ', $issues);
+                ?>
+                <div class="flex items-center justify-between p-2 border rounded <?php echo empty($issues) ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'; ?>">
+                    <div class="flex-1">
+                        <span class="font-medium">행 <?php echo $index + 1; ?>:</span>
+                        SKU: <?php echo $sku ?: '<span class="text-gray-400">없음</span>'; ?> |
+                        상품명: <?php echo $name_en ?: '<span class="text-gray-400">없음</span>'; ?> |
+                        원가: <?php echo $cost_price > 0 ? number_format($cost_price) . '원' : '<span class="text-gray-400">없음</span>'; ?> |
+                        판매가: <?php echo $selling_price > 0 ? number_format($selling_price) . '원' : '<span class="text-gray-400">없음</span>'; ?>
+                    </div>
+                    <div class="<?php echo $status_class; ?>">
+                        <i class="fas <?php echo $status_icon; ?> mr-1"></i>
+                        <?php echo $status_text; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+        
+        <form id="saveDataForm" method="POST" class="space-y-4">
+            <input type="hidden" name="save_data" value="1">
+            <input type="hidden" id="excel_data_input" name="excel_data_json" value="">
+            
+            <!-- 점포 선택 -->
+            <div>
+                <label for="target_store_id" class="block text-sm font-medium text-gray-700 mb-2">
+                    저장할 점포 선택
+                </label>
+                <?php
+                // 헤더에서 이미 조회한 점포 정보 활용 ($current_store_id, $current_store_name)
+                $available_stores = [];
+                
+                try {
+                    $store_conn = get_db_connection();
+                    
+                    // 먼저 stores 테이블에 데이터가 있는지 확인
+                    $count_stmt = $store_conn->prepare("SELECT COUNT(*) as total FROM stores");
+                    $count_stmt->execute();
+                    $count_result = $count_stmt->get_result();
+                    $total_stores = $count_result->fetch_assoc()['total'];
+                    $count_stmt->close();
+                    error_log("Excel Test - Total stores in database: {$total_stores}");
+                    
+                    // 현재 사용자의 점포가 존재하지 않는다면 생성
+                    if ($current_store_id && $current_store_name && $current_store_name !== '본점') {
+                        $check_stmt = $store_conn->prepare("SELECT COUNT(*) as count FROM stores WHERE id = ?");
+                        $check_stmt->bind_param("i", $current_store_id);
+                        $check_stmt->execute();
+                        $check_result = $check_stmt->get_result();
+                        $store_exists = $check_result->fetch_assoc()['count'];
+                        $check_stmt->close();
+                        
+                        if ($store_exists == 0) {
+                            $create_stmt = $store_conn->prepare("INSERT INTO stores (id, name) VALUES (?, ?)");
+                            $create_stmt->bind_param("is", $current_store_id, $current_store_name);
+                            $create_stmt->execute();
+                            $create_stmt->close();
+                            error_log("Excel Test - Created missing user store: {$current_store_name}");
+                        }
+                    }
+                    
+                    // 점포가 없다면 기본 점포들 생성 (super_admin만)
+                    if ($total_stores == 0 && $_SESSION['role'] === 'super_admin') {
+                        $stores_to_create = [
+                            ['name' => '본점'],
+                            ['name' => 'CLARK HILLS'],
+                            ['name' => '강남점'],
+                            ['name' => '홍대점']
+                        ];
+                        
+                        foreach ($stores_to_create as $store) {
+                            $create_stmt = $store_conn->prepare("INSERT INTO stores (name) VALUES (?)");
+                            $create_stmt->bind_param("s", $store['name']);
+                            $create_stmt->execute();
+                            $create_stmt->close();
+                        }
+                        error_log("Excel Test - Created default stores: " . count($stores_to_create));
+                    }
+                    
+                    // 점포 목록 가져오기 (권한에 따라)
+                    if ($_SESSION['role'] === 'super_admin') {
+                        // 최고관리자: 모든 점포
+                        $store_stmt = $store_conn->prepare("SELECT id, name FROM stores ORDER BY name");
+                        $store_stmt->execute();
+                    } else {
+                        // 일반 관리자: 자신의 점포만 (점포가 있는 경우)
+                        if ($current_store_id) {
+                            $store_stmt = $store_conn->prepare("SELECT id, name FROM stores WHERE id = ?");
+                            $store_stmt->bind_param("i", $current_store_id);
+                            $store_stmt->execute();
+                        } else {
+                            // 점포가 할당되지 않은 경우, 빈 결과
+                            $store_stmt = $store_conn->prepare("SELECT id, name FROM stores WHERE 1=0");
+                            $store_stmt->execute();
+                        }
+                    }
+                    
+                    $store_result = $store_stmt->get_result();
+                    while ($store = $store_result->fetch_assoc()) {
+                        $available_stores[] = $store;
+                    }
+                    $store_stmt->close();
+                    
+                    // 디버깅 정보 로깅
+                    error_log("Excel Test - User: " . ($_SESSION['username'] ?? 'unknown') . ", Role: " . ($_SESSION['role'] ?? 'unknown') . ", Store ID: {$current_store_id}, Store Name: {$current_store_name}");
+                    error_log("Excel Test - Available stores count: " . count($available_stores));
+                    if (!empty($available_stores)) {
+                        error_log("Excel Test - Available stores: " . json_encode(array_column($available_stores, 'name')));
+                    } else {
+                        error_log("Excel Test - No stores found! Check if stores table has data.");
+                    }
+                    
+                    $store_conn->close();
+                } catch (Exception $e) {
+                    error_log("Excel Test - Store selection error: " . $e->getMessage());
+                }
+                ?>
+                
+                <!-- 현재 사용자 점포 정보 표시 -->
+                <div class="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex items-center text-sm">
+                        <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                        <span class="text-blue-800">
+                            <strong>현재 로그인:</strong> 
+                            <?php echo htmlspecialchars($_SESSION['full_name']); ?> 
+                            (<?php echo $_SESSION['role'] === 'super_admin' ? '최고관리자' : ($_SESSION['role'] === 'admin' ? '관리자' : $_SESSION['role']); ?>)
+                            <?php if ($current_store_name && $current_store_name !== '본점'): ?>
+                            | <strong>소속 점포:</strong> <?php echo htmlspecialchars($current_store_name); ?>
+                            <?php elseif ($_SESSION['role'] !== 'super_admin'): ?>
+                            | <strong class="text-orange-600">소속 점포 없음</strong>
+                            <?php endif; ?>
+                        </span>
+                    </div>
+                    <?php if ($_SESSION['role'] === 'super_admin'): ?>
+                    <div class="mt-1 text-xs text-blue-600">
+                        <i class="fas fa-crown mr-1"></i>
+                        최고관리자 권한으로 모든 점포를 선택할 수 있습니다. (총 <?php echo count($available_stores); ?>개 점포)
+                    </div>
+                    <?php elseif (empty($available_stores)): ?>
+                    <div class="mt-1 text-xs text-orange-600">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        소속 점포가 없어 데이터 저장이 불가능합니다. 관리자에게 문의하세요.
+                    </div>
+                    <?php endif; ?>
+                </div>
+                
+                <select name="target_store_id" id="target_store_id" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500" <?php echo empty($available_stores) ? 'disabled' : ''; ?>>
+                    <?php if (empty($available_stores)): ?>
+                        <?php if ($_SESSION['role'] === 'super_admin'): ?>
+                            <option value="">활성 점포가 없습니다 - 점포 관리에서 점포를 먼저 생성하세요</option>
+                        <?php else: ?>
+                            <option value="">소속 점포가 없습니다 - 관리자에게 점포 할당을 요청하세요</option>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <?php foreach ($available_stores as $store): ?>
+                            <?php 
+                            $selected = ($current_store_id == $store['id']) ? 'selected' : '';
+                            $store_info = htmlspecialchars($store['name']);
+                            ?>
+                            <option value="<?php echo $store['id']; ?>" <?php echo $selected; ?>>
+                                <?php echo $store_info; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </select>
+                
+                <div class="mt-2 text-xs text-gray-600">
+                    <i class="fas fa-map-marker-alt mr-1"></i>
+                    선택된 점포의 inventory 테이블에 가격 정보가 저장됩니다.
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-600">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    <strong>처리 방식:</strong> 기존 SKU는 업데이트, 신규 SKU는 생성
+                </div>
+                <button 
+                    type="submit" 
+                    onclick="return confirmSave()"
+                    <?php echo empty($available_stores) ? 'disabled' : ''; ?>
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white <?php echo empty($available_stores) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'; ?> focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                >
+                    <i class="fas fa-save mr-2"></i>
+                    <?php echo empty($available_stores) ? '점포 없음 - 저장 불가' : '모든 데이터 저장하기'; ?>
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -573,5 +1198,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
 </div>
 
 <?php endif; ?>
+
+<script>
+// 엑셀 데이터를 JavaScript로 전달 - 전체 데이터 사용
+<?php if (!empty($excel_data)): ?>
+// 전체 엑셀 데이터를 다시 읽어서 JavaScript에 전달
+let fullExcelData = [];
+<?php if (isset($actualMaxRow) && isset($worksheet)): ?>
+// 전체 데이터를 PHP에서 생성하여 JavaScript로 전달
+<?php
+$full_data_for_js = [];
+for ($js_row = 2; $js_row <= $actualMaxRow; $js_row++) {
+    try {
+        $js_sku = trim($worksheet->getCell($columnLetters[1] . $js_row)->getValue() ?? '');
+        $js_name = trim($worksheet->getCell($columnLetters[2] . $js_row)->getValue() ?? '');  
+        $js_cost = (float)($worksheet->getCell($columnLetters[6] . $js_row)->getValue() ?? 0);
+        $js_selling = (float)($worksheet->getCell($columnLetters[7] . $js_row)->getValue() ?? 0);
+        
+        // 원가가 음수이면 0으로 설정
+        if ($js_cost < 0) $js_cost = 0;
+        
+        // 판매가가 음수이면 0으로 설정
+        if ($js_selling < 0) $js_selling = 0;
+        
+        // 검증: SKU, 상품명만 확인 (원가, 판매가는 0도 허용)
+        if (!empty($js_sku) && !empty($js_name)) {
+            $full_data_for_js[] = [$js_sku, $js_name, $js_cost, $js_selling];
+        }
+    } catch (Exception $e) {
+        // 셀 읽기 오류 무시
+    }
+}
+?>
+const excelData = <?php echo json_encode($full_data_for_js); ?>; // 전체 유효 데이터만
+<?php else: ?>
+const excelData = <?php echo json_encode($excel_data); ?>; // fallback: 표시된 데이터
+<?php endif; ?>
+console.log('Full Excel data loaded:', excelData.length, 'valid rows');
+
+// 페이지 로드 시 데이터 설정
+document.addEventListener('DOMContentLoaded', function() {
+    const dataInput = document.getElementById('excel_data_input');
+    if (dataInput && excelData) {
+        dataInput.value = JSON.stringify(excelData);
+        console.log('Data set for saving:', excelData.length, 'rows');
+    }
+});
+
+function confirmSave() {
+    const dataInput = document.getElementById('excel_data_input');
+    const storeSelect = document.getElementById('target_store_id');
+    
+    if (!dataInput.value) {
+        alert('저장할 엑셀 데이터가 없습니다. 먼저 엑셀 파일을 업로드해주세요.');
+        return false;
+    }
+    
+    const storeName = storeSelect.options[storeSelect.selectedIndex].text;
+    const dataArray = JSON.parse(dataInput.value);
+    const dataCount = dataArray.length;
+    
+    // 데이터 검증
+    let validCount = 0;
+    let invalidCount = 0;
+    
+    dataArray.forEach((row, index) => {
+        const sku = (row[0] || '').toString().trim();
+        const name = (row[1] || '').toString().trim();
+        let cost = parseFloat(row[2] || 0);
+        const selling = parseFloat(row[3] || 0);
+        
+        // 원가가 음수이면 0으로 설정
+        if (cost < 0) cost = 0;
+        
+        // 판매가가 음수이면 0으로 설정
+        if (selling < 0) selling = 0;
+        
+        // 검증: SKU, 상품명만 확인 (원가, 판매가는 0도 허용)
+        if (sku && name) {
+            validCount++;
+        } else {
+            invalidCount++;
+        }
+    });
+    
+    const confirmMessage = `📊 데이터 저장 확인\n\n` +
+        `• 총 데이터: ${dataCount}개\n` +
+        `• 검증 통과: ${validCount}개 (저장될 예정)\n` +
+        `• 검증 실패: ${invalidCount}개 (건너뛸 예정)\n` +
+        `• 대상 점포: ${storeName}\n` +
+        `• 저장 위치: products 테이블 + inventory 테이블\n` +
+        `• 처리 방식: 기존 SKU 업데이트 / 신규 SKU 생성\n\n` +
+        `${invalidCount > 0 ? '⚠️ 일부 데이터에 오류가 있어도 유효한 데이터는 저장됩니다.\n\n' : ''}` +
+        `계속하시겠습니까?`;
+    
+    return confirm(confirmMessage);
+}
+<?php else: ?>
+function confirmSave() {
+    alert('저장할 엑셀 데이터가 없습니다. 먼저 엑셀 파일을 업로드해주세요.');
+    return false;
+}
+<?php endif; ?>
+</script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

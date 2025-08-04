@@ -14,6 +14,7 @@ This is a PHP-based retail management system called "HOME K MART" for managing s
 - **CSS Build System**: PostCSS with TailwindCSS compilation
 - **Permission System**: Granular role-based access control with JSON-based permissions
 - **Margin Management**: Dynamic category-based pricing with margin calculation helpers
+- **Excel Processing**: PhpSpreadsheet integration for bulk product uploads and data import
 
 ## Development Commands
 
@@ -29,6 +30,7 @@ npm run watch:css
 ### PHP Development
 - Use XAMPP or similar local server environment
 - Database connection available via `get_db_connection()` in `config/db_config.php`
+- PHP syntax checking: `PATH="/c/xampp/php:$PATH" php -l filename.php`
 - No specific PHP linting/testing commands defined in package.json
 
 ## Database Architecture
@@ -43,6 +45,12 @@ npm run watch:css
 - `lib/permission_helper.php` - Advanced role-based permission management
 - `lib/margin_helper.php` - Category-based margin calculation and pricing
 - `lib/session_helper.php` - Session management utilities
+
+### Data Flow Architecture
+- **Store-Centric Design**: Each user belongs to a store, data operations are store-scoped
+- **Inventory Management**: `products` table for catalog, `inventory` table for store-specific pricing/quantities
+- **Purchase Tracking**: Purchase records link to specific stores and update inventory automatically
+- **Excel Integration**: Bulk import processes validate and insert data into both products and inventory tables
 
 ## Permission System Architecture
 
@@ -108,16 +116,22 @@ Dynamic pricing system with category-based margin rules:
 - `config/` - Database and system configuration
 - `lib/` - Reusable helper libraries and utilities
 - `public/` - Web-accessible files (document root)
-- `public/partials/` - Reusable template components
+- `public/partials/` - Reusable template components (header.php, footer.php, sidebar.php)
 - `src/` - Source files for compilation (CSS)
-- `sql/` - Database migration scripts
+- `vendor/` - PhpSpreadsheet and other Composer dependencies
 
 ### Management Modules
-- User operations: `*_user.php` files
-- Store operations: `*_store.php` files  
-- Product operations: `*_product.php` files
-- Purchase operations: `*_purchase.php` files
-- AJAX endpoints: `ajax_*.php` files
+- **User operations**: `*_user.php` files
+- **Store operations**: `*_store.php` files  
+- **Product operations**: `*_product.php` files (including bulk upload and Excel processing)
+- **Purchase operations**: `*_purchase.php` files
+- **AJAX endpoints**: `ajax_*.php` files for dynamic functionality
+- **Specialized tools**: `excel_test.php` for Excel import testing and validation
+
+### Template Architecture
+- All pages use `public/partials/header.php` which includes authentication, store context, and navigation
+- Navigation is permission-aware and adapts based on user role
+- Store information is automatically loaded and available in `$current_store_name` and `$current_store_id`
 
 ## Key Conventions
 
@@ -125,17 +139,34 @@ Dynamic pricing system with category-based margin rules:
 - Use `get_db_connection()` for simple MySQLi operations
 - Use PDO with proper error handling for complex queries and transactions
 - Always set charset to utf8mb4 for proper Korean character support
+- Transaction handling: Use `autocommit(false)` + `commit()`/`rollback()` for data integrity
 
 ### Error Handling
 - Database errors logged via `error_log()`
 - User-facing errors stored in session flash messages
 - Graceful fallbacks for permission and margin calculation failures
+- Comprehensive validation with detailed error messages for Excel imports
 
 ### Security Patterns
 - All database queries use prepared statements
-- Permission checks before sensitive operations
+- Permission checks before sensitive operations using `has_permission()` and `require_permission()`
 - Session-based authentication with role verification
+- Store-scoped data access (users can only access their assigned store data unless super_admin)
+
+### Excel/Data Import Patterns
+- PhpSpreadsheet library integration for Excel file processing
+- Validation-first approach: validate all data before database transactions
+- Partial success handling: commit valid data even if some rows fail
+- Real-time feedback with progress tracking and detailed error reporting
 
 ## Korean Language
 
 This application is primarily in Korean (한국어) with Korean comments and UI text. All user-facing content, error messages, and administrative interfaces use Korean language.
+
+## TailwindCSS Integration
+
+- Custom build process with PostCSS
+- Extensive safelist in `tailwind.config.js` for dynamic classes
+- Primary color palette customized for brand consistency
+- FontAwesome icons integrated for UI elements
+- Responsive design patterns with mobile-first approach

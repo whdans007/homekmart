@@ -2,6 +2,16 @@
 $page_title = "회원관리 - HOME K MART";
 require_once __DIR__ . '/partials/header.php';
 
+// 회원관리 권한 확인
+if (!has_permission('user_management')) {
+    $_SESSION['flash'] = [
+        'type' => 'error', 
+        'message' => '회원관리에 접근할 권한이 없습니다.'
+    ];
+    header('Location: shop.php');
+    exit;
+}
+
 // 작업 완료 후 결과 메시지를 표시하기 위한 플래시 메시지 시스템
 $flash = null;
 if (isset($_SESSION['flash'])) {
