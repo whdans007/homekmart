@@ -200,7 +200,7 @@ if (!$result) {
                                     <span class="font-medium"><?php echo number_format($row['total_pieces'] ?? 0); ?></span>
                                     <span class="text-xs text-gray-400 ml-1">개</span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300"><?php echo number_format($row['total_amount'], 0); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300"><?php echo number_format($row['total_amount'], 2); ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium border border-gray-300">
                                     <a href="edit_purchase.php?id=<?php echo $row['purchase_id']; ?>" class="text-indigo-600 hover:text-indigo-900">상세보기</a>
                                 </td>
