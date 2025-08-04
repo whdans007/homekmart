@@ -2,8 +2,8 @@
 $page_title = "브랜드 관리 - HOME K MART";
 require_once __DIR__ . '/partials/header.php';
 
-// 총괄관리자만 접근 가능
-if ($_SESSION['role'] !== 'super_admin') {
+// 브랜드 관리 권한 확인
+if (!has_permission('brand_management') && $_SESSION['role'] !== 'super_admin') {
     echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'>
             <div class='flex'>
                 <div class='flex-shrink-0'>

@@ -113,10 +113,6 @@ if (!empty($_SESSION['user_id'])) {
                                     </a>
                                     <?php endif; ?>
                                     
-                                    <a href="margin_management.php" class="<?php echo in_array($current_page, ['margin_management.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                        <i class="fas fa-percentage mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                        마진관리
-                                    </a>
                                     
                                     <?php if (has_permission('supplier_management') || $_SESSION['role'] === 'super_admin'): ?>
                                     <a href="supplier_management.php" class="<?php echo in_array($current_page, ['supplier_management.php', 'add_supplier.php', 'edit_supplier.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">

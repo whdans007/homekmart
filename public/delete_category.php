@@ -2,8 +2,9 @@
 require_once __DIR__ . '/../lib/session_helper.php';
 ensure_logged_in();
 
-// 총괄관리자만 접근 가능
-if ($_SESSION['role'] !== 'super_admin') {
+// 카테고리 관리 권한 확인
+require_once __DIR__ . '/../lib/permission_helper.php';
+if (!has_permission('category_management')) {
     $_SESSION['flash'] = ['type' => 'error', 'message' => '이 작업에 대한 권한이 없습니다.'];
     header('Location: category_management.php');
     exit;

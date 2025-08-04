@@ -3,10 +3,13 @@ $page_title = "상품 관리 - HOME K MART";
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
-// 총괄관리자 또는 일반관리자만 접근 가능
-if (!in_array($_SESSION['role'], ['super_admin', 'admin'])) {
-    echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'><div class='flex'><div class='flex-shrink-0'><i class='fas fa-exclamation-circle text-red-400'></i></div><div class='ml-3'><p class='text-sm text-red-800'>이 페이지에 접근할 권한이 없습니다.</p></div></div></div>";
-    require_once __DIR__ . '/partials/footer.php';
+// 상품관리 권한 확인
+if (!has_permission('product_management')) {
+    $_SESSION['flash'] = [
+        'type' => 'error', 
+        'message' => '상품관리에 접근할 권한이 없습니다.'
+    ];
+    header('Location: shop.php');
     exit;
 }
 
@@ -38,7 +41,8 @@ if (!empty($_SESSION['user_id'])) {
 // 검색 및 페이징 변수
 $search_term = $_GET['search'] ?? '';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$limit = 15; // 페이지당 상품 수
+$per_page = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10; // 기본 10개
+$limit = in_array($per_page, [10, 25, 50, 100, 200]) ? $per_page : 10; // 허용된 값만 사용
 $offset = ($page - 1) * $limit;
 
 try {
@@ -92,20 +96,57 @@ try {
 
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold text-gray-900">상품 리스트</h1>
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">상품 리스트</h1>
+            <?php if (!$error_message && isset($total_products)): ?>
+                <p class="text-sm text-gray-600 mt-1">총 <?php echo number_format($total_products); ?>개의 상품</p>
+            <?php endif; ?>
+        </div>
         <a href="add_product.php" class="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
             <i class="fas fa-plus mr-2"></i> 새 상품 추가
         </a>
     </div>
 
+    <!-- Flash messages -->
+    <?php if (isset($_SESSION['flash'])): ?>
+        <div class="mb-6">
+            <?php 
+            $flash = $_SESSION['flash'];
+            $alert_class = $flash['type'] === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
+            $icon_class = $flash['type'] === 'success' ? 'fa-check-circle text-green-400' : 'fa-exclamation-circle text-red-400';
+            ?>
+            <div class="<?php echo $alert_class; ?> border rounded-md p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas <?php echo $icon_class; ?>"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm"><?php echo htmlspecialchars($flash['message']); ?></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php unset($_SESSION['flash']); ?>
+    <?php endif; ?>
+
     <!-- 검색 및 필터 -->
     <div class="mb-6">
-        <form action="product_management.php" method="get">
-            <div class="relative">
+        <form action="product_management.php" method="get" class="space-y-4 sm:space-y-0 sm:flex sm:items-center sm:space-x-4">
+            <div class="relative flex-1">
                 <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                     <i class="fas fa-search text-gray-400"></i>
                 </div>
                 <input type="search" name="search" placeholder="상품명, SKU, 브랜드명으로 검색..." class="block w-full rounded-md border-gray-300 pl-10 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5" value="<?php echo htmlspecialchars($search_term); ?>">
+            </div>
+            <div class="flex items-center space-x-2">
+                <label for="per_page" class="text-sm text-gray-700 whitespace-nowrap">표시 개수:</label>
+                <select name="per_page" id="per_page" class="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" onchange="this.form.submit()">
+                    <option value="10" <?php echo $per_page == 10 ? 'selected' : ''; ?>>10개</option>
+                    <option value="25" <?php echo $per_page == 25 ? 'selected' : ''; ?>>25개</option>
+                    <option value="50" <?php echo $per_page == 50 ? 'selected' : ''; ?>>50개</option>
+                    <option value="100" <?php echo $per_page == 100 ? 'selected' : ''; ?>>100개</option>
+                    <option value="200" <?php echo $per_page == 200 ? 'selected' : ''; ?>>200개</option>
+                </select>
             </div>
         </form>
     </div>
@@ -169,7 +210,7 @@ try {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border border-gray-300">
                                     <a href="edit_product.php?id=<?php echo $product['id']; ?>" class="text-primary-600 hover:text-primary-900" onclick="event.stopPropagation();">수정</a>
-                                    <a href="delete_product.php?id=<?php echo $product['id']; ?>" class="text-red-600 hover:text-red-900 ml-4" onclick="event.stopPropagation(); return confirm('정말로 이 상품을 삭제하시겠습니까?');">삭제</a>
+                                    <a href="delete_product.php?id=<?php echo $product['id']; ?>" class="text-red-600 hover:text-red-900 ml-4" onclick="event.stopPropagation(); return confirmDelete('<?php echo htmlspecialchars($product['name_ko'], ENT_QUOTES); ?>');">삭제</a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -181,23 +222,87 @@ try {
         <!-- 페이징 -->
         <?php if ($total_pages > 1): ?>
             <nav class="mt-6 flex items-center justify-between border-t border-gray-200 px-4 sm:px-0">
+                <!-- 페이지 정보 및 모바일 네비게이션 -->
+                <div class="flex-1 flex justify-between sm:hidden">
+                    <?php if ($page > 1): ?>
+                        <a href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search_term); ?>&per_page=<?php echo $per_page; ?>" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                            <i class="fas fa-arrow-left mr-2"></i> 이전
+                        </a>
+                    <?php else: ?>
+                        <span></span>
+                    <?php endif; ?>
+                    
+                    <span class="text-sm text-gray-700 flex items-center">
+                        <span class="font-medium"><?php echo $page; ?></span> / <span class="font-medium"><?php echo $total_pages; ?></span>
+                    </span>
+                    
+                    <?php if ($page < $total_pages): ?>
+                        <a href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search_term); ?>&per_page=<?php echo $per_page; ?>" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                            다음 <i class="fas fa-arrow-right ml-2"></i>
+                        </a>
+                    <?php else: ?>
+                        <span></span>
+                    <?php endif; ?>
+                </div>
+            </nav>
+            <nav class="flex items-center justify-between border-t border-gray-200 px-4 sm:px-0">
                 <div class="-mt-px flex w-0 flex-1">
                     <?php if ($page > 1): ?>
-                        <a href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search_term); ?>" class="inline-flex items-center border-t-2 border-transparent pt-4 pr-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+                        <a href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search_term); ?>&per_page=<?php echo $per_page; ?>" class="inline-flex items-center border-t-2 border-transparent pt-4 pr-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
                             <i class="fas fa-arrow-left mr-3"></i> 이전
                         </a>
                     <?php endif; ?>
                 </div>
                 <div class="hidden md:-mt-px md:flex">
-                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                        <a href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search_term); ?>" class="<?php echo ($i == $page) ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?> inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium">
+                    <?php
+                    // 스마트 페이지네이션 로직
+                    $start_page = max(1, $page - 2);
+                    $end_page = min($total_pages, $page + 2);
+                    
+                    // 시작 부분 조정 (5개 페이지 유지)
+                    if ($end_page - $start_page < 4) {
+                        if ($start_page == 1) {
+                            $end_page = min($total_pages, $start_page + 4);
+                        } else {
+                            $start_page = max(1, $end_page - 4);
+                        }
+                    }
+                    ?>
+                    
+                    <!-- 첫 페이지 표시 (현재 페이지가 4보다 클 때) -->
+                    <?php if ($start_page > 1): ?>
+                        <a href="?page=1&search=<?php echo urlencode($search_term); ?>&per_page=<?php echo $per_page; ?>" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium">
+                            1
+                        </a>
+                        <?php if ($start_page > 2): ?>
+                            <span class="border-transparent text-gray-500 inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium">
+                                ...
+                            </span>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                    
+                    <!-- 메인 페이지 번호들 -->
+                    <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+                        <a href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search_term); ?>&per_page=<?php echo $per_page; ?>" class="<?php echo ($i == $page) ? 'border-primary-500 text-primary-600 bg-primary-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?> inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium">
                             <?php echo $i; ?>
                         </a>
                     <?php endfor; ?>
+                    
+                    <!-- 마지막 페이지 표시 (현재 페이지가 끝에서 4보다 작을 때) -->
+                    <?php if ($end_page < $total_pages): ?>
+                        <?php if ($end_page < $total_pages - 1): ?>
+                            <span class="border-transparent text-gray-500 inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium">
+                                ...
+                            </span>
+                        <?php endif; ?>
+                        <a href="?page=<?php echo $total_pages; ?>&search=<?php echo urlencode($search_term); ?>&per_page=<?php echo $per_page; ?>" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium">
+                            <?php echo $total_pages; ?>
+                        </a>
+                    <?php endif; ?>
                 </div>
                 <div class="-mt-px flex w-0 flex-1 justify-end">
                     <?php if ($page < $total_pages): ?>
-                        <a href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search_term); ?>" class="inline-flex items-center border-t-2 border-transparent pt-4 pl-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+                        <a href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search_term); ?>&per_page=<?php echo $per_page; ?>" class="inline-flex items-center border-t-2 border-transparent pt-4 pl-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
                             다음 <i class="fas fa-arrow-right ml-3"></i>
                         </a>
                     <?php endif; ?>
@@ -991,6 +1096,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 페이지 로드 시 마진율 프리셋 로드
     loadMarginPresets();
+    
+    // 간단한 삭제 확인 함수
+    window.confirmDelete = function(productName) {
+        // 첫 번째 확인
+        if (!confirm(`정말로 "${productName}" 상품을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
+            return false;
+        }
+        
+        // 두 번째 확인
+        if (!confirm('삭제하면 관련된 재고 정보도 함께 삭제될 수 있습니다.\n정말 계속하시겠습니까?')) {
+            return false;
+        }
+        
+        return true;
+    };
     
     // 마진율 프리셋 설정 모달 관련
     const presetConfigModal = document.getElementById('preset-config-modal');

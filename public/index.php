@@ -1,6 +1,17 @@
 <?php
 $page_title = "대시보드 - HOME K MART";
 require_once __DIR__ . '/partials/header.php';
+
+// 관리자 접근 권한 확인
+if (!has_permission('admin_access')) {
+    $_SESSION['flash'] = [
+        'type' => 'error', 
+        'message' => '관리자 페이지에 접근할 권한이 없습니다. 쇼핑몰을 이용해주세요.'
+    ];
+    header('Location: shop.php');
+    exit;
+}
+
 require_once __DIR__ . '/../config/db_config.php';
 
 $stats = [

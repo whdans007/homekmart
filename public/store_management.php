@@ -2,19 +2,13 @@
 $page_title = "지점 관리 - HOME K MART";
 require_once __DIR__ . '/partials/header.php';
 
-// 총괄관리자만 접근 가능
-if ($_SESSION['role'] !== 'super_admin') {
-    echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'>
-            <div class='flex'>
-                <div class='flex-shrink-0'>
-                    <i class='fas fa-exclamation-circle text-red-400'></i>
-                </div>
-                <div class='ml-3'>
-                    <p class='text-sm text-red-800'>이 페이지에 접근할 권한이 없습니다.</p>
-                </div>
-            </div>
-          </div>";
-    require_once __DIR__ . '/partials/footer.php';
+// 지점관리 권한 확인
+if (!has_permission('store_management')) {
+    $_SESSION['flash'] = [
+        'type' => 'error', 
+        'message' => '지점관리에 접근할 권한이 없습니다.'
+    ];
+    header('Location: shop.php');
     exit;
 }
 
