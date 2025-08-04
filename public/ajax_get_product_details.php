@@ -53,7 +53,11 @@ try {
     $selling_column_check->execute();
     $has_selling_price_column = $selling_column_check->fetch();
     
-    // 모든 지점 정보 조회 (원가/판매가 포함, 재고 관계없이 모든 점포 표시)
+    $box_price_column_check = $pdo->prepare("SHOW COLUMNS FROM inventory LIKE 'box_price'");
+    $box_price_column_check->execute();
+    $has_box_price_column = $box_price_column_check->fetch();
+    
+    // 모든 지점 정보 조회 (원가/판매가/박스단가 포함, 재고 관계없이 모든 점포 표시)
     $price_columns = '';
     $select_columns = '';
     if ($has_selling_price_column) {
@@ -63,6 +67,10 @@ try {
     if ($has_cost_price_column) {
         $price_columns .= ', i.cost_price';
         $select_columns .= ', i.cost_price';
+    }
+    if ($has_box_price_column) {
+        $price_columns .= ', i.box_price';
+        $select_columns .= ', i.box_price';
     }
     
     if ($current_store_id) {

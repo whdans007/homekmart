@@ -39,12 +39,30 @@ try {
     $has_cost_price_column = $column_check->fetch();
     $column_check->close();
     
-    // 점포별 원가를 포함한 쿼리 구성
-    if ($has_cost_price_column && $user_store_id) {
-        // 점포별 원가가 있는 경우
-        $base_select = "SELECT p.id, p.sku, p.name_ko, p.name_en, p.barcode, p.pieces_per_box,
-                               COALESCE(i.cost_price, p.cost_price) as cost_price,
-                               COALESCE(i.selling_price, p.selling_price) as selling_price";
+    // inventory 테이블에 box_price 컬럼이 있는지 확인
+    $box_column_check = $conn->prepare("SHOW COLUMNS FROM inventory LIKE 'box_price'");
+    $box_column_check->execute();
+    $has_box_price_column = $box_column_check->fetch();
+    $box_column_check->close();
+    
+    // 점포별 원가/박스단가를 포함한 쿼리 구성
+    if (($has_cost_price_column || $has_box_price_column) && $user_store_id) {
+        // 점포별 원가/박스단가가 있는 경우
+        $select_fields = "p.id, p.sku, p.name_ko, p.name_en, p.barcode, p.pieces_per_box";
+        
+        if ($has_cost_price_column) {
+            $select_fields .= ", COALESCE(i.cost_price, p.cost_price) as cost_price";
+        } else {
+            $select_fields .= ", p.cost_price";
+        }
+        
+        $select_fields .= ", COALESCE(i.selling_price, p.selling_price) as selling_price";
+        
+        if ($has_box_price_column) {
+            $select_fields .= ", i.box_price";
+        }
+        
+        $base_select = "SELECT " . $select_fields;
         $base_from = "FROM products p 
                       LEFT JOIN inventory i ON p.id = i.product_id AND i.store_id = ?";
     } else {
@@ -57,7 +75,7 @@ try {
     $sql = $base_select . " " . $base_from . " WHERE p.barcode = ? LIMIT 1";
     $stmt = $conn->prepare($sql);
     
-    if ($has_cost_price_column && $user_store_id) {
+    if (($has_cost_price_column || $has_box_price_column) && $user_store_id) {
         $stmt->bind_param('is', $user_store_id, $term);
     } else {
         $stmt->bind_param('s', $term);
@@ -78,7 +96,7 @@ try {
                LIMIT 10";
         $stmt = $conn->prepare($sql);
         
-        if ($has_cost_price_column && $user_store_id) {
+        if (($has_cost_price_column || $has_box_price_column) && $user_store_id) {
             $stmt->bind_param('isss', $user_store_id, $searchTerm, $searchTerm, $searchTerm);
         } else {
             $stmt->bind_param('sss', $searchTerm, $searchTerm, $searchTerm);

@@ -148,16 +148,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // 2. 실제 입고 수량 계산 (박스/낱개 구분)
                     $actual_quantity = (int)$item['quantity'];
                     if ($purchase_type === 'box') {
-                        // 박스 매입인 경우 pieces_per_box를 곱해서 낱개 수량 계산
-                        $pieces_stmt = $conn->prepare("SELECT pieces_per_box FROM products WHERE id = ?");
-                        $pieces_stmt->bind_param("i", $item['product_id']);
-                        $pieces_stmt->execute();
-                        $pieces_result = $pieces_stmt->get_result();
-                        if ($pieces_row = $pieces_result->fetch_assoc()) {
-                            $pieces_per_box = $pieces_row['pieces_per_box'] ?? 1;
-                            $actual_quantity = (int)$item['quantity'] * $pieces_per_box;
+                        // 박스 매입인 경우 사용자가 입력한 pieces_per_box 값을 사용
+                        $pieces_per_box = isset($item['pieces_per_box']) ? (int)$item['pieces_per_box'] : 1;
+                        if ($pieces_per_box <= 0) {
+                            $pieces_per_box = 1; // 안전장치
                         }
-                        $pieces_stmt->close();
+                        $actual_quantity = (int)$item['quantity'] * $pieces_per_box;
                     }
                     
                     // 3. inventory 테이블 업데이트 (사용자 점포에만 적용)
@@ -369,7 +365,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <table id="item-table" class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">바코드</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품명</th>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">구매유형</th>
                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">수량</th>
@@ -399,7 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <p class="text-sm text-gray-500">매입 총 합계</p>
                 </div>
                 <div class="text-right">
-                    <p class="text-2xl font-bold text-gray-900">₩<span id="total-amount">0</span></p>
+                    <p class="text-2xl font-bold text-gray-900"><span id="total-amount">0</span></p>
                 </div>
             </div>
         </div>
@@ -795,23 +791,43 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 4. 상품 목록에 추가
     function addProductToList(product, quantity = 1, unitPrice = null, purchaseType = 'box', existingItemId = null) {
+        // 중복 상품 확인 (기존 상품이 아닌 경우만)
+        if (existingItemId === null) {
+            const existingRows = itemList.querySelectorAll('.item-row');
+            for (let row of existingRows) {
+                const productIdInput = row.querySelector('input[name*="[product_id]"]');
+                if (productIdInput && productIdInput.value == product.id) {
+                    // 중복 상품 발견
+                    alert(`이미 목록에 있는 상품입니다.\n상품명: ${product.name_ko}\nSKU: ${product.sku}`);
+                    return; // 추가하지 않고 함수 종료
+                }
+            }
+        }
+        
         const newRow = document.createElement('tr');
         newRow.classList.add('item-row');
         newRow.dataset.piecesPerBox = product.pieces_per_box || 1;
+        newRow.dataset.productId = product.id; // 중복 검사를 위한 product_id 저장
         
-        const finalUnitPrice = unitPrice !== null ? unitPrice : (product.cost_price || 0);
+        // 단가는 0 또는 비워둔 상태로 시작
+        let finalUnitPrice;
+        if (unitPrice !== null) {
+            finalUnitPrice = unitPrice;
+        } else {
+            finalUnitPrice = 0; // 기본값을 0으로 설정
+        }
         const isExisting = existingItemId !== null;
         
         newRow.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap">
-                <span class="text-xs font-mono text-gray-600">${product.barcode || '없음'}</span>
+                <span class="text-xs font-mono text-gray-600">${product.sku || '없음'}</span>
                 ${isExisting ? '<span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">기존</span>' : ''}
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
                 <input type="hidden" name="items[${itemIndex}][product_id]" value="${product.id}">
                 ${isExisting ? `<input type="hidden" name="items[${itemIndex}][existing_item_id]" value="${existingItemId}">` : ''}
                 <div class="text-sm font-medium text-gray-900">${product.name_ko}</div>
-                <div class="text-xs text-gray-500">SKU: ${product.sku}</div>
+                <div class="text-xs text-gray-500">${product.name_en || ''}</div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-center">
                 <select name="items[${itemIndex}][purchase_type]" class="text-xs rounded-md px-2 py-1 purchase-type border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" ${isExisting ? 'disabled' : ''}>
@@ -823,12 +839,15 @@ document.addEventListener('DOMContentLoaded', function () {
             <td class="px-6 py-4 whitespace-nowrap text-right">
                 <input type="number" name="items[${itemIndex}][quantity]" class="w-16 px-2 py-1 border border-gray-300 rounded-md text-right text-sm quantity focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" min="1" value="${quantity}" ${isExisting ? 'readonly' : ''}>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right pieces-per-box text-sm text-gray-500">${product.pieces_per_box || 1}개</td>
+            <td class="px-6 py-4 whitespace-nowrap text-right">
+                <input type="number" name="items[${itemIndex}][pieces_per_box]" class="w-16 px-2 py-1 border border-gray-300 rounded-md text-right text-sm pieces-per-box focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" min="1" value="${product.pieces_per_box || 1}" ${isExisting ? 'readonly' : ''}>
+                <span class="text-xs text-gray-500 ml-1">개</span>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-right">
                 <input type="number" name="items[${itemIndex}][unit_price]" class="w-20 px-2 py-1 border border-gray-300 rounded-md text-right text-sm unit-price focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" step="1" min="0" value="${finalUnitPrice}" ${isExisting ? 'readonly' : ''}>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right piece-price text-sm text-gray-500"></td>
-            <td class="px-6 py-4 whitespace-nowrap text-right row-total font-semibold text-gray-900">₩0</td>
+            <td class="px-6 py-4 whitespace-nowrap text-right row-total font-semibold text-gray-900">0</td>
             <td class="px-6 py-4 whitespace-nowrap text-center">
                 ${isExisting ? '<span class="text-gray-400 text-xs">수정 불가</span>' : '<button type="button" class="text-red-600 hover:text-red-800 remove-row"><i class="fas fa-trash-alt"></i></button>'}
             </td>
@@ -878,24 +897,66 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // 5, 7, 8. 수량/단가 변경 시 합계 업데이트
+    // 5, 7, 8. 수량/단가/박스당수량 변경 시 합계 업데이트
     itemList.addEventListener('input', function(e) {
-        if (e.target.classList.contains('quantity') || e.target.classList.contains('unit-price') || e.target.classList.contains('purchase-type')) {
-            updateRow(e.target.closest('tr'));
+        if (e.target.classList.contains('quantity') || e.target.classList.contains('unit-price') || e.target.classList.contains('purchase-type') || e.target.classList.contains('pieces-per-box')) {
+            const row = e.target.closest('tr');
+            
+            // 박스당 수량이 변경된 경우 dataset도 업데이트
+            if (e.target.classList.contains('pieces-per-box')) {
+                row.dataset.piecesPerBox = e.target.value || 1;
+            }
+            
+            updateRow(row);
+        }
+    });
+    
+    // 박스당 수량 변경 시 상품정보 자동 업데이트 (박스 구매유형일 때만)
+    itemList.addEventListener('change', function(e) {
+        if (e.target.classList.contains('pieces-per-box')) {
+            const row = e.target.closest('tr');
+            const productId = row.dataset.productId;
+            const newPiecesPerBox = parseInt(e.target.value) || 1;
+            const purchaseType = row.querySelector('.purchase-type').value;
+            
+            // 기존 상품이 아니고, 구매유형이 박스인 경우에만 업데이트
+            if (productId && !e.target.readOnly && purchaseType === 'box') {
+                updateProductPiecesPerBox(productId, newPiecesPerBox, row);
+            }
+        }
+        
+        // 구매유형이 박스로 변경될 때도 박스당 수량 자동 업데이트 확인
+        if (e.target.classList.contains('purchase-type') && e.target.value === 'box') {
+            const row = e.target.closest('tr');
+            const productId = row.dataset.productId;
+            const piecesPerBoxInput = row.querySelector('.pieces-per-box');
+            const newPiecesPerBox = parseInt(piecesPerBoxInput.value) || 1;
+            
+            // 기존 상품이 아닌 경우에만 업데이트
+            if (productId && !piecesPerBoxInput.readOnly) {
+                updateProductPiecesPerBox(productId, newPiecesPerBox, row);
+            }
         }
     });
 
     // 9. 삭제 버튼
     itemList.addEventListener('click', function(e) {
-        if (e.target.classList.contains('remove-row')) {
-            e.target.closest('tr').remove();
-            updateTotalAmount();
+        // 삭제 버튼이나 그 안의 아이콘을 클릭했는지 확인
+        const removeButton = e.target.closest('.remove-row');
+        if (removeButton) {
+            e.preventDefault();
             
-            // 상품 행이 모두 제거되면 빈 행 다시 표시
-            const productRows = itemList.querySelectorAll('.item-row');
-            const emptyRow = document.getElementById('empty-row');
-            if (productRows.length === 0 && emptyRow) {
-                emptyRow.style.display = '';
+            // 확인 대화상자 표시
+            if (confirm('이 상품을 목록에서 삭제하시겠습니까?')) {
+                removeButton.closest('tr').remove();
+                updateTotalAmount();
+                
+                // 상품 행이 모두 제거되면 빈 행 다시 표시
+                const productRows = itemList.querySelectorAll('.item-row');
+                const emptyRow = document.getElementById('empty-row');
+                if (productRows.length === 0 && emptyRow) {
+                    emptyRow.style.display = '';
+                }
             }
         }
     });
@@ -904,10 +965,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const purchaseType = row.querySelector('.purchase-type').value;
         const quantity = parseFloat(row.querySelector('.quantity').value) || 0;
         const unitPrice = parseFloat(row.querySelector('.unit-price').value) || 0;
-        const piecesPerBox = parseInt(row.dataset.piecesPerBox) || 1;
+        const piecesPerBoxInput = row.querySelector('.pieces-per-box');
+        const piecesPerBox = piecesPerBoxInput ? parseInt(piecesPerBoxInput.value) || 1 : parseInt(row.dataset.piecesPerBox) || 1;
 
         const rowTotal = quantity * unitPrice;
-        row.querySelector('.row-total').textContent = '₩' + rowTotal.toLocaleString();
+        row.querySelector('.row-total').textContent = rowTotal.toLocaleString();
 
         let piecePrice = 0;
         if (purchaseType === 'box' && piecesPerBox > 0) {
@@ -915,7 +977,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             piecePrice = unitPrice;
         }
-        row.querySelector('.piece-price').textContent = '₩' + Math.round(piecePrice).toLocaleString();
+        row.querySelector('.piece-price').textContent = Math.round(piecePrice).toLocaleString();
         
         updateTotalAmount();
     }
@@ -923,8 +985,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateTotalAmount() {
         let total = 0;
         document.querySelectorAll('.row-total').forEach(function (el) {
-            // ₩ 기호를 제거하고 숫자만 추출
-            const amount = el.textContent.replace(/[₩,]/g, '');
+            // 콤마를 제거하고 숫자만 추출
+            const amount = el.textContent.replace(/[,]/g, '');
             total += parseFloat(amount) || 0;
         });
         document.getElementById('total-amount').textContent = total.toLocaleString();
@@ -936,6 +998,68 @@ document.addEventListener('DOMContentLoaded', function () {
             searchResults.classList.add('hidden');
         }
     });
+
+    // 상품의 박스당 수량 업데이트 함수
+    function updateProductPiecesPerBox(productId, newPiecesPerBox, row) {
+        // 값이 양수가 아니면 업데이트하지 않음
+        if (newPiecesPerBox <= 0) {
+            return;
+        }
+        
+        // AJAX 요청으로 상품정보 업데이트
+        fetch('ajax_update_pieces_per_box.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                product_id: parseInt(productId),
+                pieces_per_box: newPiecesPerBox
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 성공 메시지를 해당 행에 임시 표시
+                showRowMessage(row, data.message, 'success');
+                console.log('상품 박스당 수량 업데이트 성공:', data);
+            } else {
+                // 오류 메시지 표시
+                showRowMessage(row, data.error || '박스당 수량 업데이트에 실패했습니다.', 'error');
+                console.error('상품 박스당 수량 업데이트 실패:', data);
+            }
+        })
+        .catch(error => {
+            console.error('박스당 수량 업데이트 요청 실패:', error);
+            showRowMessage(row, '네트워크 오류가 발생했습니다.', 'error');
+        });
+    }
+    
+    // 행별 메시지 표시 함수
+    function showRowMessage(row, message, type) {
+        // 기존 메시지 제거
+        const existingMessage = row.querySelector('.row-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+        
+        // 새 메시지 생성
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `row-message absolute z-10 mt-1 p-2 rounded text-xs ${type === 'success' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'}`;
+        messageDiv.textContent = message;
+        
+        // 박스당 수량 필드의 부모에 상대 위치 설정 및 메시지 추가
+        const piecesPerBoxCell = row.querySelector('.pieces-per-box').closest('td');
+        piecesPerBoxCell.style.position = 'relative';
+        piecesPerBoxCell.appendChild(messageDiv);
+        
+        // 3초 후 메시지 제거
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.remove();
+            }
+        }, 3000);
+    }
 
     // 거래처 신규 등록 모달 함수
     function showAddSupplierModal(defaultName = '') {
