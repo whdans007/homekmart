@@ -20,3 +20,17 @@
 2025-08-05 16:31:26 - inventory 테이블 selling_price 컬럼 존재 여부: true
 2025-08-05 16:31:27 - 가격변경 이력 저장 - store_id: 1, change_type: both
 2025-08-05 16:31:45 - 가격변동 페이지 로드 - user_id: 1, store_id: null, role: super_admin
+2025-08-05 16:33:00 - 가격변동 페이지 로드 - user_id: 1, store_id: null, role: super_admin
+2025-08-05 16:33:04 - 가격변동 페이지 로드 - user_id: 1, store_id: null, role: super_admin
+2025-08-05 16:34:51 - 가격변동 페이지 로드 - user_id: 1, store_id: null, role: super_admin
+2025-08-05 16:37:17 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-05 16:37:26 - 개별 가격적용 시작 - product_id: 13757, store_id: 1, selling_price: 358.8, cost_price: 260.000000
+2025-08-05 16:37:26 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-05 16:37:26 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-05 16:37:26 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-08-05 16:37:28 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-05 16:38:15 - 개별 가격적용 시작 - product_id: 13754, store_id: 1, selling_price: 263.88888888889, cost_price: 190.000000
+2025-08-05 16:38:15 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-05 16:38:15 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-05 16:38:15 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-08-05 16:38:16 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin

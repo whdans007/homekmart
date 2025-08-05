@@ -52,12 +52,12 @@ if ($purchase_result->num_rows == 0) {
 
 $purchase_info = $purchase_result->fetch_assoc();
 
-// 현재 점포 ID 가져오기
-$current_store_id = $_SESSION['store_id'] ?? null;
+// 헤더에서 이미 설정된 점포 정보 사용 (header.php에서 처리됨)
+// $current_store_id와 $current_store_name은 이미 header.php에서 설정됨
 
-// 디버깅: 세션 정보 확인
-error_log("가격변동 페이지 로드 - user_id: " . ($_SESSION['user_id'] ?? 'null') . ", store_id: " . ($current_store_id ?? 'null') . ", role: " . ($_SESSION['role'] ?? 'null'));
-$debug_msg = date('Y-m-d H:i:s') . " - 가격변동 페이지 로드 - user_id: " . ($_SESSION['user_id'] ?? 'null') . ", store_id: " . ($current_store_id ?? 'null') . ", role: " . ($_SESSION['role'] ?? 'null') . "\n";
+// 디버깅: 헤더에서 설정된 점포 정보 확인
+error_log("가격변동 페이지 로드 - user_id: " . ($_SESSION['user_id'] ?? 'null') . ", store_id: " . ($current_store_id ?? 'null') . ", store_name: " . ($current_store_name ?? 'null') . ", role: " . ($_SESSION['role'] ?? 'null'));
+$debug_msg = date('Y-m-d H:i:s') . " - 가격변동 페이지 로드 - user_id: " . ($_SESSION['user_id'] ?? 'null') . ", store_id: " . ($current_store_id ?? 'null') . ", store_name: " . ($current_store_name ?? 'null') . ", role: " . ($_SESSION['role'] ?? 'null') . "\n";
 file_put_contents(__DIR__ . '/debug_log.txt', $debug_msg, FILE_APPEND | LOCK_EX);
 
 // 매입 상품과 현재 점포 정보를 비교 조회
