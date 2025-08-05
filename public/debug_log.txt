@@ -34,3 +34,25 @@
 2025-08-05 16:38:15 - inventory 테이블 selling_price 컬럼 존재 여부: true
 2025-08-05 16:38:15 - 가격변경 이력 저장 - store_id: 1, change_type: both
 2025-08-05 16:38:16 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-05 16:44:12 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-05 16:45:07 - 개별 가격적용 시작 - product_id: 4575, store_id: 1, selling_price: 299, cost_price: 215.000000
+2025-08-05 16:45:07 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-05 16:45:07 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-05 16:45:07 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-05 16:45:11 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-05 17:03:44 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-05 17:04:52 - 개별 가격적용 시작 - product_id: 14161, store_id: 1, selling_price: 221, cost_price: 160.000000
+2025-08-05 17:04:52 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-05 17:04:52 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-05 17:04:52 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-05 17:04:55 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-05 17:05:00 - 개별 가격적용 시작 - product_id: 11847, store_id: 1, selling_price: 455, cost_price: 330.000000
+2025-08-05 17:05:00 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-05 17:05:00 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-05 17:05:00 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-05 17:05:02 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-05 17:05:06 - 개별 가격적용 시작 - product_id: 13841, store_id: 1, selling_price: 66, cost_price: 48.000000
+2025-08-05 17:05:06 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-05 17:05:06 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-05 17:05:07 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-05 17:05:08 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin

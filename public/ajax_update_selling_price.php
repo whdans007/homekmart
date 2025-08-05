@@ -39,6 +39,7 @@ $selling_price = $_POST['selling_price'] ?? 0;
 $cost_price = $_POST['cost_price'] ?? null;
 $store_id = $_POST['store_id'] ?? null;
 $purchase_id = $_POST['purchase_id'] ?? null;
+$margin_rate = $_POST['margin_rate'] ?? null;
 
 if (empty($product_id) || empty($selling_price)) {
     ob_clean();
@@ -231,6 +232,10 @@ try {
                 // 가격변경 이력 저장
                 $change_type = 'both';
                 $change_reason = $purchase_id ? '매입이력 기반 가격변경' : '수동 가격변경';
+                if ($margin_rate !== null) {
+                    $change_reason = '마진율 기반 가격변경 (' . $margin_rate . '%)';
+                    $change_type = 'margin_adjust';
+                }
                 
             } else {
                 error_log("inventory 테이블에 판매가만 업데이트");
@@ -257,6 +262,10 @@ try {
                 // 가격변경 이력 저장
                 $change_type = 'selling_only';
                 $change_reason = $purchase_id ? '매입이력 기반 판매가변경' : '수동 판매가변경';
+                if ($margin_rate !== null) {
+                    $change_reason = '마진율 기반 판매가변경 (' . $margin_rate . '%)';
+                    $change_type = 'margin_adjust';
+                }
             }
             
             // 가격변경 이력 저장
@@ -348,6 +357,10 @@ try {
         
         // 가격변경 이력 저장
         $change_reason = $purchase_id ? '매입이력 기반 가격변경' : '수동 가격변경';
+        if ($margin_rate !== null) {
+            $change_reason = '마진율 기반 가격변경 (' . $margin_rate . '%)';
+            $change_type = 'margin_adjust';
+        }
         $history_data = [
             'product_id' => $product_id,
             'store_id' => null, // products 테이블은 점포별이 아님
