@@ -128,6 +128,8 @@ function savePriceChangeHistory($pdo, $data) {
 
 try {
     // 디버깅 로그
+    $debug_msg = date('Y-m-d H:i:s') . " - 개별 가격적용 시작 - product_id: " . $product_id . ", store_id: " . ($store_id ?? 'null') . ", selling_price: " . $selling_price . ", cost_price: " . ($cost_price ?? 'null') . "\n";
+    file_put_contents(__DIR__ . '/debug_log.txt', $debug_msg, FILE_APPEND | LOCK_EX);
     error_log("개별 가격적용 시작 - product_id: " . $product_id . ", store_id: " . ($store_id ?? 'null') . ", selling_price: " . $selling_price . ", cost_price: " . ($cost_price ?? 'null'));
     
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
@@ -138,6 +140,8 @@ try {
     createPriceChangeHistoryTable($pdo);
 
     if ($store_id && is_numeric($store_id)) {
+        $debug_msg = date('Y-m-d H:i:s') . " - 점포별 가격 적용 시작 - store_id: " . $store_id . "\n";
+        file_put_contents(__DIR__ . '/debug_log.txt', $debug_msg, FILE_APPEND | LOCK_EX);
         error_log("점포별 가격 적용 시작 - store_id: " . $store_id);
         
         // 점포별 판매가 설정 (inventory 테이블에 selling_price 컬럼이 있는지 확인)
@@ -145,6 +149,8 @@ try {
         $column_check->execute();
         $has_selling_price_column = $column_check->fetch();
         
+        $debug_msg = date('Y-m-d H:i:s') . " - inventory 테이블 selling_price 컬럼 존재 여부: " . ($has_selling_price_column ? 'true' : 'false') . "\n";
+        file_put_contents(__DIR__ . '/debug_log.txt', $debug_msg, FILE_APPEND | LOCK_EX);
         error_log("inventory 테이블 selling_price 컬럼 존재 여부: " . ($has_selling_price_column ? 'true' : 'false'));
         
         // selling_price 컬럼이 없으면 추가
@@ -269,6 +275,8 @@ try {
                 'changed_by_user_id' => $_SESSION['user_id']
             ];
             
+            $debug_msg = date('Y-m-d H:i:s') . " - 가격변경 이력 저장 - store_id: " . ($store_id ?? 'null') . ", change_type: " . $change_type . "\n";
+            file_put_contents(__DIR__ . '/debug_log.txt', $debug_msg, FILE_APPEND | LOCK_EX);
             error_log("가격변경 이력 저장 - store_id: " . ($store_id ?? 'null') . ", change_type: " . $change_type);
             savePriceChangeHistory($pdo, $history_data);
             
@@ -288,6 +296,8 @@ try {
             ]);
         }
     } else {
+        $debug_msg = date('Y-m-d H:i:s') . " - 기본 판매가 설정 (products 테이블) - store_id가 없거나 숫자가 아님: " . ($store_id ?? 'null') . "\n";
+        file_put_contents(__DIR__ . '/debug_log.txt', $debug_msg, FILE_APPEND | LOCK_EX);
         // 기본 판매가 설정 (products 테이블)
         
         // 기존 가격 정보 조회 (products 테이블)

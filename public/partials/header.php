@@ -20,6 +20,13 @@ if (!empty($_SESSION['user_id'])) {
         if ($user_row = $user_result->fetch_assoc()) {
             $current_store_name = $user_row['store_name'] ?? '본점';
             $current_store_id = $user_row['store_id'];
+            
+            // super_admin이고 store_id가 없는 경우 기본 점포(CLARK HILLS) 설정
+            if ($_SESSION['role'] === 'super_admin' && empty($current_store_id)) {
+                $current_store_id = 1; // CLARK HILLS
+                $current_store_name = 'CLARK HILLS';
+                $_SESSION['store_id'] = $current_store_id; // 세션에도 저장
+            }
         }
         $user_stmt->close();
         $conn->close();

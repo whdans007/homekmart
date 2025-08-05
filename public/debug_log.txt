@@ -1,0 +1,22 @@
+2025-08-05 16:20:57 - 가격변동 페이지 로드 - user_id: 1, store_id: null, role: super_admin
+2025-08-05 16:21:11 - 개별 가격적용 시작 - product_id: 14112, store_id: null, selling_price: 154, cost_price: 110.000000
+2025-08-05 16:21:11 - 기본 판매가 설정 (products 테이블) - store_id가 없거나 숫자가 아님: null
+2025-08-05 16:21:13 - 가격변동 페이지 로드 - user_id: 1, store_id: null, role: super_admin
+2025-08-05 16:25:03 - 가격변동 페이지 로드 - user_id: 1, store_id: null, role: super_admin
+2025-08-05 16:25:06 - 개별 가격적용 시작 - product_id: 13841, store_id: null, selling_price: 69.209302325581, cost_price: 48.000000
+2025-08-05 16:25:06 - 기본 판매가 설정 (products 테이블) - store_id가 없거나 숫자가 아님: null
+2025-08-05 16:25:08 - 가격변동 페이지 로드 - user_id: 1, store_id: null, role: super_admin
+2025-08-05 16:29:44 - 가격변동 페이지 로드 - user_id: 1, store_id: null, role: super_admin
+2025-08-05 16:29:49 - 개별 가격적용 시작 - product_id: 13995, store_id: null, selling_price: 189.27450980392, cost_price: 147.000000
+2025-08-05 16:29:49 - 기본 판매가 설정 (products 테이블) - store_id가 없거나 숫자가 아님: null
+2025-08-05 16:29:51 - 가격변동 페이지 로드 - user_id: 1, store_id: null, role: super_admin
+2025-08-05 16:30:23 - 가격변동 페이지 로드 - user_id: 1, store_id: null, role: super_admin
+2025-08-05 16:31:12 - 개별 가격적용 시작 - product_id: 13995, store_id: 1, selling_price: 213, cost_price: 147
+2025-08-05 16:31:12 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-05 16:31:12 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-05 16:31:12 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-08-05 16:31:26 - 개별 가격적용 시작 - product_id: 13995, store_id: 1, selling_price: 204, cost_price: 147
+2025-08-05 16:31:26 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-05 16:31:26 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-05 16:31:27 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-08-05 16:31:45 - 가격변동 페이지 로드 - user_id: 1, store_id: null, role: super_admin
