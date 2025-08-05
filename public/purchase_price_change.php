@@ -227,14 +227,30 @@ $items_result = $items_stmt->get_result();
                                     <?php endif; ?>
                                 </td>
                                 <td class="px-3 py-4 text-right border border-gray-300">
-                                    <span class="text-sm font-mono"><?php echo number_format($current_margin_rate, 1); ?>%</span>
+                                    <div class="flex items-center justify-end space-x-1">
+                                        <input type="number" 
+                                               class="margin-input w-16 text-right text-sm font-mono border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-yellow-500 focus:border-yellow-500" 
+                                               value="<?php echo number_format($current_margin_rate, 1); ?>" 
+                                               step="0.1" 
+                                               min="0"
+                                               data-product-id="<?php echo $item['product_id']; ?>"
+                                               data-cost-price="<?php echo $item['purchase_unit_price_per_piece']; ?>"
+                                               data-original-margin="<?php echo number_format($current_margin_rate, 1); ?>">
+                                        <span class="text-sm text-gray-500">%</span>
+                                    </div>
                                 </td>
                                 <td class="px-3 py-4 text-right border border-gray-300">
                                     <span class="text-sm font-mono"><?php echo number_format($item['current_selling_price']); ?>원</span>
                                 </td>
                                 <td class="px-3 py-4 text-right border border-gray-300">
-                                    <span class="text-sm font-mono font-semibold text-green-600"><?php echo number_format($new_selling_price); ?>원</span>
-                                    <div class="text-xs text-gray-500">
+                                    <span class="expected-price text-sm font-mono font-semibold text-green-600" 
+                                          data-product-id="<?php echo $item['product_id']; ?>"
+                                          data-original-price="<?php echo $new_selling_price; ?>">
+                                        <?php echo number_format($new_selling_price); ?>원
+                                    </span>
+                                    <div class="price-difference text-xs text-gray-500" 
+                                         data-product-id="<?php echo $item['product_id']; ?>"
+                                         data-current-price="<?php echo $item['current_selling_price']; ?>">
                                         차이: <?php echo number_format($new_selling_price - $item['current_selling_price']); ?>원
                                     </div>
                                 </td>
@@ -245,7 +261,8 @@ $items_result = $items_stmt->get_result();
                                                 data-product-id="<?php echo $item['product_id']; ?>"
                                                 data-cost-price="<?php echo $item['purchase_unit_price_per_piece']; ?>"
                                                 data-selling-price="<?php echo $new_selling_price; ?>"
-                                                data-price-change="<?php echo $price_change > 0 ? 'increase' : 'decrease'; ?>">
+                                                data-price-change="<?php echo $price_change > 0 ? 'increase' : 'decrease'; ?>"
+                                                data-current-selling-price="<?php echo $item['current_selling_price']; ?>">
                                             <i class="fas fa-check mr-1"></i>
                                             가격적용
                                         </button>
@@ -305,6 +322,7 @@ $items_result = $items_stmt->get_result();
     </div>
 </div>
 
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // 현재 점포 정보 (product_management.php와 동일한 방식)
@@ -332,15 +350,59 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // 마진율 입력 필드 이벤트 (실시간 예상판매가 업데이트)
+    document.querySelectorAll('.margin-input').forEach(input => {
+        input.addEventListener('input', function() {
+            const productId = this.dataset.productId;
+            const costPrice = parseFloat(this.dataset.costPrice);
+            const marginRate = parseFloat(this.value) || 0;
+            
+            // 새로운 판매가 계산
+            const newSellingPrice = Math.round(costPrice * (1 + (marginRate / 100)));
+            
+            // 예상판매가 업데이트
+            const expectedPriceSpan = document.querySelector(`.expected-price[data-product-id="${productId}"]`);
+            const priceDifferenceDiv = document.querySelector(`.price-difference[data-product-id="${productId}"]`);
+            const applyButton = document.querySelector(`.apply-new-prices-btn[data-product-id="${productId}"]`);
+            
+            if (expectedPriceSpan && priceDifferenceDiv && applyButton) {
+                const currentPrice = parseFloat(priceDifferenceDiv.dataset.currentPrice);
+                const priceDifference = newSellingPrice - currentPrice;
+                
+                expectedPriceSpan.textContent = newSellingPrice.toLocaleString() + '원';
+                priceDifferenceDiv.textContent = '차이: ' + priceDifference.toLocaleString() + '원';
+                
+                // 버튼 데이터 업데이트
+                applyButton.dataset.sellingPrice = newSellingPrice;
+                applyButton.dataset.marginRate = marginRate;
+                
+                // 마진율이 변경되었는지 표시
+                const originalMargin = parseFloat(this.dataset.originalMargin);
+                if (Math.abs(marginRate - originalMargin) > 0.1) {
+                    this.classList.add('border-yellow-500', 'bg-yellow-50');
+                    applyButton.classList.remove('bg-primary-600', 'hover:bg-primary-700');
+                    applyButton.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+                    applyButton.innerHTML = '<i class="fas fa-percentage mr-1"></i>마진율적용';
+                } else {
+                    this.classList.remove('border-yellow-500', 'bg-yellow-50');
+                    applyButton.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
+                    applyButton.classList.add('bg-primary-600', 'hover:bg-primary-700');
+                    applyButton.innerHTML = '<i class="fas fa-check mr-1"></i>가격적용';
+                }
+            }
+        });
+    });
+    
     // 자동 가격 적용 버튼 이벤트
     document.querySelectorAll('.apply-new-prices-btn').forEach(button => {
         button.addEventListener('click', function() {
             const productId = this.dataset.productId;
             const costPrice = this.dataset.costPrice;
             const sellingPrice = this.dataset.sellingPrice;
+            const marginRate = this.dataset.marginRate;
             
             if (confirm('계산된 가격으로 적용하시겠습니까?')) {
-                updatePrice(productId, costPrice, sellingPrice, this);
+                updatePrice(productId, costPrice, sellingPrice, this, marginRate);
             }
         });
     });
@@ -354,6 +416,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('manualPriceModal').classList.remove('hidden');
         });
     });
+    
     
     // 모달 취소 버튼
     document.getElementById('cancelModal').addEventListener('click', function() {
@@ -384,6 +447,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updatePrice(currentProductId, costPrice, sellingPrice, this);
         document.getElementById('manualPriceModal').classList.add('hidden');
     });
+    
     
     // 일괄 적용 함수
     function bulkApplyPriceIncrease() {
@@ -442,7 +506,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // 가격 업데이트 함수
-    function updatePrice(productId, costPrice, sellingPrice, buttonElement) {
+    function updatePrice(productId, costPrice, sellingPrice, buttonElement, marginRate) {
         // 버튼 비활성화
         buttonElement.disabled = true;
         const originalText = buttonElement.innerHTML;
@@ -454,6 +518,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('purchase_id', '<?php echo htmlspecialchars($purchase_id); ?>');
         if (costPrice) formData.append('cost_price', costPrice);
         if (sellingPrice) formData.append('selling_price', sellingPrice);
+        if (marginRate) formData.append('margin_rate', marginRate);
         // product_management.php와 동일한 방식으로 currentStoreId 변수 사용
         if (currentStoreId) {
             formData.append('store_id', currentStoreId);
@@ -484,6 +549,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    
     // 모달 외부 클릭시 닫기
     document.getElementById('manualPriceModal').addEventListener('click', function(e) {
         if (e.target === this) {
@@ -491,6 +557,7 @@ document.addEventListener('DOMContentLoaded', function() {
             currentProductId = null;
         }
     });
+    
     
     // 페이지 로드시 일괄 적용 버튼 상태 업데이트
     function updateBulkApplyButton() {
