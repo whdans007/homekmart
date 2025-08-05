@@ -45,10 +45,24 @@ try {
     $stores = $pdo->query("SELECT id, name FROM stores ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
     // 지점별 재고 및 가격 정보 가져오기
-    $stmt = $pdo->prepare("SELECT store_id, quantity, selling_price FROM inventory WHERE product_id = ?");
+    $stmt = $pdo->prepare("SELECT store_id, quantity, cost_price, selling_price FROM inventory WHERE product_id = ?");
     $stmt->execute([$product_id]);
     $inventory_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($inventory_data as $inv) {
+        // 마진율 계산
+        $margin_rate = 0;
+        if ($inv['cost_price'] > 0) {
+            $margin_rate = (($inv['selling_price'] - $inv['cost_price']) / $inv['cost_price']) * 100;
+        }
+        $inv['margin_rate'] = round($margin_rate, 2);
+        
+        // 박스원가 계산 (pieces_per_box가 있을 때)
+        $box_cost = 0;
+        if ($product['pieces_per_box'] > 1) {
+            $box_cost = $inv['cost_price'] * $product['pieces_per_box'];
+        }
+        $inv['box_cost'] = $box_cost;
+        
         $inventory_prices[$inv['store_id']] = $inv;
     }
 
@@ -369,37 +383,81 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     </td>
                                 </tr>
                                 
-                                <!-- 지점별 판매가 -->
+                                <!-- 지점별 원가 및 판매가 -->
                                 <?php if (!empty($stores)): ?>
                                 <tr>
                                     <td class="px-6 py-4 align-top text-sm font-medium text-gray-900 bg-gray-50">
-                                        지점별 판매가
+                                        지점별 가격 정보
                                     </td>
                                     <td class="px-6 py-4">
-                                        <div class="space-y-3">
-                                            <?php foreach ($stores as $store): ?>
-                                                <div class="flex items-center space-x-4">
-                                                    <div class="w-24 text-sm text-gray-700">
-                                                        <?php echo htmlspecialchars($store['name']); ?>
-                                                    </div>
-                                                    <div class="relative">
-                                                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                                            <span class="text-gray-500 sm:text-sm">₩</span>
-                                                        </div>
-                                                        <input type="number" name="store_prices[<?php echo $store['id']; ?>]" id="store_price_<?php echo $store['id']; ?>" 
-                                                               value="<?php echo htmlspecialchars($inventory_prices[$store['id']]['selling_price'] ?? ''); ?>" 
-                                                               class="block w-36 rounded-md border-gray-300 pl-7 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
-                                                               placeholder="가격">
-                                                    </div>
-                                                    <?php if (isset($inventory_prices[$store['id']]['quantity'])): ?>
-                                                        <div class="text-xs text-gray-500">
-                                                            재고: <?php echo number_format($inventory_prices[$store['id']]['quantity']); ?>개
-                                                        </div>
-                                                    <?php endif; ?>
-                                                </div>
-                                            <?php endforeach; ?>
+                                        <!-- 테이블 헤더 -->
+                                        <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                                            <table class="min-w-full divide-y divide-gray-300">
+                                                <thead class="bg-gray-50">
+                                                    <tr>
+                                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지점</th>
+                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">원가</th>
+                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">마진(%)</th>
+                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">판매가</th>
+                                                        <?php if ($product['pieces_per_box'] > 1): ?>
+                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">박스원가</th>
+                                                        <?php endif; ?>
+                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">재고</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="bg-white divide-y divide-gray-200">
+                                                    <?php foreach ($stores as $store): ?>
+                                                        <tr class="hover:bg-gray-50">
+                                                            <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                                                                <?php echo htmlspecialchars($store['name']); ?>
+                                                            </td>
+                                                            <td class="px-4 py-3 text-sm text-gray-900 text-right">
+                                                                <?php if (isset($inventory_prices[$store['id']]['cost_price'])): ?>
+                                                                    <?php echo number_format($inventory_prices[$store['id']]['cost_price'], 2); ?>
+                                                                <?php else: ?>
+                                                                    <span class="text-gray-400">-</span>
+                                                                <?php endif; ?>
+                                                            </td>
+                                                            <td class="px-4 py-3 text-sm text-gray-900 text-right">
+                                                                <?php if (isset($inventory_prices[$store['id']]['margin_rate'])): ?>
+                                                                    <span class="<?php echo $inventory_prices[$store['id']]['margin_rate'] < 0 ? 'text-red-600' : 'text-green-600'; ?>">
+                                                                        <?php echo number_format($inventory_prices[$store['id']]['margin_rate'], 2); ?>%
+                                                                    </span>
+                                                                <?php else: ?>
+                                                                    <span class="text-gray-400">-</span>
+                                                                <?php endif; ?>
+                                                            </td>
+                                                            <td class="px-4 py-3 text-sm text-right">
+                                                                <input type="number" name="store_prices[<?php echo $store['id']; ?>]" id="store_price_<?php echo $store['id']; ?>" 
+                                                                       value="<?php echo htmlspecialchars($inventory_prices[$store['id']]['selling_price'] ?? ''); ?>" 
+                                                                       class="block w-24 text-right rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" 
+                                                                       placeholder="판매가">
+                                                            </td>
+                                                            <?php if ($product['pieces_per_box'] > 1): ?>
+                                                            <td class="px-4 py-3 text-sm text-gray-900 text-right">
+                                                                <?php if (isset($inventory_prices[$store['id']]['box_cost']) && $inventory_prices[$store['id']]['box_cost'] > 0): ?>
+                                                                    <?php echo number_format($inventory_prices[$store['id']]['box_cost'], 2); ?>
+                                                                    <div class="text-xs text-gray-500">
+                                                                        (<?php echo $product['pieces_per_box']; ?>개입)
+                                                                    </div>
+                                                                <?php else: ?>
+                                                                    <span class="text-gray-400">-</span>
+                                                                <?php endif; ?>
+                                                            </td>
+                                                            <?php endif; ?>
+                                                            <td class="px-4 py-3 text-sm text-gray-500 text-right">
+                                                                <?php if (isset($inventory_prices[$store['id']]['quantity'])): ?>
+                                                                    <?php echo number_format($inventory_prices[$store['id']]['quantity']); ?>개
+                                                                <?php else: ?>
+                                                                    <span class="text-gray-400">0개</span>
+                                                                <?php endif; ?>
+                                                            </td>
+                                                        </tr>
+                                                    <?php endforeach; ?>
+                                                </tbody>
+                                            </table>
                                         </div>
-                                        <p class="mt-2 text-xs text-gray-500">비워두면 기본 판매가가 적용됩니다.</p>
+                                        <p class="mt-2 text-xs text-gray-500">판매가를 비워두면 기본 판매가가 적용됩니다.</p>
                                     </td>
                                 </tr>
                                 <?php endif; ?>
