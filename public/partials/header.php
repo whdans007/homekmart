@@ -133,6 +133,11 @@ if (!empty($_SESSION['user_id'])) {
                                         <i class="fas fa-shopping-cart mr-3 text-gray-400 group-hover:text-gray-500"></i>
                                         매입관리
                                     </a>
+                                    
+                                    <a href="price_change_history.php" class="<?php echo ($current_page == 'price_change_history.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                        <i class="fas fa-chart-line mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                                        가격변경 이력
+                                    </a>
                                     <?php endif; ?>
                                     
                                     <?php if (has_permission('settings') || $_SESSION['role'] === 'super_admin'): ?>

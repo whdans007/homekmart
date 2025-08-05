@@ -112,7 +112,11 @@ try {
             (CASE 
                 WHEN pi.purchase_type = 'box' THEN pi.unit_price / COALESCE(pr.pieces_per_box, 1)
                 ELSE pi.unit_price
-            END) as unit_cost_per_piece" .
+            END) as unit_cost_per_piece,
+            (CASE 
+                WHEN pi.purchase_type = 'box' THEN pi.unit_price
+                ELSE pi.unit_price * COALESCE(pr.pieces_per_box, 1)
+            END) as box_cost" .
             ($has_store_id ? ", st.name as store_name" : "") . "
         FROM purchase_items pi
         JOIN purchases p ON pi.purchase_id = p.purchase_id
@@ -144,6 +148,7 @@ try {
         $item['purchase_date_formatted'] = date('Y-m-d', strtotime($item['purchase_date']));
         $item['unit_price_formatted'] = number_format($item['unit_price']);
         $item['unit_cost_per_piece_formatted'] = number_format($item['unit_cost_per_piece'], 2);
+        $item['box_cost_formatted'] = number_format($item['box_cost'], 2);
         
         // 마진 관리에서 설정된 마진율 사용 (기본값: 30%)
         $item['suggested_selling_price'] = calculate_suggested_price($item['unit_cost_per_piece'], $margin_rate);

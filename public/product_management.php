@@ -412,6 +412,7 @@ try {
                                     <th class="px-3 py-2 text-left font-semibold text-gray-700">매입일</th>
                                     <th class="px-3 py-2 text-left font-semibold text-gray-700">거래처</th>
                                     <th class="px-3 py-2 text-left font-semibold text-gray-700">점포</th>
+                                    <th class="px-3 py-2 text-right font-semibold text-gray-700">박스 원가</th>
                                     <th class="px-3 py-2 text-right font-semibold text-gray-700">낱개 원가</th>
                                     <th class="px-3 py-2 text-center font-semibold text-gray-700">선택</th>
                                 </tr>
@@ -624,6 +625,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <tr>
                                         <th class="px-4 py-2 font-semibold">지점</th>
                                         <th class="px-4 py-2 font-semibold text-right">원가</th>
+                                        <th class="px-4 py-2 font-semibold text-right">마진(%)</th>
                                         <th class="px-4 py-2 font-semibold text-right">판매가</th>
                                     </tr>
                                 </thead>
@@ -634,12 +636,21 @@ document.addEventListener('DOMContentLoaded', function() {
                                 console.log('Processing inventory item:', inv);
                                 const storeCostPrice = inv.cost_price ? `${parseFloat(inv.cost_price).toLocaleString()}` : '-';
                                 const storeSellingPrice = inv.selling_price ? `${parseFloat(inv.selling_price).toLocaleString()}` : '-';
-                                console.log('Formatted prices - Cost:', storeCostPrice, 'Selling:', storeSellingPrice);
+                                
+                                // 마진율 계산
+                                let marginRate = '-';
+                                if (inv.cost_price && inv.selling_price && parseFloat(inv.cost_price) > 0) {
+                                    const margin = ((parseFloat(inv.selling_price) - parseFloat(inv.cost_price)) / parseFloat(inv.cost_price)) * 100;
+                                    marginRate = `${margin.toFixed(1)}%`;
+                                }
+                                
+                                console.log('Formatted prices - Cost:', storeCostPrice, 'Margin:', marginRate, 'Selling:', storeSellingPrice);
                                 const row = document.createElement('tr');
                                 row.className = 'border-b';
                                 row.innerHTML = `
                                     <td class="px-4 py-2">${inv.store_name}</td>
                                     <td class="px-4 py-2 text-right font-semibold text-green-700">${storeCostPrice}</td>
+                                    <td class="px-4 py-2 text-right font-semibold text-orange-600">${marginRate}</td>
                                     <td class="px-4 py-2 text-right font-semibold text-blue-700">${storeSellingPrice}</td>
                                 `;
                                 tbody.appendChild(row);
@@ -826,6 +837,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td class="px-3 py-2">${item.purchase_date_formatted}</td>
                 <td class="px-3 py-2">${item.supplier_name}</td>
                 <td class="px-3 py-2">${item.store_name || currentStoreName}</td>
+                <td class="px-3 py-2 text-right font-mono">${item.box_cost_formatted || '-'}</td>
                 <td class="px-3 py-2 text-right font-mono">${item.unit_cost_per_piece_formatted}</td>
                 <td class="px-3 py-2 text-center">
                     <button class="select-purchase-btn px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200">
@@ -993,6 +1005,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentStoreId) {
             formData.append('store_id', currentStoreId);
         }
+        if (selectedPurchaseData && selectedPurchaseData.purchase_id) {
+            formData.append('purchase_id', selectedPurchaseData.purchase_id);
+        }
         
         fetch('ajax_update_selling_price.php', {
             method: 'POST',
@@ -1023,6 +1038,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <th class="px-3 py-2 font-semibold">지점</th>
                                             <th class="px-3 py-2 font-semibold text-right">재고</th>
                                             <th class="px-3 py-2 font-semibold text-right">원가</th>
+                                            <th class="px-3 py-2 font-semibold text-right">마진(%)</th>
                                             <th class="px-3 py-2 font-semibold text-right">판매가</th>
                                         </tr>
                                     </thead>
@@ -1033,13 +1049,22 @@ document.addEventListener('DOMContentLoaded', function() {
                                     console.log('Refresh - Processing inventory item:', inv);
                                     const storeCostPrice = inv.cost_price ? `${parseFloat(inv.cost_price).toLocaleString()}` : '-';
                                     const storeSellingPrice = inv.selling_price ? `${parseFloat(inv.selling_price).toLocaleString()}` : '-';
-                                    console.log('Refresh - Formatted prices - Cost:', storeCostPrice, 'Selling:', storeSellingPrice);
+                                    
+                                    // 마진율 계산
+                                    let marginRate = '-';
+                                    if (inv.cost_price && inv.selling_price && parseFloat(inv.cost_price) > 0) {
+                                        const margin = ((parseFloat(inv.selling_price) - parseFloat(inv.cost_price)) / parseFloat(inv.cost_price)) * 100;
+                                        marginRate = `${margin.toFixed(1)}%`;
+                                    }
+                                    
+                                    console.log('Refresh - Formatted prices - Cost:', storeCostPrice, 'Margin:', marginRate, 'Selling:', storeSellingPrice);
                                     const row = document.createElement('tr');
                                     row.className = 'border-b';
                                     row.innerHTML = `
                                         <td class="px-3 py-2">${inv.store_name}</td>
                                         <td class="px-3 py-2 text-right">${parseInt(inv.quantity)}개</td>
                                         <td class="px-3 py-2 text-right font-semibold text-green-700">${storeCostPrice}</td>
+                                        <td class="px-3 py-2 text-right font-semibold text-orange-600">${marginRate}</td>
                                         <td class="px-3 py-2 text-right font-semibold text-blue-700">${storeSellingPrice}</td>
                                     `;
                                     tbody.appendChild(row);
