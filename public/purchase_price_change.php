@@ -55,6 +55,11 @@ $purchase_info = $purchase_result->fetch_assoc();
 // 현재 점포 ID 가져오기
 $current_store_id = $_SESSION['store_id'] ?? null;
 
+// 디버깅: 세션 정보 확인
+error_log("가격변동 페이지 로드 - user_id: " . ($_SESSION['user_id'] ?? 'null') . ", store_id: " . ($current_store_id ?? 'null') . ", role: " . ($_SESSION['role'] ?? 'null'));
+$debug_msg = date('Y-m-d H:i:s') . " - 가격변동 페이지 로드 - user_id: " . ($_SESSION['user_id'] ?? 'null') . ", store_id: " . ($current_store_id ?? 'null') . ", role: " . ($_SESSION['role'] ?? 'null') . "\n";
+file_put_contents(__DIR__ . '/debug_log.txt', $debug_msg, FILE_APPEND | LOCK_EX);
+
 // 매입 상품과 현재 점포 정보를 비교 조회
 $items_sql = "SELECT 
     pi.*, 
@@ -302,6 +307,13 @@ $items_result = $items_stmt->get_result();
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // 현재 점포 정보 (product_management.php와 동일한 방식)
+    const currentStoreId = <?php echo json_encode($current_store_id); ?>;
+    const currentStoreName = <?php echo json_encode($current_store_name); ?>;
+    
+    // 디버깅: JavaScript에서 점포 정보 확인
+    console.log('JavaScript - currentStoreId:', currentStoreId, 'currentStoreName:', currentStoreName);
+    
     let currentProductId = null;
     
     // 일괄 적용 버튼 이벤트
@@ -385,8 +397,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // AJAX 요청
         const formData = new FormData();
         formData.append('purchase_id', '<?php echo htmlspecialchars($purchase_id); ?>');
-        if (<?php echo $current_store_id ? $current_store_id : 'null'; ?>) {
-            formData.append('store_id', <?php echo $current_store_id ? $current_store_id : 'null'; ?>);
+        // product_management.php와 동일한 방식으로 currentStoreId 변수 사용
+        if (currentStoreId) {
+            formData.append('store_id', currentStoreId);
         }
         
         fetch('ajax_bulk_apply_price_increase.php', {
@@ -441,8 +454,9 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('purchase_id', '<?php echo htmlspecialchars($purchase_id); ?>');
         if (costPrice) formData.append('cost_price', costPrice);
         if (sellingPrice) formData.append('selling_price', sellingPrice);
-        if (<?php echo $current_store_id ? $current_store_id : 'null'; ?>) {
-            formData.append('store_id', <?php echo $current_store_id ? $current_store_id : 'null'; ?>);
+        // product_management.php와 동일한 방식으로 currentStoreId 변수 사용
+        if (currentStoreId) {
+            formData.append('store_id', currentStoreId);
         }
         
         fetch('ajax_update_selling_price.php', {
