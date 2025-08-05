@@ -1,20 +1,35 @@
 <?php
-require_once __DIR__ . '/../config/db_config.php';
-require_once __DIR__ . '/../lib/session_helper.php';
+// 출력 버퍼링 시작하여 예기치 않은 출력 방지
+ob_start();
+
+try {
+    require_once __DIR__ . '/../config/db_config.php';
+    require_once __DIR__ . '/../lib/session_helper.php';
+    require_once __DIR__ . '/../lib/permission_helper.php';
+} catch (Exception $e) {
+    ob_clean();
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => '필요한 라이브러리를 불러올 수 없습니다: ' . $e->getMessage()]);
+    exit;
+}
 
 // 세션 시작 (세션이 시작되지 않은 경우)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// 출력 버퍼 정리
+ob_clean();
 header('Content-Type: application/json');
 
-if (!is_logged_in() || !in_array($_SESSION['role'], ['super_admin', 'admin'])) {
+if (!is_logged_in() || !has_permission('purchase_management')) {
+    ob_clean();
     echo json_encode(['success' => false, 'message' => '권한이 없습니다.']);
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    ob_clean();
     echo json_encode(['success' => false, 'message' => '잘못된 요청 방식입니다.']);
     exit;
 }
@@ -112,6 +127,9 @@ function savePriceChangeHistory($pdo, $data) {
 }
 
 try {
+    // 디버깅 로그
+    error_log("개별 가격적용 시작 - product_id: " . $product_id . ", store_id: " . ($store_id ?? 'null') . ", selling_price: " . $selling_price . ", cost_price: " . ($cost_price ?? 'null'));
+    
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -120,10 +138,28 @@ try {
     createPriceChangeHistoryTable($pdo);
 
     if ($store_id && is_numeric($store_id)) {
+        error_log("점포별 가격 적용 시작 - store_id: " . $store_id);
+        
         // 점포별 판매가 설정 (inventory 테이블에 selling_price 컬럼이 있는지 확인)
         $column_check = $pdo->prepare("SHOW COLUMNS FROM inventory LIKE 'selling_price'");
         $column_check->execute();
         $has_selling_price_column = $column_check->fetch();
+        
+        error_log("inventory 테이블 selling_price 컬럼 존재 여부: " . ($has_selling_price_column ? 'true' : 'false'));
+        
+        // selling_price 컬럼이 없으면 추가
+        if (!$has_selling_price_column) {
+            error_log("selling_price 컬럼 추가 시도");
+            try {
+                $add_column = $pdo->prepare("ALTER TABLE inventory ADD COLUMN selling_price DECIMAL(10,2) DEFAULT NULL AFTER quantity");
+                $add_column->execute();
+                $has_selling_price_column = true;
+                error_log("selling_price 컬럼 추가 성공");
+            } catch (PDOException $e) {
+                error_log("selling_price 컬럼 추가 실패: " . $e->getMessage());
+                $has_selling_price_column = false;
+            }
+        }
         
         if ($has_selling_price_column) {
             // inventory 테이블에 cost_price 컬럼이 있는지도 확인
@@ -165,6 +201,7 @@ try {
             }
             
             if ($has_cost_price_column && $cost_price !== null) {
+                error_log("inventory 테이블에 원가와 판매가 모두 업데이트");
                 // 원가와 판매가 모두 업데이트
                 $stmt = $pdo->prepare("
                     UPDATE inventory 
@@ -174,12 +211,15 @@ try {
                 $stmt->execute([$selling_price, $cost_price, $product_id, $store_id]);
                 
                 if ($stmt->rowCount() == 0) {
+                    error_log("inventory 레코드가 없어서 새로 생성");
                     // 재고 레코드가 없으면 생성
                     $stmt = $pdo->prepare("
                         INSERT INTO inventory (product_id, store_id, quantity, selling_price, cost_price, created_at, updated_at)
                         VALUES (?, ?, 0, ?, ?, NOW(), NOW())
                     ");
                     $stmt->execute([$product_id, $store_id, $selling_price, $cost_price]);
+                } else {
+                    error_log("inventory 레코드 업데이트 완료 - 영향받은 행 수: " . $stmt->rowCount());
                 }
                 
                 // 가격변경 이력 저장
@@ -187,6 +227,7 @@ try {
                 $change_reason = $purchase_id ? '매입이력 기반 가격변경' : '수동 가격변경';
                 
             } else {
+                error_log("inventory 테이블에 판매가만 업데이트");
                 // 판매가만 업데이트
                 $stmt = $pdo->prepare("
                     UPDATE inventory 
@@ -196,12 +237,15 @@ try {
                 $stmt->execute([$selling_price, $product_id, $store_id]);
                 
                 if ($stmt->rowCount() == 0) {
+                    error_log("inventory 레코드가 없어서 새로 생성 (판매가만)");
                     // 재고 레코드가 없으면 생성
                     $stmt = $pdo->prepare("
                         INSERT INTO inventory (product_id, store_id, quantity, selling_price, created_at, updated_at)
                         VALUES (?, ?, 0, ?, NOW(), NOW())
                     ");
                     $stmt->execute([$product_id, $store_id, $selling_price]);
+                } else {
+                    error_log("inventory 레코드 업데이트 완료 (판매가만) - 영향받은 행 수: " . $stmt->rowCount());
                 }
                 
                 // 가격변경 이력 저장
@@ -225,6 +269,7 @@ try {
                 'changed_by_user_id' => $_SESSION['user_id']
             ];
             
+            error_log("가격변경 이력 저장 - store_id: " . ($store_id ?? 'null') . ", change_type: " . $change_type);
             savePriceChangeHistory($pdo, $history_data);
             
             ob_clean();
@@ -235,79 +280,11 @@ try {
                 'cost_price' => $cost_price !== null ? number_format($cost_price, 0) : null
             ]);
         } else {
-            // inventory 테이블에 selling_price 컬럼이 없는 경우 기본 판매가로 설정
-            
-            // 기존 가격 정보 조회 (products 테이블)
-            $old_prices_stmt = $pdo->prepare("SELECT cost_price, selling_price FROM products WHERE id = ?");
-            $old_prices_stmt->execute([$product_id]);
-            $old_prices = $old_prices_stmt->fetch(PDO::FETCH_ASSOC);
-            
-            $old_cost_price = $old_prices['cost_price'] ?? null;
-            $old_selling_price = $old_prices['selling_price'] ?? null;
-            
-            // 마진율 계산
-            $old_margin_rate = null;
-            $new_margin_rate = null;
-            
-            if ($old_cost_price && $old_selling_price && $old_cost_price > 0) {
-                $old_margin_rate = (($old_selling_price - $old_cost_price) / $old_cost_price) * 100;
-            }
-            
-            if ($cost_price && $selling_price && $cost_price > 0) {
-                $new_margin_rate = (($selling_price - $cost_price) / $cost_price) * 100;
-            }
-            
-            if ($cost_price !== null) {
-                // 원가와 판매가 모두 업데이트
-                $stmt = $pdo->prepare("
-                    UPDATE products 
-                    SET selling_price = ?, cost_price = ?, updated_at = NOW(), last_modified_by_user_id = ?
-                    WHERE id = ?
-                ");
-                $stmt->execute([$selling_price, $cost_price, $_SESSION['user_id'], $product_id]);
-                $change_type = 'both';
-            } else {
-                // 판매가만 업데이트
-                $stmt = $pdo->prepare("
-                    UPDATE products 
-                    SET selling_price = ?, updated_at = NOW(), last_modified_by_user_id = ?
-                    WHERE id = ?
-                ");
-                $stmt->execute([$selling_price, $_SESSION['user_id'], $product_id]);
-                $change_type = 'selling_only';
-            }
-
-            if ($stmt->rowCount() == 0) {
-                ob_clean();
-                echo json_encode(['success' => false, 'message' => '상품을 찾을 수 없습니다.']);
-                exit;
-            }
-            
-            // 가격변경 이력 저장
-            $change_reason = $purchase_id ? '매입이력 기반 가격변경' : '수동 가격변경';
-            $history_data = [
-                'product_id' => $product_id,
-                'store_id' => null, // products 테이블은 점포별이 아님
-                'old_cost_price' => $old_cost_price,
-                'new_cost_price' => $cost_price,
-                'old_selling_price' => $old_selling_price,
-                'new_selling_price' => $selling_price,
-                'old_margin_rate' => $old_margin_rate,
-                'new_margin_rate' => $new_margin_rate,
-                'change_type' => $change_type,
-                'change_reason' => $change_reason,
-                'purchase_id' => $purchase_id,
-                'changed_by_user_id' => $_SESSION['user_id']
-            ];
-            
-            savePriceChangeHistory($pdo, $history_data);
-
+            // inventory 테이블에 selling_price 컬럼 추가 실패한 경우 오류 반환
             ob_clean();
             echo json_encode([
-                'success' => true, 
-                'message' => '기본 판매가' . ($cost_price !== null ? '와 원가가' : '가') . ' 성공적으로 설정되었습니다.',
-                'selling_price' => number_format($selling_price, 0),
-                'cost_price' => $cost_price !== null ? number_format($cost_price, 0) : null
+                'success' => false, 
+                'message' => '점포별 가격 설정을 위한 테이블 구조 업데이트에 실패했습니다. 관리자에게 문의하세요.'
             ]);
         }
     } else {
@@ -388,7 +365,14 @@ try {
     }
 
 } catch (PDOException $e) {
-    http_response_code(500);
+    error_log("개별 가격적용 PDO 오류: " . $e->getMessage());
+    ob_clean();
+    header('Content-Type: application/json');
     echo json_encode(['success' => false, 'message' => '데이터베이스 오류: ' . $e->getMessage()]);
+} catch (Exception $e) {
+    error_log("개별 가격적용 일반 오류: " . $e->getMessage());
+    ob_clean();
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => '오류가 발생했습니다: ' . $e->getMessage()]);
 }
 ?>
