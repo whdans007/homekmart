@@ -1,5 +1,6 @@
 <?php // Cache-Busting Comment: 2025-07-24 10:00:00 AM 
-$page_title = "상품 관리 - HOME K MART";
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('product.management') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
@@ -7,7 +8,7 @@ require_once __DIR__ . '/../config/db_config.php';
 if (!has_permission('product_management')) {
     $_SESSION['flash'] = [
         'type' => 'error', 
-        'message' => '상품관리에 접근할 권한이 없습니다.'
+        'message' => t('messages.permission_denied')
     ];
     header('Location: shop.php');
     exit;
@@ -18,7 +19,7 @@ $products = [];
 $error_message = '';
 
 // 현재 사용자의 점포 정보 가져오기
-$current_store_name = '본점';
+$current_store_name = t('store.main_store');
 $current_store_id = null;
 if (!empty($_SESSION['user_id'])) {
     try {
@@ -28,7 +29,7 @@ if (!empty($_SESSION['user_id'])) {
         $user_stmt->execute();
         $user_result = $user_stmt->get_result();
         if ($user_row = $user_result->fetch_assoc()) {
-            $current_store_name = $user_row['store_name'] ?? '본점';
+            $current_store_name = $user_row['store_name'] ?? t('store.main_store');
             $current_store_id = $user_row['store_id'];
         }
         $user_stmt->close();
@@ -89,7 +90,7 @@ try {
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    $error_message = "상품 정보를 불러오는 데 실패했습니다: " . $e->getMessage();
+    $error_message = t('product.load_error') . ": " . $e->getMessage();
 }
 
 ?>
@@ -97,13 +98,13 @@ try {
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="flex justify-between items-center mb-6">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">상품 리스트</h1>
+            <h1 class="text-3xl font-bold text-gray-900"><?php echo t('product.list'); ?></h1>
             <?php if (!$error_message && isset($total_products)): ?>
-                <p class="text-sm text-gray-600 mt-1">총 <?php echo number_format($total_products); ?>개의 상품</p>
+                <p class="text-sm text-gray-600 mt-1"><?php echo str_replace('{count}', number_format($total_products), t('product.total_products')); ?></p>
             <?php endif; ?>
         </div>
         <a href="add_product.php" class="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-            <i class="fas fa-plus mr-2"></i> 새 상품 추가
+            <i class="fas fa-plus mr-2"></i> <?php echo t('product.add_new_product'); ?>
         </a>
     </div>
 
@@ -136,16 +137,16 @@ try {
                 <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                     <i class="fas fa-search text-gray-400"></i>
                 </div>
-                <input type="search" name="search" placeholder="상품명, SKU, 브랜드명으로 검색..." class="block w-full rounded-md border-gray-300 pl-10 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5" value="<?php echo htmlspecialchars($search_term); ?>">
+                <input type="search" name="search" placeholder="<?php echo t('product.search_placeholder'); ?>" class="block w-full rounded-md border-gray-300 pl-10 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5" value="<?php echo htmlspecialchars($search_term); ?>">
             </div>
             <div class="flex items-center space-x-2">
-                <label for="per_page" class="text-sm text-gray-700 whitespace-nowrap">표시 개수:</label>
+                <label for="per_page" class="text-sm text-gray-700 whitespace-nowrap"><?php echo t('product.display_count'); ?>:</label>
                 <select name="per_page" id="per_page" class="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" onchange="this.form.submit()">
-                    <option value="10" <?php echo $per_page == 10 ? 'selected' : ''; ?>>10개</option>
-                    <option value="25" <?php echo $per_page == 25 ? 'selected' : ''; ?>>25개</option>
-                    <option value="50" <?php echo $per_page == 50 ? 'selected' : ''; ?>>50개</option>
-                    <option value="100" <?php echo $per_page == 100 ? 'selected' : ''; ?>>100개</option>
-                    <option value="200" <?php echo $per_page == 200 ? 'selected' : ''; ?>>200개</option>
+                    <option value="10" <?php echo $per_page == 10 ? 'selected' : ''; ?>><?php echo t('product.items_10'); ?></option>
+                    <option value="25" <?php echo $per_page == 25 ? 'selected' : ''; ?>><?php echo t('product.items_25'); ?></option>
+                    <option value="50" <?php echo $per_page == 50 ? 'selected' : ''; ?>><?php echo t('product.items_50'); ?></option>
+                    <option value="100" <?php echo $per_page == 100 ? 'selected' : ''; ?>><?php echo t('product.items_100'); ?></option>
+                    <option value="200" <?php echo $per_page == 200 ? 'selected' : ''; ?>><?php echo t('product.items_200'); ?></option>
                 </select>
             </div>
         </form>
@@ -158,11 +159,11 @@ try {
     <?php elseif (empty($products)): ?>
         <div class="text-center py-12">
             <i class="fas fa-box-open text-5xl text-gray-400"></i>
-            <h2 class="mt-4 text-lg font-medium text-gray-900">상품이 없습니다.</h2>
-            <p class="mt-1 text-sm text-gray-500">아직 등록된 상품이 없습니다. 첫 상품을 추가해보세요.</p>
+            <h2 class="mt-4 text-lg font-medium text-gray-900"><?php echo t('product.no_products'); ?></h2>
+            <p class="mt-1 text-sm text-gray-500"><?php echo t('product.no_products_desc'); ?></p>
             <div class="mt-6">
                 <a href="add_product.php" class="inline-flex items-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                    <i class="fas fa-plus mr-2"></i> 새 상품 추가
+                    <i class="fas fa-plus mr-2"></i> <?php echo t('product.add_new_product'); ?>
                 </a>
             </div>
         </div>
@@ -173,13 +174,13 @@ try {
                     <thead class="bg-gray-50">
                         <tr>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">SKU</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">상품명(한글)</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">브랜드</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">카테고리</th>
-                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">박스당 수량</th>
-                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">상태</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('product.name_ko'); ?></th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('product.brand'); ?></th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('product.category'); ?></th>
+                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('product.pieces_per_box'); ?></th>
+                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('product.status'); ?></th>
                             <th scope="col" class="relative px-6 py-3 border border-gray-300">
-                                <span class="sr-only">작업</span>
+                                <span class="sr-only"><?php echo t('common.actions'); ?></span>
                             </th>
                         </tr>
                     </thead>
@@ -191,26 +192,26 @@ try {
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($product['name_ko']); ?></div>
                                     <div class="text-xs text-gray-500"><?php echo htmlspecialchars($product['name_en']); ?></div>
                                     <?php if ($product['barcode']): ?>
-                                        <div class="text-xs text-gray-400">바코드: <?php echo htmlspecialchars($product['barcode']); ?></div>
+                                        <div class="text-xs text-gray-400"><?php echo t('product.barcode'); ?>: <?php echo htmlspecialchars($product['barcode']); ?></div>
                                     <?php endif; ?>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($product['brand_name'] ?? 'N/A'); ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($product['category_name'] ?? 'N/A'); ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center border border-gray-300">
                                     <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                                        <?php echo number_format($product['pieces_per_box'] ?? 1); ?>개
+                                        <?php echo number_format($product['pieces_per_box'] ?? 1); ?><?php echo t('purchase.pieces'); ?>
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center border border-gray-300">
                                     <?php if ($product['is_active']): ?>
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">활성</span>
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><?php echo t('product.active'); ?></span>
                                     <?php else: ?>
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">비활성</span>
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"><?php echo t('product.inactive'); ?></span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border border-gray-300">
-                                    <a href="edit_product.php?id=<?php echo $product['id']; ?>" class="text-primary-600 hover:text-primary-900" onclick="event.stopPropagation();">수정</a>
-                                    <a href="delete_product.php?id=<?php echo $product['id']; ?>" class="text-red-600 hover:text-red-900 ml-4" onclick="event.stopPropagation(); return confirmDelete('<?php echo htmlspecialchars($product['name_ko'], ENT_QUOTES); ?>');">삭제</a>
+                                    <a href="edit_product.php?id=<?php echo $product['id']; ?>" class="text-primary-600 hover:text-primary-900" onclick="event.stopPropagation();"><?php echo t('common.edit'); ?></a>
+                                    <a href="delete_product.php?id=<?php echo $product['id']; ?>" class="text-red-600 hover:text-red-900 ml-4" onclick="event.stopPropagation(); return confirmDelete('<?php echo htmlspecialchars($product['name_ko'], ENT_QUOTES); ?>')"><?php echo t('common.delete'); ?></a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -226,7 +227,7 @@ try {
                 <div class="flex-1 flex justify-between sm:hidden">
                     <?php if ($page > 1): ?>
                         <a href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search_term); ?>&per_page=<?php echo $per_page; ?>" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                            <i class="fas fa-arrow-left mr-2"></i> 이전
+                            <i class="fas fa-arrow-left mr-2"></i> <?php echo t('product.previous'); ?>
                         </a>
                     <?php else: ?>
                         <span></span>
@@ -238,7 +239,7 @@ try {
                     
                     <?php if ($page < $total_pages): ?>
                         <a href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search_term); ?>&per_page=<?php echo $per_page; ?>" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                            다음 <i class="fas fa-arrow-right ml-2"></i>
+                            <?php echo t('product.next'); ?> <i class="fas fa-arrow-right ml-2"></i>
                         </a>
                     <?php else: ?>
                         <span></span>
@@ -249,7 +250,7 @@ try {
                 <div class="-mt-px flex w-0 flex-1">
                     <?php if ($page > 1): ?>
                         <a href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search_term); ?>&per_page=<?php echo $per_page; ?>" class="inline-flex items-center border-t-2 border-transparent pt-4 pr-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
-                            <i class="fas fa-arrow-left mr-3"></i> 이전
+                            <i class="fas fa-arrow-left mr-3"></i> <?php echo t('product.previous'); ?>
                         </a>
                     <?php endif; ?>
                 </div>
@@ -303,7 +304,7 @@ try {
                 <div class="-mt-px flex w-0 flex-1 justify-end">
                     <?php if ($page < $total_pages): ?>
                         <a href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search_term); ?>&per_page=<?php echo $per_page; ?>" class="inline-flex items-center border-t-2 border-transparent pt-4 pl-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
-                            다음 <i class="fas fa-arrow-right ml-3"></i>
+                            <?php echo t('product.next'); ?> <i class="fas fa-arrow-right ml-3"></i>
                         </a>
                     <?php endif; ?>
                 </div>
@@ -318,10 +319,10 @@ try {
         <!-- Modal Header -->
         <div class="flex justify-between items-center p-4 border-b rounded-t-lg">
             <div>
-                <h3 class="text-xl font-semibold text-gray-800" id="modal-product-name">상품 상세 정보</h3>
+                <h3 class="text-xl font-semibold text-gray-800" id="modal-product-name"><?php echo t('product.details'); ?></h3>
                 <div class="flex items-center space-x-1 text-sm text-blue-600 mt-1">
                     <i class="fas fa-store"></i>
-                    <span><?php echo htmlspecialchars($current_store_name); ?> 기준</span>
+                    <span><?php echo str_replace('{store}', htmlspecialchars($current_store_name), t('product.store_based')); ?></span>
                 </div>
             </div>
             <button id="close-modal-btn" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
@@ -334,21 +335,21 @@ try {
             <!-- 로딩 스피너 -->
             <div id="modal-loading" class="text-center py-20">
                 <i class="fas fa-spinner fa-spin text-4xl text-primary-600"></i>
-                <p class="mt-3 text-gray-500">정보를 불러오는 중...</p>
+                <p class="mt-3 text-gray-500"><?php echo t('product.loading_info'); ?></p>
             </div>
             
             <!-- 상세 정보 전체 래퍼 -->
             <div id="modal-body-wrapper" class="hidden">
                 <!-- Basic Details Table -->
-                <h4 class="text-lg font-semibold text-gray-800 mb-2">기본 정보</h4>
+                <h4 class="text-lg font-semibold text-gray-800 mb-2"><?php echo t('product.basic_info'); ?></h4>
                 <table class="w-full text-sm text-left text-gray-600 mb-6">
                     <tbody>
                         <tr class="border-b">
-                            <td class="px-4 py-2 font-semibold bg-gray-50 w-1/3">상품명 (영문)</td>
+                            <td class="px-4 py-2 font-semibold bg-gray-50 w-1/3"><?php echo t('product.name_en'); ?></td>
                             <td class="px-4 py-2" id="modal-name-en"></td>
                         </tr>
                         <tr class="border-b">
-                            <td class="px-4 py-2 font-semibold bg-gray-50 w-1/3">상품명 (한글)</td>
+                            <td class="px-4 py-2 font-semibold bg-gray-50 w-1/3"><?php echo t('product.name_ko'); ?></td>
                             <td class="px-4 py-2" id="modal-name-ko"></td>
                         </tr>
                         <tr class="border-b">
@@ -356,74 +357,74 @@ try {
                             <td class="px-4 py-2 font-mono" id="modal-sku"></td>
                         </tr>
                         <tr class="border-b">
-                            <td class="px-4 py-2 font-semibold bg-gray-50">바코드</td>
+                            <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.barcode'); ?></td>
                             <td class="px-4 py-2 font-mono" id="modal-barcode"></td>
                         </tr>
                         <tr class="border-b">
-                            <td class="px-4 py-2 font-semibold bg-gray-50">브랜드</td>
+                            <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.brand'); ?></td>
                             <td class="px-4 py-2" id="modal-brand"></td>
                         </tr>
                         <tr class="border-b">
-                            <td class="px-4 py-2 font-semibold bg-gray-50">카테고리</td>
+                            <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.category'); ?></td>
                             <td class="px-4 py-2" id="modal-category"></td>
                         </tr>
                         <tr class="border-b">
-                            <td class="px-4 py-2 font-semibold bg-gray-50">박스포장 정보</td>
+                            <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.box_packaging'); ?></td>
                             <td class="px-4 py-2" id="modal-box-info"></td>
                         </tr>
                         <tr class="border-b">
-                            <td class="px-4 py-2 font-semibold bg-gray-50 align-top">상품 설명</td>
+                            <td class="px-4 py-2 font-semibold bg-gray-50 align-top"><?php echo t('product.description'); ?></td>
                             <td class="px-4 py-2 whitespace-pre-wrap" id="modal-description"></td>
                         </tr>
                         <tr class="border-b">
-                            <td class="px-4 py-2 font-semibold bg-gray-50">상태</td>
+                            <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.status'); ?></td>
                             <td class="px-4 py-2" id="modal-status"></td>
                         </tr>
                         <tr>
-                            <td class="px-4 py-2 font-semibold bg-gray-50">최근 수정</td>
+                            <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.last_modified'); ?></td>
                             <td class="px-4 py-2" id="modal-last-modified"></td>
                         </tr>
                     </tbody>
                 </table>
 
                 <!-- Pricing by Store -->
-                <h4 class="text-lg font-semibold text-gray-800 mb-2">지점별 원가 및 판매가</h4>
+                <h4 class="text-lg font-semibold text-gray-800 mb-2"><?php echo t('product.inventory_pricing'); ?></h4>
                 <div id="modal-inventory-wrapper">
                     <!-- JS will populate this -->
                 </div>
 
                 <!-- Purchase History Section -->
-                <h4 class="text-lg font-semibold text-gray-800 mb-2 mt-6">최근 매입 이력</h4>
+                <h4 class="text-lg font-semibold text-gray-800 mb-2 mt-6"><?php echo t('product.recent_purchase_history'); ?></h4>
                 <div id="modal-purchase-history-wrapper" class="mb-4">
                     <div id="purchase-history-loading" class="text-center py-4">
                         <i class="fas fa-spinner fa-spin text-primary-600"></i>
-                        <span class="ml-2 text-gray-500">매입 이력 로딩 중...</span>
+                        <span class="ml-2 text-gray-500"><?php echo t('product.loading_info'); ?></span>
                     </div>
                     <div id="purchase-history-content" class="hidden">
                         <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-3">
                             <p class="text-sm text-yellow-800">
                                 <i class="fas fa-info-circle mr-1"></i>
-                                매입 이력을 선택하면 해당 원가를 기준으로 판매가를 설정할 수 있습니다.
+                                <?php echo t('product.purchase_history_info'); ?>
                             </p>
                         </div>
                         <table id="purchase-history-table" class="w-full text-sm border border-gray-200 rounded-md">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-3 py-2 text-left font-semibold text-gray-700">매입일</th>
-                                    <th class="px-3 py-2 text-left font-semibold text-gray-700">거래처</th>
-                                    <th class="px-3 py-2 text-left font-semibold text-gray-700">점포</th>
-                                    <th class="px-3 py-2 text-right font-semibold text-gray-700">박스 원가</th>
-                                    <th class="px-3 py-2 text-right font-semibold text-gray-700">낱개 원가</th>
-                                    <th class="px-3 py-2 text-center font-semibold text-gray-700">선택</th>
+                                    <th class="px-3 py-2 text-left font-semibold text-gray-700"><?php echo t('product.purchase_date'); ?></th>
+                                    <th class="px-3 py-2 text-left font-semibold text-gray-700"><?php echo t('product.supplier'); ?></th>
+                                    <th class="px-3 py-2 text-left font-semibold text-gray-700"><?php echo t('price_change.store'); ?></th>
+                                    <th class="px-3 py-2 text-right font-semibold text-gray-700"><?php echo t('product.box_cost'); ?></th>
+                                    <th class="px-3 py-2 text-right font-semibold text-gray-700"><?php echo t('product.unit_cost'); ?></th>
+                                    <th class="px-3 py-2 text-center font-semibold text-gray-700"><?php echo t('product.select'); ?></th>
                                 </tr>
                             </thead>
                             <tbody id="purchase-history-tbody">
-                                <!-- 매입 이력이 여기에 동적으로 추가됩니다 -->
+                                <!-- Purchase history will be dynamically added here -->
                             </tbody>
                         </table>
                         <div id="no-purchase-history" class="text-center py-4 text-gray-500 hidden">
                             <i class="fas fa-exclamation-circle text-2xl"></i>
-                            <p class="mt-2">매입 이력이 없습니다.</p>
+                            <p class="mt-2"><?php echo t('product.no_purchase_history'); ?></p>
                         </div>
                     </div>
                 </div>
@@ -507,7 +508,7 @@ try {
     <div class="relative w-full max-w-md bg-white rounded-lg shadow-xl">
         <!-- Modal Header -->
         <div class="flex justify-between items-center p-4 border-b rounded-t-lg">
-            <h3 class="text-lg font-semibold text-gray-800">마진율 프리셋 설정</h3>
+            <h3 class="text-lg font-semibold text-gray-800"><?php echo t('product.margin_preset_setup'); ?></h3>
             <button id="close-preset-modal-btn" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5">
                 <i class="fas fa-times"></i>
             </button>
@@ -517,22 +518,22 @@ try {
         <div class="p-4">
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    마진율 설정 (쉼표로 구분)
+                    <?php echo t('product.margin_presets_desc'); ?>
                 </label>
                 <input type="text" id="presets-input" 
                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
-                       placeholder="예: 20, 25, 30, 35">
+                       placeholder="<?php echo t('product.margin_presets_placeholder'); ?>">
                 <p class="mt-1 text-xs text-gray-500">
-                    0~100 사이의 숫자를 쉼표로 구분하여 입력하세요.
+                    <?php echo t('product.margin_presets_hint'); ?>
                 </p>
             </div>
             
             <div class="flex justify-end space-x-3">
                 <button id="cancel-preset-btn" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">
-                    취소
+                    <?php echo t('product.cancel'); ?>
                 </button>
                 <button id="save-preset-btn" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700">
-                    저장
+                    <?php echo t('product.save'); ?>
                 </button>
             </div>
         </div>
@@ -541,6 +542,36 @@ try {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Translation strings for JavaScript
+    const translations = {
+        productDetails: <?php echo json_encode(t('product.js_product_details_title')); ?>,
+        noDescription: <?php echo json_encode(t('product.js_no_description')); ?>,
+        noBarcode: <?php echo json_encode(t('product.js_no_barcode')); ?>,
+        piecesPerBox: <?php echo json_encode(t('product.js_pieces_per_box')); ?>,
+        activeStatus: <?php echo json_encode(t('product.js_active_status')); ?>,
+        inactiveStatus: <?php echo json_encode(t('product.js_inactive_status')); ?>,
+        lastModified: <?php echo json_encode(t('product.js_last_modified')); ?>,
+        errorLoadProduct: <?php echo json_encode(t('product.js_error_load_product')); ?>,
+        errorLoadPurchase: <?php echo json_encode(t('product.js_error_load_purchase')); ?>,
+        noPurchaseHistory: <?php echo json_encode(t('product.js_no_purchase_history_msg')); ?>,
+        errorApi: <?php echo json_encode(t('product.js_error_api')); ?>,
+        selectPurchaseFirst: <?php echo json_encode(t('product.js_select_purchase_first')); ?>,
+        enterValidPrice: <?php echo json_encode(t('product.js_enter_valid_price')); ?>,
+        lowMarginWarning: <?php echo json_encode(t('product.js_low_margin_warning')); ?>,
+        enterMarginRate: <?php echo json_encode(t('product.js_enter_margin_rate')); ?>,
+        selectedText: <?php echo json_encode(t('product.js_selected_text')); ?>,
+        selectText: <?php echo json_encode(t('product.js_select_text')); ?>,
+        savingText: <?php echo json_encode(t('product.js_saving_text')); ?>,
+        noPricingInfo: <?php echo json_encode(t('product.js_no_pricing_info')); ?>,
+        noInventoryInfo: <?php echo json_encode(t('product.js_no_inventory_info')); ?>,
+        deleteConfirm: <?php echo json_encode(t('product.js_delete_confirm')); ?>,
+        deleteConfirmInventory: <?php echo json_encode(t('product.js_delete_confirm_inventory')); ?>,
+        errorMarginRange: <?php echo json_encode(t('product.error_margin_range')); ?>,
+        errorSavePresets: <?php echo json_encode(t('product.js_error_margin_presets')); ?>,
+        store: <?php echo json_encode(t('price_change.store')); ?>,
+        inventory: <?php echo json_encode(t('product.inventory_info')); ?>
+    };
+    
     // 현재 점포 정보
     const currentStoreId = <?php echo json_encode($current_store_id); ?>;
     const currentStoreName = <?php echo json_encode($current_store_name); ?>;
@@ -601,18 +632,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         const product = result.data;
                         
                         // Populate modal with new resume style
-                        modalContent.name.textContent = '상품 상세 정보'; // 제목 고정
+                        modalContent.name.textContent = translations.productDetails; // 제목 고정
                         modalContent.nameEn.textContent = product.name_en || ' ';
                         modalContent.nameKo.textContent = product.name_ko || ' ';
                         modalContent.sku.textContent = product.sku || 'N/A';
-                        modalContent.description.textContent = product.description || '등록된 상품 설명이 없습니다.';
+                        modalContent.description.textContent = product.description || translations.noDescription;
                         modalContent.brand.textContent = product.brand_name_ko || 'N/A';
                         modalContent.category.textContent = product.category_name || 'N/A';
                         
                         // Barcode and Box packaging information
-                        modalContent.barcode.textContent = product.barcode || '등록된 바코드 없음';
+                        modalContent.barcode.textContent = product.barcode || translations.noBarcode;
                         const piecesPerBox = parseInt(product.pieces_per_box) || 1;
-                        modalContent.boxInfo.innerHTML = `<span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">${piecesPerBox}개/박스</span>`;
+                        modalContent.boxInfo.innerHTML = `<span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">${piecesPerBox}${translations.piecesPerBox}</span>`;
                         
                         // Inventory and Pricing by Store
                         console.log('Product inventory data:', product.inventory);
@@ -623,10 +654,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             inventoryTable.innerHTML = `
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-4 py-2 font-semibold">지점</th>
-                                        <th class="px-4 py-2 font-semibold text-right">원가</th>
-                                        <th class="px-4 py-2 font-semibold text-right">마진(%)</th>
-                                        <th class="px-4 py-2 font-semibold text-right">판매가</th>
+                                        <th class="px-4 py-2 font-semibold">${translations.store}</th>
+                                        <th class="px-4 py-2 font-semibold text-right"><?php echo t('product.cost_price'); ?></th>
+                                        <th class="px-4 py-2 font-semibold text-right"><?php echo t('product.margin_rate'); ?>(%)</th>
+                                        <th class="px-4 py-2 font-semibold text-right"><?php echo t('product.selling_price'); ?></th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -657,7 +688,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             });
                             modalContent.inventoryWrapper.appendChild(inventoryTable);
                         } else {
-                            modalContent.inventoryWrapper.innerHTML = '<p class="text-slate-500">가격 정보 없음</p>';
+                            modalContent.inventoryWrapper.innerHTML = `<p class="text-slate-500">${translations.noPricingInfo}</p>`;
                         }
 
                         // Image
@@ -672,11 +703,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         // Meta
                         modalContent.status.innerHTML = product.is_active 
-                            ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">활성</span>'
-                            : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">비활성</span>';
+                            ? `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">${translations.activeStatus}</span>`
+                            : `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">${translations.inactiveStatus}</span>`;
                         
                         const lastModifiedDate = new Date(product.updated_at).toLocaleString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                        modalContent.lastModified.innerHTML = `최근 수정: ${lastModifiedDate} <br> by ${product.last_modified_by || 'N/A'}`;
+                        modalContent.lastModified.innerHTML = `${translations.lastModified}: ${lastModifiedDate} <br> by ${product.last_modified_by || 'N/A'}`;
 
                         // Load purchase history
                         loadPurchaseHistory(productId);
@@ -686,13 +717,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         modalContent.bodyWrapper.classList.remove('hidden');
 
                     } else {
-                        alert('오류: ' + result.message);
+                        alert(`${translations.errorApi}: ${result.message}`);
                         hideModal();
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('상품 정보를 불러오는 중 오류가 발생했습니다.');
+                    alert(translations.errorLoadProduct);
                     hideModal();
                 });
         });
@@ -712,12 +743,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     marginPresets = result.data;
                     updateMarginPresetButtons();
                 } else {
-                    console.error('마진율 프리셋 로드 실패:', result.message);
+                    console.error(translations.errorMarginRange, result.message);
                     updateMarginPresetButtons(); // 기본값 사용
                 }
             })
             .catch(error => {
-                console.error('마진율 프리셋 로드 오류:', error);
+                console.error(translations.errorMarginRange, error);
                 updateMarginPresetButtons(); // 기본값 사용
             });
     }
@@ -818,9 +849,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                console.error('매입 이력 로딩 오류:', error);
-                loadingDiv.innerHTML = '<p class="text-red-500"><i class="fas fa-exclamation-triangle mr-2"></i>매입 이력을 불러오는 중 오류가 발생했습니다.</p>';
-                showToast('매입 이력을 불러올 수 없습니다.', 'error');
+                console.error(translations.errorLoadPurchase, error);
+                loadingDiv.innerHTML = `<p class="text-red-500"><i class="fas fa-exclamation-triangle mr-2"></i>${translations.errorLoadProduct}</p>`;
+                showToast(translations.errorLoadPurchase, 'error');
             });
     }
 
@@ -841,7 +872,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td class="px-3 py-2 text-right font-mono">${item.unit_cost_per_piece_formatted}</td>
                 <td class="px-3 py-2 text-center">
                     <button class="select-purchase-btn px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200">
-                        선택
+                        ${translations.selectText}
                     </button>
                 </td>
             `;
@@ -862,12 +893,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 이전 선택 해제
         document.querySelectorAll('.select-purchase-btn').forEach(btn => {
-            btn.textContent = '선택';
+            btn.textContent = translations.selectText;
             btn.className = 'select-purchase-btn px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200';
         });
         
         // 현재 버튼 선택 상태로 변경
-        buttonElement.textContent = '선택됨';
+        buttonElement.textContent = translations.selectedText;
         buttonElement.className = 'select-purchase-btn px-2 py-1 bg-green-100 text-green-700 rounded text-xs';
         
         // 가격 설정 섹션 표시
@@ -942,7 +973,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('apply-custom-margin-btn').addEventListener('click', function() {
             const customMargin = parseFloat(document.getElementById('custom-margin-input').value);
             if (isNaN(customMargin) || customMargin < 0 || customMargin > 100) {
-                showToast('0~100 사이의 올바른 마진율을 입력해주세요.', 'error');
+                showToast(translations.errorMarginRange, 'error');
                 return;
             }
             
@@ -978,13 +1009,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('apply-selling-price-btn').addEventListener('click', function() {
         if (!selectedPurchaseData || !currentProductId) {
-            showToast('매입 이력을 먼저 선택해주세요.', 'error');
+            showToast(translations.selectPurchaseFirst, 'error');
             return;
         }
         
         const sellingPrice = parseFloat(document.getElementById('new-selling-price').value);
         if (!sellingPrice || sellingPrice <= 0) {
-            showToast('올바른 판매가를 입력해주세요.', 'error');
+            showToast(translations.enterValidPrice, 'error');
             return;
         }
 
@@ -992,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const costPrice = parseFloat(selectedPurchaseData.unit_cost_per_piece);
         const marginRate = ((sellingPrice - costPrice) / costPrice * 100);
         if (marginRate < 5) {
-            if (!confirm(`마진율이 ${marginRate.toFixed(1)}%로 매우 낮습니다. 계속하시겠습니까?`)) {
+            if (!confirm(translations.lowMarginWarning.replace('{rate}', marginRate.toFixed(1)))) {
                 return;
             }
         }
@@ -1035,11 +1066,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 inventoryTable.innerHTML = `
                                     <thead class="bg-gray-50">
                                         <tr>
-                                            <th class="px-3 py-2 font-semibold">지점</th>
-                                            <th class="px-3 py-2 font-semibold text-right">재고</th>
-                                            <th class="px-3 py-2 font-semibold text-right">원가</th>
-                                            <th class="px-3 py-2 font-semibold text-right">마진(%)</th>
-                                            <th class="px-3 py-2 font-semibold text-right">판매가</th>
+                                            <th class="px-3 py-2 font-semibold">${translations.store}</th>
+                                            <th class="px-3 py-2 font-semibold text-right">${translations.inventory}</th>
+                                            <th class="px-3 py-2 font-semibold text-right"><?php echo t('product.cost_price'); ?></th>
+                                            <th class="px-3 py-2 font-semibold text-right"><?php echo t('product.margin_rate'); ?>(%)</th>
+                                            <th class="px-3 py-2 font-semibold text-right"><?php echo t('product.selling_price'); ?></th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>
@@ -1071,12 +1102,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                 });
                                 modalContent.inventoryWrapper.appendChild(inventoryTable);
                             } else {
-                                modalContent.inventoryWrapper.innerHTML = '<p class="text-slate-500">재고 정보 없음</p>';
+                                modalContent.inventoryWrapper.innerHTML = `<p class="text-slate-500">${translations.noInventoryInfo}</p>`;
                             }
                         }
                     })
                     .catch(error => {
-                        console.error('상품 정보 새로고침 오류:', error);
+                        console.error(translations.errorLoadProduct, error);
                     });
                 
                 // 판매가 설정 섹션 숨기기
@@ -1085,17 +1116,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 선택 초기화
                 selectedPurchaseData = null;
                 document.querySelectorAll('.select-purchase-btn').forEach(btn => {
-                    btn.textContent = '선택';
+                    btn.textContent = translations.selectText;
                     btn.className = 'select-purchase-btn px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200';
                 });
                 
             } else {
-                showToast('오류: ' + result.message, 'error');
+                showToast(`${translations.errorApi}: ${result.message}`, 'error');
             }
         })
         .catch(error => {
-            console.error('판매가 업데이트 오류:', error);
-            showToast('판매가 설정 중 오류가 발생했습니다.', 'error');
+            console.error(translations.errorLoadProduct, error);
+            showToast(translations.errorLoadProduct, 'error');
         });
     });
     
@@ -1106,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // 선택 초기화
         selectedPurchaseData = null;
         document.querySelectorAll('.select-purchase-btn').forEach(btn => {
-            btn.textContent = '선택';
+            btn.textContent = translations.selectText;
             btn.className = 'select-purchase-btn px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200';
         });
         
@@ -1125,12 +1156,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // 간단한 삭제 확인 함수
     window.confirmDelete = function(productName) {
         // 첫 번째 확인
-        if (!confirm(`정말로 "${productName}" 상품을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
+        if (!confirm(translations.deleteConfirm.replace('{name}', productName))) {
             return false;
         }
         
         // 두 번째 확인
-        if (!confirm('삭제하면 관련된 재고 정보도 함께 삭제될 수 있습니다.\n정말 계속하시겠습니까?')) {
+        if (!confirm(translations.deleteConfirmInventory)) {
             return false;
         }
         
@@ -1168,12 +1199,12 @@ document.addEventListener('DOMContentLoaded', function() {
     savePresetBtn.addEventListener('click', function() {
         const presetsValue = presetsInput.value.trim();
         if (!presetsValue) {
-            showToast('마진율을 입력해주세요.', 'error');
+            showToast(translations.enterMarginRate, 'error');
             return;
         }
         
         // 저장 중 표시
-        savePresetBtn.textContent = '저장 중...';
+        savePresetBtn.textContent = translations.savingText;
         savePresetBtn.disabled = true;
         
         const formData = new FormData();
@@ -1198,16 +1229,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateMarginPresetButtons();
                 presetConfigModal.classList.add('hidden');
             } else {
-                showToast('오류: ' + result.message, 'error');
+                showToast(`${translations.errorApi}: ${result.message}`, 'error');
                 console.error('Save failed:', result.message);
             }
         })
         .catch(error => {
-            console.error('프리셋 저장 오류:', error);
-            showToast('프리셋 저장 중 오류가 발생했습니다: ' + error.message, 'error');
+            console.error(translations.errorSavePresets, error);
+            showToast(`${translations.errorSavePresets}: ${error.message}`, 'error');
         })
         .finally(() => {
-            savePresetBtn.textContent = '저장';
+            savePresetBtn.textContent = <?php echo json_encode(t('product.save')); ?>;
             savePresetBtn.disabled = false;
         });
     });

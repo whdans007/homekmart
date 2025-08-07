@@ -1,5 +1,6 @@
 <?php
-$page_title = "회원 추가 - HOME K MART";
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('user.add') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../lib/permission_helper.php';
 
@@ -32,7 +33,7 @@ try {
     $stores = $pdo->query("SELECT id, name FROM stores ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    $errors[] = "데이터베이스 처리 중 오류가 발생했습니다: " . $e->getMessage();
+    $errors[] = t('messages.database_error') . ': ' . $e->getMessage();
 }
 
 // 현재 로그인한 사용자의 권한에 따라 생성 가능한 역할 정의
@@ -55,20 +56,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $permissions = $_POST['permissions'] ?? [];
 
     // 유효성 검사
-    if (empty($username)) $errors[] = "아이디를 입력해주세요.";
-    if (empty($full_name)) $errors[] = "이름을 입력해주세요.";
-    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = "올바른 이메일을 입력해주세요.";
-    if (empty($password) || strlen($password) < 8) $errors[] = "비밀번호는 8자 이상이어야 합니다.";
-    if ($password !== $password_confirm) $errors[] = "비밀번호가 일치하지 않습니다.";
-    if (!in_array($role, $allowed_roles)) $errors[] = "유효하지 않은 권한입니다.";
-    if (!empty($store_id) && !filter_var($store_id, FILTER_VALIDATE_INT)) $errors[] = "유효하지 않은 지점입니다.";
+    if (empty($username)) $errors[] = t('forms.username_required');
+    if (empty($full_name)) $errors[] = t('forms.full_name_required');
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = t('forms.invalid_email');
+    if (empty($password) || strlen($password) < 8) $errors[] = t('forms.password_min_length');
+    if ($password !== $password_confirm) $errors[] = t('forms.password_mismatch');
+    if (!in_array($role, $allowed_roles)) $errors[] = t('forms.invalid_role');
+    if (!empty($store_id) && !filter_var($store_id, FILTER_VALIDATE_INT)) $errors[] = t('forms.invalid_store');
 
     if (empty($errors) && isset($pdo)) {
         try {
             $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
             $stmt->execute([$username, $email]);
             if ($stmt->fetch()) {
-                $errors[] = "이미 사용 중인 아이디 또는 이메일입니다.";
+                $errors[] = t('forms.duplicate_user');
             } else {
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
                 
@@ -105,13 +106,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 $_SESSION['flash'] = [
                     'type' => 'success',
-                    'message' => "회원 '" . htmlspecialchars($username) . "'이(가) 성공적으로 추가되었습니다."
+                    'message' => str_replace('{username}', htmlspecialchars($username), t('user.user_added_success'))
                 ];
                 header("Location: user_management.php");
                 exit;
             }
         } catch (PDOException $e) {
-            $errors[] = "회원 추가 중 데이터베이스 오류가 발생했습니다: " . $e->getMessage();
+            $errors[] = t('user.add_error') . ': ' . $e->getMessage();
         }
     }
 }
@@ -121,9 +122,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <div class="mb-8">
     <a href="user_management.php" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 mb-4">
         <i class="fas fa-arrow-left mr-2"></i>
-        회원 목록으로 돌아가기
+        <?php echo t('user.back_to_list'); ?>
     </a>
-    <h1 class="text-3xl font-bold text-gray-900">새 회원 추가</h1>
+    <h1 class="text-3xl font-bold text-gray-900"><?php echo t('user.add'); ?></h1>
 </div>
 
 <!-- Form -->
@@ -135,7 +136,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <i class="fas fa-times-circle text-red-400"></i>
                 </div>
                 <div class="ml-3">
-                    <h3 class="text-sm font-medium text-red-800">문제가 발생했습니다.</h3>
+                    <h3 class="text-sm font-medium text-red-800"><?php echo t('forms.errors_occurred'); ?></h3>
                     <div class="mt-2 text-sm text-red-700">
                         <ul role="list" class="list-disc pl-5 space-y-1">
                             <?php foreach ($errors as $error): ?>
@@ -150,24 +151,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <!-- User Information Section -->
     <div>
-        <h2 class="text-lg font-medium leading-6 text-gray-900">기본 정보</h2>
-        <p class="mt-1 text-sm text-gray-500">회원의 계정 정보와 개인 정보를 입력합니다.</p>
+        <h2 class="text-lg font-medium leading-6 text-gray-900"><?php echo t('user.basic_info'); ?></h2>
+        <p class="mt-1 text-sm text-gray-500"><?php echo t('user.basic_info_desc'); ?></p>
         <div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
             <div class="sm:col-span-3">
-                <label for="username" class="block text-sm font-medium text-gray-700">아이디</label>
+                <label for="username" class="block text-sm font-medium text-gray-700"><?php echo t('auth.username'); ?></label>
                 <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($username); ?>" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
             </div>
             <div class="sm:col-span-3">
-                <label for="full_name" class="block text-sm font-medium text-gray-700">이름</label>
+                <label for="full_name" class="block text-sm font-medium text-gray-700"><?php echo t('user.full_name'); ?></label>
                 <input type="text" id="full_name" name="full_name" value="<?php echo htmlspecialchars($full_name); ?>" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
             </div>
             <div class="sm:col-span-3">
-                <label for="email" class="block text-sm font-medium text-gray-700">이메일</label>
+                <label for="email" class="block text-sm font-medium text-gray-700"><?php echo t('auth.email'); ?></label>
                 <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
             </div>
             <?php if ($has_phone_column): ?>
             <div class="sm:col-span-3">
-                <label for="phone" class="block text-sm font-medium text-gray-700">핸드폰 번호 <span class="text-gray-500">(선택 사항)</span></label>
+                <label for="phone" class="block text-sm font-medium text-gray-700"><?php echo t('user.phone'); ?> <span class="text-gray-500">(<?php echo t('forms.optional'); ?>)</span></label>
                 <input type="tel" id="phone" name="phone" value="<?php echo htmlspecialchars($_POST['phone'] ?? ''); ?>" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="010-1234-5678">
             </div>
             <?php endif; ?>
@@ -176,19 +177,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <!-- Role & Store Section -->
     <div class="border-t border-gray-200 pt-8">
-        <h2 class="text-lg font-medium leading-6 text-gray-900">권한 및 소속</h2>
-        <p class="mt-1 text-sm text-gray-500">회원의 권한과 소속 지점을 설정합니다.</p>
+        <h2 class="text-lg font-medium leading-6 text-gray-900"><?php echo t('user.role_and_store'); ?></h2>
+        <p class="mt-1 text-sm text-gray-500"><?php echo t('user.role_and_store_desc'); ?></p>
         <div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
             <div class="sm:col-span-3">
-                <label for="role" class="block text-sm font-medium text-gray-700">권한</label>
+                <label for="role" class="block text-sm font-medium text-gray-700"><?php echo t('user.role'); ?></label>
                 <select id="role" name="role" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
                     <?php 
                     $role_labels = [
-                        'user' => '일반 사용자',
-                        'staff' => '직원',
-                        'office_staff' => '오피스 스텝',
-                        'admin' => '관리자',
-                        'super_admin' => '총괄 관리자'
+                        'user' => t('roles.user'),
+                        'staff' => t('roles.staff'),
+                        'office_staff' => t('roles.office_staff'),
+                        'admin' => t('roles.admin'),
+                        'super_admin' => t('roles.super_admin')
                     ];
                     foreach ($allowed_roles as $role_value): ?>
                         <option value="<?php echo $role_value; ?>" <?php echo ($role === $role_value) ? 'selected' : ''; ?>>
@@ -198,9 +199,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </select>
             </div>
             <div class="sm:col-span-3">
-                <label for="store_id" class="block text-sm font-medium text-gray-700">소속 지점 <span class="text-gray-500">(선택 사항)</span></label>
+                <label for="store_id" class="block text-sm font-medium text-gray-700"><?php echo t('user.store'); ?> <span class="text-gray-500">(<?php echo t('forms.optional'); ?>)</span></label>
                 <select id="store_id" name="store_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                    <option value="">-- 지점 선택 --</option>
+                    <option value=""><?php echo t('store.select_store'); ?></option>
                     <?php foreach ($stores as $store): ?>
                         <option value="<?php echo $store['id']; ?>" <?php echo ($store_id == $store['id']) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($store['name']); ?>
@@ -213,25 +214,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     <!-- Permissions Section -->
     <div class="border-t border-gray-200 pt-8">
-        <h2 class="text-lg font-medium leading-6 text-gray-900">세부 권한 설정</h2>
-        <p class="mt-1 text-sm text-gray-500">사용자가 접근할 수 있는 기능을 개별적으로 설정합니다.</p>
+        <h2 class="text-lg font-medium leading-6 text-gray-900"><?php echo t('user.permissions_settings'); ?></h2>
+        <p class="mt-1 text-sm text-gray-500"><?php echo t('user.permissions_settings_desc'); ?></p>
         
         <div class="mt-6">
             <div id="permissions-container" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <?php 
                 $all_permissions = [
-                    'admin_access' => '관리자 메뉴 접근',
-                    'user_management' => '회원 관리',
-                    'store_management' => '지점 관리',
-                    'product_management' => '상품 관리',
-                    'purchase_management' => '매입 관리',
-                    'brand_management' => '브랜드 관리',
-                    'category_management' => '카테고리 관리',
-                    'supplier_management' => '공급처 관리',
-                    'settings' => '환경 설정',
-                    'shop_access' => '쇼핑몰 접근',
-                    'barcode_management' => '바코드 관리',
-                    'accounting_management' => '회계 관리'
+                    'admin_access' => t('permissions.admin_access'),
+                    'user_management' => t('permissions.user_management'),
+                    'store_management' => t('permissions.store_management'),
+                    'product_management' => t('permissions.product_management'),
+                    'purchase_management' => t('permissions.purchase_management'),
+                    'brand_management' => t('permissions.brand_management'),
+                    'category_management' => t('permissions.category_management'),
+                    'supplier_management' => t('permissions.supplier_management'),
+                    'settings' => t('permissions.settings'),
+                    'shop_access' => t('permissions.shop_access'),
+                    'barcode_management' => t('permissions.barcode_management'),
+                    'accounting_management' => t('permissions.accounting_management')
                 ];
                 
                 foreach ($all_permissions as $perm_key => $perm_label): 
@@ -250,13 +251,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <?php echo htmlspecialchars($perm_label); ?>
                         </label>
                         <?php if ($perm_key === 'shop_access'): ?>
-                        <p class="text-gray-500">일반 사용자는 이 권한만 가지는 것을 권장합니다.</p>
+                        <p class="text-gray-500"><?php echo t('permissions.shop_access_desc'); ?></p>
                         <?php elseif ($perm_key === 'admin_access'): ?>
-                        <p class="text-gray-500">관리자 메뉴에 접근하려면 필수입니다.</p>
+                        <p class="text-gray-500"><?php echo t('permissions.admin_access_desc'); ?></p>
                         <?php elseif ($perm_key === 'barcode_management'): ?>
-                        <p class="text-gray-500">바코드 출력 및 관리 기능입니다.</p>
+                        <p class="text-gray-500"><?php echo t('permissions.barcode_management_desc'); ?></p>
                         <?php elseif ($perm_key === 'accounting_management'): ?>
-                        <p class="text-gray-500">회계 데이터 입력 및 출력 기능입니다.</p>
+                        <p class="text-gray-500"><?php echo t('permissions.accounting_management_desc'); ?></p>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -265,22 +266,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             
             <div class="mt-4 flex space-x-2">
                 <button type="button" id="preset-user" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <i class="fas fa-user mr-2"></i>일반 사용자
+                    <i class="fas fa-user mr-2"></i><?php echo t('roles.user'); ?>
                 </button>
                 <button type="button" id="preset-staff" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <i class="fas fa-id-badge mr-2"></i>직원
+                    <i class="fas fa-id-badge mr-2"></i><?php echo t('roles.staff'); ?>
                 </button>
                 <button type="button" id="preset-office-staff" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <i class="fas fa-calculator mr-2"></i>오피스 스텝
+                    <i class="fas fa-calculator mr-2"></i><?php echo t('roles.office_staff'); ?>
                 </button>
                 <button type="button" id="preset-admin" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <i class="fas fa-user-cog mr-2"></i>관리자
+                    <i class="fas fa-user-cog mr-2"></i><?php echo t('roles.admin'); ?>
                 </button>
                 <button type="button" id="preset-super-admin" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <i class="fas fa-user-shield mr-2"></i>총괄 관리자
+                    <i class="fas fa-user-shield mr-2"></i><?php echo t('roles.super_admin'); ?>
                 </button>
                 <button type="button" id="clear-all" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <i class="fas fa-times mr-2"></i>모두 해제
+                    <i class="fas fa-times mr-2"></i><?php echo t('user.clear_all'); ?>
                 </button>
             </div>
         </div>
@@ -288,16 +289,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     <!-- Password Section -->
     <div class="border-t border-gray-200 pt-8">
-        <h2 class="text-lg font-medium leading-6 text-gray-900">비밀번호 설정</h2>
-        <p class="mt-1 text-sm text-gray-500">회원이 사용할 초기 비밀번호를 설정합니다.</p>
+        <h2 class="text-lg font-medium leading-6 text-gray-900"><?php echo t('user.password_settings'); ?></h2>
+        <p class="mt-1 text-sm text-gray-500"><?php echo t('user.password_settings_desc'); ?></p>
         <div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
             <div class="sm:col-span-3">
-                <label for="password" class="block text-sm font-medium text-gray-700">비밀번호</label>
+                <label for="password" class="block text-sm font-medium text-gray-700"><?php echo t('auth.password'); ?></label>
                 <input type="password" id="password" name="password" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                 <p class="mt-2 text-xs text-gray-500">8자 이상의 영문, 숫자를 포함해야 합니다.</p>
+                 <p class="mt-2 text-xs text-gray-500"><?php echo t('user.password_requirements'); ?></p>
             </div>
             <div class="sm:col-span-3">
-                <label for="password_confirm" class="block text-sm font-medium text-gray-700">비밀번호 확인</label>
+                <label for="password_confirm" class="block text-sm font-medium text-gray-700"><?php echo t('auth.password_confirm'); ?></label>
                 <input type="password" id="password_confirm" name="password_confirm" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
             </div>
         </div>
@@ -306,11 +307,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <!-- Form Actions -->
     <div class="pt-8 border-t border-gray-200 flex justify-end gap-x-3">
         <a href="user_management.php" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-            취소
+            <?php echo t('common.cancel'); ?>
         </a>
         <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
             <i class="fas fa-user-plus mr-2"></i>
-            회원 추가
+            <?php echo t('user.add'); ?>
         </button>
     </div>
 </form>

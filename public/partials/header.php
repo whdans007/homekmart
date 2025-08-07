@@ -2,6 +2,7 @@
 ob_start(); // 출력 버퍼링 시작
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 ensure_logged_in();
 
@@ -42,7 +43,7 @@ if (!empty($_SESSION['user_id'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="msapplication-config" content="none">
-    <title><?php echo $page_title ?? 'HOME K MART'; ?></title>
+    <title><?php echo $page_title ?? t('company.title'); ?></title>
     <link rel="icon" href="data:,">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="favicon.svg">
@@ -57,7 +58,7 @@ if (!empty($_SESSION['user_id'])) {
                 <div class="flex flex-col flex-grow pt-5 pb-4 overflow-y-auto bg-white border-r border-gray-200">
                     <div class="flex items-center flex-shrink-0 px-4">
                         <h1 class="text-xl font-bold text-gray-900">
-                            <a href="index.php" class="text-primary-600 hover:text-primary-700">HOME K MART</a>
+                            <a href="index.php" class="text-primary-600 hover:text-primary-700"><?php echo t('company.name'); ?></a>
                         </h1>
                     </div>
                     <div class="mt-5 flex-grow flex flex-col">
@@ -66,28 +67,28 @@ if (!empty($_SESSION['user_id'])) {
                                 <?php if (has_permission('admin_access') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
                                 <a href="index.php" class="<?php echo ($current_page == 'index.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-tachometer-alt mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                    대시보드
+                                    <?php echo t('navigation.dashboard'); ?>
                                 </a>
                                 <?php endif; ?>
                                 
                                 <?php if (has_permission('shop_access')): ?>
                                 <a href="shop.php" class="<?php echo ($current_page == 'shop.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-shopping-cart mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                    쇼핑몰
+                                    <?php echo t('navigation.shop'); ?>
                                 </a>
                                 <?php endif; ?>
                                 
                                 <?php if (has_permission('user_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
                                 <a href="user_management.php" class="<?php echo in_array($current_page, ['user_management.php', 'add_user.php', 'edit_user.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-users mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                    회원관리
+                                    <?php echo t('navigation.user_management'); ?>
                                 </a>
                                 <?php endif; ?>
                                 
                                 <?php if (has_permission('store_management') || $_SESSION['role'] === 'super_admin'): ?>
                                 <a href="store_management.php" class="<?php echo in_array($current_page, ['store_management.php', 'add_store.php', 'edit_store.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-store mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                    지점관리
+                                    <?php echo t('navigation.store_management'); ?>
                                 </a>
                                 <?php endif; ?>
                             </div>
@@ -104,19 +105,19 @@ if (!empty($_SESSION['user_id'])) {
                             
                             if ($has_management_menus): ?>
                             <div class="pt-6">
-                                <h3 class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">상품 설정</h3>
+                                <h3 class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider"><?php echo t('navigation.product_settings'); ?></h3>
                                 <div class="mt-2 space-y-1">
                                     <?php if (has_permission('brand_management') || $_SESSION['role'] === 'super_admin'): ?>
                                     <a href="brand_management.php" class="<?php echo in_array($current_page, ['brand_management.php', 'add_brand.php', 'edit_brand.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                         <i class="fas fa-tags mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                        브랜드관리
+                                        <?php echo t('navigation.brand_management'); ?>
                                     </a>
                                     <?php endif; ?>
                                     
                                     <?php if (has_permission('category_management') || $_SESSION['role'] === 'super_admin'): ?>
                                     <a href="category_management.php" class="<?php echo in_array($current_page, ['category_management.php', 'add_category.php', 'edit_category.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                         <i class="fas fa-sitemap mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                        카테고리 관리
+                                        <?php echo t('navigation.category_management'); ?>
                                     </a>
                                     <?php endif; ?>
                                     
@@ -124,38 +125,38 @@ if (!empty($_SESSION['user_id'])) {
                                     <?php if (has_permission('supplier_management') || $_SESSION['role'] === 'super_admin'): ?>
                                     <a href="supplier_management.php" class="<?php echo in_array($current_page, ['supplier_management.php', 'add_supplier.php', 'edit_supplier.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                         <i class="fas fa-truck mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                        공급처관리
+                                        <?php echo t('navigation.supplier_management'); ?>
                                     </a>
                                     <?php endif; ?>
                                     
                                     <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
                                     <a href="product_management.php" class="<?php echo in_array($current_page, ['product_management.php', 'add_product.php', 'edit_product.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                         <i class="fas fa-box-open mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                        상품관리
+                                        <?php echo t('navigation.product_management'); ?>
                                     </a>
                                     <?php endif; ?>
                                     
                                     <?php if (has_permission('purchase_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
                                     <a href="purchase_management.php" class="<?php echo in_array($current_page, ['purchase_management.php', 'add_purchase.php', 'edit_purchase.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                         <i class="fas fa-shopping-cart mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                        매입관리
+                                        <?php echo t('navigation.purchase_management'); ?>
                                     </a>
                                     
                                     <a href="price_change_history.php" class="<?php echo ($current_page == 'price_change_history.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                         <i class="fas fa-chart-line mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                        가격변경 이력
+                                        <?php echo t('navigation.price_change_history'); ?>
                                     </a>
                                     <?php endif; ?>
                                     
                                     <?php if (has_permission('settings') || $_SESSION['role'] === 'super_admin'): ?>
                                     <a href="settings.php" class="<?php echo ($current_page == 'settings.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                         <i class="fas fa-cog mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                        환경설정
+                                        <?php echo t('navigation.settings'); ?>
                                     </a>
                                     
                                     <a href="excel_test.php" class="<?php echo ($current_page == 'excel_test.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                         <i class="fas fa-file-excel mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                        엑셀 테스트
+                                        <?php echo t('navigation.excel_test'); ?>
                                     </a>
                                     <?php endif; ?>
                                 </div>
@@ -180,6 +181,14 @@ if (!empty($_SESSION['user_id'])) {
                     </div>
                     <div class="ml-4 flex items-center md:ml-6">
                         <div class="flex items-center space-x-4">
+                            <!-- Language Switcher -->
+                            <div class="relative">
+                                <select id="language-switcher" class="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    <option value="ko" <?php echo get_language() === 'ko' ? 'selected' : ''; ?>>한국어</option>
+                                    <option value="en" <?php echo get_language() === 'en' ? 'selected' : ''; ?>>English</option>
+                                </select>
+                            </div>
+                            
                             <div class="text-sm text-gray-700">
                                 <div class="flex items-center space-x-2">
                                     <a href="user_profile.php" class="font-medium text-primary-600 hover:text-primary-700 transition-colors duration-200"><?php echo htmlspecialchars($_SESSION['full_name']); ?></a>
@@ -192,7 +201,7 @@ if (!empty($_SESSION['user_id'])) {
                             </div>
                             <a href="logout.php" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200">
                                 <i class="fas fa-sign-out-alt mr-2"></i>
-                                로그아웃
+                                <?php echo t('auth.logout'); ?>
                             </a>
                         </div>
                     </div>
@@ -204,43 +213,43 @@ if (!empty($_SESSION['user_id'])) {
                 <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-b border-gray-200">
                     <?php if (has_permission('admin_access')): ?>
                     <a href="index.php" class="<?php echo ($current_page == 'index.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> block px-3 py-2 rounded-md text-base font-medium">
-                        <i class="fas fa-tachometer-alt mr-2"></i>대시보드
+                        <i class="fas fa-tachometer-alt mr-2"></i><?php echo t('navigation.dashboard'); ?>
                     </a>
                     <?php endif; ?>
                     
                     <?php if (has_permission('shop_access')): ?>
                     <a href="shop.php" class="<?php echo ($current_page == 'shop.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> block px-3 py-2 rounded-md text-base font-medium">
-                        <i class="fas fa-shopping-cart mr-2"></i>쇼핑몰
+                        <i class="fas fa-shopping-cart mr-2"></i><?php echo t('navigation.shop'); ?>
                     </a>
                     <?php endif; ?>
                     
                     <?php if (has_permission('user_management')): ?>
                     <a href="user_management.php" class="<?php echo in_array($current_page, ['user_management.php', 'add_user.php', 'edit_user.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> block px-3 py-2 rounded-md text-base font-medium">
-                        <i class="fas fa-users mr-2"></i>회원관리
+                        <i class="fas fa-users mr-2"></i><?php echo t('navigation.user_management'); ?>
                     </a>
                     <?php endif; ?>
                     
                     <?php if (has_permission('store_management')): ?>
                     <a href="store_management.php" class="<?php echo in_array($current_page, ['store_management.php', 'add_store.php', 'edit_store.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> block px-3 py-2 rounded-md text-base font-medium">
-                        <i class="fas fa-store mr-2"></i>지점관리
+                        <i class="fas fa-store mr-2"></i><?php echo t('navigation.store_management'); ?>
                     </a>
                     <?php endif; ?>
                     
                     <?php if (has_permission('brand_management')): ?>
                     <a href="brand_management.php" class="<?php echo in_array($current_page, ['brand_management.php', 'add_brand.php', 'edit_brand.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> block px-3 py-2 rounded-md text-base font-medium">
-                        <i class="fas fa-tags mr-2"></i>브랜드관리
+                        <i class="fas fa-tags mr-2"></i><?php echo t('navigation.brand_management'); ?>
                     </a>
                     <?php endif; ?>
                     
                     <?php if (has_permission('category_management')): ?>
                     <a href="category_management.php" class="<?php echo in_array($current_page, ['category_management.php', 'add_category.php', 'edit_category.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> block px-3 py-2 rounded-md text-base font-medium">
-                        <i class="fas fa-sitemap mr-2"></i>카테고리 관리
+                        <i class="fas fa-sitemap mr-2"></i><?php echo t('navigation.category_management'); ?>
                     </a>
                     <?php endif; ?>
                     
                     <?php if (has_permission('supplier_management')): ?>
                     <a href="supplier_management.php" class="<?php echo in_array($current_page, ['supplier_management.php', 'add_supplier.php', 'edit_supplier.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> block px-3 py-2 rounded-md text-base font-medium">
-                        <i class="fas fa-truck mr-2"></i>공급처관리
+                        <i class="fas fa-truck mr-2"></i><?php echo t('navigation.supplier_management'); ?>
                     </a>
                     <?php endif; ?>
                 </div>
@@ -250,3 +259,40 @@ if (!empty($_SESSION['user_id'])) {
             <main class="flex-1 relative overflow-y-auto focus:outline-none">
                 <div class="py-6">
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+
+<script>
+// Language Switcher
+document.addEventListener('DOMContentLoaded', function() {
+    const languageSwitcher = document.getElementById('language-switcher');
+    if (languageSwitcher) {
+        languageSwitcher.addEventListener('change', function() {
+            const selectedLang = this.value;
+            
+            // AJAX로 언어 변경
+            fetch('ajax_set_language.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'language=' + encodeURIComponent(selectedLang)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 페이지 새로고침으로 변경된 언어 적용
+                    window.location.reload();
+                } else {
+                    alert('언어 변경에 실패했습니다: ' + data.message);
+                    // 실패시 이전 선택으로 되돌리기
+                    this.value = '<?php echo get_language(); ?>';
+                }
+            })
+            .catch(error => {
+                console.error('Language change error:', error);
+                alert('언어 변경 중 오류가 발생했습니다.');
+                this.value = '<?php echo get_language(); ?>';
+            });
+        });
+    }
+});
+</script>

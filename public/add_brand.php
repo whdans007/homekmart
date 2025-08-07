@@ -1,10 +1,11 @@
 <?php
-$page_title = "브랜드 추가 - HOME K MART";
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('brand.add') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 
 // 브랜드 관리 권한 확인
 if (!has_permission('brand_management')) {
-    echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'><div class='flex'><div class='flex-shrink-0'><i class='fas fa-exclamation-circle text-red-400'></i></div><div class='ml-3'><p class='text-sm text-red-800'>이 페이지에 접근할 권한이 없습니다.</p></div></div></div>";
+    echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'><div class='flex'><div class='flex-shrink-0'><i class='fas fa-exclamation-circle text-red-400'></i></div><div class='ml-3'><p class='text-sm text-red-800'>" . t('brand.access_denied') . "</p></div></div></div>";
     require_once __DIR__ . '/partials/footer.php';
     exit;
 }
@@ -22,10 +23,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $logo_url = trim($_POST['logo_url'] ?? '');
 
     if (empty($brand_name_en)) {
-        $errors[] = "브랜드명(영문)을 입력해주세요.";
+        $errors[] = t('brand.name_en_required');
     }
     if (!empty($logo_url) && !filter_var($logo_url, FILTER_VALIDATE_URL)) {
-        $errors[] = "유효한 URL 형식이 아닙니다.";
+        $errors[] = t('brand.invalid_url');
     }
 
     if (empty($errors)) {
@@ -37,17 +38,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt = $pdo->prepare("SELECT id FROM brands WHERE name_en = ?");
             $stmt->execute([$brand_name_en]);
             if ($stmt->fetch()) {
-                $errors[] = "이미 존재하는 브랜드명(영문)입니다.";
+                $errors[] = t('brand.name_en_exists');
             } else {
                 $insert_stmt = $pdo->prepare("INSERT INTO brands (name_ko, name_en, logo_url) VALUES (?, ?, ?)");
                 $insert_stmt->execute([$brand_name_ko, $brand_name_en ?: null, $logo_url ?: null]);
 
-                $_SESSION['flash'] = ['type' => 'success', 'message' => "브랜드 '" . htmlspecialchars($brand_name_ko ?: $brand_name_en) . "'이(가) 성공적으로 추가되었습니다."];
+                $_SESSION['flash'] = ['type' => 'success', 'message' => str_replace('{name}', htmlspecialchars($brand_name_ko ?: $brand_name_en), t('brand.added_successfully_brand'))];
                 header("Location: brand_management.php");
                 exit;
             }
         } catch (PDOException $e) {
-            $errors[] = "데이터베이스 오류가 발생했습니다: " . $e->getMessage();
+            $errors[] = str_replace('{error}', $e->getMessage(), t('brand.database_error'));
         }
     }
 }
@@ -58,15 +59,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="flex items-center justify-between mb-6">
             <a href="brand_management.php" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700">
                 <i class="fas fa-arrow-left mr-2"></i>
-                브랜드 목록으로 돌아가기
+                <?php echo t('brand.back_to_brand_list'); ?>
             </a>
         </div>
 
         <div class="bg-white shadow-xl rounded-2xl">
             <div class="py-8 px-4 sm:px-10">
                 <div class="text-center mb-8">
-                    <h1 class="text-3xl font-bold tracking-tight text-gray-900">새 브랜드 추가</h1>
-                    <p class="mt-2 text-sm text-gray-600">새로운 브랜드의 정보를 입력해주세요.</p>
+                    <h1 class="text-3xl font-bold tracking-tight text-gray-900"><?php echo t('brand.new_brand'); ?></h1>
+                    <p class="mt-2 text-sm text-gray-600"><?php echo t('brand.enter_info'); ?></p>
                 </div>
 
                 <?php if (!empty($errors)): ?>
@@ -76,7 +77,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 <i class="fas fa-times-circle text-red-400 text-xl"></i>
                             </div>
                             <div class="ml-3">
-                                <h3 class="text-sm font-medium text-red-800">다음 오류를 해결해주세요.</h3>
+                                <h3 class="text-sm font-medium text-red-800"><?php echo t('brand.solve_errors'); ?></h3>
                                 <div class="mt-2 text-sm text-red-700">
                                     <ul role="list" class="list-disc pl-5 space-y-1">
                                         <?php foreach ($errors as $error): ?>
@@ -92,22 +93,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <form action="add_brand.php" method="post" class="space-y-6">
                     <div class="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-4">
                         <div class="sm:col-span-2">
-                            <label for="name_ko" class="block text-sm font-medium text-gray-700">브랜드명 (한글)</label>
+                            <label for="name_ko" class="block text-sm font-medium text-gray-700"><?php echo t('brand.name_ko'); ?></label>
                             <div class="mt-1 flex rounded-md shadow-sm">
                                 <div class="relative flex-grow focus-within:z-10">
                                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                         <i class="fas fa-tag text-gray-400"></i>
                                     </div>
-                                    <input type="text" id="name_ko" name="name_ko" class="block w-full rounded-none rounded-l-md border-gray-300 pl-10 focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5" value="<?php echo htmlspecialchars($brand_name_ko); ?>" placeholder="브랜드명 (한글)">
+                                    <input type="text" id="name_ko" name="name_ko" class="block w-full rounded-none rounded-l-md border-gray-300 pl-10 focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-2.5" value="<?php echo htmlspecialchars($brand_name_ko); ?>" placeholder="<?php echo t('brand.name_ko'); ?>">
                                 </div>
                                 <button type="button" id="convert_to_en_btn" class="relative -ml-px inline-flex items-center space-x-2 rounded-r-md border border-gray-300 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
                                     <i class="fas fa-language"></i>
-                                    <span>영문 변환</span>
+                                    <span><?php echo t('brand.convert_to_english'); ?></span>
                                 </button>
                             </div>
                         </div>
                         <div class="sm:col-span-2">
-                            <label for="name_en" class="block text-sm font-medium text-gray-700">브랜드명 (영문)</label>
+                            <label for="name_en" class="block text-sm font-medium text-gray-700"><?php echo t('brand.name_en'); ?></label>
                             <div class="mt-1 relative rounded-md shadow-sm">
                                 <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                     <i class="fas fa-spell-check text-gray-400"></i>
@@ -118,7 +119,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     </div>
 
                     <div>
-                        <label for="logo_url" class="block text-sm font-medium text-gray-700">로고 URL <span class="text-gray-500">(선택 사항)</span></label>
+                        <label for="logo_url" class="block text-sm font-medium text-gray-700"><?php echo t('brand.logo_url'); ?> <span class="text-gray-500">(<?php echo t('forms.optional'); ?>)</span></label>
                         <div class="mt-1 relative rounded-md shadow-sm">
                             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                 <i class="fas fa-link text-gray-400"></i>
@@ -129,10 +130,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                     <div class="pt-5 border-t border-gray-200">
                         <div class="flex justify-end gap-x-3">
-                            <a href="brand_management.php" class="rounded-md bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">취소</a>
+                            <a href="brand_management.php" class="rounded-md bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"><?php echo t('common.cancel'); ?></a>
                             <button type="submit" class="inline-flex justify-center rounded-md bg-primary-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
                                 <i class="fas fa-plus mr-2"></i>
-                                브랜드 추가
+                                <?php echo t('brand.add'); ?>
                             </button>
                         </div>
                     </div>

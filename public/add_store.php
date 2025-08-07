@@ -1,10 +1,11 @@
 <?php
-$page_title = "지점 추가 - HOME K MART";
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('store.add') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 
 // 총괄관리자만 접근 가능
 if ($_SESSION['role'] !== 'super_admin') {
-    echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'><div class='flex'><div class='flex-shrink-0'><i class='fas fa-exclamation-circle text-red-400'></i></div><div class='ml-3'><p class='text-sm text-red-800'>이 페이지에 접근할 권한이 없습니다.</p></div></div></div>";
+    echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'><div class='flex'><div class='flex-shrink-0'><i class='fas fa-exclamation-circle text-red-400'></i></div><div class='ml-3'><p class='text-sm text-red-800'>" . t('store.access_denied') . "</p></div></div></div>";
     require_once __DIR__ . '/partials/footer.php';
     exit;
 }
@@ -18,7 +19,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $store_name = trim($_POST['name'] ?? '');
 
     if (empty($store_name)) {
-        $errors[] = "지점명을 입력해주세요.";
+        $errors[] = t('store.name_required');
     }
 
     if (empty($errors)) {
@@ -30,17 +31,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt = $pdo->prepare("SELECT id FROM stores WHERE name = ?");
             $stmt->execute([$store_name]);
             if ($stmt->fetch()) {
-                $errors[] = "이미 존재하는 지점명입니다.";
+                $errors[] = t('store.already_exists');
             } else {
                 $insert_stmt = $pdo->prepare("INSERT INTO stores (name) VALUES (?)");
                 $insert_stmt->execute([$store_name]);
 
-                $_SESSION['flash'] = ['type' => 'success', 'message' => "지점 '" . htmlspecialchars($store_name) . "'이(가) 성공적으로 추가되었습니다."];
+                $_SESSION['flash'] = ['type' => 'success', 'message' => str_replace('{name}', htmlspecialchars($store_name), t('store.added_successfully'))];
                 header("Location: store_management.php");
                 exit;
             }
         } catch (PDOException $e) {
-            $errors[] = "데이터베이스 오류가 발생했습니다: " . $e->getMessage();
+            $errors[] = str_replace('{error}', $e->getMessage(), t('store.database_error'));
         }
     }
 }
@@ -51,15 +52,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="flex items-center justify-between mb-6">
             <a href="store_management.php" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700">
                 <i class="fas fa-arrow-left mr-2"></i>
-                지점 목록으로 돌아가기
+                <?php echo t('store.back_to_list'); ?>
             </a>
         </div>
 
         <div class="bg-white shadow-xl rounded-2xl">
             <div class="py-8 px-4 sm:px-10">
                 <div class="text-center mb-8">
-                    <h1 class="text-3xl font-bold tracking-tight text-gray-900">새 지점 추가</h1>
-                    <p class="mt-2 text-sm text-gray-600">새로운 지점의 정보를 입력해주세요.</p>
+                    <h1 class="text-3xl font-bold tracking-tight text-gray-900"><?php echo t('store.new_store'); ?></h1>
+                    <p class="mt-2 text-sm text-gray-600"><?php echo t('store.enter_info'); ?></p>
                 </div>
 
                 <?php if (!empty($errors)): ?>
@@ -69,7 +70,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 <i class="fas fa-times-circle text-red-400 text-xl"></i>
                             </div>
                             <div class="ml-3">
-                                <h3 class="text-sm font-medium text-red-800">다음 오류를 해결해주세요.</h3>
+                                <h3 class="text-sm font-medium text-red-800"><?php echo t('store.solve_errors'); ?></h3>
                                 <div class="mt-2 text-sm text-red-700">
                                     <ul role="list" class="list-disc pl-5 space-y-1">
                                         <?php foreach ($errors as $error): ?>
@@ -84,21 +85,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 <form action="add_store.php" method="post" class="space-y-6">
                     <div>
-                        <label for="name" class="sr-only">지점명</label>
+                        <label for="name" class="sr-only"><?php echo t('store.name'); ?></label>
                         <div class="relative">
                             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                 <i class="fas fa-store-alt text-gray-400"></i>
                             </div>
-                            <input type="text" id="name" name="name" class="block w-full rounded-md border-gray-300 pl-10 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-3" value="<?php echo htmlspecialchars($store_name); ?>" required placeholder="지점명">
+                            <input type="text" id="name" name="name" class="block w-full rounded-md border-gray-300 pl-10 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-3" value="<?php echo htmlspecialchars($store_name); ?>" required placeholder="<?php echo t('store.name'); ?>">
                         </div>
                     </div>
 
                     <div class="pt-5 border-t border-gray-200">
                         <div class="flex justify-end gap-x-3">
-                            <a href="store_management.php" class="rounded-md bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">취소</a>
+                            <a href="store_management.php" class="rounded-md bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"><?php echo t('common.cancel'); ?></a>
                             <button type="submit" class="inline-flex justify-center rounded-md bg-primary-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
                                 <i class="fas fa-plus mr-2"></i>
-                                지점 추가
+                                <?php echo t('store.add'); ?>
                             </button>
                         </div>
                     </div>
