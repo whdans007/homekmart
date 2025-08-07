@@ -992,10 +992,126 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <style>
 @media print {
-    body { font-size: 12px; }
-    .container { max-width: none; margin: 0; padding: 10px; }
-    table { font-size: 11px; }
-    .print\\:hidden { display: none !important; }
+    /* 전체 페이지 설정 */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+    
+    body { 
+        font-size: 9px !important; 
+        line-height: 1.2 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+    }
+    
+    .container { 
+        max-width: none !important; 
+        margin: 0 !important; 
+        padding: 4px !important; 
+    }
+    
+    /* 헤더 영역 */
+    .mb-8 {
+        margin-bottom: 9px !important;
+    }
+    
+    h1 {
+        font-size: 13px !important;
+        margin-bottom: 4px !important;
+    }
+    
+    /* 테이블 스타일 */
+    table { 
+        font-size: 8px !important;
+        border-collapse: collapse !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+    
+    th, td {
+        padding: 2px 4px !important;
+        border: 1px solid #000 !important;
+        text-align: left !important;
+    }
+    
+    th {
+        background-color: #f5f5f5 !important;
+        font-weight: bold !important;
+        font-size: 8px !important;
+    }
+    
+    /* 숫자 컬럼 우측 정렬 */
+    td:nth-child(3), td:nth-child(4), td:nth-child(6), td:nth-child(7), td:nth-child(8) {
+        text-align: right !important;
+    }
+    
+    /* 원가변동 컬럼 중앙 정렬 */
+    td:nth-child(5) {
+        text-align: center !important;
+    }
+    
+    /* 입력 필드 스타일 */
+    input {
+        border: none !important;
+        background: transparent !important;
+        font-size: 8px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        text-align: right !important;
+    }
+    
+    /* 배지 스타일 */
+    .bg-red-100, .bg-green-100, .bg-gray-100 {
+        background-color: #f0f0f0 !important;
+        color: #000 !important;
+        padding: 1px 3px !important;
+        font-size: 7px !important;
+    }
+    
+    /* 상품 정보 글씨 크기 조정 */
+    .text-sm {
+        font-size: 8px !important;
+    }
+    
+    .text-xs {
+        font-size: 7px !important;
+    }
+    
+    /* 아이콘 제거 */
+    .fas {
+        display: none !important;
+    }
+    
+    /* 숨김 요소 */
+    .print\\:hidden, 
+    button, 
+    .hover\\:bg-gray-50,
+    #bulkActionPanel,
+    .border-l-4 {
+        display: none !important;
+    }
+    
+    /* 그림자 제거 */
+    .shadow, .shadow-lg, .shadow-md {
+        box-shadow: none !important;
+    }
+    
+    /* 여백 조정 */
+    .p-6, .p-4, .p-3 {
+        padding: 2px !important;
+    }
+    
+    /* 페이지 나누기 방지 */
+    tr {
+        page-break-inside: avoid !important;
+    }
+    
+    /* 테이블 헤더 반복 */
+    thead {
+        display: table-header-group !important;
+    }
 }
 </style>
 
