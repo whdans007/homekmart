@@ -6,8 +6,10 @@ error_reporting(E_ALL);
 require_once __DIR__ . '/../config/db_config.php';
 require_once __DIR__ . '/../lib/session_helper.php';
 
+require_once __DIR__ . '/../lib/lang_helper.php';
+
 if (!is_logged_in() || !in_array($_SESSION['role'], ['super_admin', 'admin'])) {
-    echo "<div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative' role='alert'><strong class='font-bold'>접근 불가:</strong><span class='block sm:inline'> 이 페이지에 접근할 권한이 없습니다.</span></div>";
+    echo "<div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative' role='alert'><strong class='font-bold'>" . t('purchase.access_denied_title') . ":</strong><span class='block sm:inline'> " . t('purchase.access_denied') . "</span></div>";
     require_once __DIR__ . '/partials/footer.php';
     exit;
 }
@@ -15,7 +17,7 @@ if (!is_logged_in() || !in_array($_SESSION['role'], ['super_admin', 'admin'])) {
 $conn = get_db_connection();
 
 // 현재 로그인된 사용자의 점포 정보 조회
-$store_name = '미지정';
+$store_name = t('purchase.unassigned');
 $user_store_id = null;
 if (!empty($_SESSION['user_id'])) {
     $user_stmt = $conn->prepare("SELECT s.name as store_name, s.id as store_id FROM users u LEFT JOIN stores s ON u.store_id = s.id WHERE u.id = ?");
@@ -23,7 +25,7 @@ if (!empty($_SESSION['user_id'])) {
     $user_stmt->execute();
     $user_result = $user_stmt->get_result();
     if ($user_row = $user_result->fetch_assoc()) {
-        $store_name = $user_row['store_name'] ?? '미지정';
+        $store_name = $user_row['store_name'] ?? t('purchase.unassigned');
         $user_store_id = $user_row['store_id'];
     }
     $user_stmt->close();
@@ -68,7 +70,7 @@ if ($edit_purchase_id) {
     }
 }
 
-$page_title = $is_edit_mode ? "매입 내역 수정 - 상품 추가" : "신규 매입 등록";
+$page_title = $is_edit_mode ? t('purchase.edit_add_items') : t('purchase.new_purchase');
 require_once __DIR__ . '/partials/header.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -80,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $edit_purchase_id = $_POST['edit_purchase_id'] ?? null;
 
     if (empty($supplier_id) || empty($purchase_date) || empty($items)) {
-        $message = "거래처, 매입 날짜, 그리고 최소 하나 이상의 품목을 입력해야 합니다.";
+        $message = t('purchase.required_fields');
     } else {
         // 연결 상태 확인 및 필요시 재연결
         $connection_valid = false;
@@ -96,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$connection_valid) {
             $conn = get_db_connection();
             if (!$conn) {
-                $message = "데이터베이스 연결에 실패했습니다.";
+                $message = t('purchase.database_connection_failed');
                 goto skip_processing;
             }
         }
@@ -125,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->close();
                 $new_items = $items;
             } else {
-                throw new Exception("추가할 새로운 상품이 없습니다.");
+                throw new Exception(t('purchase.no_new_items'));
             }
 
             // 매입 상세 데이터 저장 및 재고 업데이트
@@ -142,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // 1. 매입 상세 데이터 저장
                     $stmt_item->bind_param("iisis", $purchase_id, $item['product_id'], $purchase_type, $item['quantity'], $item['unit_price']);
                     if (!$stmt_item->execute()) {
-                        throw new Exception("매입 상세 저장 실패: " . $stmt_item->error . " - purchase_type: '$purchase_type'");
+                        throw new Exception(str_replace(['{error}', '{type}'], [$stmt_item->error, $purchase_type], t('purchase.item_save_failed')));
                     }
                     
                     // 2. 실제 입고 수량 계산 (박스/낱개 구분)
@@ -189,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         $transaction_stmt->bind_param("iiis", $inventory_id, $_SESSION['user_id'], $actual_quantity, $remarks);
                         if (!$transaction_stmt->execute()) {
-                            throw new Exception("재고 거래 로그 저장 실패: " . $transaction_stmt->error);
+                            throw new Exception(str_replace('{error}', $transaction_stmt->error, t('purchase.transaction_log_failed')));
                         }
                         $transaction_stmt->close();
                     }
@@ -213,16 +215,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->commit();
             
             if ($edit_purchase_id) {
-                $_SESSION['flash'] = ['type' => 'success', 'message' => '매입 내역에 새로운 상품이 성공적으로 추가되었습니다.'];
+                $_SESSION['flash'] = ['type' => 'success', 'message' => t('purchase.items_added_successfully')];
                 header("Location: edit_purchase.php?id={$purchase_id}");
             } else {
-                $_SESSION['flash'] = ['type' => 'success', 'message' => '매입 내역이 성공적으로 등록되고 재고에 반영되었습니다.'];
+                $_SESSION['flash'] = ['type' => 'success', 'message' => t('purchase.registered_successfully')];
                 header('Location: purchase_management.php');
             }
             exit();
         } catch (Exception $e) {
             $conn->rollback();
-            $message = "매입 등록에 실패했습니다: " . $e->getMessage();
+            $message = str_replace('{error}', $e->getMessage(), t('purchase.registration_failed'));
         }
     }
     
@@ -233,18 +235,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!-- Page header -->
 <div class="mb-8 sm:flex sm:items-center sm:justify-between">
     <div>
-        <h1 class="text-3xl font-bold text-gray-900"><?php echo $is_edit_mode ? '매입 내역 수정 - 상품 추가' : '신규 매입 등록'; ?></h1>
+        <h1 class="text-3xl font-bold text-gray-900"><?php echo $is_edit_mode ? t('purchase.edit_add_items') : t('purchase.new_purchase'); ?></h1>
         <p class="mt-2 text-sm text-gray-700">
             <?php if ($is_edit_mode): ?>
-                기존 매입 내역에 새로운 상품을 추가하세요. 기존 상품들은 이미 목록에 표시되어 있습니다.
+                <?php echo t('purchase.add_items_desc'); ?>
             <?php else: ?>
-                매입할 상품을 검색하여 목록에 추가하세요.
+                <?php echo t('purchase.search_add_items'); ?>
             <?php endif; ?>
         </p>
         <?php if ($is_edit_mode && $existing_purchase): ?>
             <div class="mt-3 flex items-center space-x-4 text-sm text-gray-600">
-                <span><strong>거래처:</strong> <?php echo htmlspecialchars($existing_purchase['supplier_name']); ?></span>
-                <span><strong>매입날짜:</strong> <?php echo htmlspecialchars($existing_purchase['purchase_date']); ?></span>
+                <span><strong><?php echo t('purchase.supplier'); ?>:</strong> <?php echo htmlspecialchars($existing_purchase['supplier_name']); ?></span>
+                <span><strong><?php echo t('purchase.purchase_date'); ?>:</strong> <?php echo htmlspecialchars($existing_purchase['purchase_date']); ?></span>
             </div>
         <?php endif; ?>
     </div>
@@ -252,12 +254,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if ($is_edit_mode): ?>
             <a href="edit_purchase.php?id=<?php echo $edit_purchase_id; ?>" class="btn">
                 <i class="fas fa-arrow-left mr-2"></i>
-                상세보기로 돌아가기
+                <?php echo t('purchase.back_to_details'); ?>
             </a>
         <?php else: ?>
             <a href="purchase_management.php" class="btn">
                 <i class="fas fa-arrow-left mr-2"></i>
-                매입 관리로 돌아가기
+                <?php echo t('purchase.back_to_management'); ?>
             </a>
         <?php endif; ?>
     </div>
@@ -289,7 +291,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <i class="fas fa-store text-blue-500"></i>
                 </div>
                 <div class="ml-3">
-                    <p class="text-sm font-medium text-blue-800">매입 점포</p>
+                    <p class="text-sm font-medium text-blue-800"><?php echo t('purchase.purchase_store'); ?></p>
                     <p class="text-base font-semibold text-blue-900"><?php echo htmlspecialchars($store_name); ?></p>
                 </div>
             </div>
@@ -299,7 +301,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 border-b border-gray-200 pb-6">
             <div>
                 <label for="supplier_search" class="block text-sm font-medium text-gray-700">
-                    <span class="text-red-500">*</span> 거래처 (필수)
+                    <span class="text-red-500">*</span> <?php echo t('purchase.supplier_required'); ?>
                 </label>
                 <?php if ($is_edit_mode): ?>
                     <!-- 수정 모드에서는 기존 거래처 정보만 표시 -->
@@ -315,7 +317,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                         <input type="text" id="supplier_search" 
                                class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
-                               placeholder="거래처명을 입력하여 검색하세요...">
+                               placeholder="<?php echo t('purchase.supplier_search_placeholder'); ?>">
                         <input type="hidden" id="supplier_id" name="supplier_id" required>
                     </div>
                     <div id="supplier_search_results" class="absolute z-30 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden border border-gray-200"></div>
@@ -331,10 +333,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </div>
                 <?php endif; ?>
-                <p class="mt-1 text-xs text-gray-500">거래처를 선택해야 상품 입력이 가능합니다.</p>
+                <p class="mt-1 text-xs text-gray-500"><?php echo t('purchase.select_supplier_first'); ?></p>
             </div>
             <div>
-                <label for="purchase_date" class="block text-sm font-medium text-gray-700">매입 날짜</label>
+                <label for="purchase_date" class="block text-sm font-medium text-gray-700"><?php echo t('purchase.purchase_date'); ?></label>
                 <input type="date" id="purchase_date" name="purchase_date" 
                        value="<?php echo $is_edit_mode && $existing_purchase ? $existing_purchase['purchase_date'] : date('Y-m-d'); ?>" 
                        required 
@@ -360,27 +362,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <!-- 4-9. 상품 목록 -->
         <div class="mb-6">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">매입 상품 목록</h3>
+            <h3 class="text-lg font-medium text-gray-900 mb-4"><?php echo t('purchase.item_list'); ?></h3>
             <div class="overflow-x-auto">
                 <table id="item-table" class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품명</th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">구매유형</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">수량</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">박스당 수량</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">단가</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">낱개단가</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">합계</th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">삭제</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.product_name'); ?></th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.purchase_type'); ?></th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.quantity'); ?></th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.pieces_per_box'); ?></th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit_price'); ?></th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.piece_price'); ?></th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total'); ?></th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.delete'); ?></th>
                         </tr>
                     </thead>
                     <tbody id="item-list" class="bg-white divide-y divide-gray-200">
                         <tr id="empty-row">
                             <td colspan="9" class="px-6 py-12 text-center text-gray-500">
                                 <i class="fas fa-box-open text-4xl text-gray-300 mb-4"></i>
-                                <p class="text-sm">상품을 검색하여 매입 목록에 추가하세요.</p>
+                                <p class="text-sm"><?php echo t('purchase.search_add_products'); ?></p>
                             </td>
                         </tr>
                     </tbody>
@@ -392,7 +394,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="border-t border-gray-200 pt-6">
             <div class="flex justify-between items-center">
                 <div>
-                    <p class="text-sm text-gray-500">매입 총 합계</p>
+                    <p class="text-sm text-gray-500"><?php echo t('purchase.total_amount'); ?></p>
                 </div>
                 <div class="text-right">
                     <p class="text-2xl font-bold text-gray-900"><span id="total-amount">0</span></p>
@@ -403,11 +405,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <!-- 액션 버튼 -->
         <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-6">
             <a href="purchase_management.php" class="btn">
-                취소
+                <?php echo t('common.cancel'); ?>
             </a>
             <button type="submit" class="btn-primary">
                 <i class="fas fa-save mr-2"></i>
-                매입 등록
+                <?php echo t('purchase.register'); ?>
             </button>
         </div>
     </form>
