@@ -1,7 +1,49 @@
 <?php
+// 세션 시작 및 기본 헬퍼 로드
+require_once __DIR__ . '/../lib/session_helper.php';
 require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = t('product.add_new') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
+?>
+
+<style>
+/* Input 필드 스타일 개선 */
+input[type="text"], 
+input[type="number"], 
+input[type="url"], 
+textarea, 
+select {
+    background-color: #ffffff !important;
+    border: 2px solid #d1d5db !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+input[type="text"]:focus, 
+input[type="number"]:focus, 
+input[type="url"]:focus, 
+textarea:focus, 
+select:focus {
+    background-color: #ffffff !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+}
+
+input[type="text"]:hover, 
+input[type="number"]:hover, 
+input[type="url"]:hover, 
+textarea:hover, 
+select:hover {
+    border-color: #9ca3af !important;
+}
+
+/* Placeholder 텍스트 스타일 */
+input::placeholder,
+textarea::placeholder {
+    color: #9ca3af !important;
+}
+</style>
+
+<?php
 
 // 접근 권한 확인
 if (!in_array($_SESSION['role'], ['super_admin', 'admin'])) {
@@ -15,9 +57,8 @@ require_once __DIR__ . '/../config/db_config.php';
 $errors = [];
 $product = [
     'sku' => '', 'name_ko' => '', 'name_en' => '', 'description' => '',
-    'category_id' => null, 'brand_id' => null, 'cost_price' => '',
-    'selling_price' => '', 'image_url' => '', 'is_active' => 1,
-    'pieces_per_box' => 1, 'barcode' => ''
+    'category_id' => null, 'brand_id' => null, 'image_url' => '', 'is_active' => 1,
+    'pieces_per_box' => 1
 ];
 $categories = [];
 $brands = [];
@@ -51,8 +92,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // 유효성 검사
     if (empty($product['sku'])) $errors[] = t('product.sku_required');
     if (empty($product['name_en'])) $errors[] = t('product.name_en_required');
-    if (empty($product['selling_price']) || !is_numeric($product['selling_price'])) $errors[] = t('product.selling_price_numeric');
-    if (empty($product['cost_price']) || !is_numeric($product['cost_price'])) $errors[] = t('product.cost_price_numeric');
     if (!empty($product['pieces_per_box']) && (!is_numeric($product['pieces_per_box']) || $product['pieces_per_box'] < 1)) $errors[] = t('product.pieces_per_box_numeric');
 
     // SKU 중복 확인
@@ -66,7 +105,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (empty($errors)) {
         try {
-            $sql = "INSERT INTO products (sku, name_ko, name_en, description, category_id, brand_id, cost_price, selling_price, image_url, is_active, pieces_per_box, barcode, last_modified_by_user_id) VALUES (:sku, :name_ko, :name_en, :description, :category_id, :brand_id, :cost_price, :selling_price, :image_url, :is_active, :pieces_per_box, :barcode, :user_id)";
+            $sql = "INSERT INTO products (sku, name_ko, name_en, description, category_id, brand_id, image_url, is_active, pieces_per_box, last_modified_by_user_id) VALUES (:sku, :name_ko, :name_en, :description, :category_id, :brand_id, :image_url, :is_active, :pieces_per_box, :user_id)";
             $stmt = $pdo->prepare($sql);
 
             $params = [
@@ -76,12 +115,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 ':description' => $product['description'] ?: null,
                 ':category_id' => $product['category_id'] ?: null,
                 ':brand_id' => $product['brand_id'] ?: null,
-                ':cost_price' => $product['cost_price'] ?: 0,
-                ':selling_price' => $product['selling_price'],
                 ':image_url' => $product['image_url'] ?: null,
                 ':is_active' => $product['is_active'],
                 ':pieces_per_box' => $product['pieces_per_box'] ?: 1,
-                ':barcode' => $product['barcode'] ?: null,
                 ':user_id' => $_SESSION['user_id']
             ];
 
@@ -98,203 +134,228 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 
-<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="max-w-3xl mx-auto">
-        <div class="flex items-center justify-between mb-6">
-            <a href="product_management.php" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700">
-                <i class="fas fa-arrow-left mr-2"></i>
-                <?php echo t('product.back_to_list'); ?>
-            </a>
+<!-- 헤더 -->
+<div class="mb-6">
+            <div class="flex items-center space-x-3 mb-4">
+                <a href="product_management.php" class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 bg-white rounded-lg border hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    <?php echo t('product.back_to_list'); ?>
+                </a>
+            </div>
+            <div class="text-left">
+                <h1 class="text-2xl font-bold text-gray-900 mb-1"><?php echo t('product.add_new'); ?></h1>
+                <p class="text-gray-600"><?php echo t('product.enter_info'); ?></p>
+            </div>
         </div>
 
-        <div class="bg-white shadow-xl rounded-2xl">
-            <div class="py-8 px-4 sm:px-10">
-                <div class="text-center mb-8">
-                    <h1 class="text-3xl font-bold tracking-tight text-gray-900"><?php echo t('product.add_new'); ?></h1>
-                    <p class="mt-2 text-sm text-gray-600"><?php echo t('product.enter_info'); ?></p>
-                </div>
+        <div class="bg-white shadow rounded-lg border">
+            <div class="px-6 py-6">
 
                 <?php if (!empty($errors)) : ?>
-                    <div class="mb-6 rounded-lg bg-red-50 p-4 border border-red-200">
+                    <div class="mb-6 bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg">
                         <div class="flex">
                             <div class="flex-shrink-0">
-                                <i class="fas fa-times-circle text-red-400 text-xl"></i>
+                                <i class="fas fa-exclamation-triangle text-red-400"></i>
                             </div>
                             <div class="ml-3">
-                                <h3 class="text-sm font-medium text-red-800"><?php echo t('product.solve_errors'); ?></h3>
-                                <div class="mt-2 text-sm text-red-700">
-                                    <ul role="list" class="list-disc pl-5 space-y-1">
-                                        <?php foreach ($errors as $error) : ?>
-                                            <li><?php echo htmlspecialchars($error); ?></li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                </div>
+                                <h3 class="text-sm font-medium text-red-800 mb-2"><?php echo t('product.solve_errors'); ?></h3>
+                                <ul class="text-sm text-red-700 space-y-1">
+                                    <?php foreach ($errors as $error) : ?>
+                                        <li class="flex items-start">
+                                            <span class="text-red-400 mr-2">•</span>
+                                            <?php echo htmlspecialchars($error); ?>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
                             </div>
                         </div>
                     </div>
                 <?php endif; ?>
 
-                <form action="add_product.php" method="post" class="space-y-6">
-                    <!-- 바코드 검색 -->
-                    <div class="border-b border-gray-200 pb-6">
-                        <h3 class="text-lg font-medium leading-6 text-gray-900"><?php echo t('product.barcode_search'); ?></h3>
-                        <p class="mt-1 text-sm text-gray-500"><?php echo t('product.barcode_search_desc'); ?></p>
-                        <div class="mt-4 flex items-stretch gap-x-3">
+                <form action="add_product.php" method="post" class="space-y-8">
+                    <!-- 바코드 검색 섹션 -->
+                    <div class="bg-blue-50 rounded-lg p-5 border border-blue-200">
+                        <div class="flex items-center mb-3">
+                            <div class="bg-blue-100 rounded-full p-2 mr-3">
+                                <i class="fas fa-barcode text-blue-600 text-sm"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900"><?php echo t('product.barcode_search'); ?></h3>
+                                <p class="text-sm text-gray-600"><?php echo t('product.barcode_search_desc'); ?></p>
+                            </div>
+                        </div>
+                        <div class="flex items-stretch gap-3">
                             <div class="flex-grow">
-                                <label for="barcode_search" class="sr-only"><?php echo t('product.barcode'); ?></label>
-                                <input type="text" name="barcode_search" id="barcode_search" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="<?php echo t('product.barcode_placeholder'); ?>">
+                                <label for="barcode_search" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('product.barcode'); ?></label>
+                                <input type="text" name="barcode_search" id="barcode_search" class="block w-full h-10 px-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="<?php echo t('product.barcode_placeholder'); ?>">
                             </div>
-                            <button type="button" id="barcode-search-db-btn" class="relative inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
-                                <i class="fas fa-database text-gray-400"></i>
-                                <?php echo t('product.my_db_search'); ?>
-                            </button>
-                            <button type="button" id="barcode-search-web-btn" class="relative inline-flex items-center gap-x-1.5 rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700">
-                                <i class="fas fa-globe"></i>
-                                <?php echo t('product.web_search'); ?>
-                            </button>
-                        </div>
-                        <div id="barcode-result" class="mt-4 hidden">
-                            <div id="barcode-error" class="hidden rounded-md bg-red-50 p-4">
-                                <p class="text-sm font-medium text-red-800"></p>
-                            </div>
-                            <div id="barcode-success" class="hidden rounded-md bg-green-50 p-4 flex items-start gap-x-4">
-                                <img id="product-image-preview" src="" alt="<?php echo t('product.image'); ?>" class="h-20 w-20 rounded-md object-cover">
-                                <div>
-                                    <p class="font-semibold text-gray-900"><?php echo t('product.info_loaded'); ?></p>
-                                    <p class="text-sm text-gray-600"><?php echo t('product.form_filled'); ?></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 기본 정보 -->
-                    <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                        <div class="sm:col-span-2">
-                            <label for="sku" class="block text-sm font-medium text-gray-700">SKU</label>
-                            <input type="text" name="sku" id="sku" value="<?php echo htmlspecialchars($product['sku']); ?>" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
-                        </div>
-                        <div class="sm:col-span-4">
-                            <label for="name_ko" class="block text-sm font-medium text-gray-700"><?php echo t('product.name_ko'); ?></label>
-                            <div class="mt-1 flex rounded-md shadow-sm">
-                                <input type="text" name="name_ko" id="name_ko" value="<?php echo htmlspecialchars($product['name_ko']); ?>" class="block w-full flex-1 rounded-none rounded-l-md border-gray-300 focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
-                                <button type="button" id="translate-btn" class="relative -ml-px inline-flex items-center space-x-2 rounded-r-md border border-gray-300 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
-                                    <i class="fas fa-language h-5 w-5 text-gray-400"></i>
-                                    <span><?php echo t('product.translate'); ?></span>
+                            <div class="flex items-end gap-2">
+                                <button type="button" id="barcode-search-db-btn" class="inline-flex items-center px-4 py-2 h-10 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+                                    <i class="fas fa-database text-gray-500 mr-2 text-sm"></i>
+                                    <?php echo t('product.my_db_search'); ?>
+                                </button>
+                                <button type="button" id="barcode-search-web-btn" class="inline-flex items-center px-4 py-2 h-10 border border-transparent rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+                                    <i class="fas fa-globe mr-2 text-sm"></i>
+                                    <?php echo t('product.web_search'); ?>
                                 </button>
                             </div>
                         </div>
-                        <div class="sm:col-span-6">
-                            <label for="name_en" class="block text-sm font-medium text-gray-700"><?php echo t('product.name_en'); ?></label>
-                            <input type="text" name="name_en" id="name_en" value="<?php echo htmlspecialchars($product['name_en']); ?>" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
-                        </div>
-                    </div>
-
-                    <!-- 분류 -->
-                    <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
-                        <div>
-                            <label for="category_search" class="block text-sm font-medium text-gray-700"><?php echo t('product.category'); ?></label>
-                            <div class="relative">
-                                <input type="text" id="category_search" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="<?php echo t('product.category_search_placeholder'); ?>">
-                                <input type="hidden" name="category_id" id="category_id" value="<?php echo htmlspecialchars($product['category_id']); ?>">
-                                <div id="category_results" class="absolute z-20 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <label for="brand_search" class="block text-sm font-medium text-gray-700"><?php echo t('product.brand'); ?></label>
-                            <div class="relative">
-                                <input type="text" id="brand_search" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="<?php echo t('product.brand_search_placeholder'); ?>">
-                                <input type="hidden" name="brand_id" id="brand_id" value="<?php echo htmlspecialchars($product['brand_id']); ?>">
-                                <div id="brand_results" class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 가격 정보 -->
-                    <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-3">
-                        <div>
-                            <label for="cost_price" class="block text-sm font-medium text-gray-700"><?php echo t('product.cost_price'); ?></label>
-                            <div class="relative mt-1 rounded-md shadow-sm">
-                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <span class="text-gray-500 sm:text-sm">₩</span>
+                        <div id="barcode-result" class="mt-4 hidden">
+                            <div id="barcode-error" class="hidden bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg">
+                                <div class="flex">
+                                    <i class="fas fa-exclamation-circle text-red-400 mr-2 mt-0.5 text-sm"></i>
+                                    <p class="text-sm text-red-800"></p>
                                 </div>
-                                <input type="number" name="cost_price" id="cost_price" value="<?php echo htmlspecialchars($product['cost_price']); ?>" required class="block w-full rounded-md border-gray-300 pl-7 pr-12 focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="0" step="1">
                             </div>
-                        </div>
-                        <div>
-                            <label for="margin_percent" class="block text-sm font-medium text-gray-700"><?php echo t('product.margin'); ?></label>
-                            <div class="relative mt-1 rounded-md shadow-sm">
-                                <input type="number" name="margin_percent" id="margin_percent" class="block w-full rounded-md border-gray-300 focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="0">
-                            </div>
-                        </div>
-                        <div>
-                            <label for="selling_price" class="block text-sm font-medium text-gray-700"><?php echo t('product.selling_price'); ?></label>
-                            <div class="relative mt-1 rounded-md shadow-sm">
-                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <span class="text-gray-500 sm:text-sm">₩</span>
+                            <div id="barcode-success" class="hidden bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg flex items-start gap-4">
+                                <img id="product-image-preview" src="" alt="<?php echo t('product.image'); ?>" class="h-16 w-16 rounded-lg object-cover border">
+                                <div>
+                                    <div class="flex items-center mb-1">
+                                        <i class="fas fa-check-circle text-green-500 mr-2 text-sm"></i>
+                                        <p class="font-medium text-green-800"><?php echo t('product.info_loaded'); ?></p>
+                                    </div>
+                                    <p class="text-sm text-green-700"><?php echo t('product.form_filled'); ?></p>
                                 </div>
-                                <input type="number" name="selling_price" id="selling_price" value="<?php echo htmlspecialchars($product['selling_price']); ?>" required class="block w-full rounded-md border-gray-300 pl-7 pr-12 focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="0" step="1">
                             </div>
                         </div>
                     </div>
 
-                    <!-- 박스포장 정보 및 바코드 -->
-                    <div class="border-t border-gray-200 pt-6">
-                        <h3 class="text-lg font-medium leading-6 text-gray-900"><?php echo t('product.box_info'); ?></h3>
-                        <p class="mt-1 text-sm text-gray-500"><?php echo t('product.box_info_desc'); ?></p>
-                        <div class="mt-4 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
+                    <!-- 기본 정보 섹션 -->
+                    <div>
+                        <div class="flex items-center mb-4">
+                            <div class="bg-gray-100 rounded-full p-2 mr-3">
+                                <i class="fas fa-info-circle text-gray-600 text-sm"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900">기본 정보</h3>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div>
-                                <label for="pieces_per_box" class="block text-sm font-medium text-gray-700"><?php echo t('product.pieces_per_box'); ?></label>
-                                <div class="relative mt-1 rounded-md shadow-sm">
-                                    <input type="number" name="pieces_per_box" id="pieces_per_box" value="<?php echo htmlspecialchars($product['pieces_per_box']); ?>" min="1" class="block w-full rounded-md border-gray-300 focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="1">
-                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                                        <span class="text-gray-500 sm:text-sm"><?php echo t('product.pieces'); ?></span>
+                                <label for="sku" class="block text-sm font-medium text-gray-700 mb-2">SKU <span class="text-red-500">*</span></label>
+                                <input type="text" name="sku" id="sku" value="<?php echo htmlspecialchars($product['sku']); ?>" required class="block w-full h-10 px-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                            </div>
+                            <div class="lg:col-span-2">
+                                <label for="name_ko" class="block text-sm font-medium text-gray-700 mb-2"><?php echo t('product.name_ko'); ?></label>
+                                <div class="flex rounded-lg shadow-sm">
+                                    <input type="text" name="name_ko" id="name_ko" value="<?php echo htmlspecialchars($product['name_ko']); ?>" class="block w-full flex-1 h-10 px-3 rounded-l-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm">
+                                    <button type="button" id="translate-btn" class="relative -ml-px inline-flex items-center px-3 py-2 h-10 rounded-r-lg border border-gray-300 bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors">
+                                        <i class="fas fa-language text-gray-500 mr-2 text-sm"></i>
+                                        <span><?php echo t('product.translate'); ?></span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="lg:col-span-3">
+                                <label for="name_en" class="block text-sm font-medium text-gray-700 mb-2"><?php echo t('product.name_en'); ?> <span class="text-red-500">*</span></label>
+                                <input type="text" name="name_en" id="name_en" value="<?php echo htmlspecialchars($product['name_en']); ?>" required class="block w-full h-10 px-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 분류 및 박스포장 정보 섹션 -->
+                    <div>
+                        <div class="flex items-center mb-4">
+                            <div class="bg-purple-100 rounded-full p-2 mr-3">
+                                <i class="fas fa-tags text-purple-600 text-sm"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900">분류 및 포장 정보</h3>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div>
+                                <label for="category_search" class="block text-sm font-medium text-gray-700 mb-2"><?php echo t('product.category'); ?></label>
+                                <div class="relative">
+                                    <input type="text" id="category_search" class="block w-full h-10 px-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="<?php echo t('product.category_search_placeholder'); ?>">
+                                    <input type="hidden" name="category_id" id="category_id" value="<?php echo htmlspecialchars($product['category_id']); ?>">
+                                    <div id="category_results" class="absolute z-20 mt-1 w-full bg-white shadow-lg max-h-60 rounded-lg py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="brand_search" class="block text-sm font-medium text-gray-700 mb-2"><?php echo t('product.brand'); ?></label>
+                                <div class="relative">
+                                    <input type="text" id="brand_search" class="block w-full h-10 px-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="<?php echo t('product.brand_search_placeholder'); ?>">
+                                    <input type="hidden" name="brand_id" id="brand_id" value="<?php echo htmlspecialchars($product['brand_id']); ?>">
+                                    <div id="brand_results" class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-lg py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="pieces_per_box" class="block text-sm font-medium text-gray-700 mb-2"><?php echo t('product.pieces_per_box'); ?></label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <input type="number" name="pieces_per_box" id="pieces_per_box" value="<?php echo htmlspecialchars($product['pieces_per_box']); ?>" min="1" class="block w-full h-10 px-3 rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="1">
+                                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                        <span class="text-gray-500 text-sm"><?php echo t('product.pieces'); ?></span>
                                     </div>
                                 </div>
-                                <p class="mt-1 text-xs text-gray-500"><?php echo t('product.pieces_per_box_desc'); ?></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 추가 정보 섹션 -->
+                    <div>
+                        <div class="flex items-center mb-4">
+                            <div class="bg-indigo-100 rounded-full p-2 mr-3">
+                                <i class="fas fa-align-left text-indigo-600 text-sm"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900">추가 정보</h3>
+                        </div>
+                        <div class="space-y-6">
+                            <div>
+                                <label for="description" class="block text-sm font-medium text-gray-700 mb-2"><?php echo t('product.description'); ?> <span class="text-gray-400">(<?php echo t('forms.optional'); ?>)</span></label>
+                                <textarea id="description" name="description" rows="4" class="block w-full px-3 py-2 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="상품에 대한 상세 설명을 입력하세요..."><?php echo htmlspecialchars($product['description']); ?></textarea>
                             </div>
                             <div>
-                                <label for="barcode" class="block text-sm font-medium text-gray-700"><?php echo t('product.barcode'); ?> <span class="text-gray-500">(<?php echo t('forms.optional'); ?>)</span></label>
-                                <input type="text" name="barcode" id="barcode" value="<?php echo htmlspecialchars($product['barcode']); ?>" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="<?php echo t('product.barcode_placeholder'); ?>">
-                                <p class="mt-1 text-xs text-gray-500"><?php echo t('product.barcode_desc'); ?></p>
+                                <label for="image_url" class="block text-sm font-medium text-gray-700 mb-2"><?php echo t('product.image_url'); ?> <span class="text-gray-400">(<?php echo t('forms.optional'); ?>)</span></label>
+                                <input type="url" name="image_url" id="image_url" value="<?php echo htmlspecialchars($product['image_url']); ?>" class="block w-full h-10 px-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="https://example.com/image.png">
                             </div>
                         </div>
                     </div>
 
-                    <!-- 추가 정보 -->
+                    <!-- 상태 섹션 -->
                     <div>
-                        <label for="description" class="block text-sm font-medium text-gray-700"><?php echo t('product.description'); ?> <span class="text-gray-500">(<?php echo t('forms.optional'); ?>)</span></label>
-                        <textarea id="description" name="description" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"><?php echo htmlspecialchars($product['description']); ?></textarea>
-                    </div>
-                    <div>
-                        <label for="image_url" class="block text-sm font-medium text-gray-700"><?php echo t('product.image_url'); ?> <span class="text-gray-500">(<?php echo t('forms.optional'); ?>)</span></label>
-                        <input type="url" name="image_url" id="image_url" value="<?php echo htmlspecialchars($product['image_url']); ?>" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="https://example.com/image.png">
-                    </div>
-
-                    <!-- 상태 -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700"><?php echo t('product.status'); ?></label>
-                        <div class="mt-2 flex items-center">
-                            <input id="is_active_true" name="is_active" type="radio" value="1" <?php echo ($product['is_active'] == 1) ? 'checked' : ''; ?> class="h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500">
-                            <label for="is_active_true" class="ml-3 block text-sm font-medium text-gray-700"><?php echo t('product.active'); ?></label>
-                            <input id="is_active_false" name="is_active" type="radio" value="0" <?php echo ($product['is_active'] == 0) ? 'checked' : ''; ?> class="ml-6 h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500">
-                            <label for="is_active_false" class="ml-3 block text-sm font-medium text-gray-700"><?php echo t('product.inactive'); ?></label>
+                        <div class="flex items-center mb-4">
+                            <div class="bg-yellow-100 rounded-full p-2 mr-3">
+                                <i class="fas fa-toggle-on text-yellow-600 text-sm"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900"><?php echo t('product.status'); ?></h3>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex items-center space-x-6">
+                                <div class="flex items-center">
+                                    <input id="is_active_true" name="is_active" type="radio" value="1" <?php echo ($product['is_active'] == 1) ? 'checked' : ''; ?> class="h-4 w-4 border-gray-300 text-green-600 focus:ring-green-500">
+                                    <label for="is_active_true" class="ml-3 flex items-center text-sm font-medium text-gray-900">
+                                        <span class="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                                        <?php echo t('product.active'); ?>
+                                    </label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input id="is_active_false" name="is_active" type="radio" value="0" <?php echo ($product['is_active'] == 0) ? 'checked' : ''; ?> class="h-4 w-4 border-gray-300 text-gray-600 focus:ring-gray-500">
+                                    <label for="is_active_false" class="ml-3 flex items-center text-sm font-medium text-gray-900">
+                                        <span class="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                                        <?php echo t('product.inactive'); ?>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="pt-5 border-t border-gray-200">
-                        <div class="flex justify-end gap-x-3">
-                            <a href="product_management.php" class="rounded-md bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"><?php echo t('common.cancel'); ?></a>
-                            <button type="submit" class="inline-flex justify-center rounded-md bg-primary-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                                <i class="fas fa-plus mr-2"></i>
-                                <?php echo t('product.add'); ?>
-                            </button>
+                    <!-- 액션 버튼 -->
+                    <div class="border-t border-gray-200 pt-6">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-500">
+                                <span class="text-red-500">*</span> 필수 입력 항목
+                            </div>
+                            <div class="flex gap-3">
+                                <a href="product_management.php" class="inline-flex items-center px-4 py-2 h-10 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+                                    <i class="fas fa-times mr-2 text-sm"></i>
+                                    <?php echo t('common.cancel'); ?>
+                                </a>
+                                <button type="submit" class="inline-flex items-center px-6 py-2 h-10 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+                                    <i class="fas fa-plus mr-2 text-sm"></i>
+                                    <?php echo t('product.add'); ?>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </form>
             </div>
         </div>
-    </div>
-</div>
 
 <!-- 카테고리 추가 Modal -->
 <div id="add-category-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-30">
@@ -340,9 +401,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const translateBtn = document.getElementById('translate-btn');
     const nameKoInput = document.getElementById('name_ko');
     const nameEnInput = document.getElementById('name_en');
-    const costPriceInput = document.getElementById('cost_price');
-    const marginInput = document.getElementById('margin_percent');
-    const sellingPriceInput = document.getElementById('selling_price');
     const barcodeDbSearchBtn = document.getElementById('barcode-search-db-btn');
     const barcodeWebSearchBtn = document.getElementById('barcode-search-web-btn');
     const barcodeInput = document.getElementById('barcode_search');
@@ -489,25 +547,6 @@ document.addEventListener('DOMContentLoaded', function() {
         itemType: '카테고리'
     });
 
-    // --- 마진 자동 적용 ---
-    const marginRules = <?php echo json_encode($margin_rules); ?>;
-    const categoryIdInput = document.getElementById('category_id');
-    
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
-                const categoryId = categoryIdInput.value;
-                if (marginRules[categoryId]) {
-                    marginInput.value = marginRules[categoryId];
-                    updateCalculations('margin');
-                }
-            }
-        });
-    });
-
-    observer.observe(categoryIdInput, {
-        attributes: true 
-    });
 
     // --- 브랜드 검색 설정 ---
     setupSearchableDropdown({
@@ -523,40 +562,6 @@ document.addEventListener('DOMContentLoaded', function() {
         itemType: '브랜드'
     });
 
-    // --- 판매가/마진 자동 계산 ---
-    let isCalculating = false; 
-
-    function updateCalculations(source) {
-        if (isCalculating) return;
-        isCalculating = true;
-
-        const cost = parseFloat(costPriceInput.value);
-        const margin = parseFloat(marginInput.value);
-        const selling = parseFloat(sellingPriceInput.value);
-
-        if (source === 'margin' || source === 'cost_from_margin') {
-            if (!isNaN(cost) && cost > 0 && !isNaN(margin)) {
-                const newSelling = cost * (1 + margin / 100);
-                sellingPriceInput.value = newSelling.toFixed(2);
-            }
-        } else if (source === 'selling' || source === 'cost_from_selling') {
-            if (!isNaN(cost) && cost > 0 && !isNaN(selling) && selling > cost) {
-                const newMargin = ((selling - cost) / cost) * 100;
-                marginInput.value = newMargin.toFixed(2);
-            } else if (!isNaN(cost) && !isNaN(selling) && selling <= cost) {
-                marginInput.value = '0';
-            }
-        }
-        
-        setTimeout(() => { isCalculating = false; }, 100);
-    }
-
-    costPriceInput.addEventListener('input', () => {
-        updateCalculations('cost_from_selling');
-        updateCalculations('cost_from_margin');
-    });
-    marginInput.addEventListener('input', () => updateCalculations('margin'));
-    sellingPriceInput.addEventListener('input', () => updateCalculations('selling'));
 
     // --- 바코드 검색 기능 ---
     // 바코드 입력 필드의 내용이 변경되고 포커스가 벗어날 때 검색 실행
@@ -571,8 +576,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('name_ko').value = product.name_ko || '';
         document.getElementById('name_en').value = product.name_en || '';
         document.getElementById('description').value = product.description || '';
-        document.getElementById('cost_price').value = product.cost_price || '';
-        document.getElementById('selling_price').value = product.selling_price || '';
         document.getElementById('image_url').value = product.image_url || '';
         document.getElementById('category_id').value = product.category_id || '';
         document.getElementById('category_search').value = product.category_name || '';

@@ -258,7 +258,7 @@ if (!empty($_SESSION['user_id'])) {
             <!-- Main content area -->
             <main class="flex-1 relative overflow-y-auto focus:outline-none">
                 <div class="py-6">
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+                    <div class="max-w-7xl ml-4 mr-auto px-4 sm:px-6 md:px-8">
 
 <script>
 // Language Switcher
