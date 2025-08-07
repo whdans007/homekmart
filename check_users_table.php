@@ -15,16 +15,20 @@ try {
         echo "- " . $column['Field'] . " (" . $column['Type'] . ")\n";
     }
     
-    // Check if permissions column exists
+    // Check if phone column exists
+    $has_phone = false;
     $has_permissions = false;
     foreach ($columns as $column) {
+        if ($column['Field'] === 'phone') {
+            $has_phone = true;
+        }
         if ($column['Field'] === 'permissions') {
             $has_permissions = true;
-            break;
         }
     }
     
-    echo "\nPermissions column exists: " . ($has_permissions ? "Yes" : "No") . "\n";
+    echo "\nPhone column exists: " . ($has_phone ? "Yes" : "No") . "\n";
+    echo "Permissions column exists: " . ($has_permissions ? "Yes" : "No") . "\n";
     
 } catch (PDOException $e) {
     echo "Error: " . $e->getMessage() . "\n";

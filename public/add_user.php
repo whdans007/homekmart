@@ -14,6 +14,7 @@ $full_name = '';
 $email = '';
 $role = 'user'; // 기본값
 $store_id = null;
+$phone = '';
 $stores = [];
 $permissions = [];
 
@@ -21,6 +22,11 @@ try {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    // phone 컬럼 존재 여부 확인
+    $phone_check = $pdo->prepare("SHOW COLUMNS FROM users LIKE 'phone'");
+    $phone_check->execute();
+    $has_phone_column = $phone_check->fetch();
 
     // 지점 목록 가져오기
     $stores = $pdo->query("SELECT id, name FROM stores ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
@@ -45,6 +51,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password_confirm = $_POST['password_confirm'] ?? '';
     $role = $_POST['role'] ?? 'user';
     $store_id = $_POST['store_id'] ?? null;
+    $phone = trim($_POST['phone'] ?? '');
     $permissions = $_POST['permissions'] ?? [];
 
     // 유효성 검사
@@ -83,10 +90,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $permissions_json = json_encode($final_permissions);
                 }
                 
-                $insert_stmt = $pdo->prepare(
-                    "INSERT INTO users (username, full_name, email, password, role, store_id) VALUES (?, ?, ?, ?, ?, ?)"
-                );
-                $insert_stmt->execute([$username, $full_name, $email, $hashed_password, $role, $store_id ?: null]);
+                // 컬럼 존재 여부에 따라 INSERT 쿼리 구성
+                if ($has_phone_column) {
+                    $insert_stmt = $pdo->prepare(
+                        "INSERT INTO users (username, full_name, email, phone, password, role, store_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
+                    );
+                    $insert_stmt->execute([$username, $full_name, $email, $phone, $hashed_password, $role, $store_id ?: null]);
+                } else {
+                    $insert_stmt = $pdo->prepare(
+                        "INSERT INTO users (username, full_name, email, password, role, store_id) VALUES (?, ?, ?, ?, ?, ?)"
+                    );
+                    $insert_stmt->execute([$username, $full_name, $email, $hashed_password, $role, $store_id ?: null]);
+                }
 
                 $_SESSION['flash'] = [
                     'type' => 'success',
@@ -146,10 +161,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <label for="full_name" class="block text-sm font-medium text-gray-700">이름</label>
                 <input type="text" id="full_name" name="full_name" value="<?php echo htmlspecialchars($full_name); ?>" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
             </div>
-            <div class="sm:col-span-6">
+            <div class="sm:col-span-3">
                 <label for="email" class="block text-sm font-medium text-gray-700">이메일</label>
                 <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
             </div>
+            <?php if ($has_phone_column): ?>
+            <div class="sm:col-span-3">
+                <label for="phone" class="block text-sm font-medium text-gray-700">핸드폰 번호 <span class="text-gray-500">(선택 사항)</span></label>
+                <input type="tel" id="phone" name="phone" value="<?php echo htmlspecialchars($_POST['phone'] ?? ''); ?>" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="010-1234-5678">
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 

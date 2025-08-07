@@ -182,7 +182,7 @@ if (!empty($_SESSION['user_id'])) {
                         <div class="flex items-center space-x-4">
                             <div class="text-sm text-gray-700">
                                 <div class="flex items-center space-x-2">
-                                    <span class="font-medium"><?php echo htmlspecialchars($_SESSION['full_name']); ?></span>
+                                    <a href="user_profile.php" class="font-medium text-primary-600 hover:text-primary-700 transition-colors duration-200"><?php echo htmlspecialchars($_SESSION['full_name']); ?></a>
                                     <span class="text-gray-500">(<?php echo htmlspecialchars($_SESSION['role']); ?>)</span>
                                 </div>
                                 <div class="flex items-center space-x-1 text-xs text-blue-600">
