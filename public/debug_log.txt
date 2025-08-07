@@ -56,3 +56,11 @@
 2025-08-05 17:05:06 - inventory 테이블 selling_price 컬럼 존재 여부: true
 2025-08-05 17:05:07 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
 2025-08-05 17:05:08 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-05 17:23:41 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-05 17:23:54 - 개별 가격적용 시작 - product_id: 6059, store_id: 1, selling_price: 202.8164556962, cost_price: 145.000000
+2025-08-05 17:23:54 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-05 17:23:54 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-05 17:23:54 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-08-05 17:23:55 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-07 08:39:06 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-07 08:52:28 - 가격변동 페이지 로드 - user_id: 6, store_id: 3, store_name: KIMS MALL, role: admin

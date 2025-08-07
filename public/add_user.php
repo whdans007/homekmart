@@ -84,9 +84,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
                 
                 $insert_stmt = $pdo->prepare(
-                    "INSERT INTO users (username, full_name, email, password, role, store_id, permissions) VALUES (?, ?, ?, ?, ?, ?, ?)"
+                    "INSERT INTO users (username, full_name, email, password, role, store_id) VALUES (?, ?, ?, ?, ?, ?)"
                 );
-                $insert_stmt->execute([$username, $full_name, $email, $hashed_password, $role, $store_id ?: null, $permissions_json]);
+                $insert_stmt->execute([$username, $full_name, $email, $hashed_password, $role, $store_id ?: null]);
 
                 $_SESSION['flash'] = [
                     'type' => 'success',
