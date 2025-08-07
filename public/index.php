@@ -188,6 +188,25 @@ try {
                 </span>
             </a>
             <?php endif; ?>
+
+            <a href="add_purchase.php" class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-primary-500 rounded-lg shadow hover:shadow-md transition-shadow duration-200">
+                <div>
+                    <span class="rounded-lg inline-flex p-3 bg-orange-50 text-orange-700 ring-4 ring-white">
+                        <i class="fas fa-shopping-cart text-lg"></i>
+                    </span>
+                </div>
+                <div class="mt-4">
+                    <h3 class="text-lg font-medium">
+                        <span class="absolute inset-0" aria-hidden="true"></span>
+                        매입 등록
+                    </h3>
+                    <p class="mt-2 text-sm text-gray-500">신규 매입을 등록합니다.</p>
+                </div>
+                <span class="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400" aria-hidden="true">
+                    <i class="fas fa-arrow-right"></i>
+                </span>
+            </a>
+        </div>
         </div>
     </div>
 <?php endif; ?>
