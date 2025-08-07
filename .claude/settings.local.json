@@ -17,7 +17,8 @@
       "Bash(PATH=\"/c/xampp/php:$PATH\" php Z:mincheck_users_table.php)",
       "Bash(PATH:*)",
       "mcp__sequential__sequentialthinking",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

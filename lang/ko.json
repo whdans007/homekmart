@@ -183,7 +183,7 @@
     "management": "카테고리관리",
     "add": "카테고리 추가",
     "new_category": "새 카테고리 추가",
-    "enter_info": "새로운 카테곣의 정보를 입력해주세요.",
+    "enter_info": "새로운 카테고리의 정보를 입력해주세요.",
     "name_required": "카테고리명을 입력해주세요.",
     "already_exists": "이미 존재하는 카테고리명입니다.",
     "added_successfully": "카테고리 '{name}'이(가) 성공적으로 추가되었습니다.",
@@ -463,5 +463,5 @@
     "add_store_desc": "새로운 지점을 등록합니다",
     "add_brand_desc": "새로운 브랜드를 등록합니다",
     "add_purchase_desc": "신규 매입을 등록합니다"
-  }
+  },
 }

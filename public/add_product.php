@@ -1,10 +1,11 @@
 <?php
-$page_title = "새 상품 추가 - HOME K MART";
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('product.add_new') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 
 // 접근 권한 확인
 if (!in_array($_SESSION['role'], ['super_admin', 'admin'])) {
-    echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'><div class='flex'><div class='flex-shrink-0'><i class='fas fa-exclamation-circle text-red-400'></i></div><div class='ml-3'><p class='text-sm text-red-800'>이 페이지에 접근할 권한이 없습니다.</p></div></div></div>";
+    echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'><div class='flex'><div class='flex-shrink-0'><i class='fas fa-exclamation-circle text-red-400'></i></div><div class='ml-3'><p class='text-sm text-red-800'>" . t('product.access_denied') . "</p></div></div></div>";
     require_once __DIR__ . '/partials/footer.php';
     exit;
 }
@@ -36,7 +37,7 @@ try {
     }
 
 } catch (PDOException $e) {
-    $errors[] = "데이터베이스 연결에 실패했습니다: " . $e->getMessage();
+    $errors[] = str_replace('{error}', $e->getMessage(), t('product.database_connection_failed'));
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -48,18 +49,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // 유효성 검사
-    if (empty($product['sku'])) $errors[] = "SKU를 입력해주세요.";
-    if (empty($product['name_en'])) $errors[] = "상품명(영문)을 입력해주세요.";
-    if (empty($product['selling_price']) || !is_numeric($product['selling_price'])) $errors[] = "판매가는 숫자여야 합니다.";
-    if (empty($product['cost_price']) || !is_numeric($product['cost_price'])) $errors[] = "원가는 숫자여야 합니다.";
-    if (!empty($product['pieces_per_box']) && (!is_numeric($product['pieces_per_box']) || $product['pieces_per_box'] < 1)) $errors[] = "박스포장 수량은 1 이상의 숫자여야 합니다.";
+    if (empty($product['sku'])) $errors[] = t('product.sku_required');
+    if (empty($product['name_en'])) $errors[] = t('product.name_en_required');
+    if (empty($product['selling_price']) || !is_numeric($product['selling_price'])) $errors[] = t('product.selling_price_numeric');
+    if (empty($product['cost_price']) || !is_numeric($product['cost_price'])) $errors[] = t('product.cost_price_numeric');
+    if (!empty($product['pieces_per_box']) && (!is_numeric($product['pieces_per_box']) || $product['pieces_per_box'] < 1)) $errors[] = t('product.pieces_per_box_numeric');
 
     // SKU 중복 확인
     if (empty($errors)) {
         $stmt = $pdo->prepare("SELECT id FROM products WHERE sku = ?");
         $stmt->execute([$product['sku']]);
         if ($stmt->fetch()) {
-            $errors[] = "이미 사용 중인 SKU입니다.";
+            $errors[] = t('product.sku_exists');
         }
     }
 
@@ -86,12 +87,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             $stmt->execute($params);
 
-            $_SESSION['flash'] = ['type' => 'success', 'message' => '상품이 성공적으로 추가되었습니다.'];
+            $_SESSION['flash'] = ['type' => 'success', 'message' => t('product.added_successfully')];
             header("Location: product_management.php");
             exit;
 
         } catch (PDOException $e) {
-            $errors[] = "상품 추가 중 오류가 발생했습니다: " . $e->getMessage();
+            $errors[] = str_replace('{error}', $e->getMessage(), t('product.add_error'));
         }
     }
 }
@@ -102,15 +103,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="flex items-center justify-between mb-6">
             <a href="product_management.php" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700">
                 <i class="fas fa-arrow-left mr-2"></i>
-                상품 목록으로 돌아가기
+                <?php echo t('product.back_to_list'); ?>
             </a>
         </div>
 
         <div class="bg-white shadow-xl rounded-2xl">
             <div class="py-8 px-4 sm:px-10">
                 <div class="text-center mb-8">
-                    <h1 class="text-3xl font-bold tracking-tight text-gray-900">새 상품 추가</h1>
-                    <p class="mt-2 text-sm text-gray-600">새로운 상품의 정보를 입력해주세요.</p>
+                    <h1 class="text-3xl font-bold tracking-tight text-gray-900"><?php echo t('product.add_new'); ?></h1>
+                    <p class="mt-2 text-sm text-gray-600"><?php echo t('product.enter_info'); ?></p>
                 </div>
 
                 <?php if (!empty($errors)) : ?>
@@ -120,7 +121,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 <i class="fas fa-times-circle text-red-400 text-xl"></i>
                             </div>
                             <div class="ml-3">
-                                <h3 class="text-sm font-medium text-red-800">다음 오류를 해결해주세요.</h3>
+                                <h3 class="text-sm font-medium text-red-800"><?php echo t('product.solve_errors'); ?></h3>
                                 <div class="mt-2 text-sm text-red-700">
                                     <ul role="list" class="list-disc pl-5 space-y-1">
                                         <?php foreach ($errors as $error) : ?>
@@ -136,20 +137,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <form action="add_product.php" method="post" class="space-y-6">
                     <!-- 바코드 검색 -->
                     <div class="border-b border-gray-200 pb-6">
-                        <h3 class="text-lg font-medium leading-6 text-gray-900">바코드 검색</h3>
-                        <p class="mt-1 text-sm text-gray-500">바코드를 스캔하거나 입력하여 기존 상품 정보를 불러올 수 있습니다.</p>
+                        <h3 class="text-lg font-medium leading-6 text-gray-900"><?php echo t('product.barcode_search'); ?></h3>
+                        <p class="mt-1 text-sm text-gray-500"><?php echo t('product.barcode_search_desc'); ?></p>
                         <div class="mt-4 flex items-stretch gap-x-3">
                             <div class="flex-grow">
-                                <label for="barcode_search" class="sr-only">바코드</label>
-                                <input type="text" name="barcode_search" id="barcode_search" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="바코드를 입력하세요...">
+                                <label for="barcode_search" class="sr-only"><?php echo t('product.barcode'); ?></label>
+                                <input type="text" name="barcode_search" id="barcode_search" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="<?php echo t('product.barcode_placeholder'); ?>">
                             </div>
                             <button type="button" id="barcode-search-db-btn" class="relative inline-flex items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
                                 <i class="fas fa-database text-gray-400"></i>
-                                내 DB 검색
+                                <?php echo t('product.my_db_search'); ?>
                             </button>
                             <button type="button" id="barcode-search-web-btn" class="relative inline-flex items-center gap-x-1.5 rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700">
                                 <i class="fas fa-globe"></i>
-                                웹 검색
+                                <?php echo t('product.web_search'); ?>
                             </button>
                         </div>
                         <div id="barcode-result" class="mt-4 hidden">
@@ -157,10 +158,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 <p class="text-sm font-medium text-red-800"></p>
                             </div>
                             <div id="barcode-success" class="hidden rounded-md bg-green-50 p-4 flex items-start gap-x-4">
-                                <img id="product-image-preview" src="" alt="상품 이미지" class="h-20 w-20 rounded-md object-cover">
+                                <img id="product-image-preview" src="" alt="<?php echo t('product.image'); ?>" class="h-20 w-20 rounded-md object-cover">
                                 <div>
-                                    <p class="font-semibold text-gray-900">상품 정보를 불러왔습니다.</p>
-                                    <p class="text-sm text-gray-600">아래 폼의 내용이 자동으로 채워졌습니다. 수정 후 저장하세요.</p>
+                                    <p class="font-semibold text-gray-900"><?php echo t('product.info_loaded'); ?></p>
+                                    <p class="text-sm text-gray-600"><?php echo t('product.form_filled'); ?></p>
                                 </div>
                             </div>
                         </div>
@@ -173,17 +174,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <input type="text" name="sku" id="sku" value="<?php echo htmlspecialchars($product['sku']); ?>" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
                         </div>
                         <div class="sm:col-span-4">
-                            <label for="name_ko" class="block text-sm font-medium text-gray-700">상품명 (한글)</label>
+                            <label for="name_ko" class="block text-sm font-medium text-gray-700"><?php echo t('product.name_ko'); ?></label>
                             <div class="mt-1 flex rounded-md shadow-sm">
                                 <input type="text" name="name_ko" id="name_ko" value="<?php echo htmlspecialchars($product['name_ko']); ?>" class="block w-full flex-1 rounded-none rounded-l-md border-gray-300 focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
                                 <button type="button" id="translate-btn" class="relative -ml-px inline-flex items-center space-x-2 rounded-r-md border border-gray-300 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500">
                                     <i class="fas fa-language h-5 w-5 text-gray-400"></i>
-                                    <span>번역</span>
+                                    <span><?php echo t('product.translate'); ?></span>
                                 </button>
                             </div>
                         </div>
                         <div class="sm:col-span-6">
-                            <label for="name_en" class="block text-sm font-medium text-gray-700">상품명 (영문)</label>
+                            <label for="name_en" class="block text-sm font-medium text-gray-700"><?php echo t('product.name_en'); ?></label>
                             <input type="text" name="name_en" id="name_en" value="<?php echo htmlspecialchars($product['name_en']); ?>" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
                         </div>
                     </div>
@@ -191,17 +192,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <!-- 분류 -->
                     <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                         <div>
-                            <label for="category_search" class="block text-sm font-medium text-gray-700">카테고리</label>
+                            <label for="category_search" class="block text-sm font-medium text-gray-700"><?php echo t('product.category'); ?></label>
                             <div class="relative">
-                                <input type="text" id="category_search" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="카테고리 이름 검색...">
+                                <input type="text" id="category_search" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="<?php echo t('product.category_search_placeholder'); ?>">
                                 <input type="hidden" name="category_id" id="category_id" value="<?php echo htmlspecialchars($product['category_id']); ?>">
                                 <div id="category_results" class="absolute z-20 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden"></div>
                             </div>
                         </div>
                         <div>
-                            <label for="brand_search" class="block text-sm font-medium text-gray-700">브랜드</label>
+                            <label for="brand_search" class="block text-sm font-medium text-gray-700"><?php echo t('product.brand'); ?></label>
                             <div class="relative">
-                                <input type="text" id="brand_search" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="브랜드 이름 검색...">
+                                <input type="text" id="brand_search" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="<?php echo t('product.brand_search_placeholder'); ?>">
                                 <input type="hidden" name="brand_id" id="brand_id" value="<?php echo htmlspecialchars($product['brand_id']); ?>">
                                 <div id="brand_results" class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden"></div>
                             </div>
@@ -211,7 +212,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <!-- 가격 정보 -->
                     <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-3">
                         <div>
-                            <label for="cost_price" class="block text-sm font-medium text-gray-700">원가</label>
+                            <label for="cost_price" class="block text-sm font-medium text-gray-700"><?php echo t('product.cost_price'); ?></label>
                             <div class="relative mt-1 rounded-md shadow-sm">
                                 <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                     <span class="text-gray-500 sm:text-sm">₩</span>
@@ -220,13 +221,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             </div>
                         </div>
                         <div>
-                            <label for="margin_percent" class="block text-sm font-medium text-gray-700">마진</label>
+                            <label for="margin_percent" class="block text-sm font-medium text-gray-700"><?php echo t('product.margin'); ?></label>
                             <div class="relative mt-1 rounded-md shadow-sm">
                                 <input type="number" name="margin_percent" id="margin_percent" class="block w-full rounded-md border-gray-300 focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="0">
                             </div>
                         </div>
                         <div>
-                            <label for="selling_price" class="block text-sm font-medium text-gray-700">판매가</label>
+                            <label for="selling_price" class="block text-sm font-medium text-gray-700"><?php echo t('product.selling_price'); ?></label>
                             <div class="relative mt-1 rounded-md shadow-sm">
                                 <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                     <span class="text-gray-500 sm:text-sm">₩</span>
@@ -238,54 +239,54 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                     <!-- 박스포장 정보 및 바코드 -->
                     <div class="border-t border-gray-200 pt-6">
-                        <h3 class="text-lg font-medium leading-6 text-gray-900">박스포장 정보</h3>
-                        <p class="mt-1 text-sm text-gray-500">박스 단위로 매입할 때 필요한 정보를 입력하세요.</p>
+                        <h3 class="text-lg font-medium leading-6 text-gray-900"><?php echo t('product.box_info'); ?></h3>
+                        <p class="mt-1 text-sm text-gray-500"><?php echo t('product.box_info_desc'); ?></p>
                         <div class="mt-4 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                             <div>
-                                <label for="pieces_per_box" class="block text-sm font-medium text-gray-700">박스당 수량</label>
+                                <label for="pieces_per_box" class="block text-sm font-medium text-gray-700"><?php echo t('product.pieces_per_box'); ?></label>
                                 <div class="relative mt-1 rounded-md shadow-sm">
                                     <input type="number" name="pieces_per_box" id="pieces_per_box" value="<?php echo htmlspecialchars($product['pieces_per_box']); ?>" min="1" class="block w-full rounded-md border-gray-300 focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="1">
                                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                                        <span class="text-gray-500 sm:text-sm">개</span>
+                                        <span class="text-gray-500 sm:text-sm"><?php echo t('product.pieces'); ?></span>
                                     </div>
                                 </div>
-                                <p class="mt-1 text-xs text-gray-500">한 박스에 들어있는 낱개 수량 (기본값: 1개)</p>
+                                <p class="mt-1 text-xs text-gray-500"><?php echo t('product.pieces_per_box_desc'); ?></p>
                             </div>
                             <div>
-                                <label for="barcode" class="block text-sm font-medium text-gray-700">바코드 <span class="text-gray-500">(선택)</span></label>
-                                <input type="text" name="barcode" id="barcode" value="<?php echo htmlspecialchars($product['barcode']); ?>" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="바코드 입력">
-                                <p class="mt-1 text-xs text-gray-500">상품 바코드 (매입 시 검색용)</p>
+                                <label for="barcode" class="block text-sm font-medium text-gray-700"><?php echo t('product.barcode'); ?> <span class="text-gray-500">(<?php echo t('forms.optional'); ?>)</span></label>
+                                <input type="text" name="barcode" id="barcode" value="<?php echo htmlspecialchars($product['barcode']); ?>" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="<?php echo t('product.barcode_placeholder'); ?>">
+                                <p class="mt-1 text-xs text-gray-500"><?php echo t('product.barcode_desc'); ?></p>
                             </div>
                         </div>
                     </div>
 
                     <!-- 추가 정보 -->
                     <div>
-                        <label for="description" class="block text-sm font-medium text-gray-700">상품 설명 <span class="text-gray-500">(선택)</span></label>
+                        <label for="description" class="block text-sm font-medium text-gray-700"><?php echo t('product.description'); ?> <span class="text-gray-500">(<?php echo t('forms.optional'); ?>)</span></label>
                         <textarea id="description" name="description" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"><?php echo htmlspecialchars($product['description']); ?></textarea>
                     </div>
                     <div>
-                        <label for="image_url" class="block text-sm font-medium text-gray-700">이미지 URL <span class="text-gray-500">(선택)</span></label>
+                        <label for="image_url" class="block text-sm font-medium text-gray-700"><?php echo t('product.image_url'); ?> <span class="text-gray-500">(<?php echo t('forms.optional'); ?>)</span></label>
                         <input type="url" name="image_url" id="image_url" value="<?php echo htmlspecialchars($product['image_url']); ?>" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="https://example.com/image.png">
                     </div>
 
                     <!-- 상태 -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">상태</label>
+                        <label class="block text-sm font-medium text-gray-700"><?php echo t('product.status'); ?></label>
                         <div class="mt-2 flex items-center">
                             <input id="is_active_true" name="is_active" type="radio" value="1" <?php echo ($product['is_active'] == 1) ? 'checked' : ''; ?> class="h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500">
-                            <label for="is_active_true" class="ml-3 block text-sm font-medium text-gray-700">활성</label>
+                            <label for="is_active_true" class="ml-3 block text-sm font-medium text-gray-700"><?php echo t('product.active'); ?></label>
                             <input id="is_active_false" name="is_active" type="radio" value="0" <?php echo ($product['is_active'] == 0) ? 'checked' : ''; ?> class="ml-6 h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500">
-                            <label for="is_active_false" class="ml-3 block text-sm font-medium text-gray-700">비활성</label>
+                            <label for="is_active_false" class="ml-3 block text-sm font-medium text-gray-700"><?php echo t('product.inactive'); ?></label>
                         </div>
                     </div>
 
                     <div class="pt-5 border-t border-gray-200">
                         <div class="flex justify-end gap-x-3">
-                            <a href="product_management.php" class="rounded-md bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">취소</a>
+                            <a href="product_management.php" class="rounded-md bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"><?php echo t('common.cancel'); ?></a>
                             <button type="submit" class="inline-flex justify-center rounded-md bg-primary-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
                                 <i class="fas fa-plus mr-2"></i>
-                                상품 추가
+                                <?php echo t('product.add'); ?>
                             </button>
                         </div>
                     </div>
@@ -297,18 +298,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <!-- 카테고리 추가 Modal -->
 <div id="add-category-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-30">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="mt-3 text-center">
-            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-primary-100">
-                <i class="fas fa-sitemap text-primary-600 text-xl"></i>
+    <div class="relative top-20 mx-auto p-6 border w-96 shadow-xl rounded-lg bg-white">
+        <div class="text-center">
+            <div class="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-purple-100 mb-4">
+                <i class="fas fa-sitemap text-purple-600 text-xl"></i>
             </div>
-            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4">새 카테고리 추가</h3>
-            <div class="mt-2 px-7 py-3">
-                <p class="text-sm text-gray-500">'<span id="new-category-name-modal" class="font-semibold"></span>' 카테고리를 새로 추가하시겠습니까?</p>
-            </div>
-            <div class="items-center px-4 py-3">
-                <button id="cancel-add-category" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 mr-2">취소</button>
-                <button id="confirm-add-category" class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">추가</button>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2"><?php echo t('category.add_new'); ?></h3>
+            <p class="text-sm text-gray-500 mb-6">
+                '<span id="new-category-name-modal" class="font-semibold text-gray-900"></span>' 카테고리를 새로 추가하시겠습니까?
+            </p>
+            <div class="flex gap-3 justify-center">
+                <button id="cancel-add-category" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"><?php echo t('common.cancel'); ?></button>
+                <button id="confirm-add-category" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"><?php echo t('common.add'); ?></button>
             </div>
         </div>
     </div>
@@ -316,18 +317,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <!-- 브랜드 추가 Modal -->
 <div id="add-brand-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-30">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="mt-3 text-center">
-            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-primary-100">
-                <i class="fas fa-tags text-primary-600 text-xl"></i>
+    <div class="relative top-20 mx-auto p-6 border w-96 shadow-xl rounded-lg bg-white">
+        <div class="text-center">
+            <div class="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-blue-100 mb-4">
+                <i class="fas fa-tags text-blue-600 text-xl"></i>
             </div>
-            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4">새 브랜드 추가</h3>
-            <div class="mt-2 px-7 py-3">
-                <p class="text-sm text-gray-500">'<span id="new-brand-name-modal" class="font-semibold"></span>' 브랜드를 새로 추가하시겠습니까?</p>
-            </div>
-            <div class="items-center px-4 py-3">
-                <button id="cancel-add-brand" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 mr-2">취소</button>
-                <button id="confirm-add-brand" class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">추가</button>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2"><?php echo t('brand.add_new'); ?></h3>
+            <p class="text-sm text-gray-500 mb-6">
+                '<span id="new-brand-name-modal" class="font-semibold text-gray-900"></span>' 브랜드를 새로 추가하시겠습니까?
+            </p>
+            <div class="flex gap-3 justify-center">
+                <button id="cancel-add-brand" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"><?php echo t('common.cancel'); ?></button>
+                <button id="confirm-add-brand" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"><?php echo t('common.add'); ?></button>
             </div>
         </div>
     </div>
@@ -354,7 +355,7 @@ document.addEventListener('DOMContentLoaded', function() {
     translateBtn.addEventListener('click', function() {
         const textToTranslate = nameKoInput.value;
         if (!textToTranslate.trim()) {
-            alert('번역할 상품명(한글)을 입력해주세요.');
+            alert('<?php echo t('product.enter_korean_name'); ?>');
             return;
         }
         translateBtn.disabled = true;
@@ -369,12 +370,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 nameEnInput.value = data.translated_text;
             } else {
-                alert('번역 실패: ' + data.message);
+                alert('<?php echo t('product.translation_failed'); ?>: ' + data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('번역 중 오류가 발생했습니다.');
+            alert('<?php echo t('product.translation_error'); ?>');
         })
         .finally(() => {
             translateBtn.disabled = false;

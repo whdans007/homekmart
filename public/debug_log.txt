@@ -72,3 +72,5 @@
 2025-08-07 10:01:36 - 가격변동 페이지 로드 - user_id: 6, store_id: 3, store_name: KIMS MALL, role: admin
 2025-08-07 10:03:43 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
 2025-08-07 10:03:47 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-07 14:06:43 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-07 14:18:47 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
