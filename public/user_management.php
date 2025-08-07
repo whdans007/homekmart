@@ -34,26 +34,32 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // permissions 컬럼 존재 여부 확인
-    $column_check = $pdo->prepare("SHOW COLUMNS FROM users LIKE 'permissions'");
-    $column_check->execute();
-    $has_permissions_column = $column_check->fetch();
+    // 컬럼 존재 여부 확인
+    $permissions_check = $pdo->prepare("SHOW COLUMNS FROM users LIKE 'permissions'");
+    $permissions_check->execute();
+    $has_permissions_column = $permissions_check->fetch();
+    
+    $phone_check = $pdo->prepare("SHOW COLUMNS FROM users LIKE 'phone'");
+    $phone_check->execute();
+    $has_phone_column = $phone_check->fetch();
+    
+    // 쿼리 구성
+    $select_fields = "u.id, u.username, u.full_name, u.email, u.role, u.created_at, s.name as store_name";
     
     if ($has_permissions_column) {
-        $stmt = $pdo->query("
-            SELECT u.id, u.username, u.full_name, u.email, u.role, u.created_at, u.permissions, s.name as store_name
-            FROM users u
-            LEFT JOIN stores s ON u.store_id = s.id
-            ORDER BY u.id DESC
-        ");
-    } else {
-        $stmt = $pdo->query("
-            SELECT u.id, u.username, u.full_name, u.email, u.role, u.created_at, s.name as store_name
-            FROM users u
-            LEFT JOIN stores s ON u.store_id = s.id
-            ORDER BY u.id DESC
-        ");
+        $select_fields .= ", u.permissions";
     }
+    
+    if ($has_phone_column) {
+        $select_fields .= ", u.phone";
+    }
+    
+    $stmt = $pdo->query("
+        SELECT {$select_fields}
+        FROM users u
+        LEFT JOIN stores s ON u.store_id = s.id
+        ORDER BY u.id DESC
+    ");
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
@@ -111,6 +117,7 @@ try {
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">아이디</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">이름</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">이메일</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">핸드폰</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">권한</th>
                         <?php if ($has_permissions_column): ?>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">세부 권한</th>
@@ -129,6 +136,9 @@ try {
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-300"><?php echo htmlspecialchars($user['username']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-300"><?php echo htmlspecialchars($user['full_name']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($user['email']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
+                                <?php echo $has_phone_column && !empty($user['phone']) ? htmlspecialchars($user['phone']) : '<span class="text-gray-400">정보없음</span>'; ?>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap border border-gray-300">
                                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
                                     <?php 
@@ -227,7 +237,7 @@ try {
                     <?php endforeach; ?>
                     <?php if (empty($users)): ?>
                         <tr>
-                            <td colspan="<?php echo $has_permissions_column ? '9' : '8'; ?>" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
+                            <td colspan="<?php echo $has_permissions_column ? ($has_phone_column ? '10' : '9') : ($has_phone_column ? '9' : '8'); ?>" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
                                     <p>등록된 회원이 없습니다.</p>

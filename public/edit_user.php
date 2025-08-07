@@ -23,16 +23,25 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // 수정할 회원 정보 가져오기 (permissions 컬럼 존재 여부 확인)
+    // 수정할 회원 정보 가져오기 (permissions, phone 컬럼 존재 여부 확인)
     $column_check = $pdo->prepare("SHOW COLUMNS FROM users LIKE 'permissions'");
     $column_check->execute();
     $has_permissions_column = $column_check->fetch();
     
+    $phone_check = $pdo->prepare("SHOW COLUMNS FROM users LIKE 'phone'");
+    $phone_check->execute();
+    $has_phone_column = $phone_check->fetch();
+    
+    // 동적 쿼리 구성
+    $select_fields = "id, username, full_name, email, role, store_id, created_at, updated_at";
     if ($has_permissions_column) {
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
-    } else {
-        $stmt = $pdo->prepare("SELECT id, username, full_name, email, role, store_id, created_at, updated_at FROM users WHERE id = ?");
+        $select_fields .= ", permissions";
     }
+    if ($has_phone_column) {
+        $select_fields .= ", phone";
+    }
+    
+    $stmt = $pdo->prepare("SELECT {$select_fields} FROM users WHERE id = ?");
     $stmt->execute([$user_id]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -72,6 +81,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $user['email'] = trim($_POST['email'] ?? '');
     $user['role'] = $_POST['role'] ?? $user['role'];
     $user['store_id'] = $_POST['store_id'] ?? $user['store_id'];
+    $user['phone'] = trim($_POST['phone'] ?? '');
     $permissions = $_POST['permissions'] ?? [];
     $password = $_POST['password'] ?? '';
     $password_confirm = $_POST['password_confirm'] ?? '';
@@ -106,7 +116,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             } else {
                 // 권한 JSON 생성
                 $permissions_json = null;
+                // 동적 UPDATE 쿼리 구성
+                $update_fields = ["full_name = ?", "email = ?", "role = ?", "store_id = ?"];
+                $params = [$user['full_name'], $user['email'], $user['role'], $user['store_id'] ?: null];
+                
+                if ($has_phone_column) {
+                    $update_fields[] = "phone = ?";
+                    $params[] = $user['phone'];
+                }
+                
                 if ($has_permissions_column) {
+                    $permissions_json = null;
                     if (!empty($permissions) && is_array($permissions)) {
                         // 체크된 권한들을 true로, 나머지는 false로 설정
                         $all_permissions = [
@@ -122,13 +142,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         }
                         $permissions_json = json_encode($final_permissions);
                     }
-                    
-                    $sql = "UPDATE users SET full_name = ?, email = ?, role = ?, store_id = ?, permissions = ?";
-                    $params = [$user['full_name'], $user['email'], $user['role'], $user['store_id'] ?: null, $permissions_json];
-                } else {
-                    $sql = "UPDATE users SET full_name = ?, email = ?, role = ?, store_id = ?";
-                    $params = [$user['full_name'], $user['email'], $user['role'], $user['store_id'] ?: null];
+                    $update_fields[] = "permissions = ?";
+                    $params[] = $permissions_json;
                 }
+                
+                $sql = "UPDATE users SET " . implode(", ", $update_fields);
 
                 if (!empty($password)) {
                     $sql .= ", password = ?";
@@ -201,6 +219,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <label for="email" class="block text-sm font-medium text-gray-700">이메일</label>
                 <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
             </div>
+            <?php if ($has_phone_column): ?>
+            <div class="sm:col-span-3">
+                <label for="phone" class="block text-sm font-medium text-gray-700">핸드폰 번호 <span class="text-gray-500">(선택 사항)</span></label>
+                <input type="tel" id="phone" name="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="010-1234-5678">
+            </div>
+            <?php endif; ?>
         </div>
     </div>
     
