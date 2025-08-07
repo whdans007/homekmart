@@ -1,5 +1,6 @@
 <?php
-$page_title = "가격변경 이력 조회 - HOME K MART";
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('price_change.history') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
@@ -7,7 +8,7 @@ require_once __DIR__ . '/../config/db_config.php';
 if (!has_permission('purchase_management')) {
     $_SESSION['flash'] = [
         'type' => 'error', 
-        'message' => '가격변경 이력 조회에 접근할 권한이 없습니다.'
+        'message' => t('price_change.no_permission')
     ];
     header('Location: shop.php');
     exit;
@@ -37,7 +38,7 @@ try {
     $table_check->execute();
     
     if (!$table_check->fetch()) {
-        $error_message = '가격변경 이력 테이블이 생성되지 않았습니다. 가격변경을 한 번 수행하면 자동으로 생성됩니다.';
+        $error_message = t('price_change.table_not_exists');
     } else {
         // 검색 조건 구성
         $where_conditions = [];
@@ -110,17 +111,17 @@ try {
     }
 
 } catch (PDOException $e) {
-    $error_message = "가격변경 이력을 불러오는 데 실패했습니다: " . $e->getMessage();
+    $error_message = t('price_change.load_error') . ": " . $e->getMessage();
 }
 ?>
 
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="flex justify-between items-center mb-6">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">가격변경 이력 조회</h1>
-            <p class="text-sm text-gray-600 mt-1">점포: <?php echo htmlspecialchars($current_store_name); ?></p>
+            <h1 class="text-3xl font-bold text-gray-900"><?php echo t('price_change.history'); ?></h1>
+            <p class="text-sm text-gray-600 mt-1"><?php echo str_replace('{store}', htmlspecialchars($current_store_name), t('price_change.store_info')); ?></p>
             <?php if (!$error_message && isset($total_records)): ?>
-                <p class="text-sm text-gray-600">총 <?php echo number_format($total_records); ?>건의 가격변경 이력</p>
+                <p class="text-sm text-gray-600"><?php echo str_replace('{count}', number_format($total_records), t('price_change.total_records')); ?></p>
             <?php endif; ?>
         </div>
     </div>
@@ -152,52 +153,52 @@ try {
         <form action="price_change_history.php" method="get" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                    <label for="search" class="block text-sm font-medium text-gray-700 mb-1">상품명/SKU/사용자</label>
-                    <input type="search" name="search" id="search" placeholder="검색어 입력..." 
+                    <label for="search" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('price_change.product_sku_user'); ?></label>
+                    <input type="search" name="search" id="search" placeholder="<?php echo t('price_change.search_placeholder'); ?>" 
                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" 
                            value="<?php echo htmlspecialchars($search_term); ?>">
                 </div>
                 <div>
-                    <label for="date_from" class="block text-sm font-medium text-gray-700 mb-1">시작일</label>
+                    <label for="date_from" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('price_change.start_date'); ?></label>
                     <input type="date" name="date_from" id="date_from" 
                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" 
                            value="<?php echo htmlspecialchars($date_from); ?>">
                 </div>
                 <div>
-                    <label for="date_to" class="block text-sm font-medium text-gray-700 mb-1">종료일</label>
+                    <label for="date_to" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('price_change.end_date'); ?></label>
                     <input type="date" name="date_to" id="date_to" 
                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" 
                            value="<?php echo htmlspecialchars($date_to); ?>">
                 </div>
                 <div>
-                    <label for="change_type" class="block text-sm font-medium text-gray-700 mb-1">변경유형</label>
+                    <label for="change_type" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('price_change.change_type'); ?></label>
                     <select name="change_type" id="change_type" 
                             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
-                        <option value="">전체</option>
-                        <option value="both" <?php echo $change_type === 'both' ? 'selected' : ''; ?>>원가+판매가</option>
-                        <option value="cost_only" <?php echo $change_type === 'cost_only' ? 'selected' : ''; ?>>원가만</option>
-                        <option value="selling_only" <?php echo $change_type === 'selling_only' ? 'selected' : ''; ?>>판매가만</option>
-                        <option value="margin_adjust" <?php echo $change_type === 'margin_adjust' ? 'selected' : ''; ?>>마진조정</option>
+                        <option value=""><?php echo t('price_change.all_types'); ?></option>
+                        <option value="both" <?php echo $change_type === 'both' ? 'selected' : ''; ?>><?php echo t('price_change.both_price'); ?></option>
+                        <option value="cost_only" <?php echo $change_type === 'cost_only' ? 'selected' : ''; ?>><?php echo t('price_change.cost_only'); ?></option>
+                        <option value="selling_only" <?php echo $change_type === 'selling_only' ? 'selected' : ''; ?>><?php echo t('price_change.selling_only'); ?></option>
+                        <option value="margin_adjust" <?php echo $change_type === 'margin_adjust' ? 'selected' : ''; ?>><?php echo t('price_change.margin_adjust'); ?></option>
                     </select>
                 </div>
             </div>
             <div class="flex items-center space-x-4">
                 <div class="flex items-center space-x-2">
-                    <label for="per_page" class="text-sm text-gray-700 whitespace-nowrap">표시 개수:</label>
+                    <label for="per_page" class="text-sm text-gray-700 whitespace-nowrap"><?php echo t('price_change.display_count'); ?>:</label>
                     <select name="per_page" id="per_page" class="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
-                        <option value="10" <?php echo $per_page == 10 ? 'selected' : ''; ?>>10개</option>
-                        <option value="20" <?php echo $per_page == 20 ? 'selected' : ''; ?>>20개</option>
-                        <option value="50" <?php echo $per_page == 50 ? 'selected' : ''; ?>>50개</option>
-                        <option value="100" <?php echo $per_page == 100 ? 'selected' : ''; ?>>100개</option>
+                        <option value="10" <?php echo $per_page == 10 ? 'selected' : ''; ?>><?php echo t('price_change.items_10'); ?></option>
+                        <option value="20" <?php echo $per_page == 20 ? 'selected' : ''; ?>><?php echo t('price_change.items_20'); ?></option>
+                        <option value="50" <?php echo $per_page == 50 ? 'selected' : ''; ?>><?php echo t('price_change.items_50'); ?></option>
+                        <option value="100" <?php echo $per_page == 100 ? 'selected' : ''; ?>><?php echo t('price_change.items_100'); ?></option>
                     </select>
                 </div>
                 <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
                     <i class="fas fa-search mr-2"></i>
-                    검색
+                    <?php echo t('price_change.search'); ?>
                 </button>
                 <a href="price_change_history.php" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
                     <i class="fas fa-redo mr-2"></i>
-                    초기화
+                    <?php echo t('price_change.reset'); ?>
                 </a>
             </div>
         </form>
@@ -210,8 +211,8 @@ try {
     <?php elseif (empty($price_changes)): ?>
         <div class="text-center py-12">
             <i class="fas fa-chart-line text-5xl text-gray-400"></i>
-            <h2 class="mt-4 text-lg font-medium text-gray-900">가격변경 이력이 없습니다.</h2>
-            <p class="mt-1 text-sm text-gray-500">아직 등록된 가격변경 이력이 없습니다.</p>
+            <h2 class="mt-4 text-lg font-medium text-gray-900"><?php echo t('price_change.no_history'); ?></h2>
+            <p class="mt-1 text-sm text-gray-500"><?php echo t('price_change.no_history_desc'); ?></p>
         </div>
     <?php else: ?>
         <div class="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-300">
@@ -219,16 +220,16 @@ try {
                 <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">변경일시</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">상품명</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">점포</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">이전 원가</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">변경 원가</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">이전 판매가</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">변경 판매가</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">변경유형</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">변경자</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">변경사유</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.changed_at'); ?></th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.product_name'); ?></th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.store'); ?></th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.old_cost_price'); ?></th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.new_cost_price'); ?></th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.old_selling_price'); ?></th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.new_selling_price'); ?></th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.change_type_col'); ?></th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.changed_by'); ?></th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.change_reason'); ?></th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -242,7 +243,7 @@ try {
                                     <div class="text-xs text-gray-500"><?php echo htmlspecialchars($change['sku'] ?? 'N/A'); ?></div>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
-                                    <?php echo htmlspecialchars($change['store_name'] ?? '전체'); ?>
+                                    <?php echo htmlspecialchars($change['store_name'] ?? t('common.all')); ?>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right border border-gray-300">
                                     <?php if ($change['old_cost_price']): ?>
@@ -281,10 +282,10 @@ try {
                                         'margin_adjust' => 'bg-orange-100 text-orange-800'
                                     ];
                                     $type_labels = [
-                                        'both' => '원가+판매가',
-                                        'cost_only' => '원가만',
-                                        'selling_only' => '판매가만',
-                                        'margin_adjust' => '마진조정'
+                                        'both' => t('price_change.both_price'),
+                                        'cost_only' => t('price_change.cost_only'),
+                                        'selling_only' => t('price_change.selling_only'),
+                                        'margin_adjust' => t('price_change.margin_adjust')
                                     ];
                                     $color_class = $type_colors[$change['change_type']] ?? 'bg-gray-100 text-gray-800';
                                     $label = $type_labels[$change['change_type']] ?? $change['change_type'];
@@ -313,7 +314,7 @@ try {
                     <?php if ($page > 1): ?>
                         <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>" 
                            class="inline-flex items-center border-t-2 border-transparent pt-4 pr-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
-                            <i class="fas fa-arrow-left mr-3"></i> 이전
+                            <i class="fas fa-arrow-left mr-3"></i> <?php echo t('price_change.previous'); ?>
                         </a>
                     <?php endif; ?>
                 </div>
@@ -333,7 +334,7 @@ try {
                     <?php if ($page < $total_pages): ?>
                         <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>" 
                            class="inline-flex items-center border-t-2 border-transparent pt-4 pl-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
-                            다음 <i class="fas fa-arrow-right ml-3"></i>
+                            <?php echo t('price_change.next'); ?> <i class="fas fa-arrow-right ml-3"></i>
                         </a>
                     <?php endif; ?>
                 </div>

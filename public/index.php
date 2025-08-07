@@ -1,12 +1,13 @@
 <?php
-$page_title = "대시보드 - HOME K MART";
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('dashboard.title') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 
 // 관리자 접근 권한 확인
 if (!has_permission('admin_access')) {
     $_SESSION['flash'] = [
         'type' => 'error', 
-        'message' => '관리자 페이지에 접근할 권한이 없습니다. 쇼핑몰을 이용해주세요.'
+        'message' => t('messages.permission_denied')
     ];
     header('Location: shop.php');
     exit;
@@ -43,14 +44,14 @@ try {
     $stats['unassigned_users'] = $pdo->query("SELECT COUNT(id) FROM users WHERE store_id IS NULL")->fetchColumn();
 
 } catch (PDOException $e) {
-    $error_message = "통계 데이터를 불러오는 데 실패했습니다: " . $e->getMessage();
+    $error_message = t('dashboard.statistics_error') . ': ' . $e->getMessage();
 }
 ?>
 
 <!-- Page header -->
 <div class="mb-8">
-    <h1 class="text-3xl font-bold text-gray-900">대시보드</h1>
-    <p class="mt-2 text-sm text-gray-600">HOME K MART 관리 시스템에 오신 것을 환영합니다.</p>
+    <h1 class="text-3xl font-bold text-gray-900"><?php echo t('dashboard.title'); ?></h1>
+    <p class="mt-2 text-sm text-gray-600"><?php echo t('dashboard.welcome'); ?></p>
 </div>
 
 <?php if ($error_message): ?>
@@ -78,7 +79,7 @@ try {
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">총 회원 수</dt>
+                            <dt class="text-sm font-medium text-gray-500 truncate"><?php echo t('dashboard.total_users'); ?></dt>
                             <dd class="text-lg font-medium text-gray-900"><?php echo number_format($stats['total_users']); ?></dd>
                         </dl>
                     </div>
@@ -118,7 +119,7 @@ try {
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">미지정 회원</dt>
+                            <dt class="text-sm font-medium text-gray-500 truncate"><?php echo t('dashboard.unassigned_users'); ?></dt>
                             <dd class="text-lg font-medium text-gray-900"><?php echo number_format($stats['unassigned_users']); ?></dd>
                         </dl>
                     </div>
@@ -129,7 +130,7 @@ try {
 
     <!-- Quick Actions -->
     <div class="mt-8">
-        <h2 class="text-lg font-medium text-gray-900 mb-4">빠른 작업</h2>
+        <h2 class="text-lg font-medium text-gray-900 mb-4"><?php echo t('dashboard.quick_actions'); ?></h2>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <?php if ($_SESSION['role'] === 'admin' || $_SESSION['role'] === 'super_admin'): ?>
             <a href="add_user.php" class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-primary-500 rounded-lg shadow hover:shadow-md transition-shadow duration-200">
@@ -141,9 +142,9 @@ try {
                 <div class="mt-4">
                     <h3 class="text-lg font-medium">
                         <span class="absolute inset-0" aria-hidden="true"></span>
-                        회원 추가
+                        <?php echo t('user.add'); ?>
                     </h3>
-                    <p class="mt-2 text-sm text-gray-500">새로운 회원을 시스템에 등록합니다.</p>
+                    <p class="mt-2 text-sm text-gray-500"><?php echo t('dashboard.add_user_desc'); ?></p>
                 </div>
                 <span class="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400" aria-hidden="true">
                     <i class="fas fa-arrow-right"></i>
@@ -161,9 +162,9 @@ try {
                 <div class="mt-4">
                     <h3 class="text-lg font-medium">
                         <span class="absolute inset-0" aria-hidden="true"></span>
-                        지점 추가
+                        <?php echo t('store.add'); ?>
                     </h3>
-                    <p class="mt-2 text-sm text-gray-500">새로운 지점을 등록합니다.</p>
+                    <p class="mt-2 text-sm text-gray-500"><?php echo t('dashboard.add_store_desc'); ?></p>
                 </div>
                 <span class="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400" aria-hidden="true">
                     <i class="fas fa-arrow-right"></i>
@@ -179,9 +180,9 @@ try {
                 <div class="mt-4">
                     <h3 class="text-lg font-medium">
                         <span class="absolute inset-0" aria-hidden="true"></span>
-                        브랜드 추가
+                        <?php echo t('brand.add'); ?>
                     </h3>
-                    <p class="mt-2 text-sm text-gray-500">새로운 브랜드를 등록합니다.</p>
+                    <p class="mt-2 text-sm text-gray-500"><?php echo t('dashboard.add_brand_desc'); ?></p>
                 </div>
                 <span class="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400" aria-hidden="true">
                     <i class="fas fa-arrow-right"></i>
@@ -198,9 +199,9 @@ try {
                 <div class="mt-4">
                     <h3 class="text-lg font-medium">
                         <span class="absolute inset-0" aria-hidden="true"></span>
-                        매입 등록
+                        <?php echo t('purchase.add'); ?>
                     </h3>
-                    <p class="mt-2 text-sm text-gray-500">신규 매입을 등록합니다.</p>
+                    <p class="mt-2 text-sm text-gray-500"><?php echo t('dashboard.add_purchase_desc'); ?></p>
                 </div>
                 <span class="pointer-events-none absolute top-6 right-6 text-gray-300 group-hover:text-gray-400" aria-hidden="true">
                     <i class="fas fa-arrow-right"></i>

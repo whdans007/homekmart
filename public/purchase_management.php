@@ -3,7 +3,8 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-$page_title = "상품 매입 관리";
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('purchase.list') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
@@ -11,7 +12,7 @@ require_once __DIR__ . '/../config/db_config.php';
 if (!has_permission('purchase_management')) {
     $_SESSION['flash'] = [
         'type' => 'error', 
-        'message' => '매입관리에 접근할 권한이 없습니다.'
+        'message' => t('messages.permission_denied')
     ];
     header('Location: shop.php');
     exit;
@@ -106,15 +107,15 @@ if (!$result) {
 
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold text-gray-900">상품 매입 리스트</h1>
+        <h1 class="text-3xl font-bold text-gray-900"><?php echo t('purchase.list'); ?></h1>
         <div class="flex space-x-3">
             <?php if (!$has_deleted_at): ?>
             <a href="setup_soft_delete_purchases.php" class="inline-flex items-center justify-center rounded-md border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700 shadow-sm hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2">
-                <i class="fas fa-database mr-2"></i> Soft Delete 설정
+                <i class="fas fa-database mr-2"></i> <?php echo t('purchase.soft_delete_setup'); ?>
             </a>
             <?php endif; ?>
             <a href="add_purchase.php" class="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                <i class="fas fa-plus mr-2"></i> 신규 매입 추가
+                <i class="fas fa-plus mr-2"></i> <?php echo t('purchase.new_purchase'); ?>
             </a>
         </div>
     </div>
@@ -124,20 +125,20 @@ if (!$result) {
         <form method="GET" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                    <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">시작 날짜</label>
+                    <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('purchase.start_date'); ?></label>
                     <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>" 
                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
                 </div>
                 <div>
-                    <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1">종료 날짜</label>
+                    <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('purchase.end_date'); ?></label>
                     <input type="date" id="end_date" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>" 
                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
                 </div>
                 <div>
-                    <label for="supplier_id" class="block text-sm font-medium text-gray-700 mb-1">거래처</label>
+                    <label for="supplier_id" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('purchase.supplier'); ?></label>
                     <select id="supplier_id" name="supplier_id" 
                             class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
-                        <option value="">전체 거래처</option>
+                        <option value=""><?php echo t('purchase.all_suppliers'); ?></option>
                         <?php if ($suppliers_result && $suppliers_result->num_rows > 0): ?>
                             <?php $suppliers_result->data_seek(0); // 결과 포인터 리셋 ?>
                             <?php while ($supplier = $suppliers_result->fetch_assoc()): ?>
@@ -150,10 +151,10 @@ if (!$result) {
                 </div>
                 <div class="flex items-end space-x-2">
                     <button type="submit" class="flex-1 bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                        <i class="fas fa-search mr-2"></i>검색
+                        <i class="fas fa-search mr-2"></i><?php echo t('purchase.search'); ?>
                     </button>
                     <a href="purchase_management.php" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 text-center">
-                        <i class="fas fa-redo mr-2"></i>초기화
+                        <i class="fas fa-redo mr-2"></i><?php echo t('purchase.reset'); ?>
                     </a>
                 </div>
             </div>
@@ -165,15 +166,15 @@ if (!$result) {
             <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">순번</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">거래번호</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">날짜</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">등록시간</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">거래처</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">총 품목 수</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">총 입고수량</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">매입금액</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">작업</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.number'); ?></th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.purchase_id'); ?></th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.date'); ?></th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.created_time'); ?></th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.supplier'); ?></th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.total_items'); ?></th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.total_pieces'); ?></th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.purchase_amount'); ?></th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('common.actions'); ?></th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -198,14 +199,14 @@ if (!$result) {
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300"><?php echo htmlspecialchars($row['total_items']); ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300">
                                     <span class="font-medium"><?php echo number_format($row['total_pieces'] ?? 0); ?></span>
-                                    <span class="text-xs text-gray-400 ml-1">개</span>
+                                    <span class="text-xs text-gray-400 ml-1"><?php echo t('purchase.pieces'); ?></span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300"><?php echo number_format($row['total_amount'], 2); ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium border border-gray-300">
                                     <div class="flex justify-center space-x-2">
-                                        <a href="edit_purchase.php?id=<?php echo $row['purchase_id']; ?>" class="text-indigo-600 hover:text-indigo-900">상세보기</a>
+                                        <a href="edit_purchase.php?id=<?php echo $row['purchase_id']; ?>" class="text-indigo-600 hover:text-indigo-900"><?php echo t('purchase.detail_view'); ?></a>
                                         <span class="text-gray-300">|</span>
-                                        <a href="purchase_price_change.php?purchase_id=<?php echo $row['purchase_id']; ?>" class="text-green-600 hover:text-green-900">가격변동</a>
+                                        <a href="purchase_price_change.php?purchase_id=<?php echo $row['purchase_id']; ?>" class="text-green-600 hover:text-green-900"><?php echo t('purchase.price_change'); ?></a>
                                     </div>
                                 </td>
                             </tr>
@@ -215,8 +216,8 @@ if (!$result) {
                             <td colspan="8" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-dolly-flatbed text-4xl text-gray-400"></i>
-                                    <p class="mt-4">매입 내역이 없습니다.</p>
-                                    <p class="text-xs text-gray-400">첫 매입 내역을 추가해보세요.</p>
+                                    <p class="mt-4"><?php echo t('purchase.no_purchases'); ?></p>
+                                    <p class="text-xs text-gray-400"><?php echo t('purchase.add_first_purchase'); ?></p>
                                 </div>
                             </td>
                         </tr>

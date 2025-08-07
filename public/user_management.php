@@ -1,12 +1,13 @@
 <?php
-$page_title = "회원관리 - HOME K MART";
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('user.management') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 
 // 회원관리 권한 확인
 if (!has_permission('user_management')) {
     $_SESSION['flash'] = [
         'type' => 'error', 
-        'message' => '회원관리에 접근할 권한이 없습니다.'
+        'message' => t('messages.permission_denied')
     ];
     header('Location: shop.php');
     exit;
@@ -63,7 +64,7 @@ try {
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    $error_message = "데이터베이스에서 사용자 목록을 불러오는 데 실패했습니다.";
+    $error_message = t('messages.database_error');
     // error_log($e->getMessage()); // 실제 운영 환경에서는 로그 파일에 기록합니다.
 }
 ?>
@@ -71,13 +72,13 @@ try {
 <!-- Page header -->
 <div class="mb-8 sm:flex sm:items-center sm:justify-between">
     <div>
-        <h1 class="text-3xl font-bold text-gray-900">회원 목록</h1>
-        <p class="mt-2 text-sm text-gray-700">시스템에 등록된 모든 회원을 관리합니다.</p>
+        <h1 class="text-3xl font-bold text-gray-900"><?php echo t('user.list'); ?></h1>
+        <p class="mt-2 text-sm text-gray-700"><?php echo t('user.management_desc'); ?></p>
     </div>
     <div class="mt-4 sm:mt-0">
         <a href="add_user.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
             <i class="fas fa-user-plus mr-2"></i>
-            회원 추가
+            <?php echo t('user.add'); ?>
         </a>
     </div>
 </div>
@@ -114,18 +115,18 @@ try {
                 <thead class="bg-gray-50">
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">ID</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">아이디</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">이름</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">이메일</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">핸드폰</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">권한</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('auth.username'); ?></th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.full_name'); ?></th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('auth.email'); ?></th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.phone'); ?></th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.role'); ?></th>
                         <?php if ($has_permissions_column): ?>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">세부 권한</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.permissions'); ?></th>
                         <?php endif; ?>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">소속 지점</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">가입일</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.store'); ?></th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.created_at'); ?></th>
                         <th scope="col" class="relative px-6 py-3 border border-gray-300">
-                            <span class="sr-only">작업</span>
+                            <span class="sr-only"><?php echo t('common.actions'); ?></span>
                         </th>
                     </tr>
                 </thead>
@@ -137,7 +138,7 @@ try {
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-300"><?php echo htmlspecialchars($user['full_name']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($user['email']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
-                                <?php echo $has_phone_column && !empty($user['phone']) ? htmlspecialchars($user['phone']) : '<span class="text-gray-400">정보없음</span>'; ?>
+                                <?php echo $has_phone_column && !empty($user['phone']) ? htmlspecialchars($user['phone']) : '<span class="text-gray-400">' . t('user.no_info') . '</span>'; ?>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap border border-gray-300">
                                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
@@ -150,11 +151,11 @@ try {
                                         default: echo 'bg-gray-100 text-gray-800'; break;
                                     }
                                     $role_labels = [
-                                        'user' => '일반 사용자',
-                                        'staff' => '직원',
-                                        'office_staff' => '오피스 스텝',
-                                        'admin' => '관리자',
-                                        'super_admin' => '총괄 관리자'
+                                        'user' => t('roles.user'),
+                                        'staff' => t('roles.staff'),
+                                        'office_staff' => t('roles.office_staff'),
+                                        'admin' => t('roles.admin'),
+                                        'super_admin' => t('roles.super_admin')
                                     ];
                                     ?>">
                                     <?php echo htmlspecialchars($role_labels[$user['role']] ?? $user['role']); ?>
@@ -165,24 +166,24 @@ try {
                                 <?php 
                                 $permissions_info = '';
                                 if ($user['role'] === 'super_admin') {
-                                    $permissions_info = '<span class="text-xs text-purple-600">모든 권한</span>';
+                                    $permissions_info = '<span class="text-xs text-purple-600">' . t('user.all_permissions') . '</span>';
                                 } else if (!empty($user['permissions'])) {
                                     $permissions = json_decode($user['permissions'], true);
                                     if (is_array($permissions)) {
                                         $active_permissions = array_filter($permissions);
                                         $permission_labels = [
-                                            'admin_access' => '관리자',
-                                            'user_management' => '회원',
-                                            'store_management' => '지점',
-                                            'product_management' => '상품',
-                                            'purchase_management' => '매입',
-                                            'brand_management' => '브랜드',
-                                            'category_management' => '카테고리',
-                                            'supplier_management' => '공급처',
-                                            'settings' => '설정',
-                                            'shop_access' => '쇼핑',
-                                            'barcode_management' => '바코드',
-                                            'accounting_management' => '회계'
+                                            'admin_access' => t('permissions.admin_access'),
+                                            'user_management' => t('permissions.user_management'),
+                                            'store_management' => t('permissions.store_management'),
+                                            'product_management' => t('permissions.product_management'),
+                                            'purchase_management' => t('permissions.purchase_management'),
+                                            'brand_management' => t('permissions.brand_management'),
+                                            'category_management' => t('permissions.category_management'),
+                                            'supplier_management' => t('permissions.supplier_management'),
+                                            'settings' => t('permissions.settings'),
+                                            'shop_access' => t('permissions.shop_access'),
+                                            'barcode_management' => t('permissions.barcode_management'),
+                                            'accounting_management' => t('permissions.accounting_management')
                                         ];
                                         
                                         $permission_names = [];
@@ -202,20 +203,20 @@ try {
                                             }
                                             $permissions_info .= '</div>';
                                         } else {
-                                            $permissions_info = '<span class="text-xs text-gray-400">권한 없음</span>';
+                                            $permissions_info = '<span class="text-xs text-gray-400">' . t('user.no_permissions') . '</span>';
                                         }
                                     } else {
-                                        $permissions_info = '<span class="text-xs text-gray-400">기본 권한</span>';
+                                        $permissions_info = '<span class="text-xs text-gray-400">' . t('user.default_permissions') . '</span>';
                                     }
                                 } else {
-                                    $permissions_info = '<span class="text-xs text-gray-400">기본 권한</span>';
+                                    $permissions_info = '<span class="text-xs text-gray-400">' . t('user.default_permissions') . '</span>';
                                 }
                                 echo $permissions_info;
                                 ?>
                             </td>
                             <?php endif; ?>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
-                                <?php echo htmlspecialchars($user['store_name'] ?? '미지정'); ?>
+                                <?php echo htmlspecialchars($user['store_name'] ?? t('user.unassigned')); ?>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
                                 <?php echo date('Y-m-d', strtotime($user['created_at'])); ?>
@@ -224,12 +225,12 @@ try {
                                 <div class="flex space-x-2">
                                     <a href="edit_user.php?id=<?php echo $user['id']; ?>" 
                                        class="text-primary-600 hover:text-primary-900 transition-colors duration-200">
-                                        <i class="fas fa-edit mr-1"></i>수정
+                                        <i class="fas fa-edit mr-1"></i><?php echo t('common.edit'); ?>
                                     </a>
                                     <a href="delete_user.php?id=<?php echo $user['id']; ?>" 
                                        class="text-red-600 hover:text-red-900 transition-colors duration-200"
-                                       onclick="return confirm('정말로 이 회원을 삭제하시겠습니까?');">
-                                        <i class="fas fa-trash mr-1"></i>삭제
+                                       onclick="return confirm('<?php echo t('user.confirm_delete'); ?>');">
+                                        <i class="fas fa-trash mr-1"></i><?php echo t('common.delete'); ?>
                                     </a>
                                 </div>
                             </td>
@@ -240,9 +241,9 @@ try {
                             <td colspan="<?php echo $has_permissions_column ? ($has_phone_column ? '10' : '9') : ($has_phone_column ? '9' : '8'); ?>" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
-                                    <p>등록된 회원이 없습니다.</p>
+                                    <p><?php echo t('user.no_users'); ?></p>
                                     <a href="add_user.php" class="mt-2 text-primary-600 hover:text-primary-500">
-                                        첫 번째 회원을 추가해보세요
+                                        <?php echo t('user.add_first_user'); ?>
                                     </a>
                                 </div>
                             </td>

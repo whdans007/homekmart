@@ -15,7 +15,9 @@
       "Bash(git push:*)",
       "Bash(php:*)",
       "Bash(PATH=\"/c/xampp/php:$PATH\" php Z:mincheck_users_table.php)",
-      "Bash(PATH:*)"
+      "Bash(PATH:*)",
+      "mcp__sequential__sequentialthinking",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }
