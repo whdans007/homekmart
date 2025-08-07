@@ -102,6 +102,9 @@ $items_result = $items_stmt->get_result();
             <p class="text-sm text-gray-600">점포: <?php echo htmlspecialchars($current_store_name); ?></p>
         </div>
         <div class="flex space-x-3">
+            <button id="bulkMarginBtn" class="inline-flex items-center justify-center rounded-md border border-transparent bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 print:hidden" disabled>
+                <i class="fas fa-percentage mr-2"></i> 선택상품 마진율 적용 (<span id="selectedCount">0</span>개)
+            </button>
             <button id="bulkApplyBtn" class="inline-flex items-center justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 print:hidden">
                 <i class="fas fa-arrow-up mr-2"></i> 인상상품 일괄적용
             </button>
@@ -141,6 +144,9 @@ $items_result = $items_stmt->get_result();
             <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                 <thead class="bg-gray-50">
                     <tr>
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 print:hidden">
+                            <input type="checkbox" id="selectAll" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+                        </th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">상품정보</th>
                         <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">기존원가</th>
                         <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">매입원가<br><span class="text-xs normal-case">(낱개단위)</span></th>
@@ -183,7 +189,10 @@ $items_result = $items_stmt->get_result();
                                 $new_selling_price = $item['purchase_unit_price_per_piece'] * (1 + ($margin_rate / 100));
                             }
                         ?>
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-gray-50 cursor-pointer item-row" data-product-id="<?php echo $item['product_id']; ?>">
+                                <td class="px-3 py-4 text-center border border-gray-300 print:hidden">
+                                    <input type="checkbox" class="item-checkbox h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" data-product-id="<?php echo $item['product_id']; ?>">
+                                </td>
                                 <td class="px-3 py-4 border border-gray-300">
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($item['product_name_ko']); ?></div>
                                     <?php if ($item['product_name_en']): ?>
@@ -280,7 +289,7 @@ $items_result = $items_stmt->get_result();
                     
                     <?php if (!$has_price_changes): ?>
                         <tr>
-                            <td colspan="8" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
+                            <td colspan="9" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-equals text-4xl text-gray-400"></i>
                                     <p class="mt-4">원가 변동이 있는 상품이 없습니다.</p>
@@ -291,6 +300,89 @@ $items_result = $items_stmt->get_result();
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+    </div>
+    
+    <!-- 선택상품 일괄 마진율 적용 패널 -->
+    <div id="bulkActionPanel" class="mt-6 bg-white border-2 border-purple-200 rounded-lg shadow-lg p-6 hidden print:hidden">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center">
+                <i class="fas fa-percentage text-purple-600 text-lg mr-3"></i>
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900">선택상품 마진율 일괄 적용</h3>
+                    <p class="text-sm text-gray-600">선택된 <span id="panelSelectedCount" class="font-semibold text-purple-600">0</span>개 상품에 동일한 마진율을 적용합니다</p>
+                </div>
+            </div>
+            <button id="closeBulkPanel" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <div class="flex-1">
+                <label for="bulkMarginInput" class="block text-sm font-medium text-gray-700 mb-2">
+                    마진율 (%)
+                </label>
+                <div class="relative">
+                    <input type="number" 
+                           id="bulkMarginInput" 
+                           class="w-full px-4 py-3 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500" 
+                           placeholder="예: 30" 
+                           step="0.1" 
+                           min="0">
+                    <span class="absolute right-3 top-3 text-lg text-gray-500">%</span>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">예: 30% 마진율을 원하면 30을 입력하세요</p>
+            </div>
+            
+            <div class="flex flex-col space-y-2">
+                <button id="applyBulkMargin" 
+                        class="px-6 py-3 bg-purple-600 text-white font-medium rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
+                    <i class="fas fa-check mr-2"></i>
+                    마진율 적용
+                </button>
+                <button id="clearSelection" 
+                        class="px-6 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                    <i class="fas fa-times mr-1"></i>
+                    선택 해제
+                </button>
+            </div>
+        </div>
+        
+        <!-- 선택된 상품 미리보기 -->
+        <div class="mt-4 pt-4 border-t border-gray-200">
+            <h4 class="text-sm font-medium text-gray-700 mb-2">선택된 상품</h4>
+            <div id="selectedItemsPreview" class="max-h-32 overflow-y-auto">
+                <p class="text-sm text-gray-500">상품을 선택하면 여기에 표시됩니다.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 선택상품 마진율 설정 모달 -->
+<div id="bulkMarginModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden print:hidden">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">선택상품 마진율 일괄 적용</h3>
+            <div class="mb-4">
+                <p class="text-sm text-gray-600">선택된 <span id="modalSelectedCount">0</span>개 상품에 동일한 마진율을 적용합니다.</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">마진율 (%)</label>
+                    <input type="number" id="modalMarginRate" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="마진율 입력 (예: 30)" step="0.1" min="0">
+                    <p class="text-xs text-gray-500 mt-1">예: 30% 마진율을 원하면 30을 입력하세요</p>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button type="button" id="cancelBulkMarginModal" class="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                    취소
+                </button>
+                <button type="button" id="confirmBulkMarginModal" class="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    적용
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -334,7 +426,319 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let currentProductId = null;
     
-    // 일괄 적용 버튼 이벤트
+    // 선택 관련 변수
+    let selectedItems = new Set();
+    
+    // 전체 선택/해제 기능
+    document.getElementById('selectAll').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.item-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+            updateItemSelection(checkbox.dataset.productId, this.checked);
+        });
+        updateSelectedUI();
+    });
+    
+    // 개별 체크박스 이벤트
+    document.querySelectorAll('.item-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateItemSelection(this.dataset.productId, this.checked);
+            updateSelectedUI();
+            updateSelectAllState();
+        });
+    });
+    
+    // 행 클릭으로 선택/해제 (체크박스와 버튼 영역 제외)
+    document.querySelectorAll('.item-row').forEach(row => {
+        row.addEventListener('click', function(e) {
+            // 체크박스, 버튼, 입력 필드 클릭은 제외
+            if (e.target.type === 'checkbox' || 
+                e.target.tagName === 'BUTTON' || 
+                e.target.tagName === 'INPUT' || 
+                e.target.closest('button') ||
+                e.target.closest('.apply-new-prices-btn') ||
+                e.target.closest('.manual-edit-btn')) {
+                return;
+            }
+            
+            const checkbox = this.querySelector('.item-checkbox');
+            checkbox.checked = !checkbox.checked;
+            updateItemSelection(checkbox.dataset.productId, checkbox.checked);
+            updateSelectedUI();
+            updateSelectAllState();
+        });
+    });
+    
+    // 선택 상태 업데이트
+    function updateItemSelection(productId, isSelected) {
+        if (isSelected) {
+            selectedItems.add(productId);
+        } else {
+            selectedItems.delete(productId);
+        }
+        
+        // 행의 시각적 표시 업데이트
+        const row = document.querySelector(`.item-row[data-product-id="${productId}"]`);
+        if (row) {
+            if (isSelected) {
+                row.classList.add('bg-blue-50', 'border-l-4', 'border-blue-500');
+            } else {
+                row.classList.remove('bg-blue-50', 'border-l-4', 'border-blue-500');
+            }
+        }
+    }
+    
+    // 전체 선택 체크박스 상태 업데이트
+    function updateSelectAllState() {
+        const checkboxes = document.querySelectorAll('.item-checkbox');
+        const selectAllCheckbox = document.getElementById('selectAll');
+        
+        const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+        
+        if (checkedCount === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        } else if (checkedCount === checkboxes.length) {
+            selectAllCheckbox.checked = true;
+            selectAllCheckbox.indeterminate = false;
+        } else {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = true;
+        }
+    }
+    
+    // 선택된 항목 UI 업데이트
+    function updateSelectedUI() {
+        const selectedCount = selectedItems.size;
+        const bulkMarginBtn = document.getElementById('bulkMarginBtn');
+        const selectedCountSpan = document.getElementById('selectedCount');
+        const bulkActionPanel = document.getElementById('bulkActionPanel');
+        const panelSelectedCount = document.getElementById('panelSelectedCount');
+        const applyBulkMarginBtn = document.getElementById('applyBulkMargin');
+        
+        // 헤더 버튼 업데이트
+        selectedCountSpan.textContent = selectedCount;
+        
+        if (selectedCount > 0) {
+            bulkMarginBtn.disabled = false;
+            bulkMarginBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            // 하단 패널 표시
+            bulkActionPanel.classList.remove('hidden');
+            panelSelectedCount.textContent = selectedCount;
+            
+            updateSelectedItemsPreview();
+        } else {
+            bulkMarginBtn.disabled = true;
+            bulkMarginBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            
+            // 하단 패널 숨기기
+            bulkActionPanel.classList.add('hidden');
+        }
+        
+        // 마진율 입력값에 따라 적용 버튼 활성화
+        updateApplyButtonState();
+    }
+    
+    // 선택된 상품 미리보기 업데이트
+    function updateSelectedItemsPreview() {
+        const preview = document.getElementById('selectedItemsPreview');
+        
+        if (selectedItems.size === 0) {
+            preview.innerHTML = '<p class="text-sm text-gray-500">상품을 선택하면 여기에 표시됩니다.</p>';
+            return;
+        }
+        
+        let html = '<div class="space-y-1">';
+        selectedItems.forEach(productId => {
+            const row = document.querySelector(`.item-row[data-product-id="${productId}"]`);
+            if (row) {
+                const productName = row.querySelector('.text-sm.font-medium').textContent;
+                const sku = row.querySelector('.text-xs.text-gray-500.font-mono').textContent;
+                html += `<div class="flex justify-between items-center text-sm py-1">
+                    <span class="text-gray-900">${productName}</span>
+                    <span class="text-gray-500 font-mono">${sku}</span>
+                </div>`;
+            }
+        });
+        html += '</div>';
+        
+        preview.innerHTML = html;
+    }
+    
+    // 적용 버튼 상태 업데이트
+    function updateApplyButtonState() {
+        const bulkMarginInput = document.getElementById('bulkMarginInput');
+        const applyBulkMarginBtn = document.getElementById('applyBulkMargin');
+        const marginValue = parseFloat(bulkMarginInput.value);
+        
+        if (selectedItems.size > 0 && !isNaN(marginValue) && marginValue >= 0) {
+            applyBulkMarginBtn.disabled = false;
+        } else {
+            applyBulkMarginBtn.disabled = true;
+        }
+    }
+    
+    // 선택상품 마진율 버튼 이벤트
+    document.getElementById('bulkMarginBtn').addEventListener('click', function() {
+        if (selectedItems.size === 0) {
+            alert('상품을 먼저 선택해주세요.');
+            return;
+        }
+        
+        document.getElementById('modalSelectedCount').textContent = selectedItems.size;
+        document.getElementById('modalMarginRate').value = '';
+        document.getElementById('bulkMarginModal').classList.remove('hidden');
+    });
+    
+    // 마진율 모달 취소
+    document.getElementById('cancelBulkMarginModal').addEventListener('click', function() {
+        document.getElementById('bulkMarginModal').classList.add('hidden');
+    });
+    
+    // 마진율 모달 확인
+    document.getElementById('confirmBulkMarginModal').addEventListener('click', function() {
+        const marginRate = parseFloat(document.getElementById('modalMarginRate').value);
+        
+        if (isNaN(marginRate) || marginRate < 0) {
+            alert('올바른 마진율을 입력해주세요.');
+            return;
+        }
+        
+        if (confirm(`선택된 ${selectedItems.size}개 상품에 ${marginRate}% 마진율을 적용하시겠습니까?`)) {
+            applyBulkMarginRate(marginRate);
+        }
+    });
+    
+    // 하단 패널 이벤트 핸들러들
+    
+    // 마진율 입력 필드 변경 시 적용 버튼 상태 업데이트
+    document.getElementById('bulkMarginInput').addEventListener('input', function() {
+        updateApplyButtonState();
+    });
+    
+    // 하단 패널 마진율 적용 버튼
+    document.getElementById('applyBulkMargin').addEventListener('click', function() {
+        const marginRate = parseFloat(document.getElementById('bulkMarginInput').value);
+        
+        if (isNaN(marginRate) || marginRate < 0) {
+            alert('올바른 마진율을 입력해주세요.');
+            return;
+        }
+        
+        if (selectedItems.size === 0) {
+            alert('상품을 먼저 선택해주세요.');
+            return;
+        }
+        
+        if (confirm(`선택된 ${selectedItems.size}개 상품에 ${marginRate}% 마진율을 적용하시겠습니까?`)) {
+            applyBulkMarginRateFromPanel(marginRate);
+        }
+    });
+    
+    // 선택 해제 버튼
+    document.getElementById('clearSelection').addEventListener('click', function() {
+        // 모든 체크박스 해제
+        document.querySelectorAll('.item-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+            updateItemSelection(checkbox.dataset.productId, false);
+        });
+        
+        // 전체 선택 체크박스도 해제
+        document.getElementById('selectAll').checked = false;
+        document.getElementById('selectAll').indeterminate = false;
+        
+        // 선택 상태 초기화
+        selectedItems.clear();
+        updateSelectedUI();
+    });
+    
+    // 하단 패널 닫기 버튼
+    document.getElementById('closeBulkPanel').addEventListener('click', function() {
+        document.getElementById('bulkActionPanel').classList.add('hidden');
+    });
+    
+    // 하단 패널에서 마진율 적용 함수
+    function applyBulkMarginRateFromPanel(marginRate) {
+        selectedItems.forEach(productId => {
+            const marginInput = document.querySelector(`.margin-input[data-product-id="${productId}"]`);
+            if (marginInput) {
+                marginInput.value = marginRate.toFixed(1);
+                
+                // 직접 예상판매가 업데이트 로직 호출
+                updateExpectedPrice(productId, marginRate);
+            }
+        });
+        
+        alert(`${selectedItems.size}개 상품의 마진율이 ${marginRate}%로 설정되었습니다.`);
+        
+        // 입력 필드 초기화
+        document.getElementById('bulkMarginInput').value = '';
+        updateApplyButtonState();
+    }
+    
+    // 예상판매가 업데이트 함수
+    function updateExpectedPrice(productId, marginRate) {
+        const marginInput = document.querySelector(`.margin-input[data-product-id="${productId}"]`);
+        if (!marginInput) return;
+        
+        const costPrice = parseFloat(marginInput.dataset.costPrice);
+        
+        // 새로운 판매가 계산
+        const newSellingPrice = Math.round(costPrice * (1 + (marginRate / 100)));
+        
+        // 예상판매가 업데이트
+        const expectedPriceSpan = document.querySelector(`.expected-price[data-product-id="${productId}"]`);
+        const priceDifferenceDiv = document.querySelector(`.price-difference[data-product-id="${productId}"]`);
+        const applyButton = document.querySelector(`.apply-new-prices-btn[data-product-id="${productId}"]`);
+        
+        if (expectedPriceSpan && priceDifferenceDiv && applyButton) {
+            const currentPrice = parseFloat(priceDifferenceDiv.dataset.currentPrice);
+            const priceDifference = newSellingPrice - currentPrice;
+            
+            expectedPriceSpan.textContent = newSellingPrice.toLocaleString() + '원';
+            priceDifferenceDiv.textContent = '차이: ' + priceDifference.toLocaleString() + '원';
+            
+            // 버튼 데이터 업데이트
+            applyButton.dataset.sellingPrice = newSellingPrice;
+            applyButton.dataset.marginRate = marginRate;
+            
+            // 마진율이 변경되었는지 표시
+            const originalMargin = parseFloat(marginInput.dataset.originalMargin);
+            if (Math.abs(marginRate - originalMargin) > 0.1) {
+                marginInput.classList.add('border-yellow-500', 'bg-yellow-50');
+                applyButton.classList.remove('bg-primary-600', 'hover:bg-primary-700');
+                applyButton.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+                applyButton.innerHTML = '<i class="fas fa-percentage mr-1"></i>마진율적용';
+            } else {
+                marginInput.classList.remove('border-yellow-500', 'bg-yellow-50');
+                applyButton.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
+                applyButton.classList.add('bg-primary-600', 'hover:bg-primary-700');
+                applyButton.innerHTML = '<i class="fas fa-check mr-1"></i>가격적용';
+            }
+        }
+    }
+    
+    // 일괄 마진율 적용 함수 (모달용 - 기존 유지)
+    function applyBulkMarginRate(marginRate) {
+        selectedItems.forEach(productId => {
+            const marginInput = document.querySelector(`.margin-input[data-product-id="${productId}"]`);
+            if (marginInput) {
+                marginInput.value = marginRate.toFixed(1);
+                
+                // 직접 예상판매가 업데이트 로직 호출
+                updateExpectedPrice(productId, marginRate);
+            }
+        });
+        
+        document.getElementById('bulkMarginModal').classList.add('hidden');
+        alert(`${selectedItems.size}개 상품의 마진율이 ${marginRate}%로 설정되었습니다.`);
+    }
+    
+    // 초기 UI 상태 설정
+    updateSelectedUI();
+    
+    // 기존 일괄 적용 버튼 이벤트 (기존 기능 유지)
     document.getElementById('bulkApplyBtn').addEventListener('click', function() {
         // 인상된 상품 개수 확인
         const increasedItems = document.querySelectorAll('.apply-new-prices-btn[data-price-change="increase"]');
@@ -555,6 +959,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target === this) {
             this.classList.add('hidden');
             currentProductId = null;
+        }
+    });
+    
+    // 마진율 모달 외부 클릭시 닫기
+    document.getElementById('bulkMarginModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            this.classList.add('hidden');
         }
     });
     
