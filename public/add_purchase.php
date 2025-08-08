@@ -682,22 +682,69 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 전역 변수로 현재 검색 결과 저장
     let currentSearchResults = [];
+    let selectedProductIndex = 0; // 선택된 상품 인덱스 (0부터 시작)
+    let keyboardNavigationActive = false; // 키보드 네비게이션 활성 상태
+    let keyboardNavigationTimer = null; // 키보드 네비게이션 타이머
+    let lastSearchTerm = ''; // 마지막 검색어 추적
 
-    // 엔터키 및 ESC 키 처리를 위한 keydown 이벤트 추가
+    // 키보드 네비게이션 상태 관리 함수들
+    function activateKeyboardNavigation() {
+        keyboardNavigationActive = true;
+        
+        // 기존 타이머 제거
+        if (keyboardNavigationTimer) {
+            clearTimeout(keyboardNavigationTimer);
+        }
+        
+        // 3초 후 자동 비활성화
+        keyboardNavigationTimer = setTimeout(() => {
+            keyboardNavigationActive = false;
+        }, 3000);
+    }
+
+    function deactivateKeyboardNavigation() {
+        keyboardNavigationActive = false;
+        if (keyboardNavigationTimer) {
+            clearTimeout(keyboardNavigationTimer);
+            keyboardNavigationTimer = null;
+        }
+    }
+
+    // 통합 키보드 네비게이션 이벤트 핸들러
     searchInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault(); // 폼 제출 방지
-            
-            // 검색 결과가 있으면 첫 번째 상품을 자동으로 추가
-            if (currentSearchResults.length > 0) {
-                addProductToList(currentSearchResults[0]);
-                this.value = '';
-                searchResults.classList.add('hidden');
-                currentSearchResults = [];
-            }
-        } else if (e.key === 'Escape') {
-            searchResults.classList.add('hidden');
-            currentSearchResults = [];
+        switch(e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                activateKeyboardNavigation(); // 키보드 네비게이션 활성화
+                if (currentSearchResults.length > 0 && selectedProductIndex < currentSearchResults.length - 1) {
+                    selectedProductIndex++;
+                    updateProductSelection();
+                }
+                break;
+                
+            case 'ArrowUp':
+                e.preventDefault();
+                activateKeyboardNavigation(); // 키보드 네비게이션 활성화
+                if (currentSearchResults.length > 0 && selectedProductIndex > 0) {
+                    selectedProductIndex--;
+                    updateProductSelection();
+                }
+                break;
+                
+            case 'Enter':
+                e.preventDefault(); // 폼 제출 방지
+                if (currentSearchResults.length > 0) {
+                    // 선택된 인덱스의 상품 추가
+                    addProductToList(currentSearchResults[selectedProductIndex]);
+                    resetProductSearch();
+                    deactivateKeyboardNavigation(); // 선택 후 비활성화
+                }
+                break;
+                
+            case 'Escape':
+                resetProductSearch();
+                deactivateKeyboardNavigation(); // Escape로 종료 시 비활성화
+                break;
         }
     });
 
@@ -723,10 +770,20 @@ document.addEventListener('DOMContentLoaded', function () {
             searchResults.innerHTML = '';
             searchResults.classList.add('hidden');
             currentSearchResults = [];
+            lastSearchTerm = '';
+            return;
+        }
+
+        // 검색어가 변경되지 않았고 키보드 네비게이션 중이면 새 검색 방지
+        if (searchTerm === lastSearchTerm && keyboardNavigationActive) {
             return;
         }
 
         searchTimeout = setTimeout(() => {
+            // 키보드 네비게이션 활성 중에는 새로운 검색 요청 차단
+            if (keyboardNavigationActive && searchTerm === lastSearchTerm) {
+                return;
+            }
             fetch(`ajax_search_products.php?term=${encodeURIComponent(searchTerm)}`)
                 .then(response => response.json())
                 .then(data => {
@@ -738,6 +795,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     
                     // 검색 결과를 전역 변수에 저장
                     currentSearchResults = data;
+                    lastSearchTerm = searchTerm; // 현재 검색어 저장
                     
                     // 바코드 정확히 일치 시 바로 추가
                     if (data.length === 1 && data[0].exact_match) {
@@ -746,22 +804,34 @@ document.addEventListener('DOMContentLoaded', function () {
                         searchResults.classList.add('hidden');
                         currentSearchResults = [];
                     } else {
+                        // 검색 결과 초기화 및 선택 인덱스 리셋
+                        selectedProductIndex = 0;
                         searchResults.innerHTML = '';
+                        
                         if (data.length > 0) {
                             data.forEach((product, index) => {
                                 const div = document.createElement('div');
-                                div.className = `cursor-pointer hover:bg-indigo-50 p-3 ${index === 0 ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`;
+                                div.className = 'product-result cursor-pointer p-3';
+                                
+                                // 첫 번째 항목은 기본 선택 상태
+                                if (index === 0) {
+                                    div.classList.add('bg-indigo-200', 'border-l-4', 'border-indigo-500');
+                                } else {
+                                    div.classList.add('hover:bg-indigo-50');
+                                }
+                                
                                 div.innerHTML = `
                                     <p class="font-semibold">${product.name_ko} <span class="text-gray-500 font-normal">(${product.name_en})</span></p>
                                     <p class="text-sm text-gray-500">SKU: ${product.sku} | 바코드: ${product.barcode || '없음'}</p>
-                                    ${index === 0 ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-keyboard mr-1"></i>엔터키로 선택</p>' : ''}
+                                    ${index === 0 ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-keyboard mr-1"></i>↑↓ 네비게이션, ↵ 선택</p>' : ''}
                                 `;
+                                
                                 div.addEventListener('click', () => {
-                                    addProductToList(product);
-                                    searchInput.value = '';
-                                    searchResults.classList.add('hidden');
-                                    currentSearchResults = [];
+                                    selectedProductIndex = index;
+                                    addProductToList(currentSearchResults[selectedProductIndex]);
+                                    resetProductSearch();
                                 });
+                                
                                 searchResults.appendChild(div);
                             });
                             searchResults.classList.remove('hidden');
@@ -775,21 +845,57 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 300); // 300ms 디바운스
     });
 
-    // 검색 결과 외부 클릭 시 숨기기
+    // 검색 결과 외부 클릭 시 숨기기 (키보드 네비게이션 중에는 무시)
     document.addEventListener('click', function(e) {
         if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
-            searchResults.classList.add('hidden');
-            currentSearchResults = [];
+            // 키보드 네비게이션이 활성화된 상태에서는 외부 클릭 무시
+            if (keyboardNavigationActive) {
+                return; // 아무것도 하지 않음
+            }
+            resetProductSearch();
         }
     });
 
-    // ESC 키로 검색 결과 닫기
-    searchInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            searchResults.classList.add('hidden');
-            currentSearchResults = [];
-        }
-    });
+    // 시각적 피드백 업데이트 함수
+    function updateProductSelection() {
+        const resultDivs = searchResults.querySelectorAll('.product-result');
+        resultDivs.forEach((div, index) => {
+            // 기존 선택 스타일 제거
+            div.classList.remove('bg-indigo-200', 'border-l-4', 'border-indigo-500', 'bg-blue-50', 'border-blue-500');
+            
+            if (index === selectedProductIndex) {
+                // 선택된 항목 스타일 적용
+                div.classList.add('bg-indigo-200', 'border-l-4', 'border-indigo-500');
+                
+                // 스크롤 자동 조정
+                const container = searchResults;
+                const divTop = div.offsetTop;
+                const divBottom = divTop + div.offsetHeight;
+                const containerTop = container.scrollTop;
+                const containerBottom = containerTop + container.clientHeight;
+                
+                if (divTop < containerTop) {
+                    container.scrollTop = divTop;
+                } else if (divBottom > containerBottom) {
+                    container.scrollTop = divBottom - container.clientHeight;
+                }
+            } else {
+                // 기본 hover 스타일 복원
+                div.classList.add('hover:bg-indigo-50');
+            }
+        });
+    }
+
+    // 검색 초기화 함수
+    function resetProductSearch() {
+        currentSearchResults = [];
+        selectedProductIndex = 0;
+        searchInput.value = '';
+        searchResults.classList.add('hidden');
+        searchResults.innerHTML = '';
+        lastSearchTerm = ''; // 검색어 기록 초기화
+        deactivateKeyboardNavigation(); // 키보드 네비게이션 비활성화
+    }
 
     // 4. 상품 목록에 추가
     function addProductToList(product, quantity = 1, unitPrice = null, purchaseType = 'box', existingItemId = null) {
@@ -994,12 +1100,6 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('total-amount').textContent = total.toLocaleString();
     }
 
-    // 검색 결과 밖 클릭 시 숨기기
-    document.addEventListener('click', function(e) {
-        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
-            searchResults.classList.add('hidden');
-        }
-    });
 
     // 상품의 박스당 수량 업데이트 함수
     function updateProductPiecesPerBox(productId, newPiecesPerBox, row) {
