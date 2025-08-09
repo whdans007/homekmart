@@ -118,7 +118,7 @@ $items_result = $items_stmt->get_result();
             <button id="bulkApplyBtn" class="inline-flex items-center justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 print:hidden">
                 <i class="fas fa-arrow-up mr-2"></i> 인상상품 일괄적용
             </button>
-            <button onclick="window.print()" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+            <button id="printPreviewBtn" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
                 <i class="fas fa-print mr-2"></i> 프린트
             </button>
             <a href="purchase_management.php" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
@@ -211,13 +211,13 @@ $items_result = $items_stmt->get_result();
                                     <div class="text-xs text-gray-500 font-mono">SKU: <?php echo htmlspecialchars($item['sku']); ?></div>
                                 </td>
                                 <td class="px-3 py-4 text-right border border-gray-300">
-                                    <span class="text-sm font-mono"><?php echo number_format($item['current_cost_price']); ?>원</span>
+                                    <span class="text-sm font-mono"><?php echo number_format($item['current_cost_price'], 2); ?></span>
                                 </td>
                                 <td class="px-3 py-4 text-right border border-gray-300">
-                                    <span class="text-sm font-mono font-semibold text-blue-600"><?php echo number_format($item['purchase_unit_price_per_piece']); ?>원</span>
+                                    <span class="text-sm font-mono font-semibold text-blue-600"><?php echo number_format($item['purchase_unit_price_per_piece']); ?></span>
                                     <?php if ($item['purchase_type'] === 'box' && $item['pieces_per_box']): ?>
                                         <div class="text-xs text-gray-500">
-                                            박스: <?php echo number_format($item['unit_price']); ?>원
+                                            박스: <?php echo number_format($item['unit_price']); ?>
                                             (<?php echo $item['pieces_per_box']; ?>개입)
                                         </div>
                                     <?php endif; ?>
@@ -230,7 +230,7 @@ $items_result = $items_stmt->get_result();
                                     <?php elseif ($price_change > 0): ?>
                                         <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
                                             <i class="fas fa-arrow-up mr-1"></i>
-                                            인상 <?php echo number_format(abs($price_change)); ?>원
+                                            인상 <?php echo number_format(abs($price_change)); ?>
                                         </span>
                                         <div class="text-xs text-red-600 mt-1">
                                             (+<?php echo number_format($price_change_percent, 1); ?>%)
@@ -238,7 +238,7 @@ $items_result = $items_stmt->get_result();
                                     <?php else: ?>
                                         <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                                             <i class="fas fa-arrow-down mr-1"></i>
-                                            인하 <?php echo number_format(abs($price_change)); ?>원
+                                            인하 <?php echo number_format(abs($price_change)); ?>
                                         </span>
                                         <div class="text-xs text-green-600 mt-1">
                                             (<?php echo number_format($price_change_percent, 1); ?>%)
@@ -259,18 +259,18 @@ $items_result = $items_stmt->get_result();
                                     </div>
                                 </td>
                                 <td class="px-3 py-4 text-right border border-gray-300">
-                                    <span class="text-sm font-mono"><?php echo number_format($item['current_selling_price']); ?>원</span>
+                                    <span class="text-sm font-mono"><?php echo number_format($item['current_selling_price']); ?></span>
                                 </td>
                                 <td class="px-3 py-4 text-right border border-gray-300">
                                     <span class="expected-price text-sm font-mono font-semibold text-green-600" 
                                           data-product-id="<?php echo $item['product_id']; ?>"
                                           data-original-price="<?php echo $new_selling_price; ?>">
-                                        <?php echo number_format($new_selling_price); ?>원
+                                        <?php echo number_format($new_selling_price); ?>
                                     </span>
                                     <div class="price-difference text-xs text-gray-500" 
                                          data-product-id="<?php echo $item['product_id']; ?>"
                                          data-current-price="<?php echo $item['current_selling_price']; ?>">
-                                        차이: <?php echo number_format($new_selling_price - $item['current_selling_price']); ?>원
+                                        차이: <?php echo number_format($new_selling_price - $item['current_selling_price']); ?>
                                     </div>
                                 </td>
                                 <td class="px-3 py-4 text-center border border-gray-300 print:hidden">
@@ -315,6 +315,28 @@ $items_result = $items_stmt->get_result();
     
 </div>
 
+<!-- 프린트 미리보기 모달 -->
+<div id="printPreviewModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden print:hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+        <div class="flex justify-between items-center p-4 border-b">
+            <h3 class="text-lg font-medium text-gray-900">프린트 미리보기</h3>
+            <div class="flex space-x-2">
+                <button id="actualPrintBtn" class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 focus:outline-none focus:border-blue-700 focus:ring focus:ring-blue-200 active:bg-blue-600 disabled:opacity-25 transition">
+                    <i class="fas fa-print mr-2"></i> 인쇄하기
+                </button>
+                <button id="closePrintPreviewBtn" class="inline-flex items-center px-4 py-2 bg-gray-300 border border-transparent rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest hover:bg-gray-400 focus:outline-none focus:border-gray-500 focus:ring focus:ring-gray-200 active:bg-gray-400 disabled:opacity-25 transition">
+                    <i class="fas fa-times mr-2"></i> 닫기
+                </button>
+            </div>
+        </div>
+        
+        <div id="printPreviewContent" class="p-6 bg-white overflow-y-auto max-h-[calc(90vh-80px)]" style="font-family: monospace;">
+            <!-- 미리보기 내용이 여기에 동적으로 생성됩니다 -->
+        </div>
+    </div>
+    </div>
+</div>
 
 <!-- 수동 가격 설정 모달 -->
 <div id="manualPriceModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden print:hidden">
@@ -623,8 +645,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const currentPrice = parseFloat(priceDifferenceDiv.dataset.currentPrice);
             const priceDifference = newSellingPrice - currentPrice;
             
-            expectedPriceSpan.textContent = newSellingPrice.toLocaleString() + '원';
-            priceDifferenceDiv.textContent = '차이: ' + priceDifference.toLocaleString() + '원';
+            expectedPriceSpan.textContent = newSellingPrice.toLocaleString();
+            priceDifferenceDiv.textContent = '차이: ' + priceDifference.toLocaleString();
             
             // 버튼 데이터 업데이트
             applyButton.dataset.sellingPrice = newSellingPrice;
@@ -872,8 +894,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const currentPrice = parseFloat(priceDifferenceDiv.dataset.currentPrice);
                 const priceDifference = newSellingPrice - currentPrice;
                 
-                expectedPriceSpan.textContent = newSellingPrice.toLocaleString() + '원';
-                priceDifferenceDiv.textContent = '차이: ' + priceDifference.toLocaleString() + '원';
+                expectedPriceSpan.textContent = newSellingPrice.toLocaleString();
+                priceDifferenceDiv.textContent = '차이: ' + priceDifference.toLocaleString();
                 
                 // 버튼 데이터 업데이트
                 applyButton.dataset.sellingPrice = newSellingPrice;
@@ -1099,6 +1121,378 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 초기 버튼 상태 설정
     updateBulkApplyButton();
+    
+    // 프린트 미리보기 버튼 이벤트
+    document.getElementById('printPreviewBtn').addEventListener('click', function() {
+        showPrintPreview();
+    });
+    
+    // 미리보기 모달 닫기 버튼
+    document.getElementById('closePrintPreviewBtn').addEventListener('click', function() {
+        document.getElementById('printPreviewModal').classList.add('hidden');
+    });
+    
+    // 실제 인쇄 버튼
+    document.getElementById('actualPrintBtn').addEventListener('click', function() {
+        printPreviewContent();
+    });
+    
+    // 미리보기 모달 외부 클릭시 닫기
+    document.getElementById('printPreviewModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            this.classList.add('hidden');
+        }
+    });
+    
+    // 프린트 미리보기 생성 함수
+    function showPrintPreview() {
+        const modal = document.getElementById('printPreviewModal');
+        const content = document.getElementById('printPreviewContent');
+        
+        // 현재 날짜
+        const today = new Date().toLocaleDateString('ko-KR');
+        
+        // 상품 데이터 수집
+        const items = [];
+        const rows = document.querySelectorAll('.item-row');
+        
+        rows.forEach(row => {
+            const productId = row.dataset.productId;
+            const productNameKo = row.querySelector('.text-sm.font-medium')?.textContent || '';
+            const productNameEn = row.querySelector('.text-xs.text-gray-500')?.textContent || '';
+            const sku = row.querySelector('.text-xs.font-mono')?.textContent.replace('SKU: ', '') || '';
+            
+            const currentCostCell = row.querySelector('td:nth-child(3) .text-sm');
+            const purchaseCostCell = row.querySelector('td:nth-child(4) .text-sm');
+            const currentSellingCell = row.querySelector('td:nth-child(7) .text-sm');
+            const expectedSellingCell = row.querySelector('td:nth-child(8) .expected-price');
+            
+            const currentCost = currentCostCell?.textContent.replace(/[^\d]/g, '') || '0';
+            const purchaseCost = purchaseCostCell?.textContent.replace(/[^\d]/g, '') || '0';
+            const currentSelling = currentSellingCell?.textContent.replace(/[^\d]/g, '') || '0';
+            const expectedSelling = expectedSellingCell?.textContent.replace(/[^\d]/g, '') || '0';
+            
+            // 가격 변동 계산
+            const costChange = parseInt(purchaseCost) - parseInt(currentCost);
+            let changeType = '';
+            let changeColor = '';
+            let changeText = '';
+            
+            if (Math.abs(costChange) < 1) {
+                changeType = 'same';
+                changeText = '동일';
+            } else if (costChange > 0) {
+                changeType = 'increase';
+                changeColor = 'change-increase';
+                changeText = `인상 ${Math.abs(costChange).toLocaleString()}`;
+            } else {
+                changeType = 'decrease';
+                changeColor = 'change-decrease';
+                changeText = `인하 ${Math.abs(costChange).toLocaleString()}`;
+            }
+            
+            // 원가 변동이 있는 상품만 포함
+            if (Math.abs(costChange) >= 1) {
+                items.push({
+                    sku: sku,
+                    nameKo: productNameKo,
+                    nameEn: productNameEn,
+                    currentCost: parseInt(currentCost),
+                    purchaseCost: parseInt(purchaseCost),
+                    currentSelling: parseInt(currentSelling),
+                    expectedSelling: parseInt(expectedSelling),
+                    changeType: changeType,
+                    changeColor: changeColor,
+                    changeText: changeText
+                });
+            }
+        });
+        
+        // HTML 생성
+        let previewHtml = `
+            <div class="print-preview-info">
+                <div class="print-preview-info-row">
+                    <span class="print-preview-info-label">날짜 :</span>
+                    <span>${today}</span>
+                    <span style="margin-left: 200px;" class="print-preview-info-label">점포명 :</span>
+                    <span>${currentStoreName}</span>
+                </div>
+                <div class="print-preview-info-row">
+                    <span class="print-preview-info-label">거래처명 :</span>
+                    <span><?php echo htmlspecialchars($purchase_info['supplier_name']); ?></span>
+                </div>
+            </div>
+            
+            <table class="print-preview-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="width: 10%;">SKU</th>
+                        <th rowspan="2" style="width: 20%;">상품명</th>
+                        <th rowspan="2" style="width: 12%;">기존원가</th>
+                        <th rowspan="2" style="width: 12%;">매입원가</th>
+                        <th rowspan="2" style="width: 15%;">인상(빨강)/인하(파랑)</th>
+                        <th rowspan="2" style="width: 12%;">기존판매가</th>
+                        <th rowspan="2" style="width: 12%;">예상판매가</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+        
+        if (items.length === 0) {
+            previewHtml += `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px;">
+                            원가 변동이 있는 상품이 없습니다.
+                        </td>
+                    </tr>`;
+        } else {
+            items.forEach(item => {
+                previewHtml += `
+                    <tr>
+                        <td style="font-size: 11px; font-weight: bold; font-family: monospace;">${item.sku}</td>
+                        <td class="product-cell">
+                            <div class="product-name-en">${item.nameEn}</div>
+                            <div class="product-name-ko">${item.nameKo}</div>
+                        </td>
+                        <td class="price-cell">${item.currentCost.toLocaleString()}</td>
+                        <td class="price-cell">${item.purchaseCost.toLocaleString()}</td>
+                        <td class="${item.changeColor}">${item.changeText}</td>
+                        <td class="price-cell">${item.currentSelling.toLocaleString()}</td>
+                        <td class="price-cell">${item.expectedSelling.toLocaleString()}</td>
+                    </tr>`;
+            });
+        }
+        
+        previewHtml += `
+                </tbody>
+            </table>`;
+        
+        content.innerHTML = previewHtml;
+        modal.classList.remove('hidden');
+    }
+    
+    // 프린트 실행 함수
+    function printPreviewContent() {
+        const printContent = document.getElementById('printPreviewContent').innerHTML;
+        
+        // 데이터 개수 확인하여 페이지 분할 결정
+        const items = document.querySelectorAll('#printPreviewContent .print-preview-table tbody tr');
+        const itemsPerPage = 25; // A4 세로에서 적정 행 수
+        const totalPages = Math.ceil(items.length / itemsPerPage);
+        
+        let printHtml = '';
+        
+        // 페이지별로 분할하여 HTML 생성
+        for (let page = 0; page < totalPages; page++) {
+            const startIndex = page * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, items.length);
+            
+            printHtml += generatePrintPage(page + 1, totalPages, startIndex, endIndex);
+        }
+        
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>매입건별 가격변동 분석 - <?php echo htmlspecialchars($purchase_id); ?></title>
+                    <style>
+                        @page {
+                            size: A4 portrait;
+                            margin: 0.75in 0.5in;
+                        }
+                        
+                        body {
+                            font-family: monospace;
+                            font-size: 12px;
+                            margin: 0;
+                            padding: 0;
+                            color: black;
+                            line-height: 1.3;
+                        }
+                        
+                        .page {
+                            page-break-after: always;
+                            padding: 0;
+                            margin: 0;
+                        }
+                        
+                        .page:last-child {
+                            page-break-after: avoid;
+                        }
+                        
+                        .page-header {
+                            margin-bottom: 15px;
+                        }
+                        
+                        .page-number {
+                            text-align: center;
+                            margin-top: 10px;
+                            font-size: 10px;
+                            color: #666;
+                        }
+                        
+                        .print-preview-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            font-family: monospace;
+                            font-size: 11px;
+                        }
+                        
+                        .print-preview-table th,
+                        .print-preview-table td {
+                            border: 1px solid #000;
+                            padding: 4px 3px;
+                            text-align: center;
+                            vertical-align: middle;
+                        }
+                        
+                        .print-preview-table th {
+                            background-color: #f5f5f5;
+                            font-weight: bold;
+                            font-size: 10px;
+                        }
+                        
+                        .print-preview-table .product-cell {
+                            text-align: left;
+                            vertical-align: top;
+                            max-width: 150px;
+                        }
+                        
+                        .print-preview-table .product-name-ko {
+                            font-weight: bold;
+                            font-size: 10px;
+                            margin-bottom: 1px;
+                            word-break: break-all;
+                            color: #000;
+                        }
+                        
+                        .print-preview-table .product-name-en {
+                            font-size: 10px;
+                            color: #000;
+                            margin-bottom: 1px;
+                            word-break: break-all;
+                            font-weight: bold;
+                        }
+                        
+                        .print-preview-table .price-cell {
+                            text-align: right;
+                            font-family: monospace;
+                            font-weight: bold;
+                            font-size: 10px;
+                        }
+                        
+                        .print-preview-table .change-increase {
+                            color: #dc2626;
+                            font-weight: bold;
+                            font-size: 9px;
+                        }
+                        
+                        .print-preview-table .change-decrease {
+                            color: #2563eb;
+                            font-weight: bold;
+                            font-size: 9px;
+                        }
+                        
+                        .print-preview-info {
+                            margin-bottom: 15px;
+                            font-family: monospace;
+                            font-size: 13px;
+                        }
+                        
+                        .print-preview-info-row {
+                            margin-bottom: 5px;
+                            display: flex;
+                        }
+                        
+                        .print-preview-info-label {
+                            min-width: 80px;
+                            font-weight: bold;
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${printHtml}
+                </body>
+            </html>
+        `);
+        
+        printWindow.document.close();
+        printWindow.focus();
+        
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 500);
+    }
+    
+    // 페이지별 프린트 내용 생성 함수
+    function generatePrintPage(currentPage, totalPages, startIndex, endIndex) {
+        const today = new Date().toLocaleDateString('ko-KR');
+        const allItems = document.querySelectorAll('#printPreviewContent .print-preview-table tbody tr');
+        
+        let pageContent = `
+            <div class="page">
+                <div class="page-header">
+                    <div class="print-preview-info">
+                        <div class="print-preview-info-row">
+                            <span class="print-preview-info-label">날짜 :</span>
+                            <span>${today}</span>
+                            <span style="margin-left: 100px;" class="print-preview-info-label">점포명 :</span>
+                            <span>${currentStoreName}</span>
+                        </div>
+                        <div class="print-preview-info-row">
+                            <span class="print-preview-info-label">거래처명 :</span>
+                            <span><?php echo htmlspecialchars($purchase_info['supplier_name']); ?></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <table class="print-preview-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">SKU</th>
+                            <th style="width: 25%;">상품명</th>
+                            <th style="width: 12%;">기존원가</th>
+                            <th style="width: 12%;">매입원가</th>
+                            <th style="width: 15%;">인상(빨강)/인하(파랑)</th>
+                            <th style="width: 12%;">기존판매가</th>
+                            <th style="width: 12%;">예상판매가</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+        
+        // 해당 페이지의 아이템들만 추가
+        for (let i = startIndex; i < endIndex && i < allItems.length; i++) {
+            const row = allItems[i];
+            const skuCell = row.querySelector('td:first-child');
+            const productCell = row.querySelector('td:nth-child(2)');
+            const currentCostCell = row.querySelector('td:nth-child(3)');
+            const purchaseCostCell = row.querySelector('td:nth-child(4)');
+            const changeCell = row.querySelector('td:nth-child(5)');
+            const currentSellingCell = row.querySelector('td:nth-child(6)');
+            const expectedSellingCell = row.querySelector('td:nth-child(7)');
+            
+            if (skuCell && productCell) {
+                pageContent += `
+                    <tr>
+                        <td style="font-size: 11px; font-weight: bold; font-family: monospace;">${skuCell.textContent}</td>
+                        <td class="product-cell">${productCell.innerHTML}</td>
+                        <td class="price-cell">${currentCostCell ? currentCostCell.textContent : ''}</td>
+                        <td class="price-cell">${purchaseCostCell ? purchaseCostCell.textContent : ''}</td>
+                        <td class="${changeCell ? changeCell.className : ''}">${changeCell ? changeCell.textContent : ''}</td>
+                        <td class="price-cell">${currentSellingCell ? currentSellingCell.textContent : ''}</td>
+                        <td class="price-cell">${expectedSellingCell ? expectedSellingCell.textContent : ''}</td>
+                    </tr>`;
+            }
+        }
+        
+        pageContent += `
+                    </tbody>
+                </table>
+                <div class="page-number">페이지 ${currentPage} / ${totalPages}</div>
+            </div>`;
+        
+        return pageContent;
+    }
 });
 </script>
 
@@ -1224,6 +1618,88 @@ document.addEventListener('DOMContentLoaded', function() {
     thead {
         display: table-header-group !important;
     }
+}
+
+/* 프린트 미리보기 전용 스타일 */
+.print-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: monospace;
+    font-size: 12px;
+    margin-top: 20px;
+}
+
+.print-preview-table th,
+.print-preview-table td {
+    border: 2px solid #000;
+    padding: 8px 6px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.print-preview-table th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+    font-size: 11px;
+}
+
+.print-preview-table .product-cell {
+    text-align: left;
+    vertical-align: top;
+}
+
+.print-preview-table .product-name-ko {
+    font-weight: bold;
+    font-size: 11px;
+    margin-bottom: 2px;
+}
+
+.print-preview-table .product-name-en {
+    font-size: 9px;
+    color: #666;
+    margin-bottom: 2px;
+}
+
+.print-preview-table .product-sku {
+    font-size: 8px;
+    color: #888;
+}
+
+.print-preview-table .price-cell {
+    text-align: right;
+    font-family: monospace;
+    font-weight: bold;
+}
+
+.print-preview-table .change-increase {
+    color: #dc2626;
+    font-weight: bold;
+}
+
+.print-preview-table .change-decrease {
+    color: #2563eb;
+    font-weight: bold;
+}
+
+.print-preview-info {
+    margin-bottom: 20px;
+    font-family: monospace;
+    font-size: 14px;
+}
+
+.print-preview-info-row {
+    margin-bottom: 8px;
+    display: flex;
+}
+
+.print-preview-info-label {
+    min-width: 100px;
+    font-weight: bold;
+}
+
+#printPreviewModal .modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
 }
 </style>
 
