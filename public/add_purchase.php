@@ -739,6 +739,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     resetProductSearch();
                     deactivateKeyboardNavigation(); // 선택 후 비활성화
                 }
+                // 검색 결과가 없을 때는 아무것도 하지 않음 (기존 동작 유지)
                 break;
                 
             case 'Escape':
@@ -836,7 +837,33 @@ document.addEventListener('DOMContentLoaded', function () {
                             });
                             searchResults.classList.remove('hidden');
                         } else {
-                            searchResults.innerHTML = '<div class="p-3 text-gray-500">검색 결과가 없습니다.</div>';
+                            // 검색 결과 없을 때 추가하기 버튼 표시
+                            searchResults.innerHTML = `
+                                <div class="p-3 bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500">
+                                    <div class="text-gray-600 mb-3 flex items-center">
+                                        <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                                        검색 결과가 없습니다.
+                                    </div>
+                                    <button type="button" id="add-new-product-btn" 
+                                            class="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-sm font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center border-2 border-green-400 hover:border-green-500">
+                                        <i class="fas fa-plus-circle mr-2 text-lg"></i>
+                                        <span class="font-semibold">"${searchTerm}" 신규상품 추가하기</span>
+                                    </button>
+                                    <div class="text-xs text-gray-500 mt-2 text-center">
+                                        <i class="fas fa-lightbulb mr-1"></i>
+                                        새로운 상품을 빠르게 등록하세요
+                                    </div>
+                                </div>
+                            `;
+                            
+                            // 추가하기 버튼 클릭 이벤트
+                            const addButton = searchResults.querySelector('#add-new-product-btn');
+                            if (addButton) {
+                                addButton.addEventListener('click', function() {
+                                    showAddProductModal(searchTerm);
+                                });
+                            }
+                            
                             searchResults.classList.remove('hidden');
                             currentSearchResults = [];
                         }
@@ -897,8 +924,321 @@ document.addEventListener('DOMContentLoaded', function () {
         deactivateKeyboardNavigation(); // 키보드 네비게이션 비활성화
     }
 
+    // 신규 상품 등록 모달 표시 함수
+    function showAddProductModal(searchTerm) {
+        // 모달이 이미 존재하면 제거
+        const existingModal = document.getElementById('add-product-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // 검색어가 숫자인지 확인 (바코드 가능성)
+        const isNumeric = /^\d+$/.test(searchTerm);
+        
+        const modal = document.createElement('div');
+        modal.id = 'add-product-modal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+        
+        modal.innerHTML = `
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-auto">
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">
+                                <i class="fas fa-plus-circle text-green-600 mr-2"></i>
+                                신규상품 간편등록
+                            </h3>
+                            <button type="button" id="close-modal" class="text-gray-400 hover:text-gray-600 p-1">
+                                <i class="fas fa-times text-lg"></i>
+                            </button>
+                        </div>
+                        
+                        <form id="add-product-form" class="space-y-4">
+                            <!-- 상품명 (영어) -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    상품명 (영어) <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" id="product-name-en" name="name_en" required
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                       placeholder="Product name in English">
+                            </div>
+                            
+                            <!-- 상품명 (한국어) -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    상품명 (한국어)
+                                </label>
+                                <input type="text" id="product-name-ko" name="name_ko"
+                                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                       placeholder="상품명을 입력하세요">
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <!-- SKU (자동 생성) -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        SKU <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" id="product-sku" name="sku" required readonly
+                                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50 focus:outline-none"
+                                           placeholder="자동 생성">
+                                </div>
+                                
+                                <!-- 박스당 개수 -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        박스당 개수
+                                    </label>
+                                    <input type="number" id="product-pieces-per-box" name="pieces_per_box"
+                                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                           value="1" min="1">
+                                </div>
+                            </div>
+                            
+                            <!-- 설명 -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    설명
+                                </label>
+                                <textarea id="product-description" name="description" rows="2"
+                                          class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
+                                          placeholder="간단한 설명 (선택사항)"></textarea>
+                            </div>
+                            
+                            <!-- 버튼 -->
+                            <div class="flex justify-end space-x-3 pt-4 border-t">
+                                <button type="button" id="cancel-add-product"
+                                        class="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors">
+                                    취소
+                                </button>
+                                <button type="submit" id="save-new-product"
+                                        class="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors font-medium">
+                                    <i class="fas fa-save mr-1"></i>
+                                    저장 후 추가
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <!-- 로딩 오버레이 -->
+                        <div id="modal-loading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center hidden rounded-lg">
+                            <div class="text-center">
+                                <i class="fas fa-spinner fa-spin text-2xl text-green-600 mb-2"></i>
+                                <p class="text-sm text-gray-600">등록 중...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // 검색어는 상품명에 자동으로 넣지 않음 (사용자가 직접 입력)
+        
+        // SKU 자동 생성 (검색어 기반)
+        generateSKUFromSearchTerm(searchTerm);
+        
+        // 이벤트 리스너 설정
+        setupModalEventListeners();
+        
+        // 첫 번째 입력 필드에 포커스 (영어명이 필수이므로)
+        setTimeout(() => {
+            document.getElementById('product-name-en').focus();
+        }, 100);
+    }
+    
+    // 카테고리 로드 함수
+    function loadCategories() {
+        const categorySelect = document.getElementById('product-category');
+        const categoryLoading = document.getElementById('category-loading');
+        const categoryWarning = document.getElementById('category-warning');
+        const categoryWarningText = document.getElementById('category-warning-text');
+        
+        categoryLoading.classList.remove('hidden');
+        categoryWarning.classList.add('hidden');
+        
+        fetch('ajax_search_categories.php')
+            .then(response => response.json())
+            .then(data => {
+                categoryLoading.classList.add('hidden');
+                
+                if (data.success) {
+                    categorySelect.innerHTML = '<option value="">카테고리를 선택하세요 (선택사항)</option>';
+                    
+                    // 카테고리가 있으면 추가
+                    if (data.categories && data.categories.length > 0) {
+                        data.categories.forEach(category => {
+                            const option = document.createElement('option');
+                            option.value = category.id;
+                            option.textContent = category.name_ko;
+                            categorySelect.appendChild(option);
+                        });
+                    }
+                    
+                    // 경고 메시지가 있으면 표시
+                    if (data.warning) {
+                        categoryWarningText.textContent = data.warning;
+                        categoryWarning.classList.remove('hidden');
+                    }
+                    
+                    console.log(`카테고리 로드 완료: ${data.categories ? data.categories.length : 0}개 카테고리`);
+                } else {
+                    // 실패 시에도 계속 진행 가능하도록 함
+                    categorySelect.innerHTML = '<option value="">카테고리 없음 (선택사항)</option>';
+                    categoryWarningText.textContent = '카테고리를 불러올 수 없습니다. 카테고리 없이 상품을 등록할 수 있습니다.';
+                    categoryWarning.classList.remove('hidden');
+                    console.error('카테고리 로드 실패:', data.message || '알 수 없는 오류');
+                }
+            })
+            .catch(error => {
+                categoryLoading.classList.add('hidden');
+                // 에러 시에도 계속 진행 가능하도록 함
+                categorySelect.innerHTML = '<option value="">카테고리 없음 (선택사항)</option>';
+                categoryWarningText.textContent = '카테고리 로드 중 오류가 발생했습니다. 카테고리 없이 상품을 등록할 수 있습니다.';
+                categoryWarning.classList.remove('hidden');
+                console.error('카테고리 로드 오류:', error);
+            });
+    }
+    
+    // SKU 자동 생성 함수 (검색어 기반)
+    function generateSKUFromSearchTerm(searchTerm) {
+        const skuInput = document.getElementById('product-sku');
+        
+        if (searchTerm && searchTerm.trim()) {
+            // 검색어를 SKU로 사용
+            skuInput.value = searchTerm.trim();
+        } else {
+            // 검색어가 없으면 자동 생성
+            const timestamp = Date.now().toString().slice(-8);
+            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            skuInput.value = `SKU${timestamp}${random}`;
+        }
+    }
+    
+    // 바코드 입력 시 SKU 자동 업데이트
+    function setupBarcodeToSKUSync() {
+        const barcodeInput = document.getElementById('product-barcode');
+        const skuInput = document.getElementById('product-sku');
+        
+        if (barcodeInput) {
+            barcodeInput.addEventListener('input', function() {
+                const barcodeValue = this.value.trim();
+                const isNumeric = /^\d+$/.test(barcodeValue);
+                
+                if (isNumeric && barcodeValue) {
+                    // 숫자 바코드면 SKU로 자동 설정
+                    skuInput.value = barcodeValue;
+                } else if (!barcodeValue) {
+                    // 바코드가 비어있으면 자동 생성된 SKU로 복원
+                    const timestamp = Date.now().toString().slice(-8);
+                    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+                    skuInput.value = `NEW${timestamp}${random}`;
+                }
+            });
+        }
+    }
+    
+    // 모달 이벤트 리스너 설정
+    function setupModalEventListeners() {
+        const modal = document.getElementById('add-product-modal');
+        const closeBtn = document.getElementById('close-modal');
+        const cancelBtn = document.getElementById('cancel-add-product');
+        const form = document.getElementById('add-product-form');
+        
+        // 모달 닫기
+        function closeModal() {
+            modal.remove();
+        }
+        
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        
+        // 모달 배경 클릭 시 닫기 (flexbox 컨테이너 클릭 시에만)
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal || e.target.classList.contains('flex')) {
+                closeModal();
+            }
+        });
+        
+        // ESC 키로 모달 닫기
+        document.addEventListener('keydown', function escListener(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', escListener);
+            }
+        });
+        
+        // 폼 제출
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveNewProduct();
+        });
+    }
+    
+    // 신규 상품 저장 함수
+    function saveNewProduct() {
+        const form = document.getElementById('add-product-form');
+        const formData = new FormData(form);
+        const loadingOverlay = document.getElementById('modal-loading');
+        
+        // 필수 필드 검증 (영어명과 SKU만 필수)
+        const requiredFields = ['name_en', 'sku'];
+        for (let field of requiredFields) {
+            if (!formData.get(field)) {
+                alert(`${field === 'name_en' ? '상품명(영어)' : 'SKU'}은(는) 필수 입력 항목입니다.`);
+                return;
+            }
+        }
+        
+        // 카테고리 필드가 제거되어 관련 검증 불필요
+        
+        loadingOverlay.classList.remove('hidden');
+        
+        fetch('ajax_add_product.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingOverlay.classList.add('hidden');
+            
+            if (data.success) {
+                // 모달 닫기
+                document.getElementById('add-product-modal').remove();
+                
+                // 성공 메시지
+                alert('신규 상품이 성공적으로 등록되었습니다.');
+                
+                // 매입 목록에 상품 추가 (isNew = true)
+                addProductToList(data.product, 1, null, 'box', null, true);
+                
+                // 검색 입력 필드 초기화
+                resetProductSearch();
+            } else {
+                // 오류 메시지 표시 (상세 정보 포함)
+                let errorMsg = '상품 등록 실패: ' + data.message;
+                
+                // 개발 환경용 상세 정보
+                if (data.sql_error) {
+                    console.error('SQL 오류 상세:', data.sql_error);
+                    console.error('디버그 정보:', data.debug);
+                    console.error('오류 코드:', data.error_code);
+                    errorMsg += '\n\n개발자 도구 콘솔을 확인해주세요.';
+                }
+                
+                alert(errorMsg);
+            }
+        })
+        .catch(error => {
+            loadingOverlay.classList.add('hidden');
+            console.error('상품 등록 오류:', error);
+            alert('상품 등록 중 오류가 발생했습니다.');
+        });
+    }
+
     // 4. 상품 목록에 추가
-    function addProductToList(product, quantity = 1, unitPrice = null, purchaseType = 'box', existingItemId = null) {
+    function addProductToList(product, quantity = 1, unitPrice = null, purchaseType = 'box', existingItemId = null, isNew = false) {
         // 중복 상품 확인 (기존 상품이 아닌 경우만)
         if (existingItemId === null) {
             const existingRows = itemList.querySelectorAll('.item-row');
@@ -930,6 +1270,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <td class="px-6 py-4 whitespace-nowrap">
                 <span class="text-xs font-mono text-gray-600">${product.sku || '없음'}</span>
                 ${isExisting ? '<span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">기존</span>' : ''}
+                ${isNew ? '<div class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded mt-1 inline-block">(NEW)</div>' : ''}
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
                 <input type="hidden" name="items[${itemIndex}][product_id]" value="${product.id}">

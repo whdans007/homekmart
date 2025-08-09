@@ -18,7 +18,8 @@
       "Bash(PATH:*)",
       "mcp__sequential__sequentialthinking",
       "Bash(mkdir:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

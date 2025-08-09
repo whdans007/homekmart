@@ -206,3 +206,16 @@
 2025-08-09 10:26:38 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
 2025-08-09 10:26:41 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
 2025-08-09 10:26:45 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 13:03:15 - 신규 상품 등록 성공 - product_id: 23183, name_ko: , sku: 880123123456, user_id: 1
+2025-08-09 13:03:54 - 신규 상품 등록 성공 - product_id: 23184, name_ko: , sku: 8801234123456, user_id: 1
+2025-08-09 13:08:41 - 신규 상품 등록 성공 - product_id: 23185, name_ko: , sku: 8801231234, user_id: 1
+2025-08-09 14:55:27 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 15:08:41 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 15:27:49 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 15:44:35 - 신규 상품 등록 성공 - product_id: 23186, name_ko: 미니 갈릭 러스크 80g, sku: 8801144000060, user_id: 1
+2025-08-09 15:53:33 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 15:54:50 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 15:55:01 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 17:33:14 - 신규 상품 등록 성공 - product_id: 23187, name_ko: 잭다니엑 허니 700ml, sku: SKU31937384145, user_id: 1
+2025-08-09 17:36:02 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 17:43:01 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
