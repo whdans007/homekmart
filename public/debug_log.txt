@@ -74,3 +74,124 @@
 2025-08-07 10:03:47 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
 2025-08-07 14:06:43 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
 2025-08-07 14:18:47 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-08 15:53:39 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-08 15:55:32 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-08 15:57:03 - 개별 가격적용 시작 - product_id: 5826, store_id: 1, selling_price: 393, cost_price: 285.000000
+2025-08-08 15:57:03 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-08 15:57:03 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-08 15:57:04 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-08 15:57:06 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-08 15:57:08 - 개별 가격적용 시작 - product_id: 4172, store_id: 1, selling_price: 66.931818181818, cost_price: 47.500000
+2025-08-08 15:57:08 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-08 15:57:08 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-08 15:57:09 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-08-08 15:57:10 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-08 15:57:18 - 개별 가격적용 시작 - product_id: 4730, store_id: 1, selling_price: 66, cost_price: 47.500000
+2025-08-08 15:57:18 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-08 15:57:19 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-08 15:57:19 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-08 15:57:21 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-08 15:57:24 - 개별 가격적용 시작 - product_id: 6477, store_id: 1, selling_price: 69, cost_price: 50.000000
+2025-08-08 15:57:24 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-08 15:57:24 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-08 15:57:24 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-08-08 15:57:26 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-08 15:57:31 - 개별 가격적용 시작 - product_id: 14161, store_id: 1, selling_price: 221, cost_price: 160.000000
+2025-08-08 15:57:31 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-08 15:57:31 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-08 15:57:32 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-08 15:57:33 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-08 15:57:40 - 개별 가격적용 시작 - product_id: 23180, store_id: 1, selling_price: 393, cost_price: 285.000000
+2025-08-08 15:57:40 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-08 15:57:40 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-08 15:57:40 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-08 15:57:42 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-08 15:57:51 - 개별 가격적용 시작 - product_id: 5020, store_id: 1, selling_price: 159, cost_price: 115.000000
+2025-08-08 15:57:51 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-08 15:57:51 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-08 15:57:51 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-08 15:57:53 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-08 15:57:57 - 개별 가격적용 시작 - product_id: 5010, store_id: 1, selling_price: 48, cost_price: 35.000000
+2025-08-08 15:57:57 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-08 15:57:57 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-08 15:57:57 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-08 15:57:59 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-08 15:58:03 - 개별 가격적용 시작 - product_id: 6141, store_id: 1, selling_price: 214, cost_price: 155.000000
+2025-08-08 15:58:03 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-08 15:58:03 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-08 15:58:03 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-08 15:58:05 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-08 16:34:51 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:36:30 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:36:41 - 개별 가격적용 시작 - product_id: 6294, store_id: 1, selling_price: 180, cost_price: 130.666667
+2025-08-09 07:36:41 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-09 07:36:41 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-09 07:36:41 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-09 07:36:43 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:36:48 - 개별 가격적용 시작 - product_id: 5128, store_id: 1, selling_price: 180, cost_price: 130.666667
+2025-08-09 07:36:48 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-09 07:36:48 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-09 07:36:49 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-09 07:36:56 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:37:01 - 개별 가격적용 시작 - product_id: 4497, store_id: 1, selling_price: 180, cost_price: 130.666667
+2025-08-09 07:37:01 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-09 07:37:01 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-09 07:37:01 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-09 07:37:03 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:37:09 - 개별 가격적용 시작 - product_id: 6257, store_id: 1, selling_price: 317, cost_price: 229.583333
+2025-08-09 07:37:09 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-09 07:37:09 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-09 07:37:09 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-09 07:37:10 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:37:16 - 개별 가격적용 시작 - product_id: 4988, store_id: 1, selling_price: 153, cost_price: 110.833333
+2025-08-09 07:37:16 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-09 07:37:16 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-09 07:37:16 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-09 07:37:18 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:37:22 - 개별 가격적용 시작 - product_id: 6253, store_id: 1, selling_price: 180, cost_price: 130.666667
+2025-08-09 07:37:22 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-09 07:37:22 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-09 07:37:22 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-09 07:37:24 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:37:34 - 개별 가격적용 시작 - product_id: 5696, store_id: 1, selling_price: 120, cost_price: 87.083333
+2025-08-09 07:37:34 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-09 07:37:34 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-09 07:37:34 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-09 07:37:36 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:37:42 - 개별 가격적용 시작 - product_id: 6243, store_id: 1, selling_price: 153, cost_price: 110.833333
+2025-08-09 07:37:42 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-09 07:37:42 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-09 07:37:42 - 가격변경 이력 저장 - store_id: 1, change_type: margin_adjust
+2025-08-09 07:37:43 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:49:39 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:49:49 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:58:20 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 07:59:32 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:00:23 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:11:12 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:13:38 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:13:42 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:26:54 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:27:24 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:28:44 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:30:23 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:32:06 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:32:10 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:32:58 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:33:06 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:33:56 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:34:00 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:34:50 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:34:51 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:37:27 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 08:38:02 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 09:47:20 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 09:47:25 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 09:47:58 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 09:49:36 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 09:49:49 - 일괄 가격적용 시작 - product_ids: 4312,5043, store_id: 1, margin_rate: 38%
+2025-08-09 09:49:49 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=32, margin_rate=38%, updated_count=2
+2025-08-09 09:49:56 - 일괄 가격적용 시작 - product_ids: 4312,5043, store_id: 1, margin_rate: 38%
+2025-08-09 09:49:56 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=32, margin_rate=38%, updated_count=2
+2025-08-09 09:49:59 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 09:49:59 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
