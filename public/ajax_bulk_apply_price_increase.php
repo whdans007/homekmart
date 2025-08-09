@@ -5,6 +5,7 @@ ob_start();
 try {
     require_once __DIR__ . '/../config/db_config.php';
     require_once __DIR__ . '/../lib/session_helper.php';
+    require_once __DIR__ . '/../lib/permission_helper.php';
     
     // margin_helper는 선택적으로 로드
     $margin_helper_loaded = false;
@@ -204,21 +205,80 @@ try {
 
         // 가격 업데이트
         if ($store_id && is_numeric($store_id)) {
-            // 점포별 가격 업데이트
-            $update_stmt = $pdo->prepare("
-                INSERT INTO inventory (product_id, store_id, quantity, selling_price, cost_price, created_at, updated_at)
-                VALUES (?, ?, 0, ?, ?, NOW(), NOW())
-                ON DUPLICATE KEY UPDATE 
-                selling_price = VALUES(selling_price), 
-                cost_price = VALUES(cost_price), 
-                updated_at = NOW()
-            ");
-            $update_stmt->execute([
-                $item['product_id'], 
-                $store_id, 
-                $new_selling_price, 
-                $item['purchase_unit_price_per_piece']
-            ]);
+            // inventory 테이블 컬럼 확인
+            $columns_query = $pdo->prepare("SHOW COLUMNS FROM inventory");
+            $columns_query->execute();
+            $columns = $columns_query->fetchAll(PDO::FETCH_COLUMN);
+            
+            $has_selling_price = in_array('selling_price', $columns);
+            $has_cost_price = in_array('cost_price', $columns);
+            $has_created_at = in_array('created_at', $columns);
+            $has_updated_at = in_array('updated_at', $columns);
+            
+            // 기존 레코드 확인
+            $check_stmt = $pdo->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
+            $check_stmt->execute([$item['product_id'], $store_id]);
+            $exists = $check_stmt->fetch();
+            
+            if ($exists) {
+                // 업데이트
+                $update_fields = [];
+                $update_params = [];
+                
+                if ($has_selling_price) {
+                    $update_fields[] = "selling_price = ?";
+                    $update_params[] = $new_selling_price;
+                }
+                
+                if ($has_cost_price) {
+                    $update_fields[] = "cost_price = ?";
+                    $update_params[] = $item['purchase_unit_price_per_piece'];
+                }
+                
+                if ($has_updated_at) {
+                    $update_fields[] = "updated_at = NOW()";
+                }
+                
+                if (!empty($update_fields)) {
+                    $update_params[] = $item['product_id'];
+                    $update_params[] = $store_id;
+                    
+                    $update_sql = "UPDATE inventory SET " . implode(', ', $update_fields) . " WHERE product_id = ? AND store_id = ?";
+                    $update_stmt = $pdo->prepare($update_sql);
+                    $update_stmt->execute($update_params);
+                }
+            } else {
+                // 새 레코드 삽입
+                $insert_fields = ['product_id', 'store_id', 'quantity'];
+                $insert_values = ['?', '?', '0'];
+                $insert_params = [$item['product_id'], $store_id];
+                
+                if ($has_selling_price) {
+                    $insert_fields[] = 'selling_price';
+                    $insert_values[] = '?';
+                    $insert_params[] = $new_selling_price;
+                }
+                
+                if ($has_cost_price) {
+                    $insert_fields[] = 'cost_price';
+                    $insert_values[] = '?';
+                    $insert_params[] = $item['purchase_unit_price_per_piece'];
+                }
+                
+                if ($has_created_at) {
+                    $insert_fields[] = 'created_at';
+                    $insert_values[] = 'NOW()';
+                }
+                
+                if ($has_updated_at) {
+                    $insert_fields[] = 'updated_at';
+                    $insert_values[] = 'NOW()';
+                }
+                
+                $insert_sql = "INSERT INTO inventory (" . implode(', ', $insert_fields) . ") VALUES (" . implode(', ', $insert_values) . ")";
+                $insert_stmt = $pdo->prepare($insert_sql);
+                $insert_stmt->execute($insert_params);
+            }
         } else {
             // 기본 가격 업데이트
             $update_stmt = $pdo->prepare("

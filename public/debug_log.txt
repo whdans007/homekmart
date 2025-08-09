@@ -195,3 +195,14 @@
 2025-08-09 09:49:56 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=32, margin_rate=38%, updated_count=2
 2025-08-09 09:49:59 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
 2025-08-09 09:49:59 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 09:52:07 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 09:56:09 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 09:58:14 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 09:58:38 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 09:59:34 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 09:59:45 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 10:23:17 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 10:26:05 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 10:26:38 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 10:26:41 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-09 10:26:45 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin

@@ -952,7 +952,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <span class="text-xs text-gray-500 ml-1">개</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right">
-                <input type="number" name="items[${itemIndex}][unit_price]" class="w-20 px-2 py-1 border border-gray-300 rounded-md text-right text-sm unit-price focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" step="1" min="0" value="${finalUnitPrice}" ${isExisting ? 'readonly' : ''}>
+                <input type="number" name="items[${itemIndex}][unit_price]" class="w-20 px-2 py-1 border border-gray-300 rounded-md text-right text-sm unit-price focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" step="0.01" min="0" value="${finalUnitPrice}" ${isExisting ? 'readonly' : ''}>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right piece-price text-sm text-gray-500"></td>
             <td class="px-6 py-4 whitespace-nowrap text-right row-total font-semibold text-gray-900">0</td>
