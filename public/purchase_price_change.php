@@ -596,8 +596,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // 마진율 입력 필드 변경 시 버튼 상태 업데이트
+    // 마진율 입력 필드 변경 시 버튼 상태 업데이트 및 localStorage 저장
     document.getElementById('bulkMarginInput').addEventListener('input', function() {
+        // localStorage에 마진율 값 저장
+        localStorage.setItem('lastMarginRate', this.value);
         updateBulkMarginButtonState();
     });
     
@@ -817,14 +819,26 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     }
     
+    // localStorage에서 최근 마진율 값 불러오기 및 설정
+    const savedMarginRate = localStorage.getItem('lastMarginRate');
+    if (savedMarginRate && !isNaN(parseFloat(savedMarginRate))) {
+        document.getElementById('bulkMarginInput').value = savedMarginRate;
+        console.log('저장된 마진율 불러옴:', savedMarginRate);
+    }
+    
     // 초기 UI 상태 설정
     updateSelectedUI();
     
     // 기존 일괄 적용 버튼 이벤트 (기존 기능 유지)
     document.getElementById('bulkApplyBtn').addEventListener('click', function() {
+        console.log('인상상품 일괄적용 버튼 클릭됨');
+        
         // 인상된 상품 개수 확인
         const increasedItems = document.querySelectorAll('.apply-new-prices-btn[data-price-change="increase"]');
         const increasedCount = increasedItems.length;
+        
+        console.log('인상된 상품 개수:', increasedCount);
+        console.log('인상된 상품 요소들:', increasedItems);
         
         if (increasedCount === 0) {
             alert('인상된 상품이 없습니다.');
@@ -832,7 +846,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (confirm(`${increasedCount}개의 인상된 상품의 가격을 일괄 적용하시겠습니까?`)) {
+            console.log('사용자가 확인을 선택함, 인상상품 일괄적용 함수 호출');
             bulkApplyPriceIncrease();
+        } else {
+            console.log('사용자가 취소를 선택함');
         }
     });
     
@@ -937,14 +954,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 일괄 적용 함수
     function bulkApplyPriceIncrease() {
+        console.log('bulkApplyPriceIncrease 함수 시작');
+        
         const bulkBtn = document.getElementById('bulkApplyBtn');
+        console.log('버튼 요소:', bulkBtn);
         
         // 버튼 비활성화
         bulkBtn.disabled = true;
         const originalText = bulkBtn.innerHTML;
         bulkBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>일괄 적용 중...';
         
-        // AJAX 요청
+        // AJAX 요청 데이터 준비
         const formData = new FormData();
         formData.append('purchase_id', '<?php echo htmlspecialchars($purchase_id); ?>');
         // product_management.php와 동일한 방식으로 currentStoreId 변수 사용
@@ -952,35 +972,51 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('store_id', currentStoreId);
         }
         
+        console.log('AJAX 요청 데이터:');
+        console.log('- purchase_id:', '<?php echo htmlspecialchars($purchase_id); ?>');
+        console.log('- store_id:', currentStoreId);
+        console.log('AJAX 요청 전송 시작');
+        
         fetch('ajax_bulk_apply_price_increase.php', {
             method: 'POST',
             body: formData
         })
         .then(response => {
+            console.log('응답 상태:', response.status, response.statusText);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.text();
         })
         .then(text => {
+            console.log('서버 응답 텍스트:', text);
             try {
-                return JSON.parse(text);
+                const data = JSON.parse(text);
+                console.log('파싱된 JSON 데이터:', data);
+                return data;
             } catch (e) {
+                console.error('JSON 파싱 오류:', e);
                 console.error('서버 응답:', text);
                 throw new Error('서버에서 올바르지 않은 응답을 받았습니다.');
             }
         })
         .then(data => {
+            console.log('처리할 데이터:', data);
             if (data.success) {
+                console.log('성공 응답 처리');
                 alert(data.message);
                 // 페이지 새로고침하여 업데이트된 정보 표시
-                window.location.reload();
+                setTimeout(() => {
+                    console.log('페이지 새로고침 시작');
+                    window.location.reload();
+                }, 1000);
             } else {
+                console.log('실패 응답 처리:', data.message);
                 alert('오류: ' + data.message);
             }
         })
         .catch(error => {
-            console.error('일괄 적용 오류:', error);
+            console.error('인상상품 일괄적용 오류:', error);
             console.error('오류 메시지:', error.message);
             alert('통신 오류가 발생했습니다: ' + error.message);
         })
