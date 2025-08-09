@@ -226,7 +226,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <div class="bg-gray-100 rounded-full p-2 mr-3">
                                 <i class="fas fa-info-circle text-gray-600 text-sm"></i>
                             </div>
-                            <h3 class="text-lg font-semibold text-gray-900">기본 정보</h3>
+                            <h3 class="text-lg font-semibold text-gray-900"><?php echo t('product.basic_info_section'); ?></h3>
                         </div>
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div>
@@ -256,7 +256,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <div class="bg-purple-100 rounded-full p-2 mr-3">
                                 <i class="fas fa-tags text-purple-600 text-sm"></i>
                             </div>
-                            <h3 class="text-lg font-semibold text-gray-900">분류 및 포장 정보</h3>
+                            <h3 class="text-lg font-semibold text-gray-900"><?php echo t('product.category_packaging_info'); ?></h3>
                         </div>
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div>
@@ -293,12 +293,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <div class="bg-indigo-100 rounded-full p-2 mr-3">
                                 <i class="fas fa-align-left text-indigo-600 text-sm"></i>
                             </div>
-                            <h3 class="text-lg font-semibold text-gray-900">추가 정보</h3>
+                            <h3 class="text-lg font-semibold text-gray-900"><?php echo t('product.additional_info'); ?></h3>
                         </div>
                         <div class="space-y-6">
                             <div>
                                 <label for="description" class="block text-sm font-medium text-gray-700 mb-2"><?php echo t('product.description'); ?> <span class="text-gray-400">(<?php echo t('forms.optional'); ?>)</span></label>
-                                <textarea id="description" name="description" rows="4" class="block w-full px-3 py-2 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="상품에 대한 상세 설명을 입력하세요..."><?php echo htmlspecialchars($product['description']); ?></textarea>
+                                <textarea id="description" name="description" rows="4" class="block w-full px-3 py-2 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="<?php echo t('product.description_placeholder'); ?>"><?php echo htmlspecialchars($product['description']); ?></textarea>
                             </div>
                             <div>
                                 <label for="image_url" class="block text-sm font-medium text-gray-700 mb-2"><?php echo t('product.image_url'); ?> <span class="text-gray-400">(<?php echo t('forms.optional'); ?>)</span></label>
@@ -339,7 +339,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <div class="border-t border-gray-200 pt-6">
                         <div class="flex items-center justify-between">
                             <div class="text-sm text-gray-500">
-                                <span class="text-red-500">*</span> 필수 입력 항목
+                                <span class="text-red-500">*</span> <?php echo t('product.required_fields_note'); ?>
                             </div>
                             <div class="flex gap-3">
                                 <a href="product_management.php" class="inline-flex items-center px-4 py-2 h-10 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
@@ -366,7 +366,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
             <h3 class="text-lg font-semibold text-gray-900 mb-2"><?php echo t('category.add_new'); ?></h3>
             <p class="text-sm text-gray-500 mb-6">
-                '<span id="new-category-name-modal" class="font-semibold text-gray-900"></span>' 카테고리를 새로 추가하시겠습니까?
+                <?php echo str_replace('{name}', '\'<span id="new-category-name-modal" class="font-semibold text-gray-900"></span>\'', t('product.add_new_category_confirm')); ?>
             </p>
             <div class="flex gap-3 justify-center">
                 <button id="cancel-add-category" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"><?php echo t('common.cancel'); ?></button>
@@ -385,7 +385,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
             <h3 class="text-lg font-semibold text-gray-900 mb-2"><?php echo t('brand.add_new'); ?></h3>
             <p class="text-sm text-gray-500 mb-6">
-                '<span id="new-brand-name-modal" class="font-semibold text-gray-900"></span>' 브랜드를 새로 추가하시겠습니까?
+                <?php echo str_replace('{name}', '\'<span id="new-brand-name-modal" class="font-semibold text-gray-900"></span>\'', t('product.add_new_brand_confirm')); ?>
             </p>
             <div class="flex gap-3 justify-center">
                 <button id="cancel-add-brand" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"><?php echo t('common.cancel'); ?></button>
@@ -417,7 +417,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         translateBtn.disabled = true;
-        translateBtn.innerHTML = '<i class="fas fa-spinner fa-spin h-5 w-5 text-gray-400"></i><span>번역 중...</span>';
+        translateBtn.innerHTML = '<i class="fas fa-spinner fa-spin h-5 w-5 text-gray-400"></i><span><?php echo t('product.translating'); ?></span>';
         fetch('ajax_translate.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -437,7 +437,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .finally(() => {
             translateBtn.disabled = false;
-            translateBtn.innerHTML = '<i class="fas fa-language h-5 w-5 text-gray-400"></i><span>번역</span>';
+            translateBtn.innerHTML = '<i class="fas fa-language h-5 w-5 text-gray-400"></i><span><?php echo t('product.translate'); ?></span>';
         });
     });
 
@@ -486,7 +486,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             } else {
                 const div = document.createElement('div');
-                div.innerHTML = `<span class="italic text-gray-500 p-2">결과 없음.</span> <button type="button" class="text-primary-600 hover:underline ml-2 add-new-btn">새로 추가</button>`;
+                div.innerHTML = `<span class="italic text-gray-500 p-2"><?php echo t('product.no_results'); ?></span> <button type="button" class="text-primary-600 hover:underline ml-2 add-new-btn"><?php echo t('common.add'); ?></button>`;
                 div.className = 'p-2';
                 resultsContainer.appendChild(div);
 
@@ -515,14 +515,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     allItems.push(data.data);
                     modal.classList.add('hidden');
                     resultsContainer.classList.add('hidden');
-                    alert(`새 ${options.itemType}이(가) 추가되고 선택되었습니다.`);
+                    alert('<?php echo str_replace('{type}', "' + options.itemType + '", t('product.new_item_added')); ?>');
                 } else {
-                    alert('오류: ' + data.message);
+                    alert('<?php echo t('common.error'); ?>: ' + data.message);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert(`${options.itemType} 추가 중 오류가 발생했습니다.`);
+                alert(options.itemType + ' <?php echo t('product.add_error_occurred'); ?>');
             });
         });
 
@@ -544,7 +544,7 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmBtnId: 'confirm-add-category',
         cancelBtnId: 'cancel-add-category',
         ajaxUrl: 'ajax_add_category.php',
-        itemType: '카테고리'
+        itemType: '<?php echo t('product.category_item'); ?>'
     });
 
 
@@ -559,7 +559,7 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmBtnId: 'confirm-add-brand',
         cancelBtnId: 'cancel-add-brand',
         ajaxUrl: 'ajax_add_brand.php',
-        itemType: '브랜드'
+        itemType: '<?php echo t('product.brand_item'); ?>'
     });
 
 
@@ -595,7 +595,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleBarcodeSearch(url, button) {
         const barcode = barcodeInput.value.trim();
         if (!barcode) {
-            alert('바코드를 입력해주세요.');
+            alert('<?php echo t('product.enter_barcode'); ?>');
             return;
         }
 
@@ -622,7 +622,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Error:', error);
-                barcodeErrorDiv.querySelector('p').textContent = '검색 중 오류가 발생했습니다: ' + error.message;
+                barcodeErrorDiv.querySelector('p').textContent = '<?php echo str_replace('{error}', "' + error.message + '", t('product.search_error')); ?>';
                 barcodeErrorDiv.classList.remove('hidden');
                 barcodeSuccessDiv.classList.add('hidden');
                 barcodeResultDiv.classList.remove('hidden');
