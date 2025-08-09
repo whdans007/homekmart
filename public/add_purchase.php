@@ -1335,9 +1335,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
             
-            // 수량 입력 후 탭/엔터 시 단가로 포커스 이동
+            // 수량 입력 후 엔터 시 박스수량으로 포커스 이동
             newRow.querySelector('.quantity').addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' || e.key === 'Tab') {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    newRow.querySelector('.pieces-per-box').focus();
+                    newRow.querySelector('.pieces-per-box').select();
+                }
+            });
+            
+            // 박스수량 입력 후 엔터 시 단가로 포커스 이동
+            newRow.querySelector('.pieces-per-box').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
                     e.preventDefault();
                     newRow.querySelector('.unit-price').focus();
                     newRow.querySelector('.unit-price').select();
