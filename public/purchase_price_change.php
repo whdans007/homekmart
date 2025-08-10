@@ -214,10 +214,10 @@ $items_result = $items_stmt->get_result();
                                     <span class="text-sm font-mono"><?php echo number_format($item['current_cost_price'], 2); ?></span>
                                 </td>
                                 <td class="px-3 py-4 text-right border border-gray-300">
-                                    <span class="text-sm font-mono font-semibold text-blue-600"><?php echo number_format($item['purchase_unit_price_per_piece']); ?></span>
+                                    <span class="text-sm font-mono font-semibold text-blue-600"><?php echo number_format($item['purchase_unit_price_per_piece'], 2); ?></span>
                                     <?php if ($item['purchase_type'] === 'box' && $item['pieces_per_box']): ?>
                                         <div class="text-xs text-gray-500">
-                                            박스: <?php echo number_format($item['unit_price']); ?>
+                                            박스: <?php echo number_format($item['unit_price'], 2); ?>
                                             (<?php echo $item['pieces_per_box']; ?>개입)
                                         </div>
                                     <?php endif; ?>
