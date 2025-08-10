@@ -890,14 +890,14 @@ $items_result = $stmt->get_result();
                                         <input type="number" class="pieces-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-sm focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo $item['pieces_per_box'] ?? 1; ?>" min="1" style="display: none;">
                                     </td>
                                     <td class="w-20 px-1 py-3 text-sm text-gray-900 text-right">
-                                        <span class="price-display"><?php echo number_format($item['unit_price']); ?></span>
-                                        <input type="number" class="price-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-sm focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo $item['unit_price']; ?>" min="0" step="1" style="display: none;">
+                                        <span class="price-display"><?php echo number_format($item['unit_price'], 2); ?></span>
+                                        <input type="number" class="price-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-sm focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo $item['unit_price']; ?>" min="0" step="0.01" style="display: none;">
                                     </td>
                                     <td class="w-16 px-1 py-3 text-sm text-gray-500 text-right"><?php echo number_format($piece_price, 2); ?></td>
                                     <td class="w-16 px-1 py-3 text-sm text-gray-900 text-right font-semibold">
                                         <span class="text-blue-600"><?php echo number_format($item['total_pieces']); ?>개</span>
                                     </td>
-                                    <td class="w-20 px-1 py-3 text-sm text-gray-900 text-right font-bold"><?php echo number_format($item_total); ?></td>
+                                    <td class="w-20 px-1 py-3 text-sm text-gray-900 text-right font-bold"><?php echo number_format($item_total, 2); ?></td>
                                     <td class="w-16 px-1 py-3 text-center">
                                         <input type="number" class="discount-rate w-12 px-1 py-1 border border-gray-300 rounded-md text-center text-xs focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo number_format($item['discount_rate'], 1); ?>" min="0" max="100" step="0.1" placeholder="0">%
                                     </td>
