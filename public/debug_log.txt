@@ -238,3 +238,9 @@
 2025-08-09 18:52:30 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
 2025-08-09 18:56:32 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
 2025-08-09 18:58:44 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-10 08:08:50 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-10 08:09:57 - 개별 가격적용 시작 - product_id: 23187, store_id: 1, selling_price: 1429, cost_price: 1099
+2025-08-10 08:09:57 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-10 08:09:57 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-10 08:09:57 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-08-10 08:11:28 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin

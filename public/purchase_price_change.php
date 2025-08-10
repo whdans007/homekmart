@@ -189,14 +189,14 @@ $items_result = $items_stmt->get_result();
                                 $current_margin_rate = (($item['current_selling_price'] - $item['current_cost_price']) / $item['current_cost_price']) * 100;
                             }
                             
-                            // 새 원가 기준 예상 판매가 계산 (기존 마진율 적용)
+                            // 새 원가 기준 예상 판매가 계산 (기존 마진율 적용, 소수점 이하 무조건 올림)
                             $new_selling_price = 0;
                             if ($current_margin_rate > 0) {
-                                $new_selling_price = $item['purchase_unit_price_per_piece'] * (1 + ($current_margin_rate / 100));
+                                $new_selling_price = ceil($item['purchase_unit_price_per_piece'] * (1 + ($current_margin_rate / 100)));
                             } else {
                                 // 마진율이 없으면 카테고리 기본 마진율 적용
                                 $margin_rate = get_margin_rate_by_product($item['product_id']);
-                                $new_selling_price = $item['purchase_unit_price_per_piece'] * (1 + ($margin_rate / 100));
+                                $new_selling_price = ceil($item['purchase_unit_price_per_piece'] * (1 + ($margin_rate / 100)));
                             }
                         ?>
                             <tr class="hover:bg-gray-50 cursor-pointer item-row" data-product-id="<?php echo $item['product_id']; ?>">
@@ -633,8 +633,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const costPrice = parseFloat(marginInput.dataset.costPrice);
         
-        // 새로운 판매가 계산
-        const newSellingPrice = Math.round(costPrice * (1 + (marginRate / 100)));
+        // 새로운 판매가 계산 (소수점 이하 무조건 올림)
+        const newSellingPrice = Math.ceil(costPrice * (1 + (marginRate / 100)));
         
         // 예상판매가 업데이트
         const expectedPriceSpan = document.querySelector(`.expected-price[data-product-id="${productId}"]`);
@@ -882,8 +882,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const costPrice = parseFloat(this.dataset.costPrice);
             const marginRate = parseFloat(this.value) || 0;
             
-            // 새로운 판매가 계산
-            const newSellingPrice = Math.round(costPrice * (1 + (marginRate / 100)));
+            // 새로운 판매가 계산 (소수점 이하 무조건 올림)
+            const newSellingPrice = Math.ceil(costPrice * (1 + (marginRate / 100)));
             
             // 예상판매가 업데이트
             const expectedPriceSpan = document.querySelector(`.expected-price[data-product-id="${productId}"]`);
