@@ -26,7 +26,17 @@
     "close": "Close",
     "home": "Home",
     "dashboard": "Dashboard",
-    "actions": "Actions"
+    "actions": "Actions",
+    "previous": "Previous",
+    "next": "Next",
+    "today": "Today",
+    "total": "Total",
+    "items": "items",
+    "box": "box",
+    "piece": "piece",
+    "save_success": "Save completed successfully",
+    "save_error": "An error occurred while saving",
+    "error_occurred": "An error occurred"
   },
   "auth": {
     "login": "Login",
@@ -465,6 +475,7 @@
     "supplier_management": "Supplier Management",
     "product_management": "Product Management",
     "purchase_management": "Purchase Management",
+    "purchase_product_management": "Purchase Product Information Management",
     "price_change_history": "Price Change History",
     "settings": "Settings",
     "excel_test": "Excel Test"
@@ -513,5 +524,15 @@
     "add_store_desc": "Register new store",
     "add_brand_desc": "Register new brand",
     "add_purchase_desc": "Register new purchase"
+  },
+  "purchase_product": {
+    "management": "Purchase Product Information Management",
+    "description": "Manage product information for items received by date",
+    "product_list": "Received Product List",
+    "no_data": "No products received on the selected date",
+    "piece_price": "Unit Price",
+    "stock_quantity": "Received Quantity",
+    "purchase_info": "Purchase Information",
+    "product_details": "Product Details"
   }
 }
