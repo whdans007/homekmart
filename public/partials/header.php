@@ -158,6 +158,32 @@ if (!empty($_SESSION['user_id'])) {
                                     </a>
                                     <?php endif; ?>
                                     
+                                    <?php if (has_permission('wholesale_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                                    <div class="mt-4 mb-2 px-2">
+                                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider"><?php echo t('navigation.wholesale_management'); ?></h3>
+                                    </div>
+                                    
+                                    <a href="wholesale_customer_management.php" class="<?php echo in_array($current_page, ['wholesale_customer_management.php', 'add_wholesale_customer.php', 'edit_wholesale_customer.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                        <i class="fas fa-users mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                                        <?php echo t('navigation.wholesale_customer_management'); ?>
+                                    </a>
+                                    
+                                    <a href="wholesale_product_management.php" class="<?php echo in_array($current_page, ['wholesale_product_management.php', 'add_wholesale_product.php', 'edit_wholesale_product.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                        <i class="fas fa-box-open mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                                        <?php echo t('navigation.wholesale_product_management'); ?>
+                                    </a>
+                                    
+                                    <a href="wholesale_sales.php" class="<?php echo in_array($current_page, ['wholesale_sales.php', 'wholesale_sale_preview.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                        <i class="fas fa-handshake mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                                        <?php echo t('navigation.wholesale_sales'); ?>
+                                    </a>
+                                    
+                                    <a href="wholesale_sales_list.php" class="<?php echo ($current_page == 'wholesale_sales_list.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                        <i class="fas fa-list mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                                        <?php echo t('navigation.wholesale_sales_list'); ?>
+                                    </a>
+                                    <?php endif; ?>
+                                    
                                     <?php if (has_permission('settings') || $_SESSION['role'] === 'super_admin'): ?>
                                     <a href="settings.php" class="<?php echo ($current_page == 'settings.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                         <i class="fas fa-cog mr-3 text-gray-400 group-hover:text-gray-500"></i>
