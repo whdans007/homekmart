@@ -1,11 +1,15 @@
 <?php
-$page_title = "상품 수정 - HOME K MART";
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('product.edit') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 
-// 접근 권한 확인
-if (!in_array($_SESSION['role'], ['super_admin', 'admin'])) {
-    echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'><div class='flex'><div class='flex-shrink-0'><i class='fas fa-exclamation-circle text-red-400'></i></div><div class='ml-3'><p class='text-sm text-red-800'>이 페이지에 접근할 권한이 없습니다.</p></div></div></div>";
-    require_once __DIR__ . '/partials/footer.php';
+// 상품관리 권한 확인
+if (!has_permission('product_management')) {
+    $_SESSION['flash'] = [
+        'type' => 'error', 
+        'message' => t('messages.permission_denied')
+    ];
+    header('Location: shop.php');
     exit;
 }
 
@@ -80,9 +84,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // 유효성 검사
     if (empty($updated_product['sku'])) $errors[] = "SKU를 입력해주세요.";
     if (empty($updated_product['name_en'])) $errors[] = "상품명(영문)을 입력해주세요.";
-    if (empty($updated_product['selling_price'])) $errors[] = "판매가를 입력해주세요.";
-    if (!is_numeric($updated_product['selling_price'])) $errors[] = "판매가는 숫자여야 합니다.";
-    if (!empty($updated_product['cost_price']) && !is_numeric($updated_product['cost_price'])) $errors[] = "원가는 숫자여야 합니다.";
     if (!empty($updated_product['pieces_per_box']) && (!is_numeric($updated_product['pieces_per_box']) || $updated_product['pieces_per_box'] < 1)) $errors[] = "박스포장 수량은 1 이상의 숫자여야 합니다.";
 
     // SKU 중복 확인 (자신 제외)
@@ -96,7 +97,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (empty($errors)) {
         try {
-            $sql = "UPDATE products SET sku = :sku, name_ko = :name_ko, name_en = :name_en, description = :description, category_id = :category_id, brand_id = :brand_id, cost_price = :cost_price, selling_price = :selling_price, image_url = :image_url, is_active = :is_active, pieces_per_box = :pieces_per_box, barcode = :barcode, last_modified_by_user_id = :user_id WHERE id = :id";
+            $sql = "UPDATE products SET sku = :sku, name_ko = :name_ko, name_en = :name_en, description = :description, category_id = :category_id, brand_id = :brand_id, image_url = :image_url, is_active = :is_active, pieces_per_box = :pieces_per_box, last_modified_by_user_id = :user_id WHERE id = :id";
             $stmt = $pdo->prepare($sql);
 
             $params = [
@@ -107,12 +108,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 ':description' => $updated_product['description'] ?: null,
                 ':category_id' => $updated_product['category_id'] ?: null,
                 ':brand_id' => $updated_product['brand_id'] ?: null,
-                ':cost_price' => $updated_product['cost_price'] ?: 0,
-                ':selling_price' => $updated_product['selling_price'],
                 ':image_url' => $updated_product['image_url'] ?: null,
                 ':is_active' => $updated_product['is_active'],
                 ':pieces_per_box' => $updated_product['pieces_per_box'] ?: 1,
-                ':barcode' => $updated_product['barcode'] ?: null,
                 ':user_id' => $_SESSION['user_id']
             ];
 
@@ -274,40 +272,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     </td>
                                 </tr>
                                 
-                                <!-- 원가 -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
-                                        원가
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="relative max-w-md">
-                                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                                <span class="text-gray-500 sm:text-sm">₩</span>
-                                            </div>
-                                            <input type="number" name="cost_price" id="cost_price" value="<?php echo htmlspecialchars($product['cost_price']); ?>" 
-                                                   class="block w-full rounded-md border-gray-300 pl-7 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
-                                                   placeholder="0" step="1">
-                                        </div>
-                                    </td>
-                                </tr>
-                                
-                                <!-- 판매가 -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
-                                        <span class="text-red-500">*</span> 판매가
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="relative max-w-md">
-                                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                                <span class="text-gray-500 sm:text-sm">₩</span>
-                                            </div>
-                                            <input type="number" name="selling_price" id="selling_price" value="<?php echo htmlspecialchars($product['selling_price']); ?>" required 
-                                                   class="block w-full rounded-md border-gray-300 pl-7 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
-                                                   placeholder="0" step="1">
-                                        </div>
-                                    </td>
-                                </tr>
-                                
                                 <!-- 박스당 수량 -->
                                 <tr>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
@@ -322,19 +286,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                             </div>
                                         </div>
                                         <p class="mt-1 text-xs text-gray-500">한 박스에 들어있는 낱개 수량</p>
-                                    </td>
-                                </tr>
-                                
-                                <!-- 바코드 -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
-                                        바코드
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <input type="text" name="barcode" id="barcode" value="<?php echo htmlspecialchars($product['barcode'] ?? ''); ?>" 
-                                               class="block w-full max-w-md rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
-                                               placeholder="바코드 입력">
-                                        <p class="mt-1 text-xs text-gray-500">상품 바코드 (매입 시 검색용)</p>
                                     </td>
                                 </tr>
                                 
