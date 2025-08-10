@@ -199,6 +199,12 @@ try {
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php foreach ($products as $product): ?>
                     <tr class="hover:bg-gray-50 cursor-pointer product-row" data-product-id="<?php echo $product['id']; ?>">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            <div class="flex flex-col">
+                                <span class="font-medium"><?php echo date('Y-m-d', strtotime($product['created_at'])); ?></span>
+                                <span class="text-xs text-gray-500"><?php echo date('H:i:s', strtotime($product['created_at'])); ?></span>
+                            </div>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                             <?php echo htmlspecialchars($product['sku']); ?>
                         </td>
@@ -229,12 +235,6 @@ try {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             <?php echo htmlspecialchars($product['category_name'] ?: '-'); ?>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            <div class="flex flex-col">
-                                <span class="font-medium"><?php echo date('Y-m-d', strtotime($product['created_at'])); ?></span>
-                                <span class="text-xs text-gray-500"><?php echo date('H:i:s', strtotime($product['created_at'])); ?></span>
-                            </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <?php if ($product['is_active']): ?>
