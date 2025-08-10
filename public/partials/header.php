@@ -142,6 +142,11 @@ if (!empty($_SESSION['user_id'])) {
                                         <?php echo t('navigation.purchase_management'); ?>
                                     </a>
                                     
+                                    <a href="purchase_product_management.php" class="<?php echo ($current_page == 'purchase_product_management.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                        <i class="fas fa-box mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                                        <?php echo t('navigation.purchase_product_management'); ?>
+                                    </a>
+                                    
                                     <a href="price_change_history.php" class="<?php echo ($current_page == 'price_change_history.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                         <i class="fas fa-chart-line mr-3 text-gray-400 group-hover:text-gray-500"></i>
                                         <?php echo t('navigation.price_change_history'); ?>

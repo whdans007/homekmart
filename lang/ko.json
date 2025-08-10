@@ -26,7 +26,17 @@
     "close": "닫기",
     "home": "홈",
     "dashboard": "대시보드",
-    "actions": "작업"
+    "actions": "작업",
+    "previous": "이전",
+    "next": "다음",
+    "today": "오늘",
+    "total": "합계",
+    "items": "개",
+    "box": "박스",
+    "piece": "개",
+    "save_success": "저장이 완료되었습니다",
+    "save_error": "저장 중 오류가 발생했습니다",
+    "error_occurred": "오류가 발생했습니다"
   },
   "auth": {
     "login": "로그인",
@@ -502,6 +512,7 @@
     "supplier_management": "공급처관리",
     "product_management": "상품관리",
     "purchase_management": "매입관리",
+    "purchase_product_management": "매입상품 정보관리",
     "price_change_history": "가격변경 이력",
     "settings": "환경설정",
     "excel_test": "엑셀 테스트"
@@ -550,5 +561,15 @@
     "add_store_desc": "새로운 지점을 등록합니다",
     "add_brand_desc": "새로운 브랜드를 등록합니다",
     "add_purchase_desc": "신규 매입을 등록합니다"
+  },
+  "purchase_product": {
+    "management": "매입상품 정보관리",
+    "description": "날짜별 입고된 상품의 정보를 관리합니다",
+    "product_list": "입고 상품 목록",
+    "no_data": "선택한 날짜에 입고된 상품이 없습니다",
+    "piece_price": "낱개단가",
+    "stock_quantity": "입고량",
+    "purchase_info": "매입정보",
+    "product_details": "상품 상세정보"
   }
 }
