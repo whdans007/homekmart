@@ -134,6 +134,11 @@ if (!empty($_SESSION['user_id'])) {
                                         <i class="fas fa-box-open mr-3 text-gray-400 group-hover:text-gray-500"></i>
                                         <?php echo t('navigation.product_management'); ?>
                                     </a>
+                                    
+                                    <a href="new_products_management.php" class="<?php echo ($current_page == 'new_products_management.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                        <i class="fas fa-sparkles mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                                        <?php echo t('navigation.new_products_management'); ?>
+                                    </a>
                                     <?php endif; ?>
                                     
                                     <?php if (has_permission('purchase_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
