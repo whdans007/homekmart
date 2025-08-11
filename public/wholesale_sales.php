@@ -268,11 +268,26 @@ if (isset($_SESSION['flash'])) {
                                 </div>
                                 
                                 <div id="cart_items" class="hidden">
-                                    <div class="space-y-3" id="cart_list">
-                                        <!-- 장바구니 항목들이 여기에 추가됩니다 -->
+                                    <!-- 테이블 형태 장바구니 -->
+                                    <div class="border rounded-md overflow-hidden">
+                                        <table class="w-full">
+                                            <thead class="bg-gray-100">
+                                                <tr>
+                                                    <th class="px-3 py-3 text-left text-xs font-semibold text-gray-700">SKU</th>
+                                                    <th class="px-3 py-3 text-left text-xs font-semibold text-gray-700">상품명</th>
+                                                    <th class="px-3 py-3 text-center text-xs font-semibold text-gray-700">수량</th>
+                                                    <th class="px-3 py-3 text-right text-xs font-semibold text-gray-700">합계</th>
+                                                    <th class="px-3 py-3 text-center text-xs font-semibold text-gray-700">기타</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="cart_list">
+                                                <!-- 장바구니 항목들이 여기에 추가됩니다 -->
+                                            </tbody>
+                                        </table>
                                     </div>
                                     
-                                    <div class="mt-6 pt-4 border-t border-gray-300">
+                                    <!-- 총 금액 -->
+                                    <div class="mt-4 pt-3 border-t border-gray-300">
                                         <div class="flex justify-between text-lg font-medium">
                                             <span>총 금액:</span>
                                             <span id="cart_total">0</span>
@@ -372,6 +387,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     function searchCustomers(query) {
+        console.log('거래처 검색 시작:', query);
+        
         fetch('ajax_search_wholesale_customers.php', {
             method: 'POST',
             headers: {
@@ -379,17 +396,39 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: 'q=' + encodeURIComponent(query) + '&limit=10'
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.customers) {
-                displayCustomerResults(data.customers);
-            } else {
-                customerSearchResults.innerHTML = '<div class="p-3 text-sm text-gray-500">검색 결과가 없습니다.</div>';
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.text();
+        })
+        .then(text => {
+            console.log('Raw response:', text);
+            try {
+                const data = JSON.parse(text);
+                console.log('Parsed data:', data);
+                
+                if (data.success && data.customers) {
+                    console.log('고객 수:', data.customers.length);
+                    displayCustomerResults(data.customers);
+                } else {
+                    console.log('검색 실패 또는 결과 없음:', data.message);
+                    customerSearchResults.innerHTML = '<div class="p-3 text-sm text-gray-500">' + 
+                        (data.message || '검색 결과가 없습니다.') + '</div>';
+                    customerSearchResults.classList.remove('hidden');
+                }
+            } catch (parseError) {
+                console.error('JSON 파싱 오류:', parseError);
+                console.log('원본 응답:', text);
+                customerSearchResults.innerHTML = '<div class="p-3 text-sm text-red-500">응답 파싱 오류: ' + parseError.message + '</div>';
                 customerSearchResults.classList.remove('hidden');
             }
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('네트워크 오류:', error);
+            customerSearchResults.innerHTML = '<div class="p-3 text-sm text-red-500">검색 중 오류 발생: ' + error.message + '</div>';
+            customerSearchResults.classList.remove('hidden');
         });
     }
     
@@ -548,30 +587,47 @@ document.addEventListener('DOMContentLoaded', function() {
             let html = '';
             cart.forEach(function(item, index) {
                 html += `
-                    <div class="bg-white p-3 rounded-md border">
-                        <div class="flex justify-between items-start">
-                            <div class="flex-1">
-                                <div class="font-medium text-sm">${item.name_en || item.name_ko}</div>
-                                <div class="text-xs text-gray-500">${item.sku}</div>
-                                <div class="text-xs text-gray-600 mt-1">
-                                    단가: ${Number(item.unit_price).toLocaleString()}원
-                                </div>
+                    <tr class="border-b hover:bg-gray-50">
+                        <!-- SKU -->
+                        <td class="px-3 py-3 text-xs font-mono text-gray-700 font-medium">${item.sku}</td>
+                        
+                        <!-- 상품명 (영문 위, 한글 아래) -->
+                        <td class="px-3 py-3">
+                            <div class="text-sm font-medium text-gray-900" title="${item.name_en || '-'}">${item.name_en || '-'}</div>
+                            <div class="text-sm text-gray-600 mt-1" title="${item.name_ko || '-'}">${item.name_ko || '-'}</div>
+                            <div class="text-xs text-gray-500 mt-1">단가: ${Number(item.unit_price).toLocaleString()}원</div>
+                        </td>
+                        
+                        <!-- 수량 -->
+                        <td class="px-3 py-3 text-center">
+                            <div class="flex items-center justify-center space-x-1">
+                                <button type="button" onclick="updateQuantity(${index}, -1)" 
+                                        class="w-6 h-6 text-xs bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <span class="text-sm font-medium px-2 min-w-[24px] text-center">${item.quantity}</span>
+                                <button type="button" onclick="updateQuantity(${index}, 1)" 
+                                        class="w-6 h-6 text-xs bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center">
+                                    <i class="fas fa-plus"></i>
+                                </button>
                             </div>
-                            <button type="button" onclick="removeFromCart(${index})" class="text-red-500 hover:text-red-700 ml-2">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                        <div class="flex items-center justify-between mt-2">
-                            <div class="flex items-center space-x-2">
-                                <button type="button" onclick="updateQuantity(${index}, -1)" class="w-6 h-6 text-xs bg-gray-200 rounded">-</button>
-                                <span class="text-sm font-medium">${item.quantity}</span>
-                                <button type="button" onclick="updateQuantity(${index}, 1)" class="w-6 h-6 text-xs bg-gray-200 rounded">+</button>
-                            </div>
-                            <div class="text-sm font-medium">
+                        </td>
+                        
+                        <!-- 합계 -->
+                        <td class="px-3 py-3 text-right">
+                            <div class="text-sm font-semibold text-primary-600">
                                 ${Number(item.total_price).toLocaleString()}원
                             </div>
-                        </div>
-                    </div>
+                        </td>
+                        
+                        <!-- 기타사항 (삭제버튼) -->
+                        <td class="px-3 py-3 text-center">
+                            <button type="button" onclick="removeFromCart(${index})" 
+                                    class="text-red-400 hover:text-red-600 w-6 h-6 rounded hover:bg-red-50 flex items-center justify-center">
+                                <i class="fas fa-times text-xs"></i>
+                            </button>
+                        </td>
+                    </tr>
                 `;
             });
             

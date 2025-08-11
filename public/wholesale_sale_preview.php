@@ -35,7 +35,6 @@ if ($sale_id > 0) {
                 wc.phone as customer_phone,
                 wc.address as customer_address,
                 s.name as store_name,
-                s.address as store_address,
                 u.full_name as user_name
             FROM wholesale_sales ws
             LEFT JOIN wholesale_customers wc ON ws.customer_id = wc.id
@@ -85,7 +84,7 @@ if (isset($_SESSION['flash'])) {
 ?>
 
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="max-w-4xl mx-auto">
+    <div class="max-w-7xl">
         <!-- 헤더 영역 -->
         <div class="mb-6">
             <nav class="flex" aria-label="Breadcrumb">
@@ -164,48 +163,38 @@ if (isset($_SESSION['flash'])) {
                     <h1 class="text-2xl font-bold text-gray-900 mb-2">도매 판매 거래명세서</h1>
                     <div class="text-sm text-gray-600">
                         <div><?php echo htmlspecialchars($sale['store_name'] ?? '본점'); ?></div>
-                        <?php if (!empty($sale['store_address'])): ?>
-                            <div><?php echo htmlspecialchars($sale['store_address']); ?></div>
-                        <?php endif; ?>
                     </div>
                 </div>
 
-                <!-- 거래처 및 날짜 정보 -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <h3 class="text-lg font-medium text-gray-900 mb-3">TO :</h3>
-                        <div class="space-y-1">
-                            <div class="font-medium text-gray-900"><?php echo htmlspecialchars($sale['customer_name']); ?></div>
-                            <?php if (!empty($sale['customer_phone'])): ?>
-                                <div class="text-gray-700"><?php echo htmlspecialchars($sale['customer_phone']); ?></div>
-                            <?php endif; ?>
-                            <?php if (!empty($sale['customer_address'])): ?>
-                                <div class="text-gray-700"><?php echo htmlspecialchars($sale['customer_address']); ?></div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <div class="space-y-2">
-                            <div class="flex justify-between">
-                                <span class="font-medium">거래 날짜:</span>
-                                <span><?php echo date('Y년 m월 d일', strtotime($sale['sale_date'])); ?></span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="font-medium">판매자:</span>
-                                <span><?php echo htmlspecialchars($sale['user_name']); ?></span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="font-medium">판매번호:</span>
-                                <span>#<?php echo str_pad($sale['id'], 6, '0', STR_PAD_LEFT); ?></span>
-                            </div>
-                        </div>
-                    </div>
+                <!-- 거래처 및 날짜 정보 테이블 -->
+                <div class="mb-8">
+                    <table class="info-table w-full border border-gray-200 mb-4">
+                        <tbody>
+                            <tr>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">거래처</th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200 font-medium"><?php echo htmlspecialchars($sale['customer_name']); ?></td>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">거래일자</th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo date('Y년 m월 d일', strtotime($sale['sale_date'])); ?></td>
+                            </tr>
+                            <tr>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">전화번호</th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200"><?php echo htmlspecialchars($sale['customer_phone'] ?: '-'); ?></td>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">판매자</th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($sale['user_name']); ?></td>
+                            </tr>
+                            <tr>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">주소</th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-r border-gray-200"><?php echo htmlspecialchars($sale['customer_address'] ?: '-'); ?></td>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">판매번호</th>
+                                <td class="px-3 py-2 text-sm text-gray-900">#<?php echo str_pad($sale['id'], 6, '0', STR_PAD_LEFT); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 <!-- 상품 목록 테이블 -->
                 <div class="mb-8">
-                    <table class="min-w-full border border-gray-200">
+                    <table class="product-table min-w-full border border-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">SKU</th>
@@ -225,8 +214,8 @@ if (isset($_SESSION['flash'])) {
                                         <td class="px-4 py-3 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($item['name_en'] ?: '-'); ?></td>
                                         <td class="px-4 py-3 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($item['name_ko'] ?: '-'); ?></td>
                                         <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['quantity']); ?></td>
-                                        <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['unit_price']); ?>원</td>
-                                        <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium border-b border-gray-200"><?php echo number_format($item['total_price']); ?>원</td>
+                                        <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['unit_price']); ?></td>
+                                        <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium border-b border-gray-200"><?php echo number_format($item['total_price']); ?></td>
                                         <td class="px-4 py-3 text-sm text-gray-600 border-b border-gray-200"><?php echo htmlspecialchars($item['notes'] ?: '-'); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -235,7 +224,7 @@ if (isset($_SESSION['flash'])) {
                         <tfoot class="bg-gray-50">
                             <tr>
                                 <td colspan="5" class="px-4 py-3 text-right text-sm font-medium text-gray-900 border-t border-gray-200">총 합계:</td>
-                                <td class="px-4 py-3 text-right text-lg font-bold text-gray-900 border-t border-gray-200"><?php echo number_format($sale['final_amount']); ?>원</td>
+                                <td class="px-4 py-3 text-right text-lg font-bold text-gray-900 border-t border-gray-200"><?php echo number_format($sale['final_amount']); ?></td>
                                 <td class="px-4 py-3 border-t border-gray-200"></td>
                             </tr>
                         </tfoot>
@@ -251,6 +240,26 @@ if (isset($_SESSION['flash'])) {
                         </div>
                     </div>
                 <?php endif; ?>
+
+                <!-- 담당자 및 서명란 -->
+                <div class="mb-8 flex justify-end">
+                    <div class="w-full max-w-lg">
+                        <table class="payment-table w-full border border-gray-300">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300">담당자</th>
+                                    <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300">싸인</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="px-3 py-4 text-sm text-gray-900 text-center border-r border-gray-300"><?php echo htmlspecialchars($sale['user_name']); ?></td>
+                                    <td class="px-3 py-4 text-sm text-gray-900 text-center" style="height: 60px;"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
                 <!-- 푸터 -->
                 <div class="text-center text-xs text-gray-500 mt-8 border-t border-gray-200 pt-4">
@@ -275,6 +284,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <style>
 @media print {
+    /* A4 페이지 설정 */
+    @page {
+        size: A4;
+        margin: 0;
+        /* 브라우저 헤더/푸터 제거 */
+        @top-left { content: ""; }
+        @top-center { content: ""; }
+        @top-right { content: ""; }
+        @bottom-left { content: ""; }
+        @bottom-center { content: ""; }
+        @bottom-right { content: ""; }
+    }
+    
     body * {
         visibility: hidden;
     }
@@ -285,22 +307,96 @@ document.addEventListener('DOMContentLoaded', function() {
     
     #invoice-content {
         position: absolute;
-        left: 0;
+        left: 50%;
         top: 0;
-        width: 100%;
-        margin: 0;
-        padding: 20px;
+        width: 95%;
+        transform: translateX(-50%);
+        padding: 8px;
         box-shadow: none !important;
         border: none !important;
+        font-size: 11px !important;
+        line-height: 1.3 !important;
     }
     
-    .print\\:shadow-none {
-        box-shadow: none !important;
+    /* 제목 크기 조정 */
+    #invoice-content h1 {
+        font-size: 17px !important;
+        margin-bottom: 8px !important;
     }
     
-    .print\\:border-none {
-        border: none !important;
+    #invoice-content h3 {
+        font-size: 13px !important;
+        margin-bottom: 6px !important;
     }
+    
+    /* 테이블 최적화 */
+    #invoice-content table {
+        font-size: 10px !important;
+        margin-bottom: 10px !important;
+    }
+    
+    #invoice-content table th {
+        font-size: 9px !important;
+        padding: 3px 4px !important;
+        font-weight: 600 !important;
+    }
+    
+    #invoice-content table td {
+        font-size: 10px !important;
+        padding: 3px 4px !important;
+    }
+    
+    /* 총 합계 강조 */
+    #invoice-content tfoot td {
+        font-size: 11px !important;
+        font-weight: bold !important;
+    }
+    
+    /* 정보 테이블 최적화 - 클래스 기반 선택자 사용 */
+    .info-table {
+        margin-bottom: 8px !important;
+        font-size: 9px !important;
+        width: 100% !important;
+        table-layout: fixed !important;
+    }
+    
+    .info-table th {
+        background: #f8f9fa !important;
+        font-size: 8px !important;
+        padding: 2px 3px !important;
+        font-weight: 600 !important;
+        text-align: left !important;
+    }
+    
+    .info-table td {
+        font-size: 9px !important;
+        padding: 2px 3px !important;
+    }
+    
+    /* 정보 테이블 컬럼 너비 고정 */
+    .info-table th:nth-child(1),
+    .info-table td:nth-child(1) { width: 10% !important; } /* 거래처 */
+    .info-table th:nth-child(2),
+    .info-table td:nth-child(2) { width: 40% !important; } /* 거래처명 */
+    .info-table th:nth-child(3),
+    .info-table td:nth-child(3) { width: 10% !important; } /* 거래일자 */
+    .info-table th:nth-child(4),
+    .info-table td:nth-child(4) { width: 40% !important; } /* 날짜 */
+    
+    /* 푸터 */
+    #invoice-content .text-center.text-xs {
+        font-size: 9px !important;
+        margin-top: 12px !important;
+        padding-top: 8px !important;
+    }
+    
+    /* 그리드 레이아웃 최적화 */
+    #invoice-content .grid {
+        gap: 10px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    
     
     /* 페이지 나눔 방지 */
     table {
@@ -311,6 +407,88 @@ document.addEventListener('DOMContentLoaded', function() {
         page-break-inside: avoid;
         page-break-after: auto;
     }
+    
+    /* 담당자 및 서명란 테이블 최적화 */
+    .payment-table {
+        font-size: 9px !important;
+        margin-bottom: 8px !important;
+        width: 100% !important;
+        max-width: 300px !important;
+        float: right !important;
+        table-layout: fixed !important;
+    }
+    
+    .payment-table th {
+        background: #f8f9fa !important;
+        font-size: 8px !important;
+        padding: 2px 3px !important;
+        font-weight: 600 !important;
+        text-align: center !important;
+        width: 50% !important;
+    }
+    
+    .payment-table td {
+        font-size: 8px !important;
+        padding: 2px 3px !important;
+        text-align: center !important;
+        height: 35px !important;
+        width: 50% !important;
+    }
+
+    /* 상품 테이블 컬럼 너비 최적화 - 클래스 기반 선택자 사용 */
+    .product-table {
+        table-layout: fixed !important;
+        width: 100% !important;
+    }
+    
+    .product-table th:nth-child(1), 
+    .product-table td:nth-child(1) { 
+        width: 14% !important; 
+        max-width: 14% !important;
+        min-width: 14% !important;
+    } /* SKU */
+    
+    .product-table th:nth-child(2), 
+    .product-table td:nth-child(2) { 
+        width: 25% !important; 
+        max-width: 25% !important;
+        min-width: 25% !important;
+    } /* 상품명(영문) */
+    
+    .product-table th:nth-child(3), 
+    .product-table td:nth-child(3) { 
+        width: 25% !important; 
+        max-width: 25% !important;
+        min-width: 25% !important;
+    } /* 상품명(한글) */
+    
+    .product-table th:nth-child(4), 
+    .product-table td:nth-child(4) { 
+        width: 9% !important; 
+        max-width: 9% !important;
+        min-width: 9% !important;
+    } /* 수량 */
+    
+    .product-table th:nth-child(5), 
+    .product-table td:nth-child(5) { 
+        width: 9% !important; 
+        max-width: 9% !important;
+        min-width: 9% !important;
+    } /* 판매가 */
+    
+    .product-table th:nth-child(6), 
+    .product-table td:nth-child(6) { 
+        width: 9% !important; 
+        max-width: 9% !important;
+        min-width: 9% !important;
+    } /* 합계금액 */
+    
+    .product-table th:nth-child(7), 
+    .product-table td:nth-child(7) { 
+        width: 9% !important; 
+        max-width: 9% !important;
+        min-width: 9% !important;
+    } /* 비고 */
 }
 </style>
 

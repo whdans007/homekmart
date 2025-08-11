@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     END,
                     COALESCE(wp.wholesale_name_en, p.name_en) ASC, 
                     COALESCE(wp.wholesale_name_ko, p.name_ko) ASC
-                LIMIT ?
+                LIMIT " . (int)$limit . "
             ";
             
             $params = [];
@@ -88,8 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $search_query, $search_query, $search_query, // 도매 상품 검색
                 $search_query, $search_query, // ORDER BY SKU 검색
                 $search_query, $search_query, // ORDER BY 영어명 검색
-                $search_query, $search_query, // ORDER BY 한국어명 검색
-                $limit
+                $search_query, $search_query  // ORDER BY 한국어명 검색
             ]);
         } else {
             // 기존 스키마 사용 (하위 호환성)
@@ -120,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ELSE 4 
                     END,
                     p.name_en ASC, p.name_ko ASC
-                LIMIT ?
+                LIMIT " . (int)$limit . "
             ";
             
             $params = [];
@@ -129,8 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $params = array_merge($params, [
                 $search_query, $search_query, $search_query, // WHERE 조건
-                $search_query, $search_query, $search_query, // ORDER BY 조건
-                $limit
+                $search_query, $search_query, $search_query  // ORDER BY 조건
             ]);
         }
         
