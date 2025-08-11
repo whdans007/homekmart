@@ -235,7 +235,7 @@ if (isset($_SESSION['flash'])) {
                         
                         <!-- 선택된 상품 정보 표시 -->
                         <div id="selected_product" class="mt-3 p-3 bg-gray-50 rounded-md hidden">
-                            <div class="flex items-center justify-between">
+                            <div class="flex items-center justify-between mb-3">
                                 <div>
                                     <div class="font-medium text-gray-900" id="selected_product_name"></div>
                                     <div class="text-sm text-gray-600" id="selected_product_info"></div>
@@ -243,6 +243,20 @@ if (isset($_SESSION['flash'])) {
                                 <button type="button" id="clear_selection" class="text-red-500 hover:text-red-700">
                                     <i class="fas fa-times"></i>
                                 </button>
+                            </div>
+                            
+                            <!-- 구매이력 표시 영역 -->
+                            <div id="purchase_history_section" class="border-t border-gray-200 pt-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-sm font-medium text-gray-700">최근 구매이력</h4>
+                                    <div id="purchase_history_loading" class="text-xs text-gray-500 hidden">
+                                        <i class="fas fa-spinner fa-spin mr-1"></i>
+                                        로딩중...
+                                    </div>
+                                </div>
+                                <div id="purchase_history_content">
+                                    <!-- 구매이력 테이블이 여기에 동적으로 추가됩니다 -->
+                                </div>
                             </div>
                         </div>
                         
@@ -365,6 +379,55 @@ if (isset($_SESSION['flash'])) {
                     </div>
                     <?php endif; ?>
 
+                    <!-- 마진율 설정 -->
+                    <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <h3 class="text-lg font-medium text-green-900 mb-4">
+                            <i class="fas fa-calculator mr-2"></i>
+                            도매가 계산 도구
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            <!-- 마진율 입력 -->
+                            <div>
+                                <label for="margin_rate" class="block text-sm font-medium text-gray-700">
+                                    마진율 (%)
+                                </label>
+                                <input type="number" id="margin_rate" step="0.1" min="0" max="100" value="15.0"
+                                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                       placeholder="15.0">
+                            </div>
+                            
+                            <!-- 선택된 매입가 표시 -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">
+                                    선택된 매입가 (박스)
+                                </label>
+                                <div id="selected_cost_price" class="mt-1 p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-900 font-medium">
+                                    매입가를 선택하세요
+                                </div>
+                            </div>
+                            
+                            <!-- 계산된 도매가 미리보기 -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">
+                                    계산된 도매가
+                                </label>
+                                <div id="calculated_wholesale_price" class="mt-1 p-2 bg-blue-100 border border-blue-300 rounded-md text-blue-900 font-medium">
+                                    -
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 계산 공식 표시 -->
+                        <div class="mt-3 text-xs text-gray-600">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            계산 공식: 도매가 = 박스 매입가 × (1 + 마진율/100)
+                            <br>
+                            <i class="fas fa-exclamation-triangle mr-1 text-yellow-500"></i>
+                            매입가는 박스 단가이며, 개당단가는 참고용입니다.
+                        </div>
+                    </div>
+
                     <!-- 도매가 -->
                     <div>
                         <label for="wholesale_price" class="block text-sm font-medium text-gray-700">
@@ -373,7 +436,8 @@ if (isset($_SESSION['flash'])) {
                         <input type="number" name="wholesale_price" id="wholesale_price" step="0.01" min="0" required
                                value="<?php echo htmlspecialchars($_POST['wholesale_price'] ?? ''); ?>"
                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                               placeholder="도매가를 입력하세요">
+                               placeholder="도매가를 입력하세요 (위 계산 도구 사용 가능)">
+                        <p class="mt-1 text-sm text-gray-500">위의 계산 도구를 사용하거나 직접 입력하세요</p>
                     </div>
 
                     <!-- 최소 주문수량 -->
@@ -411,8 +475,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedProduct = document.getElementById('selected_product');
     const productId = document.getElementById('product_id');
     const clearSelection = document.getElementById('clear_selection');
+    const marginRateInput = document.getElementById('margin_rate');
+    const selectedCostPriceDiv = document.getElementById('selected_cost_price');
+    const calculatedWholesalePriceDiv = document.getElementById('calculated_wholesale_price');
+    const wholesalePriceInput = document.getElementById('wholesale_price');
     
     let searchTimeout;
+    let currentCostPrice = 0;
     
     // 상품 검색
     productSearch.addEventListener('input', function() {
@@ -442,6 +511,24 @@ document.addEventListener('DOMContentLoaded', function() {
         productId.value = '';
         selectedProduct.classList.add('hidden');
         productSearch.value = '';
+        resetPriceCalculation();
+    });
+    
+    // 마진율 변경 시 도매가 재계산
+    marginRateInput.addEventListener('input', function() {
+        validateAndCalculateWholesalePrice();
+    });
+    
+    // 도매가 수동 입력 시 계산 연동 해제
+    wholesalePriceInput.addEventListener('input', function() {
+        // 사용자가 직접 입력한 경우 계산 결과 표시를 업데이트하지 않음
+        if (this.value && currentCostPrice > 0) {
+            const manualPrice = parseFloat(this.value);
+            if (manualPrice > 0) {
+                const impliedMargin = ((manualPrice / currentCostPrice - 1) * 100).toFixed(1);
+                calculatedWholesalePriceDiv.innerHTML = `수동 입력됨<br><small class="text-xs">(역산 마진: ${impliedMargin}%)</small>`;
+            }
+        }
     });
     
     function searchProducts(query) {
@@ -485,7 +572,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="font-medium text-gray-900">${product.name_en || product.name_ko || 'N/A'}</div>
                     <div class="text-sm text-gray-600">${product.name_ko && product.name_en ? product.name_ko : ''}</div>
                     <div class="text-xs text-gray-500 mt-1">
-                        SKU: ${product.sku} | 가격: ${Number(product.selling_price || 0).toLocaleString()}원
+                        SKU: ${product.sku} | 박스당: ${Number(product.pieces_per_box || 1)}개 | 원가: ${Number(product.cost_price || 0).toLocaleString()}원 | 판매가: ${Number(product.selling_price || 0).toLocaleString()}원
                     </div>
                 </div>
             `;
@@ -511,7 +598,11 @@ document.addEventListener('DOMContentLoaded', function() {
         productId.value = id;
         
         document.getElementById('selected_product_name').textContent = nameEn || nameKo || 'N/A';
-        document.getElementById('selected_product_info').textContent = `SKU: ${sku}${nameKo && nameEn ? ' | ' + nameKo : ''}`;
+        // 원가, 판매가, 박스포장 정보도 포함하여 표시
+        const piecesPerBox = item.querySelector('.text-xs').textContent.match(/박스당: ([0-9,]+)개/)?.[1] || '1';
+        const costPrice = item.querySelector('.text-xs').textContent.match(/원가: ([0-9,]+)원/)?.[1] || '0';
+        const sellingPrice = item.querySelector('.text-xs').textContent.match(/판매가: ([0-9,]+)원/)?.[1] || '0';
+        document.getElementById('selected_product_info').textContent = `SKU: ${sku}${nameKo && nameEn ? ' | ' + nameKo : ''} | 박스당: ${piecesPerBox}개 | 원가: ${costPrice}원 | 판매가: ${sellingPrice}원`;
         
         // 도매용 필드들을 기본 상품 정보로 자동 입력 (사용자가 수정 가능)
         if (!document.getElementById('wholesale_name_ko').value && nameKo) {
@@ -527,6 +618,196 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedProduct.classList.remove('hidden');
         searchResults.classList.add('hidden');
         productSearch.value = nameEn || nameKo || sku;
+        
+        // 구매이력 조회
+        loadPurchaseHistory(id);
+    }
+    
+    // 구매이력 조회 함수
+    function loadPurchaseHistory(productId) {
+        const loadingElement = document.getElementById('purchase_history_loading');
+        const contentElement = document.getElementById('purchase_history_content');
+        
+        loadingElement.classList.remove('hidden');
+        
+        // 점포 ID 가져오기 (super_admin인 경우 선택된 점포, 아닌 경우 현재 점포)
+        const storeIdElement = document.getElementById('store_id');
+        const storeId = storeIdElement ? storeIdElement.value : '';
+        
+        const url = `ajax_get_purchase_history.php?product_id=${productId}${storeId ? '&store_id=' + storeId : ''}`;
+        
+        fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            loadingElement.classList.add('hidden');
+            
+            if (data.success && data.data && data.data.length > 0) {
+                displayPurchaseHistory(data.data);
+            } else {
+                contentElement.innerHTML = `
+                    <div class="text-center py-4 text-gray-500">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        구매이력이 없습니다.
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            loadingElement.classList.add('hidden');
+            contentElement.innerHTML = `
+                <div class="text-center py-4 text-red-500">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    구매이력 조회 중 오류가 발생했습니다.
+                </div>
+            `;
+            console.error('구매이력 조회 오류:', error);
+        });
+    }
+    
+    // 구매이력 표시 함수
+    function displayPurchaseHistory(historyData) {
+        const contentElement = document.getElementById('purchase_history_content');
+        
+        let html = `
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">구매일자</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">공급업체</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">매입가(박스)</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">개당단가</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">수량</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">타입</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">사용</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+        `;
+        
+        historyData.forEach((item, index) => {
+            html += `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-3 py-2 whitespace-nowrap text-gray-900">${item.purchase_date_formatted}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-gray-900">${item.supplier_name}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-900 font-medium">${Number(item.unit_price).toLocaleString()}원</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-500 text-xs">${Number(item.unit_cost_per_piece).toLocaleString()}원</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-center text-gray-900">${item.quantity}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-center text-gray-900">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${item.purchase_type === 'box' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}">
+                            ${item.purchase_type === 'box' ? '박스' : '낱개'}
+                        </span>
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap text-center">
+                        <button type="button" 
+                                class="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 use-price-btn"
+                                data-cost-price="${item.unit_price}"
+                                data-supplier="${item.supplier_name}"
+                                data-date="${item.purchase_date_formatted}">
+                            사용
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        contentElement.innerHTML = html;
+        
+        // 사용 버튼 이벤트 바인딩
+        bindUsePriceButtons();
+    }
+    
+    // 가격 계산 초기화
+    function resetPriceCalculation() {
+        currentCostPrice = 0;
+        selectedCostPriceDiv.textContent = '매입가를 선택하세요';
+        calculatedWholesalePriceDiv.textContent = '-';
+        wholesalePriceInput.value = '';
+    }
+    
+    // 마진율 검증 및 도매가 계산
+    function validateAndCalculateWholesalePrice() {
+        const marginRate = parseFloat(marginRateInput.value);
+        
+        // 마진율 검증
+        if (isNaN(marginRate) || marginRate < 0 || marginRate > 100) {
+            marginRateInput.classList.add('border-red-500');
+            calculatedWholesalePriceDiv.innerHTML = '<span class="text-red-600">잘못된 마진율</span>';
+            return;
+        } else {
+            marginRateInput.classList.remove('border-red-500');
+        }
+        
+        // 도매가 계산
+        if (currentCostPrice > 0) {
+            calculateWholesalePrice(currentCostPrice, marginRate);
+        }
+    }
+    
+    // 도매가 계산 함수
+    function calculateWholesalePrice(costPrice, marginRate) {
+        const wholesalePrice = Math.round(costPrice * (1 + marginRate / 100));
+        
+        calculatedWholesalePriceDiv.innerHTML = `
+            <span class="font-bold">${wholesalePrice.toLocaleString()}원</span>
+            <br><small class="text-xs">마진 ${marginRate}% 적용</small>
+        `;
+        
+        return wholesalePrice;
+    }
+    
+    // 매입가 선택 함수
+    function selectCostPrice(costPrice, supplier, date) {
+        currentCostPrice = parseFloat(costPrice);
+        
+        selectedCostPriceDiv.innerHTML = `
+            <span class="font-bold">${Number(costPrice).toLocaleString()}원</span>
+            <br><small class="text-xs">${supplier} (${date})</small>
+        `;
+        
+        // 마진율 계산 및 표시
+        const marginRate = parseFloat(marginRateInput.value);
+        if (!isNaN(marginRate)) {
+            const wholesalePrice = calculateWholesalePrice(currentCostPrice, marginRate);
+            
+            // 계산된 도매가를 입력 필드에도 적용
+            wholesalePriceInput.value = wholesalePrice;
+        }
+    }
+    
+    // 사용 버튼 이벤트 바인딩 함수
+    function bindUsePriceButtons() {
+        document.querySelectorAll('.use-price-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const costPrice = this.dataset.costPrice;
+                const supplier = this.dataset.supplier;
+                const date = this.dataset.date;
+                
+                selectCostPrice(costPrice, supplier, date);
+                
+                // 선택된 행 하이라이트
+                document.querySelectorAll('.use-price-btn').forEach(btn => {
+                    btn.closest('tr').classList.remove('bg-primary-50', 'border-primary-200');
+                });
+                this.closest('tr').classList.add('bg-primary-50', 'border-primary-200');
+                
+                // 버튼 상태 변경
+                document.querySelectorAll('.use-price-btn').forEach(btn => {
+                    btn.textContent = '사용';
+                    btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    btn.classList.add('bg-primary-600', 'hover:bg-primary-700');
+                });
+                this.textContent = '적용됨';
+                this.classList.remove('bg-primary-600', 'hover:bg-primary-700');
+                this.classList.add('bg-green-600', 'hover:bg-green-700');
+            });
+        });
     }
 });
 </script>

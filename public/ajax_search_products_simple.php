@@ -43,7 +43,9 @@ try {
             p.sku,
             p.name_ko,
             p.name_en,
-            p.selling_price
+            p.selling_price,
+            p.cost_price,
+            p.pieces_per_box
         FROM products p
         WHERE p.is_active = 1 
         AND (p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ?)

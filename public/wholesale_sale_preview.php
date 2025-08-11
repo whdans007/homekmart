@@ -144,9 +144,13 @@ if (isset($_SESSION['flash'])) {
                 </a>
             </div>
         <?php else: ?>
-            <!-- 인쇄 버튼 -->
+            <!-- 버튼들 -->
             <div class="mb-6 text-right">
-                <button id="print-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <a href="wholesale_sales.php?edit=<?php echo $sale_id; ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    <i class="fas fa-edit mr-2"></i>
+                    수정하기
+                </a>
+                <button id="print-btn" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <i class="fas fa-print mr-2"></i>
                     인쇄하기
                 </button>
