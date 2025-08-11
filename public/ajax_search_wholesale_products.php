@@ -17,9 +17,11 @@ $response = ['success' => false, 'products' => []];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $query = trim($_POST['q'] ?? '');
-    $limit = min(max(1, (int)($_POST['limit'] ?? 10)), 50); // 1-50 범위로 제한
+    $limit = min(max(1, (int)($_POST['limit'] ?? 10)), 100); // 1-100 범위로 제한
+    $show_all = $_POST['show_all'] ?? '';
     
-    if (strlen($query) < 2) {
+    // 전체 목록 요청이 아니고 검색어가 너무 짧으면 종료
+    if (!$show_all && strlen($query) < 2) {
         echo json_encode($response);
         exit;
     }
@@ -44,92 +46,155 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($has_new_columns) {
             // 새로운 스키마 사용
-            $sql = "
-                SELECT DISTINCT
-                    wp.id as wholesale_product_id,
-                    p.id,
-                    p.sku,
-                    p.name_ko,
-                    p.name_en,
-                    COALESCE(wp.wholesale_name_ko, p.name_ko) as display_name_ko,
-                    COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
-                    wp.wholesale_skus,
-                    wp.wholesale_price,
-                    wp.min_quantity,
-                    wp.wholesale_description
-                FROM wholesale_products wp
-                INNER JOIN products p ON p.id = wp.product_id 
-                WHERE wp.is_active = 1 
-                    AND p.is_active = 1 
-                    " . ($store_id ? "AND wp.store_id = ?" : "") . "
-                    AND (
-                        p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ? 
-                        OR wp.wholesale_name_ko LIKE ? OR wp.wholesale_name_en LIKE ? 
-                        OR wp.wholesale_skus LIKE ?
-                    )
-                ORDER BY 
-                    CASE 
-                        WHEN wp.wholesale_skus LIKE ? OR p.sku LIKE ? THEN 1 
-                        WHEN wp.wholesale_name_en LIKE ? OR p.name_en LIKE ? THEN 2 
-                        WHEN wp.wholesale_name_ko LIKE ? OR p.name_ko LIKE ? THEN 3 
-                        ELSE 4 
-                    END,
-                    COALESCE(wp.wholesale_name_en, p.name_en) ASC, 
-                    COALESCE(wp.wholesale_name_ko, p.name_ko) ASC
-                LIMIT " . (int)$limit . "
-            ";
-            
-            $params = [];
-            if ($store_id) {
-                $params[] = $store_id;
+            if ($show_all && empty($query)) {
+                // 전체 목록 요청
+                $sql = "
+                    SELECT DISTINCT
+                        wp.id as wholesale_product_id,
+                        p.id,
+                        p.sku,
+                        p.name_ko,
+                        p.name_en,
+                        COALESCE(wp.wholesale_name_ko, p.name_ko) as display_name_ko,
+                        COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
+                        wp.wholesale_skus,
+                        wp.wholesale_price,
+                        wp.min_quantity,
+                        wp.wholesale_description
+                    FROM wholesale_products wp
+                    INNER JOIN products p ON p.id = wp.product_id 
+                    WHERE wp.is_active = 1 
+                        AND p.is_active = 1 
+                        " . ($store_id ? "AND wp.store_id = ?" : "") . "
+                    ORDER BY COALESCE(wp.wholesale_name_en, p.name_en) ASC, 
+                             COALESCE(wp.wholesale_name_ko, p.name_ko) ASC
+                    LIMIT " . (int)$limit . "
+                ";
+                
+                $params = [];
+                if ($store_id) {
+                    $params[] = $store_id;
+                }
+            } else {
+                // 검색 요청
+                $sql = "
+                    SELECT DISTINCT
+                        wp.id as wholesale_product_id,
+                        p.id,
+                        p.sku,
+                        p.name_ko,
+                        p.name_en,
+                        COALESCE(wp.wholesale_name_ko, p.name_ko) as display_name_ko,
+                        COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
+                        wp.wholesale_skus,
+                        wp.wholesale_price,
+                        wp.min_quantity,
+                        wp.wholesale_description
+                    FROM wholesale_products wp
+                    INNER JOIN products p ON p.id = wp.product_id 
+                    WHERE wp.is_active = 1 
+                        AND p.is_active = 1 
+                        " . ($store_id ? "AND wp.store_id = ?" : "") . "
+                        AND (
+                            p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ? 
+                            OR wp.wholesale_name_ko LIKE ? OR wp.wholesale_name_en LIKE ? 
+                            OR wp.wholesale_skus LIKE ?
+                        )
+                    ORDER BY 
+                        CASE 
+                            WHEN wp.wholesale_skus LIKE ? OR p.sku LIKE ? THEN 1 
+                            WHEN wp.wholesale_name_en LIKE ? OR p.name_en LIKE ? THEN 2 
+                            WHEN wp.wholesale_name_ko LIKE ? OR p.name_ko LIKE ? THEN 3 
+                            ELSE 4 
+                        END,
+                        COALESCE(wp.wholesale_name_en, p.name_en) ASC, 
+                        COALESCE(wp.wholesale_name_ko, p.name_ko) ASC
+                    LIMIT " . (int)$limit . "
+                ";
+                
+                $params = [];
+                if ($store_id) {
+                    $params[] = $store_id;
+                }
+                $params = array_merge($params, [
+                    $search_query, $search_query, $search_query, // 기본 상품 검색
+                    $search_query, $search_query, $search_query, // 도매 상품 검색
+                    $search_query, $search_query, // ORDER BY SKU 검색
+                    $search_query, $search_query, // ORDER BY 영어명 검색
+                    $search_query, $search_query  // ORDER BY 한국어명 검색
+                ]);
             }
-            $params = array_merge($params, [
-                $search_query, $search_query, $search_query, // 기본 상품 검색
-                $search_query, $search_query, $search_query, // 도매 상품 검색
-                $search_query, $search_query, // ORDER BY SKU 검색
-                $search_query, $search_query, // ORDER BY 영어명 검색
-                $search_query, $search_query  // ORDER BY 한국어명 검색
-            ]);
         } else {
             // 기존 스키마 사용 (하위 호환성)
-            $sql = "
-                SELECT DISTINCT
-                    wp.id as wholesale_product_id,
-                    p.id,
-                    p.sku,
-                    p.name_ko,
-                    p.name_en,
-                    p.name_ko as display_name_ko,
-                    p.name_en as display_name_en,
-                    JSON_ARRAY(p.sku) as wholesale_skus,
-                    wp.wholesale_price,
-                    wp.min_quantity,
-                    NULL as wholesale_description
-                FROM wholesale_products wp
-                INNER JOIN products p ON p.id = wp.product_id 
-                WHERE wp.is_active = 1 
-                    AND p.is_active = 1 
-                    " . ($store_id ? "AND wp.store_id = ?" : "") . "
-                    AND (p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ?)
-                ORDER BY 
-                    CASE 
-                        WHEN p.sku LIKE ? THEN 1 
-                        WHEN p.name_en LIKE ? THEN 2 
-                        WHEN p.name_ko LIKE ? THEN 3 
-                        ELSE 4 
-                    END,
-                    p.name_en ASC, p.name_ko ASC
-                LIMIT " . (int)$limit . "
-            ";
-            
-            $params = [];
-            if ($store_id) {
-                $params[] = $store_id;
+            if ($show_all && empty($query)) {
+                // 전체 목록 요청
+                $sql = "
+                    SELECT DISTINCT
+                        wp.id as wholesale_product_id,
+                        p.id,
+                        p.sku,
+                        p.name_ko,
+                        p.name_en,
+                        p.name_ko as display_name_ko,
+                        p.name_en as display_name_en,
+                        JSON_ARRAY(p.sku) as wholesale_skus,
+                        wp.wholesale_price,
+                        wp.min_quantity,
+                        NULL as wholesale_description
+                    FROM wholesale_products wp
+                    INNER JOIN products p ON p.id = wp.product_id 
+                    WHERE wp.is_active = 1 
+                        AND p.is_active = 1 
+                        " . ($store_id ? "AND wp.store_id = ?" : "") . "
+                    ORDER BY p.name_en ASC, p.name_ko ASC
+                    LIMIT " . (int)$limit . "
+                ";
+                
+                $params = [];
+                if ($store_id) {
+                    $params[] = $store_id;
+                }
+            } else {
+                // 검색 요청
+                $sql = "
+                    SELECT DISTINCT
+                        wp.id as wholesale_product_id,
+                        p.id,
+                        p.sku,
+                        p.name_ko,
+                        p.name_en,
+                        p.name_ko as display_name_ko,
+                        p.name_en as display_name_en,
+                        JSON_ARRAY(p.sku) as wholesale_skus,
+                        wp.wholesale_price,
+                        wp.min_quantity,
+                        NULL as wholesale_description
+                    FROM wholesale_products wp
+                    INNER JOIN products p ON p.id = wp.product_id 
+                    WHERE wp.is_active = 1 
+                        AND p.is_active = 1 
+                        " . ($store_id ? "AND wp.store_id = ?" : "") . "
+                        AND (p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ?)
+                    ORDER BY 
+                        CASE 
+                            WHEN p.sku LIKE ? THEN 1 
+                            WHEN p.name_en LIKE ? THEN 2 
+                            WHEN p.name_ko LIKE ? THEN 3 
+                            ELSE 4 
+                        END,
+                        p.name_en ASC, p.name_ko ASC
+                    LIMIT " . (int)$limit . "
+                ";
+                
+                $params = [];
+                if ($store_id) {
+                    $params[] = $store_id;
+                }
+                $params = array_merge($params, [
+                    $search_query, $search_query, $search_query, // WHERE 조건
+                    $search_query, $search_query, $search_query  // ORDER BY 조건
+                ]);
             }
-            $params = array_merge($params, [
-                $search_query, $search_query, $search_query, // WHERE 조건
-                $search_query, $search_query, $search_query  // ORDER BY 조건
-            ]);
         }
         
         $stmt = $pdo->prepare($sql);

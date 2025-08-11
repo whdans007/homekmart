@@ -16,18 +16,20 @@ if (!has_permission('wholesale_management')) {
 }
 
 $search_term = $_GET['q'] ?? $_POST['q'] ?? '';
-$limit = min(20, (int)($_GET['limit'] ?? $_POST['limit'] ?? 10));
+$limit = min(100, (int)($_GET['limit'] ?? $_POST['limit'] ?? 10));
+$show_all = $_GET['show_all'] ?? $_POST['show_all'] ?? '';
 
 // 디버깅을 위한 로깅
-error_log("거래처 검색 요청 - 검색어: '$search_term', limit: $limit");
+error_log("거래처 검색 요청 - 검색어: '$search_term', limit: $limit, show_all: $show_all");
 
-if (empty($search_term)) {
+// 전체 목록 요청이거나 검색어가 있는 경우만 처리
+if (empty($search_term) && !$show_all) {
     error_log("거래처 검색 실패 - 검색어 없음");
     echo json_encode(['success' => false, 'message' => '검색어를 입력해주세요.']);
     exit;
 }
 
-if (strlen(trim($search_term)) < 1) {
+if (!$show_all && strlen(trim($search_term)) < 1) {
     error_log("거래처 검색 실패 - 검색어 너무 짧음");
     echo json_encode(['success' => false, 'message' => '검색어는 최소 1자 이상 입력해주세요.']);
     exit;
@@ -43,20 +45,35 @@ try {
     $total_customers = $count_stmt->fetchColumn();
     error_log("전체 활성 거래처 수: $total_customers");
     
-    // LIMIT을 직접 쿼리에 포함 (MariaDB 호환성)
-    $sql = "
-        SELECT id, name, phone, address
-        FROM wholesale_customers 
-        WHERE is_active = 1 
-        AND (name LIKE ? OR phone LIKE ? OR address LIKE ?)
-        ORDER BY name ASC
-        LIMIT " . (int)$limit;
-    
-    $stmt = $pdo->prepare($sql);
-    $search_pattern = "%{$search_term}%";
-    error_log("검색 패턴: '$search_pattern', SQL: $sql");
-    
-    $stmt->execute([$search_pattern, $search_pattern, $search_pattern]);
+    // 전체 목록 요청인지 검색인지에 따라 쿼리 구성
+    if ($show_all && empty($search_term)) {
+        // 전체 목록 요청
+        $sql = "
+            SELECT id, name, phone, address
+            FROM wholesale_customers 
+            WHERE is_active = 1 
+            ORDER BY name ASC
+            LIMIT " . (int)$limit;
+        
+        $stmt = $pdo->prepare($sql);
+        error_log("전체 목록 조회 SQL: $sql");
+        $stmt->execute();
+    } else {
+        // 검색 요청
+        $sql = "
+            SELECT id, name, phone, address
+            FROM wholesale_customers 
+            WHERE is_active = 1 
+            AND (name LIKE ? OR phone LIKE ? OR address LIKE ?)
+            ORDER BY name ASC
+            LIMIT " . (int)$limit;
+        
+        $stmt = $pdo->prepare($sql);
+        $search_pattern = "%{$search_term}%";
+        error_log("검색 패턴: '$search_pattern', SQL: $sql");
+        
+        $stmt->execute([$search_pattern, $search_pattern, $search_pattern]);
+    }
     $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     error_log("검색 결과 수: " . count($customers));
