@@ -626,10 +626,8 @@ document.addEventListener('DOMContentLoaded', function () {
             selectedSupplierDiv.classList.remove('hidden');
             supplierSearchResults.classList.add('hidden');
             
-            // 상품 검색 활성화
-            searchInput.disabled = false;
-            searchInput.placeholder = '상품명 또는 바코드를 입력하세요...';
-            searchInput.classList.remove('disabled:bg-gray-100', 'disabled:text-gray-500');
+            // 검색 필드 상태 업데이트
+            updateSearchFieldState();
             searchInput.focus();
         }
 
@@ -641,12 +639,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 supplierSearch.style.display = 'block';
                 selectedSupplierDiv.classList.add('hidden');
                 
-                // 상품 검색 비활성화
-                searchInput.disabled = true;
-                searchInput.placeholder = '거래처를 먼저 선택하세요...';
-                searchInput.classList.add('disabled:bg-gray-100', 'disabled:text-gray-500');
-                searchInput.value = '';
-                searchResults.classList.add('hidden');
+                // 검색 필드 상태 업데이트
+                updateSearchFieldState();
                 
                 supplierSearch.focus();
             });
@@ -662,23 +656,38 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // 검색 필드 활성화 상태 확인 및 업데이트 함수
+    function updateSearchFieldState() {
+        const supplierIdInput = document.getElementById('supplier_id');
+        const hasSupplier = supplierIdInput && supplierIdInput.value;
+        
+        console.log('검색 필드 상태 업데이트:', hasSupplier ? '활성화' : '비활성화');  // 디버깅용
+        
+        if (hasSupplier) {
+            searchInput.disabled = false;
+            searchInput.placeholder = '상품명 또는 바코드를 입력하세요...';
+            searchInput.classList.remove('disabled:bg-gray-100', 'disabled:text-gray-500');
+        } else {
+            searchInput.disabled = true;
+            searchInput.placeholder = '거래처를 먼저 선택하세요...';
+            searchInput.classList.add('disabled:bg-gray-100', 'disabled:text-gray-500');
+            searchInput.value = '';
+            searchResults.classList.add('hidden');
+        }
+    }
+
     // 기존 거래처 선택 처리 (수정 모드가 아닌 경우 - 하위 호환성)
     if (supplierSelect) {
         supplierSelect.addEventListener('change', function() {
+            updateSearchFieldState();
             if (this.value) {
-                searchInput.disabled = false;
-                searchInput.placeholder = '상품명 또는 바코드를 입력하세요...';
-                searchInput.classList.remove('disabled:bg-gray-100', 'disabled:text-gray-500');
                 searchInput.focus();
-            } else {
-                searchInput.disabled = true;
-                searchInput.placeholder = '거래처를 먼저 선택하세요...';
-                searchInput.classList.add('disabled:bg-gray-100', 'disabled:text-gray-500');
-                searchInput.value = '';
-                searchResults.classList.add('hidden');
             }
         });
     }
+
+    // 페이지 로드 시 검색 필드 상태 초기화
+    updateSearchFieldState();
 
     // 전역 변수로 현재 검색 결과 저장
     let currentSearchResults = [];
@@ -757,7 +766,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // 거래처가 선택되지 않았으면 검색 차단
-        const supplierId = supplierSelect ? supplierSelect.value : document.getElementById('supplier_id').value;
+        const supplierIdInput = document.getElementById('supplier_id');
+        const supplierId = supplierIdInput ? supplierIdInput.value : '';
+        
+        console.log('검색 시 거래처 ID 확인:', supplierId);  // 디버깅용
+        
         if (!supplierId) {
             alert('거래처를 먼저 선택해주세요.');
             this.blur();
@@ -785,11 +798,23 @@ document.addEventListener('DOMContentLoaded', function () {
             if (keyboardNavigationActive && searchTerm === lastSearchTerm) {
                 return;
             }
+            
+            console.log('상품 검색 시작:', searchTerm);  // 디버깅용
+            
             fetch(`ajax_search_products.php?term=${encodeURIComponent(searchTerm)}`)
-                .then(response => response.json())
+                .then(response => {
+                    console.log('검색 응답 상태:', response.status);  // 디버깅용
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('검색 결과:', data);  // 디버깅용
+                    
                     if (data.error) {
-                        console.error(data.error);
+                        console.error('검색 오류:', data.error);
+                        alert('상품 검색 중 오류가 발생했습니다: ' + data.error);
                         currentSearchResults = [];
                         return;
                     }
@@ -868,6 +893,20 @@ document.addEventListener('DOMContentLoaded', function () {
                             currentSearchResults = [];
                         }
                     }
+                })
+                .catch(error => {
+                    console.error('상품 검색 요청 실패:', error);
+                    alert('상품 검색 중 네트워크 오류가 발생했습니다. 다시 시도해주세요.');
+                    currentSearchResults = [];
+                    searchResults.innerHTML = `
+                        <div class="p-3 bg-red-50 border-l-4 border-red-500">
+                            <div class="text-red-600 text-sm">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>
+                                검색 중 오류가 발생했습니다. 네트워크 연결을 확인하고 다시 시도해주세요.
+                            </div>
+                        </div>
+                    `;
+                    searchResults.classList.remove('hidden');
                 });
         }, 300); // 300ms 디바운스
     });

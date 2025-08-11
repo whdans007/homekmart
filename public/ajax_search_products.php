@@ -1,29 +1,42 @@
 <?php
 // 오류 로깅 활성화
 error_reporting(E_ALL);
-ini_set('display_errors', 0);
+ini_set('display_errors', 1);
 ini_set('log_errors', 1);
+
+// 디버깅을 위한 로그
+error_log("ajax_search_products.php 시작 - " . date('Y-m-d H:i:s'));
 
 header('Content-Type: application/json');
 
 try {
+    error_log("파일 인클루드 시작");
     require_once __DIR__ . '/../config/db_config.php';
+    error_log("db_config.php 로드 완료");
     require_once __DIR__ . '/../lib/session_helper.php';
+    error_log("session_helper.php 로드 완료");
     require_once __DIR__ . '/../lib/permission_helper.php';
+    error_log("permission_helper.php 로드 완료");
 } catch (Exception $e) {
+    error_log("파일 인클루드 오류: " . $e->getMessage());
     echo json_encode(['success' => false, 'message' => 'Include error: ' . $e->getMessage()]);
     exit;
 }
 
+error_log("로그인 상태 확인 중");
 if (!is_logged_in()) {
+    error_log("로그인되지 않음");
     echo json_encode(['success' => false, 'message' => '로그인이 필요합니다.']);
     exit();
 }
+error_log("로그인 확인 완료");
 
 try {
     // GET 방식과 POST 방식 둘 다 지원
     $term = $_GET['term'] ?? $_POST['q'] ?? '';
     $limit = min(max(1, (int)($_GET['limit'] ?? $_POST['limit'] ?? 10)), 50);
+    
+    error_log("검색 파라미터 - term: " . $term . ", limit: " . $limit);
 
     // 도매상품관리에서 사용하는 경우를 위한 success 형식 응답 지원
     $use_success_format = isset($_POST['q']);
@@ -37,25 +50,31 @@ try {
         exit();
     }
 
+    error_log("데이터베이스 연결 시도");
     $conn = get_db_connection();
+    if (!$conn) {
+        error_log("데이터베이스 연결 실패");
+        echo json_encode(['error' => '데이터베이스 연결 실패']);
+        exit;
+    }
+    error_log("데이터베이스 연결 성공");
+    
     $data = [];
 
-// 현재 로그인된 사용자의 점포 정보 조회
-$user_store_id = null;
-$current_store_id = null;
-if (!empty($_SESSION['user_id'])) {
-    $user_stmt = $conn->prepare("SELECT store_id FROM users WHERE id = ?");
-    $user_stmt->bind_param("i", $_SESSION['user_id']);
-    $user_stmt->execute();
-    $user_result = $user_stmt->get_result();
-    if ($user_row = $user_result->fetch_assoc()) {
-        $user_store_id = $user_row['store_id'];
-        $current_store_id = $user_row['store_id'];
+    // 현재 로그인된 사용자의 점포 정보 조회
+    $user_store_id = null;
+    $current_store_id = null;
+    if (!empty($_SESSION['user_id'])) {
+        $user_stmt = $conn->prepare("SELECT store_id FROM users WHERE id = ?");
+        $user_stmt->bind_param("i", $_SESSION['user_id']);
+        $user_stmt->execute();
+        $user_result = $user_stmt->get_result();
+        if ($user_row = $user_result->fetch_assoc()) {
+            $user_store_id = $user_row['store_id'];
+            $current_store_id = $user_row['store_id'];
+        }
+        $user_stmt->close();
     }
-    $user_stmt->close();
-}
-
-try {
     // inventory 테이블에 cost_price 컬럼이 있는지 확인
     $column_check = $conn->prepare("SHOW COLUMNS FROM inventory LIKE 'cost_price'");
     $column_check->execute();
@@ -71,7 +90,7 @@ try {
     // 점포별 원가/박스단가를 포함한 쿼리 구성
     if (($has_cost_price_column || $has_box_price_column) && $user_store_id) {
         // 점포별 원가/박스단가가 있는 경우
-        $select_fields = "p.id, p.sku, p.name_ko, p.name_en, p.barcode, p.pieces_per_box, b.name as brand_name";
+        $select_fields = "p.id, p.sku, p.name_ko, p.name_en, p.barcode, p.pieces_per_box, b.name_ko as brand_name";
         
         if ($has_cost_price_column) {
             $select_fields .= ", COALESCE(i.cost_price, p.cost_price) as cost_price";
@@ -91,7 +110,7 @@ try {
                       LEFT JOIN brands b ON p.brand_id = b.id";
     } else {
         // 기본 상품 테이블의 원가 사용
-        $base_select = "SELECT p.id, p.sku, p.name_ko, p.name_en, p.barcode, p.cost_price, p.selling_price, p.pieces_per_box, b.name as brand_name";
+        $base_select = "SELECT p.id, p.sku, p.name_ko, p.name_en, p.barcode, p.cost_price, p.selling_price, p.pieces_per_box, b.name_ko as brand_name";
         $base_from = "FROM products p LEFT JOIN brands b ON p.brand_id = b.id";
     }
     
