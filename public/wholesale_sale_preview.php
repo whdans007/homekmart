@@ -53,7 +53,11 @@ if ($sale_id > 0) {
             // 판매 항목 정보 가져오기
             $items_sql = "
                 SELECT 
-                    wsi.*,
+                    wsi.product_id,
+                    wsi.quantity,
+                    wsi.unit_price,
+                    wsi.total_price,
+                    wsi.remarks,
                     p.sku,
                     p.name_ko,
                     p.name_en
@@ -220,7 +224,7 @@ if (isset($_SESSION['flash'])) {
                                         <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['quantity']); ?></td>
                                         <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['unit_price']); ?></td>
                                         <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium border-b border-gray-200"><?php echo number_format($item['total_price']); ?></td>
-                                        <td class="px-4 py-3 text-sm text-gray-600 border-b border-gray-200"><?php echo htmlspecialchars($item['notes'] ?: '-'); ?></td>
+                                        <td class="px-4 py-3 text-sm text-gray-600 border-b border-gray-200"><?php echo htmlspecialchars($item['remarks'] ?: '-'); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             <?php endif; ?>

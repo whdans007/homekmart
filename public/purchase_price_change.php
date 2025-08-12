@@ -119,7 +119,7 @@ $items_result = $items_stmt->get_result();
                 <i class="fas fa-arrow-up mr-2"></i> 인상상품 일괄적용
             </button>
             <button id="printPreviewBtn" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                <i class="fas fa-print mr-2"></i> 프린트
+                <i class="fas fa-eye mr-2"></i> 미리보기
             </button>
             <a href="purchase_management.php" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
                 <i class="fas fa-arrow-left mr-2"></i> 매입관리로 돌아가기
@@ -1167,13 +1167,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const currentSellingCell = row.querySelector('td:nth-child(7) .text-sm');
             const expectedSellingCell = row.querySelector('td:nth-child(8) .expected-price');
             
-            const currentCost = currentCostCell?.textContent.replace(/[^\d]/g, '') || '0';
-            const purchaseCost = purchaseCostCell?.textContent.replace(/[^\d]/g, '') || '0';
-            const currentSelling = currentSellingCell?.textContent.replace(/[^\d]/g, '') || '0';
-            const expectedSelling = expectedSellingCell?.textContent.replace(/[^\d]/g, '') || '0';
+            const currentCost = currentCostCell?.textContent.replace(/[^\d.]/g, '') || '0';
+            const purchaseCost = purchaseCostCell?.textContent.replace(/[^\d.]/g, '') || '0';
+            const currentSelling = currentSellingCell?.textContent.replace(/[^\d.]/g, '') || '0';
+            const expectedSelling = expectedSellingCell?.textContent.replace(/[^\d.]/g, '') || '0';
             
             // 가격 변동 계산
-            const costChange = parseInt(purchaseCost) - parseInt(currentCost);
+            const costChange = parseFloat(purchaseCost) - parseFloat(currentCost);
             let changeType = '';
             let changeColor = '';
             let changeText = '';
@@ -1197,10 +1197,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     sku: sku,
                     nameKo: productNameKo,
                     nameEn: productNameEn,
-                    currentCost: parseInt(currentCost),
-                    purchaseCost: parseInt(purchaseCost),
-                    currentSelling: parseInt(currentSelling),
-                    expectedSelling: parseInt(expectedSelling),
+                    currentCost: parseFloat(currentCost),
+                    purchaseCost: parseFloat(purchaseCost),
+                    currentSelling: parseFloat(currentSelling),
+                    expectedSelling: parseFloat(expectedSelling),
                     changeType: changeType,
                     changeColor: changeColor,
                     changeText: changeText
@@ -1253,11 +1253,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="product-name-en">${item.nameEn}</div>
                             <div class="product-name-ko">${item.nameKo}</div>
                         </td>
-                        <td class="price-cell">${item.currentCost.toLocaleString()}</td>
-                        <td class="price-cell">${item.purchaseCost.toLocaleString()}</td>
+                        <td class="price-cell">${parseFloat(item.currentCost).toFixed(2)}</td>
+                        <td class="price-cell">${parseFloat(item.purchaseCost).toFixed(2)}</td>
                         <td class="${item.changeColor}">${item.changeText}</td>
-                        <td class="price-cell">${item.currentSelling.toLocaleString()}</td>
-                        <td class="price-cell">${item.expectedSelling.toLocaleString()}</td>
+                        <td class="price-cell">${parseFloat(item.currentSelling).toFixed(0)}</td>
+                        <td class="price-cell">${parseFloat(item.expectedSelling).toFixed(0)}</td>
                     </tr>`;
             });
         }

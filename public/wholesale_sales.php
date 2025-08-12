@@ -69,7 +69,11 @@ try {
             // 판매 항목들 가져오기
             $items_sql = "
                 SELECT 
-                    wsi.*,
+                    wsi.product_id,
+                    wsi.quantity,
+                    wsi.unit_price,
+                    wsi.total_price,
+                    wsi.remarks,
                     p.sku,
                     p.name_ko,
                     p.name_en,
@@ -143,10 +147,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // 새로운 판매 항목들 추가
                 foreach ($cart_items as $item) {
                     $item_stmt = $pdo->prepare("
-                        INSERT INTO wholesale_sale_items (sale_id, product_id, quantity, unit_price, total_price, created_at) 
-                        VALUES (?, ?, ?, ?, ?, NOW())
+                        INSERT INTO wholesale_sale_items (sale_id, product_id, quantity, unit_price, total_price, remarks, created_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, NOW())
                     ");
-                    $item_stmt->execute([$edit_sale_id_post, $item['product_id'], $item['quantity'], $item['unit_price'], $item['total_price']]);
+                    $item_stmt->execute([
+                        $edit_sale_id_post, 
+                        $item['product_id'], 
+                        $item['quantity'], 
+                        $item['unit_price'], 
+                        $item['total_price'], 
+                        $item['remarks'] ?? ''
+                    ]);
                 }
                 
                 $sale_id = $edit_sale_id_post;
@@ -164,10 +175,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // 판매 항목 추가
                 foreach ($cart_items as $item) {
                     $item_stmt = $pdo->prepare("
-                        INSERT INTO wholesale_sale_items (sale_id, product_id, quantity, unit_price, total_price, created_at) 
-                        VALUES (?, ?, ?, ?, ?, NOW())
+                        INSERT INTO wholesale_sale_items (sale_id, product_id, quantity, unit_price, total_price, remarks, created_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, NOW())
                     ");
-                    $item_stmt->execute([$sale_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['total_price']]);
+                    $item_stmt->execute([
+                        $sale_id, 
+                        $item['product_id'], 
+                        $item['quantity'], 
+                        $item['unit_price'], 
+                        $item['total_price'], 
+                        $item['remarks'] ?? ''
+                    ]);
                 }
                 
                 $success_msg = '도매 판매가 성공적으로 등록되었습니다.';
@@ -389,8 +407,8 @@ if (isset($_SESSION['flash'])) {
                             
                             <div id="cart_items" class="hidden">
                                 <!-- 테이블 형태 장바구니 -->
-                                <div class="border rounded-md overflow-hidden">
-                                    <table class="w-full">
+                                <div class="border rounded-md overflow-hidden cart-table-wrapper">
+                                    <table class="w-full cart-table">
                                         <thead class="bg-gray-100">
                                             <tr>
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">SKU</th>
@@ -398,6 +416,7 @@ if (isset($_SESSION['flash'])) {
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">단가</th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">수량</th>
                                                 <th class="px-2 py-3 text-right text-xs font-semibold text-gray-700">합계</th>
+                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">비고</th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">삭제</th>
                                             </tr>
                                         </thead>
@@ -848,7 +867,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 name_en: nameEn, // 도매 상품명 또는 기본 상품명
                 unit_price: wholesalePrice,
                 quantity: minQuantity,
-                total_price: wholesalePrice * minQuantity
+                total_price: wholesalePrice * minQuantity,
+                remarks: '' // 상품별 비고란 추가
             });
         }
         
@@ -870,10 +890,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += `
                     <tr class="border-b hover:bg-gray-50">
                         <!-- SKU -->
-                        <td class="px-2 py-3 text-xs font-mono text-gray-700 font-medium">${item.sku}</td>
+                        <td class="px-2 py-3 text-xs font-mono text-gray-700 font-medium sku-column">${item.sku}</td>
                         
                         <!-- 상품명 (영문 위, 한글 아래) -->
-                        <td class="px-2 py-3">
+                        <td class="px-2 py-3 product-name">
                             <div class="text-sm font-medium text-gray-900" title="${item.name_en || '-'}">${item.name_en || '-'}</div>
                             <div class="text-sm text-gray-600 mt-1" title="${item.name_ko || '-'}">${item.name_ko || '-'}</div>
                         </td>
@@ -887,7 +907,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         <!-- 수량 -->
                         <td class="px-2 py-3 text-center">
-                            <div class="flex items-center justify-center space-x-1">
+                            <div class="flex items-center justify-center space-x-1 quantity-controls">
                                 <button type="button" onclick="updateQuantity(${index}, -1)" 
                                         class="w-6 h-6 text-xs bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center">
                                     <i class="fas fa-minus"></i>
@@ -905,6 +925,16 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="text-sm font-semibold text-primary-600">
                                 ${Number(item.total_price).toLocaleString()}원
                             </div>
+                        </td>
+                        
+                        <!-- 비고 -->
+                        <td class="px-2 py-3">
+                            <input type="text" 
+                                   class="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
+                                   placeholder="배송지시, 포장요청 등"
+                                   value="${item.remarks || ''}"
+                                   onchange="updateRemarks(${index}, this.value)"
+                                   maxlength="100">
                         </td>
                         
                         <!-- 삭제버튼 -->
@@ -941,6 +971,11 @@ document.addEventListener('DOMContentLoaded', function() {
             cart[index].total_price = cart[index].quantity * cart[index].unit_price;
         }
         updateCart();
+    };
+    
+    window.updateRemarks = function(index, value) {
+        cart[index].remarks = value;
+        cartItemsInput.value = JSON.stringify(cart);
     };
     
     function updateSaleButton() {
@@ -1151,7 +1186,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 name_en: nameEn,
                 unit_price: wholesalePrice,
                 quantity: minQuantity,
-                total_price: wholesalePrice * minQuantity
+                total_price: wholesalePrice * minQuantity,
+                remarks: '' // 상품별 비고란 추가
             });
         }
         
@@ -1223,7 +1259,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     name_en: item.name_en,
                     unit_price: parseFloat(item.unit_price),
                     quantity: parseInt(item.quantity),
-                    total_price: parseFloat(item.total_price)
+                    total_price: parseFloat(item.total_price),
+                    remarks: item.remarks || '' // 기존 비고 데이터 로드
                 });
             });
             
@@ -1371,6 +1408,76 @@ document.addEventListener('DOMContentLoaded', function() {
     #customer_search_btn {
         padding: 0.5rem 0.75rem;
         min-width: 44px;
+    }
+    
+    /* 장바구니 테이블 모바일 최적화 */
+    .cart-table {
+        font-size: 0.75rem; /* 12px */
+    }
+    
+    .cart-table th,
+    .cart-table td {
+        padding: 0.375rem 0.25rem; /* 6px 4px */
+    }
+    
+    /* 비고 입력란 모바일 최적화 */
+    .cart-table td input[type="text"] {
+        min-width: 80px;
+        font-size: 0.75rem;
+        padding: 0.25rem;
+    }
+    
+    /* 상품명 컬럼 최적화 */
+    .cart-table .product-name {
+        min-width: 120px;
+    }
+    
+    .cart-table .product-name div {
+        font-size: 0.6875rem; /* 11px */
+        line-height: 1.2;
+    }
+    
+    /* SKU 컬럼 최적화 */
+    .cart-table .sku-column {
+        font-size: 0.625rem; /* 10px */
+        min-width: 60px;
+    }
+    
+    /* 수량 버튼 최적화 */
+    .cart-table .quantity-controls button {
+        width: 1.25rem; /* 20px */
+        height: 1.25rem; /* 20px */
+        font-size: 0.625rem; /* 10px */
+    }
+    
+    .cart-table .quantity-controls span {
+        font-size: 0.6875rem; /* 11px */
+        min-width: 20px;
+        padding: 0 0.25rem;
+    }
+}
+
+/* 태블릿 최적화 */
+@media (min-width: 641px) and (max-width: 768px) {
+    .cart-table th,
+    .cart-table td {
+        padding: 0.5rem 0.375rem; /* 8px 6px */
+    }
+    
+    .cart-table td input[type="text"] {
+        min-width: 100px;
+    }
+}
+
+/* 장바구니 테이블 가로 스크롤 */
+@media (max-width: 768px) {
+    .cart-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .cart-table {
+        min-width: 600px; /* 최소 너비 보장 */
     }
 }
 </style>
