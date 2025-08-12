@@ -185,18 +185,9 @@ if (!empty($_SESSION['user_id'])) {
                                     <?php endif; ?>
                                     
                                     <?php if (has_permission('store_transfer_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                                    <div class="mt-4 mb-2 px-2">
-                                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">점간이동</h3>
-                                    </div>
-                                    
-                                    <a href="store_transfers.php" class="<?php echo in_array($current_page, ['store_transfers.php', 'store_transfer_preview.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <a href="store_transfers_list.php" class="<?php echo in_array($current_page, ['store_transfers_list.php', 'store_transfers.php', 'store_transfer_preview.php']) ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                         <i class="fas fa-exchange-alt mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                        점간이동 등록
-                                    </a>
-                                    
-                                    <a href="store_transfers_list.php" class="<?php echo ($current_page == 'store_transfers_list.php') ? 'bg-primary-100 text-primary-900' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'; ?> group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                        <i class="fas fa-list mr-3 text-gray-400 group-hover:text-gray-500"></i>
-                                        점간이동 목록
+                                        점간이동
                                     </a>
                                     <?php endif; ?>
                                     
