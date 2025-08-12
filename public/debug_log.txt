@@ -256,3 +256,14 @@
 2025-08-11 18:50:36 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
 2025-08-11 18:50:47 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
 2025-08-12 09:56:17 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-12 17:07:26 - 신규 상품 등록 성공 - product_id: 23195, name_ko: 접이식2단 자동우산, sku: 8806302493647, user_id: 1
+2025-08-12 17:15:07 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-12 17:16:58 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-12 17:23:54 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-12 17:24:46 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-12 17:55:32 - 개별 가격적용 시작 - product_id: 23195, store_id: 1, selling_price: 579, cost_price: 399
+2025-08-12 17:55:32 - 점포별 가격 적용 시작 - store_id: 1
+2025-08-12 17:55:32 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-08-12 17:55:32 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-08-12 17:56:49 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin
+2025-08-12 17:56:54 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS, role: super_admin

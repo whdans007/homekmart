@@ -80,7 +80,8 @@ try {
                     sti.remarks,
                     p.sku,
                     p.name_ko,
-                    p.name_en
+                    p.name_en,
+                    COALESCE(p.pieces_per_box, 1) as pieces_per_box
                 FROM store_transfer_items sti
                 LEFT JOIN products p ON sti.product_id = p.id
                 WHERE sti.transfer_id = ?
@@ -98,12 +99,17 @@ try {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    error_log("POST 요청 수신: " . json_encode($_POST));
+    
+    $action = $_POST['action'] ?? 'save';
     $from_store_id = (int)($_POST['from_store_id'] ?? 0);
     $to_store_id = (int)($_POST['to_store_id'] ?? 0);
     $transfer_date = $_POST['transfer_date'] ?? date('Y-m-d');
     $cart_items = json_decode($_POST['cart_items'] ?? '[]', true);
     $is_edit = isset($_POST['edit_transfer_id']) && is_numeric($_POST['edit_transfer_id']);
     $edit_transfer_id_post = $is_edit ? (int)$_POST['edit_transfer_id'] : 0;
+    
+    error_log("처리할 액션: {$action}, 수정 모드: " . ($is_edit ? 'Yes' : 'No') . ", Transfer ID: {$edit_transfer_id_post}");
     
     if (empty($from_store_id)) {
         $errors[] = '출발 점포를 선택해주세요.';
@@ -121,12 +127,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = '이동할 상품을 추가해주세요.';
     }
     
+    // 삭제 액션 처리
+    if ($action === 'delete' && $is_edit && $edit_transfer_id_post > 0) {
+        error_log("삭제 액션 시작 - Transfer ID: {$edit_transfer_id_post}, User: {$_SESSION['user_id']}, Role: {$_SESSION['role']}");
+        
+        try {
+            $pdo->beginTransaction();
+            
+            // 권한 확인
+            $check_sql = "SELECT from_store_id, to_store_id, status FROM store_transfers WHERE id = ?";
+            if ($_SESSION['role'] !== 'super_admin') {
+                $check_sql .= " AND from_store_id = " . (int)$current_store_id;
+            }
+            error_log("권한 확인 SQL: {$check_sql}");
+            
+            $check_stmt = $pdo->prepare($check_sql);
+            $check_stmt->execute([$edit_transfer_id_post]);
+            $transfer_info = $check_stmt->fetch(PDO::FETCH_ASSOC);
+            
+            error_log("Transfer 정보: " . json_encode($transfer_info));
+            
+            if (!$transfer_info) {
+                throw new Exception('삭제 권한이 없거나 해당 이동 내역을 찾을 수 없습니다.');
+            }
+            
+            $delete_from_store_id = $transfer_info['from_store_id'];
+            $delete_to_store_id = $transfer_info['to_store_id'];
+            $current_status = $transfer_info['status'];
+            
+            error_log("삭제 대상 - From Store: {$delete_from_store_id}, To Store: {$delete_to_store_id}, Status: {$current_status}");
+            
+            // confirmed 상태인 경우 재고 원복
+            if ($current_status === 'confirmed') {
+                error_log("확정된 이동이므로 재고 복원 시작");
+                
+                $old_items_stmt = $pdo->prepare("SELECT product_id, quantity FROM store_transfer_items WHERE transfer_id = ?");
+                $old_items_stmt->execute([$edit_transfer_id_post]);
+                $old_items = $old_items_stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                error_log("복원할 항목 수: " . count($old_items));
+                
+                foreach ($old_items as $old_item) {
+                    error_log("재고 복원 - Product: {$old_item['product_id']}, Quantity: {$old_item['quantity']}");
+                    
+                    // 출발지에 재고 복원
+                    $restore_from = $pdo->prepare("UPDATE inventory SET quantity = quantity + ? WHERE product_id = ? AND store_id = ?");
+                    $restore_from->execute([$old_item['quantity'], $old_item['product_id'], $delete_from_store_id]);
+                    error_log("출발지 재고 복원 완료");
+                    
+                    // 목적지에서 재고 차감
+                    $reduce_to = $pdo->prepare("UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?");
+                    $reduce_to->execute([$old_item['quantity'], $old_item['product_id'], $delete_to_store_id]);
+                    error_log("목적지 재고 차감 완료");
+                }
+            }
+            
+            // 관련 데이터 삭제
+            error_log("Transfer items 삭제 시작");
+            $delete_items_stmt = $pdo->prepare("DELETE FROM store_transfer_items WHERE transfer_id = ?");
+            $delete_items_stmt->execute([$edit_transfer_id_post]);
+            
+            error_log("Transfer 레코드 삭제 시작");
+            $delete_transfer_stmt = $pdo->prepare("DELETE FROM store_transfers WHERE id = ?");
+            $delete_transfer_stmt->execute([$edit_transfer_id_post]);
+            
+            $pdo->commit();
+            error_log("삭제 트랜잭션 커밋 완료");
+            
+            $_SESSION['flash'] = [
+                'type' => 'success',
+                'message' => '점간이동 내역이 성공적으로 삭제되었습니다.'
+            ];
+            
+            error_log("삭제 완료 - 리다이렉트 실행");
+            header('Location: store_transfers_list.php');
+            exit;
+            
+        } catch (Exception $e) {
+            $pdo->rollback();
+            error_log("삭제 오류 발생: " . $e->getMessage());
+            error_log("삭제 오류 스택: " . $e->getTraceAsString());
+            $errors[] = '삭제 중 오류가 발생했습니다: ' . $e->getMessage();
+        }
+    }
+    
     // 권한 확인 (super_admin이 아닌 경우 자신의 점포가 출발지여야 함)
-    if ($_SESSION['role'] !== 'super_admin' && $from_store_id != $current_store_id) {
+    if ($action !== 'delete' && $_SESSION['role'] !== 'super_admin' && $from_store_id != $current_store_id) {
         $errors[] = '자신의 점포에서 출발하는 이동만 등록할 수 있습니다.';
     }
     
-    if (empty($errors)) {
+    // 저장/수정 액션 처리
+    if ($action === 'save' && empty($errors)) {
         try {
             $pdo->beginTransaction();
             
@@ -340,12 +431,20 @@ if (isset($_SESSION['flash'])) {
                                         출발 점포 <span class="text-red-500">*</span>
                                     </label>
                                     <?php if ($_SESSION['role'] === 'super_admin'): ?>
-                                        <select name="from_store_id" id="from_store_id" required onchange="updateProductSearch()"
+                                        <select name="from_store_id" id="from_store_id" required onchange="updateProductSearch(); updateToStoreOptions();"
                                                 class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
                                             <option value="">출발 점포를 선택하세요</option>
                                             <?php foreach ($stores as $store): ?>
-                                                <option value="<?php echo $store['id']; ?>" 
-                                                        <?php echo ($edit_data && $store['id'] == $edit_data['from_store_id']) ? 'selected' : ''; ?>>
+                                                <?php 
+                                                $selected = false;
+                                                if ($edit_data && $store['id'] == $edit_data['from_store_id']) {
+                                                    $selected = true;
+                                                } elseif (!$edit_data && $store['id'] == $current_store_id) {
+                                                    // 신규 등록시 현재 점포를 기본값으로 설정
+                                                    $selected = true;
+                                                }
+                                                ?>
+                                                <option value="<?php echo $store['id']; ?>" <?php echo $selected ? 'selected' : ''; ?>>
                                                     <?php echo htmlspecialchars($store['name']); ?>
                                                 </option>
                                             <?php endforeach; ?>
@@ -368,6 +467,7 @@ if (isset($_SESSION['flash'])) {
                                         <option value="">목적지 점포를 선택하세요</option>
                                         <?php foreach ($stores as $store): ?>
                                             <option value="<?php echo $store['id']; ?>" 
+                                                    data-store-id="<?php echo $store['id']; ?>"
                                                     <?php echo ($edit_data && $store['id'] == $edit_data['to_store_id']) ? 'selected' : ''; ?>>
                                                 <?php echo htmlspecialchars($store['name']); ?>
                                             </option>
@@ -434,8 +534,10 @@ if (isset($_SESSION['flash'])) {
                                             <tr>
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">SKU</th>
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">상품명</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">원가</th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">수량</th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">박스포장수량</th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">박스원가</th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">매입가</th>
                                                 <th class="px-2 py-3 text-right text-xs font-semibold text-gray-700">합계</th>
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">비고</th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">삭제</th>
@@ -450,7 +552,7 @@ if (isset($_SESSION['flash'])) {
                                 <!-- 총 금액 -->
                                 <div class="mt-4 pt-3 border-t border-gray-300">
                                     <div class="flex justify-between text-lg font-medium">
-                                        <span>총 이동 금액 (원가 기준):</span>
+                                        <span>총 이동 금액:</span>
                                         <span id="cart_total">0.00</span>
                                     </div>
                                 </div>
@@ -458,13 +560,22 @@ if (isset($_SESSION['flash'])) {
                         </div>
 
                         <!-- 저장 버튼 -->
-                        <div class="mt-8 flex justify-center">
+                        <div class="mt-8 flex justify-center gap-4">
                             <button type="submit" id="complete_transfer_btn" 
                                     class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400 whitespace-nowrap"
                                     disabled>
                                 <i class="fas fa-save mr-1"></i>
                                 <?php echo $edit_mode ? '수정 완료' : '이동 등록'; ?>
                             </button>
+                            
+                            <?php if ($edit_mode): ?>
+                            <button type="button" id="delete_transfer_btn" 
+                                    class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 whitespace-nowrap"
+                                    onclick="deleteTransfer()">
+                                <i class="fas fa-trash mr-1"></i>
+                                삭제
+                            </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                     
@@ -505,6 +616,58 @@ if (isset($_SESSION['flash'])) {
     </div>
 </div>
 
+<!-- 매입 이력 선택 모달 -->
+<div id="purchase-history-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[70vh] flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 class="text-base font-medium text-gray-900" id="purchase-modal-title">
+                    <i class="fas fa-history mr-2 text-blue-500"></i>
+                    매입 이력 선택
+                </h3>
+                <button type="button" id="close-purchase-history-modal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-hidden">
+                <div class="p-4">
+                    <div id="selected-product-info" class="mb-4 p-3 bg-gray-50 rounded-lg">
+                        <div class="font-medium text-gray-900" id="purchase-product-name">상품명</div>
+                        <div class="text-sm text-gray-600" id="purchase-product-sku">SKU: -</div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h4 class="text-sm font-medium text-gray-900 mb-3">최근 매입 이력 (최대 3건)</h4>
+                        <div id="purchase-history-list" class="space-y-2">
+                            <!-- 매입 이력이 여기에 표시됩니다 -->
+                        </div>
+                        <div id="purchase-history-loading" class="text-center py-4 hidden">
+                            <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                            <span class="ml-2 text-sm text-gray-600">매입 이력 조회 중...</span>
+                        </div>
+                        <div id="purchase-history-empty" class="text-center py-4 hidden">
+                            <i class="fas fa-inbox text-gray-400 text-2xl mb-2"></i>
+                            <p class="text-sm text-gray-600 mb-3">해당 점포의 매입 이력이 없습니다.</p>
+                            <button type="button" id="use-default-price-btn" 
+                                    class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                                <i class="fas fa-plus mr-2"></i>기본 원가로 추가
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t pt-4">
+                        <button type="button" id="manual-price-input-btn" 
+                                class="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                            <i class="fas fa-edit mr-2"></i>
+                            수동으로 가격 입력
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // PHP 데이터를 JavaScript로 전달
 const editMode = <?php echo json_encode($edit_mode); ?>;
@@ -534,6 +697,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const productSearchBtn = document.getElementById('product_search_btn');
     const productList = document.getElementById('product-list');
     const modalProductSearch = document.getElementById('modal-product-search');
+    
+    // 매입 이력 모달 관련 요소들
+    const purchaseHistoryModal = document.getElementById('purchase-history-modal');
+    const closePurchaseHistoryModal = document.getElementById('close-purchase-history-modal');
+    const purchaseHistoryList = document.getElementById('purchase-history-list');
+    const purchaseHistoryLoading = document.getElementById('purchase-history-loading');
+    const purchaseHistoryEmpty = document.getElementById('purchase-history-empty');
+    const purchaseProductName = document.getElementById('purchase-product-name');
+    const purchaseProductSku = document.getElementById('purchase-product-sku');
+    const manualPriceInputBtn = document.getElementById('manual-price-input-btn');
+    const useDefaultPriceBtn = document.getElementById('use-default-price-btn');
+    const purchaseModalTitle = document.getElementById('purchase-modal-title');
+    
+    // 현재 선택 중인 상품 정보
+    let currentSelectedProduct = null;
     
     // 상품 검색
     productSearch.addEventListener('input', function() {
@@ -700,13 +878,14 @@ document.addEventListener('DOMContentLoaded', function() {
                      data-name-en="${product.name_en || ''}"
                      data-cost-price="${product.cost_price}"
                      data-available-quantity="${product.available_quantity}"
-                     data-min-quantity="${product.min_quantity}">
+                     data-min-quantity="${product.min_quantity}"
+                     data-pieces-per-box="${product.pieces_per_box || 1}">
                     <div class="font-medium text-gray-900">
                         ${product.name_en || product.name_ko || 'N/A'}
                     </div>
                     <div class="text-sm text-gray-600">${product.name_ko && product.name_en && product.name_ko !== product.name_en ? product.name_ko : ''}</div>
                     <div class="text-xs text-gray-500 mt-1">
-                        SKU: ${product.sku} | 원가: ₩${parseFloat(product.cost_price).toFixed(2)} | 재고: ${product.available_quantity}개
+                        SKU: ${product.sku} | 원가: ${parseFloat(product.cost_price).toFixed(2)} | 재고: ${product.available_quantity}개 | 박스포장: ${product.pieces_per_box || 1}개
                     </div>
                 </div>
             `;
@@ -715,10 +894,16 @@ document.addEventListener('DOMContentLoaded', function() {
         productSearchResults.innerHTML = html;
         productSearchResults.classList.remove('hidden');
         
-        // 상품 선택 이벤트
+        // 상품 선택 이벤트 - 매입 이력 조회 후 추가
         document.querySelectorAll('.product-item').forEach(function(item) {
             item.addEventListener('click', function() {
-                addToCart(this);
+                console.log('상품 클릭됨:', this);
+                try {
+                    window.showPurchaseHistoryBeforeAdd(this);
+                } catch (error) {
+                    console.error('상품 선택 중 오류:', error);
+                    alert('상품 선택 중 오류가 발생했습니다: ' + error.message);
+                }
             });
         });
     }
@@ -731,6 +916,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const costPrice = parseFloat(item.dataset.costPrice);
         const availableQuantity = parseInt(item.dataset.availableQuantity);
         const minQuantity = parseInt(item.dataset.minQuantity);
+        const piecesPerBox = parseInt(item.dataset.piecesPerBox) || 1; // 실제 상품정보에서 가져오기
         
         // 이미 장바구니에 있는지 확인
         const existingIndex = cart.findIndex(item => item.product_id == productId);
@@ -738,11 +924,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (existingIndex >= 0) {
             const currentQuantity = cart[existingIndex].quantity;
             const newQuantity = currentQuantity + minQuantity;
-            
-            if (newQuantity > availableQuantity) {
-                alert(`재고가 부족합니다. 현재 재고: ${availableQuantity}개, 장바구니에 추가된 수량: ${currentQuantity}개`);
-                return;
-            }
             
             cart[existingIndex].quantity = newQuantity;
             cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_cost_price;
@@ -754,8 +935,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 name_en: nameEn,
                 unit_cost_price: costPrice,
                 quantity: minQuantity,
+                pieces_per_box: piecesPerBox, // 상품정보의 박스포장수량 사용
                 total_price: costPrice * minQuantity,
-                available_quantity: availableQuantity,
                 remarks: ''
             });
         }
@@ -786,33 +967,51 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="text-sm text-gray-600 mt-1" title="${item.name_ko || '-'}">${item.name_ko || '-'}</div>
                         </td>
                         
-                        <!-- 원가 -->
-                        <td class="px-2 py-3 text-center">
-                            <div class="text-sm font-medium text-gray-700">
-                                ₩${parseFloat(item.unit_cost_price).toFixed(2)}
-                            </div>
-                        </td>
-                        
                         <!-- 수량 -->
                         <td class="px-2 py-3 text-center">
-                            <div class="flex items-center justify-center space-x-1 quantity-controls">
-                                <button type="button" onclick="updateQuantity(${index}, -1)" 
-                                        class="w-6 h-6 text-xs bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center">
-                                    <i class="fas fa-minus"></i>
-                                </button>
-                                <span class="text-sm font-medium px-2 min-w-[24px] text-center">${item.quantity}</span>
-                                <button type="button" onclick="updateQuantity(${index}, 1)" 
-                                        class="w-6 h-6 text-xs bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                            <div class="text-xs text-gray-500 mt-1">재고: ${item.available_quantity}</div>
+                            <input type="number" 
+                                   class="w-20 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
+                                   value="${item.quantity}"
+                                   min="1"
+                                   onchange="updateQuantityDirect(${index}, this.value)"
+                                   onblur="updateQuantityDirect(${index}, this.value)">
+                        </td>
+                        
+                        <!-- 박스포장수량 -->
+                        <td class="px-2 py-3 text-center">
+                            <input type="number" 
+                                   class="w-20 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
+                                   value="${item.pieces_per_box || 1}"
+                                   min="1"
+                                   onchange="updatePiecesPerBox(${index}, this.value)"
+                                   onblur="updatePiecesPerBox(${index}, this.value)">
+                        </td>
+                        
+                        <!-- 박스원가 -->
+                        <td class="px-2 py-3 text-center">
+                            <input type="number" 
+                                   class="w-24 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
+                                   value="${parseFloat(item.unit_cost_price).toFixed(2)}"
+                                   min="0"
+                                   step="0.01"
+                                   onchange="updateBoxPrice(${index}, this.value)"
+                                   onblur="updateBoxPrice(${index}, this.value)">
+                        </td>
+                        
+                        <!-- 매입가 선택 -->
+                        <td class="px-2 py-3 text-center">
+                            <button type="button" 
+                                    onclick="showPurchaseHistoryModal('${item.product_id}', '${(item.name_ko || item.name_en || 'N/A').replace(/'/g, '&apos;')}', '${item.sku}', getFromStoreId())"
+                                    class="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-1 whitespace-nowrap"
+                                    title="매입 이력에서 가격 선택">
+                                <i class="fas fa-history mr-1"></i>선택
+                            </button>
                         </td>
                         
                         <!-- 합계 -->
                         <td class="px-2 py-3 text-right">
                             <div class="text-sm font-semibold text-primary-600">
-                                ₩${parseFloat(item.total_price).toFixed(2)}
+                                ${parseFloat(item.total_price).toFixed(2)}
                             </div>
                         </td>
                         
@@ -840,7 +1039,7 @@ document.addEventListener('DOMContentLoaded', function() {
             cartList.innerHTML = html;
             
             const total = cart.reduce((sum, item) => sum + item.total_price, 0);
-            cartTotal.textContent = '₩' + parseFloat(total).toFixed(2);
+            cartTotal.textContent = parseFloat(total).toFixed(2);
         }
         
         cartItemsInput.value = JSON.stringify(cart);
@@ -852,18 +1051,31 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCart();
     };
     
-    window.updateQuantity = function(index, change) {
-        const newQuantity = cart[index].quantity + change;
+    // 수량 직접 입력
+    window.updateQuantityDirect = function(index, value) {
+        const newQuantity = parseInt(value) || 1;
         
         if (newQuantity <= 0) {
             cart.splice(index, 1);
-        } else if (newQuantity > cart[index].available_quantity) {
-            alert(`재고가 부족합니다. 현재 재고: ${cart[index].available_quantity}개`);
-            return;
         } else {
             cart[index].quantity = newQuantity;
             cart[index].total_price = cart[index].quantity * cart[index].unit_cost_price;
         }
+        updateCart();
+    };
+    
+    // 박스포장수량 수정
+    window.updatePiecesPerBox = function(index, value) {
+        const newPiecesPerBox = parseInt(value) || 1;
+        cart[index].pieces_per_box = newPiecesPerBox;
+        cartItemsInput.value = JSON.stringify(cart);
+    };
+    
+    // 박스원가 수정
+    window.updateBoxPrice = function(index, value) {
+        const newPrice = parseFloat(value) || 0;
+        cart[index].unit_cost_price = newPrice;
+        cart[index].total_price = cart[index].quantity * cart[index].unit_cost_price;
         updateCart();
     };
     
@@ -957,7 +1169,8 @@ document.addEventListener('DOMContentLoaded', function() {
                      data-name-en="${product.name_en || ''}"
                      data-cost-price="${product.cost_price}"
                      data-available-quantity="${product.available_quantity}"
-                     data-min-quantity="${product.min_quantity}">
+                     data-min-quantity="${product.min_quantity}"
+                     data-pieces-per-box="${product.pieces_per_box || 1}">
                     <div class="flex items-center justify-between">
                         <div class="flex-1 min-w-0">
                             <div class="font-medium text-gray-900 text-sm truncate">
@@ -967,8 +1180,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 `<div class="text-xs text-gray-600 mt-1 truncate">${product.name_ko}</div>` : ''}
                             <div class="text-xs text-gray-500 mt-1 flex flex-wrap gap-2">
                                 <span><i class="fas fa-barcode mr-1"></i>${product.sku}</span>
-                                <span class="text-blue-600 font-medium"><i class="fas fa-won-sign mr-1"></i>₩${parseFloat(product.cost_price).toFixed(2)}</span>
+                                <span class="text-blue-600 font-medium"><i class="fas fa-coins mr-1"></i>${parseFloat(product.cost_price).toFixed(2)}</span>
                                 <span><i class="fas fa-box mr-1"></i>재고 ${product.available_quantity}개</span>
+                                <span><i class="fas fa-cubes mr-1"></i>박스포장 ${product.pieces_per_box || 1}개</span>
                             </div>
                         </div>
                         <div class="text-green-500 ml-2">
@@ -984,54 +1198,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // 클릭 이벤트 추가
         productList.querySelectorAll('.modal-product-item').forEach(function(item) {
             item.addEventListener('click', function() {
-                addToCartFromModal(this);
+                showPurchaseHistoryBeforeAdd(this);
             });
         });
     }
     
-    // 모달에서 상품을 장바구니에 추가
-    function addToCartFromModal(item) {
-        const productId = item.dataset.id;
-        const sku = item.dataset.sku;
-        const nameKo = item.dataset.nameKo;
-        const nameEn = item.dataset.nameEn;
-        const costPrice = parseFloat(item.dataset.costPrice);
-        const availableQuantity = parseInt(item.dataset.availableQuantity);
-        const minQuantity = parseInt(item.dataset.minQuantity);
-        
-        // 기존 addToCart 함수와 동일한 로직
-        const existingIndex = cart.findIndex(item => item.product_id == productId);
-        
-        if (existingIndex >= 0) {
-            const currentQuantity = cart[existingIndex].quantity;
-            const newQuantity = currentQuantity + minQuantity;
-            
-            if (newQuantity > availableQuantity) {
-                alert(`재고가 부족합니다. 현재 재고: ${availableQuantity}개, 장바구니에 추가된 수량: ${currentQuantity}개`);
-                return;
-            }
-            
-            cart[existingIndex].quantity = newQuantity;
-            cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_cost_price;
-        } else {
-            cart.push({
-                product_id: productId,
-                sku: sku,
-                name_ko: nameKo,
-                name_en: nameEn,
-                unit_cost_price: costPrice,
-                quantity: minQuantity,
-                total_price: costPrice * minQuantity,
-                available_quantity: availableQuantity,
-                remarks: ''
-            });
-        }
-        
-        updateCart();
-        
-        // 모달 닫기
-        productModal.classList.add('hidden');
-    }
     
     // 수정 모드인 경우 기존 데이터로 폼 초기화
     function initializeEditMode() {
@@ -1040,6 +1211,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // 점포 선택 설정
         if (editData.from_store_id && document.getElementById('from_store_id')) {
             document.getElementById('from_store_id').value = editData.from_store_id;
+            // 출발 점포 설정 후 목적지 점포 옵션 업데이트
+            updateToStoreOptions();
         }
         
         if (editData.to_store_id) {
@@ -1062,8 +1235,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     name_en: item.name_en,
                     unit_cost_price: parseFloat(item.unit_cost_price),
                     quantity: parseInt(item.quantity),
+                    pieces_per_box: parseInt(item.pieces_per_box) || 1, // 상품정보의 실제 박스포장수량 사용
                     total_price: parseFloat(item.total_price),
-                    available_quantity: 999, // 수정 모드에서는 현재 재고를 정확히 알기 어려우므로 임시값
                     remarks: item.remarks || ''
                 });
             });
@@ -1079,7 +1252,398 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 초기 버튼 상태 설정
     updateTransferButton();
+    
+    // 초기 목적지 점포 필터링 실행
+    updateToStoreOptions();
 });
+
+// 점간이동 삭제 함수
+window.deleteTransfer = function() {
+    console.log('deleteTransfer 함수 호출됨');
+    
+    if (!confirm('정말로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+        console.log('사용자가 삭제를 취소함');
+        return;
+    }
+    
+    // 삭제 버튼 비활성화
+    const deleteBtn = document.querySelector('button[onclick="deleteTransfer()"]');
+    if (deleteBtn) {
+        deleteBtn.disabled = true;
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>삭제 중...';
+        console.log('삭제 버튼 비활성화됨');
+    }
+    
+    // 수정 중인 transfer_id 가져오기
+    const editTransferIdInput = document.querySelector('input[name="edit_transfer_id"]');
+    const transferId = editTransferIdInput ? editTransferIdInput.value : '';
+    
+    console.log('Transfer ID:', transferId);
+    
+    if (!transferId) {
+        alert('삭제할 점간이동 ID를 찾을 수 없습니다.');
+        if (deleteBtn) {
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = '<i class="fas fa-trash mr-1"></i>삭제';
+        }
+        return;
+    }
+    
+    // 폼 생성 및 제출
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.style.display = 'none';
+    
+    // action 필드 추가
+    const actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'action';
+    actionInput.value = 'delete';
+    form.appendChild(actionInput);
+    
+    // edit_transfer_id 필드 추가
+    const idInput = document.createElement('input');
+    idInput.type = 'hidden';
+    idInput.name = 'edit_transfer_id';
+    idInput.value = transferId;
+    form.appendChild(idInput);
+    
+    console.log('폼 데이터:', {
+        action: 'delete',
+        edit_transfer_id: transferId
+    });
+    
+    document.body.appendChild(form);
+    form.submit();
+};
+
+// 목적지 점포 옵션 업데이트 함수
+function updateToStoreOptions() {
+    const fromStoreSelect = document.getElementById('from_store_id');
+    const toStoreSelect = document.getElementById('to_store_id');
+    
+    if (!fromStoreSelect || !toStoreSelect) {
+        console.log('점포 선택 요소를 찾을 수 없습니다');
+        return;
+    }
+    
+    const selectedFromStoreId = fromStoreSelect.value;
+    const currentToStoreValue = toStoreSelect.value; // 현재 선택된 목적지 점포 값 저장
+    
+    console.log('출발 점포 ID:', selectedFromStoreId);
+    
+    // 모든 목적지 점포 옵션을 순회하며 출발 점포와 같은 것은 숨김
+    Array.from(toStoreSelect.options).forEach(function(option) {
+        if (option.value === '') {
+            // 기본 옵션("목적지 점포를 선택하세요")은 항상 표시
+            option.style.display = '';
+            option.disabled = false;
+        } else if (option.value === selectedFromStoreId) {
+            // 출발 점포와 같은 점포는 숨김 및 비활성화
+            option.style.display = 'none';
+            option.disabled = true;
+            
+            // 만약 현재 선택된 목적지가 출발 점포와 같다면 선택 해제
+            if (option.selected) {
+                toStoreSelect.value = '';
+            }
+        } else {
+            // 다른 점포들은 표시
+            option.style.display = '';
+            option.disabled = false;
+        }
+    });
+    
+    // 현재 선택된 목적지 점포 값이 유효하다면 복원
+    if (currentToStoreValue && currentToStoreValue !== selectedFromStoreId) {
+        toStoreSelect.value = currentToStoreValue;
+    }
+    
+    console.log('목적지 점포 옵션 업데이트 완료');
+}
+
+// 상품 추가 전 매입 이력 조회 함수
+// 상품 추가 전 매입 이력 조회 함수 (전역 스코프)
+window.showPurchaseHistoryBeforeAdd = function(item) {
+    console.log('showPurchaseHistoryBeforeAdd 호출됨', item);
+    
+    try {
+        // 데이터 속성을 일관되게 dataset으로 가져오기 (data-name-ko -> dataset.nameKo 자동변환)
+        const productId = item.dataset.id;
+        const sku = item.dataset.sku;
+        const nameKo = item.dataset.nameKo || '';  // data-name-ko -> nameKo
+        const nameEn = item.dataset.nameEn || '';  // data-name-en -> nameEn  
+        const costPrice = parseFloat(item.dataset.costPrice || 0);
+        const availableQuantity = parseInt(item.dataset.availableQuantity || 0);
+        const minQuantity = parseInt(item.dataset.minQuantity || 1);
+        const piecesPerBox = parseInt(item.dataset.piecesPerBox || 1);
+        
+        console.log('추출된 상품 데이터:', {
+            productId, sku, nameKo, nameEn, costPrice, 
+            availableQuantity, minQuantity, piecesPerBox
+        });
+        
+        const fromStoreId = getFromStoreId();
+        console.log('출발 점포 ID:', fromStoreId);
+        
+        if (!fromStoreId) {
+            alert('출발 점포를 먼저 선택해주세요.');
+            return;
+        }
+        
+        if (!productId) {
+            alert('상품 정보를 찾을 수 없습니다.');
+            return;
+        }
+    } catch (error) {
+        console.error('데이터 추출 중 오류:', error);
+        alert('상품 데이터를 읽는 중 오류가 발생했습니다.');
+        return;
+    }
+    
+    // 상품 정보를 전역 변수에 저장 (매입가 선택 후 사용)
+    window.pendingProductToAdd = {
+        productId, sku, nameKo, nameEn, costPrice, 
+        availableQuantity, minQuantity, piecesPerBox, fromStoreId
+    };
+    
+    const productName = nameKo || nameEn || 'N/A';
+    
+    // 이미 장바구니에 있는지 확인
+    const existingIndex = cart.findIndex(cartItem => cartItem.product_id == productId);
+    if (existingIndex >= 0) {
+        // 이미 있는 상품은 수량만 증가
+        const currentQuantity = cart[existingIndex].quantity;
+        const newQuantity = currentQuantity + minQuantity;
+        
+        cart[existingIndex].quantity = newQuantity;
+        cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_cost_price;
+        updateCart();
+        productSearchResults.classList.add('hidden');
+        productSearch.value = '';
+        return;
+    }
+    
+    // 새 상품인 경우 매입 이력 조회
+    showPurchaseHistoryForNewProduct(productId, productName, sku, fromStoreId);
+}
+
+// 매입 이력 조회 모달 관련 함수들
+function showPurchaseHistoryForNewProduct(productId, productName, productSku, fromStoreId) {
+    console.log('새 상품 매입 이력 조회:', { productId, productName, productSku, fromStoreId });
+    
+    // 상품 정보 설정
+    currentSelectedProduct = { productId, productName, productSku, fromStoreId, isNewProduct: true };
+    purchaseProductName.textContent = productName || 'N/A';
+    purchaseProductSku.textContent = 'SKU: ' + (productSku || 'N/A');
+    
+    // 모달 제목 업데이트 (새 상품 추가용)
+    purchaseModalTitle.innerHTML = '<i class="fas fa-plus mr-2 text-green-500"></i>매입가 선택 후 추가';
+    
+    // 모달 표시
+    purchaseHistoryModal.classList.remove('hidden');
+    
+    // 매입 이력 로드
+    loadPurchaseHistory(productId, fromStoreId);
+}
+
+function showPurchaseHistoryModal(productId, productName, productSku, fromStoreId) {
+    console.log('매입 이력 모달 표시:', { productId, productName, productSku, fromStoreId });
+    
+    // 상품 정보 설정
+    currentSelectedProduct = { productId, productName, productSku, fromStoreId };
+    purchaseProductName.textContent = productName || 'N/A';
+    purchaseProductSku.textContent = 'SKU: ' + (productSku || 'N/A');
+    
+    // 모달 제목 업데이트 (기존 상품 가격 변경용)
+    purchaseModalTitle.innerHTML = '<i class="fas fa-history mr-2 text-blue-500"></i>매입가 변경';
+    
+    // 모달 표시
+    purchaseHistoryModal.classList.remove('hidden');
+    
+    // 매입 이력 로드
+    loadPurchaseHistory(productId, fromStoreId);
+}
+
+function loadPurchaseHistory(productId, storeId) {
+    // 로딩 상태 표시
+    purchaseHistoryLoading.classList.remove('hidden');
+    purchaseHistoryList.classList.add('hidden');
+    purchaseHistoryEmpty.classList.add('hidden');
+    
+    const params = new URLSearchParams({
+        product_id: productId,
+        store_id: storeId
+    });
+    
+    fetch('ajax_get_purchase_history.php?' + params.toString())
+        .then(response => response.json())
+        .then(data => {
+            purchaseHistoryLoading.classList.add('hidden');
+            
+            if (data.success && data.data && data.data.length > 0) {
+                // 최근 3건만 표시
+                const recentHistory = data.data.slice(0, 3);
+                displayPurchaseHistory(recentHistory);
+            } else {
+                purchaseHistoryEmpty.classList.remove('hidden');
+                console.log('매입 이력 없음:', data.message || '데이터 없음');
+            }
+        })
+        .catch(error => {
+            purchaseHistoryLoading.classList.add('hidden');
+            purchaseHistoryEmpty.classList.remove('hidden');
+            console.error('매입 이력 조회 오류:', error);
+        });
+}
+
+function displayPurchaseHistory(historyData) {
+    let html = '';
+    
+    historyData.forEach((item, index) => {
+        html += `
+            <div class="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex-1">
+                        <div class="text-sm font-medium text-gray-900">
+                            ${item.purchase_date_formatted} | ${item.supplier_name || 'N/A'}
+                        </div>
+                        <div class="text-xs text-gray-600 mt-1">
+                            박스원가: <strong class="text-gray-900">${item.box_cost_formatted}</strong> | 
+                            수량: ${item.quantity}개 | 
+                            유형: ${item.purchase_type === 'box' ? '박스' : '개별'}
+                        </div>
+                    </div>
+                    <button type="button" 
+                            onclick="selectPurchasePrice('${item.box_cost}')"
+                            class="ml-3 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
+                        선택
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    purchaseHistoryList.innerHTML = html;
+    purchaseHistoryList.classList.remove('hidden');
+}
+
+function selectPurchasePrice(boxCost) {
+    const price = parseFloat(boxCost);
+    if (isNaN(price) || price <= 0) {
+        alert('올바르지 않은 가격입니다.');
+        return;
+    }
+    
+    if (currentSelectedProduct) {
+        if (currentSelectedProduct.isNewProduct) {
+            // 새 상품 추가하기
+            addToCartWithSelectedPrice(price);
+        } else {
+            // 기존 상품 가격 변경
+            applyBoxCostToProduct(currentSelectedProduct.productId, price);
+        }
+        purchaseHistoryModal.classList.add('hidden');
+    }
+}
+
+// 선택된 매입가로 새 상품을 장바구니에 추가
+function addToCartWithSelectedPrice(selectedPrice) {
+    if (!window.pendingProductToAdd) {
+        console.error('추가할 상품 정보가 없습니다.');
+        return;
+    }
+    
+    const product = window.pendingProductToAdd;
+    
+    cart.push({
+        product_id: product.productId,
+        sku: product.sku,
+        name_ko: product.nameKo,
+        name_en: product.nameEn,
+        unit_cost_price: selectedPrice, // 선택된 매입가 사용
+        quantity: product.minQuantity,
+        pieces_per_box: product.piecesPerBox,
+        total_price: selectedPrice * product.minQuantity,
+        remarks: ''
+    });
+    
+    updateCart();
+    productSearchResults.classList.add('hidden');
+    productSearch.value = '';
+    
+    // 임시 상품 정보 정리
+    window.pendingProductToAdd = null;
+    
+    console.log('선택된 매입가로 상품 추가됨:', selectedPrice);
+}
+
+function applyBoxCostToProduct(productId, boxCost) {
+    // 장바구니에서 해당 상품을 찾아서 박스원가 업데이트
+    const cartIndex = cart.findIndex(item => item.product_id == productId);
+    if (cartIndex !== -1) {
+        cart[cartIndex].unit_cost_price = boxCost;
+        cart[cartIndex].total_price = cart[cartIndex].quantity * boxCost;
+        updateCart();
+        console.log('박스원가 업데이트됨:', boxCost);
+    }
+}
+
+
+// 모달 이벤트 리스너들
+closePurchaseHistoryModal.addEventListener('click', function() {
+    purchaseHistoryModal.classList.add('hidden');
+    currentSelectedProduct = null;
+    // 임시 상품 정보도 정리
+    if (window.pendingProductToAdd) {
+        window.pendingProductToAdd = null;
+    }
+});
+
+manualPriceInputBtn.addEventListener('click', function() {
+    const price = prompt('박스원가를 입력해주세요:', '');
+    if (price !== null) {
+        const numericPrice = parseFloat(price);
+        if (!isNaN(numericPrice) && numericPrice > 0) {
+            if (currentSelectedProduct) {
+                if (currentSelectedProduct.isNewProduct) {
+                    // 새 상품 추가하기
+                    addToCartWithSelectedPrice(numericPrice);
+                } else {
+                    // 기존 상품 가격 변경
+                    applyBoxCostToProduct(currentSelectedProduct.productId, numericPrice);
+                }
+                purchaseHistoryModal.classList.add('hidden');
+            }
+        } else {
+            alert('올바른 숫자를 입력해주세요.');
+        }
+    }
+});
+
+// 기본 원가로 추가 버튼 이벤트
+useDefaultPriceBtn.addEventListener('click', function() {
+    if (currentSelectedProduct && currentSelectedProduct.isNewProduct && window.pendingProductToAdd) {
+        // 기본 원가(inventory cost_price) 사용
+        const defaultPrice = window.pendingProductToAdd.costPrice;
+        addToCartWithSelectedPrice(defaultPrice);
+        purchaseHistoryModal.classList.add('hidden');
+        console.log('기본 원가로 상품 추가됨:', defaultPrice);
+    }
+});
+
+// 모달 바깥 클릭 시 닫기
+purchaseHistoryModal.addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.classList.add('hidden');
+        currentSelectedProduct = null;
+        // 임시 상품 정보도 정리
+        if (window.pendingProductToAdd) {
+            window.pendingProductToAdd = null;
+        }
+    }
+});
+
 </script>
 
 <style>
@@ -1094,11 +1658,11 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 /* 모달 애니메이션 */
-#product-modal {
+#product-modal, #purchase-history-modal {
     animation: fadeIn 0.2s ease-in-out;
 }
 
-#product-modal > div {
+#product-modal > div, #purchase-history-modal > div {
     animation: slideIn 0.2s ease-in-out;
 }
 
