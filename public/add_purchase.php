@@ -355,7 +355,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i class="fas fa-search text-gray-400"></i>
                 </div>
-                <input type="text" id="product_search" disabled class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:text-gray-500" placeholder="거래처를 먼저 선택하세요...">
+                <input type="text" id="product_search" disabled class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:text-gray-500" placeholder="<?php echo t('js.select_supplier_placeholder'); ?>">
             </div>
             <div id="search_results" class="absolute z-20 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden"></div>
         </div>
@@ -445,7 +445,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // 수정 모드에서는 검색 기능을 바로 활성화
     searchInput.disabled = false;
-    searchInput.placeholder = '상품명 또는 바코드를 입력하세요...';
+    searchInput.placeholder = t('js.search_placeholder');
     searchInput.classList.remove('disabled:bg-gray-100', 'disabled:text-gray-500');
     <?php endif; ?>
 
@@ -620,7 +620,7 @@ document.addEventListener('DOMContentLoaded', function () {
         function selectSupplier(supplier) {
             supplierIdInput.value = supplier.id;
             selectedSupplierName.textContent = supplier.name;
-            selectedSupplierInfo.textContent = (supplier.phone ? '전화: ' + supplier.phone : '') + (supplier.memo ? ' | ' + supplier.memo : '');
+            selectedSupplierInfo.textContent = (supplier.phone ? t('js.phone_label') + ': ' + supplier.phone : '') + (supplier.memo ? ' | ' + supplier.memo : '');
             
             supplierSearch.style.display = 'none';
             selectedSupplierDiv.classList.remove('hidden');
@@ -665,11 +665,11 @@ document.addEventListener('DOMContentLoaded', function () {
         
         if (hasSupplier) {
             searchInput.disabled = false;
-            searchInput.placeholder = '상품명 또는 바코드를 입력하세요...';
+            searchInput.placeholder = t('js.search_placeholder');
             searchInput.classList.remove('disabled:bg-gray-100', 'disabled:text-gray-500');
         } else {
             searchInput.disabled = true;
-            searchInput.placeholder = '거래처를 먼저 선택하세요...';
+            searchInput.placeholder = t('js.select_supplier_placeholder');
             searchInput.classList.add('disabled:bg-gray-100', 'disabled:text-gray-500');
             searchInput.value = '';
             searchResults.classList.add('hidden');
@@ -772,7 +772,7 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('검색 시 거래처 ID 확인:', supplierId);  // 디버깅용
         
         if (!supplierId) {
-            alert('거래처를 먼저 선택해주세요.');
+            alert(t('js.select_supplier_first'));
             this.blur();
             return;
         }
@@ -814,7 +814,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     
                     if (data.error) {
                         console.error('검색 오류:', data.error);
-                        alert('상품 검색 중 오류가 발생했습니다: ' + data.error);
+                        alert(t('js.search_error') + ': ' + data.error);
                         currentSearchResults = [];
                         return;
                     }
@@ -896,7 +896,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
                 .catch(error => {
                     console.error('상품 검색 요청 실패:', error);
-                    alert('상품 검색 중 네트워크 오류가 발생했습니다. 다시 시도해주세요.');
+                    alert(t('js.network_error'));
                     currentSearchResults = [];
                     searchResults.innerHTML = `
                         <div class="p-3 bg-red-50 border-l-4 border-red-500">
@@ -1125,7 +1125,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     // 실패 시에도 계속 진행 가능하도록 함
                     categorySelect.innerHTML = '<option value="">카테고리 없음 (선택사항)</option>';
-                    categoryWarningText.textContent = '카테고리를 불러올 수 없습니다. 카테고리 없이 상품을 등록할 수 있습니다.';
+                    categoryWarningText.textContent = t('category.load_error') + '. ' + t('product.add') + ' ' + t('forms.optional');
                     categoryWarning.classList.remove('hidden');
                     console.error('카테고리 로드 실패:', data.message || '알 수 없는 오류');
                 }
@@ -1134,7 +1134,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 categoryLoading.classList.add('hidden');
                 // 에러 시에도 계속 진행 가능하도록 함
                 categorySelect.innerHTML = '<option value="">카테고리 없음 (선택사항)</option>';
-                categoryWarningText.textContent = '카테고리 로드 중 오류가 발생했습니다. 카테고리 없이 상품을 등록할 수 있습니다.';
+                categoryWarningText.textContent = t('category.load_error') + '. ' + t('product.add') + ' ' + t('forms.optional');
                 categoryWarning.classList.remove('hidden');
                 console.error('카테고리 로드 오류:', error);
             });
@@ -1225,7 +1225,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const requiredFields = ['name_en', 'sku'];
         for (let field of requiredFields) {
             if (!formData.get(field)) {
-                alert(`${field === 'name_en' ? '상품명(영어)' : 'SKU'}은(는) 필수 입력 항목입니다.`);
+                alert(field === 'name_en' ? t('js.product_name_en_required') : t('js.sku_required'));
                 return;
             }
         }
@@ -1247,7 +1247,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('add-product-modal').remove();
                 
                 // 성공 메시지
-                alert('신규 상품이 성공적으로 등록되었습니다.');
+                alert(t('js.product_registered'));
                 
                 // 매입 목록에 상품 추가 (isNew = true)
                 addProductToList(data.product, 1, null, 'box', null, true);
@@ -1272,7 +1272,7 @@ document.addEventListener('DOMContentLoaded', function () {
         .catch(error => {
             loadingOverlay.classList.add('hidden');
             console.error('상품 등록 오류:', error);
-            alert('상품 등록 중 오류가 발생했습니다.');
+            alert(t('js.product_register_error'));
         });
     }
 
@@ -1285,7 +1285,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const productIdInput = row.querySelector('input[name*="[product_id]"]');
                 if (productIdInput && productIdInput.value == product.id) {
                     // 중복 상품 발견
-                    alert(`이미 목록에 있는 상품입니다.\n상품명: ${product.name_ko}\nSKU: ${product.sku}`);
+                    alert(`${t('js.product_already_exists')}\n${t('product.name')}: ${product.name_ko}\nSKU: ${product.sku}`);
                     return; // 추가하지 않고 함수 종료
                 }
             }
@@ -1624,7 +1624,7 @@ document.addEventListener('DOMContentLoaded', function () {
             };
             
             if (!formData.name) {
-                alert('거래처명을 입력해주세요.');
+                alert(t('supplier.name') + ' ' + t('forms.required_field'));
                 return;
             }
             
@@ -1672,12 +1672,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     }, 3000);
                 } else {
-                    alert('오류: ' + data.error);
+                    alert(t('common.error') + ': ' + data.error);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('거래처 등록 중 오류가 발생했습니다.');
+                alert(t('supplier.add') + ' ' + t('messages.operation_failed'));
             })
             .finally(() => {
                 submitBtn.innerHTML = originalText;

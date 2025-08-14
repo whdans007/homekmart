@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/lang_helper.php';
-$page_title = '점간이동 목록' . ' - ' . t('company.name');
+$page_title = t('store_transfer.list') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
@@ -108,7 +108,7 @@ try {
     $transfers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    $error_message = '데이터베이스 오류: ' . $e->getMessage();
+    $error_message = t('store_transfer.database_error') . $e->getMessage();
     error_log("Store transfers list error: " . $e->getMessage());
 }
 
@@ -124,14 +124,14 @@ if (isset($_SESSION['flash'])) {
         <!-- 페이지 헤더 -->
         <div class="mb-8 sm:flex sm:items-center sm:justify-between">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900">점간이동 목록</h1>
-                <p class="mt-2 text-sm text-gray-700">점포간 상품 이동 내역을 조회하고 관리하세요.</p>
+                <h1 class="text-3xl font-bold text-gray-900"><?php echo t('store_transfer.list'); ?></h1>
+                <p class="mt-2 text-sm text-gray-700"><?php echo t('store_transfer.list_description'); ?></p>
             </div>
             <div class="mt-4 sm:mt-0">
                 <a href="store_transfers.php" 
                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
                     <i class="fas fa-plus mr-2"></i>
-                    점간이동 등록
+                    <?php echo t('store_transfer.register'); ?>
                 </a>
             </div>
         </div>
@@ -167,31 +167,31 @@ if (isset($_SESSION['flash'])) {
         <!-- 검색 필터 -->
         <div class="bg-white shadow rounded-lg border border-gray-200 mb-6">
             <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">검색 필터</h3>
+                <h3 class="text-lg font-medium text-gray-900"><?php echo t('store_transfer.search_filter'); ?></h3>
             </div>
             <div class="px-6 py-4">
                 <form method="GET" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                         <!-- 시작 날짜 -->
                         <div>
-                            <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">시작 날짜</label>
+                            <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('store_transfer.start_date'); ?></label>
                             <input type="date" name="start_date" id="start_date" value="<?php echo htmlspecialchars($start_date); ?>"
                                    class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
                         </div>
 
                         <!-- 종료 날짜 -->
                         <div>
-                            <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1">종료 날짜</label>
+                            <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('store_transfer.end_date'); ?></label>
                             <input type="date" name="end_date" id="end_date" value="<?php echo htmlspecialchars($end_date); ?>"
                                    class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
                         </div>
 
                         <!-- 출발 점포 -->
                         <div>
-                            <label for="from_store_id" class="block text-sm font-medium text-gray-700 mb-1">출발 점포</label>
+                            <label for="from_store_id" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('store_transfer.from_store'); ?></label>
                             <select name="from_store_id" id="from_store_id" 
                                     class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                                <option value="">전체</option>
+                                <option value=""><?php echo t('store_transfer.all'); ?></option>
                                 <?php foreach ($stores as $store): ?>
                                     <option value="<?php echo $store['id']; ?>" 
                                             <?php echo ($from_store_filter == $store['id']) ? 'selected' : ''; ?>>
@@ -203,10 +203,10 @@ if (isset($_SESSION['flash'])) {
 
                         <!-- 목적지 점포 -->
                         <div>
-                            <label for="to_store_id" class="block text-sm font-medium text-gray-700 mb-1">목적지 점포</label>
+                            <label for="to_store_id" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('store_transfer.destination_store'); ?></label>
                             <select name="to_store_id" id="to_store_id" 
                                     class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                                <option value="">전체</option>
+                                <option value=""><?php echo t('store_transfer.all'); ?></option>
                                 <?php foreach ($stores as $store): ?>
                                     <option value="<?php echo $store['id']; ?>" 
                                             <?php echo ($to_store_filter == $store['id']) ? 'selected' : ''; ?>>
@@ -218,23 +218,23 @@ if (isset($_SESSION['flash'])) {
 
                         <!-- 상태 -->
                         <div>
-                            <label for="status" class="block text-sm font-medium text-gray-700 mb-1">상태</label>
+                            <label for="status" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('store_transfer.status'); ?></label>
                             <select name="status" id="status" 
                                     class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                                <option value="">전체</option>
-                                <option value="draft" <?php echo ($status_filter === 'draft') ? 'selected' : ''; ?>>임시</option>
-                                <option value="confirmed" <?php echo ($status_filter === 'confirmed') ? 'selected' : ''; ?>>확정</option>
-                                <option value="cancelled" <?php echo ($status_filter === 'cancelled') ? 'selected' : ''; ?>>취소</option>
+                                <option value=""><?php echo t('store_transfer.all'); ?></option>
+                                <option value="draft" <?php echo ($status_filter === 'draft') ? 'selected' : ''; ?>><?php echo t('store_transfer.draft'); ?></option>
+                                <option value="confirmed" <?php echo ($status_filter === 'confirmed') ? 'selected' : ''; ?>><?php echo t('store_transfer.confirmed'); ?></option>
+                                <option value="cancelled" <?php echo ($status_filter === 'cancelled') ? 'selected' : ''; ?>><?php echo t('store_transfer.cancelled'); ?></option>
                             </select>
                         </div>
                     </div>
 
                     <div class="flex justify-end space-x-3 pt-4">
                         <a href="?" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                            초기화
+                            <?php echo t('store_transfer.reset'); ?>
                         </a>
                         <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                            검색
+                            <?php echo t('store_transfer.search'); ?>
                         </button>
                     </div>
                 </form>
@@ -245,7 +245,7 @@ if (isset($_SESSION['flash'])) {
         <div class="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200">
                 <h3 class="text-lg font-medium text-gray-900">
-                    점간이동 내역 
+                    <?php echo t('store_transfer.history'); ?> 
                     <span class="text-sm font-normal text-gray-500">(총 <?php echo count($transfers); ?>건)</span>
                 </h3>
             </div>
@@ -253,12 +253,12 @@ if (isset($_SESSION['flash'])) {
             <?php if (empty($transfers)): ?>
                 <div class="text-center py-12">
                     <i class="fas fa-exchange-alt text-gray-300 text-6xl mb-4"></i>
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">점간이동 내역이 없습니다</h3>
-                    <p class="text-gray-500 mb-6">조건에 맞는 점간이동 내역을 찾을 수 없습니다.</p>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2"><?php echo t('store_transfer.no_transfers'); ?></h3>
+                    <p class="text-gray-500 mb-6"><?php echo t('store_transfer.no_matching_transfers'); ?></p>
                     <a href="store_transfers.php" 
                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">
                         <i class="fas fa-plus mr-2"></i>
-                        첫 번째 점간이동 등록
+                        <?php echo t('store_transfer.register_first'); ?>
                     </a>
                 </div>
             <?php else: ?>
@@ -267,28 +267,28 @@ if (isset($_SESSION['flash'])) {
                         <thead class="bg-gray-50">
                             <tr>
                                 <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    번호
+                                    <?php echo t('store_transfer.number'); ?>
                                 </th>
                                 <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    이동 날짜
+                                    <?php echo t('store_transfer.transfer_date'); ?>
                                 </th>
                                 <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    출발 → 목적지
+                                    <?php echo t('store_transfer.route'); ?>
                                 </th>
                                 <th scope="col" class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    상품 수
+                                    <?php echo t('store_transfer.product_count'); ?>
                                 </th>
                                 <th scope="col" class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    총 금액
+                                    <?php echo t('store_transfer.total_amount'); ?>
                                 </th>
                                 <th scope="col" class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    상태
+                                    <?php echo t('store_transfer.status'); ?>
                                 </th>
                                 <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    처리자
+                                    <?php echo t('store_transfer.handler'); ?>
                                 </th>
                                 <th scope="col" class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    액션
+                                    <?php echo t('store_transfer.action'); ?>
                                 </th>
                             </tr>
                         </thead>
@@ -327,9 +327,9 @@ if (isset($_SESSION['flash'])) {
                                             'cancelled' => 'bg-red-100 text-red-800'
                                         ];
                                         $status_names = [
-                                            'draft' => '임시',
-                                            'confirmed' => '확정',
-                                            'cancelled' => '취소'
+                                            'draft' => t('store_transfer.draft'),
+                                            'confirmed' => t('store_transfer.confirmed'),
+                                            'cancelled' => t('store_transfer.cancelled')
                                         ];
                                         $status_class = $status_classes[$transfer['status']] ?? 'bg-gray-100 text-gray-800';
                                         $status_name = $status_names[$transfer['status']] ?? $transfer['status'];
@@ -339,16 +339,16 @@ if (isset($_SESSION['flash'])) {
                                         </span>
                                     </td>
                                     <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo htmlspecialchars($transfer['user_name'] ?? '알 수 없음'); ?>
+                                        <?php echo htmlspecialchars($transfer['user_name'] ?? t('store_transfer.unknown')); ?>
                                     </td>
                                     <td class="px-3 py-4 whitespace-nowrap text-center text-sm font-medium">
                                         <div class="flex justify-center space-x-1">
                                             <a href="store_transfer_preview.php?id=<?php echo $transfer['id']; ?>" 
-                                               class="text-blue-600 hover:text-blue-900" title="미리보기">
+                                               class="text-blue-600 hover:text-blue-900" title="<?php echo t('store_transfer.view_tooltip'); ?>">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             <a href="store_transfers.php?edit=<?php echo $transfer['id']; ?>" 
-                                               class="text-green-600 hover:text-green-900" title="수정">
+                                               class="text-green-600 hover:text-green-900" title="<?php echo t('store_transfer.edit_tooltip'); ?>">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                         </div>
@@ -363,7 +363,7 @@ if (isset($_SESSION['flash'])) {
         
         <?php if (count($transfers) >= 100): ?>
             <div class="mt-4 text-center text-sm text-gray-600">
-                최근 100건만 표시됩니다. 더 많은 내역을 보려면 날짜 범위를 좁혀서 검색하세요.
+                <?php echo t('store_transfer.recent_100_only'); ?>
             </div>
         <?php endif; ?>
     </div>

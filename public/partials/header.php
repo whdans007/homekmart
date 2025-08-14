@@ -49,6 +49,11 @@ if (!empty($_SESSION['user_id'])) {
     <link rel="apple-touch-icon" href="favicon.svg">
     <link href="css/style.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    
+    <?php 
+    // JavaScript 번역 시스템 포함
+    echo get_js_translation_script(); 
+    ?>
 </head>
 <body class="bg-gray-50 min-h-screen">
     <div class="flex h-screen bg-gray-50">
@@ -70,7 +75,7 @@ if (!empty($_SESSION['user_id'])) {
                                 <div class="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center mr-3">
                                     <i class="fas fa-home text-white text-sm"></i>
                                 </div>
-                                <h3 class="text-sm font-semibold text-gray-800">기본 메뉴</h3>
+                                <h3 class="text-sm font-semibold text-gray-800"><?php echo t('navigation.basic_menu'); ?></h3>
                             </div>
                             <div class="space-y-1">
                                 <?php if (has_permission('admin_access') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
@@ -111,7 +116,7 @@ if (!empty($_SESSION['user_id'])) {
                                 <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
                                     <i class="fas fa-box-open text-white text-sm"></i>
                                 </div>
-                                <h3 class="text-sm font-semibold text-blue-800">상품 관리</h3>
+                                <h3 class="text-sm font-semibold text-blue-800"><?php echo t('navigation.product_management_section'); ?></h3>
                             </div>
                             <div class="space-y-1">
                                 <?php if (has_permission('brand_management') || $_SESSION['role'] === 'super_admin'): ?>
@@ -157,7 +162,7 @@ if (!empty($_SESSION['user_id'])) {
                                 <div class="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center mr-3">
                                     <i class="fas fa-shopping-cart text-white text-sm"></i>
                                 </div>
-                                <h3 class="text-sm font-semibold text-green-800">매입 관리</h3>
+                                <h3 class="text-sm font-semibold text-green-800"><?php echo t('navigation.purchase_management_section'); ?></h3>
                             </div>
                             <div class="space-y-1">
                                 <a href="purchase_management.php" class="<?php echo in_array($current_page, ['purchase_management.php', 'add_purchase.php', 'edit_purchase.php']) ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200 hover:text-green-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
@@ -185,7 +190,7 @@ if (!empty($_SESSION['user_id'])) {
                                 <div class="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center mr-3">
                                     <i class="fas fa-handshake text-white text-sm"></i>
                                 </div>
-                                <h3 class="text-sm font-semibold text-orange-800">도매 관리</h3>
+                                <h3 class="text-sm font-semibold text-orange-800"><?php echo t('navigation.wholesale_management_section'); ?></h3>
                             </div>
                             <div class="space-y-1">
                                 <a href="wholesale_customer_management.php" class="<?php echo in_array($current_page, ['wholesale_customer_management.php', 'add_wholesale_customer.php', 'edit_wholesale_customer.php']) ? 'bg-orange-200 text-orange-900' : 'text-orange-700 hover:bg-orange-200 hover:text-orange-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
@@ -218,12 +223,12 @@ if (!empty($_SESSION['user_id'])) {
                                 <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center mr-3">
                                     <i class="fas fa-exchange-alt text-white text-sm"></i>
                                 </div>
-                                <h3 class="text-sm font-semibold text-purple-800">점간이동</h3>
+                                <h3 class="text-sm font-semibold text-purple-800"><?php echo t('navigation.store_transfer_section'); ?></h3>
                             </div>
                             <div class="space-y-1">
                                 <a href="store_transfers_list.php" class="<?php echo in_array($current_page, ['store_transfers_list.php', 'store_transfers.php', 'store_transfer_preview.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200 hover:text-purple-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-exchange-alt mr-2 text-purple-500 group-hover:text-purple-600 text-xs"></i>
-                                    점간이동
+                                    <?php echo t('navigation.store_transfer_section'); ?>
                                 </a>
                             </div>
                         </div>
@@ -236,7 +241,7 @@ if (!empty($_SESSION['user_id'])) {
                                 <div class="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center mr-3">
                                     <i class="fas fa-cog text-white text-sm"></i>
                                 </div>
-                                <h3 class="text-sm font-semibold text-gray-800">시스템 설정</h3>
+                                <h3 class="text-sm font-semibold text-gray-800"><?php echo t('navigation.system_settings_section'); ?></h3>
                             </div>
                             <div class="space-y-1">
                                 <a href="settings.php" class="<?php echo ($current_page == 'settings.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
@@ -306,7 +311,7 @@ if (!empty($_SESSION['user_id'])) {
                             <div class="w-6 h-6 bg-gray-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-home text-white text-xs"></i>
                             </div>
-                            <h4 class="text-xs font-semibold text-gray-800">기본 메뉴</h4>
+                            <h4 class="text-xs font-semibold text-gray-800"><?php echo t('navigation.basic_menu'); ?></h4>
                         </div>
                         <div class="space-y-1">
                             <?php if (has_permission('admin_access') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
@@ -343,7 +348,7 @@ if (!empty($_SESSION['user_id'])) {
                             <div class="w-6 h-6 bg-blue-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-box-open text-white text-xs"></i>
                             </div>
-                            <h4 class="text-xs font-semibold text-blue-800">상품 관리</h4>
+                            <h4 class="text-xs font-semibold text-blue-800"><?php echo t('navigation.product_management_section'); ?></h4>
                         </div>
                         <div class="space-y-1">
                             <?php if (has_permission('brand_management') || $_SESSION['role'] === 'super_admin'): ?>
@@ -384,7 +389,7 @@ if (!empty($_SESSION['user_id'])) {
                             <div class="w-6 h-6 bg-green-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-shopping-cart text-white text-xs"></i>
                             </div>
-                            <h4 class="text-xs font-semibold text-green-800">매입 관리</h4>
+                            <h4 class="text-xs font-semibold text-green-800"><?php echo t('navigation.purchase_management_section'); ?></h4>
                         </div>
                         <div class="space-y-1">
                             <a href="purchase_management.php" class="<?php echo in_array($current_page, ['purchase_management.php', 'add_purchase.php', 'edit_purchase.php']) ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200'; ?> block px-2 py-1 rounded text-sm">
@@ -409,7 +414,7 @@ if (!empty($_SESSION['user_id'])) {
                             <div class="w-6 h-6 bg-orange-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-handshake text-white text-xs"></i>
                             </div>
-                            <h4 class="text-xs font-semibold text-orange-800">도매 관리</h4>
+                            <h4 class="text-xs font-semibold text-orange-800"><?php echo t('navigation.wholesale_management_section'); ?></h4>
                         </div>
                         <div class="space-y-1">
                             <a href="wholesale_customer_management.php" class="<?php echo in_array($current_page, ['wholesale_customer_management.php', 'add_wholesale_customer.php', 'edit_wholesale_customer.php']) ? 'bg-orange-200 text-orange-900' : 'text-orange-700 hover:bg-orange-200'; ?> block px-2 py-1 rounded text-sm">
@@ -438,11 +443,11 @@ if (!empty($_SESSION['user_id'])) {
                             <div class="w-6 h-6 bg-purple-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-exchange-alt text-white text-xs"></i>
                             </div>
-                            <h4 class="text-xs font-semibold text-purple-800">점간이동</h4>
+                            <h4 class="text-xs font-semibold text-purple-800"><?php echo t('navigation.store_transfer_section'); ?></h4>
                         </div>
                         <div class="space-y-1">
                             <a href="store_transfers_list.php" class="<?php echo in_array($current_page, ['store_transfers_list.php', 'store_transfers.php', 'store_transfer_preview.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200'; ?> block px-2 py-1 rounded text-sm">
-                                <i class="fas fa-exchange-alt mr-2 text-xs"></i>점간이동
+                                <i class="fas fa-exchange-alt mr-2 text-xs"></i><?php echo t('navigation.store_transfer_section'); ?>
                             </a>
                         </div>
                     </div>
@@ -455,7 +460,7 @@ if (!empty($_SESSION['user_id'])) {
                             <div class="w-6 h-6 bg-gray-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-cog text-white text-xs"></i>
                             </div>
-                            <h4 class="text-xs font-semibold text-gray-800">시스템 설정</h4>
+                            <h4 class="text-xs font-semibold text-gray-800"><?php echo t('navigation.system_settings'); ?></h4>
                         </div>
                         <div class="space-y-1">
                             <a href="settings.php" class="<?php echo ($current_page == 'settings.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
@@ -498,7 +503,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // 페이지 새로고침으로 변경된 언어 적용
                     window.location.reload();
                 } else {
-                    alert('언어 변경에 실패했습니다: ' + data.message);
+                    alert(t('common.error') + ': ' + data.message);
                     // 실패시 이전 선택으로 되돌리기
                     this.value = '<?php echo get_language(); ?>';
                 }

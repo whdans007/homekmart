@@ -215,21 +215,7 @@ try {
                             도매 상품명
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            기준 상품
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <?php echo t('wholesale.wholesale_price'); ?>
-                        </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <?php echo t('wholesale.min_quantity'); ?>
-                        </th>
-                        <?php if ($_SESSION['role'] === 'super_admin'): ?>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            점포
-                        </th>
-                        <?php endif; ?>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            등록일
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <?php echo t('common.actions'); ?>
@@ -277,24 +263,8 @@ try {
                                 <?php endif; ?>
                             </div>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-600">
-                            <div class="text-xs text-gray-500">기준 상품:</div>
-                            <div><?php echo htmlspecialchars($wp['name_en'] ?: $wp['name_ko']); ?></div>
-                            <div class="text-xs text-gray-500">SKU: <?php echo htmlspecialchars($wp['sku']); ?></div>
-                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                             <?php echo number_format($wp['wholesale_price']); ?>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            <?php echo number_format($wp['min_quantity']); ?>개
-                        </td>
-                        <?php if ($_SESSION['role'] === 'super_admin'): ?>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            <?php echo htmlspecialchars($wp['store_name']); ?>
-                        </td>
-                        <?php endif; ?>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            <?php echo date('Y-m-d', strtotime($wp['created_at'])); ?>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex space-x-2">

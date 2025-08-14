@@ -4,7 +4,7 @@ $page_title = t('navigation.wholesale_sales') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
-// 도매판매 권한 확인
+// Check wholesale sales permission
 if (!has_permission('wholesale_management')) {
     $_SESSION['flash'] = [
         'type' => 'error', 
@@ -27,7 +27,7 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
     $edit_mode = true;
 }
 
-// 점포 목록 가져오기 (super_admin인 경우) 및 수정 데이터 로드
+// Get store list (for super_admin) and load edit data
 try {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
@@ -39,9 +39,9 @@ try {
         $stores = $store_stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
-    // 수정 모드인 경우 기존 데이터 로드
+    // Load existing data in edit mode
     if ($edit_mode && $edit_sale_id > 0) {
-        // 판매 정보와 거래처 정보 조인해서 가져오기
+        // Join sales info with customer info
         $edit_sql = "
             SELECT 
                 ws.*,
@@ -63,10 +63,10 @@ try {
         $edit_data = $edit_stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$edit_data) {
-            $errors[] = '수정할 판매 내역을 찾을 수 없거나 접근 권한이 없습니다.';
+            $errors[] = t('wholesale.edit_not_found');
             $edit_mode = false;
         } else {
-            // 판매 항목들 가져오기
+            // Get sale items
             $items_sql = "
                 SELECT 
                     wsi.product_id,
@@ -104,11 +104,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $edit_sale_id_post = $is_edit ? (int)$_POST['edit_sale_id'] : 0;
     
     if (empty($customer_id)) {
-        $errors[] = '거래처를 선택해주세요.';
+        $errors[] = t('wholesale.customer_required_error');
     }
     
     if (empty($cart_items)) {
-        $errors[] = '판매할 상품을 추가해주세요.';
+        $errors[] = t('wholesale.products_required_error');
     }
     
     if (empty($errors)) {
@@ -132,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('수정 권한이 없습니다.');
                 }
                 
-                // 판매 기록 업데이트
+                // Update sale record
                 $update_stmt = $pdo->prepare("
                     UPDATE wholesale_sales 
                     SET customer_id = ?, store_id = ?, sale_date = ?, total_amount = ?, final_amount = ?, updated_at = NOW()
@@ -140,11 +140,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $update_stmt->execute([$customer_id, $store_id, $sale_date, $total_amount, $total_amount, $edit_sale_id_post]);
                 
-                // 기존 판매 항목들 삭제
+                // Delete existing sale items
                 $delete_stmt = $pdo->prepare("DELETE FROM wholesale_sale_items WHERE sale_id = ?");
                 $delete_stmt->execute([$edit_sale_id_post]);
                 
-                // 새로운 판매 항목들 추가
+                // Add new sale items
                 foreach ($cart_items as $item) {
                     $item_stmt = $pdo->prepare("
                         INSERT INTO wholesale_sale_items (sale_id, product_id, quantity, unit_price, total_price, remarks, created_at) 
@@ -161,10 +161,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 $sale_id = $edit_sale_id_post;
-                $success_msg = '도매 판매 내역이 성공적으로 수정되었습니다.';
+                $success_msg = t('wholesale.sale_updated_successfully');
                 
             } else {
-                // 새로운 판매 등록
+                // Register new sale
                 $sale_stmt = $pdo->prepare("
                     INSERT INTO wholesale_sales (customer_id, store_id, user_id, sale_date, total_amount, final_amount, status, created_at) 
                     VALUES (?, ?, ?, ?, ?, ?, 'confirmed', NOW())
@@ -172,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sale_stmt->execute([$customer_id, $store_id, $_SESSION['user_id'], $sale_date, $total_amount, $total_amount]);
                 $sale_id = $pdo->lastInsertId();
                 
-                // 판매 항목 추가
+                // Add sale items
                 foreach ($cart_items as $item) {
                     $item_stmt = $pdo->prepare("
                         INSERT INTO wholesale_sale_items (sale_id, product_id, quantity, unit_price, total_price, remarks, created_at) 
@@ -188,7 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
                 }
                 
-                $success_msg = '도매 판매가 성공적으로 등록되었습니다.';
+                $success_msg = t('wholesale.sale_registered_successfully');
             }
             
             $pdo->commit();
@@ -225,7 +225,7 @@ if (isset($_SESSION['flash'])) {
                     <li>
                         <a href="wholesale_customer_management.php" class="text-gray-400 hover:text-gray-600">
                             <i class="fas fa-handshake mr-1"></i>
-                            도매판매
+                            <?php echo t('navigation.wholesale_sales'); ?>
                         </a>
                     </li>
                     <li>
@@ -242,10 +242,10 @@ if (isset($_SESSION['flash'])) {
             <div class="px-6 py-4 border-b border-gray-200">
                 <h1 class="text-xl font-semibold text-gray-900">
                     <i class="fas fa-handshake mr-2 text-primary-500"></i>
-                    <?php echo $edit_mode ? '도매 판매 수정' : t('navigation.wholesale_sales'); ?>
+                    <?php echo $edit_mode ? t('wholesale.sales_edit') : t('navigation.wholesale_sales'); ?>
                 </h1>
                 <p class="mt-1 text-sm text-gray-600">
-                    <?php echo $edit_mode ? '기존 도매 판매 내역을 수정합니다.' : '거래처와 상품을 선택하여 도매 판매를 등록하세요.'; ?>
+                    <?php echo $edit_mode ? t('wholesale.sales_edit_description') : t('wholesale.sales_register_description'); ?>
                 </p>
             </div>
 
@@ -284,23 +284,23 @@ if (isset($_SESSION['flash'])) {
                 <?php endif; ?>
 
                 <form method="POST" id="wholesale-sales-form">
-                    <!-- 거래처 및 기본 정보 -->
+                    <!-- Customer and basic information -->
                     <div class="space-y-6">
                         <div class="bg-gray-50 rounded-lg p-4">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4">판매 정보</h3>
+                            <h3 class="text-lg font-medium text-gray-900 mb-4"><?php echo t('wholesale.sales_info'); ?></h3>
                             
-                            <!-- 거래처, 점포, 판매날짜 한줄 배치 -->
+                            <!-- Customer, store, sale date in one line -->
                             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                                <!-- 거래처 선택 -->
+                                <!-- Customer selection -->
                                 <div>
                                     <label for="customer_search" class="block text-sm font-medium text-gray-700 mb-2">
-                                        거래처 선택 <span class="text-red-500">*</span>
+                                        <?php echo t('wholesale.customer_required'); ?>
                                     </label>
                                     <div class="flex gap-2">
                                         <div class="relative flex-1">
                                             <input type="text" id="customer_search" 
                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                                                   placeholder="거래처 검색..."
+                                                   placeholder="<?php echo t('wholesale.customer_search_placeholder'); ?>"
                                                    autocomplete="off">
                                             <div id="customer_search_results" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto hidden">
                                                 <!-- 검색 결과가 여기에 표시됩니다 -->
@@ -344,17 +344,17 @@ if (isset($_SESSION['flash'])) {
                                 </div>
                                 <?php endif; ?>
 
-                                <!-- 판매 날짜 -->
+                                <!-- Sale date -->
                                 <div>
                                     <label for="sale_date" class="block text-sm font-medium text-gray-700 mb-2">
-                                        판매 날짜
+                                        <?php echo t('wholesale.sale_date'); ?>
                                     </label>
                                     <input type="date" name="sale_date" id="sale_date" value="<?php echo date('Y-m-d'); ?>"
                                            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
                                 </div>
                             </div>
                             
-                            <!-- 선택된 거래처 정보 표시 -->
+                            <!-- Display selected customer information -->
                             <div id="selected_customer" class="mb-4 p-3 bg-white border rounded-md hidden">
                                 <div class="flex items-center justify-between">
                                     <div>
@@ -457,14 +457,14 @@ if (isset($_SESSION['flash'])) {
     </div>
 </div>
 
-<!-- 거래처 목록 모달 -->
+<!-- Customer list modal -->
 <div id="customer-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[70vh] flex flex-col">
             <div class="flex items-center justify-between p-4 border-b border-gray-200">
                 <h3 class="text-base font-medium text-gray-900">
                     <i class="fas fa-users mr-2 text-blue-500"></i>
-                    거래처 목록
+                    <?php echo t('wholesale.customer_list'); ?>
                 </h3>
                 <button type="button" id="close-customer-modal" class="text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times text-lg"></i>
@@ -474,7 +474,7 @@ if (isset($_SESSION['flash'])) {
                 <div class="p-3 border-b border-gray-200">
                     <input type="text" id="modal-customer-search" 
                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                           placeholder="거래처명이나 전화번호로 필터링...">
+                           placeholder="<?php echo t('wholesale.customer_filter_placeholder'); ?>">
                 </div>
                 <div id="customer-list" class="flex-1 overflow-y-auto p-3 space-y-2 max-h-80">
                     <!-- 거래처 목록이 여기에 표시됩니다 -->
@@ -515,6 +515,22 @@ if (isset($_SESSION['flash'])) {
 // PHP 데이터를 JavaScript로 전달
 const editMode = <?php echo json_encode($edit_mode); ?>;
 const editData = <?php echo json_encode($edit_data); ?>;
+
+// JavaScript translations object
+const translations = {
+    loading: '<?php echo addslashes(t("wholesale.js_loading")); ?>',
+    no_customers: '<?php echo addslashes(t("wholesale.js_no_customers")); ?>',
+    customer_load_error: '<?php echo addslashes(t("wholesale.js_customer_load_error")); ?>',
+    no_products: '<?php echo addslashes(t("wholesale.js_no_products")); ?>',
+    product_load_error: '<?php echo addslashes(t("wholesale.js_product_load_error")); ?>',
+    no_phone: '<?php echo addslashes(t("wholesale.js_no_phone")); ?>',
+    wholesale_badge: '<?php echo addslashes(t("wholesale.js_wholesale_badge")); ?>',
+    wholesale_suffix: '<?php echo addslashes(t("wholesale.js_wholesale_suffix")); ?>',
+    minimum_prefix: '<?php echo addslashes(t("wholesale.js_minimum_prefix")); ?>',
+    delivery_placeholder: '<?php echo addslashes(t("wholesale.js_delivery_placeholder")); ?>',
+    error_customers: '<?php echo addslashes(t("wholesale.js_error_customers")); ?>',
+    error_products: '<?php echo addslashes(t("wholesale.js_error_products")); ?>'
+};
 
 document.addEventListener('DOMContentLoaded', function() {
     let cart = [];
@@ -807,11 +823,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="font-medium text-gray-900">
                         ${product.display_name_en || product.display_name_ko || 'N/A'}
                         ${product.display_name_en !== product.name_en || product.display_name_ko !== product.name_ko ? 
-                            '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">도매용</span>' : ''}
+                            '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">' + translations.wholesale_suffix + '</span>' : ''}
                     </div>
                     <div class="text-sm text-gray-600">${product.display_name_ko && product.display_name_en && product.display_name_ko !== product.display_name_en ? product.display_name_ko : ''}</div>
                     <div class="text-xs text-gray-500 mt-1">
-                        SKU: ${displaySkus} | 도매가: ${Number(product.wholesale_price).toLocaleString()}원
+                        SKU: ${displaySkus} | ${translations.wholesale_badge}: ${Number(product.wholesale_price).toLocaleString()}원
                     </div>
                 </div>
             `;
@@ -931,7 +947,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <td class="px-2 py-3">
                             <input type="text" 
                                    class="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
-                                   placeholder="배송지시, 포장요청 등"
+                                   placeholder="${translations.delivery_placeholder}"
                                    value="${item.remarks || ''}"
                                    onchange="updateRemarks(${index}, this.value)"
                                    maxlength="100">
@@ -1000,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 전체 거래처 목록 로드
     function loadAllCustomers() {
-        customerList.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>로딩 중...</div>';
+        customerList.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>' + translations.loading + '</div>';
         
         fetch('ajax_search_wholesale_customers.php', {
             method: 'POST',
@@ -1014,18 +1030,18 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success && data.customers) {
                 displayModalCustomerList(data.customers);
             } else {
-                customerList.innerHTML = '<div class="text-center py-4 text-gray-500">거래처가 없습니다.</div>';
+                customerList.innerHTML = '<div class="text-center py-4 text-gray-500">' + translations.no_customers + '</div>';
             }
         })
         .catch(error => {
-            console.error('Error loading customers:', error);
-            customerList.innerHTML = '<div class="text-center py-4 text-red-500">거래처 목록을 불러오는데 실패했습니다.</div>';
+            console.error(translations.error_customers, error);
+            customerList.innerHTML = '<div class="text-center py-4 text-red-500">' + translations.customer_load_error + '</div>';
         });
     }
     
     // 전체 상품 목록 로드
     function loadAllProducts() {
-        productList.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>로딩 중...</div>';
+        productList.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>' + translations.loading + '</div>';
         
         fetch('ajax_search_wholesale_products.php', {
             method: 'POST',
@@ -1039,12 +1055,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success && data.products) {
                 displayModalProductList(data.products);
             } else {
-                productList.innerHTML = '<div class="text-center py-4 text-gray-500">상품이 없습니다.</div>';
+                productList.innerHTML = '<div class="text-center py-4 text-gray-500">' + translations.no_products + '</div>';
             }
         })
         .catch(error => {
-            console.error('Error loading products:', error);
-            productList.innerHTML = '<div class="text-center py-4 text-red-500">상품 목록을 불러오는데 실패했습니다.</div>';
+            console.error(translations.error_products, error);
+            productList.innerHTML = '<div class="text-center py-4 text-red-500">' + translations.product_load_error + '</div>';
         });
     }
     
@@ -1062,7 +1078,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="flex-1 min-w-0">
                             <div class="font-medium text-gray-900 text-sm truncate">${customer.name}</div>
                             <div class="text-xs text-gray-600 mt-1 truncate">
-                                <i class="fas fa-phone mr-1"></i>${customer.phone || '전화번호 없음'}
+                                <i class="fas fa-phone mr-1"></i>${customer.phone || translations.no_phone}
                             </div>
                             ${customer.address ? `<div class="text-xs text-gray-500 truncate mt-1">
                                 <i class="fas fa-map-marker-alt mr-1"></i>${customer.address}
@@ -1116,14 +1132,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="font-medium text-gray-900 text-sm truncate">
                                 ${product.display_name_en || product.display_name_ko || 'N/A'}
                                 ${product.display_name_en !== product.name_en || product.display_name_ko !== product.name_ko ? 
-                                    '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-1">도매</span>' : ''}
+                                    '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-1">' + translations.wholesale_badge + '</span>' : ''}
                             </div>
                             ${product.display_name_ko && product.display_name_en && product.display_name_ko !== product.display_name_en ? 
                                 `<div class="text-xs text-gray-600 mt-1 truncate">${product.display_name_ko}</div>` : ''}
                             <div class="text-xs text-gray-500 mt-1 flex flex-wrap gap-2">
                                 <span><i class="fas fa-barcode mr-1"></i>${displaySkus}</span>
                                 <span class="text-green-600 font-medium"><i class="fas fa-won-sign mr-1"></i>${Number(product.wholesale_price).toLocaleString()}원</span>
-                                <span><i class="fas fa-box mr-1"></i>최소${product.min_quantity}</span>
+                                <span><i class="fas fa-box mr-1"></i>${translations.minimum_prefix}${product.min_quantity}</span>
                             </div>
                         </div>
                         <div class="text-green-500 ml-2">
