@@ -195,3 +195,107 @@ function format_currency($amount) {
         return "{$formatted}원";
     }
 }
+
+/**
+ * JavaScript에서 사용할 번역 객체 생성
+ * @param array $keys 포함할 번역 키 배열 (없으면 모든 키 포함)
+ * @return string JSON 형식의 번역 객체
+ */
+function get_js_translations($keys = []) {
+    $lang = get_language();
+    $translations = load_translations($lang);
+    
+    if (!empty($keys)) {
+        // 특정 키들만 추출
+        $filtered_translations = [];
+        foreach ($keys as $key) {
+            $value = get_translation_value($translations, $key);
+            if ($value !== $key) { // 번역이 존재하는 경우만
+                set_nested_array_value($filtered_translations, $key, $value);
+            }
+        }
+        return json_encode($filtered_translations, JSON_UNESCAPED_UNICODE);
+    }
+    
+    return json_encode($translations, JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * 중첩된 배열에서 점으로 구분된 키로 값 가져오기
+ * @param array $array 대상 배열
+ * @param string $key 점으로 구분된 키
+ * @return mixed 값 또는 키 자체
+ */
+function get_translation_value($array, $key) {
+    $keys = explode('.', $key);
+    $value = $array;
+    
+    foreach ($keys as $k) {
+        if (isset($value[$k])) {
+            $value = $value[$k];
+        } else {
+            return $key;
+        }
+    }
+    
+    return is_string($value) ? $value : $key;
+}
+
+/**
+ * 중첩된 배열에 점으로 구분된 키로 값 설정
+ * @param array &$array 대상 배열 (참조)
+ * @param string $key 점으로 구분된 키
+ * @param mixed $value 설정할 값
+ */
+function set_nested_array_value(&$array, $key, $value) {
+    $keys = explode('.', $key);
+    $current = &$array;
+    
+    foreach ($keys as $k) {
+        if (!isset($current[$k])) {
+            $current[$k] = [];
+        }
+        $current = &$current[$k];
+    }
+    
+    $current = $value;
+}
+
+/**
+ * JavaScript용 번역 스크립트 태그 생성
+ * @param array $keys 포함할 번역 키 배열
+ * @return string JavaScript 스크립트 태그
+ */
+function get_js_translation_script($keys = []) {
+    $js_translations = get_js_translations($keys);
+    $current_lang = get_language();
+    
+    return "<script>
+        window.translations = {$js_translations};
+        window.currentLanguage = '{$current_lang}';
+        
+        // JavaScript에서 번역 함수
+        function t(key, params = {}) {
+            let keys = key.split('.');
+            let value = window.translations;
+            
+            for (let k of keys) {
+                if (value && typeof value === 'object' && k in value) {
+                    value = value[k];
+                } else {
+                    return key; // 번역이 없으면 키 반환
+                }
+            }
+            
+            if (typeof value === 'string') {
+                // 파라미터 치환
+                for (let [param_key, param_value] of Object.entries(params)) {
+                    value = value.replace(new RegExp('\\{' + param_key + '\\}', 'g'), param_value);
+                }
+                return value;
+            }
+            
+            return key;
+        }
+    </script>";
+}

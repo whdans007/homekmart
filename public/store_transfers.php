@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/lang_helper.php';
-$page_title = '점간이동' . ' - ' . t('company.name');
+$page_title = t('store_transfer.management') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
@@ -67,7 +67,7 @@ try {
         $edit_data = $edit_stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$edit_data) {
-            $errors[] = '수정할 점간이동 내역을 찾을 수 없거나 접근 권한이 없습니다.';
+            $errors[] = t('store_transfer.edit_not_found');
             $edit_mode = false;
         } else {
             // 이동 항목들 가져오기
@@ -95,11 +95,11 @@ try {
     }
     
 } catch (PDOException $e) {
-    $errors[] = '데이터베이스 연결 오류: ' . $e->getMessage();
+    $errors[] = t('store_transfer.connection_error') . $e->getMessage();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    error_log("POST 요청 수신: " . json_encode($_POST));
+    error_log('POST request received: ' . json_encode($_POST));
     
     $action = $_POST['action'] ?? 'save';
     $from_store_id = (int)($_POST['from_store_id'] ?? 0);
@@ -109,27 +109,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $is_edit = isset($_POST['edit_transfer_id']) && is_numeric($_POST['edit_transfer_id']);
     $edit_transfer_id_post = $is_edit ? (int)$_POST['edit_transfer_id'] : 0;
     
-    error_log("처리할 액션: {$action}, 수정 모드: " . ($is_edit ? 'Yes' : 'No') . ", Transfer ID: {$edit_transfer_id_post}");
+    error_log("Processing action: {$action}, Edit mode: " . ($is_edit ? 'Yes' : 'No') . ", Transfer ID: {$edit_transfer_id_post}");
     
     if (empty($from_store_id)) {
-        $errors[] = '출발 점포를 선택해주세요.';
+        $errors[] = t('store_transfer.select_from_store');
     }
     
     if (empty($to_store_id)) {
-        $errors[] = '목적지 점포를 선택해주세요.';
+        $errors[] = t('store_transfer.select_to_store');
     }
     
     if ($from_store_id === $to_store_id) {
-        $errors[] = '출발 점포와 목적지 점포가 동일할 수 없습니다.';
+        $errors[] = t('store_transfer.same_store_error');
     }
     
     if (empty($cart_items)) {
-        $errors[] = '이동할 상품을 추가해주세요.';
+        $errors[] = t('store_transfer.add_products');
     }
     
     // 삭제 액션 처리
     if ($action === 'delete' && $is_edit && $edit_transfer_id_post > 0) {
-        error_log("삭제 액션 시작 - Transfer ID: {$edit_transfer_id_post}, User: {$_SESSION['user_id']}, Role: {$_SESSION['role']}");
+        error_log("Delete action started - Transfer ID: {$edit_transfer_id_post}, User: {$_SESSION['user_id']}, Role: {$_SESSION['role']}");
         
         try {
             $pdo->beginTransaction();
@@ -139,84 +139,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($_SESSION['role'] !== 'super_admin') {
                 $check_sql .= " AND from_store_id = " . (int)$current_store_id;
             }
-            error_log("권한 확인 SQL: {$check_sql}");
+            error_log("Permission check SQL: {$check_sql}");
             
             $check_stmt = $pdo->prepare($check_sql);
             $check_stmt->execute([$edit_transfer_id_post]);
             $transfer_info = $check_stmt->fetch(PDO::FETCH_ASSOC);
             
-            error_log("Transfer 정보: " . json_encode($transfer_info));
+            error_log("Transfer info: " . json_encode($transfer_info));
             
             if (!$transfer_info) {
-                throw new Exception('삭제 권한이 없거나 해당 이동 내역을 찾을 수 없습니다.');
+                throw new Exception(t('store_transfer.error_edit_not_found'));
             }
             
             $delete_from_store_id = $transfer_info['from_store_id'];
             $delete_to_store_id = $transfer_info['to_store_id'];
             $current_status = $transfer_info['status'];
             
-            error_log("삭제 대상 - From Store: {$delete_from_store_id}, To Store: {$delete_to_store_id}, Status: {$current_status}");
+            error_log("Delete target - From Store: {$delete_from_store_id}, To Store: {$delete_to_store_id}, Status: {$current_status}");
             
             // confirmed 상태인 경우 재고 원복
             if ($current_status === 'confirmed') {
-                error_log("확정된 이동이므로 재고 복원 시작");
+                error_log("Starting inventory restoration for confirmed transfer");
                 
                 $old_items_stmt = $pdo->prepare("SELECT product_id, quantity FROM store_transfer_items WHERE transfer_id = ?");
                 $old_items_stmt->execute([$edit_transfer_id_post]);
                 $old_items = $old_items_stmt->fetchAll(PDO::FETCH_ASSOC);
                 
-                error_log("복원할 항목 수: " . count($old_items));
+                error_log("Number of items to restore: " . count($old_items));
                 
                 foreach ($old_items as $old_item) {
-                    error_log("재고 복원 - Product: {$old_item['product_id']}, Quantity: {$old_item['quantity']}");
+                    error_log("Inventory restoration - Product: {$old_item['product_id']}, Quantity: {$old_item['quantity']}");
                     
                     // 출발지에 재고 복원
                     $restore_from = $pdo->prepare("UPDATE inventory SET quantity = quantity + ? WHERE product_id = ? AND store_id = ?");
                     $restore_from->execute([$old_item['quantity'], $old_item['product_id'], $delete_from_store_id]);
-                    error_log("출발지 재고 복원 완료");
+                    error_log("Source store inventory restoration completed");
                     
                     // 목적지에서 재고 차감
                     $reduce_to = $pdo->prepare("UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?");
                     $reduce_to->execute([$old_item['quantity'], $old_item['product_id'], $delete_to_store_id]);
-                    error_log("목적지 재고 차감 완료");
+                    error_log("Destination store inventory reduction completed");
                 }
             }
             
             // 관련 데이터 삭제
-            error_log("Transfer items 삭제 시작");
+            error_log("Starting transfer items deletion");
             $delete_items_stmt = $pdo->prepare("DELETE FROM store_transfer_items WHERE transfer_id = ?");
             $delete_items_stmt->execute([$edit_transfer_id_post]);
             
-            error_log("Transfer 레코드 삭제 시작");
+            error_log("Starting transfer record deletion");
             $delete_transfer_stmt = $pdo->prepare("DELETE FROM store_transfers WHERE id = ?");
             $delete_transfer_stmt->execute([$edit_transfer_id_post]);
             
             $pdo->commit();
-            error_log("삭제 트랜잭션 커밋 완료");
+            error_log("Delete transaction commit completed");
             
             $_SESSION['flash'] = [
                 'type' => 'success',
-                'message' => '점간이동 내역이 성공적으로 삭제되었습니다.'
+                'message' => t('store_transfer.deleted_successfully')
             ];
             
-            error_log("삭제 완료 - 리다이렉트 실행");
+            error_log("Delete completed - Executing redirect");
             header('Location: store_transfers_list.php');
             exit;
             
         } catch (Exception $e) {
             $pdo->rollback();
-            error_log("삭제 오류 발생: " . $e->getMessage());
-            error_log("삭제 오류 스택: " . $e->getTraceAsString());
-            $errors[] = '삭제 중 오류가 발생했습니다: ' . $e->getMessage();
+            error_log("Delete error occurred: " . $e->getMessage());
+            error_log("Delete error stack: " . $e->getTraceAsString());
+            $errors[] = t('store_transfer.delete_error') . $e->getMessage();
         }
     }
     
-    // 권한 확인 (super_admin이 아닌 경우 자신의 점포가 출발지여야 함)
+    // Permission check (non-super_admin users can only transfer from their own store)
     if ($action !== 'delete' && $_SESSION['role'] !== 'super_admin' && $from_store_id != $current_store_id) {
-        $errors[] = '자신의 점포에서 출발하는 이동만 등록할 수 있습니다.';
+        $errors[] = t('store_transfer.own_store_only');
     }
     
-    // 저장/수정 액션 처리
+    // Save/edit action processing
     if ($action === 'save' && empty($errors)) {
         try {
             $pdo->beginTransaction();
@@ -224,9 +224,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $total_amount = array_sum(array_column($cart_items, 'total_price'));
             
             if ($is_edit && $edit_transfer_id_post > 0) {
-                // 수정 모드 - 기존 데이터 업데이트
+                // Edit mode - Update existing data
                 
-                // 권한 확인
+                // Permission check
                 $check_sql = "SELECT id FROM store_transfers WHERE id = ?";
                 if ($_SESSION['role'] !== 'super_admin') {
                     $check_sql .= " AND from_store_id = " . (int)$current_store_id;
@@ -235,16 +235,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $check_stmt->execute([$edit_transfer_id_post]);
                 
                 if (!$check_stmt->fetch()) {
-                    throw new Exception('수정 권한이 없습니다.');
+                    throw new Exception(t('store_transfer.edit_permission_denied'));
                 }
                 
-                // 기존 이동으로 인한 재고 변경사항 원복 (confirmed 상태인 경우에만)
+                // Restore inventory changes from existing transfer (only if confirmed status)
                 $status_check = $pdo->prepare("SELECT status FROM store_transfers WHERE id = ?");
                 $status_check->execute([$edit_transfer_id_post]);
                 $current_status = $status_check->fetchColumn();
                 
                 if ($current_status === 'confirmed') {
-                    // 기존 항목들로 재고 원복
+                    // Restore inventory with existing items
                     $old_items_stmt = $pdo->prepare("SELECT product_id, quantity FROM store_transfer_items WHERE transfer_id = ?");
                     $old_items_stmt->execute([$edit_transfer_id_post]);
                     $old_items = $old_items_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -273,7 +273,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $delete_stmt->execute([$edit_transfer_id_post]);
                 
                 $transfer_id = $edit_transfer_id_post;
-                $success_msg = '점간이동 내역이 성공적으로 수정되었습니다.';
+                $success_msg = t('store_transfer.updated_successfully');
                 
             } else {
                 // 새로운 이동 등록
@@ -284,7 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $transfer_stmt->execute([$from_store_id, $to_store_id, $_SESSION['user_id'], $transfer_date, $total_amount, $total_amount]);
                 $transfer_id = $pdo->lastInsertId();
                 
-                $success_msg = '점간이동이 성공적으로 등록되었습니다.';
+                $success_msg = t('store_transfer.registered_successfully');
             }
             
             // 새로운 이동 항목들 추가 및 재고 이동 처리
@@ -338,7 +338,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
         } catch (Exception $e) {
             $pdo->rollback();
-            $errors[] = '처리 중 오류가 발생했습니다: ' . $e->getMessage();
+            $errors[] = t('messages.processing_error') . ': ' . $e->getMessage();
         }
     }
 }
@@ -359,13 +359,13 @@ if (isset($_SESSION['flash'])) {
                     <li>
                         <a href="store_transfers_list.php" class="text-gray-400 hover:text-gray-600">
                             <i class="fas fa-exchange-alt mr-1"></i>
-                            점간이동
+                            <?php echo t('store_transfer.breadcrumb_transfer'); ?>
                         </a>
                     </li>
                     <li>
                         <div class="flex items-center">
                             <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
-                            <span class="text-gray-600"><?php echo $edit_mode ? '점간이동 수정' : '점간이동 등록'; ?></span>
+                            <span class="text-gray-600"><?php echo $edit_mode ? t('store_transfer.edit_title') : t('store_transfer.register_title'); ?></span>
                         </div>
                     </li>
                 </ol>
@@ -376,10 +376,10 @@ if (isset($_SESSION['flash'])) {
             <div class="px-6 py-4 border-b border-gray-200">
                 <h1 class="text-xl font-semibold text-gray-900">
                     <i class="fas fa-exchange-alt mr-2 text-primary-500"></i>
-                    <?php echo $edit_mode ? '점간이동 수정' : '점간이동 등록'; ?>
+                    <?php echo $edit_mode ? t('store_transfer.edit_title') : t('store_transfer.register_title'); ?>
                 </h1>
                 <p class="mt-1 text-sm text-gray-600">
-                    <?php echo $edit_mode ? '기존 점간이동 내역을 수정합니다.' : '출발 점포와 목적지 점포, 상품을 선택하여 점간이동을 등록하세요.'; ?>
+                    <?php echo $edit_mode ? t('store_transfer.edit_description') : t('store_transfer.register_description'); ?>
                 </p>
             </div>
 
@@ -406,7 +406,7 @@ if (isset($_SESSION['flash'])) {
                                 <i class="fas fa-exclamation-triangle text-red-400"></i>
                             </div>
                             <div class="ml-3">
-                                <h3 class="text-sm font-medium text-red-800">다음 오류를 해결해주세요:</h3>
+                                <h3 class="text-sm font-medium text-red-800"><?php echo t('common.error_occurred'); ?>:</h3>
                                 <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
                                     <?php foreach ($errors as $error): ?>
                                         <li><?php echo htmlspecialchars($error); ?></li>
@@ -421,26 +421,26 @@ if (isset($_SESSION['flash'])) {
                     <!-- 점포 및 기본 정보 -->
                     <div class="space-y-6">
                         <div class="bg-gray-50 rounded-lg p-4">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4">이동 정보</h3>
+                            <h3 class="text-lg font-medium text-gray-900 mb-4"><?php echo t('store_transfer.transfer_info'); ?></h3>
                             
-                            <!-- 출발점포, 목적지점포, 이동날짜 -->
+                            <!-- Source store, destination store, transfer date -->
                             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                                <!-- 출발 점포 -->
+                                <!-- Source store -->
                                 <div>
                                     <label for="from_store_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                        출발 점포 <span class="text-red-500">*</span>
+                                        <?php echo t('store_transfer.from_store_required'); ?>
                                     </label>
                                     <?php if ($_SESSION['role'] === 'super_admin'): ?>
                                         <select name="from_store_id" id="from_store_id" required onchange="updateProductSearch(); updateToStoreOptions();"
                                                 class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
-                                            <option value="">출발 점포를 선택하세요</option>
+                                            <option value=""><?php echo t('store_transfer.select_from_placeholder'); ?></option>
                                             <?php foreach ($stores as $store): ?>
                                                 <?php 
                                                 $selected = false;
                                                 if ($edit_data && $store['id'] == $edit_data['from_store_id']) {
                                                     $selected = true;
                                                 } elseif (!$edit_data && $store['id'] == $current_store_id) {
-                                                    // 신규 등록시 현재 점포를 기본값으로 설정
+                                                    // Set current store as default for new registration
                                                     $selected = true;
                                                 }
                                                 ?>
@@ -460,11 +460,11 @@ if (isset($_SESSION['flash'])) {
                                 <!-- 목적지 점포 -->
                                 <div>
                                     <label for="to_store_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                        목적지 점포 <span class="text-red-500">*</span>
+                                        <?php echo t('store_transfer.to_store_required'); ?>
                                     </label>
                                     <select name="to_store_id" id="to_store_id" required
                                             class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
-                                        <option value="">목적지 점포를 선택하세요</option>
+                                        <option value=""><?php echo t('store_transfer.select_to_placeholder'); ?></option>
                                         <?php foreach ($stores as $store): ?>
                                             <option value="<?php echo $store['id']; ?>" 
                                                     data-store-id="<?php echo $store['id']; ?>"
@@ -478,7 +478,7 @@ if (isset($_SESSION['flash'])) {
                                 <!-- 이동 날짜 -->
                                 <div>
                                     <label for="transfer_date" class="block text-sm font-medium text-gray-700 mb-2">
-                                        이동 날짜
+                                        <?php echo t('store_transfer.transfer_date'); ?>
                                     </label>
                                     <input type="date" name="transfer_date" id="transfer_date" 
                                            value="<?php echo $edit_data ? $edit_data['transfer_date'] : date('Y-m-d'); ?>"
@@ -489,13 +489,13 @@ if (isset($_SESSION['flash'])) {
 
                         <!-- 상품 검색 및 추가 -->
                         <div class="bg-gray-50 rounded-lg p-4">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4">상품 추가</h3>
+                            <h3 class="text-lg font-medium text-gray-900 mb-4"><?php echo t('store_transfer.add_product'); ?></h3>
                             
                             <div class="flex gap-2">
                                 <div class="relative flex-1">
                                     <input type="text" id="product_search" 
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                                           placeholder="상품명이나 SKU를 입력해서 검색하세요..."
+                                           placeholder="<?php echo t('store_transfer.search_product_placeholder'); ?>"
                                            autocomplete="off">
                                     <div id="product_search_results" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto hidden">
                                         <!-- 검색 결과가 여기에 표시됩니다 -->
@@ -504,7 +504,7 @@ if (isset($_SESSION['flash'])) {
                                 <button type="button" id="product_search_btn" 
                                         class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 whitespace-nowrap">
                                     <i class="fas fa-search mr-1"></i>
-                                    검색
+                                    <?php echo t('common.search'); ?>
                                 </button>
                             </div>
                             
@@ -517,13 +517,13 @@ if (isset($_SESSION['flash'])) {
                         <div class="bg-gray-50 rounded-lg p-4">
                             <h3 class="text-lg font-medium text-gray-900 mb-4">
                                 <i class="fas fa-exchange-alt mr-2 text-primary-500"></i>
-                                이동할 상품 목록
+                                <?php echo t('store_transfer.transfer_product_list'); ?>
                             </h3>
                             
                             <div id="cart_empty" class="text-center text-gray-500 py-8">
                                 <i class="fas fa-exchange-alt text-4xl mb-4"></i>
-                                <p>이동할 상품이 없습니다.</p>
-                                <p class="text-sm">상품을 검색해서 추가해주세요.</p>
+                                <p><?php echo t('store_transfer.no_products_to_transfer'); ?></p>
+                                <p class="text-sm"><?php echo t('store_transfer.add_products_instruction'); ?></p>
                             </div>
                             
                             <div id="cart_items" class="hidden">
@@ -533,14 +533,14 @@ if (isset($_SESSION['flash'])) {
                                         <thead class="bg-gray-100">
                                             <tr>
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">SKU</th>
-                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">상품명</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">수량</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">박스포장수량</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">박스원가</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">매입가</th>
-                                                <th class="px-2 py-3 text-right text-xs font-semibold text-gray-700">합계</th>
-                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">비고</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">삭제</th>
+                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('product.name'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('common.quantity'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('product.pieces_per_box'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('product.box_cost'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('product.purchase_price'); ?></th>
+                                                <th class="px-2 py-3 text-right text-xs font-semibold text-gray-700"><?php echo t('common.total'); ?></th>
+                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('common.remarks'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('common.delete'); ?></th>
                                             </tr>
                                         </thead>
                                         <tbody id="cart_list">
@@ -552,7 +552,7 @@ if (isset($_SESSION['flash'])) {
                                 <!-- 총 금액 -->
                                 <div class="mt-4 pt-3 border-t border-gray-300">
                                     <div class="flex justify-between text-lg font-medium">
-                                        <span>총 이동 금액:</span>
+                                        <span><?php echo t('store_transfer.total_transfer_amount'); ?>:</span>
                                         <span id="cart_total">0.00</span>
                                     </div>
                                 </div>
@@ -565,7 +565,7 @@ if (isset($_SESSION['flash'])) {
                                     class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400 whitespace-nowrap"
                                     disabled>
                                 <i class="fas fa-save mr-1"></i>
-                                <?php echo $edit_mode ? '수정 완료' : '이동 등록'; ?>
+                                <?php echo $edit_mode ? t('common.complete_edit') : t('store_transfer.register_transfer'); ?>
                             </button>
                             
                             <?php if ($edit_mode): ?>
@@ -573,7 +573,7 @@ if (isset($_SESSION['flash'])) {
                                     class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 whitespace-nowrap"
                                     onclick="deleteTransfer()">
                                 <i class="fas fa-trash mr-1"></i>
-                                삭제
+                                <?php echo t('common.delete'); ?>
                             </button>
                             <?php endif; ?>
                         </div>
@@ -596,7 +596,7 @@ if (isset($_SESSION['flash'])) {
             <div class="flex items-center justify-between p-4 border-b border-gray-200">
                 <h3 class="text-base font-medium text-gray-900">
                     <i class="fas fa-box mr-2 text-green-500"></i>
-                    이동 가능한 상품 목록
+                    <?php echo t('store_transfer.available_products'); ?>
                 </h3>
                 <button type="button" id="close-product-modal" class="text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times text-lg"></i>
@@ -606,7 +606,7 @@ if (isset($_SESSION['flash'])) {
                 <div class="p-3 border-b border-gray-200">
                     <input type="text" id="modal-product-search" 
                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                           placeholder="상품명이나 SKU로 필터링...">
+                           placeholder="<?php echo t('store_transfer.filter_product_placeholder'); ?>">
                 </div>
                 <div id="product-list" class="flex-1 overflow-y-auto p-3 space-y-2 max-h-80">
                     <!-- 상품 목록이 여기에 표시됩니다 -->
@@ -623,7 +623,7 @@ if (isset($_SESSION['flash'])) {
             <div class="flex items-center justify-between p-4 border-b border-gray-200">
                 <h3 class="text-base font-medium text-gray-900" id="purchase-modal-title">
                     <i class="fas fa-history mr-2 text-blue-500"></i>
-                    매입 이력 선택
+                    <?php echo t('store_transfer.select_purchase_history'); ?>
                 </h3>
                 <button type="button" id="close-purchase-history-modal" class="text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times text-lg"></i>
@@ -637,20 +637,20 @@ if (isset($_SESSION['flash'])) {
                     </div>
                     
                     <div class="mb-4">
-                        <h4 class="text-sm font-medium text-gray-900 mb-3">최근 매입 이력 (최대 3건)</h4>
+                        <h4 class="text-sm font-medium text-gray-900 mb-3"><?php echo t('store_transfer.recent_purchase_history'); ?></h4>
                         <div id="purchase-history-list" class="space-y-2">
                             <!-- 매입 이력이 여기에 표시됩니다 -->
                         </div>
                         <div id="purchase-history-loading" class="text-center py-4 hidden">
                             <i class="fas fa-spinner fa-spin text-gray-400"></i>
-                            <span class="ml-2 text-sm text-gray-600">매입 이력 조회 중...</span>
+                            <span class="ml-2 text-sm text-gray-600"><?php echo t('store_transfer.loading_purchase_history'); ?></span>
                         </div>
                         <div id="purchase-history-empty" class="text-center py-4 hidden">
                             <i class="fas fa-inbox text-gray-400 text-2xl mb-2"></i>
-                            <p class="text-sm text-gray-600 mb-3">해당 점포의 매입 이력이 없습니다.</p>
+                            <p class="text-sm text-gray-600 mb-3"><?php echo t('store_transfer.no_purchase_history'); ?></p>
                             <button type="button" id="use-default-price-btn" 
                                     class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-                                <i class="fas fa-plus mr-2"></i>기본 원가로 추가
+                                <i class="fas fa-plus mr-2"></i><?php echo t('store_transfer.add_with_default_cost'); ?>
                             </button>
                         </div>
                     </div>
@@ -659,7 +659,7 @@ if (isset($_SESSION['flash'])) {
                         <button type="button" id="manual-price-input-btn" 
                                 class="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
                             <i class="fas fa-edit mr-2"></i>
-                            수동으로 가격 입력
+                            <?php echo t('store_transfer.manual_price_input'); ?>
                         </button>
                     </div>
                 </div>
@@ -669,11 +669,41 @@ if (isset($_SESSION['flash'])) {
 </div>
 
 <script>
-// PHP 데이터를 JavaScript로 전달
+// PHP data passed to JavaScript
 const editMode = <?php echo json_encode($edit_mode); ?>;
 const editData = <?php echo json_encode($edit_data); ?>;
 const currentStoreId = <?php echo json_encode($current_store_id); ?>;
 const userRole = <?php echo json_encode($_SESSION['role']); ?>;
+
+// Translation object for JavaScript
+const translations = {
+    select_from_store: '<?php echo addslashes(t("store_transfer.js_select_from_store")); ?>',
+    select_to_store: '<?php echo addslashes(t("store_transfer.js_select_to_store")); ?>',
+    same_store_error: '<?php echo addslashes(t("store_transfer.js_same_store_error")); ?>',
+    add_products: '<?php echo addslashes(t("store_transfer.js_add_products")); ?>',
+    quantity_required: '<?php echo addslashes(t("store_transfer.js_quantity_required")); ?>',
+    positive_quantity: '<?php echo addslashes(t("store_transfer.js_positive_quantity")); ?>',
+    cost_required: '<?php echo addslashes(t("store_transfer.js_cost_required")); ?>',
+    positive_cost: '<?php echo addslashes(t("store_transfer.js_positive_cost")); ?>',
+    confirm_delete: '<?php echo addslashes(t("store_transfer.js_confirm_delete")); ?>',
+    confirm_delete_transfer: '<?php echo addslashes(t("store_transfer.js_confirm_delete_transfer")); ?>',
+    product_added: '<?php echo addslashes(t("store_transfer.js_product_added")); ?>',
+    product_updated: '<?php echo addslashes(t("store_transfer.js_product_updated")); ?>',
+    product_removed: '<?php echo addslashes(t("store_transfer.js_product_removed")); ?>',
+    search_error: '<?php echo addslashes(t("store_transfer.js_search_error")); ?>',
+    save_error: '<?php echo addslashes(t("store_transfer.js_save_error")); ?>',
+    loading: '<?php echo addslashes(t("store_transfer.js_loading")); ?>',
+    saving: '<?php echo addslashes(t("store_transfer.js_saving")); ?>',
+    deleting: '<?php echo addslashes(t("store_transfer.js_deleting")); ?>',
+    no_results: '<?php echo addslashes(t("store_transfer.js_no_results")); ?>',
+    select_product: '<?php echo addslashes(t("store_transfer.js_select_product")); ?>',
+    calculation_error: '<?php echo addslashes(t("store_transfer.js_calculation_error")); ?>',
+    login_required: '<?php echo addslashes(t("store_transfer.js_login_required")); ?>',
+    database_error: '<?php echo addslashes(t("store_transfer.js_database_error")); ?>',
+    network_error: '<?php echo addslashes(t("store_transfer.js_network_error")); ?>',
+    no_available_products: '<?php echo addslashes(t("store_transfer.js_no_available_products")); ?>',
+    enter_box_cost: '<?php echo addslashes(t("store_transfer.js_enter_box_cost")); ?>'
+};
 
 document.addEventListener('DOMContentLoaded', function() {
     let cart = [];
@@ -690,6 +720,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchStatus = document.getElementById('search_status');
     
     let searchTimeout;
+    
+    // 숫자 천단위 구분 함수
+    function formatNumberWithCommas(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
     
     // 모달 관련 요소들
     const productModal = document.getElementById('product-modal');
@@ -734,7 +769,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const fromStoreId = getFromStoreId();
         
         if (!fromStoreId) {
-            alert('출발 점포를 먼저 선택해주세요.');
+            alert(translations.select_from_store);
             return;
         }
         
@@ -784,7 +819,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 검색 결과 외부 클릭시 닫기
+    // Close search results on outside click
     document.addEventListener('click', function(e) {
         if (!productSearch.contains(e.target) && !productSearchResults.contains(e.target)) {
             productSearchResults.classList.add('hidden');
@@ -796,9 +831,28 @@ document.addEventListener('DOMContentLoaded', function() {
         return fromStoreSelect ? fromStoreSelect.value : '';
     }
     
+    // Make getFromStoreId globally accessible
+    window.getFromStoreId = getFromStoreId;
+    
+    // Make cart and related functions globally accessible
+    window.cart = cart;
+    window.updateCart = updateCart;
+    
+    // Make DOM elements globally accessible
+    window.productSearchResults = productSearchResults;
+    window.productSearch = productSearch;
+    window.purchaseHistoryModal = purchaseHistoryModal;
+    window.currentSelectedProduct = null;
+    
+    // Update global currentSelectedProduct reference
+    window.updateCurrentSelectedProduct = function(value) {
+        currentSelectedProduct = value;
+        window.currentSelectedProduct = value;
+    };
+    
     function updateProductSearch() {
-        // 출발 점포가 변경되면 장바구니 초기화
-        if (cart.length > 0 && !confirm('출발 점포를 변경하면 현재 장바구니의 상품들이 모두 삭제됩니다. 계속하시겠습니까?')) {
+        // Clear cart when source store changes
+        if (cart.length > 0 && !confirm('Changing the source store will delete all products in the current cart. Do you want to continue?')) {
             return false;
         }
         cart = [];
@@ -808,19 +862,19 @@ document.addEventListener('DOMContentLoaded', function() {
         searchStatus.textContent = '';
     }
     
-    // 전역 함수로 등록
+    // Register as global function
     window.updateProductSearch = updateProductSearch;
     
     function searchProducts(query) {
         const fromStoreId = getFromStoreId();
         
         if (!fromStoreId) {
-            searchStatus.textContent = '출발 점포를 먼저 선택해주세요.';
+            searchStatus.textContent = translations.select_from_store;
             searchStatus.className = 'mt-2 text-sm text-red-600';
             return;
         }
         
-        searchStatus.textContent = '검색 중...';
+        searchStatus.textContent = translations.loading;
         searchStatus.className = 'mt-2 text-sm text-gray-600';
         
         fetch('ajax_search_transfer_products.php', {
@@ -836,17 +890,17 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (data.success && data.products) {
                 displayProductResults(data.products);
-                searchStatus.textContent = data.products.length + '개 상품을 찾았습니다.';
+                searchStatus.textContent = data.products.length + ' products found';
                 searchStatus.className = 'mt-2 text-sm text-green-600';
             } else {
-                let errorMessage = data.message || '검색 결과가 없습니다.';
+                let errorMessage = data.message || translations.no_results;
                 
                 // 권한 오류인 경우 특별 처리
                 if (data.error_type === 'permission_denied') {
-                    errorMessage = '로그인이 필요하거나 권한이 없습니다. 페이지를 새로고침해주세요.';
+                    errorMessage = translations.login_required;
                     searchStatus.className = 'mt-2 text-sm text-red-600';
                 } else if (data.error_type === 'database_error') {
-                    errorMessage = '데이터베이스 오류가 발생했습니다.';
+                    errorMessage = translations.database_error;
                     searchStatus.className = 'mt-2 text-sm text-red-600';
                     if (data.error_detail) {
                         console.error('Database Error Detail:', data.error_detail);
@@ -862,7 +916,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Network Error:', error);
-            searchStatus.textContent = '네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.';
+            searchStatus.textContent = translations.network_error;
             searchStatus.className = 'mt-2 text-sm text-red-600';
         });
     }
@@ -902,7 +956,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.showPurchaseHistoryBeforeAdd(this);
                 } catch (error) {
                     console.error('상품 선택 중 오류:', error);
-                    alert('상품 선택 중 오류가 발생했습니다: ' + error.message);
+                    alert('Error selecting product: ' + error.message);
                 }
             });
         });
@@ -1011,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- 합계 -->
                         <td class="px-2 py-3 text-right">
                             <div class="text-sm font-semibold text-primary-600">
-                                ${parseFloat(item.total_price).toFixed(2)}
+                                ${formatNumberWithCommas(parseFloat(item.total_price).toFixed(2))}
                             </div>
                         </td>
                         
@@ -1019,7 +1073,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <td class="px-2 py-3">
                             <input type="text" 
                                    class="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
-                                   placeholder="이동 사유, 비고 등"
+                                   placeholder="<?php echo t('store_transfer.remarks_placeholder'); ?>"
                                    value="${item.remarks || ''}"
                                    onchange="updateRemarks(${index}, this.value)"
                                    maxlength="100">
@@ -1039,7 +1093,7 @@ document.addEventListener('DOMContentLoaded', function() {
             cartList.innerHTML = html;
             
             const total = cart.reduce((sum, item) => sum + item.total_price, 0);
-            cartTotal.textContent = parseFloat(total).toFixed(2);
+            cartTotal.textContent = formatNumberWithCommas(parseFloat(total).toFixed(2));
         }
         
         cartItemsInput.value = JSON.stringify(cart);
@@ -1091,18 +1145,18 @@ document.addEventListener('DOMContentLoaded', function() {
         completeTransferBtn.disabled = !fromStoreId || !toStoreId || !hasItems || fromStoreId === toStoreId;
     }
     
-    // 점포 선택 변경 시 버튼 상태 업데이트
+    // Update button state when store selection changes
     document.getElementById('to_store_id').addEventListener('change', updateTransferButton);
     if (userRole === 'super_admin') {
         document.getElementById('from_store_id').addEventListener('change', updateTransferButton);
     }
     
-    // 상품 모달 표시 및 전체 목록 로드
+    // Show product modal and load complete list
     function showProductModal() {
         const fromStoreId = getFromStoreId();
         
         if (!fromStoreId) {
-            alert('출발 점포를 먼저 선택해주세요.');
+            alert(translations.select_from_store);
             return;
         }
         
@@ -1111,7 +1165,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loadAllProducts();
     }
     
-    // 전체 상품 목록 로드
+    // Load all products list
     function loadAllProducts() {
         const fromStoreId = getFromStoreId();
         
@@ -1119,7 +1173,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        productList.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>로딩 중...</div>';
+        productList.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>' + translations.loading + '</div>';
         
         fetch('ajax_search_transfer_products.php', {
             method: 'POST',
@@ -1135,12 +1189,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success && data.products) {
                 displayModalProductList(data.products);
             } else {
-                let errorMessage = '이동 가능한 상품이 없습니다.';
+                let errorMessage = translations.no_available_products;
                 
                 if (data.error_type === 'permission_denied') {
-                    errorMessage = '로그인이 필요하거나 권한이 없습니다. 페이지를 새로고침해주세요.';
+                    errorMessage = translations.login_required;
                 } else if (data.error_type === 'database_error') {
-                    errorMessage = '데이터베이스 오류가 발생했습니다.';
+                    errorMessage = translations.database_error;
                     if (data.error_detail) {
                         console.error('Database Error Detail:', data.error_detail);
                     }
@@ -1153,7 +1207,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Network Error loading products:', error);
-            productList.innerHTML = '<div class="text-center py-4 text-red-500">네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.</div>';
+            productList.innerHTML = '<div class="text-center py-4 text-red-500">' + translations.network_error + '</div>';
         });
     }
     
@@ -1224,7 +1278,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('transfer_date').value = editData.transfer_date;
         }
         
-        // 장바구니 항목들 복원
+        // Restore cart items
         if (editData.items && editData.items.length > 0) {
             cart = [];
             editData.items.forEach(function(item) {
@@ -1235,7 +1289,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     name_en: item.name_en,
                     unit_cost_price: parseFloat(item.unit_cost_price),
                     quantity: parseInt(item.quantity),
-                    pieces_per_box: parseInt(item.pieces_per_box) || 1, // 상품정보의 실제 박스포장수량 사용
+                    pieces_per_box: parseInt(item.pieces_per_box) || 1, // Use actual box packaging quantity from product info
                     total_price: parseFloat(item.total_price),
                     remarks: item.remarks || ''
                 });
@@ -1245,33 +1299,325 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // 페이지 로드 시 수정 모드 초기화
+    // Initialize edit mode on page load
     if (editMode) {
         initializeEditMode();
     }
     
-    // 초기 버튼 상태 설정
+    // Set initial button state
     updateTransferButton();
     
-    // 초기 목적지 점포 필터링 실행
+    // Function to check purchase history before adding product
+    window.showPurchaseHistoryBeforeAdd = function(item) {
+        console.log('showPurchaseHistoryBeforeAdd called', item);
+        
+        // 변수들을 try-catch 밖에서 선언
+        let productId, sku, nameKo, nameEn, costPrice, availableQuantity, minQuantity, piecesPerBox, fromStoreId;
+        
+        try {
+            // 데이터 속성을 일관되게 dataset으로 가져오기 (data-name-ko -> dataset.nameKo 자동변환)
+            productId = item.dataset.id;
+            sku = item.dataset.sku;
+            nameKo = item.dataset.nameKo || '';  // data-name-ko -> nameKo
+            nameEn = item.dataset.nameEn || '';  // data-name-en -> nameEn  
+            costPrice = parseFloat(item.dataset.costPrice || 0);
+            availableQuantity = parseInt(item.dataset.availableQuantity || 0);
+            minQuantity = parseInt(item.dataset.minQuantity || 1);
+            piecesPerBox = parseInt(item.dataset.piecesPerBox || 1);
+            
+            console.log('상품 데이터 추출 완료:', {
+                productId, sku, nameKo, nameEn, costPrice, 
+                availableQuantity, minQuantity, piecesPerBox
+            });
+            
+            fromStoreId = window.getFromStoreId();
+            console.log('출발 점포 ID:', fromStoreId);
+            
+            if (!fromStoreId) {
+                alert(translations.select_from_store);
+                return;
+            }
+            
+            if (!productId) {
+                alert('상품 정보를 찾을 수 없습니다.');
+                return;
+            }
+        } catch (error) {
+            console.error('상품 데이터 추출 중 오류:', error);
+            alert('상품 데이터를 읽는 중 오류가 발생했습니다: ' + error.message);
+            return;
+        }
+        
+        // 상품 정보를 전역 변수에 저장 (매입가 선택 후 사용)
+        window.pendingProductToAdd = {
+            productId, sku, nameKo, nameEn, costPrice, 
+            availableQuantity, minQuantity, piecesPerBox, fromStoreId
+        };
+        
+        const productName = nameKo || nameEn || 'N/A';
+        
+        // 이미 장바구니에 있는지 확인 (전역 변수 사용)
+        const existingIndex = window.cart.findIndex(cartItem => cartItem.product_id == productId);
+        if (existingIndex >= 0) {
+            // 이미 있는 상품은 수량만 증가
+            const currentQuantity = window.cart[existingIndex].quantity;
+            const newQuantity = currentQuantity + minQuantity;
+            
+            window.cart[existingIndex].quantity = newQuantity;
+            window.cart[existingIndex].total_price = window.cart[existingIndex].quantity * window.cart[existingIndex].unit_cost_price;
+            window.updateCart();
+            window.productSearchResults.classList.add('hidden');
+            window.productSearch.value = '';
+            return;
+        }
+        
+        // 새 상품인 경우 매입 이력 조회
+        showPurchaseHistoryForNewProduct(productId, productName, sku, fromStoreId);
+    };
+
+    // 매입 이력 조회 모달 관련 함수들
+    function showPurchaseHistoryForNewProduct(productId, productName, productSku, fromStoreId) {
+        console.log('새 상품 매입 이력 조회:', { productId, productName, productSku, fromStoreId });
+        
+        // 상품 정보 설정 (전역 변수 사용)
+        currentSelectedProduct = { productId, productName, productSku, fromStoreId, isNewProduct: true };
+        window.currentSelectedProduct = currentSelectedProduct;
+        purchaseProductName.textContent = productName || 'N/A';
+        purchaseProductSku.textContent = 'SKU: ' + (productSku || 'N/A');
+        
+        // 모달 제목 업데이트 (새 상품 추가용)
+        purchaseModalTitle.innerHTML = '<i class="fas fa-plus mr-2 text-green-500"></i>매입가 선택 후 추가';
+        
+        // 모달 표시 (전역 변수 사용)
+        window.purchaseHistoryModal.classList.remove('hidden');
+        
+        // 매입 이력 로드
+        loadPurchaseHistory(productId, fromStoreId);
+    }
+
+    window.showPurchaseHistoryModal = function(productId, productName, productSku, fromStoreId) {
+        console.log('매입 이력 모달 표시:', { productId, productName, productSku, fromStoreId });
+        
+        // 상품 정보 설정 (전역 변수 사용)
+        currentSelectedProduct = { productId, productName, productSku, fromStoreId };
+        window.currentSelectedProduct = currentSelectedProduct;
+        purchaseProductName.textContent = productName || 'N/A';
+        purchaseProductSku.textContent = 'SKU: ' + (productSku || 'N/A');
+        
+        // 모달 제목 업데이트 (기존 상품 가격 변경용)
+        purchaseModalTitle.innerHTML = '<i class="fas fa-history mr-2 text-blue-500"></i>매입가 변경';
+        
+        // 모달 표시 (전역 변수 사용)
+        window.purchaseHistoryModal.classList.remove('hidden');
+        
+        // 매입 이력 로드
+        loadPurchaseHistory(productId, fromStoreId);
+    };
+
+    function loadPurchaseHistory(productId, storeId) {
+        // 로딩 상태 표시
+        purchaseHistoryLoading.classList.remove('hidden');
+        purchaseHistoryList.classList.add('hidden');
+        purchaseHistoryEmpty.classList.add('hidden');
+        
+        const params = new URLSearchParams({
+            product_id: productId,
+            store_id: storeId
+        });
+        
+        fetch('ajax_get_purchase_history.php?' + params.toString())
+            .then(response => response.json())
+            .then(data => {
+                purchaseHistoryLoading.classList.add('hidden');
+                
+                if (data.success && data.data && data.data.length > 0) {
+                    // 최근 3건만 표시
+                    const recentHistory = data.data.slice(0, 3);
+                    displayPurchaseHistory(recentHistory);
+                } else {
+                    purchaseHistoryEmpty.classList.remove('hidden');
+                    console.log('매입 이력 없음:', data.message || '데이터 없음');
+                }
+            })
+            .catch(error => {
+                purchaseHistoryLoading.classList.add('hidden');
+                purchaseHistoryEmpty.classList.remove('hidden');
+                console.error('매입 이력 조회 오류:', error);
+            });
+    }
+
+    function displayPurchaseHistory(historyData) {
+        let html = '';
+        
+        historyData.forEach((item, index) => {
+            html += `
+                <div class="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900">
+                                ${item.purchase_date_formatted} | ${item.supplier_name || 'N/A'}
+                            </div>
+                            <div class="text-xs text-gray-600 mt-1">
+                                박스원가: <strong class="text-gray-900">${item.box_cost_formatted}</strong> | 
+                                수량: ${item.quantity}개 | 
+                                유형: ${item.purchase_type === 'box' ? '박스' : '개별'}
+                            </div>
+                        </div>
+                        <button type="button" 
+                                onclick="selectPurchasePrice('${item.box_cost}')"
+                                class="ml-3 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
+                            선택
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        purchaseHistoryList.innerHTML = html;
+        purchaseHistoryList.classList.remove('hidden');
+    }
+
+    window.selectPurchasePrice = function(boxCost) {
+        const price = parseFloat(boxCost);
+        if (isNaN(price) || price <= 0) {
+            alert('Invalid price.');
+            return;
+        }
+        
+        const selectedProduct = window.currentSelectedProduct || currentSelectedProduct;
+        if (selectedProduct) {
+            if (selectedProduct.isNewProduct) {
+                // 새 상품 추가하기
+                addToCartWithSelectedPrice(price);
+            } else {
+                // 기존 상품 가격 변경
+                applyBoxCostToProduct(selectedProduct.productId, price);
+            }
+            window.purchaseHistoryModal.classList.add('hidden');
+        }
+    };
+
+    // 선택된 매입가로 새 상품을 장바구니에 추가
+    function addToCartWithSelectedPrice(selectedPrice) {
+        if (!window.pendingProductToAdd) {
+            console.error('추가할 상품 정보가 없습니다.');
+            return;
+        }
+        
+        const product = window.pendingProductToAdd;
+        
+        // 전역 cart 사용
+        window.cart.push({
+            product_id: product.productId,
+            sku: product.sku,
+            name_ko: product.nameKo,
+            name_en: product.nameEn,
+            unit_cost_price: selectedPrice, // 선택된 매입가 사용
+            quantity: product.minQuantity,
+            pieces_per_box: product.piecesPerBox,
+            total_price: selectedPrice * product.minQuantity,
+            remarks: ''
+        });
+        
+        // 전역 함수와 요소들 사용
+        window.updateCart();
+        window.productSearchResults.classList.add('hidden');
+        window.productSearch.value = '';
+        
+        // 임시 상품 정보 정리
+        window.pendingProductToAdd = null;
+        
+        console.log('선택된 매입가로 상품 추가됨:', selectedPrice);
+    }
+
+    function applyBoxCostToProduct(productId, boxCost) {
+        // 장바구니에서 해당 상품을 찾아서 박스원가 업데이트 (전역 변수 사용)
+        const cartIndex = window.cart.findIndex(item => item.product_id == productId);
+        if (cartIndex !== -1) {
+            window.cart[cartIndex].unit_cost_price = boxCost;
+            window.cart[cartIndex].total_price = window.cart[cartIndex].quantity * boxCost;
+            window.updateCart();
+            console.log('박스원가 업데이트됨:', boxCost);
+        }
+    }
+
+    // 모달 이벤트 리스너들
+    closePurchaseHistoryModal.addEventListener('click', function() {
+        window.purchaseHistoryModal.classList.add('hidden');
+        currentSelectedProduct = null;
+        window.currentSelectedProduct = null;
+        // 임시 상품 정보도 정리
+        if (window.pendingProductToAdd) {
+            window.pendingProductToAdd = null;
+        }
+    });
+
+    manualPriceInputBtn.addEventListener('click', function() {
+        const price = prompt(translations.enter_box_cost, '');
+        if (price !== null) {
+            const numericPrice = parseFloat(price);
+            if (!isNaN(numericPrice) && numericPrice > 0) {
+                if (window.currentSelectedProduct || currentSelectedProduct) {
+                    const selectedProduct = window.currentSelectedProduct || currentSelectedProduct;
+                    if (selectedProduct.isNewProduct) {
+                        // 새 상품 추가하기
+                        addToCartWithSelectedPrice(numericPrice);
+                    } else {
+                        // 기존 상품 가격 변경
+                        applyBoxCostToProduct(selectedProduct.productId, numericPrice);
+                    }
+                    window.purchaseHistoryModal.classList.add('hidden');
+                }
+            } else {
+                alert('Please enter a valid number.');
+            }
+        }
+    });
+
+    // 기본 원가로 추가 버튼 이벤트
+    useDefaultPriceBtn.addEventListener('click', function() {
+        const selectedProduct = window.currentSelectedProduct || currentSelectedProduct;
+        if (selectedProduct && selectedProduct.isNewProduct && window.pendingProductToAdd) {
+            // 기본 원가(inventory cost_price) 사용
+            const defaultPrice = window.pendingProductToAdd.costPrice;
+            addToCartWithSelectedPrice(defaultPrice);
+            window.purchaseHistoryModal.classList.add('hidden');
+            console.log('기본 원가로 상품 추가됨:', defaultPrice);
+        }
+    });
+
+    // 모달 바깥 클릭 시 닫기
+    purchaseHistoryModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            this.classList.add('hidden');
+            currentSelectedProduct = null;
+            window.currentSelectedProduct = null;
+            // 임시 상품 정보도 정리
+            if (window.pendingProductToAdd) {
+                window.pendingProductToAdd = null;
+            }
+        }
+    });
+
+    // Execute initial destination store filtering
     updateToStoreOptions();
 });
 
-// 점간이동 삭제 함수
+// Store transfer deletion function
 window.deleteTransfer = function() {
-    console.log('deleteTransfer 함수 호출됨');
+    console.log('deleteTransfer function called');
     
-    if (!confirm('정말로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-        console.log('사용자가 삭제를 취소함');
+    if (!confirm(translations.confirm_delete_transfer)) {
+        console.log('User cancelled deletion');
         return;
     }
     
-    // 삭제 버튼 비활성화
+    // Disable delete button
     const deleteBtn = document.querySelector('button[onclick="deleteTransfer()"]');
     if (deleteBtn) {
         deleteBtn.disabled = true;
-        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>삭제 중...';
-        console.log('삭제 버튼 비활성화됨');
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + translations.deleting;
+        console.log('Delete button disabled');
     }
     
     // 수정 중인 transfer_id 가져오기
@@ -1281,7 +1627,7 @@ window.deleteTransfer = function() {
     console.log('Transfer ID:', transferId);
     
     if (!transferId) {
-        alert('삭제할 점간이동 ID를 찾을 수 없습니다.');
+        alert('Store transfer ID to delete not found.');
         if (deleteBtn) {
             deleteBtn.disabled = false;
             deleteBtn.innerHTML = '<i class="fas fa-trash mr-1"></i>삭제';
@@ -1294,21 +1640,21 @@ window.deleteTransfer = function() {
     form.method = 'POST';
     form.style.display = 'none';
     
-    // action 필드 추가
+    // Add action field
     const actionInput = document.createElement('input');
     actionInput.type = 'hidden';
     actionInput.name = 'action';
     actionInput.value = 'delete';
     form.appendChild(actionInput);
     
-    // edit_transfer_id 필드 추가
+    // Add edit_transfer_id field
     const idInput = document.createElement('input');
     idInput.type = 'hidden';
     idInput.name = 'edit_transfer_id';
     idInput.value = transferId;
     form.appendChild(idInput);
     
-    console.log('폼 데이터:', {
+    console.log('Form data:', {
         action: 'delete',
         edit_transfer_id: transferId
     });
@@ -1317,29 +1663,29 @@ window.deleteTransfer = function() {
     form.submit();
 };
 
-// 목적지 점포 옵션 업데이트 함수
+// Update destination store options function
 function updateToStoreOptions() {
     const fromStoreSelect = document.getElementById('from_store_id');
     const toStoreSelect = document.getElementById('to_store_id');
     
     if (!fromStoreSelect || !toStoreSelect) {
-        console.log('점포 선택 요소를 찾을 수 없습니다');
+        console.log('Store selection elements not found');
         return;
     }
     
     const selectedFromStoreId = fromStoreSelect.value;
-    const currentToStoreValue = toStoreSelect.value; // 현재 선택된 목적지 점포 값 저장
+    const currentToStoreValue = toStoreSelect.value; // Save current destination store value
     
-    console.log('출발 점포 ID:', selectedFromStoreId);
+    console.log('Source store ID:', selectedFromStoreId);
     
-    // 모든 목적지 점포 옵션을 순회하며 출발 점포와 같은 것은 숨김
+    // Hide destination store options that match source store
     Array.from(toStoreSelect.options).forEach(function(option) {
         if (option.value === '') {
-            // 기본 옵션("목적지 점포를 선택하세요")은 항상 표시
+            // Always show default option ("Select destination store")
             option.style.display = '';
             option.disabled = false;
         } else if (option.value === selectedFromStoreId) {
-            // 출발 점포와 같은 점포는 숨김 및 비활성화
+            // Hide and disable stores that match source store
             option.style.display = 'none';
             option.disabled = true;
             
@@ -1359,290 +1705,10 @@ function updateToStoreOptions() {
         toStoreSelect.value = currentToStoreValue;
     }
     
-    console.log('목적지 점포 옵션 업데이트 완료');
-}
-
-// 상품 추가 전 매입 이력 조회 함수
-// 상품 추가 전 매입 이력 조회 함수 (전역 스코프)
-window.showPurchaseHistoryBeforeAdd = function(item) {
-    console.log('showPurchaseHistoryBeforeAdd 호출됨', item);
-    
-    try {
-        // 데이터 속성을 일관되게 dataset으로 가져오기 (data-name-ko -> dataset.nameKo 자동변환)
-        const productId = item.dataset.id;
-        const sku = item.dataset.sku;
-        const nameKo = item.dataset.nameKo || '';  // data-name-ko -> nameKo
-        const nameEn = item.dataset.nameEn || '';  // data-name-en -> nameEn  
-        const costPrice = parseFloat(item.dataset.costPrice || 0);
-        const availableQuantity = parseInt(item.dataset.availableQuantity || 0);
-        const minQuantity = parseInt(item.dataset.minQuantity || 1);
-        const piecesPerBox = parseInt(item.dataset.piecesPerBox || 1);
-        
-        console.log('추출된 상품 데이터:', {
-            productId, sku, nameKo, nameEn, costPrice, 
-            availableQuantity, minQuantity, piecesPerBox
-        });
-        
-        const fromStoreId = getFromStoreId();
-        console.log('출발 점포 ID:', fromStoreId);
-        
-        if (!fromStoreId) {
-            alert('출발 점포를 먼저 선택해주세요.');
-            return;
-        }
-        
-        if (!productId) {
-            alert('상품 정보를 찾을 수 없습니다.');
-            return;
-        }
-    } catch (error) {
-        console.error('데이터 추출 중 오류:', error);
-        alert('상품 데이터를 읽는 중 오류가 발생했습니다.');
-        return;
-    }
-    
-    // 상품 정보를 전역 변수에 저장 (매입가 선택 후 사용)
-    window.pendingProductToAdd = {
-        productId, sku, nameKo, nameEn, costPrice, 
-        availableQuantity, minQuantity, piecesPerBox, fromStoreId
-    };
-    
-    const productName = nameKo || nameEn || 'N/A';
-    
-    // 이미 장바구니에 있는지 확인
-    const existingIndex = cart.findIndex(cartItem => cartItem.product_id == productId);
-    if (existingIndex >= 0) {
-        // 이미 있는 상품은 수량만 증가
-        const currentQuantity = cart[existingIndex].quantity;
-        const newQuantity = currentQuantity + minQuantity;
-        
-        cart[existingIndex].quantity = newQuantity;
-        cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_cost_price;
-        updateCart();
-        productSearchResults.classList.add('hidden');
-        productSearch.value = '';
-        return;
-    }
-    
-    // 새 상품인 경우 매입 이력 조회
-    showPurchaseHistoryForNewProduct(productId, productName, sku, fromStoreId);
-}
-
-// 매입 이력 조회 모달 관련 함수들
-function showPurchaseHistoryForNewProduct(productId, productName, productSku, fromStoreId) {
-    console.log('새 상품 매입 이력 조회:', { productId, productName, productSku, fromStoreId });
-    
-    // 상품 정보 설정
-    currentSelectedProduct = { productId, productName, productSku, fromStoreId, isNewProduct: true };
-    purchaseProductName.textContent = productName || 'N/A';
-    purchaseProductSku.textContent = 'SKU: ' + (productSku || 'N/A');
-    
-    // 모달 제목 업데이트 (새 상품 추가용)
-    purchaseModalTitle.innerHTML = '<i class="fas fa-plus mr-2 text-green-500"></i>매입가 선택 후 추가';
-    
-    // 모달 표시
-    purchaseHistoryModal.classList.remove('hidden');
-    
-    // 매입 이력 로드
-    loadPurchaseHistory(productId, fromStoreId);
-}
-
-function showPurchaseHistoryModal(productId, productName, productSku, fromStoreId) {
-    console.log('매입 이력 모달 표시:', { productId, productName, productSku, fromStoreId });
-    
-    // 상품 정보 설정
-    currentSelectedProduct = { productId, productName, productSku, fromStoreId };
-    purchaseProductName.textContent = productName || 'N/A';
-    purchaseProductSku.textContent = 'SKU: ' + (productSku || 'N/A');
-    
-    // 모달 제목 업데이트 (기존 상품 가격 변경용)
-    purchaseModalTitle.innerHTML = '<i class="fas fa-history mr-2 text-blue-500"></i>매입가 변경';
-    
-    // 모달 표시
-    purchaseHistoryModal.classList.remove('hidden');
-    
-    // 매입 이력 로드
-    loadPurchaseHistory(productId, fromStoreId);
-}
-
-function loadPurchaseHistory(productId, storeId) {
-    // 로딩 상태 표시
-    purchaseHistoryLoading.classList.remove('hidden');
-    purchaseHistoryList.classList.add('hidden');
-    purchaseHistoryEmpty.classList.add('hidden');
-    
-    const params = new URLSearchParams({
-        product_id: productId,
-        store_id: storeId
-    });
-    
-    fetch('ajax_get_purchase_history.php?' + params.toString())
-        .then(response => response.json())
-        .then(data => {
-            purchaseHistoryLoading.classList.add('hidden');
-            
-            if (data.success && data.data && data.data.length > 0) {
-                // 최근 3건만 표시
-                const recentHistory = data.data.slice(0, 3);
-                displayPurchaseHistory(recentHistory);
-            } else {
-                purchaseHistoryEmpty.classList.remove('hidden');
-                console.log('매입 이력 없음:', data.message || '데이터 없음');
-            }
-        })
-        .catch(error => {
-            purchaseHistoryLoading.classList.add('hidden');
-            purchaseHistoryEmpty.classList.remove('hidden');
-            console.error('매입 이력 조회 오류:', error);
-        });
-}
-
-function displayPurchaseHistory(historyData) {
-    let html = '';
-    
-    historyData.forEach((item, index) => {
-        html += `
-            <div class="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
-                <div class="flex justify-between items-start mb-2">
-                    <div class="flex-1">
-                        <div class="text-sm font-medium text-gray-900">
-                            ${item.purchase_date_formatted} | ${item.supplier_name || 'N/A'}
-                        </div>
-                        <div class="text-xs text-gray-600 mt-1">
-                            박스원가: <strong class="text-gray-900">${item.box_cost_formatted}</strong> | 
-                            수량: ${item.quantity}개 | 
-                            유형: ${item.purchase_type === 'box' ? '박스' : '개별'}
-                        </div>
-                    </div>
-                    <button type="button" 
-                            onclick="selectPurchasePrice('${item.box_cost}')"
-                            class="ml-3 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
-                        선택
-                    </button>
-                </div>
-            </div>
-        `;
-    });
-    
-    purchaseHistoryList.innerHTML = html;
-    purchaseHistoryList.classList.remove('hidden');
-}
-
-function selectPurchasePrice(boxCost) {
-    const price = parseFloat(boxCost);
-    if (isNaN(price) || price <= 0) {
-        alert('올바르지 않은 가격입니다.');
-        return;
-    }
-    
-    if (currentSelectedProduct) {
-        if (currentSelectedProduct.isNewProduct) {
-            // 새 상품 추가하기
-            addToCartWithSelectedPrice(price);
-        } else {
-            // 기존 상품 가격 변경
-            applyBoxCostToProduct(currentSelectedProduct.productId, price);
-        }
-        purchaseHistoryModal.classList.add('hidden');
-    }
-}
-
-// 선택된 매입가로 새 상품을 장바구니에 추가
-function addToCartWithSelectedPrice(selectedPrice) {
-    if (!window.pendingProductToAdd) {
-        console.error('추가할 상품 정보가 없습니다.');
-        return;
-    }
-    
-    const product = window.pendingProductToAdd;
-    
-    cart.push({
-        product_id: product.productId,
-        sku: product.sku,
-        name_ko: product.nameKo,
-        name_en: product.nameEn,
-        unit_cost_price: selectedPrice, // 선택된 매입가 사용
-        quantity: product.minQuantity,
-        pieces_per_box: product.piecesPerBox,
-        total_price: selectedPrice * product.minQuantity,
-        remarks: ''
-    });
-    
-    updateCart();
-    productSearchResults.classList.add('hidden');
-    productSearch.value = '';
-    
-    // 임시 상품 정보 정리
-    window.pendingProductToAdd = null;
-    
-    console.log('선택된 매입가로 상품 추가됨:', selectedPrice);
-}
-
-function applyBoxCostToProduct(productId, boxCost) {
-    // 장바구니에서 해당 상품을 찾아서 박스원가 업데이트
-    const cartIndex = cart.findIndex(item => item.product_id == productId);
-    if (cartIndex !== -1) {
-        cart[cartIndex].unit_cost_price = boxCost;
-        cart[cartIndex].total_price = cart[cartIndex].quantity * boxCost;
-        updateCart();
-        console.log('박스원가 업데이트됨:', boxCost);
-    }
+    console.log('Destination store options update completed');
 }
 
 
-// 모달 이벤트 리스너들
-closePurchaseHistoryModal.addEventListener('click', function() {
-    purchaseHistoryModal.classList.add('hidden');
-    currentSelectedProduct = null;
-    // 임시 상품 정보도 정리
-    if (window.pendingProductToAdd) {
-        window.pendingProductToAdd = null;
-    }
-});
-
-manualPriceInputBtn.addEventListener('click', function() {
-    const price = prompt('박스원가를 입력해주세요:', '');
-    if (price !== null) {
-        const numericPrice = parseFloat(price);
-        if (!isNaN(numericPrice) && numericPrice > 0) {
-            if (currentSelectedProduct) {
-                if (currentSelectedProduct.isNewProduct) {
-                    // 새 상품 추가하기
-                    addToCartWithSelectedPrice(numericPrice);
-                } else {
-                    // 기존 상품 가격 변경
-                    applyBoxCostToProduct(currentSelectedProduct.productId, numericPrice);
-                }
-                purchaseHistoryModal.classList.add('hidden');
-            }
-        } else {
-            alert('올바른 숫자를 입력해주세요.');
-        }
-    }
-});
-
-// 기본 원가로 추가 버튼 이벤트
-useDefaultPriceBtn.addEventListener('click', function() {
-    if (currentSelectedProduct && currentSelectedProduct.isNewProduct && window.pendingProductToAdd) {
-        // 기본 원가(inventory cost_price) 사용
-        const defaultPrice = window.pendingProductToAdd.costPrice;
-        addToCartWithSelectedPrice(defaultPrice);
-        purchaseHistoryModal.classList.add('hidden');
-        console.log('기본 원가로 상품 추가됨:', defaultPrice);
-    }
-});
-
-// 모달 바깥 클릭 시 닫기
-purchaseHistoryModal.addEventListener('click', function(e) {
-    if (e.target === this) {
-        this.classList.add('hidden');
-        currentSelectedProduct = null;
-        // 임시 상품 정보도 정리
-        if (window.pendingProductToAdd) {
-            window.pendingProductToAdd = null;
-        }
-    }
-});
 
 </script>
 
