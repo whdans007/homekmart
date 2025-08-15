@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API 경로 테스트</title>
+</head>
+<body>
+    <h1>API 경로 테스트</h1>
+    <p>현재 시간: <span id="time"></span></p>
+    <p>이 파일이 보이면 웹서버는 정상 작동합니다.</p>
+    
+    <h2>PHP 테스트</h2>
+    <button onclick="testPHP()">PHP 테스트 실행</button>
+    <div id="result"></div>
+    
+    <script>
+        document.getElementById('time').textContent = new Date().toLocaleString();
+        
+        function testPHP() {
+            fetch('/min/api/simple_test.php')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('result').innerHTML = '<pre style="background:#e8f5e8;padding:10px;">' + JSON.stringify(data, null, 2) + '</pre>';
+                })
+                .catch(error => {
+                    document.getElementById('result').innerHTML = '<pre style="background:#ffeaea;padding:10px;">Error: ' + error.message + '</pre>';
+                });
+        }
+    </script>
+</body>
+</html>
