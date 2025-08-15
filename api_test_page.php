@@ -126,6 +126,7 @@
             </div>
             <button onclick="testCartAPI('GET')">장바구니 조회</button>
             <button onclick="addToCart()">장바구니 추가 테스트</button>
+            <button onclick="testAPI('safe_cart_api.php?user_id=1', 'GET')">안전한 장바구니 API</button>
             <div id="cart-result" class="result" style="display:none;"></div>
         </div>
         
@@ -149,6 +150,7 @@
             <button onclick="testOrderAPI('GET')">주문 목록 조회</button>
             <button onclick="createTestOrder()">테스트 주문 생성</button>
             <button onclick="testAPI('delivery_orders_api.php?user_id=1&limit=5', 'GET')">배달 주문 API</button>
+            <button onclick="testAPI('safe_orders_api.php?user_id=1&limit=5', 'GET')">안전한 주문 API</button>
             <div id="orders-result" class="result" style="display:none;"></div>
         </div>
         
@@ -162,6 +164,7 @@
             <button onclick="testAddressAPI('GET')">주소 목록 조회</button>
             <button onclick="addTestAddress()">테스트 주소 추가</button>
             <button onclick="testAPI('delivery_addresses_api.php?user_id=1', 'GET')">배달 주소 API</button>
+            <button onclick="testAPI('safe_addresses_api.php?user_id=1', 'GET')">안전한 주소 API</button>
             <div id="addresses-result" class="result" style="display:none;"></div>
         </div>
         

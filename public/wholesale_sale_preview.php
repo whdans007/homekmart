@@ -50,25 +50,58 @@ if ($sale_id > 0) {
         if (!$sale) {
             $errors[] = '해당 판매 내역을 찾을 수 없습니다.';
         } else {
-            // 판매 항목 정보 가져오기
-            $items_sql = "
-                SELECT 
-                    wsi.product_id,
-                    wsi.quantity,
-                    wsi.unit_price,
-                    wsi.total_price,
-                    wsi.remarks,
-                    p.sku,
-                    p.name_ko,
-                    p.name_en
-                FROM wholesale_sale_items wsi
-                LEFT JOIN products p ON wsi.product_id = p.id
-                WHERE wsi.sale_id = ?
-                ORDER BY p.name_en, p.name_ko
-            ";
+            // 스키마 호환성 확인 후 적절한 쿼리 선택
+            try {
+                $check_columns = $pdo->query("SHOW COLUMNS FROM wholesale_products LIKE 'wholesale_name_ko'");
+                $has_new_columns = $check_columns->rowCount() > 0;
+            } catch (PDOException $e) {
+                $has_new_columns = false;
+            }
             
-            $items_stmt = $pdo->prepare($items_sql);
-            $items_stmt->execute([$sale_id]);
+            if ($has_new_columns) {
+                // 새로운 스키마 사용 - 도매 상품명 필드가 있는 경우
+                $items_sql = "
+                    SELECT 
+                        wsi.product_id,
+                        wsi.quantity,
+                        wsi.unit_price,
+                        wsi.total_price,
+                        wsi.remarks,
+                        p.sku,
+                        COALESCE(wp.wholesale_name_ko, p.name_ko) as name_ko,
+                        COALESCE(wp.wholesale_name_en, p.name_en) as name_en,
+                        COALESCE(p.pieces_per_box, wp.min_quantity, 1) as pieces_per_box
+                    FROM wholesale_sale_items wsi
+                    LEFT JOIN products p ON wsi.product_id = p.id
+                    LEFT JOIN wholesale_products wp ON wp.product_id = p.id AND wp.store_id = ?
+                    WHERE wsi.sale_id = ?
+                    ORDER BY COALESCE(wp.wholesale_name_en, p.name_en), COALESCE(wp.wholesale_name_ko, p.name_ko)
+                ";
+                $items_stmt = $pdo->prepare($items_sql);
+                $items_stmt->execute([$sale['store_id'], $sale_id]);
+            } else {
+                // 기존 스키마 사용 - 도매 상품명 필드가 없는 경우
+                $items_sql = "
+                    SELECT 
+                        wsi.product_id,
+                        wsi.quantity,
+                        wsi.unit_price,
+                        wsi.total_price,
+                        wsi.remarks,
+                        p.sku,
+                        p.name_ko,
+                        p.name_en,
+                        COALESCE(p.pieces_per_box, wp.min_quantity, 1) as pieces_per_box
+                    FROM wholesale_sale_items wsi
+                    LEFT JOIN products p ON wsi.product_id = p.id
+                    LEFT JOIN wholesale_products wp ON wp.product_id = p.id AND wp.store_id = ?
+                    WHERE wsi.sale_id = ?
+                    ORDER BY p.name_en, p.name_ko
+                ";
+                $items_stmt = $pdo->prepare($items_sql);
+                $items_stmt->execute([$sale['store_id'], $sale_id]);
+            }
+            
             $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
         }
         
@@ -206,8 +239,8 @@ if (isset($_SESSION['flash'])) {
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">SKU</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">상품명 (영문)</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">상품명 (한글)</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">상품명</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">박스포장수량</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">수량</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">판매가</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">합계금액</th>
@@ -219,8 +252,22 @@ if (isset($_SESSION['flash'])) {
                                 <?php foreach ($items as $item): ?>
                                     <tr>
                                         <td class="px-4 py-3 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($item['sku']); ?></td>
-                                        <td class="px-4 py-3 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($item['name_en'] ?: '-'); ?></td>
-                                        <td class="px-4 py-3 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($item['name_ko'] ?: '-'); ?></td>
+                                        <td class="px-4 py-3 text-sm text-gray-900 border-b border-gray-200">
+                                            <?php 
+                                            // 디버깅용 - 실제 데이터 확인
+                                            echo "<!-- DEBUG: name_en=[".htmlspecialchars($item['name_en'])."] name_ko=[".htmlspecialchars($item['name_ko'])."] -->";
+                                            ?>
+                                            <?php if ($item['name_en']): ?>
+                                                <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($item['name_en']); ?></div>
+                                            <?php endif; ?>
+                                            <?php if ($item['name_ko']): ?>
+                                                <div class="text-sm text-gray-600"><?php echo htmlspecialchars($item['name_ko']); ?></div>
+                                            <?php endif; ?>
+                                            <?php if (!$item['name_en'] && !$item['name_ko']): ?>
+                                                <div class="text-sm text-gray-500">-</div>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['pieces_per_box']); ?>개</td>
                                         <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['quantity']); ?></td>
                                         <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['unit_price']); ?></td>
                                         <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium border-b border-gray-200"><?php echo number_format($item['total_price']); ?></td>
@@ -231,9 +278,8 @@ if (isset($_SESSION['flash'])) {
                         </tbody>
                         <tfoot class="bg-gray-50">
                             <tr>
-                                <td colspan="5" class="px-4 py-3 text-right text-sm font-medium text-gray-900 border-t border-gray-200">총 합계:</td>
+                                <td colspan="6" class="px-4 py-3 text-right text-sm font-medium text-gray-900 border-t border-gray-200">총 합계:</td>
                                 <td class="px-4 py-3 text-right text-lg font-bold text-gray-900 border-t border-gray-200"><?php echo number_format($sale['final_amount']); ?></td>
-                                <td class="px-4 py-3 border-t border-gray-200"></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -324,6 +370,12 @@ document.addEventListener('DOMContentLoaded', function() {
         border: none !important;
         font-size: 11px !important;
         line-height: 1.3 !important;
+        color: #000000 !important;
+    }
+    
+    /* 모든 텍스트 요소를 검정색으로 설정 */
+    #invoice-content * {
+        color: #000000 !important;
     }
     
     /* 제목 크기 조정 */
@@ -451,51 +503,52 @@ document.addEventListener('DOMContentLoaded', function() {
     
     .product-table th:nth-child(1), 
     .product-table td:nth-child(1) { 
-        width: 14% !important; 
-        max-width: 14% !important;
-        min-width: 14% !important;
+        width: 12% !important; 
+        max-width: 12% !important;
+        min-width: 12% !important;
     } /* SKU */
     
-    .product-table th:nth-child(2), 
-    .product-table td:nth-child(2) { 
-        width: 25% !important; 
-        max-width: 25% !important;
-        min-width: 25% !important;
-    } /* 상품명(영문) */
+    #invoice-content .product-table th:nth-child(2), 
+    #invoice-content .product-table td:nth-child(2) { 
+        width: 40% !important; 
+        max-width: 40% !important;
+        min-width: 40% !important;
+        font-size: 9px !important;
+    } /* 상품명 */
     
     .product-table th:nth-child(3), 
     .product-table td:nth-child(3) { 
-        width: 25% !important; 
-        max-width: 25% !important;
-        min-width: 25% !important;
-    } /* 상품명(한글) */
+        width: 8% !important; 
+        max-width: 8% !important;
+        min-width: 8% !important;
+    } /* 박스포장수량 */
     
     .product-table th:nth-child(4), 
     .product-table td:nth-child(4) { 
-        width: 9% !important; 
-        max-width: 9% !important;
-        min-width: 9% !important;
+        width: 6% !important; 
+        max-width: 6% !important;
+        min-width: 6% !important;
     } /* 수량 */
     
     .product-table th:nth-child(5), 
     .product-table td:nth-child(5) { 
-        width: 9% !important; 
-        max-width: 9% !important;
-        min-width: 9% !important;
+        width: 10% !important; 
+        max-width: 10% !important;
+        min-width: 10% !important;
     } /* 판매가 */
     
     .product-table th:nth-child(6), 
     .product-table td:nth-child(6) { 
-        width: 9% !important; 
-        max-width: 9% !important;
-        min-width: 9% !important;
+        width: 12% !important; 
+        max-width: 12% !important;
+        min-width: 12% !important;
     } /* 합계금액 */
     
     .product-table th:nth-child(7), 
     .product-table td:nth-child(7) { 
-        width: 9% !important; 
-        max-width: 9% !important;
-        min-width: 9% !important;
+        width: 12% !important; 
+        max-width: 12% !important;
+        min-width: 12% !important;
     } /* 비고 */
 }
 </style>

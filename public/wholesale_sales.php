@@ -77,7 +77,8 @@ try {
                     p.sku,
                     p.name_ko,
                     p.name_en,
-                    wp.wholesale_price
+                    wp.wholesale_price,
+                    COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity
                 FROM wholesale_sale_items wsi
                 LEFT JOIN products p ON wsi.product_id = p.id
                 LEFT JOIN wholesale_products wp ON wp.product_id = p.id AND wp.is_active = 1
@@ -413,6 +414,7 @@ if (isset($_SESSION['flash'])) {
                                             <tr>
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">SKU</th>
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">상품명</th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">박스포장수량</th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">단가</th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">수량</th>
                                                 <th class="px-2 py-3 text-right text-xs font-semibold text-gray-700">합계</th>
@@ -827,7 +829,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="text-sm text-gray-600">${product.display_name_ko && product.display_name_en && product.display_name_ko !== product.display_name_en ? product.display_name_ko : ''}</div>
                     <div class="text-xs text-gray-500 mt-1">
-                        SKU: ${displaySkus} | ${translations.wholesale_badge}: ${Number(product.wholesale_price).toLocaleString()}원
+                        SKU: ${displaySkus} | ${translations.wholesale_badge}: ${Number(product.wholesale_price).toLocaleString()}원 | 박스: ${product.min_quantity || 1}개
                     </div>
                 </div>
             `;
@@ -867,13 +869,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const nameKo = item.dataset.nameKo;
         const nameEn = item.dataset.nameEn;
         const wholesalePrice = parseFloat(item.dataset.wholesalePrice);
-        const minQuantity = parseInt(item.dataset.minQuantity);
+        const minQuantity = parseInt(item.dataset.minQuantity) || 1;
+        
         
         // 이미 장바구니에 있는지 확인
         const existingIndex = cart.findIndex(item => item.product_id == productId);
         
         if (existingIndex >= 0) {
-            cart[existingIndex].quantity += minQuantity;
+            cart[existingIndex].quantity += 1; // 판매수량은 1개씩 증가
             cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_price;
         } else {
             cart.push({
@@ -882,8 +885,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 name_ko: nameKo, // 도매 상품명 또는 기본 상품명
                 name_en: nameEn, // 도매 상품명 또는 기본 상품명
                 unit_price: wholesalePrice,
-                quantity: minQuantity,
-                total_price: wholesalePrice * minQuantity,
+                quantity: 1, // 기본 판매수량은 1개
+                total_price: wholesalePrice * 1,
+                min_quantity: minQuantity, // 박스포장수량 정보 (표시용)
                 remarks: '' // 상품별 비고란 추가
             });
         }
@@ -914,11 +918,22 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="text-sm text-gray-600 mt-1" title="${item.name_ko || '-'}">${item.name_ko || '-'}</div>
                         </td>
                         
-                        <!-- 단가 -->
+                        <!-- 박스포장수량 -->
                         <td class="px-2 py-3 text-center">
                             <div class="text-sm font-medium text-gray-700">
-                                ${Number(item.unit_price).toLocaleString()}원
+                                ${item.min_quantity}개
                             </div>
+                        </td>
+                        
+                        <!-- 단가 -->
+                        <td class="px-2 py-3 text-center">
+                            <input type="number" 
+                                   class="w-full px-2 py-1 text-sm border border-gray-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
+                                   value="${item.unit_price}"
+                                   min="0"
+                                   step="0.01"
+                                   onchange="updateUnitPrice(${index}, this.value)"
+                                   style="min-width: 80px;">
                         </td>
                         
                         <!-- 수량 -->
@@ -992,6 +1007,13 @@ document.addEventListener('DOMContentLoaded', function() {
     window.updateRemarks = function(index, value) {
         cart[index].remarks = value;
         cartItemsInput.value = JSON.stringify(cart);
+    };
+    
+    window.updateUnitPrice = function(index, newPrice) {
+        const price = parseFloat(newPrice) || 0;
+        cart[index].unit_price = price;
+        cart[index].total_price = cart[index].quantity * price;
+        updateCart();
     };
     
     function updateSaleButton() {
@@ -1139,7 +1161,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="text-xs text-gray-500 mt-1 flex flex-wrap gap-2">
                                 <span><i class="fas fa-barcode mr-1"></i>${displaySkus}</span>
                                 <span class="text-green-600 font-medium"><i class="fas fa-won-sign mr-1"></i>${Number(product.wholesale_price).toLocaleString()}원</span>
-                                <span><i class="fas fa-box mr-1"></i>${translations.minimum_prefix}${product.min_quantity}</span>
+                                <span><i class="fas fa-box mr-1"></i>${translations.minimum_prefix}${product.min_quantity || 1}</span>
                             </div>
                         </div>
                         <div class="text-green-500 ml-2">
@@ -1186,13 +1208,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const nameKo = item.dataset.nameKo;
         const nameEn = item.dataset.nameEn;
         const wholesalePrice = parseFloat(item.dataset.wholesalePrice);
-        const minQuantity = parseInt(item.dataset.minQuantity);
+        const minQuantity = parseInt(item.dataset.minQuantity) || 1;
+        
         
         // 기존 addToCart 함수와 동일한 로직
         const existingIndex = cart.findIndex(item => item.product_id == productId);
         
         if (existingIndex >= 0) {
-            cart[existingIndex].quantity += minQuantity;
+            cart[existingIndex].quantity += 1; // 판매수량은 1개씩 증가
             cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_price;
         } else {
             cart.push({
@@ -1201,8 +1224,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 name_ko: nameKo,
                 name_en: nameEn,
                 unit_price: wholesalePrice,
-                quantity: minQuantity,
-                total_price: wholesalePrice * minQuantity,
+                quantity: 1, // 기본 판매수량은 1개
+                total_price: wholesalePrice * 1,
+                min_quantity: minQuantity, // 박스포장수량 정보 (표시용)
                 remarks: '' // 상품별 비고란 추가
             });
         }
@@ -1276,6 +1300,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     unit_price: parseFloat(item.unit_price),
                     quantity: parseInt(item.quantity),
                     total_price: parseFloat(item.total_price),
+                    min_quantity: parseInt(item.min_quantity) || 1, // 기존 데이터에서 박스포장수량 로드
                     remarks: item.remarks || '' // 기존 비고 데이터 로드
                 });
             });
@@ -1443,6 +1468,13 @@ document.addEventListener('DOMContentLoaded', function() {
         padding: 0.25rem;
     }
     
+    /* 단가 입력란 모바일 최적화 */
+    .cart-table td input[type="number"] {
+        min-width: 80px;
+        font-size: 0.75rem;
+        padding: 0.25rem;
+    }
+    
     /* 상품명 컬럼 최적화 */
     .cart-table .product-name {
         min-width: 120px;
@@ -1483,6 +1515,10 @@ document.addEventListener('DOMContentLoaded', function() {
     .cart-table td input[type="text"] {
         min-width: 100px;
     }
+    
+    .cart-table td input[type="number"] {
+        min-width: 100px;
+    }
 }
 
 /* 장바구니 테이블 가로 스크롤 */
@@ -1493,7 +1529,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     .cart-table {
-        min-width: 600px; /* 최소 너비 보장 */
+        min-width: 800px; /* 박스포장수량 컬럼 추가로 인한 너비 증가 */
     }
 }
 </style>

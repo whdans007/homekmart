@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
                         wp.wholesale_skus,
                         wp.wholesale_price,
-                        wp.min_quantity,
+                        COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
                         wp.wholesale_description
                     FROM wholesale_products wp
                     INNER JOIN products p ON p.id = wp.product_id 
@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
                         wp.wholesale_skus,
                         wp.wholesale_price,
-                        wp.min_quantity,
+                        COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
                         wp.wholesale_description
                     FROM wholesale_products wp
                     INNER JOIN products p ON p.id = wp.product_id 
@@ -139,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         p.name_en as display_name_en,
                         JSON_ARRAY(p.sku) as wholesale_skus,
                         wp.wholesale_price,
-                        wp.min_quantity,
+                        COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
                         NULL as wholesale_description
                     FROM wholesale_products wp
                     INNER JOIN products p ON p.id = wp.product_id 
@@ -167,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         p.name_en as display_name_en,
                         JSON_ARRAY(p.sku) as wholesale_skus,
                         wp.wholesale_price,
-                        wp.min_quantity,
+                        COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
                         NULL as wholesale_description
                     FROM wholesale_products wp
                     INNER JOIN products p ON p.id = wp.product_id 
@@ -201,6 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute($params);
         
         $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
         
         if (!empty($products)) {
             $response['success'] = true;
