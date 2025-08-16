@@ -58,7 +58,8 @@ if ($transfer_id > 0) {
                     sti.remarks,
                     p.sku,
                     p.name_ko,
-                    p.name_en
+                    p.name_en,
+                    p.pieces_per_box
                 FROM store_transfer_items sti
                 LEFT JOIN products p ON sti.product_id = p.id
                 WHERE sti.transfer_id = ?
@@ -195,27 +196,17 @@ if (isset($_SESSION['flash'])) {
 
                 <!-- 이동 정보 -->
                 <div class="px-6 py-4 border-b border-gray-200">
-                    <table class="w-full border-0">
-                        <tbody>
-                            <tr class="border-b border-0">
-                                <td class="py-2 text-sm w-1/3 border-0">
-                                    <span class="font-medium text-gray-600"><?php echo t('store_transfer.transfer_number'); ?>:</span>
-                                    <span class="text-gray-900 font-mono ml-1">#<?php echo str_pad($transfer['id'], 6, '0', STR_PAD_LEFT); ?></span>
-                                </td>
-                                <td class="py-2 text-sm w-1/3 border-0">
-                                    <span class="font-medium text-gray-600"><?php echo t('store_transfer.transfer_date_display'); ?>:</span>
-                                    <span class="text-gray-900 ml-1"><?php echo date('Y년 m월 d일', strtotime($transfer['transfer_date'])); ?></span>
-                                </td>
-                                <td class="py-2 text-sm w-1/3 border-0">
-                                    <span class="font-medium text-gray-600"><?php echo t('store_transfer.processor'); ?>:</span>
-                                    <span class="text-gray-900 ml-1"><?php echo htmlspecialchars($transfer['user_name'] ?? t('store_transfer.unknown_processor')); ?></span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="py-2 text-sm text-gray-900 font-medium border-0" colspan="3">점포 이동: <?php echo htmlspecialchars($transfer['from_store_name']); ?> → <?php echo htmlspecialchars($transfer['to_store_name']); ?></td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="flex justify-between items-center py-3">
+                        <div class="text-left text-sm text-gray-900 font-medium">
+                            점포 이동: <?php echo htmlspecialchars($transfer['from_store_name']); ?> → <?php echo htmlspecialchars($transfer['to_store_name']); ?>
+                        </div>
+                        <div class="text-center text-sm text-gray-900 font-medium">
+                            이동 번호: #<?php echo str_pad($transfer['id'], 6, '0', STR_PAD_LEFT); ?>
+                        </div>
+                        <div class="text-right text-sm text-gray-900 font-medium">
+                            이동 날짜: <?php echo date('Y년 m월 d일', strtotime($transfer['transfer_date'])); ?>
+                        </div>
+                    </div>
 
                     <?php if (!empty($transfer['notes'])): ?>
                         <div class="mt-4 pt-4 border-t border-gray-200">
@@ -230,29 +221,45 @@ if (isset($_SESSION['flash'])) {
                     <table class="min-w-full">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">SKU</th>
-                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b"><?php echo t('store_transfer.product_name_column'); ?></th>
-                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase border-b"><?php echo t('store_transfer.unit_cost_column'); ?></th>
-                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase border-b"><?php echo t('store_transfer.quantity_column'); ?></th>
-                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase border-b"><?php echo t('store_transfer.total_price_column'); ?></th>
+                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b w-20">SKU</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b w-64"><?php echo t('store_transfer.product_name_column'); ?></th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase border-b w-20">포장단위</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase border-b w-24"><?php echo t('store_transfer.unit_cost_column'); ?></th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase border-b w-20"><?php echo t('store_transfer.quantity_column'); ?></th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase border-b w-24"><?php echo t('store_transfer.total_price_column'); ?></th>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b"><?php echo t('store_transfer.remarks_column'); ?></th>
                             </tr>
                         </thead>
                         <tbody class="bg-white">
                             <?php foreach ($items as $item): ?>
                                 <tr class="border-b border-gray-200">
-                                    <td class="px-3 py-2 text-xs font-mono text-gray-700">
+                                    <td class="px-2 py-2 text-xs font-mono text-gray-700">
                                         <?php echo htmlspecialchars($item['sku']); ?>
                                     </td>
                                     <td class="px-3 py-2">
-                                        <div class="text-sm font-medium text-gray-900">
-                                            <?php echo htmlspecialchars($item['name_en'] ?: $item['name_ko']); ?>
-                                        </div>
-                                        <?php if ($item['name_ko'] && $item['name_en'] && $item['name_ko'] !== $item['name_en']): ?>
+                                        <!-- 영문명 먼저 표시 -->
+                                        <?php if (!empty($item['name_en'])): ?>
+                                            <div class="text-sm font-medium text-gray-900">
+                                                <?php echo htmlspecialchars($item['name_en']); ?>
+                                            </div>
+                                        <?php endif; ?>
+                                        
+                                        <!-- 한글명 아래에 표시 -->
+                                        <?php if (!empty($item['name_ko'])): ?>
                                             <div class="text-xs text-gray-600">
                                                 <?php echo htmlspecialchars($item['name_ko']); ?>
                                             </div>
                                         <?php endif; ?>
+                                        
+                                        <!-- 영문명이 없을 경우 한글명만 큰 글씨로 표시 -->
+                                        <?php if (empty($item['name_en']) && !empty($item['name_ko'])): ?>
+                                            <div class="text-sm font-medium text-gray-900">
+                                                <?php echo htmlspecialchars($item['name_ko']); ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="px-3 py-2 text-center text-sm text-gray-900">
+                                        <?php echo !empty($item['pieces_per_box']) ? number_format($item['pieces_per_box']) : '-'; ?>
                                     </td>
                                     <td class="px-3 py-2 text-center text-sm text-gray-900">
                                         <?php echo number_format($item['unit_cost_price'], 2); ?>
@@ -280,6 +287,28 @@ if (isset($_SESSION['flash'])) {
                             <div class="text-lg font-bold text-gray-900">
                                 <?php echo t('store_transfer.total_transfer_price'); ?>: <?php echo number_format($transfer['total_amount'], 2); ?>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 담당자 및 서명란 -->
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                    <div class="flex justify-end">
+                        <div class="w-full max-w-lg">
+                            <table class="signature-table w-full border border-gray-300">
+                                <thead>
+                                    <tr class="bg-gray-50">
+                                        <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300">담당자</th>
+                                        <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300">싸인</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="px-3 py-4 text-sm text-gray-900 text-center border-r border-gray-300"><?php echo htmlspecialchars($transfer['user_name'] ?? '미확인'); ?></td>
+                                        <td class="px-3 py-4 text-sm text-gray-900 text-center" style="height: 60px;"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -379,6 +408,33 @@ document.addEventListener('DOMContentLoaded', function() {
                     .px-6 table.border-0 tr {
                         border: none !important;
                     }
+                    
+                    /* 서명란 테이블 스타일 */
+                    .signature-table {
+                        font-size: 9px !important;
+                        margin-bottom: 8px !important;
+                        width: 100% !important;
+                        max-width: 300px !important;
+                        float: right !important;
+                        table-layout: fixed !important;
+                    }
+                    
+                    .signature-table th {
+                        background: #f8f9fa !important;
+                        font-size: 8px !important;
+                        padding: 2px 3px !important;
+                        font-weight: 600 !important;
+                        text-align: center !important;
+                        width: 50% !important;
+                    }
+                    
+                    .signature-table td {
+                        font-size: 8px !important;
+                        padding: 2px 3px !important;
+                        text-align: center !important;
+                        height: 35px !important;
+                        width: 50% !important;
+                    }
                 </style>
             `;
             
@@ -446,6 +502,33 @@ document.addEventListener('DOMContentLoaded', function() {
     
     .px-6 table.border-0 tr {
         border: none !important;
+    }
+    
+    /* 서명란 테이블 스타일 */
+    .signature-table {
+        font-size: 9px !important;
+        margin-bottom: 8px !important;
+        width: 100% !important;
+        max-width: 300px !important;
+        float: right !important;
+        table-layout: fixed !important;
+    }
+    
+    .signature-table th {
+        background: #f8f9fa !important;
+        font-size: 8px !important;
+        padding: 2px 3px !important;
+        font-weight: 600 !important;
+        text-align: center !important;
+        width: 50% !important;
+    }
+    
+    .signature-table td {
+        font-size: 8px !important;
+        padding: 2px 3px !important;
+        text-align: center !important;
+        height: 35px !important;
+        width: 50% !important;
     }
 }
 
