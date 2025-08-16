@@ -203,13 +203,8 @@ if (!empty($_SESSION['user_id'])) {
                                     <?php echo t('navigation.wholesale_product_management'); ?>
                                 </a>
                                 
-                                <a href="wholesale_sales.php" class="<?php echo in_array($current_page, ['wholesale_sales.php', 'wholesale_sale_preview.php']) ? 'bg-orange-200 text-orange-900' : 'text-orange-700 hover:bg-orange-200 hover:text-orange-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                <a href="wholesale_sales_list.php" class="<?php echo in_array($current_page, ['wholesale_sales_list.php', 'wholesale_sales.php', 'wholesale_sale_preview.php']) ? 'bg-orange-200 text-orange-900' : 'text-orange-700 hover:bg-orange-200 hover:text-orange-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-handshake mr-2 text-orange-500 group-hover:text-orange-600 text-xs"></i>
-                                    <?php echo t('navigation.wholesale_sales'); ?>
-                                </a>
-                                
-                                <a href="wholesale_sales_list.php" class="<?php echo ($current_page == 'wholesale_sales_list.php') ? 'bg-orange-200 text-orange-900' : 'text-orange-700 hover:bg-orange-200 hover:text-orange-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-list mr-2 text-orange-500 group-hover:text-orange-600 text-xs"></i>
                                     <?php echo t('navigation.wholesale_sales_list'); ?>
                                 </a>
                             </div>

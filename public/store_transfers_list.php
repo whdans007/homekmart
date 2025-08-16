@@ -16,56 +16,15 @@ if (!has_permission('store_transfer_management')) {
 
 $transfers = [];
 $error_message = '';
-$stores = [];
-
-// 검색 필터 변수
-$start_date = $_GET['start_date'] ?? '';
-$end_date = $_GET['end_date'] ?? '';
-$from_store_filter = $_GET['from_store_id'] ?? '';
-$to_store_filter = $_GET['to_store_id'] ?? '';
-$status_filter = $_GET['status'] ?? '';
 
 try {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // 점포 목록 가져오기 (필터용)
-    $stores_stmt = $pdo->prepare("SELECT id, name FROM stores ORDER BY name");
-    $stores_stmt->execute();
-    $stores = $stores_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // 검색 조건 구성
+    // 권한 확인 및 WHERE 절 구성
     $where_conditions = [];
     $params = [];
-
-    // 날짜 필터
-    if (!empty($start_date)) {
-        $where_conditions[] = "st.transfer_date >= ?";
-        $params[] = $start_date;
-    }
-    if (!empty($end_date)) {
-        $where_conditions[] = "st.transfer_date <= ?";
-        $params[] = $end_date;
-    }
-
-    // 출발 점포 필터
-    if (!empty($from_store_filter)) {
-        $where_conditions[] = "st.from_store_id = ?";
-        $params[] = $from_store_filter;
-    }
-
-    // 목적지 점포 필터
-    if (!empty($to_store_filter)) {
-        $where_conditions[] = "st.to_store_id = ?";
-        $params[] = $to_store_filter;
-    }
-
-    // 상태 필터
-    if (!empty($status_filter)) {
-        $where_conditions[] = "st.status = ?";
-        $params[] = $status_filter;
-    }
 
     // 권한 확인 (super_admin이 아닌 경우 자신의 점포 관련 이동만)
     if ($_SESSION['role'] !== 'super_admin') {
@@ -74,10 +33,10 @@ try {
         $params[] = $current_store_id;
     }
 
-    // 최종 WHERE 절 구성
+    // WHERE 절 구성
     $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
 
-    // 이동 목록 조회
+    // 이동 목록 조회 (최근 100건)
     $sql = "
         SELECT 
             st.id,
@@ -164,82 +123,6 @@ if (isset($_SESSION['flash'])) {
             </div>
         <?php endif; ?>
 
-        <!-- 검색 필터 -->
-        <div class="bg-white shadow rounded-lg border border-gray-200 mb-6">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900"><?php echo t('store_transfer.search_filter'); ?></h3>
-            </div>
-            <div class="px-6 py-4">
-                <form method="GET" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                        <!-- 시작 날짜 -->
-                        <div>
-                            <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('store_transfer.start_date'); ?></label>
-                            <input type="date" name="start_date" id="start_date" value="<?php echo htmlspecialchars($start_date); ?>"
-                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                        </div>
-
-                        <!-- 종료 날짜 -->
-                        <div>
-                            <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('store_transfer.end_date'); ?></label>
-                            <input type="date" name="end_date" id="end_date" value="<?php echo htmlspecialchars($end_date); ?>"
-                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                        </div>
-
-                        <!-- 출발 점포 -->
-                        <div>
-                            <label for="from_store_id" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('store_transfer.from_store'); ?></label>
-                            <select name="from_store_id" id="from_store_id" 
-                                    class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                                <option value=""><?php echo t('store_transfer.all'); ?></option>
-                                <?php foreach ($stores as $store): ?>
-                                    <option value="<?php echo $store['id']; ?>" 
-                                            <?php echo ($from_store_filter == $store['id']) ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars($store['name']); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <!-- 목적지 점포 -->
-                        <div>
-                            <label for="to_store_id" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('store_transfer.destination_store'); ?></label>
-                            <select name="to_store_id" id="to_store_id" 
-                                    class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                                <option value=""><?php echo t('store_transfer.all'); ?></option>
-                                <?php foreach ($stores as $store): ?>
-                                    <option value="<?php echo $store['id']; ?>" 
-                                            <?php echo ($to_store_filter == $store['id']) ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars($store['name']); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <!-- 상태 -->
-                        <div>
-                            <label for="status" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('store_transfer.status'); ?></label>
-                            <select name="status" id="status" 
-                                    class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                                <option value=""><?php echo t('store_transfer.all'); ?></option>
-                                <option value="draft" <?php echo ($status_filter === 'draft') ? 'selected' : ''; ?>><?php echo t('store_transfer.draft'); ?></option>
-                                <option value="confirmed" <?php echo ($status_filter === 'confirmed') ? 'selected' : ''; ?>><?php echo t('store_transfer.confirmed'); ?></option>
-                                <option value="cancelled" <?php echo ($status_filter === 'cancelled') ? 'selected' : ''; ?>><?php echo t('store_transfer.cancelled'); ?></option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end space-x-3 pt-4">
-                        <a href="?" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                            <?php echo t('store_transfer.reset'); ?>
-                        </a>
-                        <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                            <?php echo t('store_transfer.search'); ?>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
 
         <!-- 이동 목록 테이블 -->
         <div class="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
@@ -369,32 +252,6 @@ if (isset($_SESSION['flash'])) {
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // 오늘 날짜를 기본값으로 설정하는 버튼 추가 (선택사항)
-    const startDateInput = document.getElementById('start_date');
-    const endDateInput = document.getElementById('end_date');
-    
-    // 빠른 날짜 선택 기능 추가 (선택사항)
-    function setDateRange(days) {
-        const today = new Date();
-        const startDate = new Date(today);
-        startDate.setDate(today.getDate() - days);
-        
-        startDateInput.value = startDate.toISOString().split('T')[0];
-        endDateInput.value = today.toISOString().split('T')[0];
-    }
-    
-    // 검색 폼 자동 제출 (선택사항)
-    const formInputs = document.querySelectorAll('select[name="from_store_id"], select[name="to_store_id"], select[name="status"]');
-    formInputs.forEach(input => {
-        input.addEventListener('change', function() {
-            // 자동 제출을 원하지 않으면 이 부분을 제거하세요
-            // this.form.submit();
-        });
-    });
-});
-</script>
 
 <style>
 /* 테이블 반응형 스타일 */
@@ -408,10 +265,6 @@ document.addEventListener('DOMContentLoaded', function() {
         padding: 0.5rem 0.25rem;
     }
     
-    .grid.grid-cols-1.md\\:grid-cols-2.lg\\:grid-cols-3.xl\\:grid-cols-5 {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-    }
 }
 
 /* 상태 배지 스타일 개선 */
