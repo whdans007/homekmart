@@ -416,6 +416,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
+// JavaScript translations object
+const translations = {
+    new_supplier_registration: '<?php echo addslashes(t("purchase.new_supplier_registration")); ?>',
+    supplier_name: '<?php echo addslashes(t("purchase.supplier_name")); ?>',
+    phone_number: '<?php echo addslashes(t("purchase.phone_number")); ?>',
+    cancel: '<?php echo addslashes(t("purchase.cancel")); ?>',
+    product_search_placeholder: '<?php echo addslashes(t("purchase.product_search_placeholder")); ?>',
+    select_supplier_message: '<?php echo addslashes(t("purchase.select_supplier_message")); ?>',
+    product_already_added: '<?php echo addslashes(t("purchase.product_already_added")); ?>',
+    new_product_registration: '<?php echo addslashes(t("purchase.new_product_registration")); ?>',
+    product_name_ko: '<?php echo addslashes(t("purchase.product_name_ko")); ?>',
+    product_name_en: '<?php echo addslashes(t("purchase.product_name_en")); ?>',
+    sku: '<?php echo addslashes(t("purchase.sku")); ?>',
+    category: '<?php echo addslashes(t("purchase.category")); ?>',
+    brand: '<?php echo addslashes(t("purchase.brand")); ?>',
+    box_quantity: '<?php echo addslashes(t("purchase.box_quantity")); ?>',
+    box_unit: '<?php echo addslashes(t("purchase.box_unit")); ?>',
+    piece_unit: '<?php echo addslashes(t("purchase.piece_unit")); ?>',
+    confirm_remove: '<?php echo addslashes(t("purchase.js_confirm_remove")); ?>',
+    supplier_required: '<?php echo addslashes(t("purchase.js_supplier_required")); ?>',
+    product_search_error: '<?php echo addslashes(t("purchase.js_product_search_error")); ?>',
+    network_error: '<?php echo addslashes(t("purchase.js_network_error")); ?>',
+    product_registered: '<?php echo addslashes(t("purchase.js_product_registered")); ?>',
+    product_register_error: '<?php echo addslashes(t("purchase.js_product_register_error")); ?>',
+    phone: '<?php echo addslashes(t("purchase.js_phone")); ?>',
+    no_barcode: '<?php echo addslashes(t("purchase.js_no_barcode")); ?>',
+    register: '<?php echo addslashes(t("purchase.register")); ?>',
+    memo: '<?php echo addslashes(t("supplier.memo")); ?>',
+    required_field: '<?php echo addslashes(t("forms.required_field")); ?>'
+};
+
 document.addEventListener('DOMContentLoaded', function () {
     const supplierSelect = document.getElementById('supplier_id');
     const searchInput = document.getElementById('product_search');
@@ -538,7 +569,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             addNewDiv.innerHTML = `
                                 <div class="flex items-center text-green-700">
                                     <i class="fas fa-plus mr-2"></i>
-                                    <span class="font-medium">"${searchTerm}" 거래처 신규 등록</span>
+                                    <span class="font-medium">"${searchTerm}" ${translations.new_supplier_registration}</span>
                                 </div>
                                 <div class="text-sm text-green-600">↵ 엔터 또는 클릭하여 새 거래처를 등록하세요</div>
                             `;
@@ -555,7 +586,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <div class="supplier-result cursor-pointer bg-green-50 hover:bg-green-100 p-3">
                                     <div class="flex items-center text-green-700">
                                         <i class="fas fa-plus mr-2"></i>
-                                        <span class="font-medium">"${searchTerm}" 거래처 신규 등록</span>
+                                        <span class="font-medium">"${searchTerm}" ${translations.new_supplier_registration}</span>
                                     </div>
                                     <div class="text-sm text-green-600">검색 결과가 없습니다. ↵ 엔터 또는 클릭하여 새 거래처를 등록하세요</div>
                                 </div>
@@ -1560,29 +1591,29 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                 <div class="mt-3">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-medium text-gray-900">새 거래처 등록</h3>
+                        <h3 class="text-lg font-medium text-gray-900">${translations.new_supplier_registration}</h3>
                         <button type="button" class="text-gray-400 hover:text-gray-600" onclick="closeModal()">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                     <form id="add-supplier-form" class="space-y-4">
                         <div>
-                            <label for="modal_supplier_name" class="block text-sm font-medium text-gray-700">거래처명 *</label>
+                            <label for="modal_supplier_name" class="block text-sm font-medium text-gray-700">${translations.supplier_name} *</label>
                             <input type="text" id="modal_supplier_name" name="name" required 
                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
-                                   value="${defaultName}" placeholder="거래처명을 입력하세요">
+                                   value="${defaultName}" placeholder="${translations.supplier_name}">
                         </div>
                         <div>
-                            <label for="modal_supplier_phone" class="block text-sm font-medium text-gray-700">전화번호</label>
+                            <label for="modal_supplier_phone" class="block text-sm font-medium text-gray-700">${translations.phone_number}</label>
                             <input type="text" id="modal_supplier_phone" name="phone" 
                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
-                                   placeholder="전화번호를 입력하세요">
+                                   placeholder="${translations.phone_number}">
                         </div>
                         <div>
-                            <label for="modal_supplier_memo" class="block text-sm font-medium text-gray-700">메모</label>
+                            <label for="modal_supplier_memo" class="block text-sm font-medium text-gray-700">${translations.memo}</label>
                             <textarea id="modal_supplier_memo" name="memo" rows="3" 
                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
-                                      placeholder="거래처 관련 메모를 입력하세요"></textarea>
+                                      placeholder="${translations.memo}"></textarea>
                         </div>
                         <div class="flex justify-end space-x-3 pt-4">
                             <button type="button" onclick="closeModal()" class="btn">
@@ -1631,7 +1662,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // 로딩 상태 표시
             const submitBtn = this.querySelector('button[type="submit"]');
             const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>등록 중...';
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>' + translations.register + '...';
             submitBtn.disabled = true;
             
             fetch('ajax_add_supplier.php', {

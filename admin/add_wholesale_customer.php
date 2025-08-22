@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $memo = trim($_POST['memo'] ?? '');
     
     if (empty($name)) {
-        $errors[] = '거래처명을 입력해주세요.';
+        $errors[] = t('add_wholesale_customer.name_required');
     }
     
     if (empty($errors)) {
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $check_stmt->execute([$name]);
             
             if ($check_stmt->fetchColumn() > 0) {
-                $errors[] = '이미 등록된 거래처명입니다.';
+                $errors[] = t('add_wholesale_customer.name_already_exists');
             } else {
                 // 거래처 추가
                 $stmt = $pdo->prepare("
@@ -50,16 +50,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($stmt->execute([$name, $phone, $address, $memo])) {
                     $_SESSION['flash'] = [
                         'type' => 'success',
-                        'message' => '거래처가 성공적으로 등록되었습니다.'
+                        'message' => t('add_wholesale_customer.save_success')
                     ];
                     header('Location: wholesale_customer_management.php');
                     exit;
                 } else {
-                    $errors[] = '거래처 등록 중 오류가 발생했습니다.';
+                    $errors[] = t('add_wholesale_customer.save_error');
                 }
             }
         } catch (PDOException $e) {
-            $errors[] = '데이터베이스 오류: ' . $e->getMessage();
+            $errors[] = t('add_wholesale_customer.database_error') . $e->getMessage();
         }
     }
 }
@@ -99,7 +99,7 @@ if (isset($_SESSION['flash'])) {
                     <i class="fas fa-plus-circle mr-2 text-primary-500"></i>
                     <?php echo t('wholesale.add_customer'); ?>
                 </h1>
-                <p class="mt-1 text-sm text-gray-600">새로운 거래처 정보를 입력해주세요.</p>
+                <p class="mt-1 text-sm text-gray-600"><?php echo htmlspecialchars(t('add_wholesale_customer.page_description')); ?></p>
             </div>
 
             <div class="px-6 py-4">
@@ -125,7 +125,7 @@ if (isset($_SESSION['flash'])) {
                                 <i class="fas fa-exclamation-triangle text-red-400"></i>
                             </div>
                             <div class="ml-3">
-                                <h3 class="text-sm font-medium text-red-800">다음 오류를 해결해주세요:</h3>
+                                <h3 class="text-sm font-medium text-red-800"><?php echo htmlspecialchars(t('add_wholesale_customer.solve_errors')); ?></h3>
                                 <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
                                     <?php foreach ($errors as $error): ?>
                                         <li><?php echo htmlspecialchars($error); ?></li>
@@ -139,12 +139,12 @@ if (isset($_SESSION['flash'])) {
                 <form method="POST" class="space-y-6">
                     <div>
                         <label for="name" class="block text-sm font-medium text-gray-700">
-                            <?php echo t('wholesale.customer_name'); ?> <span class="text-red-500">*</span>
+                            <?php echo t('wholesale.customer_name'); ?> <span class="text-red-500"><?php echo t('add_wholesale_customer.required_field'); ?></span>
                         </label>
                         <input type="text" name="name" id="name" required
                                value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>"
                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                               placeholder="거래처명을 입력하세요">
+                               placeholder="<?php echo htmlspecialchars(t('add_wholesale_customer.name_placeholder')); ?>">
                     </div>
 
                     <div>
@@ -154,7 +154,7 @@ if (isset($_SESSION['flash'])) {
                         <input type="tel" name="phone" id="phone"
                                value="<?php echo htmlspecialchars($_POST['phone'] ?? ''); ?>"
                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                               placeholder="전화번호를 입력하세요">
+                               placeholder="<?php echo htmlspecialchars(t('add_wholesale_customer.phone_placeholder')); ?>">
                     </div>
 
                     <div>
@@ -163,7 +163,7 @@ if (isset($_SESSION['flash'])) {
                         </label>
                         <textarea name="address" id="address" rows="3"
                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                                  placeholder="주소를 입력하세요"><?php echo htmlspecialchars($_POST['address'] ?? ''); ?></textarea>
+                                  placeholder="<?php echo htmlspecialchars(t('add_wholesale_customer.address_placeholder')); ?>"><?php echo htmlspecialchars($_POST['address'] ?? ''); ?></textarea>
                     </div>
 
                     <div>
@@ -172,7 +172,7 @@ if (isset($_SESSION['flash'])) {
                         </label>
                         <textarea name="memo" id="memo" rows="4"
                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                                  placeholder="기타 메모사항을 입력하세요"><?php echo htmlspecialchars($_POST['memo'] ?? ''); ?></textarea>
+                                  placeholder="<?php echo htmlspecialchars(t('add_wholesale_customer.memo_placeholder')); ?>"><?php echo htmlspecialchars($_POST['memo'] ?? ''); ?></textarea>
                     </div>
 
                     <div class="flex justify-end space-x-4 pt-4">

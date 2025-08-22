@@ -143,14 +143,14 @@ $conn->close();
             <!-- 표시 모드 선택 -->
             <div class="flex items-center justify-center space-x-4 mb-3">
                 <div class="flex items-center space-x-2">
-                    <span class="text-sm text-gray-600">표시 모드:</span>
+                    <span class="text-sm text-gray-600"><?php echo t('purchase_product.display_mode'); ?>:</span>
                     <a href="?mode=recent" class="px-3 py-1 text-xs rounded-full <?php echo $display_mode === 'recent' ? 'bg-blue-100 text-blue-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
                         <i class="fas fa-calendar-week mr-1"></i>
-                        최근 <?php echo $recent_days; ?>일
+                        <?php echo t('purchase_product.recent_7_days'); ?>
                     </a>
                     <a href="?mode=date&date=<?php echo $selected_date; ?>" class="px-3 py-1 text-xs rounded-full <?php echo $display_mode === 'date' ? 'bg-blue-100 text-blue-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
                         <i class="fas fa-calendar-day mr-1"></i>
-                        특정 날짜
+                        <?php echo t('common.date'); ?>
                     </a>
                 </div>
             </div>
@@ -160,10 +160,10 @@ $conn->close();
             <div class="text-center">
                 <div class="text-sm font-semibold text-gray-900">
                     <i class="fas fa-calendar-week text-blue-600 mr-2"></i>
-                    최근 매입 데이터 (<?php echo date('Y.m.d', strtotime($start_date)); ?> ~ <?php echo date('Y.m.d', strtotime($end_date)); ?>)
+                    <?php echo t('purchase_product.recent_purchase_history'); ?> (<?php echo date('Y.m.d', strtotime($start_date)); ?> ~ <?php echo date('Y.m.d', strtotime($end_date)); ?>)
                 </div>
                 <div class="text-xs text-gray-600 mt-1">
-                    총 <?php echo $recent_days; ?>일간의 매입 상품을 최신 순으로 표시
+                    <?php echo t('purchase_product.recent_7_days'); ?>
                 </div>
             </div>
             <?php else: ?>
@@ -414,7 +414,7 @@ $conn->close();
                 <div id="modal-pricing-section" class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4 hidden">
                     <h5 class="font-semibold text-blue-800 mb-3">
                         <i class="fas fa-tag mr-1"></i>
-                        판매가 설정
+                        <?php echo t('purchase_product.selling_price_setup'); ?>
                     </h5>
                     
                     <!-- 원가 정보 -->
@@ -426,9 +426,9 @@ $conn->close();
                     <!-- 마진율 선택 -->
                     <div class="mb-3">
                         <div class="flex justify-between items-center mb-2">
-                            <label class="block text-sm font-medium text-blue-700">마진율 선택</label>
+                            <label class="block text-sm font-medium text-blue-700"><?php echo t('purchase_product.margin_rate_selection'); ?></label>
                             <button id="configure-presets-btn" class="text-xs text-blue-600 hover:text-blue-800">
-                                <i class="fas fa-cog mr-1"></i>설정
+                                <i class="fas fa-cog mr-1"></i><?php echo t('purchase_product.setting'); ?>
                             </button>
                         </div>
                         <div id="margin-presets-container" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
@@ -437,7 +437,7 @@ $conn->close();
                         <div class="flex items-center space-x-2">
                             <input type="number" id="custom-margin-input" 
                                    class="w-20 px-2 py-1 text-sm border border-blue-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
-                                   placeholder="직접입력" min="0" max="100" step="0.1">
+                                   placeholder="<?php echo t('purchase_product.direct_input'); ?>" min="0" max="100" step="0.1">
                             <span class="text-sm text-gray-600">%</span>
                             <button id="apply-custom-margin-btn" class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200">적용</button>
                         </div>
@@ -484,7 +484,7 @@ $conn->close();
     </div>
 </div>
 
-<!-- 마진율 프리셋 설정 모달 -->
+<!-- Margin Rate Preset Setting Modal -->
 <div id="preset-config-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center p-4">
     <div class="relative w-full max-w-md bg-white rounded-lg shadow-xl">
         <!-- Modal Header -->
@@ -550,7 +550,14 @@ document.addEventListener('DOMContentLoaded', function() {
         errorMarginRange: <?php echo json_encode(t('product.error_margin_range')); ?>,
         errorSavePresets: <?php echo json_encode(t('product.js_error_margin_presets')); ?>,
         store: <?php echo json_encode(t('price_change.store')); ?>,
-        inventory: <?php echo json_encode(t('product.inventory_info')); ?>
+        inventory: <?php echo json_encode(t('product.inventory_info')); ?>,
+        invalidMargin: <?php echo json_encode(t('purchase_product.js_invalid_margin')); ?>,
+        invalidPrice: <?php echo json_encode(t('purchase_product.js_invalid_price')); ?>,
+        selectCost: <?php echo json_encode(t('purchase_product.js_select_cost')); ?>,
+        priceUpdated: <?php echo json_encode(t('purchase_product.js_price_updated')); ?>,
+        noImage: <?php echo json_encode(t('purchase_product.js_no_image')); ?>,
+        directInput: <?php echo json_encode(t('purchase_product.js_direct_input')); ?>,
+        applyMargin: <?php echo json_encode(t('purchase_product.js_apply_margin')); ?>
     };
     
     // 현재 점포 정보

@@ -375,7 +375,7 @@ if (isset($_SESSION['flash'])) {
 
                         <!-- 상품 검색 및 추가 -->
                         <div class="bg-gray-50 rounded-lg p-4">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4">상품 추가</h3>
+                            <h3 class="text-lg font-medium text-gray-900 mb-4"><?php echo t('wholesale.add_product'); ?></h3>
                             
                             <div class="flex gap-2">
                                 <div class="relative flex-1">
@@ -401,13 +401,13 @@ if (isset($_SESSION['flash'])) {
                         <div class="bg-gray-50 rounded-lg p-4">
                             <h3 class="text-lg font-medium text-gray-900 mb-4">
                                 <i class="fas fa-shopping-cart mr-2 text-primary-500"></i>
-                                장바구니
+                                <?php echo t('wholesale.cart'); ?>
                             </h3>
                             
                             <div id="cart_empty" class="text-center text-gray-500 py-8">
                                 <i class="fas fa-shopping-cart text-4xl mb-4"></i>
-                                <p>장바구니가 비어있습니다.</p>
-                                <p class="text-sm">상품을 검색해서 추가해주세요.</p>
+                                <p><?php echo t('wholesale.cart_empty'); ?></p>
+                                <p class="text-sm"><?php echo t('wholesale.search_add_products'); ?></p>
                             </div>
                             
                             <div id="cart_items" class="hidden">
@@ -416,19 +416,19 @@ if (isset($_SESSION['flash'])) {
                                     <table class="w-full cart-table">
                                         <thead class="bg-gray-100">
                                             <tr>
-                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">SKU</th>
-                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">상품명</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">박스포장수량</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">판매단위</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">단가</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">수량</th>
-                                                <th class="px-2 py-3 text-right text-xs font-semibold text-gray-700">합계</th>
-                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">비고</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">삭제</th>
+                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('product.sku'); ?></th>
+                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('product.name'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('wholesale.box_packaging'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('purchase.purchase_type'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('wholesale.unit_price'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('wholesale.quantity'); ?></th>
+                                                <th class="px-2 py-3 text-right text-xs font-semibold text-gray-700"><?php echo t('common.total'); ?></th>
+                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('common.remarks'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('common.delete'); ?></th>
                                             </tr>
                                         </thead>
                                         <tbody id="cart_list">
-                                            <!-- 장바구니 항목들이 여기에 추가됩니다 -->
+                                            <!-- Cart items will be added here -->
                                         </tbody>
                                     </table>
                                 </div>
@@ -542,7 +542,19 @@ const translations = {
     minimum_prefix: '<?php echo addslashes(t("wholesale.js_minimum_prefix")); ?>',
     delivery_placeholder: '<?php echo addslashes(t("wholesale.js_delivery_placeholder")); ?>',
     error_customers: '<?php echo addslashes(t("wholesale.js_error_customers")); ?>',
-    error_products: '<?php echo addslashes(t("wholesale.js_error_products")); ?>'
+    error_products: '<?php echo addslashes(t("wholesale.js_error_products")); ?>',
+    box_unit: '<?php echo addslashes(t("purchase.box_unit")); ?>',
+    piece_unit: '<?php echo addslashes(t("purchase.piece_unit")); ?>',
+    pieces: '<?php echo addslashes(t("wholesale.pieces")); ?>',
+    currency: '<?php echo addslashes(t("common.currency")); ?>',
+    remove_confirm: '<?php echo addslashes(t("wholesale.js_remove_confirm")); ?>',
+    invalid_price: '<?php echo addslashes(t("wholesale.js_invalid_price")); ?>',
+    invalid_margin: '<?php echo addslashes(t("wholesale.js_invalid_margin")); ?>',
+    select_cost: '<?php echo addslashes(t("wholesale.js_select_cost")); ?>',
+    product_added: '<?php echo addslashes(t("wholesale.js_product_added")); ?>',
+    product_removed: '<?php echo addslashes(t("wholesale.js_product_removed")); ?>',
+    price_updated: '<?php echo addslashes(t("wholesale.js_price_updated")); ?>',
+    no_image: '<?php echo addslashes(t("wholesale.js_no_image")); ?>'
 };
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -983,7 +995,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- 박스포장수량 -->
                         <td class="px-2 py-3 text-center">
                             <div class="text-sm font-medium text-gray-700">
-                                ${item.min_quantity}개
+                                ${item.min_quantity}${translations.pieces}
                             </div>
                         </td>
                         
@@ -999,7 +1011,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                            class="sr-only">
                                     <div class="sale-unit-btn ${(item.sale_unit || 'box') === 'box' ? 'sale-unit-btn-active' : 'sale-unit-btn-inactive'}">
                                         <i class="fas fa-box text-xs"></i>
-                                        <span class="text-xs font-medium">박스</span>
+                                        <span class="text-xs font-medium">${translations.box_unit}</span>
                                     </div>
                                 </label>
                                 <label class="inline-flex items-center cursor-pointer">
@@ -1011,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                            class="sr-only">
                                     <div class="sale-unit-btn ${(item.sale_unit || 'box') === 'piece' ? 'sale-unit-btn-active' : 'sale-unit-btn-inactive'}">
                                         <i class="fas fa-cube text-xs"></i>
-                                        <span class="text-xs font-medium">낱개</span>
+                                        <span class="text-xs font-medium">${translations.piece_unit}</span>
                                     </div>
                                 </label>
                             </div>
