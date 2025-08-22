@@ -113,10 +113,6 @@ try {
                 <i class="fas fa-print mr-2"></i>
                 <?php echo t('common.print_preview'); ?>
             </button>
-            <button onclick="openPrintPreview()" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ml-2">
-                <i class="fas fa-external-link-alt mr-2"></i>
-                새 창에서 열기
-            </button>
         </div>
     </div>
 
@@ -308,7 +304,7 @@ try {
     <?php endif; ?>
 </div>
 
-<!-- 인쇄 미리보기 모달 -->
+<!-- Print Preview Modal -->
 <div id="printModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
     <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
         <div class="mt-3">
@@ -322,14 +318,14 @@ try {
             <!-- 날짜 선택 및 네비게이션 -->
             <div class="flex items-center justify-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
                 <button onclick="changePrintDate(-1)" class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                    <i class="fas fa-chevron-left"></i> 이전날
+                    <i class="fas fa-chevron-left"></i> <?php echo t('common.previous_day'); ?>
                 </button>
                 <input type="date" id="modalDatePicker" class="px-3 py-2 border rounded" onchange="loadPrintData(this.value)">
                 <button onclick="changePrintDate(1)" class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                    다음날 <i class="fas fa-chevron-right"></i>
+                    <?php echo t('common.next_day'); ?> <i class="fas fa-chevron-right"></i>
                 </button>
                 <button onclick="setPrintToday()" class="px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
-                    오늘
+                    <?php echo t('common.today'); ?>
                 </button>
                 <button onclick="printModalContent()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
                     <i class="fas fa-print"></i> 인쇄
@@ -422,11 +418,6 @@ function printModalContent() {
     `);
     printWindow.document.close();
     printWindow.print();
-}
-
-function openPrintPreview() {
-    // 새 탭에서 열기
-    window.open('print_price_history.php', '_blank');
 }
 
 // 모달 외부 클릭시 닫기

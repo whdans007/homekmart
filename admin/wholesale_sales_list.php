@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/lang_helper.php';
-$page_title = '도매 판매 내역' . ' - ' . t('company.name');
+$page_title = t('wholesale_sales_list.title') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
@@ -93,7 +93,7 @@ try {
     $sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
 } catch (PDOException $e) {
-    $errors[] = '데이터베이스 오류: ' . $e->getMessage();
+    $errors[] = t('wholesale_sales_list.database_error') . $e->getMessage();
     error_log("Wholesale sales list error: " . $e->getMessage());
 }
 
@@ -112,13 +112,13 @@ if (isset($_SESSION['flash'])) {
                     <li>
                         <a href="wholesale_customer_management.php" class="text-gray-400 hover:text-gray-600">
                             <i class="fas fa-handshake mr-1"></i>
-                            도매판매
+                            <?php echo htmlspecialchars(t('wholesale_sales_list.breadcrumb_wholesale')); ?>
                         </a>
                     </li>
                     <li>
                         <div class="flex items-center">
                             <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
-                            <span class="text-gray-600">판매 내역</span>
+                            <span class="text-gray-600"><?php echo htmlspecialchars(t('wholesale_sales_list.breadcrumb_sales_history')); ?></span>
                         </div>
                     </li>
                 </ol>
@@ -129,9 +129,9 @@ if (isset($_SESSION['flash'])) {
             <div class="px-6 py-4 border-b border-gray-200">
                 <h1 class="text-xl font-semibold text-gray-900">
                     <i class="fas fa-list mr-2 text-primary-500"></i>
-                    도매 판매 내역
+                    <?php echo htmlspecialchars(t('wholesale_sales_list.title')); ?>
                 </h1>
-                <p class="mt-1 text-sm text-gray-600">도매 판매 거래 내역을 조회하고 관리하세요.</p>
+                <p class="mt-1 text-sm text-gray-600"><?php echo htmlspecialchars(t('wholesale_sales_list.page_description')); ?></p>
             </div>
 
             <?php if (isset($flash)): ?>
@@ -156,7 +156,7 @@ if (isset($_SESSION['flash'])) {
                             <i class="fas fa-exclamation-triangle text-red-400"></i>
                         </div>
                         <div class="ml-3">
-                            <h3 class="text-sm font-medium text-red-800">다음 오류를 해결해주세요:</h3>
+                            <h3 class="text-sm font-medium text-red-800"><?php echo htmlspecialchars(t('wholesale_sales_list.solve_errors')); ?></h3>
                             <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
                                 <?php foreach ($errors as $error): ?>
                                     <li><?php echo htmlspecialchars($error); ?></li>
@@ -172,7 +172,7 @@ if (isset($_SESSION['flash'])) {
                 <div class="flex justify-end">
                     <a href="wholesale_sales.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
                         <i class="fas fa-plus mr-2"></i>
-                        새 판매 등록
+                        <?php echo htmlspecialchars(t('wholesale_sales_list.new_sale_button')); ?>
                     </a>
                 </div>
             </div>
@@ -183,13 +183,13 @@ if (isset($_SESSION['flash'])) {
                     <div class="px-6 py-8 text-center">
                         <div class="text-gray-500">
                             <i class="fas fa-inbox text-4xl mb-4"></i>
-                            <p class="text-lg">판매 내역이 없습니다.</p>
-                            <p class="text-sm mt-2">새로운 도매 판매를 등록해보세요.</p>
+                            <p class="text-lg"><?php echo htmlspecialchars(t('wholesale_sales_list.no_sales_message')); ?></p>
+                            <p class="text-sm mt-2"><?php echo htmlspecialchars(t('wholesale_sales_list.no_sales_description')); ?></p>
                         </div>
                         <div class="mt-4">
                             <a href="wholesale_sales.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700">
                                 <i class="fas fa-plus mr-2"></i>
-                                새 판매 등록
+                                <?php echo htmlspecialchars(t('wholesale_sales_list.new_sale_button')); ?>
                             </a>
                         </div>
                     </div>
@@ -197,17 +197,17 @@ if (isset($_SESSION['flash'])) {
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">판매번호</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">거래처</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">판매일</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품수</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">판매금액</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_sale_number')); ?></th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_customer')); ?></th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_sale_date')); ?></th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_item_count')); ?></th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_sale_amount')); ?></th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_status')); ?></th>
                                 <?php if ($_SESSION['role'] === 'super_admin'): ?>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">점포</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_store')); ?></th>
                                 <?php endif; ?>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">판매자</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_seller')); ?></th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_actions')); ?></th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -242,15 +242,15 @@ if (isset($_SESSION['flash'])) {
                                         switch ($sale['status']) {
                                             case 'draft':
                                                 $status_class = 'bg-yellow-100 text-yellow-800';
-                                                $status_text = '임시저장';
+                                                $status_text = t('wholesale_sales_list.status_draft');
                                                 break;
                                             case 'confirmed':
                                                 $status_class = 'bg-green-100 text-green-800';
-                                                $status_text = '확정';
+                                                $status_text = t('wholesale_sales_list.status_confirmed');
                                                 break;
                                             case 'cancelled':
                                                 $status_class = 'bg-red-100 text-red-800';
-                                                $status_text = '취소';
+                                                $status_text = t('wholesale_sales_list.status_cancelled');
                                                 break;
                                         }
                                         ?>
@@ -268,12 +268,12 @@ if (isset($_SESSION['flash'])) {
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                         <a href="wholesale_sale_preview.php?id=<?php echo $sale['id']; ?>" 
-                                           class="text-blue-600 hover:text-blue-900 mr-3" title="미리보기">
+                                           class="text-blue-600 hover:text-blue-900 mr-3" title="<?php echo htmlspecialchars(t('wholesale_sales_list.preview_tooltip')); ?>">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                         <?php if ($sale['status'] !== 'cancelled'): ?>
                                             <button onclick="cancelSale(<?php echo $sale['id']; ?>)" 
-                                                    class="text-red-600 hover:text-red-900" title="취소">
+                                                    class="text-red-600 hover:text-red-900" title="<?php echo htmlspecialchars(t('wholesale_sales_list.cancel_tooltip')); ?>">
                                                 <i class="fas fa-times"></i>
                                             </button>
                                         <?php endif; ?>
@@ -288,15 +288,18 @@ if (isset($_SESSION['flash'])) {
                         <div class="px-6 py-3 border-t border-gray-200 bg-gray-50">
                             <div class="flex items-center justify-between">
                                 <div class="text-sm text-gray-500">
-                                    전체 <?php echo number_format($total_sales); ?>개 중 
-                                    <?php echo number_format(($page - 1) * $per_page + 1); ?>-<?php echo number_format(min($page * $per_page, $total_sales)); ?>개 표시
+                                    <?php echo str_replace(
+                                        ['{total}', '{start}', '{end}'],
+                                        [number_format($total_sales), number_format(($page - 1) * $per_page + 1), number_format(min($page * $per_page, $total_sales))],
+                                        t('wholesale_sales_list.pagination_showing')
+                                    ); ?>
                                 </div>
                                 
                                 <div class="flex items-center space-x-2">
                                     <?php if ($page > 1): ?>
                                         <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>" 
                                            class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                                            이전
+                                            <?php echo htmlspecialchars(t('wholesale_sales_list.pagination_previous')); ?>
                                         </a>
                                     <?php endif; ?>
                                     
@@ -316,7 +319,7 @@ if (isset($_SESSION['flash'])) {
                                     <?php if ($page < $total_pages): ?>
                                         <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>" 
                                            class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                                            다음
+                                            <?php echo htmlspecialchars(t('wholesale_sales_list.pagination_next')); ?>
                                         </a>
                                     <?php endif; ?>
                                 </div>
@@ -331,7 +334,7 @@ if (isset($_SESSION['flash'])) {
 
 <script>
 function cancelSale(saleId) {
-    if (confirm('이 판매를 취소하시겠습니까? 취소된 판매는 복구할 수 없습니다.')) {
+    if (confirm('<?php echo addslashes(t('wholesale_sales_list.js_cancel_confirm')); ?>')) {
         fetch('ajax_cancel_wholesale_sale.php', {
             method: 'POST',
             headers: {
@@ -342,15 +345,15 @@ function cancelSale(saleId) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('판매가 취소되었습니다.');
+                alert('<?php echo addslashes(t('wholesale_sales_list.js_cancel_success')); ?>');
                 location.reload();
             } else {
-                alert('취소 중 오류가 발생했습니다: ' + data.message);
+                alert('<?php echo addslashes(t('wholesale_sales_list.js_cancel_error')); ?>' + data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('취소 중 오류가 발생했습니다.');
+            alert('<?php echo addslashes(t('wholesale_sales_list.js_network_error')); ?>');
         });
     }
 }

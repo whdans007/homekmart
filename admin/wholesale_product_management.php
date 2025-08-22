@@ -140,7 +140,7 @@ try {
             <h1 class="text-3xl font-bold text-gray-900"><?php echo t('navigation.wholesale_product_management'); ?></h1>
             <p class="mt-2 text-sm text-gray-600"><?php echo t('wholesale.product_management'); ?></p>
             <?php if ($_SESSION['role'] !== 'super_admin'): ?>
-                <p class="mt-1 text-xs text-gray-500"><?php echo $current_store_name; ?> 기준</p>
+                <p class="mt-1 text-xs text-gray-500"><?php echo str_replace('{store}', $current_store_name, t('wholesale_product_management.store_basis')); ?></p>
             <?php endif; ?>
         </div>
         <div class="flex space-x-4">
@@ -160,7 +160,7 @@ try {
         <form method="GET" class="flex items-center space-x-3">
             <div class="flex-1">
                 <input type="text" name="search" id="search" value="<?php echo htmlspecialchars($search_term); ?>" 
-                       placeholder="상품명, SKU로 검색..." 
+                       placeholder="<?php echo htmlspecialchars(t('wholesale_product_management.search_placeholder')); ?>" 
                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 text-sm">
             </div>
             <button type="submit" class="px-3 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm">
@@ -172,10 +172,10 @@ try {
             <div class="flex items-center space-x-2">
                 <label for="per_page" class="text-sm text-gray-700 whitespace-nowrap"><?php echo t('product.display_count'); ?>:</label>
                 <select name="per_page" id="per_page" onchange="this.form.submit()" class="px-2 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 text-sm">
-                    <option value="10" <?php echo $per_page == 10 ? 'selected' : ''; ?>>10개</option>
-                    <option value="25" <?php echo $per_page == 25 ? 'selected' : ''; ?>>25개</option>
-                    <option value="50" <?php echo $per_page == 50 ? 'selected' : ''; ?>>50개</option>
-                    <option value="100" <?php echo $per_page == 100 ? 'selected' : ''; ?>>100개</option>
+                    <option value="10" <?php echo $per_page == 10 ? 'selected' : ''; ?>><?php echo t('wholesale_product_management.display_count_10'); ?></option>
+                    <option value="25" <?php echo $per_page == 25 ? 'selected' : ''; ?>><?php echo t('wholesale_product_management.display_count_25'); ?></option>
+                    <option value="50" <?php echo $per_page == 50 ? 'selected' : ''; ?>><?php echo t('wholesale_product_management.display_count_50'); ?></option>
+                    <option value="100" <?php echo $per_page == 100 ? 'selected' : ''; ?>><?php echo t('wholesale_product_management.display_count_100'); ?></option>
                 </select>
             </div>
         </form>
@@ -215,19 +215,19 @@ try {
                 <thead class="bg-gray-50">
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            도매 SKU
+                            <?php echo htmlspecialchars(t('wholesale_product_management.table_wholesale_sku')); ?>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            도매 상품명
+                            <?php echo htmlspecialchars(t('wholesale_product_management.table_wholesale_name')); ?>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            박스포장갯수
+                            <?php echo htmlspecialchars(t('wholesale_product_management.table_box_quantity')); ?>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            원가
+                            <?php echo htmlspecialchars(t('wholesale_product_management.table_cost_price')); ?>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            마진율
+                            <?php echo htmlspecialchars(t('wholesale_product_management.table_margin_rate')); ?>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <?php echo t('wholesale.wholesale_price'); ?>
@@ -273,7 +273,7 @@ try {
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <?php echo $wp['pieces_per_box'] ? number_format($wp['pieces_per_box']) . '개' : '-'; ?>
+                            <?php echo $wp['pieces_per_box'] ? number_format($wp['pieces_per_box']) . t('wholesale_product_management.pieces_unit') : '-'; ?>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
                             <?php echo number_format($wp['cost_price']); ?>
@@ -307,7 +307,7 @@ try {
                                 </a>
                                 <a href="delete_wholesale_product.php?id=<?php echo $wp['id']; ?>" 
                                    class="text-red-600 hover:text-red-900"
-                                   onclick="return confirm('이 도매상품을 삭제하시겠습니까?');">
+                                   onclick="return confirm('<?php echo addslashes(t('wholesale_product_management.delete_confirm')); ?>');">
                                     <i class="fas fa-trash"></i> <?php echo t('common.delete'); ?>
                                 </a>
                             </div>
@@ -339,7 +339,11 @@ try {
                         <?php 
                         $start = ($page - 1) * $limit + 1;
                         $end = min($page * $limit, $total_products);
-                        echo "총 {$total_products}개 중 {$start}-{$end}개 표시";
+                        echo str_replace(
+                            ['{total}', '{start}', '{end}'],
+                            [number_format($total_products), number_format($start), number_format($end)],
+                            t('wholesale_product_management.pagination_showing')
+                        );
                         ?>
                     </p>
                 </div>
