@@ -66,24 +66,26 @@ try {
             $errors[] = t('wholesale.edit_not_found');
             $edit_mode = false;
         } else {
-            // Get sale items
+            // Get sale items (도매상품 전용 상품명 우선 사용)
             $items_sql = "
                 SELECT 
                     wsi.product_id,
                     wsi.quantity,
                     wsi.unit_price,
                     wsi.total_price,
+                    wsi.sale_unit,
                     wsi.remarks,
                     p.sku,
-                    p.name_ko,
-                    p.name_en,
+                    COALESCE(wp.wholesale_name_ko, p.name_ko) as name_ko,
+                    COALESCE(wp.wholesale_name_en, p.name_en) as name_en,
                     wp.wholesale_price,
+                    COALESCE(wp.wholesale_price_piece, 0) as wholesale_price_piece,
                     COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity
                 FROM wholesale_sale_items wsi
                 LEFT JOIN products p ON wsi.product_id = p.id
                 LEFT JOIN wholesale_products wp ON wp.product_id = p.id AND wp.is_active = 1
                 WHERE wsi.sale_id = ?
-                ORDER BY p.name_en, p.name_ko
+                ORDER BY COALESCE(wp.wholesale_name_en, p.name_en), COALESCE(wp.wholesale_name_ko, p.name_ko)
             ";
             
             $items_stmt = $pdo->prepare($items_sql);
@@ -148,8 +150,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Add new sale items
                 foreach ($cart_items as $item) {
                     $item_stmt = $pdo->prepare("
-                        INSERT INTO wholesale_sale_items (sale_id, product_id, quantity, unit_price, total_price, remarks, created_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, NOW())
+                        INSERT INTO wholesale_sale_items (sale_id, product_id, quantity, unit_price, total_price, sale_unit, remarks, created_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
                     ");
                     $item_stmt->execute([
                         $edit_sale_id_post, 
@@ -157,6 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $item['quantity'], 
                         $item['unit_price'], 
                         $item['total_price'], 
+                        $item['sale_unit'] ?? 'box',
                         $item['remarks'] ?? ''
                     ]);
                 }
@@ -176,8 +179,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Add sale items
                 foreach ($cart_items as $item) {
                     $item_stmt = $pdo->prepare("
-                        INSERT INTO wholesale_sale_items (sale_id, product_id, quantity, unit_price, total_price, remarks, created_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, NOW())
+                        INSERT INTO wholesale_sale_items (sale_id, product_id, quantity, unit_price, total_price, sale_unit, remarks, created_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
                     ");
                     $item_stmt->execute([
                         $sale_id, 
@@ -185,6 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $item['quantity'], 
                         $item['unit_price'], 
                         $item['total_price'], 
+                        $item['sale_unit'] ?? 'box',
                         $item['remarks'] ?? ''
                     ]);
                 }
@@ -415,6 +419,7 @@ if (isset($_SESSION['flash'])) {
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">SKU</th>
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700">상품명</th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">박스포장수량</th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">판매단위</th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">단가</th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">수량</th>
                                                 <th class="px-2 py-3 text-right text-xs font-semibold text-gray-700">합계</th>
@@ -439,13 +444,19 @@ if (isset($_SESSION['flash'])) {
                         </div>
 
                         <!-- 저장 버튼 -->
-                        <div class="mt-8 flex justify-center">
+                        <div class="mt-8 flex justify-center space-x-3">
                             <button type="submit" id="complete_sale_btn" 
                                     class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400 whitespace-nowrap"
                                     disabled>
                                 <i class="fas fa-save mr-1"></i>
                                 <?php echo $edit_mode ? '수정 완료' : '저장'; ?>
                             </button>
+                            
+                            <a href="<?php echo $edit_mode ? 'wholesale_sales_list.php' : 'wholesale_sales_list.php'; ?>" 
+                               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                                <i class="fas fa-times mr-1"></i>
+                                취소
+                            </a>
                         </div>
                     </div>
                     
@@ -801,6 +812,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function displayProductResults(products) {
         let html = '';
         products.forEach(function(product) {
+            // 등록 상태 확인
+            const isRegistered = product.status === 'registered';
+            
             // 도매 SKU들 처리
             let displaySkus = '';
             if (product.wholesale_skus) {
@@ -814,31 +828,72 @@ document.addEventListener('DOMContentLoaded', function() {
                 displaySkus = product.sku;
             }
             
-            html += `
-                <div class="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 product-item" 
-                     data-id="${product.id}" 
-                     data-sku="${displaySkus}"
-                     data-name-ko="${product.display_name_ko || ''}"
-                     data-name-en="${product.display_name_en || ''}"
-                     data-wholesale-price="${product.wholesale_price}"
-                     data-min-quantity="${product.min_quantity}">
-                    <div class="font-medium text-gray-900">
-                        ${product.display_name_en || product.display_name_ko || 'N/A'}
-                        ${product.display_name_en !== product.name_en || product.display_name_ko !== product.name_ko ? 
-                            '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">' + translations.wholesale_suffix + '</span>' : ''}
+            if (isRegistered) {
+                // 등록된 도매상품
+                html += `
+                    <div class="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 product-item" 
+                         data-id="${product.id}" 
+                         data-sku="${displaySkus}"
+                         data-name-ko="${product.display_name_ko || ''}"
+                         data-name-en="${product.display_name_en || ''}"
+                         data-wholesale-price="${product.wholesale_price}"
+                         data-wholesale-price-piece="${product.wholesale_price_piece || 0}"
+                         data-min-quantity="${product.min_quantity}">
+                        <div class="font-medium text-gray-900">
+                            ${product.display_name_en || product.display_name_ko || 'N/A'}
+                            ${product.display_name_en !== product.name_en || product.display_name_ko !== product.name_ko ? 
+                                '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">' + translations.wholesale_suffix + '</span>' : ''}
+                        </div>
+                        <div class="text-sm text-gray-600">${product.display_name_ko && product.display_name_en && product.display_name_ko !== product.display_name_en ? product.display_name_ko : ''}</div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            SKU: ${displaySkus} | ${translations.wholesale_badge}: ${Number(product.wholesale_price).toLocaleString()}원 | 박스: ${product.min_quantity || 1}개
+                        </div>
                     </div>
-                    <div class="text-sm text-gray-600">${product.display_name_ko && product.display_name_en && product.display_name_ko !== product.display_name_en ? product.display_name_ko : ''}</div>
-                    <div class="text-xs text-gray-500 mt-1">
-                        SKU: ${displaySkus} | ${translations.wholesale_badge}: ${Number(product.wholesale_price).toLocaleString()}원 | 박스: ${product.min_quantity || 1}개
+                `;
+            } else {
+                // 미등록 일반상품
+                const suggestedPrice = Math.round(parseFloat(product.cost_price) * 1.15); // 15% 마진 적용
+                
+                html += `
+                    <div class="p-3 border-b border-gray-100 last:border-b-0 bg-yellow-50 border-l-4 border-l-yellow-400" 
+                         data-id="${product.id}" 
+                         data-sku="${product.sku}"
+                         data-name-ko="${product.display_name_ko || ''}"
+                         data-name-en="${product.display_name_en || ''}"
+                         data-cost-price="${product.cost_price}"
+                         data-selling-price="${product.selling_price}"
+                         data-pieces-per-box="${product.product_pieces_per_box}">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="font-medium text-gray-900">
+                                    ${product.display_name_en || product.display_name_ko || 'N/A'}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 ml-2">미등록</span>
+                                </div>
+                                <div class="text-sm text-gray-600">${product.display_name_ko && product.display_name_en && product.display_name_ko !== product.display_name_en ? product.display_name_ko : ''}</div>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    SKU: ${product.sku} | 원가: ${Number(product.cost_price).toLocaleString()}원 | 제안가: ${suggestedPrice.toLocaleString()}원 | 박스: ${product.product_pieces_per_box || 1}개
+                                </div>
+                            </div>
+                            <div class="ml-3 flex-shrink-0">
+                                <button type="button" 
+                                        class="register-wholesale-btn inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                        data-product-id="${product.id}"
+                                        data-product-name="${product.display_name_ko || product.display_name_en || ''}"
+                                        onclick="registerAsWholesaleProduct(${product.id}, '${(product.display_name_ko || product.display_name_en || '').replace(/'/g, "\\'")}', event)">
+                                    <i class="fas fa-plus mr-1"></i>
+                                    도매상품 등록
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         });
         
         productSearchResults.innerHTML = html;
         productSearchResults.classList.remove('hidden');
         
-        // 상품 선택 이벤트
+        // 등록된 상품 선택 이벤트만 바인딩
         document.querySelectorAll('.product-item').forEach(function(item) {
             item.addEventListener('click', function() {
                 addToCart(this);
@@ -869,6 +924,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const nameKo = item.dataset.nameKo;
         const nameEn = item.dataset.nameEn;
         const wholesalePrice = parseFloat(item.dataset.wholesalePrice);
+        const wholesalePricePiece = parseFloat(item.dataset.wholesalePricePiece) || 0;
         const minQuantity = parseInt(item.dataset.minQuantity) || 1;
         
         
@@ -888,6 +944,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 quantity: 1, // 기본 판매수량은 1개
                 total_price: wholesalePrice * 1,
                 min_quantity: minQuantity, // 박스포장수량 정보 (표시용)
+                wholesale_price: wholesalePrice, // 박스 판매가
+                wholesale_price_piece: wholesalePricePiece, // 낱개 판매가
+                sale_unit: 'box', // 기본 판매단위는 박스
                 remarks: '' // 상품별 비고란 추가
             });
         }
@@ -915,13 +974,46 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- 상품명 (영문 위, 한글 아래) -->
                         <td class="px-2 py-3 product-name">
                             <div class="text-sm font-medium text-gray-900" title="${item.name_en || '-'}">${item.name_en || '-'}</div>
-                            <div class="text-sm text-gray-600 mt-1" title="${item.name_ko || '-'}">${item.name_ko || '-'}</div>
+                            ${item.name_ko && item.name_ko !== item.name_en ? 
+                                `<div class="text-sm text-gray-600 mt-1" title="${item.name_ko}">${item.name_ko}</div>` : 
+                                ''
+                            }
                         </td>
                         
                         <!-- 박스포장수량 -->
                         <td class="px-2 py-3 text-center">
                             <div class="text-sm font-medium text-gray-700">
                                 ${item.min_quantity}개
+                            </div>
+                        </td>
+                        
+                        <!-- 판매단위 -->
+                        <td class="px-2 py-3 text-center">
+                            <div class="flex items-center justify-center space-x-2">
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="radio" 
+                                           name="sale_unit_${index}" 
+                                           value="box" 
+                                           ${(item.sale_unit || 'box') === 'box' ? 'checked' : ''} 
+                                           onchange="updateSaleUnit(${index}, this.value)"
+                                           class="sr-only">
+                                    <div class="sale-unit-btn ${(item.sale_unit || 'box') === 'box' ? 'sale-unit-btn-active' : 'sale-unit-btn-inactive'}">
+                                        <i class="fas fa-box text-xs"></i>
+                                        <span class="text-xs font-medium">박스</span>
+                                    </div>
+                                </label>
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="radio" 
+                                           name="sale_unit_${index}" 
+                                           value="piece" 
+                                           ${(item.sale_unit || 'box') === 'piece' ? 'checked' : ''} 
+                                           onchange="updateSaleUnit(${index}, this.value)"
+                                           class="sr-only">
+                                    <div class="sale-unit-btn ${(item.sale_unit || 'box') === 'piece' ? 'sale-unit-btn-active' : 'sale-unit-btn-inactive'}">
+                                        <i class="fas fa-cube text-xs"></i>
+                                        <span class="text-xs font-medium">낱개</span>
+                                    </div>
+                                </label>
                             </div>
                         </td>
                         
@@ -1013,6 +1105,34 @@ document.addEventListener('DOMContentLoaded', function() {
         const price = parseFloat(newPrice) || 0;
         cart[index].unit_price = price;
         cart[index].total_price = cart[index].quantity * price;
+        updateCart();
+    };
+    
+    window.updateSaleUnit = function(index, saleUnit) {
+        cart[index].sale_unit = saleUnit;
+        
+        // 판매단위에 따라 가격 자동 변경
+        if (saleUnit === 'box') {
+            cart[index].unit_price = cart[index].wholesale_price || 0;
+        } else if (saleUnit === 'piece') {
+            cart[index].unit_price = cart[index].wholesale_price_piece || 0;
+        }
+        
+        // 총 가격 재계산
+        cart[index].total_price = cart[index].quantity * cart[index].unit_price;
+        
+        // 라디오 버튼 UI 즉시 업데이트
+        const boxBtn = document.querySelector(`input[name="sale_unit_${index}"][value="box"]`).parentElement.querySelector('.sale-unit-btn');
+        const pieceBtn = document.querySelector(`input[name="sale_unit_${index}"][value="piece"]`).parentElement.querySelector('.sale-unit-btn');
+        
+        if (saleUnit === 'box') {
+            boxBtn.className = 'sale-unit-btn sale-unit-btn-active';
+            pieceBtn.className = 'sale-unit-btn sale-unit-btn-inactive';
+        } else {
+            boxBtn.className = 'sale-unit-btn sale-unit-btn-inactive';
+            pieceBtn.className = 'sale-unit-btn sale-unit-btn-active';
+        }
+        
         updateCart();
     };
     
@@ -1148,6 +1268,7 @@ document.addEventListener('DOMContentLoaded', function() {
                      data-name-ko="${product.display_name_ko || ''}"
                      data-name-en="${product.display_name_en || ''}"
                      data-wholesale-price="${product.wholesale_price}"
+                     data-wholesale-price-piece="${product.wholesale_price_piece || 0}"
                      data-min-quantity="${product.min_quantity}">
                     <div class="flex items-center justify-between">
                         <div class="flex-1 min-w-0">
@@ -1208,6 +1329,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const nameKo = item.dataset.nameKo;
         const nameEn = item.dataset.nameEn;
         const wholesalePrice = parseFloat(item.dataset.wholesalePrice);
+        const wholesalePricePiece = parseFloat(item.dataset.wholesalePricePiece) || 0;
         const minQuantity = parseInt(item.dataset.minQuantity) || 1;
         
         
@@ -1227,6 +1349,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 quantity: 1, // 기본 판매수량은 1개
                 total_price: wholesalePrice * 1,
                 min_quantity: minQuantity, // 박스포장수량 정보 (표시용)
+                wholesale_price: wholesalePrice, // 박스 판매가
+                wholesale_price_piece: wholesalePricePiece, // 낱개 판매가
+                sale_unit: 'box', // 기본 판매단위는 박스
                 remarks: '' // 상품별 비고란 추가
             });
         }
@@ -1301,6 +1426,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     quantity: parseInt(item.quantity),
                     total_price: parseFloat(item.total_price),
                     min_quantity: parseInt(item.min_quantity) || 1, // 기존 데이터에서 박스포장수량 로드
+                    wholesale_price: parseFloat(item.wholesale_price) || 0, // 박스 판매가
+                    wholesale_price_piece: parseFloat(item.wholesale_price_piece) || 0, // 낱개 판매가
+                    sale_unit: item.sale_unit || 'box', // 판매단위 (기본값: box)
                     remarks: item.remarks || '' // 기존 비고 데이터 로드
                 });
             });
@@ -1313,7 +1441,104 @@ document.addEventListener('DOMContentLoaded', function() {
     if (editMode) {
         initializeEditMode();
     }
+
+    // 도매상품 자동 등록 함수 정의
+    window.registerAsWholesaleProduct = function(productId, productName, event) {
+        event.stopPropagation(); // 이벤트 버블링 방지
+        
+        const button = event.target.closest('.register-wholesale-btn');
+        const originalText = button.innerHTML;
+        
+        // 버튼 비활성화 및 로딩 표시
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>등록중...';
+        
+        // 현재 점포 ID 가져오기
+        const storeIdElement = document.getElementById('store_id');
+        let storeId = null;
+        
+        if (storeIdElement) {
+            storeId = storeIdElement.value; // super_admin인 경우
+        } else {
+            storeId = <?php echo json_encode($current_store_id); ?>; // 일반 사용자인 경우
+        }
+        
+        // AJAX 요청으로 도매상품 등록
+        fetch('ajax_add_wholesale_product_quick.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `product_id=${productId}&store_id=${storeId}&margin_rate=15.0`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 성공 시 알림 표시
+                showNotification('도매상품으로 등록되었습니다!', 'success');
+                
+                // 검색 결과 새로고침
+                const currentQuery = document.getElementById('product_search').value;
+                if (currentQuery.trim().length >= 2) {
+                    setTimeout(() => {
+                        searchProducts(currentQuery);
+                    }, 500);
+                }
+            } else {
+                // 실패 시 오류 메시지 표시
+                showNotification(data.message || '등록 중 오류가 발생했습니다.', 'error');
+                
+                // 버튼 복원
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('등록 중 오류가 발생했습니다.', 'error');
+            
+            // 버튼 복원
+            button.disabled = false;
+            button.innerHTML = originalText;
+        });
+    };
+
+    // 알림 표시 함수 정의
+    window.showNotification = function(message, type = 'info') {
+        // 기존 알림 제거
+        const existingNotification = document.querySelector('.notification-toast');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+        
+        // 새 알림 생성
+        const notification = document.createElement('div');
+        notification.className = `notification-toast fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300 ease-in-out ${
+            type === 'success' ? 'bg-green-500 text-white' : 
+            type === 'error' ? 'bg-red-500 text-white' : 
+            'bg-blue-500 text-white'
+        }`;
+        notification.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // 3초 후 자동 제거
+        setTimeout(() => {
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 300);
+        }, 3000);
+    };
 });
+
 </script>
 
 <style>
@@ -1529,7 +1754,49 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     .cart-table {
-        min-width: 800px; /* 박스포장수량 컬럼 추가로 인한 너비 증가 */
+        min-width: 900px; /* 박스포장수량, 판매단위 컬럼 추가로 인한 너비 증가 */
+    }
+}
+
+/* 라디오 버튼 스타일링 */
+.sale-unit-btn {
+    @apply flex items-center space-x-1 px-2 py-1 rounded-lg border-2 cursor-pointer transition-all duration-200 text-xs;
+    min-width: 50px;
+    justify-content: center;
+}
+
+.sale-unit-btn-active {
+    @apply bg-primary-100 border-primary-500 text-primary-700;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+    transform: translateY(-1px);
+}
+
+.sale-unit-btn-inactive {
+    @apply bg-gray-50 border-gray-300 text-gray-600;
+}
+
+.sale-unit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.sale-unit-btn-inactive:hover {
+    @apply bg-gray-100 border-gray-400 text-gray-700;
+}
+
+/* 모바일에서 라디오 버튼 최적화 */
+@media (max-width: 640px) {
+    .sale-unit-btn {
+        min-width: 45px;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .sale-unit-btn span {
+        font-size: 0.7rem;
+    }
+    
+    .sale-unit-btn i {
+        font-size: 0.6rem;
     }
 }
 </style>

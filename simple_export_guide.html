@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>간단한 데이터 백업 가이드</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; line-height: 1.6; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 800px; margin: 0 auto; }
+        .method { margin: 20px 0; padding: 15px; border-left: 4px solid #3b82f6; background: #f8f9ff; }
+        .success { color: #22c55e; }
+        .error { color: #ef4444; }
+        .warning { color: #f59e0b; }
+        .info { color: #3b82f6; }
+        .code { background: #f0f0f0; padding: 10px; border-radius: 4px; font-family: monospace; margin: 10px 0; }
+        .step { margin: 10px 0; padding: 10px; background: #f9f9f9; border-radius: 4px; }
+        .step h4 { margin: 0 0 10px 0; color: #333; }
+        .highlight { background: #fffbeb; border: 1px solid #fbbf24; padding: 10px; border-radius: 4px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 간단한 데이터 백업 가이드</h1>
+        <p>MySQL 연결 오류가 발생했을 때 사용할 수 있는 대체 방법들입니다.</p>
+
+        <div class="method">
+            <h2>🎯 방법 1: phpMyAdmin 내보내기 (가장 쉬움)</h2>
+            
+            <div class="step">
+                <h4>1단계: phpMyAdmin 접속</h4>
+                <ul>
+                    <li>XAMPP Control Panel → MySQL "Admin" 버튼 클릭</li>
+                    <li>또는 브라우저에서 <code>http://localhost/phpmyadmin</code> 접속</li>
+                </ul>
+            </div>
+
+            <div class="step">
+                <h4>2단계: 데이터베이스 선택</h4>
+                <ul>
+                    <li>좌측 목록에서 <strong>min</strong> 데이터베이스 클릭</li>
+                    <li>만약 'min' 데이터베이스가 없다면 실제 사용하는 데이터베이스명 확인</li>
+                </ul>
+            </div>
+
+            <div class="step">
+                <h4>3단계: 내보내기 실행</h4>
+                <ul>
+                    <li>상단 메뉴에서 <strong>"내보내기"</strong> 탭 클릭</li>
+                    <li><strong>"빠른"</strong> 방식 선택</li>
+                    <li>형식: <strong>"SQL"</strong> 선택</li>
+                    <li><strong>"실행"</strong> 버튼 클릭</li>
+                    <li>.sql 파일이 다운로드됨</li>
+                </ul>
+            </div>
+
+            <div class="step">
+                <h4>4단계: 운영 서버용으로 수정</h4>
+                <p>다운로드한 SQL 파일을 텍스트 에디터로 열어서 다음과 같이 수정:</p>
+                <div class="code">
+-- 파일 맨 위에 추가
+DROP DATABASE IF EXISTS `if0_39723369_min`;
+CREATE DATABASE IF NOT EXISTS `if0_39723369_min` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `if0_39723369_min`;
+
+SET FOREIGN_KEY_CHECKS = 0;
+SET AUTOCOMMIT = 0;
+START TRANSACTION;
+
+-- 기존 SQL 내용 그대로 유지
+
+-- 파일 맨 아래에 추가
+COMMIT;
+SET FOREIGN_KEY_CHECKS = 1;
+SET AUTOCOMMIT = 1;
+                </div>
+            </div>
+        </div>
+
+        <div class="method">
+            <h2>⚡ 방법 2: 명령줄 도구 (고급)</h2>
+            
+            <div class="step">
+                <h4>Windows 명령 프롬프트에서</h4>
+                <div class="code">
+# XAMPP 사용자
+cd C:\xampp\mysql\bin
+mysqldump -u root -p min > backup.sql
+
+# 일반 MySQL 설치
+cd "C:\Program Files\MySQL\MySQL Server 8.0\bin"
+mysqldump -u root -p min > backup.sql
+                </div>
+                <p class="info">비밀번호를 물어보면 MySQL root 비밀번호 입력 (없으면 그냥 Enter)</p>
+            </div>
+        </div>
+
+        <div class="method">
+            <h2>🔍 방법 3: 데이터베이스 정보 확인</h2>
+            
+            <div class="step">
+                <h4>현재 데이터베이스 상태 확인</h4>
+                <p>phpMyAdmin SQL 탭에서 다음 명령어 실행:</p>
+                <div class="code">
+-- 모든 데이터베이스 목록
+SHOW DATABASES;
+
+-- 현재 데이터베이스의 테이블 목록  
+SHOW TABLES;
+
+-- 특정 테이블의 데이터 개수 확인
+SELECT COUNT(*) FROM users;
+SELECT COUNT(*) FROM products;
+SELECT COUNT(*) FROM inventory;
+                </div>
+            </div>
+        </div>
+
+        <div class="highlight">
+            <h3>💡 추천 순서</h3>
+            <ol>
+                <li><strong>방법 1</strong>을 먼저 시도 (가장 쉽고 안전)</li>
+                <li>phpMyAdmin 내보내기로 .sql 파일 생성</li>
+                <li>파일을 수정하여 운영 서버용으로 변환</li>
+                <li>InfinityFree phpMyAdmin에서 실행</li>
+            </ol>
+        </div>
+
+        <div class="method">
+            <h2>🚀 운영 서버 적용 방법</h2>
+            
+            <div class="step">
+                <h4>InfinityFree에서 실행</h4>
+                <ol>
+                    <li>InfinityFree 제어판 → MySQL → phpMyAdmin 접속</li>
+                    <li>데이터베이스 <strong>if0_39723369_min</strong> 선택</li>
+                    <li>SQL 탭 선택</li>
+                    <li>수정한 SQL 파일 내용 붙여넣기</li>
+                    <li>실행 버튼 클릭</li>
+                    <li>성공 메시지 확인</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="highlight">
+            <h3>⚠️ 주의사항</h3>
+            <ul>
+                <li>백업 작업 전에 현재 데이터베이스 상태를 확인하세요</li>
+                <li>운영 서버 실행 전에 SQL 파일을 검토하세요</li>
+                <li>큰 파일의 경우 여러 번에 나누어 실행할 수 있습니다</li>
+            </ul>
+        </div>
+
+        <p class="success">✅ 위 방법들로 데이터 마이그레이션을 안전하게 수행할 수 있습니다!</p>
+    </div>
+</body>
+</html>

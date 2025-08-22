@@ -56,10 +56,75 @@ function try_login_from_cookie() {
         session_regenerate_id(true);
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
-        $_SESSION['full_name'] = $user['full_name'];
+        $_SESSION['full_name'] = $user['full_name'] ?? $user['name'] ?? '';
         $_SESSION['role'] = $user['role'];
     } else {
         // 유효하지 않은 쿠키는 삭제합니다.
         setcookie('remember_me', '', time() - 3600, '/');
     }
+}
+
+/**
+ * 현재 로그인된 사용자의 정보를 반환합니다.
+ * @return array|null 사용자 정보 배열 또는 null
+ */
+function get_user_info() {
+    if (!is_logged_in()) {
+        return null;
+    }
+
+    require_once __DIR__ . '/../config/db_config.php';
+    
+    try {
+        $conn = get_db_connection();
+        $user_stmt = $conn->prepare("
+            SELECT u.*, s.name as store_name 
+            FROM users u 
+            LEFT JOIN stores s ON u.store_id = s.id 
+            WHERE u.id = ?
+        ");
+        $user_stmt->bind_param("i", $_SESSION['user_id']);
+        $user_stmt->execute();
+        $result = $user_stmt->get_result();
+        
+        if ($user_row = $result->fetch_assoc()) {
+            $user_stmt->close();
+            $conn->close();
+            return $user_row;
+        }
+        
+        $user_stmt->close();
+        $conn->close();
+        return null;
+        
+    } catch (Exception $e) {
+        error_log("get_user_info error: " . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * 현재 사용자의 역할을 반환합니다.
+ * @return string|null 사용자 역할 또는 null
+ */
+function get_user_role() {
+    return $_SESSION['role'] ?? null;
+}
+
+/**
+ * 현재 사용자의 점포 ID를 반환합니다.
+ * @return int|null 점포 ID 또는 null
+ */
+function get_user_store_id() {
+    $user_info = get_user_info();
+    return $user_info ? $user_info['store_id'] : null;
+}
+
+/**
+ * 특정 역할을 가지고 있는지 확인합니다.
+ * @param string $role 확인할 역할
+ * @return bool 역할 보유 여부
+ */
+function has_role($role) {
+    return get_user_role() === $role;
 }

@@ -10,7 +10,7 @@ This is a PHP-based retail management system called "HOME K MART" for managing s
 
 - **Backend**: PHP with MySQLi/PDO database connections (dual database access patterns)
 - **Frontend**: PHP templates with TailwindCSS and FontAwesome icons
-- **Database**: MySQL with UTF-8 encoding (database name: `min`)
+- **Database**: MySQL with UTF-8 encoding (database name: `u622428657_homekmart`)
 - **CSS Build System**: PostCSS with TailwindCSS compilation
 - **Permission System**: Granular role-based access control with JSON-based permissions
 - **Margin Management**: Dynamic category-based pricing with margin calculation helpers
@@ -38,13 +38,14 @@ npm run watch:css
 ### Connection Patterns
 - **MySQLi**: `get_db_connection()` function in `config/db_config.php`
 - **PDO**: Direct instantiation in helper libraries for advanced features
-- **Database**: `min` with charset `utf8mb4`
+- **Database**: `u622428657_homekmart` with charset `utf8mb4`
 - **Credentials**: Configured via constants in `config/db_config.php`
 
 ### Key Helper Libraries
 - `lib/permission_helper.php` - Advanced role-based permission management
 - `lib/margin_helper.php` - Category-based margin calculation and pricing
 - `lib/session_helper.php` - Session management utilities
+- `lib/lang_helper.php` - Multilingual support (Korean/English)
 
 ### Data Flow Architecture
 - **Store-Centric Design**: Each user belongs to a store, data operations are store-scoped
@@ -69,6 +70,8 @@ The system uses a sophisticated dual-layer permission model:
 - `brand_management` - Brand catalog management
 - `category_management` - Category management
 - `supplier_management` - Supplier relationship management
+- `wholesale_management` - Wholesale operations
+- `store_transfer_management` - Store transfer operations
 - `settings` - System configuration (super_admin only)
 - `shop_access` - POS/shopping interface access
 - `barcode_management` - Barcode operations
@@ -115,8 +118,8 @@ Dynamic pricing system with category-based margin rules:
 ### Core Structure
 - `config/` - Database and system configuration
 - `lib/` - Reusable helper libraries and utilities
-- `public/` - Web-accessible files (document root)
-- `public/partials/` - Reusable template components (header.php, footer.php, sidebar.php)
+- `admin/` - Administrative interface files (main application)
+- `admin/partials/` - Reusable template components (header.php, footer.php)
 - `src/` - Source files for compilation (CSS)
 - `vendor/` - PhpSpreadsheet and other Composer dependencies
 
@@ -129,7 +132,7 @@ Dynamic pricing system with category-based margin rules:
 - **Specialized tools**: `excel_test.php` for Excel import testing and validation
 
 ### Template Architecture
-- All pages use `public/partials/header.php` which includes authentication, store context, and navigation
+- All pages use `admin/partials/header.php` which includes authentication, store context, and navigation
 - Navigation is permission-aware and adapts based on user role
 - Store information is automatically loaded and available in `$current_store_name` and `$current_store_id`
 
@@ -170,3 +173,28 @@ This application is primarily in Korean (한국어) with Korean comments and UI 
 - Primary color palette customized for brand consistency
 - FontAwesome icons integrated for UI elements
 - Responsive design patterns with mobile-first approach
+
+## HOME K MART 관리 프로그램 개발 지침
+
+### 🖥️ 서버 환경
+- Synology NAS Web Station
+- PHP 8.2
+- MariaDB 10
+
+### 🔧 개발 원칙
+- 모든 응답과 설명은 **한글로 진행**
+- 헤더의 권한/점포 정보 적극 활용
+- 계획 수립 시 `--think-hard` 플래그 적용
+- 새 기능 개발 전 반드시 **데이터베이스 테이블 구조 확인**
+
+### 💰 데이터 표시 규칙
+- 원가 단위: **소숫점 둘째자리**까지 표시
+- 합계 금액: **소숫점 둘째자리**까지 표시
+- 화폐단위는 요청시에만 사용
+
+### 📄 파일 관리
+- 새로운 SQL 쿼리 발생 시 별도 파일 생성
+- 언어 다중화 지원 (한국어, 영어)
+
+### 🌐 개발 URL
+- https://192-168-0-138.philsarang.direct.quickconnect.to/homekmart/admin/
