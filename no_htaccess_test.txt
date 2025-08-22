@@ -1,8 +1,0 @@
-This is a plain text file test to check if the server can serve any files properly.
-
-Test information:
-- File type: Plain text
-- Purpose: Check basic file serving
-- Time: Current time when accessed
-
-If you can see this, the web server is working for static files.
