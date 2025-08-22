@@ -20,12 +20,9 @@ $error_message = '';
 
 // 검색 및 페이징 변수
 $search_term = $_GET['search'] ?? '';
-$date_from = $_GET['date_from'] ?? '';
-$date_to = $_GET['date_to'] ?? '';
-$change_type = $_GET['change_type'] ?? '';
 $page = max(1, isset($_GET['page']) ? (int)$_GET['page'] : 1);
-$per_page = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 20;
-$limit = in_array($per_page, [10, 20, 50, 100]) ? (int)$per_page : 20;
+$per_page = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10;
+$limit = in_array($per_page, [10, 20, 50, 100]) ? (int)$per_page : 10;
 $offset = max(0, ($page - 1) * $limit);
 
 try {
@@ -45,25 +42,11 @@ try {
         $params = [];
         
         if (!empty($search_term)) {
-            $where_conditions[] = "(p.name_ko LIKE ? OR p.sku LIKE ? OR u.username LIKE ?)";
+            $where_conditions[] = "(p.name_ko LIKE ? OR p.name_en LIKE ? OR p.sku LIKE ? OR u.username LIKE ?)";
             $params[] = "%$search_term%";
             $params[] = "%$search_term%";
             $params[] = "%$search_term%";
-        }
-        
-        if (!empty($date_from)) {
-            $where_conditions[] = "pch.changed_at >= ?";
-            $params[] = $date_from . ' 00:00:00';
-        }
-        
-        if (!empty($date_to)) {
-            $where_conditions[] = "pch.changed_at <= ?";
-            $params[] = $date_to . ' 23:59:59';
-        }
-        
-        if (!empty($change_type)) {
-            $where_conditions[] = "pch.change_type = ?";
-            $params[] = $change_type;
+            $params[] = "%$search_term%";
         }
 
         // 점포별 필터링 (super_admin이 아닌 경우)
@@ -92,7 +75,8 @@ try {
         $sql = "
             SELECT 
                 pch.*,
-                p.name_ko as product_name,
+                p.name_ko as product_name_ko,
+                p.name_en as product_name_en,
                 p.sku,
                 u.username as changed_by,
                 s.name as store_name
@@ -124,6 +108,16 @@ try {
                 <p class="text-sm text-gray-600"><?php echo str_replace('{count}', number_format($total_records), t('price_change.total_records')); ?></p>
             <?php endif; ?>
         </div>
+        <div>
+            <button onclick="openPrintModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                <i class="fas fa-print mr-2"></i>
+                <?php echo t('common.print_preview'); ?>
+            </button>
+            <button onclick="openPrintPreview()" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ml-2">
+                <i class="fas fa-external-link-alt mr-2"></i>
+                새 창에서 열기
+            </button>
+        </div>
     </div>
 
     <!-- Flash messages -->
@@ -150,39 +144,13 @@ try {
 
     <!-- 검색 및 필터 -->
     <div class="mb-6 bg-white p-4 rounded-lg shadow">
-        <form action="price_change_history.php" method="get" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                    <label for="search" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('price_change.product_sku_user'); ?></label>
+        <form action="price_change_history.php" method="get">
+            <div class="flex items-center space-x-4">
+                <div class="flex-1">
                     <input type="search" name="search" id="search" placeholder="<?php echo t('price_change.search_placeholder'); ?>" 
                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" 
                            value="<?php echo htmlspecialchars($search_term); ?>">
                 </div>
-                <div>
-                    <label for="date_from" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('price_change.start_date'); ?></label>
-                    <input type="date" name="date_from" id="date_from" 
-                           class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" 
-                           value="<?php echo htmlspecialchars($date_from); ?>">
-                </div>
-                <div>
-                    <label for="date_to" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('price_change.end_date'); ?></label>
-                    <input type="date" name="date_to" id="date_to" 
-                           class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" 
-                           value="<?php echo htmlspecialchars($date_to); ?>">
-                </div>
-                <div>
-                    <label for="change_type" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('price_change.change_type'); ?></label>
-                    <select name="change_type" id="change_type" 
-                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
-                        <option value=""><?php echo t('price_change.all_types'); ?></option>
-                        <option value="both" <?php echo $change_type === 'both' ? 'selected' : ''; ?>><?php echo t('price_change.both_price'); ?></option>
-                        <option value="cost_only" <?php echo $change_type === 'cost_only' ? 'selected' : ''; ?>><?php echo t('price_change.cost_only'); ?></option>
-                        <option value="selling_only" <?php echo $change_type === 'selling_only' ? 'selected' : ''; ?>><?php echo t('price_change.selling_only'); ?></option>
-                        <option value="margin_adjust" <?php echo $change_type === 'margin_adjust' ? 'selected' : ''; ?>><?php echo t('price_change.margin_adjust'); ?></option>
-                    </select>
-                </div>
-            </div>
-            <div class="flex items-center space-x-4">
                 <div class="flex items-center space-x-2">
                     <label for="per_page" class="text-sm text-gray-700 whitespace-nowrap"><?php echo t('price_change.display_count'); ?>:</label>
                     <select name="per_page" id="per_page" class="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
@@ -220,30 +188,29 @@ try {
                 <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.changed_at'); ?></th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">SKU</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.product_name'); ?></th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.store'); ?></th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.old_cost_price'); ?></th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.new_cost_price'); ?></th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.old_selling_price'); ?></th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.new_selling_price'); ?></th>
                             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.change_type_col'); ?></th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.changed_by'); ?></th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.change_reason'); ?></th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         <?php foreach ($price_changes as $change): ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 border border-gray-300">
-                                    <?php echo date('Y-m-d H:i', strtotime($change['changed_at'])); ?>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300">
+                                    <?php echo htmlspecialchars($change['sku'] ?? 'N/A'); ?>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap border border-gray-300">
-                                    <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($change['product_name'] ?? 'N/A'); ?></div>
-                                    <div class="text-xs text-gray-500"><?php echo htmlspecialchars($change['sku'] ?? 'N/A'); ?></div>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
-                                    <?php echo htmlspecialchars($change['store_name'] ?? t('common.all')); ?>
+                                    <?php if (!empty($change['product_name_en'])): ?>
+                                        <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($change['product_name_en']); ?></div>
+                                        <div class="text-xs text-gray-500"><?php echo htmlspecialchars($change['product_name_ko'] ?? 'N/A'); ?></div>
+                                    <?php else: ?>
+                                        <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($change['product_name_ko'] ?? 'N/A'); ?></div>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right border border-gray-300">
                                     <?php if ($change['old_cost_price']): ?>
@@ -294,11 +261,9 @@ try {
                                         <?php echo $label; ?>
                                     </span>
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
-                                    <?php echo htmlspecialchars($change['changed_by'] ?? 'N/A'); ?>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
-                                    <?php echo htmlspecialchars($change['change_reason'] ?? 'N/A'); ?>
+                                <td class="px-4 py-3 whitespace-nowrap border border-gray-300">
+                                    <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($change['changed_by'] ?? 'N/A'); ?></div>
+                                    <div class="text-xs text-gray-500"><?php echo date('Y-m-d H:i', strtotime($change['changed_at'])); ?></div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -342,5 +307,134 @@ try {
         <?php endif; ?>
     <?php endif; ?>
 </div>
+
+<!-- 인쇄 미리보기 모달 -->
+<div id="printModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900"><?php echo t('common.print_preview'); ?></h3>
+                <button onclick="closePrintModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 날짜 선택 및 네비게이션 -->
+            <div class="flex items-center justify-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
+                <button onclick="changePrintDate(-1)" class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    <i class="fas fa-chevron-left"></i> 이전날
+                </button>
+                <input type="date" id="modalDatePicker" class="px-3 py-2 border rounded" onchange="loadPrintData(this.value)">
+                <button onclick="changePrintDate(1)" class="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    다음날 <i class="fas fa-chevron-right"></i>
+                </button>
+                <button onclick="setPrintToday()" class="px-3 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                    오늘
+                </button>
+                <button onclick="printModalContent()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                    <i class="fas fa-print"></i> 인쇄
+                </button>
+            </div>
+            
+            <!-- 인쇄 내용 -->
+            <div id="modalPrintContent" class="border rounded-lg p-4 bg-white" style="max-height: 500px; overflow-y: auto;">
+                <div class="text-center py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+                    <p class="mt-2 text-gray-600">데이터 로딩 중...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let modalCurrentDate = '<?php echo date('Y-m-d'); ?>';
+
+function openPrintModal() {
+    document.getElementById('printModal').classList.remove('hidden');
+    modalCurrentDate = '<?php echo date('Y-m-d'); ?>';
+    document.getElementById('modalDatePicker').value = modalCurrentDate;
+    loadPrintData(modalCurrentDate);
+}
+
+function closePrintModal() {
+    document.getElementById('printModal').classList.add('hidden');
+}
+
+function loadPrintData(date) {
+    modalCurrentDate = date;
+    document.getElementById('modalDatePicker').value = date;
+    
+    const container = document.getElementById('modalPrintContent');
+    container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i><p class="mt-2 text-gray-600">데이터 로딩 중...</p></div>';
+    
+    fetch(`ajax_print_data.php?date=${date}`)
+        .then(response => response.text())
+        .then(html => {
+            // 인쇄용 헤더 추가
+            const printHeader = `
+                <div class="text-center mb-6 pb-4 border-b-2 border-gray-800">
+                    <h2 class="text-lg font-bold">Price Change History</h2>
+                    <p class="text-sm text-gray-600">Date: ${date} | Print Time: ${new Date().toLocaleString('en-US')}</p>
+                </div>
+            `;
+            container.innerHTML = printHeader + html;
+        })
+        .catch(error => {
+            container.innerHTML = '<div class="text-center py-8 text-red-600">데이터 로딩 실패: ' + error.message + '</div>';
+        });
+}
+
+function changePrintDate(days) {
+    const date = new Date(modalCurrentDate);
+    date.setDate(date.getDate() + days);
+    loadPrintData(date.toISOString().split('T')[0]);
+}
+
+function setPrintToday() {
+    loadPrintData(new Date().toISOString().split('T')[0]);
+}
+
+function printModalContent() {
+    const printContent = document.getElementById('modalPrintContent').innerHTML;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Price Change History - ${modalCurrentDate}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: left; font-size: 12px; }
+                th { background-color: #f5f5f5; font-weight: bold; }
+                .no-print { display: none; }
+                @media print {
+                    body { margin: 0; }
+                    table { font-size: 10px; }
+                    th, td { padding: 4px; }
+                }
+            </style>
+        </head>
+        <body>
+            ${printContent}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
+
+function openPrintPreview() {
+    // 새 탭에서 열기
+    window.open('print_price_history.php', '_blank');
+}
+
+// 모달 외부 클릭시 닫기
+document.getElementById('printModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePrintModal();
+    }
+});
+</script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

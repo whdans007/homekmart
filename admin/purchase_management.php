@@ -44,9 +44,16 @@ $param_types = '';
 $check_deleted_at_column = $conn->query("SHOW COLUMNS FROM purchases LIKE 'deleted_at'");
 $has_deleted_at = $check_deleted_at_column->num_rows > 0;
 
+// status 컬럼이 존재하는지 확인 (대안)
+$check_status_column = $conn->query("SHOW COLUMNS FROM purchases LIKE 'status'");
+$has_status = $check_status_column->num_rows > 0;
+
 // 삭제되지 않은 매입 내역만 조회 (soft delete 적용)
 if ($has_deleted_at) {
     $where_conditions[] = "p.deleted_at IS NULL";
+} elseif ($has_status) {
+    // status 컬럼이 있는 경우 deleted 상태가 아닌 것만 조회
+    $where_conditions[] = "p.status != 'deleted'";
 }
 
 if (!empty($start_date)) {
@@ -144,6 +151,60 @@ if (!empty($params)) {
 if (!$result) {
     die("SQL Error: " . $conn->error);
 }
+
+// 디버그: 데이터 확인
+$data_count = $result ? $result->num_rows : 0;
+
+// 디버그: SQL 쿼리 확인
+if (isset($_GET['debug'])) {
+    echo "<!-- 실행된 SQL: " . $sql . " -->";
+    echo "<!-- 파라미터: " . implode(', ', $params ?? []) . " -->";
+    echo "<!-- 결과 행 수: " . $data_count . " -->";
+    echo "<!-- WHERE 조건: " . $where_clause . " -->";
+    echo "<!-- deleted_at 컬럼 존재: " . ($has_deleted_at ? 'Yes' : 'No') . " -->";
+    echo "<!-- status 컬럼 존재: " . ($has_status ? 'Yes' : 'No') . " -->";
+}
+
+// 임시 디버그: WHERE 절 없이 전체 데이터 확인
+if (isset($_GET['nofilter'])) {
+    $debug_sql = "SELECT COUNT(*) as total FROM purchases p JOIN suppliers s ON p.supplier_id = s.id";
+    $debug_result = $conn->query($debug_sql);
+    if ($debug_result) {
+        $debug_row = $debug_result->fetch_assoc();
+        echo "<!-- 필터 없는 전체 데이터: " . $debug_row['total'] . "개 -->";
+    }
+}
+
+// 삭제 데이터 디버그
+if (isset($_GET['debug'])) {
+    if ($has_deleted_at) {
+        $deleted_sql = "SELECT COUNT(*) as deleted_count FROM purchases WHERE deleted_at IS NOT NULL";
+        $deleted_result = $conn->query($deleted_sql);
+        if ($deleted_result) {
+            $deleted_row = $deleted_result->fetch_assoc();
+            echo "<!-- 삭제된 데이터 (deleted_at): " . $deleted_row['deleted_count'] . "개 -->";
+        }
+        
+        $active_sql = "SELECT COUNT(*) as active_count FROM purchases WHERE deleted_at IS NULL";
+        $active_result = $conn->query($active_sql);
+        if ($active_result) {
+            $active_row = $active_result->fetch_assoc();
+            echo "<!-- 활성 데이터 (deleted_at): " . $active_row['active_count'] . "개 -->";
+        }
+    }
+    
+    if ($has_status) {
+        $status_sql = "SELECT status, COUNT(*) as count FROM purchases GROUP BY status";
+        $status_result = $conn->query($status_sql);
+        if ($status_result) {
+            echo "<!-- Status 분포: ";
+            while ($status_row = $status_result->fetch_assoc()) {
+                echo $status_row['status'] . "=" . $status_row['count'] . " ";
+            }
+            echo "-->";
+        }
+    }
+}
 ?>
 
 <style>
@@ -159,11 +220,21 @@ if (!$result) {
 
 /* 컬럼 토글 관련 스타일 */
 .column-toggle-btn {
-    @apply bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded text-xs border;
+    background-color: #f3f4f6;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    border: 1px solid #d1d5db;
+}
+
+.column-toggle-btn:hover {
+    background-color: #e5e7eb;
 }
 
 .column-toggle-btn.active {
-    @apply bg-primary-100 text-primary-700 border-primary-300;
+    background-color: #dbeafe;
+    color: #1d4ed8;
+    border-color: #93c5fd;
 }
 
 /* 데스크톱 (1024px 이상) */
@@ -188,19 +259,37 @@ if (!$result) {
     
     /* 모바일 카드 레이아웃 */
     .mobile-card {
-        @apply block bg-white border rounded-lg mb-4 p-4 shadow-sm;
+        display: block;
+        background-color: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
     }
     
     .mobile-card-row {
-        @apply flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.25rem 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    
+    .mobile-card-row:last-child {
+        border-bottom: none;
     }
     
     .mobile-card-label {
-        @apply text-sm font-medium text-gray-600;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #4b5563;
     }
     
     .mobile-card-value {
-        @apply text-sm text-gray-900 font-medium;
+        font-size: 0.875rem;
+        color: #111827;
+        font-weight: 500;
     }
 }
 
@@ -211,7 +300,18 @@ if (!$result) {
 
 /* 페이지네이션 스타일 */
 .pagination-container {
-    @apply flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid #e5e7eb;
+    background-color: white;
+    padding: 0.75rem 1rem;
+}
+
+@media (min-width: 640px) {
+    .pagination-container {
+        padding: 0.75rem 1.5rem;
+    }
 }
 </style>
 
@@ -276,7 +376,6 @@ if (!$result) {
         <div class="flex flex-wrap items-center gap-2">
             <span class="text-sm font-medium text-gray-700 mr-3"><?php echo t('common.show_columns'); ?>:</span>
             <button class="column-toggle-btn active" data-column="number"><?php echo t('purchase.number'); ?></button>
-            <button class="column-toggle-btn active" data-column="purchase_id"><?php echo t('purchase.purchase_id'); ?></button>
             <button class="column-toggle-btn active" data-column="datetime"><?php echo t('purchase.date_time'); ?></button>
             <button class="column-toggle-btn active" data-column="supplier"><?php echo t('purchase.supplier'); ?></button>
             <button class="column-toggle-btn tablet-hidden" data-column="total_items"><?php echo t('purchase.total_items'); ?></button>
@@ -286,9 +385,9 @@ if (!$result) {
         </div>
     </div>
 
-    <!-- 모바일 카드 뷰 -->
-    <div class="block md:hidden">
-        <?php if ($result && $result->num_rows > 0): ?>
+    <!-- 모바일 카드 뷰 (임시 비활성화) -->
+    <div class="hidden">
+        <?php if (false && $result && $result->num_rows > 0): ?>
             <?php $result->data_seek(0); // 결과 포인터 리셋 ?>
             <?php $row_number = 1; ?>
             <?php while($row = $result->fetch_assoc()): ?>
@@ -344,13 +443,13 @@ if (!$result) {
     </div>
 
     <!-- 데스크톱 테이블 뷰 -->
-    <div class="hidden md:block bg-white shadow-lg rounded-lg overflow-hidden border border-gray-300">
+    <!-- 디버그: 데이터 <?php echo $data_count; ?>개 -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-300">
         <div class="responsive-table">
             <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300 table-compact" id="purchaseTable">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-high" data-column="number"><?php echo t('purchase.number'); ?></th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-high" data-column="purchase_id"><?php echo t('purchase.purchase_id'); ?></th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-high" data-column="datetime"><?php echo t('purchase.date_time'); ?></th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-high mobile-hidden" data-column="supplier"><?php echo t('purchase.supplier'); ?></th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-medium tablet-hidden" data-column="total_items"><?php echo t('purchase.total_items'); ?></th>
@@ -361,11 +460,11 @@ if (!$result) {
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php if ($result && $result->num_rows > 0): ?>
+                        <?php $result->data_seek(0); // 결과 포인터 리셋 ?>
                         <?php $row_number = 1; ?>
                         <?php while($row = $result->fetch_assoc()): ?>
                             <tr class="hover:bg-gray-50" data-purchase-id="<?php echo $row['purchase_id']; ?>">
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center border border-gray-300 priority-high" data-column="number"><?php echo $row_number++; ?></td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300 priority-high" data-column="purchase_id"><?php echo htmlspecialchars($row['purchase_id']); ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-300 priority-high" data-column="datetime"><?php echo htmlspecialchars($row['purchase_datetime']); ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-300 priority-high mobile-hidden" data-column="supplier"><?php echo htmlspecialchars($row['supplier_name']); ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300 priority-medium tablet-hidden" data-column="total_items"><?php echo htmlspecialchars($row['total_items']); ?></td>
@@ -388,7 +487,7 @@ if (!$result) {
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
+                            <td colspan="7" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-dolly-flatbed text-4xl text-gray-400"></i>
                                     <p class="mt-4"><?php echo t('purchase.no_purchases'); ?></p>
