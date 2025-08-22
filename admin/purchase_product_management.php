@@ -16,10 +16,16 @@ if (!has_permission('purchase_management')) {
 
 $conn = get_db_connection();
 
-// 날짜 변수
+// 날짜 변수 - 기본적으로 최근 7일간의 데이터 표시
+$display_mode = $_GET['mode'] ?? 'recent'; // 'recent' 또는 'date'
 $selected_date = $_GET['date'] ?? date('Y-m-d');
 $prev_date = date('Y-m-d', strtotime($selected_date . ' -1 day'));
 $next_date = date('Y-m-d', strtotime($selected_date . ' +1 day'));
+
+// 최근 데이터 조회를 위한 날짜 범위
+$recent_days = 7; // 최근 7일
+$start_date = date('Y-m-d', strtotime("-$recent_days days"));
+$end_date = date('Y-m-d');
 
 // 현재 사용자의 점포 정보 가져오기
 $current_store_name = t('store.main_store');
@@ -50,6 +56,15 @@ try {
     
     $deleted_condition = $has_deleted_at ? "AND p.deleted_at IS NULL" : "";
     
+    // SQL 쿼리 구성 - 표시 모드에 따라 조건 변경
+    if ($display_mode === 'recent') {
+        $where_condition = "DATE(p.purchase_date) BETWEEN ? AND ?";
+        $order_clause = "ORDER BY p.purchase_date DESC, pr.name_ko ASC";
+    } else {
+        $where_condition = "DATE(p.purchase_date) = ?";
+        $order_clause = "ORDER BY p.purchase_date DESC, pr.name_ko ASC";
+    }
+    
     $sql = "
         SELECT 
             pr.id as product_id,
@@ -71,9 +86,9 @@ try {
         JOIN purchases p ON pi.purchase_id = p.purchase_id
         JOIN products pr ON pi.product_id = pr.id
         LEFT JOIN suppliers s ON p.supplier_id = s.id
-        WHERE DATE(p.purchase_date) = ? 
+        WHERE $where_condition 
         $deleted_condition
-        ORDER BY p.purchase_date DESC, pr.name_ko ASC
+        $order_clause
     ";
     
     $stmt = $conn->prepare($sql);
@@ -81,7 +96,12 @@ try {
         throw new Exception("Prepare failed: " . $conn->error);
     }
     
-    $stmt->bind_param("s", $selected_date);
+    // 바인딩 파라미터 설정
+    if ($display_mode === 'recent') {
+        $stmt->bind_param("ss", $start_date, $end_date);
+    } else {
+        $stmt->bind_param("s", $selected_date);
+    }
     if (!$stmt->execute()) {
         throw new Exception("Execute failed: " . $stmt->error);
     }
@@ -117,11 +137,38 @@ $conn->close();
         </div>
     </div>
 
-    <!-- 날짜 네비게이션 -->
+    <!-- 표시 모드 및 날짜 네비게이션 -->
     <div class="bg-white rounded shadow mb-3">
         <div class="px-3 py-2">
+            <!-- 표시 모드 선택 -->
+            <div class="flex items-center justify-center space-x-4 mb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-600">표시 모드:</span>
+                    <a href="?mode=recent" class="px-3 py-1 text-xs rounded-full <?php echo $display_mode === 'recent' ? 'bg-blue-100 text-blue-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
+                        <i class="fas fa-calendar-week mr-1"></i>
+                        최근 <?php echo $recent_days; ?>일
+                    </a>
+                    <a href="?mode=date&date=<?php echo $selected_date; ?>" class="px-3 py-1 text-xs rounded-full <?php echo $display_mode === 'date' ? 'bg-blue-100 text-blue-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
+                        <i class="fas fa-calendar-day mr-1"></i>
+                        특정 날짜
+                    </a>
+                </div>
+            </div>
+            
+            <!-- 날짜 정보 표시 -->
+            <?php if ($display_mode === 'recent'): ?>
+            <div class="text-center">
+                <div class="text-sm font-semibold text-gray-900">
+                    <i class="fas fa-calendar-week text-blue-600 mr-2"></i>
+                    최근 매입 데이터 (<?php echo date('Y.m.d', strtotime($start_date)); ?> ~ <?php echo date('Y.m.d', strtotime($end_date)); ?>)
+                </div>
+                <div class="text-xs text-gray-600 mt-1">
+                    총 <?php echo $recent_days; ?>일간의 매입 상품을 최신 순으로 표시
+                </div>
+            </div>
+            <?php else: ?>
             <div class="flex items-center justify-center space-x-2">
-                <a href="?date=<?php echo $prev_date; ?>" class="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50">
+                <a href="?mode=date&date=<?php echo $prev_date; ?>" class="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50">
                     <i class="fas fa-chevron-left mr-1"></i>
                     <?php echo t('common.previous'); ?>
                 </a>
@@ -129,17 +176,18 @@ $conn->close();
                 <div class="flex items-center space-x-2">
                     <input type="date" id="date-picker" value="<?php echo $selected_date; ?>" 
                            class="border border-gray-300 rounded px-2 py-1 text-xs"
-                           onchange="window.location.href='?date=' + this.value;">
+                           onchange="window.location.href='?mode=date&date=' + this.value;">
                     <span class="text-sm font-semibold text-gray-900">
                         <?php echo date('Y년 m월 d일 (l)', strtotime($selected_date)); ?>
                     </span>
                 </div>
                 
-                <a href="?date=<?php echo $next_date; ?>" class="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50">
+                <a href="?mode=date&date=<?php echo $next_date; ?>" class="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50">
                     <?php echo t('common.next'); ?>
                     <i class="fas fa-chevron-right ml-1"></i>
                 </a>
             </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -163,6 +211,11 @@ $conn->close();
             <table class="min-w-full divide-y divide-gray-200 text-xs">
                 <thead class="bg-gray-50">
                     <tr>
+                        <?php if ($display_mode === 'recent'): ?>
+                        <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
+                            매입일
+                        </th>
+                        <?php endif; ?>
                         <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
                             <?php echo t('product.sku'); ?>
                         </th>
@@ -189,6 +242,12 @@ $conn->close();
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php foreach ($purchase_products as $product): ?>
                     <tr class="hover:bg-gray-50 cursor-pointer" onclick="showProductDetails(<?php echo $product['product_id']; ?>)">
+                        <?php if ($display_mode === 'recent'): ?>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                            <div class="text-gray-800"><?php echo date('m.d', strtotime($product['purchase_date'])); ?></div>
+                            <div class="text-gray-500 text-xs"><?php echo date('D', strtotime($product['purchase_date'])); ?></div>
+                        </td>
+                        <?php endif; ?>
                         <td class="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900">
                             <?php echo htmlspecialchars($product['sku']); ?>
                         </td>
@@ -221,7 +280,7 @@ $conn->close();
                 </tbody>
                 <tfoot class="bg-gray-50">
                     <tr>
-                        <td colspan="6" class="px-2 py-1 text-right text-xs font-medium text-gray-900">
+                        <td colspan="<?php echo $display_mode === 'recent' ? '7' : '6'; ?>" class="px-2 py-1 text-right text-xs font-medium text-gray-900">
                             <?php echo t('common.total'); ?>:
                         </td>
                         <td class="px-2 py-1 text-right text-xs font-bold text-gray-900">
