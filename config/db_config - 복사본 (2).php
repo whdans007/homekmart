@@ -3,9 +3,9 @@
  * 데이터베이스 접속 정보
  */
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'u622428657_homekmart');
-define('DB_USER', 'u622428657_homekmart');
-define('DB_PASS', 'WA^~j#tZ38m!');
+define('DB_NAME', 'min1234');
+define('DB_USER', 'min1234');
+define('DB_PASS', 'Min1234****');
 define('DB_CHARSET', 'utf8mb4');
 
 /**

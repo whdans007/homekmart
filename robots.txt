@@ -1,0 +1,35 @@
+User-agent: *
+
+# 보안 관련 디렉토리 차단
+Disallow: /config/
+Disallow: /lib/
+Disallow: /vendor/
+Disallow: /src/
+Disallow: /node_modules/
+Disallow: /sql/
+Disallow: /api/
+
+# 관리자 영역 차단
+Disallow: /public/admin/
+Disallow: /public/*management.php
+Disallow: /public/settings.php
+Disallow: /public/debug*
+Disallow: /public/test*
+Disallow: /public/check*
+
+# 로그인 및 개인정보 차단
+Disallow: /public/login.php
+Disallow: /public/register.php
+Disallow: /public/user_profile.php
+
+# 파일 형식 차단
+Disallow: *.log
+Disallow: *.sql
+Disallow: *.md
+Disallow: *.txt
+
+# 허용된 공개 페이지 (선택사항)
+# Allow: /public/
+
+# 사이트맵 (향후 추가 가능)
+# Sitemap: https://homekmart.rf.gd/sitemap.xml

@@ -70,7 +70,9 @@ try {
                 SELECT 
                     wp.id, wp.wholesale_price, wp.min_quantity, wp.created_at,
                     wp.wholesale_name_ko, wp.wholesale_name_en, wp.wholesale_skus, wp.wholesale_description,
-                    p.id as product_id, p.sku, p.name_ko, p.name_en, p.barcode,
+                    COALESCE(wp.cost_price, p.cost_price, 0) as cost_price,
+                    COALESCE(wp.margin_rate, 15.00) as margin_rate,
+                    p.id as product_id, p.sku, p.name_ko, p.name_en, p.barcode, p.pieces_per_box,
                     s.name as store_name
                 FROM wholesale_products wp
                 LEFT JOIN products p ON wp.product_id = p.id
@@ -84,7 +86,9 @@ try {
                 SELECT 
                     wp.id, wp.wholesale_price, wp.min_quantity, wp.created_at,
                     NULL as wholesale_name_ko, NULL as wholesale_name_en, NULL as wholesale_skus, NULL as wholesale_description,
-                    p.id as product_id, p.sku, p.name_ko, p.name_en, p.barcode,
+                    COALESCE(wp.cost_price, p.cost_price, 0) as cost_price,
+                    COALESCE(wp.margin_rate, 15.00) as margin_rate,
+                    p.id as product_id, p.sku, p.name_ko, p.name_en, p.barcode, p.pieces_per_box,
                     s.name as store_name
                 FROM wholesale_products wp
                 LEFT JOIN products p ON wp.product_id = p.id
@@ -100,7 +104,9 @@ try {
             SELECT 
                 wp.id, wp.wholesale_price, wp.min_quantity, wp.created_at,
                 NULL as wholesale_name_ko, NULL as wholesale_name_en, NULL as wholesale_skus, NULL as wholesale_description,
-                p.id as product_id, p.sku, p.name_ko, p.name_en, p.barcode,
+                COALESCE(wp.cost_price, p.cost_price, 0) as cost_price,
+                COALESCE(wp.margin_rate, 15.00) as margin_rate,
+                p.id as product_id, p.sku, p.name_ko, p.name_en, p.barcode, p.pieces_per_box,
                 s.name as store_name
             FROM wholesale_products wp
             LEFT JOIN products p ON wp.product_id = p.id
@@ -215,6 +221,15 @@ try {
                             도매 상품명
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            박스포장갯수
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            원가
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            마진율
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <?php echo t('wholesale.wholesale_price'); ?>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -248,19 +263,38 @@ try {
                                 <?php if (!empty($display_name_en)): ?>
                                 <div class="font-medium text-gray-900 mb-1">
                                     <?php echo htmlspecialchars($display_name_en); ?>
-                                    <?php if (!empty($wp['wholesale_name_en'])): ?>
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">도매용</span>
-                                    <?php endif; ?>
                                 </div>
                                 <?php endif; ?>
                                 <?php if (!empty($display_name_ko)): ?>
                                 <div class="text-gray-700 <?php echo empty($display_name_en) ? 'font-medium text-gray-900' : ''; ?>">
                                     <?php echo htmlspecialchars($display_name_ko); ?>
-                                    <?php if (!empty($wp['wholesale_name_ko'])): ?>
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">도매용</span>
-                                    <?php endif; ?>
                                 </div>
                                 <?php endif; ?>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <?php echo $wp['pieces_per_box'] ? number_format($wp['pieces_per_box']) . '개' : '-'; ?>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
+                            <?php echo number_format($wp['cost_price']); ?>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                            <?php 
+                            $marginRate = $wp['margin_rate'] ?? 15.00;
+                            $actualMarginRate = ($wp['cost_price'] > 0) ? (($wp['wholesale_price'] / $wp['cost_price'] - 1) * 100) : 0;
+                            $colorClass = 'text-gray-500';
+                            
+                            // 실제 마진율에 따른 색상 결정
+                            if ($actualMarginRate < 10) {
+                                $colorClass = 'text-red-500';
+                            } elseif ($actualMarginRate < 20) {
+                                $colorClass = 'text-yellow-600';
+                            } else {
+                                $colorClass = 'text-green-600';
+                            }
+                            ?>
+                            <div class="<?php echo $colorClass; ?>">
+                                <?php echo number_format($actualMarginRate, 1); ?>%
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">

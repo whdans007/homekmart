@@ -42,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $wholesale_skus_input = trim($_POST['wholesale_skus'] ?? '');
     $wholesale_description = trim($_POST['wholesale_description'] ?? '');
     $wholesale_price = trim($_POST['wholesale_price'] ?? '');
+    $cost_price = trim($_POST['cost_price'] ?? '0');
     $min_quantity = (int)($_POST['min_quantity'] ?? 1);
     $store_id = $_SESSION['role'] === 'super_admin' ? (int)($_POST['store_id'] ?? 0) : $current_store_id;
     
@@ -68,13 +69,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = '올바른 도매가를 입력해주세요.';
     }
     
+    if (!is_numeric($cost_price) || $cost_price < 0) {
+        $errors[] = '올바른 원가를 입력해주세요.';
+    }
+    
     if ($min_quantity <= 0) {
         $errors[] = '최소 주문수량은 1 이상이어야 합니다.';
     }
     
-    if ($_SESSION['role'] === 'super_admin' && empty($store_id)) {
-        $errors[] = '점포를 선택해주세요.';
-    }
     
     if (empty($errors)) {
         try {
@@ -89,29 +91,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try {
                     $check_columns = $pdo->query("SHOW COLUMNS FROM wholesale_products LIKE 'wholesale_name_ko'");
                     $has_new_columns = $check_columns->rowCount() > 0;
+                    
+                    // cost_price 컬럼 존재 확인
+                    $check_cost_column = $pdo->query("SHOW COLUMNS FROM wholesale_products LIKE 'cost_price'");
+                    $has_cost_price_column = $check_cost_column->rowCount() > 0;
                 } catch (PDOException $e) {
                     $has_new_columns = false;
+                    $has_cost_price_column = false;
                 }
                 
                 if ($has_new_columns) {
                     // 새로운 스키마 사용
-                    $stmt = $pdo->prepare("
-                        INSERT INTO wholesale_products 
-                        (product_id, store_id, wholesale_name_ko, wholesale_name_en, wholesale_skus, wholesale_description, 
-                         wholesale_price, min_quantity, is_active, created_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
-                    ");
-                    
-                    $insert_success = $stmt->execute([
-                        $product_id, 
-                        $store_id, 
-                        $wholesale_name_ko ?: null, 
-                        $wholesale_name_en ?: null, 
-                        $wholesale_skus_json, 
-                        $wholesale_description ?: null, 
-                        $wholesale_price, 
-                        $min_quantity
-                    ]);
+                    if ($has_cost_price_column) {
+                        // cost_price 컬럼이 있는 경우
+                        $stmt = $pdo->prepare("
+                            INSERT INTO wholesale_products 
+                            (product_id, store_id, wholesale_name_ko, wholesale_name_en, wholesale_skus, wholesale_description, 
+                             wholesale_price, cost_price, min_quantity, is_active, created_at) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
+                        ");
+                        
+                        $insert_success = $stmt->execute([
+                            $product_id, 
+                            $store_id, 
+                            $wholesale_name_ko ?: null, 
+                            $wholesale_name_en ?: null, 
+                            $wholesale_skus_json, 
+                            $wholesale_description ?: null, 
+                            $wholesale_price,
+                            $cost_price, 
+                            $min_quantity
+                        ]);
+                    } else {
+                        // cost_price 컬럼이 없는 경우 (기존 방식)
+                        $stmt = $pdo->prepare("
+                            INSERT INTO wholesale_products 
+                            (product_id, store_id, wholesale_name_ko, wholesale_name_en, wholesale_skus, wholesale_description, 
+                             wholesale_price, min_quantity, is_active, created_at) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
+                        ");
+                        
+                        $insert_success = $stmt->execute([
+                            $product_id, 
+                            $store_id, 
+                            $wholesale_name_ko ?: null, 
+                            $wholesale_name_en ?: null, 
+                            $wholesale_skus_json, 
+                            $wholesale_description ?: null, 
+                            $wholesale_price, 
+                            $min_quantity
+                        ]);
+                    }
                 } else {
                     // 기존 스키마 사용 (새 필드들 없이)
                     $stmt = $pdo->prepare("
@@ -349,35 +379,22 @@ if (isset($_SESSION['flash'])) {
                     </div>
                     <?php endif; ?>
 
-                    <?php if ($_SESSION['role'] === 'super_admin' && !empty($stores)): ?>
-                    <!-- 점포 선택 -->
-                    <div>
-                        <label for="store_id" class="block text-sm font-medium text-gray-700">
-                            점포 선택 <span class="text-red-500">*</span>
-                        </label>
-                        <select name="store_id" id="store_id" required
-                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
-                            <option value="">점포를 선택하세요</option>
-                            <?php foreach ($stores as $store): ?>
-                                <option value="<?php echo $store['id']; ?>" 
-                                        <?php echo (($_POST['store_id'] ?? $current_store_id) == $store['id']) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($store['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <?php else: ?>
                     <!-- 현재 점포 표시 (수정 불가) -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700">
                             점포
                         </label>
                         <div class="mt-1 p-3 bg-gray-50 border border-gray-300 rounded-md">
-                            <span class="text-gray-900 font-medium"><?php echo htmlspecialchars($current_store_name); ?></span>
+                            <span class="text-gray-900 font-medium">
+                                <?php echo htmlspecialchars($_SESSION['role'] === 'super_admin' ? 
+                                    (isset($stores) && !empty($stores) ? $stores[0]['name'] : '본점') : 
+                                    $current_store_name); ?>
+                            </span>
                         </div>
-                        <input type="hidden" name="store_id" value="<?php echo $current_store_id; ?>">
+                        <input type="hidden" name="store_id" value="<?php echo $_SESSION['role'] === 'super_admin' ? 
+                            (isset($stores) && !empty($stores) ? $stores[0]['id'] : 1) : 
+                            $current_store_id; ?>">
                     </div>
-                    <?php endif; ?>
 
                     <!-- 마진율 설정 -->
                     <div class="bg-green-50 p-4 rounded-lg border border-green-200">
@@ -428,16 +445,42 @@ if (isset($_SESSION['flash'])) {
                         </div>
                     </div>
 
-                    <!-- 도매가 -->
-                    <div>
-                        <label for="wholesale_price" class="block text-sm font-medium text-gray-700">
-                            <?php echo t('wholesale.wholesale_price'); ?> <span class="text-red-500">*</span>
-                        </label>
-                        <input type="number" name="wholesale_price" id="wholesale_price" step="0.01" min="0" required
-                               value="<?php echo htmlspecialchars($_POST['wholesale_price'] ?? ''); ?>"
-                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                               placeholder="도매가를 입력하세요 (위 계산 도구 사용 가능)">
-                        <p class="mt-1 text-sm text-gray-500">위의 계산 도구를 사용하거나 직접 입력하세요</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- 원가 -->
+                        <div>
+                            <label for="cost_price" class="block text-sm font-medium text-gray-700">
+                                원가 (박스당) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number" name="cost_price" id="cost_price" step="0.01" min="0" required
+                                   value="<?php echo htmlspecialchars($_POST['cost_price'] ?? ''); ?>"
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="박스당 원가를 입력하세요">
+                            <p class="mt-1 text-sm text-gray-500">도매가격 계산의 기준이 되는 원가입니다</p>
+                        </div>
+                        
+                        <!-- 마진율 -->
+                        <div>
+                            <label for="margin_rate_input" class="block text-sm font-medium text-gray-700">
+                                마진율 (%) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number" name="margin_rate" id="margin_rate_input" step="0.1" min="0" max="1000" required
+                                   value="<?php echo htmlspecialchars($_POST['margin_rate'] ?? '15'); ?>"
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="15">
+                            <p class="mt-1 text-sm text-gray-500">기본 15% 마진율</p>
+                        </div>
+                        
+                        <!-- 도매가 -->
+                        <div>
+                            <label for="wholesale_price" class="block text-sm font-medium text-gray-700">
+                                <?php echo t('wholesale.wholesale_price'); ?> <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number" name="wholesale_price" id="wholesale_price" step="0.01" min="0" required
+                                   value="<?php echo htmlspecialchars($_POST['wholesale_price'] ?? ''); ?>"
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="도매가를 입력하세요">
+                            <p class="mt-1 text-sm margin-display" id="margin-info-add"></p>
+                        </div>
                     </div>
 
                     <!-- 최소 주문수량 -->
@@ -479,6 +522,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedCostPriceDiv = document.getElementById('selected_cost_price');
     const calculatedWholesalePriceDiv = document.getElementById('calculated_wholesale_price');
     const wholesalePriceInput = document.getElementById('wholesale_price');
+    const costPriceInput = document.getElementById('cost_price');
     
     let searchTimeout;
     let currentCostPrice = 0;
@@ -514,21 +558,105 @@ document.addEventListener('DOMContentLoaded', function() {
         resetPriceCalculation();
     });
     
-    // 마진율 변경 시 도매가 재계산
-    marginRateInput.addEventListener('input', function() {
+    const marginRateInputAdd = document.getElementById('margin_rate_input');
+    const marginInfoAdd = document.getElementById('margin-info-add');
+    
+    // 도매가 자동 계산 (원가와 마진율 기반)
+    function calculateWholesalePriceAdd() {
+        const costPrice = parseFloat(costPriceInput.value) || 0;
+        const marginRate = parseFloat(marginRateInputAdd.value) || 0;
+        
+        if (costPrice > 0 && marginRate >= 0) {
+            const calculatedPrice = Math.round(costPrice * (1 + marginRate / 100));
+            wholesalePriceInput.value = calculatedPrice;
+            updateMarginDisplayAdd();
+        }
+    }
+    
+    // 마진율 자동 계산 (원가와 도매가 기반)
+    function calculateMarginRateAdd() {
+        const costPrice = parseFloat(costPriceInput.value) || 0;
+        const wholesalePrice = parseFloat(wholesalePriceInput.value) || 0;
+        
+        if (costPrice > 0 && wholesalePrice > 0) {
+            const calculatedMarginRate = ((wholesalePrice / costPrice - 1) * 100).toFixed(1);
+            marginRateInputAdd.value = calculatedMarginRate;
+            updateMarginDisplayAdd();
+        }
+    }
+    
+    // 마진 정보 표시 업데이트
+    function updateMarginDisplayAdd() {
+        const costPrice = parseFloat(costPriceInput.value) || 0;
+        const marginRate = parseFloat(marginRateInputAdd.value) || 0;
+        const wholesalePrice = parseFloat(wholesalePriceInput.value) || 0;
+        
+        if (costPrice > 0 && wholesalePrice > 0) {
+            const actualMarginRate = ((wholesalePrice / costPrice - 1) * 100).toFixed(1);
+            
+            let displayText = `계산된 마진: ${actualMarginRate}%`;
+            let colorClass = 'text-gray-500';
+            
+            // 마진율에 따른 색상 변경
+            if (actualMarginRate < 10) {
+                colorClass = 'text-red-500';
+            } else if (actualMarginRate < 20) {
+                colorClass = 'text-yellow-600';
+            } else {
+                colorClass = 'text-green-600';
+            }
+            
+            marginInfoAdd.textContent = displayText;
+            marginInfoAdd.className = `mt-1 text-sm margin-display ${colorClass}`;
+        } else if (costPrice > 0 && marginRate > 0) {
+            const calculatedPrice = Math.round(costPrice * (1 + marginRate / 100));
+            marginInfoAdd.textContent = `예상 도매가: ${calculatedPrice.toLocaleString()}`;
+            marginInfoAdd.className = 'mt-1 text-sm margin-display text-blue-600';
+        } else {
+            marginInfoAdd.textContent = '원가와 마진율을 입력하면 도매가가 자동 계산됩니다';
+            marginInfoAdd.className = 'mt-1 text-sm margin-display text-gray-400';
+        }
+    }
+    
+    // 이벤트 리스너 등록
+    costPriceInput.addEventListener('input', function() {
+        const costPrice = parseFloat(this.value);
+        if (costPrice > 0) {
+            currentCostPrice = costPrice;
+            selectedCostPriceDiv.innerHTML = `
+                <span class="font-bold">${costPrice.toLocaleString()}</span>
+                <br><small class="text-xs">직접 입력</small>
+            `;
+            if (marginRateInputAdd.value) {
+                calculateWholesalePriceAdd();
+            } else {
+                updateMarginDisplayAdd();
+            }
+        } else {
+            resetPriceCalculation();
+        }
+    });
+    
+    marginRateInputAdd.addEventListener('input', function() {
+        calculateWholesalePriceAdd();
         validateAndCalculateWholesalePrice();
     });
     
-    // 도매가 수동 입력 시 계산 연동 해제
     wholesalePriceInput.addEventListener('input', function() {
-        // 사용자가 직접 입력한 경우 계산 결과 표시를 업데이트하지 않음
-        if (this.value && currentCostPrice > 0) {
-            const manualPrice = parseFloat(this.value);
-            if (manualPrice > 0) {
-                const impliedMargin = ((manualPrice / currentCostPrice - 1) * 100).toFixed(1);
-                calculatedWholesalePriceDiv.innerHTML = `수동 입력됨<br><small class="text-xs">(역산 마진: ${impliedMargin}%)</small>`;
-            }
-        }
+        // 도매가가 직접 입력된 경우 마진율 재계산
+        const timeoutId = setTimeout(function() {
+            calculateMarginRateAdd();
+        }, 500); // 0.5초 후 마진율 계산
+        
+        wholesalePriceInput.timeoutId = timeoutId;
+    });
+    
+    // 페이지 로드 시 초기 계산
+    updateMarginDisplayAdd();
+    
+    // 마진율 변경 시 도매가 재계산 (기존 기능 유지)
+    marginRateInput.addEventListener('input', function() {
+        validateAndCalculateWholesalePrice();
     });
     
     function searchProducts(query) {
@@ -572,7 +700,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="font-medium text-gray-900">${product.name_en || product.name_ko || 'N/A'}</div>
                     <div class="text-sm text-gray-600">${product.name_ko && product.name_en ? product.name_ko : ''}</div>
                     <div class="text-xs text-gray-500 mt-1">
-                        SKU: ${product.sku} | 박스당: ${Number(product.pieces_per_box || 1)}개 | 원가: ${Number(product.cost_price || 0).toLocaleString()}원 | 판매가: ${Number(product.selling_price || 0).toLocaleString()}원
+                        SKU: ${product.sku} | 박스당: ${Number(product.pieces_per_box || 1)}개 | 원가: ${Number(product.cost_price || 0).toLocaleString()} | 판매가: ${Number(product.selling_price || 0).toLocaleString()}
                     </div>
                 </div>
             `;
@@ -600,9 +728,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('selected_product_name').textContent = nameEn || nameKo || 'N/A';
         // 원가, 판매가, 박스포장 정보도 포함하여 표시
         const piecesPerBox = item.querySelector('.text-xs').textContent.match(/박스당: ([0-9,]+)개/)?.[1] || '1';
-        const costPrice = item.querySelector('.text-xs').textContent.match(/원가: ([0-9,]+)원/)?.[1] || '0';
-        const sellingPrice = item.querySelector('.text-xs').textContent.match(/판매가: ([0-9,]+)원/)?.[1] || '0';
-        document.getElementById('selected_product_info').textContent = `SKU: ${sku}${nameKo && nameEn ? ' | ' + nameKo : ''} | 박스당: ${piecesPerBox}개 | 원가: ${costPrice}원 | 판매가: ${sellingPrice}원`;
+        const costPrice = item.querySelector('.text-xs').textContent.match(/원가: ([0-9,]+)/)?.[1] || '0';
+        const sellingPrice = item.querySelector('.text-xs').textContent.match(/판매가: ([0-9,]+)/)?.[1] || '0';
+        document.getElementById('selected_product_info').textContent = `SKU: ${sku}${nameKo && nameEn ? ' | ' + nameKo : ''} | 박스당: ${piecesPerBox}개 | 원가: ${costPrice} | 판매가: ${sellingPrice}`;
         
         // 도매용 필드들을 기본 상품 정보로 자동 입력 (사용자가 수정 가능)
         if (!document.getElementById('wholesale_name_ko').value && nameKo) {
@@ -690,8 +818,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <tr class="hover:bg-gray-50">
                     <td class="px-3 py-2 whitespace-nowrap text-gray-900">${item.purchase_date_formatted}</td>
                     <td class="px-3 py-2 whitespace-nowrap text-gray-900">${item.supplier_name}</td>
-                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-900 font-medium">${Number(item.unit_price).toLocaleString()}원</td>
-                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-500 text-xs">${Number(item.unit_cost_per_piece).toLocaleString()}원</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-900 font-medium">${Number(item.unit_price).toLocaleString()}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-right text-gray-500 text-xs">${Number(item.unit_cost_per_piece).toLocaleString()}</td>
                     <td class="px-3 py-2 whitespace-nowrap text-center text-gray-900">${item.quantity}</td>
                     <td class="px-3 py-2 whitespace-nowrap text-center text-gray-900">
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${item.purchase_type === 'box' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}">
@@ -755,7 +883,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const wholesalePrice = Math.round(costPrice * (1 + marginRate / 100));
         
         calculatedWholesalePriceDiv.innerHTML = `
-            <span class="font-bold">${wholesalePrice.toLocaleString()}원</span>
+            <span class="font-bold">${wholesalePrice.toLocaleString()}</span>
             <br><small class="text-xs">마진 ${marginRate}% 적용</small>
         `;
         
@@ -767,9 +895,12 @@ document.addEventListener('DOMContentLoaded', function() {
         currentCostPrice = parseFloat(costPrice);
         
         selectedCostPriceDiv.innerHTML = `
-            <span class="font-bold">${Number(costPrice).toLocaleString()}원</span>
+            <span class="font-bold">${Number(costPrice).toLocaleString()}</span>
             <br><small class="text-xs">${supplier} (${date})</small>
         `;
+        
+        // 원가 입력 필드에도 반영
+        costPriceInput.value = costPrice;
         
         // 마진율 계산 및 표시
         const marginRate = parseFloat(marginRateInput.value);

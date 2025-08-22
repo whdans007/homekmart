@@ -1,0 +1,133 @@
+# HOME K MART - 프로덕션 환경 설정
+
+# 보안 헤더 설정
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# HTTPS 강제 리다이렉트 (권장)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# 민감한 파일 및 디렉토리 접근 차단
+<Files "*.md">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "*.sql">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "*.log">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "composer.*">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "package*.json">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "tailwind.config.js">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "postcss.config.js">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# 설정 파일 보호
+<Files "db_config.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# 디버그 및 테스트 파일 차단
+<FilesMatch "^(debug|test|check).*\.(php|txt)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# 숨김 파일 차단
+<FilesMatch "^\.">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# 디렉토리 접근 차단
+<DirectoryMatch "^(.*/)?(\.|_|node_modules|vendor|src|config|lib)">
+    Order Allow,Deny
+    Deny from all
+</DirectoryMatch>
+
+# PHP 설정
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag log_errors On
+    php_value error_log /dev/null
+    php_value upload_max_filesize 10M
+    php_value post_max_size 10M
+    php_value memory_limit 128M
+    php_value max_execution_time 60
+</IfModule>
+
+# 파일 압축 (성능 향상)
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+</IfModule>
+
+# 브라우저 캐싱 설정
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+</IfModule>
+
+# 디렉토리 브라우징 차단
+Options -Indexes
+
+# 파일 실행 권한 차단 (업로드 디렉토리용)
+<Directory "*/uploads/*">
+    <FilesMatch "\.php$">
+        Order Allow,Deny
+        Deny from all
+    </FilesMatch>
+</Directory>
+
+# URL 리라이팅 (필요시)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # public 디렉토리를 루트로 처리
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ public/$1 [L,QSA]
+</IfModule>

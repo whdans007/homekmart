@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/lang_helper.php';
-$page_title = '도매 판매 미리보기' . ' - ' . t('company.name');
+$page_title = 'Wholesale Sale Preview' . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
@@ -66,6 +66,7 @@ if ($sale_id > 0) {
                         wsi.quantity,
                         wsi.unit_price,
                         wsi.total_price,
+                        wsi.sale_unit,
                         wsi.remarks,
                         p.sku,
                         COALESCE(wp.wholesale_name_ko, p.name_ko) as name_ko,
@@ -75,7 +76,7 @@ if ($sale_id > 0) {
                     LEFT JOIN products p ON wsi.product_id = p.id
                     LEFT JOIN wholesale_products wp ON wp.product_id = p.id AND wp.store_id = ?
                     WHERE wsi.sale_id = ?
-                    ORDER BY COALESCE(wp.wholesale_name_en, p.name_en), COALESCE(wp.wholesale_name_ko, p.name_ko)
+                    ORDER BY wsi.id ASC
                 ";
                 $items_stmt = $pdo->prepare($items_sql);
                 $items_stmt->execute([$sale['store_id'], $sale_id]);
@@ -87,6 +88,7 @@ if ($sale_id > 0) {
                         wsi.quantity,
                         wsi.unit_price,
                         wsi.total_price,
+                        wsi.sale_unit,
                         wsi.remarks,
                         p.sku,
                         p.name_ko,
@@ -96,7 +98,7 @@ if ($sale_id > 0) {
                     LEFT JOIN products p ON wsi.product_id = p.id
                     LEFT JOIN wholesale_products wp ON wp.product_id = p.id AND wp.store_id = ?
                     WHERE wsi.sale_id = ?
-                    ORDER BY p.name_en, p.name_ko
+                    ORDER BY wsi.id ASC
                 ";
                 $items_stmt = $pdo->prepare($items_sql);
                 $items_stmt->execute([$sale['store_id'], $sale_id]);
@@ -129,13 +131,13 @@ if (isset($_SESSION['flash'])) {
                     <li>
                         <a href="wholesale_sales.php" class="text-gray-400 hover:text-gray-600">
                             <i class="fas fa-handshake mr-1"></i>
-                            도매 판매
+                            Wholesale Sales
                         </a>
                     </li>
                     <li>
                         <div class="flex items-center">
                             <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
-                            <span class="text-gray-600">거래명세서 미리보기</span>
+                            <span class="text-gray-600">Transaction Statement Preview</span>
                         </div>
                     </li>
                 </ol>
@@ -164,7 +166,7 @@ if (isset($_SESSION['flash'])) {
                         <i class="fas fa-exclamation-triangle text-red-400"></i>
                     </div>
                     <div class="ml-3">
-                        <h3 class="text-sm font-medium text-red-800">다음 오류를 해결해주세요:</h3>
+                        <h3 class="text-sm font-medium text-red-800">Please resolve the following errors:</h3>
                         <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
                             <?php foreach ($errors as $error): ?>
                                 <li><?php echo htmlspecialchars($error); ?></li>
@@ -177,7 +179,7 @@ if (isset($_SESSION['flash'])) {
             <div class="text-center">
                 <a href="wholesale_sales.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700">
                     <i class="fas fa-arrow-left mr-2"></i>
-                    도매 판매로 돌아가기
+                    Back to Wholesale Sales
                 </a>
             </div>
         <?php else: ?>
@@ -185,15 +187,15 @@ if (isset($_SESSION['flash'])) {
             <div class="mb-6 text-right">
                 <a href="wholesale_sales.php?edit=<?php echo $sale_id; ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                     <i class="fas fa-edit mr-2"></i>
-                    수정하기
+                    Edit
                 </a>
                 <button id="print-btn" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <i class="fas fa-print mr-2"></i>
-                    인쇄하기
+                    Print
                 </button>
                 <a href="wholesale_sales.php" class="ml-3 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                     <i class="fas fa-arrow-left mr-2"></i>
-                    판매 목록으로
+                    Back to Sales List
                 </a>
             </div>
 
@@ -201,9 +203,9 @@ if (isset($_SESSION['flash'])) {
             <div id="invoice-content" class="bg-white shadow-sm rounded-lg border p-8 print:shadow-none print:border-none">
                 <!-- 제목 -->
                 <div class="text-center mb-8">
-                    <h1 class="text-2xl font-bold text-gray-900 mb-2">도매 판매 거래명세서</h1>
+                    <h1 class="text-2xl font-bold text-gray-900 mb-2">Wholesale Sales Transaction Statement</h1>
                     <div class="text-sm text-gray-600">
-                        <div><?php echo htmlspecialchars($sale['store_name'] ?? '본점'); ?></div>
+                        <div><?php echo htmlspecialchars($sale['store_name'] ?? 'Main Store'); ?></div>
                     </div>
                 </div>
 
@@ -212,21 +214,21 @@ if (isset($_SESSION['flash'])) {
                     <table class="info-table w-full border border-gray-200 mb-4">
                         <tbody>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">거래처</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">Customer</th>
                                 <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200 font-medium"><?php echo htmlspecialchars($sale['customer_name']); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">거래일자</th>
-                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo date('Y년 m월 d일', strtotime($sale['sale_date'])); ?></td>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">Date</th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo date('M d, Y', strtotime($sale['sale_date'])); ?></td>
                             </tr>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">전화번호</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">Phone</th>
                                 <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200"><?php echo htmlspecialchars($sale['customer_phone'] ?: '-'); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">판매자</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">Salesperson</th>
                                 <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($sale['user_name']); ?></td>
                             </tr>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">주소</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">Address</th>
                                 <td class="px-3 py-2 text-sm text-gray-900 border-r border-gray-200"><?php echo htmlspecialchars($sale['customer_address'] ?: '-'); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">판매번호</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">Sale No.</th>
                                 <td class="px-3 py-2 text-sm text-gray-900">#<?php echo str_pad($sale['id'], 6, '0', STR_PAD_LEFT); ?></td>
                             </tr>
                         </tbody>
@@ -239,12 +241,13 @@ if (isset($_SESSION['flash'])) {
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">SKU</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">상품명</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">박스포장수량</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">수량</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">판매가</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">합계금액</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">비고</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Product Name</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Pcs/Box</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Sale Unit</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Qty</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Unit Price</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Total</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Remarks</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -267,7 +270,20 @@ if (isset($_SESSION['flash'])) {
                                                 <div class="text-sm text-gray-500">-</div>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['pieces_per_box']); ?>개</td>
+                                        <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['pieces_per_box']); ?></td>
+                                        <td class="px-4 py-3 text-sm text-center border-b border-gray-200">
+                                            <?php if (isset($item['sale_unit']) && $item['sale_unit'] === 'piece'): ?>
+                                                <span class="inline-flex items-center text-orange-600">
+                                                    <i class="fas fa-cube mr-1"></i>
+                                                    <span class="text-xs font-medium">Piece</span>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="inline-flex items-center text-blue-600">
+                                                    <i class="fas fa-box mr-1"></i>
+                                                    <span class="text-xs font-medium">Box</span>
+                                                </span>
+                                            <?php endif; ?>
+                                        </td>
                                         <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['quantity']); ?></td>
                                         <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['unit_price']); ?></td>
                                         <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium border-b border-gray-200"><?php echo number_format($item['total_price']); ?></td>
@@ -278,7 +294,7 @@ if (isset($_SESSION['flash'])) {
                         </tbody>
                         <tfoot class="bg-gray-50">
                             <tr>
-                                <td colspan="6" class="px-4 py-3 text-right text-sm font-medium text-gray-900 border-t border-gray-200">총 합계:</td>
+                                <td colspan="7" class="px-4 py-3 text-right text-sm font-medium text-gray-900 border-t border-gray-200">Grand Total:</td>
                                 <td class="px-4 py-3 text-right text-lg font-bold text-gray-900 border-t border-gray-200"><?php echo number_format($sale['final_amount']); ?></td>
                             </tr>
                         </tfoot>
@@ -288,7 +304,7 @@ if (isset($_SESSION['flash'])) {
                 <?php if (!empty($sale['notes'])): ?>
                     <!-- 비고 -->
                     <div class="mb-6">
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">비고</h3>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Notes</h3>
                         <div class="bg-gray-50 p-4 rounded-lg text-gray-700">
                             <?php echo nl2br(htmlspecialchars($sale['notes'])); ?>
                         </div>
@@ -301,8 +317,8 @@ if (isset($_SESSION['flash'])) {
                         <table class="payment-table w-full border border-gray-300">
                             <thead>
                                 <tr class="bg-gray-50">
-                                    <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300">담당자</th>
-                                    <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300">싸인</th>
+                                    <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300">Representative</th>
+                                    <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300">Signature</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -317,8 +333,8 @@ if (isset($_SESSION['flash'])) {
 
                 <!-- 푸터 -->
                 <div class="text-center text-xs text-gray-500 mt-8 border-t border-gray-200 pt-4">
-                    <div>발행일: <?php echo date('Y년 m월 d일 H시 i분'); ?></div>
-                    <div class="mt-1"><?php echo htmlspecialchars(t('company.name')); ?> - 도매 판매 거래명세서</div>
+                    <div>Issued: <?php echo date('M d, Y H:i'); ?></div>
+                    <div class="mt-1"><?php echo htmlspecialchars(t('company.name')); ?> - Wholesale Sales Transaction Statement</div>
                 </div>
             </div>
         <?php endif; ?>
@@ -503,49 +519,57 @@ document.addEventListener('DOMContentLoaded', function() {
     
     .product-table th:nth-child(1), 
     .product-table td:nth-child(1) { 
-        width: 12% !important; 
-        max-width: 12% !important;
-        min-width: 12% !important;
+        width: 10% !important; 
+        max-width: 10% !important;
+        min-width: 10% !important;
     } /* SKU */
     
     #invoice-content .product-table th:nth-child(2), 
     #invoice-content .product-table td:nth-child(2) { 
-        width: 40% !important; 
-        max-width: 40% !important;
-        min-width: 40% !important;
+        width: 35% !important; 
+        max-width: 35% !important;
+        min-width: 35% !important;
         font-size: 9px !important;
     } /* 상품명 */
     
     .product-table th:nth-child(3), 
     .product-table td:nth-child(3) { 
-        width: 8% !important; 
-        max-width: 8% !important;
-        min-width: 8% !important;
+        width: 7% !important; 
+        max-width: 7% !important;
+        min-width: 7% !important;
     } /* 박스포장수량 */
     
     .product-table th:nth-child(4), 
     .product-table td:nth-child(4) { 
+        width: 8% !important; 
+        max-width: 8% !important;
+        min-width: 8% !important;
+        font-size: 8px !important;
+    } /* 판매단위 */
+    
+    .product-table th:nth-child(5), 
+    .product-table td:nth-child(5) { 
         width: 6% !important; 
         max-width: 6% !important;
         min-width: 6% !important;
     } /* 수량 */
     
-    .product-table th:nth-child(5), 
-    .product-table td:nth-child(5) { 
+    .product-table th:nth-child(6), 
+    .product-table td:nth-child(6) { 
         width: 10% !important; 
         max-width: 10% !important;
         min-width: 10% !important;
     } /* 판매가 */
     
-    .product-table th:nth-child(6), 
-    .product-table td:nth-child(6) { 
+    .product-table th:nth-child(7), 
+    .product-table td:nth-child(7) { 
         width: 12% !important; 
         max-width: 12% !important;
         min-width: 12% !important;
     } /* 합계금액 */
     
-    .product-table th:nth-child(7), 
-    .product-table td:nth-child(7) { 
+    .product-table th:nth-child(8), 
+    .product-table td:nth-child(8) { 
         width: 12% !important; 
         max-width: 12% !important;
         min-width: 12% !important;

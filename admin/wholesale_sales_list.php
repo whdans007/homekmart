@@ -16,10 +16,6 @@ if (!has_permission('wholesale_management')) {
 
 $page = max(1, (int)($_GET['page'] ?? 1));
 $per_page = 20;
-$search = trim($_GET['search'] ?? '');
-$status_filter = $_GET['status'] ?? '';
-$date_from = $_GET['date_from'] ?? '';
-$date_to = $_GET['date_to'] ?? '';
 
 $sales = [];
 $total_sales = 0;
@@ -35,29 +31,8 @@ try {
     $where_conditions = ["1=1"];
     $params = [];
     
-    // 검색 조건 (거래처명 또는 판매번호)
-    if (!empty($search)) {
-        $where_conditions[] = "(wc.name LIKE ? OR ws.id LIKE ?)";
-        $params[] = "%{$search}%";
-        $params[] = "%{$search}%";
-    }
-    
-    // 상태 필터
-    if (!empty($status_filter)) {
-        $where_conditions[] = "ws.status = ?";
-        $params[] = $status_filter;
-    }
-    
-    // 날짜 범위 필터
-    if (!empty($date_from)) {
-        $where_conditions[] = "ws.sale_date >= ?";
-        $params[] = $date_from;
-    }
-    
-    if (!empty($date_to)) {
-        $where_conditions[] = "ws.sale_date <= ?";
-        $params[] = $date_to;
-    }
+    // 취소된 판매 제외
+    $where_conditions[] = "ws.status != 'cancelled'";
     
     // 점포 필터 (super_admin이 아닌 경우)
     if ($_SESSION['role'] !== 'super_admin') {
@@ -109,7 +84,7 @@ try {
         LEFT JOIN wholesale_sale_items wsi ON ws.id = wsi.sale_id
         WHERE {$where_clause}
         GROUP BY ws.id
-        ORDER BY ws.created_at DESC, ws.id DESC
+        ORDER BY ws.id DESC
         LIMIT " . (int)$per_page . " OFFSET " . (int)$offset . "
     ";
     
@@ -192,60 +167,14 @@ if (isset($_SESSION['flash'])) {
                 </div>
             <?php endif; ?>
 
-            <!-- 검색 및 필터 -->
+            <!-- 액션 버튼 -->
             <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                <form method="GET" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <!-- 검색어 -->
-                        <div>
-                            <label for="search" class="block text-sm font-medium text-gray-700 mb-1">검색</label>
-                            <input type="text" name="search" id="search" 
-                                   value="<?php echo htmlspecialchars($search); ?>"
-                                   placeholder="거래처명 또는 판매번호"
-                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
-                        </div>
-                        
-                        <!-- 상태 필터 -->
-                        <div>
-                            <label for="status" class="block text-sm font-medium text-gray-700 mb-1">상태</label>
-                            <select name="status" id="status" 
-                                    class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
-                                <option value="">전체</option>
-                                <option value="draft" <?php echo $status_filter === 'draft' ? 'selected' : ''; ?>>임시저장</option>
-                                <option value="confirmed" <?php echo $status_filter === 'confirmed' ? 'selected' : ''; ?>>확정</option>
-                                <option value="cancelled" <?php echo $status_filter === 'cancelled' ? 'selected' : ''; ?>>취소</option>
-                            </select>
-                        </div>
-                        
-                        <!-- 시작 날짜 -->
-                        <div>
-                            <label for="date_from" class="block text-sm font-medium text-gray-700 mb-1">시작일</label>
-                            <input type="date" name="date_from" id="date_from" 
-                                   value="<?php echo htmlspecialchars($date_from); ?>"
-                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
-                        </div>
-                        
-                        <!-- 종료 날짜 -->
-                        <div>
-                            <label for="date_to" class="block text-sm font-medium text-gray-700 mb-1">종료일</label>
-                            <input type="date" name="date_to" id="date_to" 
-                                   value="<?php echo htmlspecialchars($date_to); ?>"
-                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
-                        </div>
-                    </div>
-                    
-                    <div class="flex justify-between items-center">
-                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                            <i class="fas fa-search mr-2"></i>
-                            검색
-                        </button>
-                        
-                        <a href="wholesale_sales.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
-                            <i class="fas fa-plus mr-2"></i>
-                            새 판매 등록
-                        </a>
-                    </div>
-                </form>
+                <div class="flex justify-end">
+                    <a href="wholesale_sales.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                        <i class="fas fa-plus mr-2"></i>
+                        새 판매 등록
+                    </a>
+                </div>
             </div>
 
             <!-- 판매 목록 -->

@@ -42,10 +42,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         // 권한 확인 (super_admin이 아닌 경우 자신의 점포만 취소 가능)
-        if ($_SESSION['role'] !== 'super_admin' && $sale['store_id'] != $_SESSION['store_id']) {
-            $response['message'] = '다른 점포의 판매는 취소할 수 없습니다.';
-            echo json_encode($response);
-            exit;
+        if ($_SESSION['role'] !== 'super_admin') {
+            $user_store_id = get_user_store_id();
+            if ($sale['store_id'] != $user_store_id) {
+                $response['message'] = '다른 점포의 판매는 취소할 수 없습니다.';
+                echo json_encode($response);
+                exit;
+            }
         }
         
         // 이미 취소된 판매인지 확인

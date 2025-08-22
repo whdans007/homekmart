@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($has_new_columns) {
             // 새로운 스키마 사용
             if ($show_all && empty($query)) {
-                // 전체 목록 요청
+                // 전체 목록 요청 - 도매상품만
                 $sql = "
                     SELECT DISTINCT
                         wp.id as wholesale_product_id,
@@ -59,8 +59,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
                         wp.wholesale_skus,
                         wp.wholesale_price,
+                        COALESCE(wp.wholesale_price_piece, 0) as wholesale_price_piece,
                         COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
-                        wp.wholesale_description
+                        wp.wholesale_description,
+                        'registered' as status
                     FROM wholesale_products wp
                     INNER JOIN products p ON p.id = wp.product_id 
                     WHERE wp.is_active = 1 
@@ -76,39 +78,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $params[] = $store_id;
                 }
             } else {
-                // 검색 요청
+                // 검색 요청 - 도매상품 + 미등록 일반상품
                 $sql = "
-                    SELECT DISTINCT
-                        wp.id as wholesale_product_id,
-                        p.id,
-                        p.sku,
-                        p.name_ko,
-                        p.name_en,
-                        COALESCE(wp.wholesale_name_ko, p.name_ko) as display_name_ko,
-                        COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
-                        wp.wholesale_skus,
-                        wp.wholesale_price,
-                        COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
-                        wp.wholesale_description
-                    FROM wholesale_products wp
-                    INNER JOIN products p ON p.id = wp.product_id 
-                    WHERE wp.is_active = 1 
-                        AND p.is_active = 1 
-                        " . ($store_id ? "AND wp.store_id = ?" : "") . "
-                        AND (
-                            p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ? 
-                            OR wp.wholesale_name_ko LIKE ? OR wp.wholesale_name_en LIKE ? 
-                            OR wp.wholesale_skus LIKE ?
-                        )
+                    (
+                        SELECT DISTINCT
+                            wp.id as wholesale_product_id,
+                            p.id,
+                            p.sku,
+                            p.name_ko,
+                            p.name_en,
+                            COALESCE(wp.wholesale_name_ko, p.name_ko) as display_name_ko,
+                            COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
+                            wp.wholesale_skus,
+                            wp.wholesale_price,
+                            COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
+                            wp.wholesale_description,
+                            'registered' as status,
+                            p.cost_price,
+                            p.selling_price,
+                            p.pieces_per_box as product_pieces_per_box,
+                            1 as sort_priority
+                        FROM wholesale_products wp
+                        INNER JOIN products p ON p.id = wp.product_id 
+                        WHERE wp.is_active = 1 
+                            AND p.is_active = 1 
+                            " . ($store_id ? "AND wp.store_id = ?" : "") . "
+                            AND (
+                                p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ? 
+                                OR wp.wholesale_name_ko LIKE ? OR wp.wholesale_name_en LIKE ? 
+                                OR wp.wholesale_skus LIKE ?
+                            )
+                    )
+                    UNION ALL
+                    (
+                        SELECT DISTINCT
+                            NULL as wholesale_product_id,
+                            p.id,
+                            p.sku,
+                            p.name_ko,
+                            p.name_en,
+                            p.name_ko as display_name_ko,
+                            p.name_en as display_name_en,
+                            NULL as wholesale_skus,
+                            NULL as wholesale_price,
+                            p.pieces_per_box as min_quantity,
+                            NULL as wholesale_description,
+                            'unregistered' as status,
+                            p.cost_price,
+                            p.selling_price,
+                            p.pieces_per_box as product_pieces_per_box,
+                            2 as sort_priority
+                        FROM products p
+                        WHERE p.is_active = 1 
+                            AND (p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ?)
+                            AND NOT EXISTS (
+                                SELECT 1 FROM wholesale_products wp2 
+                                WHERE wp2.product_id = p.id 
+                                AND wp2.is_active = 1 
+                                " . ($store_id ? "AND wp2.store_id = ?" : "") . "
+                            )
+                    )
                     ORDER BY 
+                        sort_priority ASC,
                         CASE 
-                            WHEN wp.wholesale_skus LIKE ? OR p.sku LIKE ? THEN 1 
-                            WHEN wp.wholesale_name_en LIKE ? OR p.name_en LIKE ? THEN 2 
-                            WHEN wp.wholesale_name_ko LIKE ? OR p.name_ko LIKE ? THEN 3 
+                            WHEN sku LIKE ? THEN 1 
+                            WHEN display_name_en LIKE ? THEN 2 
+                            WHEN display_name_ko LIKE ? THEN 3 
                             ELSE 4 
                         END,
-                        COALESCE(wp.wholesale_name_en, p.name_en) ASC, 
-                        COALESCE(wp.wholesale_name_ko, p.name_ko) ASC
+                        display_name_en ASC, 
+                        display_name_ko ASC
                     LIMIT " . (int)$limit . "
                 ";
                 
@@ -117,11 +156,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $params[] = $store_id;
                 }
                 $params = array_merge($params, [
-                    $search_query, $search_query, $search_query, // 기본 상품 검색
-                    $search_query, $search_query, $search_query, // 도매 상품 검색
-                    $search_query, $search_query, // ORDER BY SKU 검색
-                    $search_query, $search_query, // ORDER BY 영어명 검색
-                    $search_query, $search_query  // ORDER BY 한국어명 검색
+                    $search_query, $search_query, $search_query, // 등록된 도매상품 검색 - 기본 상품
+                    $search_query, $search_query, $search_query, // 등록된 도매상품 검색 - 도매 상품
+                    $search_query, $search_query, $search_query, // 미등록 일반상품 검색
+                ]);
+                if ($store_id) {
+                    $params[] = $store_id; // 미등록 상품 store_id 조건
+                }
+                $params = array_merge($params, [
+                    $search_query, $search_query, $search_query  // ORDER BY 조건
                 ]);
             }
         } else {
@@ -139,6 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         p.name_en as display_name_en,
                         JSON_ARRAY(p.sku) as wholesale_skus,
                         wp.wholesale_price,
+                        COALESCE(wp.wholesale_price_piece, 0) as wholesale_price_piece,
                         COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
                         NULL as wholesale_description
                     FROM wholesale_products wp
@@ -167,6 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         p.name_en as display_name_en,
                         JSON_ARRAY(p.sku) as wholesale_skus,
                         wp.wholesale_price,
+                        COALESCE(wp.wholesale_price_piece, 0) as wholesale_price_piece,
                         COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
                         NULL as wholesale_description
                     FROM wholesale_products wp

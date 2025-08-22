@@ -19,7 +19,9 @@
       "mcp__sequential__sequentialthinking",
       "Bash(mkdir:*)",
       "Bash(cat:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npm run build:css:*)",
+      "Bash(mysqldump:*)"
     ],
     "deny": []
   }
