@@ -449,6 +449,7 @@
     "brand": "브랜드",
     "box_quantity": "박스포장수량",
     "purchase_products": "매입 상품 목록",
+    "item_list": "상품 목록",
     "box_unit": "박스",
     "piece_unit": "개",
     "total_amount": "총액",
@@ -574,7 +575,20 @@
     "total_records": "총 {count}건의 가격변경 이력",
     "store_info": "점포: {store}",
     "previous": "이전",
-    "next": "다음"
+    "next": "다음",
+    "selected_items": "선택된 항목",
+    "selected_count": "{count}개",
+    "delete_selected": "선택 항목 삭제",
+    "print_selected": "선택 항목 인쇄",
+    "previous_day": "이전날",
+    "next_day": "다음날",
+    "today": "오늘",
+    "confirm_delete_selected": "선택한 {count}개의 가격 변경 이력을 삭제하시겠습니까?\\n이 작업은 되돌릴 수 없습니다.",
+    "select_items_to_print": "인쇄할 항목을 선택해주세요.",
+    "loading_selected_items": "선택된 항목 로딩 중...",
+    "selected_items_header": "선택된 항목",
+    "delete_success": "삭제되었습니다.",
+    "delete_error": "삭제 중 오류가 발생했습니다."
   },
   "navigation": {
     "dashboard": "대시보드",
@@ -604,7 +618,8 @@
     "wholesale_management_section": "도매 관리",
     "store_transfer_section": "점간이동",
     "system_settings_section": "시스템 설정",
-    "wholesale_product_management": "도매상품 관리"
+    "wholesale_product_management": "도매상품 관리",
+    "other_info_management_section": "기타정보관리"
   },
   "forms": {
     "required_field": "필수 입력 항목입니다",

@@ -70,7 +70,7 @@ if (!empty($_SESSION['user_id'])) {
                     <div class="flex-grow px-4 space-y-4">
                         <!-- 기본 메뉴 카드 -->
                         <?php if (has_permission('admin_access') || has_permission('shop_access') || has_permission('user_management') || has_permission('store_management')): ?>
-                        <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200 shadow-sm">
+                        <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-2 border border-gray-200 shadow-sm">
                             <div class="flex items-center mb-3">
                                 <div class="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center mr-3">
                                     <i class="fas fa-home text-white text-sm"></i>
@@ -109,55 +109,9 @@ if (!empty($_SESSION['user_id'])) {
                         </div>
                         <?php endif; ?>
 
-                        <!-- 상품 관리 카드 (파란색) -->
-                        <?php if (has_permission('brand_management') || has_permission('category_management') || has_permission('supplier_management') || has_permission('product_management') || $_SESSION['role'] === 'super_admin'): ?>
-                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200 shadow-sm">
-                            <div class="flex items-center mb-3">
-                                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-                                    <i class="fas fa-box-open text-white text-sm"></i>
-                                </div>
-                                <h3 class="text-sm font-semibold text-blue-800"><?php echo t('navigation.product_management_section'); ?></h3>
-                            </div>
-                            <div class="space-y-1">
-                                <?php if (has_permission('brand_management') || $_SESSION['role'] === 'super_admin'): ?>
-                                <a href="brand_management.php" class="<?php echo in_array($current_page, ['brand_management.php', 'add_brand.php', 'edit_brand.php']) ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200 hover:text-blue-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-tags mr-2 text-blue-500 group-hover:text-blue-600 text-xs"></i>
-                                    <?php echo t('navigation.brand_management'); ?>
-                                </a>
-                                <?php endif; ?>
-                                
-                                <?php if (has_permission('category_management') || $_SESSION['role'] === 'super_admin'): ?>
-                                <a href="category_management.php" class="<?php echo in_array($current_page, ['category_management.php', 'add_category.php', 'edit_category.php']) ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200 hover:text-blue-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-sitemap mr-2 text-blue-500 group-hover:text-blue-600 text-xs"></i>
-                                    <?php echo t('navigation.category_management'); ?>
-                                </a>
-                                <?php endif; ?>
-                                
-                                <?php if (has_permission('supplier_management') || $_SESSION['role'] === 'super_admin'): ?>
-                                <a href="supplier_management.php" class="<?php echo in_array($current_page, ['supplier_management.php', 'add_supplier.php', 'edit_supplier.php']) ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200 hover:text-blue-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-truck mr-2 text-blue-500 group-hover:text-blue-600 text-xs"></i>
-                                    <?php echo t('navigation.supplier_management'); ?>
-                                </a>
-                                <?php endif; ?>
-                                
-                                <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                                <a href="product_management.php" class="<?php echo in_array($current_page, ['product_management.php', 'add_product.php', 'edit_product.php']) ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200 hover:text-blue-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-box-open mr-2 text-blue-500 group-hover:text-blue-600 text-xs"></i>
-                                    <?php echo t('navigation.product_management'); ?>
-                                </a>
-                                
-                                <a href="new_products_management.php" class="<?php echo ($current_page == 'new_products_management.php') ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200 hover:text-blue-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-sparkles mr-2 text-blue-500 group-hover:text-blue-600 text-xs"></i>
-                                    <?php echo t('navigation.new_products_management'); ?>
-                                </a>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-
                         <!-- 매입 관리 카드 (녹색) -->
                         <?php if (has_permission('purchase_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                        <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200 shadow-sm">
+                        <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-2 border border-green-200 shadow-sm">
                             <div class="flex items-center mb-3">
                                 <div class="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center mr-3">
                                     <i class="fas fa-shopping-cart text-white text-sm"></i>
@@ -185,7 +139,7 @@ if (!empty($_SESSION['user_id'])) {
 
                         <!-- 도매 관리 카드 (주황색) -->
                         <?php if (has_permission('wholesale_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                        <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200 shadow-sm">
+                        <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-2 border border-orange-200 shadow-sm">
                             <div class="flex items-center mb-3">
                                 <div class="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center mr-3">
                                     <i class="fas fa-handshake text-white text-sm"></i>
@@ -213,7 +167,7 @@ if (!empty($_SESSION['user_id'])) {
 
                         <!-- 점간이동 카드 (보라색) -->
                         <?php if (has_permission('store_transfer_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                        <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200 shadow-sm">
+                        <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-2 border border-purple-200 shadow-sm">
                             <div class="flex items-center mb-3">
                                 <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center mr-3">
                                     <i class="fas fa-exchange-alt text-white text-sm"></i>
@@ -229,9 +183,66 @@ if (!empty($_SESSION['user_id'])) {
                         </div>
                         <?php endif; ?>
 
+                        <!-- 상품 관리 카드 (파란색) -->
+                        <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-2 border border-blue-200 shadow-sm">
+                            <div class="flex items-center mb-3">
+                                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-box-open text-white text-sm"></i>
+                                </div>
+                                <h3 class="text-sm font-semibold text-blue-800"><?php echo t('navigation.product_management_section'); ?></h3>
+                            </div>
+                            <div class="space-y-1">
+                                <a href="product_management.php" class="<?php echo in_array($current_page, ['product_management.php', 'add_product.php', 'edit_product.php']) ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200 hover:text-blue-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-box-open mr-2 text-blue-500 group-hover:text-blue-600 text-xs"></i>
+                                    <?php echo t('navigation.product_management'); ?>
+                                </a>
+                                
+                                <a href="new_products_management.php" class="<?php echo ($current_page == 'new_products_management.php') ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200 hover:text-blue-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-star mr-2 text-blue-500 group-hover:text-blue-600 text-xs"></i>
+                                    <?php echo t('navigation.new_products_management'); ?>
+                                </a>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
+                        <!-- 기타정보관리 카드 (보라색) -->
+                        <?php if (has_permission('supplier_management') || has_permission('brand_management') || has_permission('category_management') || $_SESSION['role'] === 'super_admin'): ?>
+                        <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-2 border border-purple-200 shadow-sm">
+                            <div class="flex items-center mb-3">
+                                <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-database text-white text-sm"></i>
+                                </div>
+                                <h3 class="text-sm font-semibold text-purple-800"><?php echo t('navigation.other_info_management_section'); ?></h3>
+                            </div>
+                            <div class="space-y-1">
+                                <?php if (has_permission('supplier_management') || $_SESSION['role'] === 'super_admin'): ?>
+                                <a href="supplier_management.php" class="<?php echo in_array($current_page, ['supplier_management.php', 'add_supplier.php', 'edit_supplier.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200 hover:text-purple-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-truck mr-2 text-purple-500 group-hover:text-purple-600 text-xs"></i>
+                                    <?php echo t('navigation.supplier_management'); ?>
+                                </a>
+                                <?php endif; ?>
+                                
+                                <?php if (has_permission('brand_management') || $_SESSION['role'] === 'super_admin'): ?>
+                                <a href="brand_management.php" class="<?php echo in_array($current_page, ['brand_management.php', 'add_brand.php', 'edit_brand.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200 hover:text-purple-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-tags mr-2 text-purple-500 group-hover:text-purple-600 text-xs"></i>
+                                    <?php echo t('navigation.brand_management'); ?>
+                                </a>
+                                <?php endif; ?>
+                                
+                                <?php if (has_permission('category_management') || $_SESSION['role'] === 'super_admin'): ?>
+                                <a href="category_management.php" class="<?php echo in_array($current_page, ['category_management.php', 'add_category.php', 'edit_category.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200 hover:text-purple-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-sitemap mr-2 text-purple-500 group-hover:text-purple-600 text-xs"></i>
+                                    <?php echo t('navigation.category_management'); ?>
+                                </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
                         <!-- 시스템 설정 카드 -->
                         <?php if (has_permission('settings') || $_SESSION['role'] === 'super_admin'): ?>
-                        <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200 shadow-sm">
+                        <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-2 border border-gray-200 shadow-sm">
                             <div class="flex items-center mb-3">
                                 <div class="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center mr-3">
                                     <i class="fas fa-cog text-white text-sm"></i>
@@ -301,7 +312,7 @@ if (!empty($_SESSION['user_id'])) {
                 <div class="px-3 pt-3 pb-4 space-y-3 bg-white border-b border-gray-200 max-h-96 overflow-y-auto">
                     <!-- 모바일 기본 메뉴 카드 -->
                     <?php if (has_permission('admin_access') || has_permission('shop_access') || has_permission('user_management') || has_permission('store_management')): ?>
-                    <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-3 border border-gray-200">
+                    <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-1.5 border border-gray-200">
                         <div class="flex items-center mb-2">
                             <div class="w-6 h-6 bg-gray-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-home text-white text-xs"></i>
@@ -336,50 +347,9 @@ if (!empty($_SESSION['user_id'])) {
                     </div>
                     <?php endif; ?>
 
-                    <!-- 모바일 상품 관리 카드 -->
-                    <?php if (has_permission('brand_management') || has_permission('category_management') || has_permission('supplier_management') || has_permission('product_management') || $_SESSION['role'] === 'super_admin'): ?>
-                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
-                        <div class="flex items-center mb-2">
-                            <div class="w-6 h-6 bg-blue-600 rounded flex items-center justify-center mr-2">
-                                <i class="fas fa-box-open text-white text-xs"></i>
-                            </div>
-                            <h4 class="text-xs font-semibold text-blue-800"><?php echo t('navigation.product_management_section'); ?></h4>
-                        </div>
-                        <div class="space-y-1">
-                            <?php if (has_permission('brand_management') || $_SESSION['role'] === 'super_admin'): ?>
-                            <a href="brand_management.php" class="<?php echo in_array($current_page, ['brand_management.php', 'add_brand.php', 'edit_brand.php']) ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200'; ?> block px-2 py-1 rounded text-sm">
-                                <i class="fas fa-tags mr-2 text-xs"></i><?php echo t('navigation.brand_management'); ?>
-                            </a>
-                            <?php endif; ?>
-                            
-                            <?php if (has_permission('category_management') || $_SESSION['role'] === 'super_admin'): ?>
-                            <a href="category_management.php" class="<?php echo in_array($current_page, ['category_management.php', 'add_category.php', 'edit_category.php']) ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200'; ?> block px-2 py-1 rounded text-sm">
-                                <i class="fas fa-sitemap mr-2 text-xs"></i><?php echo t('navigation.category_management'); ?>
-                            </a>
-                            <?php endif; ?>
-                            
-                            <?php if (has_permission('supplier_management') || $_SESSION['role'] === 'super_admin'): ?>
-                            <a href="supplier_management.php" class="<?php echo in_array($current_page, ['supplier_management.php', 'add_supplier.php', 'edit_supplier.php']) ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200'; ?> block px-2 py-1 rounded text-sm">
-                                <i class="fas fa-truck mr-2 text-xs"></i><?php echo t('navigation.supplier_management'); ?>
-                            </a>
-                            <?php endif; ?>
-                            
-                            <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                            <a href="product_management.php" class="<?php echo in_array($current_page, ['product_management.php', 'add_product.php', 'edit_product.php']) ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200'; ?> block px-2 py-1 rounded text-sm">
-                                <i class="fas fa-box-open mr-2 text-xs"></i><?php echo t('navigation.product_management'); ?>
-                            </a>
-                            
-                            <a href="new_products_management.php" class="<?php echo ($current_page == 'new_products_management.php') ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200'; ?> block px-2 py-1 rounded text-sm">
-                                <i class="fas fa-sparkles mr-2 text-xs"></i><?php echo t('navigation.new_products_management'); ?>
-                            </a>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-
                     <!-- 모바일 매입 관리 카드 -->
                     <?php if (has_permission('purchase_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                    <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-1.5 border border-green-200">
                         <div class="flex items-center mb-2">
                             <div class="w-6 h-6 bg-green-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-shopping-cart text-white text-xs"></i>
@@ -404,7 +374,7 @@ if (!empty($_SESSION['user_id'])) {
 
                     <!-- 모바일 도매 관리 카드 -->
                     <?php if (has_permission('wholesale_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                    <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
+                    <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-1.5 border border-orange-200">
                         <div class="flex items-center mb-2">
                             <div class="w-6 h-6 bg-orange-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-handshake text-white text-xs"></i>
@@ -433,7 +403,7 @@ if (!empty($_SESSION['user_id'])) {
 
                     <!-- 모바일 점간이동 카드 -->
                     <?php if (has_permission('store_transfer_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200">
+                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-1.5 border border-purple-200">
                         <div class="flex items-center mb-2">
                             <div class="w-6 h-6 bg-purple-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-exchange-alt text-white text-xs"></i>
@@ -448,9 +418,61 @@ if (!empty($_SESSION['user_id'])) {
                     </div>
                     <?php endif; ?>
 
+                    <!-- 모바일 상품 관리 카드 -->
+                    <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-1.5 border border-blue-200">
+                        <div class="flex items-center mb-2">
+                            <div class="w-6 h-6 bg-blue-600 rounded flex items-center justify-center mr-2">
+                                <i class="fas fa-box-open text-white text-xs"></i>
+                            </div>
+                            <h4 class="text-xs font-semibold text-blue-800"><?php echo t('navigation.product_management_section'); ?></h4>
+                        </div>
+                        <div class="space-y-1">
+                            <a href="product_management.php" class="<?php echo in_array($current_page, ['product_management.php', 'add_product.php', 'edit_product.php']) ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-box-open mr-2 text-xs"></i><?php echo t('navigation.product_management'); ?>
+                            </a>
+                            
+                            <a href="new_products_management.php" class="<?php echo ($current_page == 'new_products_management.php') ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-star mr-2 text-xs"></i><?php echo t('navigation.new_products_management'); ?>
+                            </a>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- 모바일 기타정보관리 카드 -->
+                    <?php if (has_permission('supplier_management') || has_permission('brand_management') || has_permission('category_management') || $_SESSION['role'] === 'super_admin'): ?>
+                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-1.5 border border-purple-200">
+                        <div class="flex items-center mb-2">
+                            <div class="w-6 h-6 bg-purple-600 rounded flex items-center justify-center mr-2">
+                                <i class="fas fa-database text-white text-xs"></i>
+                            </div>
+                            <h4 class="text-xs font-semibold text-purple-800"><?php echo t('navigation.other_info_management_section'); ?></h4>
+                        </div>
+                        <div class="space-y-1">
+                            <?php if (has_permission('supplier_management') || $_SESSION['role'] === 'super_admin'): ?>
+                            <a href="supplier_management.php" class="<?php echo in_array($current_page, ['supplier_management.php', 'add_supplier.php', 'edit_supplier.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-truck mr-2 text-xs"></i><?php echo t('navigation.supplier_management'); ?>
+                            </a>
+                            <?php endif; ?>
+                            
+                            <?php if (has_permission('brand_management') || $_SESSION['role'] === 'super_admin'): ?>
+                            <a href="brand_management.php" class="<?php echo in_array($current_page, ['brand_management.php', 'add_brand.php', 'edit_brand.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-tags mr-2 text-xs"></i><?php echo t('navigation.brand_management'); ?>
+                            </a>
+                            <?php endif; ?>
+                            
+                            <?php if (has_permission('category_management') || $_SESSION['role'] === 'super_admin'): ?>
+                            <a href="category_management.php" class="<?php echo in_array($current_page, ['category_management.php', 'add_category.php', 'edit_category.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-sitemap mr-2 text-xs"></i><?php echo t('navigation.category_management'); ?>
+                            </a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
                     <!-- 모바일 시스템 설정 카드 -->
                     <?php if (has_permission('settings') || $_SESSION['role'] === 'super_admin'): ?>
-                    <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-3 border border-gray-200">
+                    <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-1.5 border border-gray-200">
                         <div class="flex items-center mb-2">
                             <div class="w-6 h-6 bg-gray-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-cog text-white text-xs"></i>

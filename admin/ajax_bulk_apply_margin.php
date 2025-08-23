@@ -39,6 +39,7 @@ $purchase_id = $_POST['purchase_id'] ?? '';
 $product_ids = $_POST['product_ids'] ?? [];
 $margin_rate = $_POST['margin_rate'] ?? '';
 $store_id = $_POST['store_id'] ?? '';
+$selling_prices = $_POST['selling_prices'] ?? [];
 
 if (empty($purchase_id)) {
     echo json_encode(['success' => false, 'message' => '매입 ID가 필요합니다.']);
@@ -129,7 +130,11 @@ function savePriceChangeHistory($pdo, $data) {
 
 try {
     // 디버깅 로그
-    $debug_msg = date('Y-m-d H:i:s') . " - 일괄 가격적용 시작 - product_ids: " . implode(',', $product_ids) . ", store_id: " . ($store_id ?? 'null') . ", margin_rate: " . $margin_rate . "%\n";
+    $debug_msg = date('Y-m-d H:i:s') . " - 일괄 가격적용 시작 - product_ids: " . implode(',', $product_ids) . ", store_id: " . ($store_id ?? 'null') . ", margin_rate: " . $margin_rate . "%";
+    if (!empty($selling_prices)) {
+        $debug_msg .= ", selling_prices 전달됨: " . json_encode($selling_prices);
+    }
+    $debug_msg .= "\n";
     file_put_contents(__DIR__ . '/debug_log.txt', $debug_msg, FILE_APPEND | LOCK_EX);
     error_log("일괄 가격적용 시작 - product count: " . count($product_ids) . ", store_id: " . ($store_id ?? 'null') . ", margin_rate: " . $margin_rate . "%");
     
@@ -205,9 +210,16 @@ try {
             $purchase_unit_price_per_piece = $result['purchase_unit_price'] / $result['pieces_per_box'];
         }
         
-        // 새로운 판매가 계산 (매입 원가 기준으로 마진율 적용)
+        // 새로운 판매가 설정 (JavaScript에서 전송된 값 사용, 없으면 마진율로 계산)
         $new_cost_price = $purchase_unit_price_per_piece;
-        $new_selling_price = round($new_cost_price * (1 + ($margin_rate / 100)));
+        
+        // JavaScript에서 전송된 판매가가 있으면 사용, 없으면 마진율로 계산
+        if (isset($selling_prices[$product_id]) && is_numeric($selling_prices[$product_id])) {
+            $new_selling_price = intval($selling_prices[$product_id]);
+        } else {
+            // Math.ceil과 동일한 결과를 위해 ceil 사용
+            $new_selling_price = ceil($new_cost_price * (1 + ($margin_rate / 100)));
+        }
         
         // 기존 가격 정보 저장
         $old_cost_price = $result['current_cost_price'];
@@ -275,12 +287,14 @@ try {
         
         $updated_count++;
         $updated_products[] = [
+            'product_id' => $product_id,
             'product_name' => $result['name_ko'],
             'old_cost_price' => $old_cost_price,
             'new_cost_price' => $new_cost_price,
             'old_selling_price' => $old_selling_price,
             'new_selling_price' => $new_selling_price,
-            'margin_rate' => $new_margin_rate
+            'margin_rate' => $new_margin_rate,
+            'used_js_price' => isset($selling_prices[$product_id])
         ];
     }
     
