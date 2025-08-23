@@ -313,6 +313,20 @@ if (isset($_GET['debug'])) {
         padding: 0.75rem 1.5rem;
     }
 }
+
+/* 클릭 가능한 테이블 행 스타일 */
+.clickable-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.clickable-row:hover {
+    background-color: #f9fafb !important;
+}
+
+.clickable-row:active {
+    background-color: #f3f4f6 !important;
+}
 </style>
 
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -463,7 +477,7 @@ if (isset($_GET['debug'])) {
                         <?php $result->data_seek(0); // 결과 포인터 리셋 ?>
                         <?php $row_number = 1; ?>
                         <?php while($row = $result->fetch_assoc()): ?>
-                            <tr class="hover:bg-gray-50" data-purchase-id="<?php echo $row['purchase_id']; ?>">
+                            <tr class="hover:bg-gray-50 clickable-row" data-purchase-id="<?php echo $row['purchase_id']; ?>">
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center border border-gray-300 priority-high" data-column="number"><?php echo $row_number++; ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-300 priority-high" data-column="datetime"><?php echo htmlspecialchars($row['purchase_datetime']); ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-300 priority-high mobile-hidden" data-column="supplier"><?php echo htmlspecialchars($row['supplier_name']); ?></td>
@@ -474,14 +488,11 @@ if (isset($_GET['debug'])) {
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300 priority-high" data-column="amount"><?php echo number_format($row['total_amount'], 2); ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium border border-gray-300 priority-high" data-column="actions">
-                                    <div class="flex justify-center space-x-2">
-                                        <a href="edit_purchase.php?id=<?php echo $row['purchase_id']; ?>" class="text-indigo-600 hover:text-indigo-900 text-xs" title="<?php echo t('purchase.detail_view'); ?>">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                        <a href="purchase_price_change.php?purchase_id=<?php echo $row['purchase_id']; ?>" class="text-green-600 hover:text-green-900 text-xs" title="<?php echo t('purchase.price_change'); ?>">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                    </div>
+                                    <a href="purchase_price_change.php?purchase_id=<?php echo $row['purchase_id']; ?>" 
+                                       class="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                        <i class="fas fa-edit mr-1"></i>
+                                        가격변경확인
+                                    </a>
                                 </td>
                             </tr>
                         <?php endwhile; ?>
@@ -725,6 +736,30 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 초기 반응형 처리
     handleResponsiveTable();
+    
+    // 테이블 행 클릭 이벤트 처리
+    const clickableRows = document.querySelectorAll('.clickable-row');
+    clickableRows.forEach(row => {
+        row.addEventListener('click', function(e) {
+            // 액션 버튼 영역 클릭 시에는 이벤트 무시
+            if (e.target.closest('td[data-column="actions"]') || 
+                e.target.closest('a') || 
+                e.target.tagName === 'A' || 
+                e.target.tagName === 'I') {
+                return;
+            }
+            
+            // 매입 ID 가져오기
+            const purchaseId = this.dataset.purchaseId;
+            if (purchaseId) {
+                // 매입 상세 페이지로 이동
+                window.location.href = `edit_purchase.php?id=${purchaseId}`;
+            }
+        });
+        
+        // 행에 타이틀 추가 (툴팁)
+        row.title = '클릭하여 상세내역 보기';
+    });
 });
 </script>
 

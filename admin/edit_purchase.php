@@ -733,6 +733,54 @@ $stmt->execute();
 $items_result = $stmt->get_result();
 ?>
 
+<style>
+/* 인라인 편집 스타일 */
+.quantity-input,
+.price-input,
+.pieces-input {
+    transition: all 0.2s ease;
+    background-color: transparent;
+}
+
+.quantity-input:hover,
+.price-input:hover,
+.pieces-input:hover {
+    background-color: #f9fafb;
+}
+
+.quantity-input:focus,
+.price-input:focus,
+.pieces-input:focus {
+    background-color: white;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.save-indicator {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.notification-toast {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+</style>
+
 <!-- Page header -->
 <div class="mb-8 sm:flex sm:items-center sm:justify-between">
     <div>
@@ -823,7 +871,7 @@ $items_result = $stmt->get_result();
                             </th>
                             <th class="w-20 px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
                             <th class="w-32 px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품명</th>
-                            <th class="w-12 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">단위</th>
+                            <th class="w-16 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">단위</th>
                             <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">수량</th>
                             <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">박스/개</th>
                             <th class="w-20 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">단가</th>
@@ -872,26 +920,50 @@ $items_result = $stmt->get_result();
                                         <div class="text-xs text-gray-500 truncate" title="바코드: <?php echo htmlspecialchars($item['barcode']); ?>">바코드: <?php echo htmlspecialchars($item['barcode']); ?></div>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="w-12 px-1 py-3 text-center">
-                                        <span class="type-display inline-flex px-1 py-1 text-xs font-semibold rounded-full <?php echo $item['purchase_type'] === 'box' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'; ?>">
-                                            <?php echo $item['purchase_type'] === 'box' ? '박스' : '낱개'; ?>
-                                        </span>
-                                        <select class="type-input text-xs rounded-md px-1 py-1 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 w-full" style="display: none;">
-                                            <option value="box" <?php echo $item['purchase_type'] === 'box' ? 'selected' : ''; ?>>박스</option>
-                                            <option value="piece" <?php echo $item['purchase_type'] === 'piece' ? 'selected' : ''; ?>>낱개</option>
-                                        </select>
+                                    <td class="w-16 px-1 py-3 text-center">
+                                        <div class="flex items-center justify-center space-x-1">
+                                            <label class="inline-flex items-center">
+                                                <input type="radio" name="purchase_type_<?php echo $item['item_id']; ?>" 
+                                                       class="type-input text-indigo-600 border-gray-300 focus:ring-indigo-500" 
+                                                       value="box" 
+                                                       data-item-id="<?php echo $item['item_id']; ?>"
+                                                       <?php echo $item['purchase_type'] === 'box' ? 'checked' : ''; ?>>
+                                                <span class="ml-1 text-xs">박스</span>
+                                            </label>
+                                            <label class="inline-flex items-center">
+                                                <input type="radio" name="purchase_type_<?php echo $item['item_id']; ?>" 
+                                                       class="type-input text-indigo-600 border-gray-300 focus:ring-indigo-500" 
+                                                       value="piece" 
+                                                       data-item-id="<?php echo $item['item_id']; ?>"
+                                                       <?php echo $item['purchase_type'] === 'piece' ? 'checked' : ''; ?>>
+                                                <span class="ml-1 text-xs">낱개</span>
+                                            </label>
+                                        </div>
                                     </td>
-                                    <td class="w-16 px-1 py-3 text-sm text-gray-900 text-right font-semibold">
-                                        <span class="quantity-display"><?php echo number_format($item['quantity']); ?></span>
-                                        <input type="number" class="quantity-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-sm focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo $item['quantity']; ?>" min="1" style="display: none;">
+                                    <td class="w-16 px-1 py-3 text-sm text-gray-900 text-right">
+                                        <input type="number" 
+                                               class="quantity-input w-full px-2 py-1 border border-gray-300 rounded-md text-right text-sm hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
+                                               value="<?php echo $item['quantity']; ?>" 
+                                               data-item-id="<?php echo $item['item_id']; ?>"
+                                               data-original-value="<?php echo $item['quantity']; ?>"
+                                               min="1">
                                     </td>
                                     <td class="w-16 px-1 py-3 text-sm text-gray-500 text-right">
-                                        <span class="pieces-display"><?php echo number_format($item['pieces_per_box'] ?? 1); ?>개</span>
-                                        <input type="number" class="pieces-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-sm focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo $item['pieces_per_box'] ?? 1; ?>" min="1" style="display: none;">
+                                        <input type="number" 
+                                               class="pieces-input w-full px-2 py-1 border border-gray-300 rounded-md text-right text-sm hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
+                                               value="<?php echo $item['pieces_per_box'] ?? 1; ?>" 
+                                               data-item-id="<?php echo $item['item_id']; ?>"
+                                               data-original-value="<?php echo $item['pieces_per_box'] ?? 1; ?>"
+                                               min="1">
                                     </td>
                                     <td class="w-20 px-1 py-3 text-sm text-gray-900 text-right">
-                                        <span class="price-display"><?php echo number_format($item['unit_price'], 2); ?></span>
-                                        <input type="number" class="price-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-sm focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo $item['unit_price']; ?>" min="0" step="0.01" style="display: none;">
+                                        <input type="number" 
+                                               class="price-input w-full px-2 py-1 border border-gray-300 rounded-md text-right text-sm hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
+                                               value="<?php echo $item['unit_price']; ?>" 
+                                               data-item-id="<?php echo $item['item_id']; ?>"
+                                               data-original-value="<?php echo $item['unit_price']; ?>"
+                                               min="0" 
+                                               step="0.01">
                                     </td>
                                     <td class="w-16 px-1 py-3 text-sm text-gray-500 text-right"><?php echo number_format($piece_price, 2); ?></td>
                                     <td class="w-16 px-1 py-3 text-sm text-gray-900 text-right font-semibold">
@@ -903,21 +975,13 @@ $items_result = $stmt->get_result();
                                     </td>
                                     <td class="w-24 px-1 py-3 text-sm text-gray-900 text-right font-bold discounted-total"><?php echo number_format($item['discounted_total'], 2); ?></td>
                                     <td class="w-20 px-1 py-3 text-center">
-                                        <div class="action-buttons flex flex-col space-y-1" id="actions-<?php echo $item['item_id']; ?>">
-                                            <button type="button" class="edit-btn inline-flex items-center justify-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 transition-colors duration-200" data-item-id="<?php echo $item['item_id']; ?>">
-                                                <i class="fas fa-edit text-xs"></i>
-                                            </button>
-                                            <button type="button" class="delete-btn inline-flex items-center justify-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 transition-colors duration-200" data-item-id="<?php echo $item['item_id']; ?>">
+                                        <div class="flex items-center justify-center space-x-2">
+                                            <button type="button" class="delete-btn inline-flex items-center justify-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 transition-colors duration-200" data-item-id="<?php echo $item['item_id']; ?>">
                                                 <i class="fas fa-trash-alt text-xs"></i>
                                             </button>
-                                        </div>
-                                        <div class="edit-actions flex flex-col space-y-1" id="edit-actions-<?php echo $item['item_id']; ?>" style="display: none;">
-                                            <button type="button" class="save-btn inline-flex items-center justify-center px-2 py-1 border border-transparent text-xs font-bold rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200" data-item-id="<?php echo $item['item_id']; ?>">
-                                                <i class="fas fa-save text-xs"></i>
-                                            </button>
-                                            <button type="button" class="cancel-btn inline-flex items-center justify-center px-2 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200">
-                                                <i class="fas fa-times text-xs"></i>
-                                            </button>
+                                            <div class="save-indicator hidden" id="save-indicator-<?php echo $item['item_id']; ?>">
+                                                <i class="fas fa-spinner fa-spin text-indigo-600 text-xs"></i>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -1020,135 +1084,134 @@ $items_result = $stmt->get_result();
 document.addEventListener('DOMContentLoaded', function() {
     console.log('페이지 로드 완료');
     
-    // 수정 버튼 클릭 시 (이벤트 위임 방식)
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.edit-btn')) {
-            e.preventDefault();
-            const editBtn = e.target.closest('.edit-btn');
-            const itemId = editBtn.dataset.itemId;
-            console.log('수정 버튼 클릭:', itemId);
-            
-            const row = document.getElementById('row-' + itemId);
-            const actionsDiv = document.getElementById('actions-' + itemId);
-            const editActionsDiv = document.getElementById('edit-actions-' + itemId);
-            
-            // 디스플레이 요소 숨기기
-            row.querySelector('.quantity-display').style.display = 'none';
-            row.querySelector('.price-display').style.display = 'none';
-            row.querySelector('.type-display').style.display = 'none';
-            row.querySelector('.pieces-display').style.display = 'none';
-            actionsDiv.style.display = 'none';
-            
-            // 입력 요소 보이기
-            row.querySelector('.quantity-input').style.display = 'inline-block';
-            row.querySelector('.price-input').style.display = 'inline-block';
-            row.querySelector('.type-input').style.display = 'inline-block';
-            row.querySelector('.pieces-input').style.display = 'inline-block';
-            editActionsDiv.style.display = 'flex';
-            editActionsDiv.style.flexDirection = 'column';
-            
-            console.log('수정 모드 활성화');
+    // 자동 저장을 위한 디바운스 타이머 객체
+    const saveTimers = {};
+    
+    // 자동 저장 함수
+    function autoSaveItem(itemId) {
+        const row = document.getElementById('row-' + itemId);
+        if (!row) return;
+        
+        // 라디오 버튼에서 선택된 값 가져오기
+        const purchaseTypeRadio = row.querySelector('.type-input:checked');
+        const purchaseType = purchaseTypeRadio ? purchaseTypeRadio.value : 'box';
+        
+        const quantity = row.querySelector('.quantity-input').value;
+        const unitPrice = row.querySelector('.price-input').value;
+        const piecesPerBox = row.querySelector('.pieces-input').value;
+        const discountRate = row.querySelector('.discount-rate').value || 0;
+        
+        console.log('자동 저장 시작:', itemId, { quantity, unitPrice, purchaseType, piecesPerBox, discountRate });
+        
+        // 유효성 검사
+        if (!quantity || quantity <= 0) {
+            showNotification('수량은 1 이상이어야 합니다.', 'error');
+            return;
+        }
+        
+        if (unitPrice === '' || parseFloat(unitPrice) < 0) {
+            showNotification('단가는 0 이상이어야 합니다.', 'error');
+            return;
+        }
+        
+        if (!piecesPerBox || piecesPerBox <= 0) {
+            showNotification('박스당 개수는 1 이상이어야 합니다.', 'error');
+            return;
+        }
+        
+        // 저장 중 표시
+        showSaveIndicator(itemId, true);
+        
+        // 폼 데이터 생성
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = window.location.pathname + window.location.search;
+        form.innerHTML = `
+            <input type="hidden" name="action" value="update_item">
+            <input type="hidden" name="item_id" value="${itemId}">
+            <input type="hidden" name="quantity" value="${quantity}">
+            <input type="hidden" name="unit_price" value="${unitPrice}">
+            <input type="hidden" name="purchase_type" value="${purchaseType}">
+            <input type="hidden" name="pieces_per_box" value="${piecesPerBox}">
+            <input type="hidden" name="discount_rate" value="${discountRate}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+    
+    // 저장 인디케이터 표시/숨기기
+    function showSaveIndicator(itemId, show) {
+        const indicator = document.getElementById('save-indicator-' + itemId);
+        if (indicator) {
+            if (show) {
+                indicator.classList.remove('hidden');
+            } else {
+                indicator.classList.add('hidden');
+            }
+        }
+    }
+    
+    // 알림 표시 함수
+    function showNotification(message, type = 'info') {
+        // 기존 알림 제거
+        const existingNotification = document.querySelector('.notification-toast');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+        
+        const notification = document.createElement('div');
+        notification.className = `notification-toast fixed top-4 right-4 px-4 py-2 rounded-md text-white z-50 ${
+            type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+        }`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+    
+    // 수량 입력 필드 변경 이벤트
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('quantity-input')) {
+            const itemId = e.target.dataset.itemId;
+            clearTimeout(saveTimers[itemId]);
+            saveTimers[itemId] = setTimeout(() => {
+                autoSaveItem(itemId);
+            }, 1000);
         }
     });
     
-    // 취소 버튼 클릭 시 (이벤트 위임 방식)
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.cancel-btn')) {
-            e.preventDefault();
-            const cancelBtn = e.target.closest('.cancel-btn');
-            const row = cancelBtn.closest('tr');
-            const itemId = row.id.replace('row-', '');
-            console.log('취소 버튼 클릭:', itemId);
-            
-            const actionsDiv = document.getElementById('actions-' + itemId);
-            const editActionsDiv = document.getElementById('edit-actions-' + itemId);
-            
-            // 입력 요소 숨기기
-            row.querySelector('.quantity-input').style.display = 'none';
-            row.querySelector('.price-input').style.display = 'none';
-            row.querySelector('.type-input').style.display = 'none';
-            row.querySelector('.pieces-input').style.display = 'none';
-            editActionsDiv.style.display = 'none';
-            
-            // 디스플레이 요소 보이기
-            row.querySelector('.quantity-display').style.display = 'inline';
-            row.querySelector('.price-display').style.display = 'inline';
-            row.querySelector('.type-display').style.display = 'inline-flex';
-            row.querySelector('.pieces-display').style.display = 'inline';
-            actionsDiv.style.display = 'flex';
-            
-            // 원래 값으로 복원
-            const quantityInput = row.querySelector('.quantity-input');
-            const priceInput = row.querySelector('.price-input');
-            const typeInput = row.querySelector('.type-input');
-            const piecesInput = row.querySelector('.pieces-input');
-            quantityInput.value = quantityInput.getAttribute('value');
-            priceInput.value = priceInput.getAttribute('value');
-            piecesInput.value = piecesInput.getAttribute('value');
-            // 타입은 selected 속성으로 복원됨
-            
-            console.log('수정 모드 취소');
+    // 단가 입력 필드 변경 이벤트
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('price-input')) {
+            const itemId = e.target.dataset.itemId;
+            clearTimeout(saveTimers[itemId]);
+            saveTimers[itemId] = setTimeout(() => {
+                autoSaveItem(itemId);
+            }, 1000);
         }
     });
     
-    // 저장 버튼 클릭 시 (이벤트 위임 방식)
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.save-btn')) {
-            e.preventDefault();
-            const saveBtn = e.target.closest('.save-btn');
-            const itemId = saveBtn.dataset.itemId;
-            console.log('저장 버튼 클릭:', itemId);
-            
-            const row = document.getElementById('row-' + itemId);
-            const quantity = row.querySelector('.quantity-input').value;
-            const unitPrice = row.querySelector('.price-input').value;
-            const purchaseType = row.querySelector('.type-input').value;
-            const piecesPerBox = row.querySelector('.pieces-input').value;
-            const discountRate = row.querySelector('.discount-rate').value || 0;
-            
-            console.log('입력값:', { quantity, unitPrice, purchaseType, piecesPerBox, discountRate });
-            
-            if (!quantity || quantity <= 0) {
-                alert('수량은 1 이상이어야 합니다.');
-                return;
-            }
-            
-            if (unitPrice === '' || parseFloat(unitPrice) < 0) {
-                alert('단가는 0 이상이어야 합니다.');
-                return;
-            }
-            
-            if (!piecesPerBox || piecesPerBox <= 0) {
-                alert('박스당 개수는 1 이상이어야 합니다.');
-                return;
-            }
-            
-            if (confirm('이 상품의 정보를 수정하시겠습니까?')) {
-                console.log('폼 제출 준비');
-                
-                // 기존 폼이 있다면 제거
-                const existingForm = document.getElementById('update-form');
-                if (existingForm) {
-                    existingForm.remove();
-                }
-                
-                const form = document.createElement('form');
-                form.id = 'update-form';
-                form.method = 'POST';
-                form.action = window.location.pathname + window.location.search;
-                form.innerHTML = `
-                    <input type="hidden" name="action" value="update_item">
-                    <input type="hidden" name="item_id" value="${itemId}">
-                    <input type="hidden" name="quantity" value="${quantity}">
-                    <input type="hidden" name="unit_price" value="${unitPrice}">
-                    <input type="hidden" name="purchase_type" value="${purchaseType}">
-                    <input type="hidden" name="pieces_per_box" value="${piecesPerBox}">
-                    <input type="hidden" name="discount_rate" value="${discountRate}">
-                `;
-                document.body.appendChild(form);
-                console.log('폼 제출');
-                form.submit();
-            }
+    // 박스/개 입력 필드 변경 이벤트
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('pieces-input')) {
+            const itemId = e.target.dataset.itemId;
+            clearTimeout(saveTimers[itemId]);
+            saveTimers[itemId] = setTimeout(() => {
+                autoSaveItem(itemId);
+            }, 1000);
+        }
+    });
+    
+    // 단위(박스/낱개) 라디오 버튼 변경 이벤트
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('type-input')) {
+            const itemId = e.target.dataset.itemId;
+            clearTimeout(saveTimers[itemId]);
+            saveTimers[itemId] = setTimeout(() => {
+                autoSaveItem(itemId);
+            }, 1000);
         }
     });
     
