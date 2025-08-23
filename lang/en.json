@@ -409,6 +409,7 @@
     "brand": "Brand",
     "box_quantity": "Box Packaging Quantity",
     "purchase_products": "Purchase Product List",
+    "item_list": "Item List",
     "box_unit": "Box",
     "piece_unit": "Piece",
     "total_amount": "Total Amount",
@@ -534,7 +535,20 @@
     "total_records": "Total {count} price change records",
     "store_info": "Store: {store}",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "selected_items": "Selected Items",
+    "selected_count": "{count} items",
+    "delete_selected": "Delete Selected",
+    "print_selected": "Print Selected",
+    "previous_day": "Previous Day",
+    "next_day": "Next Day",
+    "today": "Today",
+    "confirm_delete_selected": "Are you sure you want to delete the selected {count} price change records?\\nThis action cannot be undone.",
+    "select_items_to_print": "Please select items to print.",
+    "loading_selected_items": "Loading selected items...",
+    "selected_items_header": "Selected Items",
+    "delete_success": "Deleted successfully.",
+    "delete_error": "An error occurred during deletion."
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -563,7 +577,8 @@
     "purchase_management_section": "Purchase Management",
     "wholesale_management_section": "Wholesale Management", 
     "store_transfer_section": "Store Transfer",
-    "system_settings_section": "System Settings"
+    "system_settings_section": "System Settings",
+    "other_info_management_section": "Other Information Management"
   },
   "forms": {
     "required_field": "This field is required",

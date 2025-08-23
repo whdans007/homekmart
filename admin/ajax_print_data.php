@@ -7,8 +7,8 @@ try {
     // 세션 시작 및 로그인 확인
     session_start();
 
-    // AJAX 요청 확인
-    if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    // AJAX 요청 확인 (GET과 POST 모두 허용)
+    if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'POST'])) {
         http_response_code(405);
         exit('Method not allowed');
     }
@@ -49,8 +49,35 @@ try {
     exit('Server Error: ' . $e->getMessage());
 }
 
-// 날짜 파라미터 검증
-$selected_date = $_GET['date'] ?? date('Y-m-d');
+// 요청 데이터 처리
+$selected_date = null;
+$selected_ids = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    // GET 요청 - 전체 데이터
+    $selected_date = $_GET['date'] ?? date('Y-m-d');
+} else {
+    // POST 요청 - 선택된 항목
+    $input = json_decode(file_get_contents('php://input'), true);
+    $selected_date = $input['date'] ?? date('Y-m-d');
+    $selected_ids = $input['selected_ids'] ?? [];
+    
+    // 선택된 ID 배열 검증
+    if (!is_array($selected_ids)) {
+        http_response_code(400);
+        exit('Invalid selected_ids format');
+    }
+    
+    // ID 값들이 숫자인지 확인
+    foreach ($selected_ids as $id) {
+        if (!is_numeric($id)) {
+            http_response_code(400);
+            exit('Invalid ID in selected_ids');
+        }
+    }
+}
+
+// 날짜 형식 검증
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $selected_date)) {
     http_response_code(400);
     exit('Invalid date format');
@@ -72,13 +99,20 @@ try {
     if (!$table_check->fetch()) {
         $error_message = t('price_change.table_not_exists');
     } else {
-        // 검색 조건 구성 (선택된 날짜만)
+        // 검색 조건 구성
         $where_conditions = [];
         $params = [];
         
         // 선택된 날짜의 데이터만 조회
         $where_conditions[] = "DATE(pch.changed_at) = ?";
         $params[] = $selected_date;
+
+        // 선택된 ID 필터링 (POST 요청인 경우)
+        if (!empty($selected_ids)) {
+            $placeholders = str_repeat('?,', count($selected_ids) - 1) . '?';
+            $where_conditions[] = "pch.id IN ($placeholders)";
+            $params = array_merge($params, $selected_ids);
+        }
 
         // 점포별 필터링 (super_admin이 아닌 경우)
         if ($_SESSION['role'] !== 'super_admin' && !empty($current_store_id)) {
@@ -133,7 +167,11 @@ try {
     <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;" class="no-print">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <strong>Total Changes:</strong> <?php echo number_format(count($price_changes)); ?> items
+                <strong><?php echo !empty($selected_ids) ? 'Selected Items:' : 'Total Changes:'; ?></strong> 
+                <?php echo number_format(count($price_changes)); ?> items
+                <?php if (!empty($selected_ids)): ?>
+                    <span style="color: #666; font-size: 12px;">(out of <?php echo count($selected_ids); ?> selected)</span>
+                <?php endif; ?>
             </div>
             <div>
                 <strong>Selected Date:</strong> <?php echo $selected_date; ?>
@@ -230,7 +268,11 @@ try {
     <div style="margin-top: 30px; font-size: 14px; border-top: 1px solid #ddd; padding-top: 15px;">
         <div style="display: flex; justify-content: space-between;">
             <div>
-                <strong>Total Changes:</strong> <?php echo number_format(count($price_changes)); ?> items
+                <strong><?php echo !empty($selected_ids) ? 'Selected Items:' : 'Total Changes:'; ?></strong> 
+                <?php echo number_format(count($price_changes)); ?> items
+                <?php if (!empty($selected_ids)): ?>
+                    <span style="color: #666; font-size: 12px;">(out of <?php echo count($selected_ids); ?> selected)</span>
+                <?php endif; ?>
             </div>
             <div>
                 <strong>Print Time:</strong> <?php echo date('Y-m-d H:i:s'); ?>

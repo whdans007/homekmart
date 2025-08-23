@@ -18,12 +18,12 @@ $pdo = null;
 $price_changes = [];
 $error_message = '';
 
-// 검색 및 페이징 변수
-$search_term = $_GET['search'] ?? '';
-$page = max(1, isset($_GET['page']) ? (int)$_GET['page'] : 1);
-$per_page = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10;
-$limit = in_array($per_page, [10, 20, 50, 100]) ? (int)$per_page : 10;
-$offset = max(0, ($page - 1) * $limit);
+// 날짜 변수 (기본값: 오늘)
+$selected_date = $_GET['date'] ?? date('Y-m-d');
+// 날짜 유효성 검사
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $selected_date)) {
+    $selected_date = date('Y-m-d');
+}
 
 try {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
@@ -37,17 +37,13 @@ try {
     if (!$table_check->fetch()) {
         $error_message = t('price_change.table_not_exists');
     } else {
-        // 검색 조건 구성
+        // 날짜 조건 구성
         $where_conditions = [];
         $params = [];
         
-        if (!empty($search_term)) {
-            $where_conditions[] = "(p.name_ko LIKE ? OR p.name_en LIKE ? OR p.sku LIKE ? OR u.username LIKE ?)";
-            $params[] = "%$search_term%";
-            $params[] = "%$search_term%";
-            $params[] = "%$search_term%";
-            $params[] = "%$search_term%";
-        }
+        // 선택된 날짜의 변경 이력만 조회
+        $where_conditions[] = "DATE(pch.changed_at) = ?";
+        $params[] = $selected_date;
 
         // 점포별 필터링 (super_admin이 아닌 경우)
         if ($_SESSION['role'] !== 'super_admin' && !empty($current_store_id)) {
@@ -57,21 +53,7 @@ try {
 
         $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
-        // 전체 레코드 수 계산
-        $count_sql = "
-            SELECT COUNT(*) 
-            FROM price_change_history pch
-            LEFT JOIN products p ON pch.product_id = p.id
-            LEFT JOIN users u ON pch.changed_by_user_id = u.id
-            LEFT JOIN stores s ON pch.store_id = s.id
-            $where_clause
-        ";
-        $count_stmt = $pdo->prepare($count_sql);
-        $count_stmt->execute($params);
-        $total_records = $count_stmt->fetchColumn();
-        $total_pages = ceil($total_records / $limit);
-
-        // 가격변경 이력 조회
+        // 가격변경 이력 조회 (페이징 없이 모든 레코드)
         $sql = "
             SELECT 
                 pch.*,
@@ -86,12 +68,14 @@ try {
             LEFT JOIN stores s ON pch.store_id = s.id
             $where_clause
             ORDER BY pch.changed_at DESC
-            LIMIT $limit OFFSET $offset
         ";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         $price_changes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // 전체 레코드 수 계산
+        $total_records = count($price_changes);
     }
 
 } catch (PDOException $e) {
@@ -100,19 +84,19 @@ try {
 ?>
 
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="flex justify-between items-center mb-6">
+    <div class="mb-6">
         <div>
             <h1 class="text-3xl font-bold text-gray-900"><?php echo t('price_change.history'); ?></h1>
             <p class="text-sm text-gray-600 mt-1"><?php echo str_replace('{store}', htmlspecialchars($current_store_name), t('price_change.store_info')); ?></p>
             <?php if (!$error_message && isset($total_records)): ?>
-                <p class="text-sm text-gray-600"><?php echo str_replace('{count}', number_format($total_records), t('price_change.total_records')); ?></p>
+                <p class="text-sm text-gray-600">
+                    <?php echo format_date($selected_date, 'long'); ?> - 
+                    <?php echo str_replace('{count}', number_format($total_records), t('price_change.total_records')); ?>
+                </p>
             <?php endif; ?>
-        </div>
-        <div>
-            <button onclick="openPrintModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-                <i class="fas fa-print mr-2"></i>
-                <?php echo t('common.print_preview'); ?>
-            </button>
+            <p class="text-sm text-gray-500 mt-1" id="selectedCount" style="display:none;">
+                <?php echo t('price_change.selected_items'); ?>: <span class="font-semibold">0</span><?php echo t('common.items'); ?>
+            </p>
         </div>
     </div>
 
@@ -138,34 +122,69 @@ try {
         <?php unset($_SESSION['flash']); ?>
     <?php endif; ?>
 
-    <!-- 검색 및 필터 -->
+    <!-- 날짜 네비게이션 -->
     <div class="mb-6 bg-white p-4 rounded-lg shadow">
-        <form action="price_change_history.php" method="get">
+        <div class="flex items-center justify-between">
             <div class="flex items-center space-x-4">
-                <div class="flex-1">
-                    <input type="search" name="search" id="search" placeholder="<?php echo t('price_change.search_placeholder'); ?>" 
-                           class="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" 
-                           value="<?php echo htmlspecialchars($search_term); ?>">
-                </div>
-                <div class="flex items-center space-x-2">
-                    <label for="per_page" class="text-sm text-gray-700 whitespace-nowrap"><?php echo t('price_change.display_count'); ?>:</label>
-                    <select name="per_page" id="per_page" class="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
-                        <option value="10" <?php echo $per_page == 10 ? 'selected' : ''; ?>><?php echo t('price_change.items_10'); ?></option>
-                        <option value="20" <?php echo $per_page == 20 ? 'selected' : ''; ?>><?php echo t('price_change.items_20'); ?></option>
-                        <option value="50" <?php echo $per_page == 50 ? 'selected' : ''; ?>><?php echo t('price_change.items_50'); ?></option>
-                        <option value="100" <?php echo $per_page == 100 ? 'selected' : ''; ?>><?php echo t('price_change.items_100'); ?></option>
-                    </select>
-                </div>
-                <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                    <i class="fas fa-search mr-2"></i>
-                    <?php echo t('price_change.search'); ?>
-                </button>
-                <a href="price_change_history.php" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                    <i class="fas fa-redo mr-2"></i>
-                    <?php echo t('price_change.reset'); ?>
+                <?php 
+                $prev_date = date('Y-m-d', strtotime($selected_date . ' -1 day'));
+                $next_date = date('Y-m-d', strtotime($selected_date . ' +1 day'));
+                $today = date('Y-m-d');
+                ?>
+                
+                <a href="?date=<?php echo $prev_date; ?>" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                    <i class="fas fa-chevron-left mr-2"></i>
+                    <?php echo t('price_change.previous_day'); ?>
                 </a>
+                
+                <div class="flex items-center space-x-2">
+                    <input type="date" id="datePicker" value="<?php echo $selected_date; ?>" 
+                           class="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                           onchange="window.location.href='?date=' + this.value">
+                    <span class="text-sm text-gray-600">
+                        <?php 
+                        $day_names = ['일', '월', '화', '수', '목', '금', '토'];
+                        $day_of_week = $day_names[date('w', strtotime($selected_date))];
+                        echo "({$day_of_week}요일)";
+                        ?>
+                    </span>
+                </div>
+                
+                <?php if ($selected_date < $today): ?>
+                <a href="?date=<?php echo $next_date; ?>" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                    <?php echo t('price_change.next_day'); ?>
+                    <i class="fas fa-chevron-right ml-2"></i>
+                </a>
+                <?php else: ?>
+                <button disabled class="inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed">
+                    <?php echo t('price_change.next_day'); ?>
+                    <i class="fas fa-chevron-right ml-2"></i>
+                </button>
+                <?php endif; ?>
+                
+                <?php if ($selected_date != $today): ?>
+                <a href="?date=<?php echo $today; ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                    <i class="fas fa-calendar-day mr-2"></i>
+                    <?php echo t('price_change.today'); ?>
+                </a>
+                <?php endif; ?>
             </div>
-        </form>
+            
+            <div class="flex items-center space-x-2">
+                <button id="deleteSelectedBtn" onclick="deleteSelected()" style="display:none;" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                    <i class="fas fa-trash mr-2"></i>
+                    <?php echo t('price_change.delete_selected'); ?>
+                </button>
+                <button id="printSelectedBtn" onclick="openSelectedPrintModal()" style="display:none;" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    <i class="fas fa-print mr-2"></i>
+                    <?php echo t('price_change.print_selected'); ?>
+                </button>
+                <button onclick="openPrintModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                    <i class="fas fa-print mr-2"></i>
+                    <?php echo t('common.print_preview'); ?>
+                </button>
+            </div>
+        </div>
     </div>
 
     <?php if ($error_message): ?>
@@ -184,6 +203,9 @@ try {
                 <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                     <thead class="bg-gray-50">
                         <tr>
+                            <th class="px-3 py-3 text-center border border-gray-300" style="width: 40px;">
+                                <input type="checkbox" id="selectAll" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                            </th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">SKU</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.product_name'); ?></th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.old_cost_price'); ?></th>
@@ -196,7 +218,10 @@ try {
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         <?php foreach ($price_changes as $change): ?>
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-gray-50 cursor-pointer" onclick="toggleRowSelection(this, event)" data-id="<?php echo $change['id']; ?>">
+                                <td class="px-3 py-3 text-center border border-gray-300" onclick="event.stopPropagation();">
+                                    <input type="checkbox" class="row-checkbox rounded border-gray-300 text-primary-600 focus:ring-primary-500" data-id="<?php echo $change['id']; ?>">
+                                </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300">
                                     <?php echo htmlspecialchars($change['sku'] ?? 'N/A'); ?>
                                 </td>
@@ -268,39 +293,6 @@ try {
             </div>
         </div>
 
-        <!-- 페이징 -->
-        <?php if ($total_pages > 1): ?>
-            <nav class="mt-6 flex items-center justify-between border-t border-gray-200 px-4 sm:px-0">
-                <div class="-mt-px flex w-0 flex-1">
-                    <?php if ($page > 1): ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>" 
-                           class="inline-flex items-center border-t-2 border-transparent pt-4 pr-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
-                            <i class="fas fa-arrow-left mr-3"></i> <?php echo t('price_change.previous'); ?>
-                        </a>
-                    <?php endif; ?>
-                </div>
-                <div class="hidden md:-mt-px md:flex">
-                    <?php
-                    $start_page = max(1, $page - 2);
-                    $end_page = min($total_pages, $page + 2);
-                    
-                    for ($i = $start_page; $i <= $end_page; $i++): ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>" 
-                           class="<?php echo ($i == $page) ? 'border-primary-500 text-primary-600 bg-primary-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?> inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium">
-                            <?php echo $i; ?>
-                        </a>
-                    <?php endfor; ?>
-                </div>
-                <div class="-mt-px flex w-0 flex-1 justify-end">
-                    <?php if ($page < $total_pages): ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>" 
-                           class="inline-flex items-center border-t-2 border-transparent pt-4 pl-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
-                            <?php echo t('price_change.next'); ?> <i class="fas fa-arrow-right ml-3"></i>
-                        </a>
-                    <?php endif; ?>
-                </div>
-            </nav>
-        <?php endif; ?>
     <?php endif; ?>
 </div>
 
@@ -343,14 +335,176 @@ try {
     </div>
 </div>
 
+<?php 
+// JavaScript에서 사용할 번역 키들
+$js_keys = [
+    'price_change.select_items_to_print',
+    'price_change.loading_selected_items',
+    'price_change.confirm_delete_selected',
+    'price_change.delete_success',
+    'price_change.delete_error',
+    'price_change.selected_items',
+    'common.items'
+];
+echo get_js_translation_script($js_keys); 
+?>
+
 <script>
 let modalCurrentDate = '<?php echo date('Y-m-d'); ?>';
+let selectedIds = [];
+
+// 행 선택 토글
+function toggleRowSelection(row, event) {
+    // 체크박스 클릭 시에는 이벤트 전파 중지
+    if (event.target.type === 'checkbox') {
+        return;
+    }
+    
+    const checkbox = row.querySelector('.row-checkbox');
+    const id = row.getAttribute('data-id');
+    
+    checkbox.checked = !checkbox.checked;
+    
+    if (checkbox.checked) {
+        row.classList.add('bg-blue-50');
+        if (!selectedIds.includes(id)) {
+            selectedIds.push(id);
+        }
+    } else {
+        row.classList.remove('bg-blue-50');
+        selectedIds = selectedIds.filter(item => item !== id);
+    }
+    
+    updateSelectedCount();
+}
+
+// 전체 선택/해제
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('selectAll');
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.row-checkbox');
+            selectedIds = [];
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+                const row = checkbox.closest('tr');
+                const id = checkbox.getAttribute('data-id');
+                
+                if (this.checked) {
+                    row.classList.add('bg-blue-50');
+                    selectedIds.push(id);
+                } else {
+                    row.classList.remove('bg-blue-50');
+                }
+            });
+            
+            updateSelectedCount();
+        });
+    }
+    
+    // 개별 체크박스 이벤트
+    document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function(e) {
+            e.stopPropagation();
+            const row = this.closest('tr');
+            const id = this.getAttribute('data-id');
+            
+            if (this.checked) {
+                row.classList.add('bg-blue-50');
+                if (!selectedIds.includes(id)) {
+                    selectedIds.push(id);
+                }
+            } else {
+                row.classList.remove('bg-blue-50');
+                selectedIds = selectedIds.filter(item => item !== id);
+            }
+            
+            updateSelectedCount();
+            
+            // 전체 선택 체크박스 상태 업데이트
+            const allCheckboxes = document.querySelectorAll('.row-checkbox');
+            const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+            const selectAll = document.getElementById('selectAll');
+            
+            if (selectAll) {
+                selectAll.checked = allCheckboxes.length === checkedBoxes.length && allCheckboxes.length > 0;
+            }
+        });
+    });
+});
+
+// 선택된 항목 수 업데이트
+function updateSelectedCount() {
+    const countElement = document.getElementById('selectedCount');
+    const deleteBtn = document.getElementById('deleteSelectedBtn');
+    const printSelectedBtn = document.getElementById('printSelectedBtn');
+    
+    if (selectedIds.length > 0) {
+        countElement.style.display = 'block';
+        countElement.querySelector('span').textContent = selectedIds.length;
+        deleteBtn.style.display = 'inline-flex';
+        printSelectedBtn.style.display = 'inline-flex';
+    } else {
+        countElement.style.display = 'none';
+        deleteBtn.style.display = 'none';
+        printSelectedBtn.style.display = 'none';
+    }
+}
+
+// 선택된 항목 삭제
+function deleteSelected() {
+    if (selectedIds.length === 0) {
+        alert(t('price_change.select_items_to_print'));
+        return;
+    }
+    
+    if (!confirm(t('price_change.confirm_delete_selected', {count: selectedIds.length}))) {
+        return;
+    }
+    
+    // AJAX로 삭제 요청
+    fetch('ajax_delete_price_changes.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            ids: selectedIds
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || t('price_change.delete_success'));
+            location.reload();
+        } else {
+            alert(data.message || t('price_change.delete_error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert(t('price_change.delete_error'));
+    });
+}
 
 function openPrintModal() {
     document.getElementById('printModal').classList.remove('hidden');
     modalCurrentDate = '<?php echo date('Y-m-d'); ?>';
     document.getElementById('modalDatePicker').value = modalCurrentDate;
     loadPrintData(modalCurrentDate);
+}
+
+function openSelectedPrintModal() {
+    if (selectedIds.length === 0) {
+        alert(t('price_change.select_items_to_print'));
+        return;
+    }
+    
+    document.getElementById('printModal').classList.remove('hidden');
+    modalCurrentDate = '<?php echo date('Y-m-d'); ?>';
+    document.getElementById('modalDatePicker').value = modalCurrentDate;
+    loadSelectedPrintData(modalCurrentDate);
 }
 
 function closePrintModal() {
@@ -378,6 +532,39 @@ function loadPrintData(date) {
         })
         .catch(error => {
             container.innerHTML = '<div class="text-center py-8 text-red-600">데이터 로딩 실패: ' + error.message + '</div>';
+        });
+}
+
+function loadSelectedPrintData(date) {
+    modalCurrentDate = date;
+    document.getElementById('modalDatePicker').value = date;
+    
+    const container = document.getElementById('modalPrintContent');
+    container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i><p class="mt-2 text-gray-600">' + t('price_change.loading_selected_items') + '</p></div>';
+    
+    fetch('ajax_print_data.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            date: date,
+            selected_ids: selectedIds
+        })
+    })
+        .then(response => response.text())
+        .then(html => {
+            // 인쇄용 헤더 추가 (선택된 항목 표시)
+            const printHeader = `
+                <div class="text-center mb-6 pb-4 border-b-2 border-gray-800">
+                    <h2 class="text-lg font-bold">Price Change History (Selected Items)</h2>
+                    <p class="text-sm text-gray-600">Date: ${date} | Selected Items: ${selectedIds.length} | Print Time: ${new Date().toLocaleString('en-US')}</p>
+                </div>
+            `;
+            container.innerHTML = printHeader + html;
+        })
+        .catch(error => {
+            container.innerHTML = '<div class="text-center py-8 text-red-600">' + t('price_change.delete_error') + ': ' + error.message + '</div>';
         });
 }
 

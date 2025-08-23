@@ -92,35 +92,58 @@ $items_stmt->execute();
 $items_result = $items_stmt->get_result();
 ?>
 
-<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900">매입건별 가격변동 분석</h1>
-            <p class="text-sm text-gray-600 mt-1">매입번호: <?php echo htmlspecialchars($purchase_id); ?></p>
-            <p class="text-sm text-gray-600">거래처: <?php echo htmlspecialchars($purchase_info['supplier_name']); ?></p>
-            <p class="text-sm text-gray-600">매입일: <?php echo htmlspecialchars($purchase_info['purchase_date']); ?></p>
-            <p class="text-sm text-gray-600">점포: <?php echo htmlspecialchars($current_store_name); ?></p>
+<!-- 타이틀을 컨테이너 밖으로 이동 -->
+<div class="bg-gray-50 py-4 mb-1">
+    <div class="text-center">
+        <h1 class="text-3xl font-bold text-gray-900 mb-3">매입건별 가격변동 분석</h1>
+        <!-- 매입 정보 테이블 -->
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <table class="w-full border-collapse border border-gray-300">
+                <tbody>
+                    <tr>
+                        <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 text-center">매입번호</td>
+                        <td class="border border-gray-300 px-4 py-2 text-sm text-gray-900 text-center"><?php echo htmlspecialchars($purchase_id); ?></td>
+                        <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 text-center">거래처</td>
+                        <td class="border border-gray-300 px-4 py-2 text-sm text-gray-900 text-center"><?php echo htmlspecialchars($purchase_info['supplier_name']); ?></td>
+                        <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 text-center">매입일</td>
+                        <td class="border border-gray-300 px-4 py-2 text-sm text-gray-900 text-center"><?php echo htmlspecialchars($purchase_info['purchase_date']); ?></td>
+                        <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 text-center">점포</td>
+                        <td class="border border-gray-300 px-4 py-2 text-sm text-gray-900 text-center"><?php echo htmlspecialchars($current_store_name); ?></td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
+    </div>
+</div>
+
+<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-2">
+    <div class="flex justify-end items-center mb-2">
         <div class="flex space-x-3">
+            <!-- 가격 변동 선택 버튼들 -->
+            <div class="flex space-x-2">
+                <button id="selectIncreaseBtn" class="inline-flex items-center justify-center rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                    <i class="fas fa-arrow-up mr-1"></i> 인상선택 (<span id="increaseCount">0</span>)
+                </button>
+                
+                <button id="selectDecreaseBtn" class="inline-flex items-center justify-center rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                    <i class="fas fa-arrow-down mr-1"></i> 인하선택 (<span id="decreaseCount">0</span>)
+                </button>
+                
+                <button id="clearSelectionBtn" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                    <i class="fas fa-times mr-1"></i> 선택해제
+                </button>
+            </div>
+            
+            <!-- 마진율 입력과 저장 버튼 -->
             <div class="flex space-x-2">
                 <input type="number" id="bulkMarginInput" class="w-20 px-2 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="30" step="0.1" min="0">
                 <span class="flex items-center text-sm text-gray-500">%</span>
-                <!-- 실시간 미리보기 버튼 -->
-                <button id="bulkMarginBtn" class="inline-flex items-center justify-center rounded-md border border-transparent bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 print:hidden disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                    <i class="fas fa-eye mr-2"></i> 실시간 미리보기 (<span id="selectedCount">0</span>개)
-                </button>
                 
-                <!-- 데이터베이스 저장 버튼 -->
-                <button id="bulkMarginDbBtn" class="inline-flex items-center justify-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 print:hidden disabled:opacity-50 disabled:cursor-not-allowed ml-2" disabled>
-                    <i class="fas fa-save mr-2"></i> 데이터베이스에 저장 (<span id="selectedCountDb">0</span>개)
+                <!-- 저장 버튼 -->
+                <button id="saveBtn" class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 print:hidden disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <i class="fas fa-save mr-2"></i> 저장 (<span id="selectedCount">0</span>개)
                 </button>
             </div>
-            <button id="bulkApplyBtn" class="inline-flex items-center justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 print:hidden">
-                <i class="fas fa-arrow-up mr-2"></i> 인상상품 일괄적용
-            </button>
-            <button id="printPreviewBtn" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                <i class="fas fa-eye mr-2"></i> 미리보기
-            </button>
             <a href="purchase_management.php" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
                 <i class="fas fa-arrow-left mr-2"></i> 매입관리로 돌아가기
             </a>
@@ -161,10 +184,9 @@ $items_result = $items_stmt->get_result();
                         <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">기존원가</th>
                         <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">매입원가<br><span class="text-xs normal-case">(낱개단위)</span></th>
                         <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">원가변동</th>
-                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">기존마진율</th>
+                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">마진율</th>
                         <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">기존판매가</th>
                         <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">예상판매가<br><span class="text-xs normal-case">(매입원가기준)</span></th>
-                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 print:hidden">가격적용</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -175,6 +197,15 @@ $items_result = $items_stmt->get_result();
                             // 가격 변동 계산
                             $price_change = $item['purchase_unit_price_per_piece'] - $item['current_cost_price'];
                             $price_change_percent = $item['current_cost_price'] > 0 ? ($price_change / $item['current_cost_price']) * 100 : 0;
+                            
+                            // 가격 변동 타입 결정
+                            if (abs($price_change) < 1) {
+                                $price_change_type = 'same';
+                            } elseif ($price_change > 0) {
+                                $price_change_type = 'increase';
+                            } else {
+                                $price_change_type = 'decrease';
+                            }
                             
                             // 원가 변동이 있는지 확인 (데이터 없음 메시지 표시용)
                             if (abs($price_change) >= 1) {
@@ -197,7 +228,7 @@ $items_result = $items_stmt->get_result();
                                 $new_selling_price = ceil($item['purchase_unit_price_per_piece'] * (1 + ($margin_rate / 100)));
                             }
                         ?>
-                            <tr class="hover:bg-gray-50 cursor-pointer item-row" data-product-id="<?php echo $item['product_id']; ?>">
+                            <tr class="hover:bg-gray-50 cursor-pointer item-row" data-product-id="<?php echo $item['product_id']; ?>" data-price-change-type="<?php echo $price_change_type; ?>">
                                 <td class="px-3 py-4 text-center border border-gray-300 print:hidden">
                                     <input type="checkbox" class="item-checkbox h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" data-product-id="<?php echo $item['product_id']; ?>">
                                 </td>
@@ -260,35 +291,17 @@ $items_result = $items_stmt->get_result();
                                     <span class="text-sm font-mono"><?php echo number_format($item['current_selling_price']); ?></span>
                                 </td>
                                 <td class="px-3 py-4 text-right border border-gray-300">
-                                    <span class="expected-price text-sm font-mono font-semibold text-green-600" 
-                                          data-product-id="<?php echo $item['product_id']; ?>"
-                                          data-original-price="<?php echo $new_selling_price; ?>">
-                                        <?php echo number_format($new_selling_price); ?>
-                                    </span>
+                                    <input type="number" 
+                                           class="expected-price w-24 text-right text-sm font-mono font-semibold text-green-600 border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500" 
+                                           data-product-id="<?php echo $item['product_id']; ?>"
+                                           data-original-price="<?php echo $new_selling_price; ?>"
+                                           value="<?php echo $new_selling_price; ?>"
+                                           min="0"
+                                           step="1">
                                     <div class="price-difference text-xs text-gray-500" 
                                          data-product-id="<?php echo $item['product_id']; ?>"
                                          data-current-price="<?php echo $item['current_selling_price']; ?>">
                                         차이: <?php echo number_format($new_selling_price - $item['current_selling_price']); ?>
-                                    </div>
-                                </td>
-                                <td class="px-3 py-4 text-center border border-gray-300 print:hidden">
-                                    <div class="space-y-2">
-                                        <button type="button" 
-                                                class="apply-new-prices-btn w-full inline-flex items-center justify-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-                                                data-product-id="<?php echo $item['product_id']; ?>"
-                                                data-cost-price="<?php echo $item['purchase_unit_price_per_piece']; ?>"
-                                                data-selling-price="<?php echo $new_selling_price; ?>"
-                                                data-price-change="<?php echo $price_change > 0 ? 'increase' : 'decrease'; ?>"
-                                                data-current-selling-price="<?php echo $item['current_selling_price']; ?>">
-                                            <i class="fas fa-check mr-1"></i>
-                                            가격적용
-                                        </button>
-                                        <button type="button" 
-                                                class="manual-edit-btn w-full inline-flex items-center justify-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-                                                data-product-id="<?php echo $item['product_id']; ?>">
-                                            <i class="fas fa-edit mr-1"></i>
-                                            수동설정
-                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -297,7 +310,7 @@ $items_result = $items_stmt->get_result();
                     
                     <?php if ($items_result->num_rows == 0): ?>
                         <tr>
-                            <td colspan="9" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
+                            <td colspan="8" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-box-open text-4xl text-gray-400"></i>
                                     <p class="mt-4">매입 상품이 없습니다.</p>
@@ -313,55 +326,6 @@ $items_result = $items_stmt->get_result();
     
 </div>
 
-<!-- 프린트 미리보기 모달 -->
-<div id="printPreviewModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden print:hidden z-50">
-    <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="relative bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        <div class="flex justify-between items-center p-4 border-b">
-            <h3 class="text-lg font-medium text-gray-900">프린트 미리보기</h3>
-            <div class="flex space-x-2">
-                <button id="actualPrintBtn" class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 focus:outline-none focus:border-blue-700 focus:ring focus:ring-blue-200 active:bg-blue-600 disabled:opacity-25 transition">
-                    <i class="fas fa-print mr-2"></i> 인쇄하기
-                </button>
-                <button id="closePrintPreviewBtn" class="inline-flex items-center px-4 py-2 bg-gray-300 border border-transparent rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest hover:bg-gray-400 focus:outline-none focus:border-gray-500 focus:ring focus:ring-gray-200 active:bg-gray-400 disabled:opacity-25 transition">
-                    <i class="fas fa-times mr-2"></i> 닫기
-                </button>
-            </div>
-        </div>
-        
-        <div id="printPreviewContent" class="p-6 bg-white overflow-y-auto max-h-[calc(90vh-80px)]" style="font-family: monospace;">
-            <!-- 미리보기 내용이 여기에 동적으로 생성됩니다 -->
-        </div>
-    </div>
-    </div>
-</div>
-
-<!-- 수동 가격 설정 모달 -->
-<div id="manualPriceModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden print:hidden">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="mt-3">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">수동 가격 설정</h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">새 원가</label>
-                    <input type="number" id="modalCostPrice" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="원가 입력">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">새 판매가</label>
-                    <input type="number" id="modalSellingPrice" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="판매가 입력">
-                </div>
-            </div>
-            <div class="flex justify-end space-x-3 mt-6">
-                <button type="button" id="cancelModal" class="px-4 py-2 bg-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
-                    취소
-                </button>
-                <button type="button" id="confirmModal" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500">
-                    적용
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
 
 <script>
@@ -373,7 +337,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // 디버깅: JavaScript에서 점포 정보 확인
     console.log('JavaScript - currentStoreId:', currentStoreId, 'currentStoreName:', currentStoreName);
     
-    let currentProductId = null;
     
     // 선택 관련 변수
     let selectedItems = new Set();
@@ -459,168 +422,78 @@ document.addEventListener('DOMContentLoaded', function() {
     // 선택된 항목 UI 업데이트
     function updateSelectedUI() {
         const selectedCount = selectedItems.size;
-        const bulkMarginBtn = document.getElementById('bulkMarginBtn');
         const selectedCountSpan = document.getElementById('selectedCount');
         
         // 헤더 버튼 업데이트
         selectedCountSpan.textContent = selectedCount;
         
-        if (selectedCount > 0) {
-            updateBulkMarginButtonState();
-        } else {
-            bulkMarginBtn.disabled = true;
+        updateSaveButtonState();
+        
+        // 선택된 항목이 있고 마진율이 입력되어 있으면 자동 적용
+        const bulkMarginInput = document.getElementById('bulkMarginInput');
+        const marginValue = parseFloat(bulkMarginInput.value);
+        if (selectedCount > 0 && !isNaN(marginValue) && marginValue >= 0) {
+            applyBulkMarginRateRealtime(marginValue);
         }
     }
     
-    // 일괄 마진율 적용 버튼 상태 업데이트
-    function updateBulkMarginButtonState() {
+    // 저장 버튼 상태 업데이트
+    function updateSaveButtonState() {
         const selectedCount = selectedItems.size;
-        const bulkMarginBtn = document.getElementById('bulkMarginBtn');
-        const bulkMarginDbBtn = document.getElementById('bulkMarginDbBtn');
+        const saveBtn = document.getElementById('saveBtn');
         const bulkMarginInput = document.getElementById('bulkMarginInput');
         const marginValue = parseFloat(bulkMarginInput.value);
         
-        console.log('버튼 상태 업데이트:', {
-            selectedCount: selectedCount,
-            marginValue: marginValue,
-            isValidMargin: !isNaN(marginValue) && marginValue >= 0
-        });
-        
         // 선택된 개수 업데이트
         document.getElementById('selectedCount').textContent = selectedCount;
-        document.getElementById('selectedCountDb').textContent = selectedCount;
         
         if (selectedCount > 0 && !isNaN(marginValue) && marginValue >= 0) {
-            console.log('버튼들 활성화');
-            // 두 버튼 모두 활성화
-            bulkMarginBtn.disabled = false;
-            bulkMarginBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            bulkMarginDbBtn.disabled = false;
-            bulkMarginDbBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            // 저장 버튼 활성화
+            saveBtn.disabled = false;
         } else {
-            console.log('버튼들 비활성화');
-            // 두 버튼 모두 비활성화
-            bulkMarginBtn.disabled = true;
-            bulkMarginBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            bulkMarginDbBtn.disabled = true;
-            bulkMarginDbBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            // 저장 버튼 비활성화
+            saveBtn.disabled = true;
         }
-        
-        console.log('DB 버튼 최종 상태:', bulkMarginDbBtn.disabled);
     }
     
     
     
-    // 선택상품 마진율 버튼 이벤트 (실시간 UI 업데이트)
-    document.getElementById('bulkMarginBtn').addEventListener('click', function() {
-        if (selectedItems.size === 0) {
-            alert('상품을 먼저 선택해주세요.');
-            return;
-        }
-        
-        const marginRate = parseFloat(document.getElementById('bulkMarginInput').value);
-        
-        if (isNaN(marginRate) || marginRate < 0) {
-            alert('올바른 마진율을 입력해주세요.');
-            document.getElementById('bulkMarginInput').focus();
-            return;
-        }
-        
-        // 실시간 마진율 적용 (데이터베이스 저장 없이)
-        applyBulkMarginRateRealtime(marginRate);
-    });
-    
-    // 데이터베이스 저장 버튼 요소 확인 및 이벤트 연결
-    const bulkMarginDbBtnElement = document.getElementById('bulkMarginDbBtn');
-    console.log('DB 저장 버튼 요소 찾기:', bulkMarginDbBtnElement);
-    
-    if (!bulkMarginDbBtnElement) {
-        console.error('bulkMarginDbBtn 요소를 찾을 수 없습니다!');
-        return;
+    // 저장 버튼 이벤트 (데이터베이스 저장)
+    const saveBtnElement = document.getElementById('saveBtn');
+    if (saveBtnElement) {
+        saveBtnElement.addEventListener('click', function() {
+            if (selectedItems.size === 0) {
+                alert('상품을 먼저 선택해주세요.');
+                return;
+            }
+            
+            const marginRate = parseFloat(document.getElementById('bulkMarginInput').value);
+            
+            if (isNaN(marginRate) || marginRate < 0) {
+                alert('올바른 마진율을 입력해주세요.');
+                document.getElementById('bulkMarginInput').focus();
+                return;
+            }
+            
+            // 확인 대화상자
+            if (confirm(`선택된 ${selectedItems.size}개 상품에 ${marginRate}% 마진율을 적용하여 데이터베이스에 저장하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
+                applyBulkMarginRateDatabase(marginRate);
+            }
+        });
     }
     
-    console.log('DB 저장 버튼에 이벤트 리스너 연결 시도');
-    console.log('버튼 텍스트:', bulkMarginDbBtnElement.textContent);
-    console.log('버튼 disabled 상태:', bulkMarginDbBtnElement.disabled);
     
-    // 버튼 클릭 테스트 함수 추가
-    window.testDbButton = function() {
-        console.log('테스트 함수 호출됨');
-        alert('DB 저장 버튼 테스트 성공!');
-    };
-    
-    // onclick 속성을 실제 함수로 변경
-    bulkMarginDbBtnElement.onclick = function() {
-        console.log('onclick 직접 연결 이벤트 작동');
-        // 버튼이 비활성화된 경우 처리하지 않음
-        if (this.disabled) {
-            console.log('버튼이 비활성화된 상태입니다.');
-            return;
-        }
-        
-        console.log('DB 저장 버튼 클릭됨 (onclick 방식)');
-        console.log('선택된 상품 수:', selectedItems.size);
-        console.log('선택된 상품 ID들:', Array.from(selectedItems));
-        
-        if (selectedItems.size === 0) {
-            alert('상품을 먼저 선택해주세요.');
-            return;
-        }
-        
-        const marginRate = parseFloat(document.getElementById('bulkMarginInput').value);
-        console.log('입력된 마진율:', marginRate);
-        
-        if (isNaN(marginRate) || marginRate < 0) {
-            alert('올바른 마진율을 입력해주세요.');
-            document.getElementById('bulkMarginInput').focus();
-            return;
-        }
-        
-        // 확인 대화상자
-        console.log('확인 대화상자 표시');
-        if (confirm(`선택된 ${selectedItems.size}개 상품에 ${marginRate}% 마진율을 적용하여 데이터베이스에 저장하시겠습니까?\\n\\n이 작업은 되돌릴 수 없습니다.`)) {
-            console.log('사용자가 확인을 선택함, DB 저장 함수 호출');
-            applyBulkMarginRateDatabase(marginRate);
-        } else {
-            console.log('사용자가 취소를 선택함');
-        }
-    };
-    
-    // addEventListener도 유지 (백업용)
-    bulkMarginDbBtnElement.addEventListener('click', function() {
-        console.log('DB 저장 버튼 클릭됨');
-        console.log('선택된 상품 수:', selectedItems.size);
-        console.log('선택된 상품 ID들:', Array.from(selectedItems));
-        
-        if (selectedItems.size === 0) {
-            alert('상품을 먼저 선택해주세요.');
-            return;
-        }
-        
-        const marginRate = parseFloat(document.getElementById('bulkMarginInput').value);
-        console.log('입력된 마진율:', marginRate);
-        
-        if (isNaN(marginRate) || marginRate < 0) {
-            alert('올바른 마진율을 입력해주세요.');
-            document.getElementById('bulkMarginInput').focus();
-            return;
-        }
-        
-        // 확인 대화상자
-        console.log('확인 대화상자 표시');
-        if (confirm(`선택된 ${selectedItems.size}개 상품에 ${marginRate}% 마진율을 적용하여 데이터베이스에 저장하시겠습니까?\\n\\n이 작업은 되돌릴 수 없습니다.`)) {
-            console.log('사용자가 확인을 선택함, DB 저장 함수 호출');
-            applyBulkMarginRateDatabase(marginRate);
-        } else {
-            console.log('사용자가 취소를 선택함');
-        }
-    });
-    
-    // 마진율 입력 필드 변경 시 버튼 상태 업데이트 및 localStorage 저장
+    // 마진율 입력 필드 변경 시 자동 적용 및 localStorage 저장
     document.getElementById('bulkMarginInput').addEventListener('input', function() {
         // localStorage에 마진율 값 저장
         localStorage.setItem('lastMarginRate', this.value);
-        updateBulkMarginButtonState();
+        updateSaveButtonState();
+        
+        // 선택된 항목이 있으면 자동으로 마진율 적용
+        const marginValue = parseFloat(this.value);
+        if (selectedItems.size > 0 && !isNaN(marginValue) && marginValue >= 0) {
+            applyBulkMarginRateRealtime(marginValue);
+        }
     });
     
     
@@ -635,34 +508,33 @@ document.addEventListener('DOMContentLoaded', function() {
         const newSellingPrice = Math.ceil(costPrice * (1 + (marginRate / 100)));
         
         // 예상판매가 업데이트
-        const expectedPriceSpan = document.querySelector(`.expected-price[data-product-id="${productId}"]`);
-        const priceDifferenceDiv = document.querySelector(`.price-difference[data-product-id="${productId}"]`);
-        const applyButton = document.querySelector(`.apply-new-prices-btn[data-product-id="${productId}"]`);
+        const expectedPriceInput = document.querySelector(`.expected-price[data-product-id="${productId}"]`);
         
-        if (expectedPriceSpan && priceDifferenceDiv && applyButton) {
-            const currentPrice = parseFloat(priceDifferenceDiv.dataset.currentPrice);
-            const priceDifference = newSellingPrice - currentPrice;
-            
-            expectedPriceSpan.textContent = newSellingPrice.toLocaleString();
-            priceDifferenceDiv.textContent = '차이: ' + priceDifference.toLocaleString();
-            
-            // 버튼 데이터 업데이트
-            applyButton.dataset.sellingPrice = newSellingPrice;
-            applyButton.dataset.marginRate = marginRate;
+        if (expectedPriceInput) {
+            expectedPriceInput.value = newSellingPrice;
+            updatePriceDifference(productId);
             
             // 마진율이 변경되었는지 표시
             const originalMargin = parseFloat(marginInput.dataset.originalMargin);
             if (Math.abs(marginRate - originalMargin) > 0.1) {
                 marginInput.classList.add('border-yellow-500', 'bg-yellow-50');
-                applyButton.classList.remove('bg-primary-600', 'hover:bg-primary-700');
-                applyButton.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
-                applyButton.innerHTML = '<i class="fas fa-percentage mr-1"></i>마진율적용';
             } else {
                 marginInput.classList.remove('border-yellow-500', 'bg-yellow-50');
-                applyButton.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
-                applyButton.classList.add('bg-primary-600', 'hover:bg-primary-700');
-                applyButton.innerHTML = '<i class="fas fa-check mr-1"></i>가격적용';
             }
+        }
+    }
+    
+    // 가격 차이 업데이트 함수
+    function updatePriceDifference(productId) {
+        const expectedPriceInput = document.querySelector(`.expected-price[data-product-id="${productId}"]`);
+        const priceDifferenceDiv = document.querySelector(`.price-difference[data-product-id="${productId}"]`);
+        
+        if (expectedPriceInput && priceDifferenceDiv) {
+            const expectedPrice = parseFloat(expectedPriceInput.value) || 0;
+            const currentPrice = parseFloat(priceDifferenceDiv.dataset.currentPrice);
+            const priceDifference = expectedPrice - currentPrice;
+            
+            priceDifferenceDiv.textContent = '차이: ' + priceDifference.toLocaleString();
         }
     }
     
@@ -685,18 +557,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // 사용자 피드백
+        // 사용자 피드백 - 자동 적용이므로 알림 없이 조용히 업데이트
         if (updatedCount > 0) {
-            // 성공 메시지 표시 (데이터베이스 저장 안내 포함)
-            showSuccessMessage(`${updatedCount}개 상품의 마진율이 ${marginRate}%로 미리보기 업데이트되었습니다. 확인 후 "데이터베이스에 저장" 버튼을 클릭하세요.`);
-            
-            // 입력 필드 초기화하지 않음 (데이터베이스 저장을 위해 유지)
-            // document.getElementById('bulkMarginInput').value = '';
-            updateBulkMarginButtonState();
-            
-            // 선택 상태 유지 (선택 해제하지 않음)
-        } else {
-            alert('업데이트할 상품을 찾을 수 없습니다.');
+            // 저장 버튼 상태만 업데이트
+            updateSaveButtonState();
         }
     }
     
@@ -704,13 +568,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function applyBulkMarginRateDatabase(marginRate) {
         console.log('DB 저장 함수 시작, marginRate:', marginRate);
         
-        const bulkMarginDbBtn = document.getElementById('bulkMarginDbBtn');
-        console.log('버튼 요소:', bulkMarginDbBtn);
+        const saveBtn = document.getElementById('saveBtn');
+        console.log('버튼 요소:', saveBtn);
         
         // 버튼 비활성화 및 로딩 상태
-        bulkMarginDbBtn.disabled = true;
-        const originalText = bulkMarginDbBtn.innerHTML;
-        bulkMarginDbBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>데이터베이스 저장 중...';
+        saveBtn.disabled = true;
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>데이터베이스 저장 중...';
         
         // 선택된 상품 ID 배열 생성
         const productIds = Array.from(selectedItems);
@@ -727,9 +591,17 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('- margin_rate:', marginRate);
         console.log('- store_id:', currentStoreId || '');
         
-        // 상품 ID들을 배열로 전송
+        // 상품 ID와 예상 판매가를 함께 전송
         productIds.forEach(productId => {
             formData.append('product_ids[]', productId);
+            
+            // 각 상품의 예상 판매가 가져오기
+            const expectedPriceInput = document.querySelector(`.expected-price[data-product-id="${productId}"]`);
+            if (expectedPriceInput) {
+                const newSellingPrice = expectedPriceInput.value;
+                formData.append(`selling_prices[${productId}]`, newSellingPrice);
+                console.log(`상품 ${productId}의 예상 판매가: ${newSellingPrice}`);
+            }
         });
         
         console.log('AJAX 요청 전송 시작');
@@ -762,6 +634,18 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('처리할 데이터:', data);
             if (data.success) {
                 console.log('성공 응답 처리');
+                
+                // 업데이트된 상품 정보 확인
+                if (data.updated_products) {
+                    console.log('업데이트된 상품 정보:', data.updated_products);
+                    data.updated_products.forEach(product => {
+                        console.log(`상품 ${product.product_id} (${product.product_name}): 
+                            기존 판매가: ${product.old_selling_price}, 
+                            새 판매가: ${product.new_selling_price},
+                            JS 가격 사용: ${product.used_js_price ? '예' : '아니오'}`);
+                    });
+                }
+                
                 // 성공 시
                 showSuccessMessage(`성공: ${data.message}`);
                 
@@ -782,8 +666,8 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .finally(() => {
             // 버튼 원상복구
-            bulkMarginDbBtn.disabled = false;
-            bulkMarginDbBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
         });
     }
     
@@ -846,73 +730,93 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('저장된 마진율 불러옴:', savedMarginRate);
     }
     
+    // 가격 변동 상품 수 계산 함수
+    function countPriceChangeItems() {
+        let increaseCount = 0;
+        let decreaseCount = 0;
+        let sameCount = 0;
+        
+        document.querySelectorAll('.item-row').forEach(row => {
+            const type = row.dataset.priceChangeType;
+            if (type === 'increase') increaseCount++;
+            else if (type === 'decrease') decreaseCount++;
+            else if (type === 'same') sameCount++;
+        });
+        
+        // 버튼에 개수 표시
+        const increaseCountSpan = document.getElementById('increaseCount');
+        const decreaseCountSpan = document.getElementById('decreaseCount');
+        
+        if (increaseCountSpan) increaseCountSpan.textContent = increaseCount;
+        if (decreaseCountSpan) decreaseCountSpan.textContent = decreaseCount;
+        
+        return { increaseCount, decreaseCount, sameCount };
+    }
+    
+    // 가격 변동 타입별 선택 함수
+    function selectByPriceChangeType(type) {
+        // 먼저 모든 선택 해제
+        clearAllSelections();
+        
+        // 해당 타입의 상품만 선택
+        document.querySelectorAll(`.item-row[data-price-change-type="${type}"]`).forEach(row => {
+            const checkbox = row.querySelector('.item-checkbox');
+            if (checkbox) {
+                checkbox.checked = true;
+                updateItemSelection(checkbox.dataset.productId, true);
+            }
+        });
+        
+        updateSelectedUI();
+        updateSelectAllState();
+    }
+    
+    // 인상선택 버튼 이벤트
+    const selectIncreaseBtnElement = document.getElementById('selectIncreaseBtn');
+    if (selectIncreaseBtnElement) {
+        selectIncreaseBtnElement.addEventListener('click', function() {
+            selectByPriceChangeType('increase');
+        });
+    }
+    
+    // 인하선택 버튼 이벤트
+    const selectDecreaseBtnElement = document.getElementById('selectDecreaseBtn');
+    if (selectDecreaseBtnElement) {
+        selectDecreaseBtnElement.addEventListener('click', function() {
+            selectByPriceChangeType('decrease');
+        });
+    }
+    
+    // 선택해제 버튼 이벤트
+    const clearSelectionBtnElement = document.getElementById('clearSelectionBtn');
+    if (clearSelectionBtnElement) {
+        clearSelectionBtnElement.addEventListener('click', function() {
+            clearAllSelections();
+        });
+    }
+    
+    // 페이지 로드 시 가격 변동 상품 수 계산
+    countPriceChangeItems();
+    
     // 초기 UI 상태 설정
     updateSelectedUI();
-    
-    // 기존 일괄 적용 버튼 이벤트 (기존 기능 유지)
-    document.getElementById('bulkApplyBtn').addEventListener('click', function() {
-        console.log('인상상품 일괄적용 버튼 클릭됨');
-        
-        // 인상된 상품 개수 확인
-        const increasedItems = document.querySelectorAll('.apply-new-prices-btn[data-price-change="increase"]');
-        const increasedCount = increasedItems.length;
-        
-        console.log('인상된 상품 개수:', increasedCount);
-        console.log('인상된 상품 요소들:', increasedItems);
-        
-        if (increasedCount === 0) {
-            alert('인상된 상품이 없습니다.');
-            return;
-        }
-        
-        if (confirm(`${increasedCount}개의 인상된 상품의 가격을 일괄 적용하시겠습니까?`)) {
-            console.log('사용자가 확인을 선택함, 인상상품 일괄적용 함수 호출');
-            bulkApplyPriceIncrease();
-        } else {
-            console.log('사용자가 취소를 선택함');
-        }
-    });
     
     // 마진율 입력 필드 이벤트 (실시간 예상판매가 업데이트)
     document.querySelectorAll('.margin-input').forEach(input => {
         input.addEventListener('input', function() {
             const productId = this.dataset.productId;
-            const costPrice = parseFloat(this.dataset.costPrice);
             const marginRate = parseFloat(this.value) || 0;
             
-            // 새로운 판매가 계산 (소수점 이하 무조건 올림)
-            const newSellingPrice = Math.ceil(costPrice * (1 + (marginRate / 100)));
-            
-            // 예상판매가 업데이트
-            const expectedPriceSpan = document.querySelector(`.expected-price[data-product-id="${productId}"]`);
-            const priceDifferenceDiv = document.querySelector(`.price-difference[data-product-id="${productId}"]`);
-            const applyButton = document.querySelector(`.apply-new-prices-btn[data-product-id="${productId}"]`);
-            
-            if (expectedPriceSpan && priceDifferenceDiv && applyButton) {
-                const currentPrice = parseFloat(priceDifferenceDiv.dataset.currentPrice);
-                const priceDifference = newSellingPrice - currentPrice;
-                
-                expectedPriceSpan.textContent = newSellingPrice.toLocaleString();
-                priceDifferenceDiv.textContent = '차이: ' + priceDifference.toLocaleString();
-                
-                // 버튼 데이터 업데이트
-                applyButton.dataset.sellingPrice = newSellingPrice;
-                applyButton.dataset.marginRate = marginRate;
-                
-                // 마진율이 변경되었는지 표시
-                const originalMargin = parseFloat(this.dataset.originalMargin);
-                if (Math.abs(marginRate - originalMargin) > 0.1) {
-                    this.classList.add('border-yellow-500', 'bg-yellow-50');
-                    applyButton.classList.remove('bg-primary-600', 'hover:bg-primary-700');
-                    applyButton.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
-                    applyButton.innerHTML = '<i class="fas fa-percentage mr-1"></i>마진율적용';
-                } else {
-                    this.classList.remove('border-yellow-500', 'bg-yellow-50');
-                    applyButton.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
-                    applyButton.classList.add('bg-primary-600', 'hover:bg-primary-700');
-                    applyButton.innerHTML = '<i class="fas fa-check mr-1"></i>가격적용';
-                }
-            }
+            // 예상판매가 업데이트 함수 호출
+            updateExpectedPrice(productId, marginRate);
+        });
+    });
+    
+    // 예상판매가 input 필드 이벤트 (수기 입력 시 차이 계산 업데이트)
+    document.querySelectorAll('.expected-price').forEach(input => {
+        input.addEventListener('input', function() {
+            const productId = this.dataset.productId;
+            updatePriceDifference(productId);
         });
     });
     
@@ -930,567 +834,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 수동 설정 버튼 이벤트
-    document.querySelectorAll('.manual-edit-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            currentProductId = this.dataset.productId;
-            document.getElementById('modalCostPrice').value = '';
-            document.getElementById('modalSellingPrice').value = '';
-            document.getElementById('manualPriceModal').classList.remove('hidden');
-        });
-    });
-    
-    
-    // 모달 취소 버튼
-    document.getElementById('cancelModal').addEventListener('click', function() {
-        document.getElementById('manualPriceModal').classList.add('hidden');
-        currentProductId = null;
-    });
-    
-    // 모달 확인 버튼
-    document.getElementById('confirmModal').addEventListener('click', function() {
-        const costPrice = document.getElementById('modalCostPrice').value;
-        const sellingPrice = document.getElementById('modalSellingPrice').value;
-        
-        if (!costPrice && !sellingPrice) {
-            alert('변경할 가격을 입력해주세요.');
-            return;
-        }
-        
-        if (costPrice && (isNaN(costPrice) || costPrice < 0)) {
-            alert('올바른 원가를 입력해주세요.');
-            return;
-        }
-        
-        if (sellingPrice && (isNaN(sellingPrice) || sellingPrice <= 0)) {
-            alert('올바른 판매가를 입력해주세요.');
-            return;
-        }
-        
-        updatePrice(currentProductId, costPrice, sellingPrice, this);
-        document.getElementById('manualPriceModal').classList.add('hidden');
-    });
-    
-    
-    // 일괄 적용 함수
-    function bulkApplyPriceIncrease() {
-        console.log('bulkApplyPriceIncrease 함수 시작');
-        
-        const bulkBtn = document.getElementById('bulkApplyBtn');
-        console.log('버튼 요소:', bulkBtn);
-        
-        // 버튼 비활성화
-        bulkBtn.disabled = true;
-        const originalText = bulkBtn.innerHTML;
-        bulkBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>일괄 적용 중...';
-        
-        // AJAX 요청 데이터 준비
-        const formData = new FormData();
-        formData.append('purchase_id', '<?php echo htmlspecialchars($purchase_id); ?>');
-        // product_management.php와 동일한 방식으로 currentStoreId 변수 사용
-        if (currentStoreId) {
-            formData.append('store_id', currentStoreId);
-        }
-        
-        console.log('AJAX 요청 데이터:');
-        console.log('- purchase_id:', '<?php echo htmlspecialchars($purchase_id); ?>');
-        console.log('- store_id:', currentStoreId);
-        console.log('AJAX 요청 전송 시작');
-        
-        fetch('ajax_bulk_apply_price_increase.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            console.log('응답 상태:', response.status, response.statusText);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.text();
-        })
-        .then(text => {
-            console.log('서버 응답 텍스트:', text);
-            try {
-                const data = JSON.parse(text);
-                console.log('파싱된 JSON 데이터:', data);
-                return data;
-            } catch (e) {
-                console.error('JSON 파싱 오류:', e);
-                console.error('서버 응답:', text);
-                throw new Error('서버에서 올바르지 않은 응답을 받았습니다.');
-            }
-        })
-        .then(data => {
-            console.log('처리할 데이터:', data);
-            if (data.success) {
-                console.log('성공 응답 처리');
-                alert(data.message);
-                // 페이지 새로고침하여 업데이트된 정보 표시
-                setTimeout(() => {
-                    console.log('페이지 새로고침 시작');
-                    window.location.reload();
-                }, 1000);
-            } else {
-                console.log('실패 응답 처리:', data.message);
-                alert('오류: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('인상상품 일괄적용 오류:', error);
-            console.error('오류 메시지:', error.message);
-            alert('통신 오류가 발생했습니다: ' + error.message);
-        })
-        .finally(() => {
-            // 버튼 복원
-            bulkBtn.disabled = false;
-            bulkBtn.innerHTML = originalText;
-        });
-    }
-    
-    // 가격 업데이트 함수
-    function updatePrice(productId, costPrice, sellingPrice, buttonElement, marginRate) {
-        // 버튼 비활성화
-        buttonElement.disabled = true;
-        const originalText = buttonElement.innerHTML;
-        buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>처리중...';
-        
-        // AJAX 요청
-        const formData = new FormData();
-        formData.append('product_id', productId);
-        formData.append('purchase_id', '<?php echo htmlspecialchars($purchase_id); ?>');
-        if (costPrice) formData.append('cost_price', costPrice);
-        if (sellingPrice) formData.append('selling_price', sellingPrice);
-        if (marginRate) formData.append('margin_rate', marginRate);
-        // product_management.php와 동일한 방식으로 currentStoreId 변수 사용
-        if (currentStoreId) {
-            formData.append('store_id', currentStoreId);
-        }
-        
-        fetch('ajax_update_selling_price.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                // 페이지 새로고침하여 업데이트된 정보 표시
-                window.location.reload();
-            } else {
-                alert('오류: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('통신 오류가 발생했습니다.');
-        })
-        .finally(() => {
-            // 버튼 복원
-            buttonElement.disabled = false;
-            buttonElement.innerHTML = originalText;
-        });
-    }
-    
-    
-    // 모달 외부 클릭시 닫기
-    document.getElementById('manualPriceModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            this.classList.add('hidden');
-            currentProductId = null;
-        }
-    });
     
     
     
-    // 페이지 로드시 일괄 적용 버튼 상태 업데이트
-    function updateBulkApplyButton() {
-        const increasedItems = document.querySelectorAll('.apply-new-prices-btn[data-price-change="increase"]');
-        const bulkBtn = document.getElementById('bulkApplyBtn');
-        
-        if (increasedItems.length > 0) {
-            bulkBtn.innerHTML = `<i class="fas fa-arrow-up mr-2"></i>인상상품 일괄적용 (${increasedItems.length}개)`;
-            bulkBtn.disabled = false;
-        } else {
-            bulkBtn.innerHTML = '<i class="fas fa-arrow-up mr-2"></i>인상상품 없음';
-            bulkBtn.disabled = true;
-            bulkBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        }
-    }
     
-    // 초기 버튼 상태 설정
-    updateBulkApplyButton();
-    
-    // 프린트 미리보기 버튼 이벤트
-    document.getElementById('printPreviewBtn').addEventListener('click', function() {
-        showPrintPreview();
-    });
-    
-    // 미리보기 모달 닫기 버튼
-    document.getElementById('closePrintPreviewBtn').addEventListener('click', function() {
-        document.getElementById('printPreviewModal').classList.add('hidden');
-    });
-    
-    // 실제 인쇄 버튼
-    document.getElementById('actualPrintBtn').addEventListener('click', function() {
-        printPreviewContent();
-    });
-    
-    // 미리보기 모달 외부 클릭시 닫기
-    document.getElementById('printPreviewModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            this.classList.add('hidden');
-        }
-    });
-    
-    // 프린트 미리보기 생성 함수
-    function showPrintPreview() {
-        const modal = document.getElementById('printPreviewModal');
-        const content = document.getElementById('printPreviewContent');
-        
-        // 현재 날짜
-        const today = new Date().toLocaleDateString('ko-KR');
-        
-        // 상품 데이터 수집
-        const items = [];
-        const rows = document.querySelectorAll('.item-row');
-        
-        rows.forEach(row => {
-            const productId = row.dataset.productId;
-            const productNameKo = row.querySelector('.text-sm.font-medium')?.textContent || '';
-            const productNameEn = row.querySelector('.text-xs.text-gray-500')?.textContent || '';
-            const sku = row.querySelector('.text-xs.font-mono')?.textContent.replace('SKU: ', '') || '';
-            
-            const currentCostCell = row.querySelector('td:nth-child(3) .text-sm');
-            const purchaseCostCell = row.querySelector('td:nth-child(4) .text-sm');
-            const currentSellingCell = row.querySelector('td:nth-child(7) .text-sm');
-            const expectedSellingCell = row.querySelector('td:nth-child(8) .expected-price');
-            
-            const currentCost = currentCostCell?.textContent.replace(/[^\d.]/g, '') || '0';
-            const purchaseCost = purchaseCostCell?.textContent.replace(/[^\d.]/g, '') || '0';
-            const currentSelling = currentSellingCell?.textContent.replace(/[^\d.]/g, '') || '0';
-            const expectedSelling = expectedSellingCell?.textContent.replace(/[^\d.]/g, '') || '0';
-            
-            // 가격 변동 계산
-            const costChange = parseFloat(purchaseCost) - parseFloat(currentCost);
-            let changeType = '';
-            let changeColor = '';
-            let changeText = '';
-            
-            if (Math.abs(costChange) < 1) {
-                changeType = 'same';
-                changeText = '동일';
-            } else if (costChange > 0) {
-                changeType = 'increase';
-                changeColor = 'change-increase';
-                changeText = `인상 ${Math.abs(costChange).toLocaleString()}`;
-            } else {
-                changeType = 'decrease';
-                changeColor = 'change-decrease';
-                changeText = `인하 ${Math.abs(costChange).toLocaleString()}`;
-            }
-            
-            // 원가 변동이 있는 상품만 포함
-            if (Math.abs(costChange) >= 1) {
-                items.push({
-                    sku: sku,
-                    nameKo: productNameKo,
-                    nameEn: productNameEn,
-                    currentCost: parseFloat(currentCost),
-                    purchaseCost: parseFloat(purchaseCost),
-                    currentSelling: parseFloat(currentSelling),
-                    expectedSelling: parseFloat(expectedSelling),
-                    changeType: changeType,
-                    changeColor: changeColor,
-                    changeText: changeText
-                });
-            }
-        });
-        
-        // HTML 생성
-        let previewHtml = `
-            <div class="print-preview-info">
-                <div class="print-preview-info-row">
-                    <span class="print-preview-info-label">날짜 :</span>
-                    <span>${today}</span>
-                    <span style="margin-left: 200px;" class="print-preview-info-label">점포명 :</span>
-                    <span>${currentStoreName}</span>
-                </div>
-                <div class="print-preview-info-row">
-                    <span class="print-preview-info-label">거래처명 :</span>
-                    <span><?php echo htmlspecialchars($purchase_info['supplier_name']); ?></span>
-                </div>
-            </div>
-            
-            <table class="print-preview-table">
-                <thead>
-                    <tr>
-                        <th rowspan="2" style="width: 10%;">SKU</th>
-                        <th rowspan="2" style="width: 20%;">상품명</th>
-                        <th rowspan="2" style="width: 12%;">기존원가</th>
-                        <th rowspan="2" style="width: 12%;">매입원가</th>
-                        <th rowspan="2" style="width: 15%;">인상(빨강)/인하(파랑)</th>
-                        <th rowspan="2" style="width: 12%;">기존판매가</th>
-                        <th rowspan="2" style="width: 12%;">예상판매가</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-        
-        if (items.length === 0) {
-            previewHtml += `
-                    <tr>
-                        <td colspan="7" style="text-align: center; padding: 40px;">
-                            원가 변동이 있는 상품이 없습니다.
-                        </td>
-                    </tr>`;
-        } else {
-            items.forEach(item => {
-                previewHtml += `
-                    <tr>
-                        <td style="font-size: 11px; font-weight: bold; font-family: monospace;">${item.sku}</td>
-                        <td class="product-cell">
-                            <div class="product-name-en">${item.nameEn}</div>
-                            <div class="product-name-ko">${item.nameKo}</div>
-                        </td>
-                        <td class="price-cell">${parseFloat(item.currentCost).toFixed(2)}</td>
-                        <td class="price-cell">${parseFloat(item.purchaseCost).toFixed(2)}</td>
-                        <td class="${item.changeColor}">${item.changeText}</td>
-                        <td class="price-cell">${parseFloat(item.currentSelling).toFixed(0)}</td>
-                        <td class="price-cell">${parseFloat(item.expectedSelling).toFixed(0)}</td>
-                    </tr>`;
-            });
-        }
-        
-        previewHtml += `
-                </tbody>
-            </table>`;
-        
-        content.innerHTML = previewHtml;
-        modal.classList.remove('hidden');
-    }
-    
-    // 프린트 실행 함수
-    function printPreviewContent() {
-        const printContent = document.getElementById('printPreviewContent').innerHTML;
-        
-        // 데이터 개수 확인하여 페이지 분할 결정
-        const items = document.querySelectorAll('#printPreviewContent .print-preview-table tbody tr');
-        const itemsPerPage = 25; // A4 세로에서 적정 행 수
-        const totalPages = Math.ceil(items.length / itemsPerPage);
-        
-        let printHtml = '';
-        
-        // 페이지별로 분할하여 HTML 생성
-        for (let page = 0; page < totalPages; page++) {
-            const startIndex = page * itemsPerPage;
-            const endIndex = Math.min(startIndex + itemsPerPage, items.length);
-            
-            printHtml += generatePrintPage(page + 1, totalPages, startIndex, endIndex);
-        }
-        
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>매입건별 가격변동 분석 - <?php echo htmlspecialchars($purchase_id); ?></title>
-                    <style>
-                        @page {
-                            size: A4 portrait;
-                            margin: 0.75in 0.5in;
-                        }
-                        
-                        body {
-                            font-family: monospace;
-                            font-size: 12px;
-                            margin: 0;
-                            padding: 0;
-                            color: black;
-                            line-height: 1.3;
-                        }
-                        
-                        .page {
-                            page-break-after: always;
-                            padding: 0;
-                            margin: 0;
-                        }
-                        
-                        .page:last-child {
-                            page-break-after: avoid;
-                        }
-                        
-                        .page-header {
-                            margin-bottom: 15px;
-                        }
-                        
-                        .page-number {
-                            text-align: center;
-                            margin-top: 10px;
-                            font-size: 10px;
-                            color: #666;
-                        }
-                        
-                        .print-preview-table {
-                            width: 100%;
-                            border-collapse: collapse;
-                            font-family: monospace;
-                            font-size: 11px;
-                        }
-                        
-                        .print-preview-table th,
-                        .print-preview-table td {
-                            border: 1px solid #000;
-                            padding: 4px 3px;
-                            text-align: center;
-                            vertical-align: middle;
-                        }
-                        
-                        .print-preview-table th {
-                            background-color: #f5f5f5;
-                            font-weight: bold;
-                            font-size: 10px;
-                        }
-                        
-                        .print-preview-table .product-cell {
-                            text-align: left;
-                            vertical-align: top;
-                            max-width: 150px;
-                        }
-                        
-                        .print-preview-table .product-name-ko {
-                            font-weight: bold;
-                            font-size: 10px;
-                            margin-bottom: 1px;
-                            word-break: break-all;
-                            color: #000;
-                        }
-                        
-                        .print-preview-table .product-name-en {
-                            font-size: 10px;
-                            color: #000;
-                            margin-bottom: 1px;
-                            word-break: break-all;
-                            font-weight: bold;
-                        }
-                        
-                        .print-preview-table .price-cell {
-                            text-align: right;
-                            font-family: monospace;
-                            font-weight: bold;
-                            font-size: 10px;
-                        }
-                        
-                        .print-preview-table .change-increase {
-                            color: #dc2626;
-                            font-weight: bold;
-                            font-size: 9px;
-                        }
-                        
-                        .print-preview-table .change-decrease {
-                            color: #2563eb;
-                            font-weight: bold;
-                            font-size: 9px;
-                        }
-                        
-                        .print-preview-info {
-                            margin-bottom: 15px;
-                            font-family: monospace;
-                            font-size: 13px;
-                        }
-                        
-                        .print-preview-info-row {
-                            margin-bottom: 5px;
-                            display: flex;
-                        }
-                        
-                        .print-preview-info-label {
-                            min-width: 80px;
-                            font-weight: bold;
-                        }
-                    </style>
-                </head>
-                <body>
-                    ${printHtml}
-                </body>
-            </html>
-        `);
-        
-        printWindow.document.close();
-        printWindow.focus();
-        
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 500);
-    }
-    
-    // 페이지별 프린트 내용 생성 함수
-    function generatePrintPage(currentPage, totalPages, startIndex, endIndex) {
-        const today = new Date().toLocaleDateString('ko-KR');
-        const allItems = document.querySelectorAll('#printPreviewContent .print-preview-table tbody tr');
-        
-        let pageContent = `
-            <div class="page">
-                <div class="page-header">
-                    <div class="print-preview-info">
-                        <div class="print-preview-info-row">
-                            <span class="print-preview-info-label">날짜 :</span>
-                            <span>${today}</span>
-                            <span style="margin-left: 100px;" class="print-preview-info-label">점포명 :</span>
-                            <span>${currentStoreName}</span>
-                        </div>
-                        <div class="print-preview-info-row">
-                            <span class="print-preview-info-label">거래처명 :</span>
-                            <span><?php echo htmlspecialchars($purchase_info['supplier_name']); ?></span>
-                        </div>
-                    </div>
-                </div>
-                
-                <table class="print-preview-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 12%;">SKU</th>
-                            <th style="width: 25%;">상품명</th>
-                            <th style="width: 12%;">기존원가</th>
-                            <th style="width: 12%;">매입원가</th>
-                            <th style="width: 15%;">인상(빨강)/인하(파랑)</th>
-                            <th style="width: 12%;">기존판매가</th>
-                            <th style="width: 12%;">예상판매가</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-        
-        // 해당 페이지의 아이템들만 추가
-        for (let i = startIndex; i < endIndex && i < allItems.length; i++) {
-            const row = allItems[i];
-            const skuCell = row.querySelector('td:first-child');
-            const productCell = row.querySelector('td:nth-child(2)');
-            const currentCostCell = row.querySelector('td:nth-child(3)');
-            const purchaseCostCell = row.querySelector('td:nth-child(4)');
-            const changeCell = row.querySelector('td:nth-child(5)');
-            const currentSellingCell = row.querySelector('td:nth-child(6)');
-            const expectedSellingCell = row.querySelector('td:nth-child(7)');
-            
-            if (skuCell && productCell) {
-                pageContent += `
-                    <tr>
-                        <td style="font-size: 11px; font-weight: bold; font-family: monospace;">${skuCell.textContent}</td>
-                        <td class="product-cell">${productCell.innerHTML}</td>
-                        <td class="price-cell">${currentCostCell ? currentCostCell.textContent : ''}</td>
-                        <td class="price-cell">${purchaseCostCell ? purchaseCostCell.textContent : ''}</td>
-                        <td class="${changeCell ? changeCell.className : ''}">${changeCell ? changeCell.textContent : ''}</td>
-                        <td class="price-cell">${currentSellingCell ? currentSellingCell.textContent : ''}</td>
-                        <td class="price-cell">${expectedSellingCell ? expectedSellingCell.textContent : ''}</td>
-                    </tr>`;
-            }
-        }
-        
-        pageContent += `
-                    </tbody>
-                </table>
-                <div class="page-number">페이지 ${currentPage} / ${totalPages}</div>
-            </div>`;
-        
-        return pageContent;
-    }
 });
 </script>
 
@@ -1618,87 +965,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 }
 
-/* 프린트 미리보기 전용 스타일 */
-.print-preview-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: monospace;
-    font-size: 12px;
-    margin-top: 20px;
-}
-
-.print-preview-table th,
-.print-preview-table td {
-    border: 2px solid #000;
-    padding: 8px 6px;
-    text-align: center;
-    vertical-align: middle;
-}
-
-.print-preview-table th {
-    background-color: #f5f5f5;
-    font-weight: bold;
-    font-size: 11px;
-}
-
-.print-preview-table .product-cell {
-    text-align: left;
-    vertical-align: top;
-}
-
-.print-preview-table .product-name-ko {
-    font-weight: bold;
-    font-size: 11px;
-    margin-bottom: 2px;
-}
-
-.print-preview-table .product-name-en {
-    font-size: 9px;
-    color: #666;
-    margin-bottom: 2px;
-}
-
-.print-preview-table .product-sku {
-    font-size: 8px;
-    color: #888;
-}
-
-.print-preview-table .price-cell {
-    text-align: right;
-    font-family: monospace;
-    font-weight: bold;
-}
-
-.print-preview-table .change-increase {
-    color: #dc2626;
-    font-weight: bold;
-}
-
-.print-preview-table .change-decrease {
-    color: #2563eb;
-    font-weight: bold;
-}
-
-.print-preview-info {
-    margin-bottom: 20px;
-    font-family: monospace;
-    font-size: 14px;
-}
-
-.print-preview-info-row {
-    margin-bottom: 8px;
-    display: flex;
-}
-
-.print-preview-info-label {
-    min-width: 100px;
-    font-weight: bold;
-}
-
-#printPreviewModal .modal-content {
-    max-height: 90vh;
-    overflow-y: auto;
-}
 </style>
 
 <?php

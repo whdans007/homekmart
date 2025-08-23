@@ -59,10 +59,10 @@ try {
     // SQL 쿼리 구성 - 표시 모드에 따라 조건 변경
     if ($display_mode === 'recent') {
         $where_condition = "DATE(p.purchase_date) BETWEEN ? AND ?";
-        $order_clause = "ORDER BY p.purchase_date DESC, pr.name_ko ASC";
+        $order_clause = "ORDER BY pr.id DESC, p.purchase_date DESC";
     } else {
         $where_condition = "DATE(p.purchase_date) = ?";
-        $order_clause = "ORDER BY p.purchase_date DESC, pr.name_ko ASC";
+        $order_clause = "ORDER BY pr.id DESC, p.purchase_date DESC";
     }
     
     $sql = "
@@ -327,11 +327,43 @@ $conn->close();
                     <tbody>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50 w-1/3"><?php echo t('product.name_en'); ?></td>
-                            <td class="px-4 py-2" id="modal-name-en"></td>
+                            <td class="px-4 py-2 relative" id="modal-name-en-container">
+                                <div id="modal-name-en-display" class="flex items-center justify-between">
+                                    <span id="modal-name-en"></span>
+                                    <button id="edit-name-en-btn" class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                                        <i class="fas fa-edit mr-1"></i>수정
+                                    </button>
+                                </div>
+                                <div id="modal-name-en-edit" class="hidden flex items-center space-x-2">
+                                    <input type="text" id="modal-name-en-input" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" maxlength="255">
+                                    <button id="save-name-en-btn" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
+                                        <i class="fas fa-save mr-1"></i>저장
+                                    </button>
+                                    <button id="cancel-name-en-btn" class="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600">
+                                        <i class="fas fa-times mr-1"></i>취소
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50 w-1/3"><?php echo t('product.name_ko'); ?></td>
-                            <td class="px-4 py-2" id="modal-name-ko"></td>
+                            <td class="px-4 py-2 relative" id="modal-name-ko-container">
+                                <div id="modal-name-ko-display" class="flex items-center justify-between">
+                                    <span id="modal-name-ko"></span>
+                                    <button id="edit-name-ko-btn" class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                                        <i class="fas fa-edit mr-1"></i>수정
+                                    </button>
+                                </div>
+                                <div id="modal-name-ko-edit" class="hidden flex items-center space-x-2">
+                                    <input type="text" id="modal-name-ko-input" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" maxlength="255">
+                                    <button id="save-name-ko-btn" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
+                                        <i class="fas fa-save mr-1"></i>저장
+                                    </button>
+                                    <button id="cancel-name-ko-btn" class="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600">
+                                        <i class="fas fa-times mr-1"></i>취소
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50">SKU</td>
@@ -417,43 +449,46 @@ $conn->close();
                         <?php echo t('purchase_product.selling_price_setup'); ?>
                     </h5>
                     
-                    <!-- 원가 정보 -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-blue-700 mb-1">선택된 원가</label>
-                        <div id="selected-cost-display" class="text-lg font-bold text-blue-900">0</div>
-                    </div>
-                    
-                    <!-- 마진율 선택 -->
-                    <div class="mb-3">
-                        <div class="flex justify-between items-center mb-2">
-                            <label class="block text-sm font-medium text-blue-700"><?php echo t('purchase_product.margin_rate_selection'); ?></label>
-                            <button id="configure-presets-btn" class="text-xs text-blue-600 hover:text-blue-800">
-                                <i class="fas fa-cog mr-1"></i><?php echo t('purchase_product.setting'); ?>
-                            </button>
+                    <!-- 가로 한줄 레이아웃 -->
+                    <div class="flex items-end space-x-4 mb-3">
+                        <!-- 원가 정보 -->
+                        <div class="flex-shrink-0">
+                            <label class="block text-xs font-medium text-blue-700 mb-1">선택된 원가</label>
+                            <div id="selected-cost-display" class="text-sm font-bold text-blue-900 bg-white px-2 py-1 rounded border">0</div>
                         </div>
-                        <div id="margin-presets-container" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-                            <!-- 동적으로 생성될 마진율 버튼들 -->
+                        
+                        <!-- 마진율 선택 -->
+                        <div class="flex-grow">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-medium text-blue-700"><?php echo t('purchase_product.margin_rate_selection'); ?></label>
+                                <button id="configure-presets-btn" class="text-xs text-blue-600 hover:text-blue-800">
+                                    <i class="fas fa-cog mr-1"></i><?php echo t('purchase_product.setting'); ?>
+                                </button>
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <div id="margin-presets-container" class="flex space-x-1">
+                                    <!-- 동적으로 생성될 마진율 버튼들 -->
+                                </div>
+                                <input type="number" id="custom-margin-input" 
+                                       class="w-16 px-1 py-1 text-xs border border-blue-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                                       placeholder="직접입력" min="0" max="100" step="0.1">
+                                <span class="text-xs text-gray-600">%</span>
+                                <button id="apply-custom-margin-btn" class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200">적용</button>
+                            </div>
                         </div>
-                        <div class="flex items-center space-x-2">
-                            <input type="number" id="custom-margin-input" 
-                                   class="w-20 px-2 py-1 text-sm border border-blue-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
-                                   placeholder="<?php echo t('purchase_product.direct_input'); ?>" min="0" max="100" step="0.1">
-                            <span class="text-sm text-gray-600">%</span>
-                            <button id="apply-custom-margin-btn" class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200">적용</button>
-                        </div>
-                    </div>
-                    
-                    <!-- 계산된 판매가 -->
-                    <div class="mb-3">
-                        <label class="block text-sm font-medium text-blue-700 mb-1">계산된 판매가</label>
-                        <div class="flex items-center space-x-2">
-                            <input type="number" id="new-selling-price" 
-                                   class="flex-1 px-3 py-2 border border-blue-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
-                                   placeholder="판매가">
-                            <button id="apply-selling-price-btn" 
-                                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">
-                                적용
-                            </button>
+                        
+                        <!-- 계산된 판매가 -->
+                        <div class="flex-shrink-0">
+                            <label class="block text-xs font-medium text-blue-700 mb-1">계산된 판매가</label>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" id="new-selling-price" 
+                                       class="w-24 px-2 py-1 text-sm border border-blue-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                                       placeholder="판매가">
+                                <button id="apply-selling-price-btn" 
+                                        class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">
+                                    적용
+                                </button>
+                            </div>
                         </div>
                     </div>
                     
@@ -1213,6 +1248,220 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // 상품명 편집 기능
+    let currentEditingProductId = null;
+    
+    // 상품명 편집 모드 전환 (영어)
+    document.getElementById('edit-name-en-btn').addEventListener('click', function() {
+        if (!currentProductId) return;
+        
+        const displayDiv = document.getElementById('modal-name-en-display');
+        const editDiv = document.getElementById('modal-name-en-edit');
+        const input = document.getElementById('modal-name-en-input');
+        const currentName = document.getElementById('modal-name-en').textContent;
+        
+        input.value = currentName;
+        displayDiv.classList.add('hidden');
+        editDiv.classList.remove('hidden');
+        input.focus();
+        input.select();
+        
+        currentEditingProductId = currentProductId;
+    });
+    
+    // 상품명 편집 모드 전환 (한글)
+    document.getElementById('edit-name-ko-btn').addEventListener('click', function() {
+        if (!currentProductId) return;
+        
+        const displayDiv = document.getElementById('modal-name-ko-display');
+        const editDiv = document.getElementById('modal-name-ko-edit');
+        const input = document.getElementById('modal-name-ko-input');
+        const currentName = document.getElementById('modal-name-ko').textContent;
+        
+        input.value = currentName;
+        displayDiv.classList.add('hidden');
+        editDiv.classList.remove('hidden');
+        input.focus();
+        input.select();
+        
+        currentEditingProductId = currentProductId;
+    });
+    
+    // 상품명 저장 함수
+    function saveProductName(language, newName) {
+        if (!currentEditingProductId) return;
+        
+        const formData = new FormData();
+        formData.append('product_id', currentEditingProductId);
+        formData.append('language', language);
+        formData.append('product_name', newName.trim());
+        
+        const saveBtn = document.getElementById(`save-name-${language}-btn`);
+        const originalText = saveBtn.innerHTML;
+        
+        // 저장 중 상태
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>저장중...';
+        saveBtn.disabled = true;
+        
+        fetch('ajax_update_product_name.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return response.text(); // 먼저 텍스트로 받아서 확인
+        })
+        .then(text => {
+            console.log('Response text:', text);
+            
+            try {
+                const result = JSON.parse(text);
+                console.log('Parsed result:', result);
+                
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    
+                    // UI 업데이트
+                    document.getElementById(`modal-name-${language}`).textContent = newName;
+                    
+                    // 테이블 목록에서도 해당 상품의 상품명 업데이트 (페이지 새로고침 없이 즉시 반영)
+                    updateProductNameInTable(currentEditingProductId, language, newName);
+                    
+                    cancelProductNameEdit(language);
+                    
+                } else {
+                    showToast(`오류: ${result.message}`, 'error');
+                }
+            } catch (parseError) {
+                console.error('JSON 파싱 오류:', parseError);
+                console.error('원본 응답:', text);
+                showToast('서버 응답을 처리할 수 없습니다: ' + text.substring(0, 100), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('상품명 저장 오류:', error);
+            showToast('상품명 저장 중 오류가 발생했습니다: ' + error.message, 'error');
+        })
+        .finally(() => {
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        });
+    }
+    
+    // 테이블에서 상품명 업데이트 함수
+    function updateProductNameInTable(productId, language, newName) {
+        // 테이블의 모든 행을 확인하여 해당 상품의 상품명을 업데이트
+        const tableRows = document.querySelectorAll('tbody tr[onclick*="showProductDetails"]');
+        
+        tableRows.forEach(row => {
+            const onclickAttr = row.getAttribute('onclick');
+            if (onclickAttr && onclickAttr.includes(`showProductDetails(${productId})`)) {
+                // 해당 상품 행을 찾았으면 상품명 업데이트
+                // 상품명이 있는 셀을 찾기 (text-gray-800과 text-gray-600 클래스가 있는 div가 포함된 셀)
+                const nameCells = row.querySelectorAll('td');
+                let nameCell = null;
+                
+                for (let cell of nameCells) {
+                    const nameEn = cell.querySelector('.text-gray-800');
+                    const nameKo = cell.querySelector('.text-gray-600');
+                    if (nameEn && nameKo) {
+                        nameCell = cell;
+                        break;
+                    }
+                }
+                
+                if (nameCell) {
+                    const nameEn = nameCell.querySelector('.text-gray-800');
+                    const nameKo = nameCell.querySelector('.text-gray-600');
+                    
+                    if (language === 'en' && nameEn) {
+                        nameEn.textContent = newName;
+                    } else if (language === 'ko' && nameKo) {
+                        nameKo.textContent = newName;
+                    }
+                }
+            }
+        });
+    }
+
+    // 상품명 편집 취소 함수
+    function cancelProductNameEdit(language) {
+        const displayDiv = document.getElementById(`modal-name-${language}-display`);
+        const editDiv = document.getElementById(`modal-name-${language}-edit`);
+        
+        displayDiv.classList.remove('hidden');
+        editDiv.classList.add('hidden');
+        
+        // 입력값 초기화
+        document.getElementById(`modal-name-${language}-input`).value = '';
+        currentEditingProductId = null;
+    }
+    
+    // 영어 상품명 저장 버튼
+    document.getElementById('save-name-en-btn').addEventListener('click', function() {
+        const newName = document.getElementById('modal-name-en-input').value.trim();
+        if (!newName) {
+            showToast('상품명을 입력해주세요.', 'error');
+            return;
+        }
+        if (newName.length > 255) {
+            showToast('상품명은 255자 이내로 입력해주세요.', 'error');
+            return;
+        }
+        saveProductName('en', newName);
+    });
+    
+    // 한글 상품명 저장 버튼
+    document.getElementById('save-name-ko-btn').addEventListener('click', function() {
+        const newName = document.getElementById('modal-name-ko-input').value.trim();
+        if (!newName) {
+            showToast('상품명을 입력해주세요.', 'error');
+            return;
+        }
+        if (newName.length > 255) {
+            showToast('상품명은 255자 이내로 입력해주세요.', 'error');
+            return;
+        }
+        saveProductName('ko', newName);
+    });
+    
+    // 영어 상품명 취소 버튼
+    document.getElementById('cancel-name-en-btn').addEventListener('click', function() {
+        cancelProductNameEdit('en');
+    });
+    
+    // 한글 상품명 취소 버튼
+    document.getElementById('cancel-name-ko-btn').addEventListener('click', function() {
+        cancelProductNameEdit('ko');
+    });
+    
+    // 엔터키로 저장, ESC키로 취소
+    document.getElementById('modal-name-en-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('save-name-en-btn').click();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelProductNameEdit('en');
+        }
+    });
+    
+    document.getElementById('modal-name-ko-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('save-name-ko-btn').click();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelProductNameEdit('ko');
+        }
+    });
+
     // ESC 키로 모달 닫기
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
