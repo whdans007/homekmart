@@ -176,12 +176,10 @@ $items_result = $items_stmt->get_result();
                             $price_change = $item['purchase_unit_price_per_piece'] - $item['current_cost_price'];
                             $price_change_percent = $item['current_cost_price'] > 0 ? ($price_change / $item['current_cost_price']) * 100 : 0;
                             
-                            // 원가 변동이 없으면 (1원 미만 차이) 건너뛰기
-                            if (abs($price_change) < 1) {
-                                continue;
+                            // 원가 변동이 있는지 확인 (데이터 없음 메시지 표시용)
+                            if (abs($price_change) >= 1) {
+                                $has_price_changes = true;
                             }
-                            
-                            $has_price_changes = true;
                             
                             // 기존 마진율 계산
                             $current_margin_rate = 0;
@@ -297,13 +295,13 @@ $items_result = $items_stmt->get_result();
                         <?php endwhile; ?>
                     <?php endif; ?>
                     
-                    <?php if (!$has_price_changes): ?>
+                    <?php if ($items_result->num_rows == 0): ?>
                         <tr>
                             <td colspan="9" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
-                                    <i class="fas fa-equals text-4xl text-gray-400"></i>
-                                    <p class="mt-4">원가 변동이 있는 상품이 없습니다.</p>
-                                    <p class="text-xs text-gray-400">모든 매입 상품의 원가가 현재 원가와 동일합니다.</p>
+                                    <i class="fas fa-box-open text-4xl text-gray-400"></i>
+                                    <p class="mt-4">매입 상품이 없습니다.</p>
+                                    <p class="text-xs text-gray-400">이 매입건에 등록된 상품이 없습니다.</p>
                                 </div>
                             </td>
                         </tr>

@@ -1349,10 +1349,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="text-xs text-gray-500">${product.name_en || ''}</div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-center">
-                <select name="items[${itemIndex}][purchase_type]" class="text-xs rounded-md px-2 py-1 purchase-type border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" ${isExisting ? 'disabled' : ''}>
-                    <option value="box" ${purchaseType === 'box' ? 'selected' : ''}>박스</option>
-                    <option value="piece" ${purchaseType === 'piece' ? 'selected' : ''}>낱개</option>
-                </select>
+                <div class="flex items-center justify-center space-x-3">
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="items[${itemIndex}][purchase_type]" value="box" 
+                               class="purchase-type text-indigo-600 border-gray-300 focus:ring-indigo-500" 
+                               ${purchaseType === 'box' ? 'checked' : ''} 
+                               ${isExisting ? 'disabled' : ''}>
+                        <span class="ml-1 text-xs">박스</span>
+                    </label>
+                    <label class="inline-flex items-center">
+                        <input type="radio" name="items[${itemIndex}][purchase_type]" value="piece" 
+                               class="purchase-type text-indigo-600 border-gray-300 focus:ring-indigo-500" 
+                               ${purchaseType === 'piece' ? 'checked' : ''} 
+                               ${isExisting ? 'disabled' : ''}>
+                        <span class="ml-1 text-xs">낱개</span>
+                    </label>
+                </div>
                 ${isExisting ? `<input type="hidden" name="items[${itemIndex}][purchase_type]" value="${purchaseType}">` : ''}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right">
@@ -1427,7 +1439,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 5, 7, 8. 수량/단가/박스당수량 변경 시 합계 업데이트
     itemList.addEventListener('input', function(e) {
-        if (e.target.classList.contains('quantity') || e.target.classList.contains('unit-price') || e.target.classList.contains('purchase-type') || e.target.classList.contains('pieces-per-box')) {
+        if (e.target.classList.contains('quantity') || e.target.classList.contains('unit-price') || e.target.classList.contains('pieces-per-box')) {
             const row = e.target.closest('tr');
             
             // 박스당 수량이 변경된 경우 dataset도 업데이트
@@ -1439,13 +1451,22 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
     
+    // 매입유형 라디오 버튼 변경 시 합계 업데이트
+    itemList.addEventListener('change', function(e) {
+        if (e.target.classList.contains('purchase-type')) {
+            const row = e.target.closest('tr');
+            updateRow(row);
+        }
+    });
+    
     // 박스당 수량 변경 시 상품정보 자동 업데이트 (박스 구매유형일 때만)
     itemList.addEventListener('change', function(e) {
         if (e.target.classList.contains('pieces-per-box')) {
             const row = e.target.closest('tr');
             const productId = row.dataset.productId;
             const newPiecesPerBox = parseInt(e.target.value) || 1;
-            const purchaseType = row.querySelector('.purchase-type').value;
+            const purchaseTypeRadio = row.querySelector('.purchase-type:checked');
+            const purchaseType = purchaseTypeRadio ? purchaseTypeRadio.value : 'box';
             
             // 기존 상품이 아니고, 구매유형이 박스인 경우에만 업데이트
             if (productId && !e.target.readOnly && purchaseType === 'box') {
@@ -1453,8 +1474,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
         
-        // 구매유형이 박스로 변경될 때도 박스당 수량 자동 업데이트 확인
-        if (e.target.classList.contains('purchase-type') && e.target.value === 'box') {
+        // 구매유형이 박스로 변경될 때도 박스당 수량 자동 업데이트 확인 (라디오 버튼용 수정)
+        if (e.target.classList.contains('purchase-type') && e.target.checked && e.target.value === 'box') {
             const row = e.target.closest('tr');
             const productId = row.dataset.productId;
             const piecesPerBoxInput = row.querySelector('.pieces-per-box');
@@ -1490,7 +1511,8 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     function updateRow(row) {
-        const purchaseType = row.querySelector('.purchase-type').value;
+        const purchaseTypeRadio = row.querySelector('.purchase-type:checked');
+        const purchaseType = purchaseTypeRadio ? purchaseTypeRadio.value : 'box';
         const quantity = parseFloat(row.querySelector('.quantity').value) || 0;
         const unitPrice = parseFloat(row.querySelector('.unit-price').value) || 0;
         const piecesPerBoxInput = row.querySelector('.pieces-per-box');
