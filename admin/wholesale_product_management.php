@@ -232,14 +232,11 @@ try {
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <?php echo t('wholesale.wholesale_price'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <?php echo t('common.actions'); ?>
-                        </th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php foreach ($wholesale_products as $wp): ?>
-                    <tr class="hover:bg-gray-50">
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='edit_wholesale_product.php?id=<?php echo $wp['id']; ?>'">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                             <?php
                             // 도매 SKU들 표시 (JSON에서 배열로 변환)
@@ -299,18 +296,6 @@ try {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                             <?php echo number_format($wp['wholesale_price']); ?>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div class="flex space-x-2">
-                                <a href="edit_wholesale_product.php?id=<?php echo $wp['id']; ?>" class="text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-edit"></i> <?php echo t('common.edit'); ?>
-                                </a>
-                                <a href="delete_wholesale_product.php?id=<?php echo $wp['id']; ?>" 
-                                   class="text-red-600 hover:text-red-900"
-                                   onclick="return confirm('<?php echo addslashes(t('wholesale_product_management.delete_confirm')); ?>');">
-                                    <i class="fas fa-trash"></i> <?php echo t('common.delete'); ?>
-                                </a>
-                            </div>
                         </td>
                     </tr>
                     <?php endforeach; ?>

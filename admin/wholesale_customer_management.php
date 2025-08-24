@@ -161,14 +161,11 @@ try {
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             등록일
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <?php echo t('common.actions'); ?>
-                        </th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php foreach ($customers as $customer): ?>
-                    <tr class="hover:bg-gray-50">
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='edit_wholesale_customer.php?id=<?php echo $customer['id']; ?>'">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">
                                 <?php echo htmlspecialchars($customer['name']); ?>
@@ -190,18 +187,6 @@ try {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             <?php echo date('Y-m-d', strtotime($customer['created_at'])); ?>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div class="flex space-x-2">
-                                <a href="edit_wholesale_customer.php?id=<?php echo $customer['id']; ?>" class="text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-edit"></i> <?php echo t('common.edit'); ?>
-                                </a>
-                                <a href="delete_wholesale_customer.php?id=<?php echo $customer['id']; ?>" 
-                                   class="text-red-600 hover:text-red-900"
-                                   onclick="return confirm('이 거래처를 삭제하시겠습니까?');">
-                                    <i class="fas fa-trash"></i> <?php echo t('common.delete'); ?>
-                                </a>
-                            </div>
                         </td>
                     </tr>
                     <?php endforeach; ?>

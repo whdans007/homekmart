@@ -213,14 +213,14 @@ $conn->close();
                     <tr>
                         <?php if ($display_mode === 'recent'): ?>
                         <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
-                            매입일
+                            <?php echo t('purchase.purchase_date'); ?>
                         </th>
                         <?php endif; ?>
                         <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
                             <?php echo t('product.sku'); ?>
                         </th>
                         <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
-                            상품명
+                            <?php echo t('product.name'); ?>
                         </th>
                         <th scope="col" class="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase">
                             <?php echo t('purchase.quantity'); ?>
@@ -331,16 +331,16 @@ $conn->close();
                                 <div id="modal-name-en-display" class="flex items-center justify-between">
                                     <span id="modal-name-en"></span>
                                     <button id="edit-name-en-btn" class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
-                                        <i class="fas fa-edit mr-1"></i>수정
+                                        <i class="fas fa-edit mr-1"></i><?php echo t('common.edit'); ?>
                                     </button>
                                 </div>
                                 <div id="modal-name-en-edit" class="hidden flex items-center space-x-2">
                                     <input type="text" id="modal-name-en-input" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" maxlength="255">
                                     <button id="save-name-en-btn" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
-                                        <i class="fas fa-save mr-1"></i>저장
+                                        <i class="fas fa-save mr-1"></i><?php echo t('common.save'); ?>
                                     </button>
                                     <button id="cancel-name-en-btn" class="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600">
-                                        <i class="fas fa-times mr-1"></i>취소
+                                        <i class="fas fa-times mr-1"></i><?php echo t('common.cancel'); ?>
                                     </button>
                                 </div>
                             </td>
@@ -351,16 +351,16 @@ $conn->close();
                                 <div id="modal-name-ko-display" class="flex items-center justify-between">
                                     <span id="modal-name-ko"></span>
                                     <button id="edit-name-ko-btn" class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
-                                        <i class="fas fa-edit mr-1"></i>수정
+                                        <i class="fas fa-edit mr-1"></i><?php echo t('common.edit'); ?>
                                     </button>
                                 </div>
                                 <div id="modal-name-ko-edit" class="hidden flex items-center space-x-2">
                                     <input type="text" id="modal-name-ko-input" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" maxlength="255">
                                     <button id="save-name-ko-btn" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
-                                        <i class="fas fa-save mr-1"></i>저장
+                                        <i class="fas fa-save mr-1"></i><?php echo t('common.save'); ?>
                                     </button>
                                     <button id="cancel-name-ko-btn" class="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600">
-                                        <i class="fas fa-times mr-1"></i>취소
+                                        <i class="fas fa-times mr-1"></i><?php echo t('common.cancel'); ?>
                                     </button>
                                 </div>
                             </td>
@@ -453,7 +453,7 @@ $conn->close();
                     <div class="flex items-end space-x-4 mb-3">
                         <!-- 원가 정보 -->
                         <div class="flex-shrink-0">
-                            <label class="block text-xs font-medium text-blue-700 mb-1">선택된 원가</label>
+                            <label class="block text-xs font-medium text-blue-700 mb-1"><?php echo t('purchase_product.selected_cost_price'); ?></label>
                             <div id="selected-cost-display" class="text-sm font-bold text-blue-900 bg-white px-2 py-1 rounded border">0</div>
                         </div>
                         
@@ -471,22 +471,22 @@ $conn->close();
                                 </div>
                                 <input type="number" id="custom-margin-input" 
                                        class="w-16 px-1 py-1 text-xs border border-blue-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
-                                       placeholder="직접입력" min="0" max="100" step="0.1">
+                                       placeholder="<?php echo t('purchase_product.direct_input'); ?>" min="0" max="100" step="0.1">
                                 <span class="text-xs text-gray-600">%</span>
-                                <button id="apply-custom-margin-btn" class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200">적용</button>
+                                <button id="apply-custom-margin-btn" class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"><?php echo t('purchase_product.apply'); ?></button>
                             </div>
                         </div>
                         
                         <!-- 계산된 판매가 -->
                         <div class="flex-shrink-0">
-                            <label class="block text-xs font-medium text-blue-700 mb-1">계산된 판매가</label>
+                            <label class="block text-xs font-medium text-blue-700 mb-1"><?php echo t('purchase_product.calculated_selling_price'); ?></label>
                             <div class="flex items-center space-x-2">
                                 <input type="number" id="new-selling-price" 
                                        class="w-24 px-2 py-1 text-sm border border-blue-300 rounded-md focus:ring-blue-500 focus:border-blue-500" 
-                                       placeholder="판매가">
+                                       placeholder="<?php echo t('product.selling_price'); ?>">
                                 <button id="apply-selling-price-btn" 
                                         class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">
-                                    적용
+                                    <?php echo t('purchase_product.apply'); ?>
                                 </button>
                             </div>
                         </div>
@@ -497,15 +497,15 @@ $conn->close();
                         <div class="flex space-x-4">
                             <span class="text-blue-600">
                                 <i class="fas fa-calculator mr-1"></i>
-                                실제 마진율: <span id="margin-rate">0%</span>
+                                <?php echo t('purchase_product.actual_margin_rate'); ?>: <span id="margin-rate">0%</span>
                             </span>
                             <span class="text-gray-500">
                                 <i class="fas fa-info-circle mr-1"></i>
-                                권장 마진: <span id="recommended-margin-rate">30%</span>
+                                <?php echo t('product.recommended_margin'); ?>: <span id="recommended-margin-rate">30%</span>
                             </span>
                         </div>
                         <button id="cancel-pricing-btn" class="text-blue-600 hover:text-blue-800">
-                            취소
+                            <?php echo t('common.cancel'); ?>
                         </button>
                     </div>
                 </div>
@@ -592,7 +592,9 @@ document.addEventListener('DOMContentLoaded', function() {
         priceUpdated: <?php echo json_encode(t('purchase_product.js_price_updated')); ?>,
         noImage: <?php echo json_encode(t('purchase_product.js_no_image')); ?>,
         directInput: <?php echo json_encode(t('purchase_product.js_direct_input')); ?>,
-        applyMargin: <?php echo json_encode(t('purchase_product.js_apply_margin')); ?>
+        applyMargin: <?php echo json_encode(t('purchase_product.js_apply_margin')); ?>,
+        productNameRequired: <?php echo json_encode(t('product.enter_korean_name')); ?>,
+        productNameTooLong: '상품명은 255자 이내로 입력해주세요.'
     };
     
     // 현재 점포 정보
@@ -1300,7 +1302,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const originalText = saveBtn.innerHTML;
         
         // 저장 중 상태
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>저장중...';
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>' + translations.savingText;
         saveBtn.disabled = true;
         
         fetch('ajax_update_product_name.php', {
@@ -1407,11 +1409,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('save-name-en-btn').addEventListener('click', function() {
         const newName = document.getElementById('modal-name-en-input').value.trim();
         if (!newName) {
-            showToast('상품명을 입력해주세요.', 'error');
+            showToast(translations.productNameRequired, 'error');
             return;
         }
         if (newName.length > 255) {
-            showToast('상품명은 255자 이내로 입력해주세요.', 'error');
+            showToast(translations.productNameTooLong, 'error');
             return;
         }
         saveProductName('en', newName);
@@ -1421,11 +1423,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('save-name-ko-btn').addEventListener('click', function() {
         const newName = document.getElementById('modal-name-ko-input').value.trim();
         if (!newName) {
-            showToast('상품명을 입력해주세요.', 'error');
+            showToast(translations.productNameRequired, 'error');
             return;
         }
         if (newName.length > 255) {
-            showToast('상품명은 255자 이내로 입력해주세요.', 'error');
+            showToast(translations.productNameTooLong, 'error');
             return;
         }
         saveProductName('ko', newName);

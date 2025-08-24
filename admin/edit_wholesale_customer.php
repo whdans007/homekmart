@@ -45,6 +45,62 @@ try {
     exit;
 }
 
+// 거래처 삭제 처리
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
+    $delete_customer_id = (int)($_POST['customer_id'] ?? 0);
+    
+    if ($delete_customer_id > 0 && $delete_customer_id == $customer_id) {
+        try {
+            // 거래처를 사용하는 판매 내역이 있는지 확인
+            $sales_check_stmt = $pdo->prepare("SELECT COUNT(*) FROM wholesale_sales WHERE customer_id = ?");
+            $sales_check_stmt->execute([$delete_customer_id]);
+            $sales_count = $sales_check_stmt->fetchColumn();
+            
+            if ($sales_count > 0) {
+                $_SESSION['flash'] = [
+                    'type' => 'error',
+                    'message' => "이 거래처는 {$sales_count}건의 판매 내역이 있어 삭제할 수 없습니다. 먼저 관련된 판매 내역을 처리해주세요."
+                ];
+            } else {
+                // is_active를 0으로 설정하여 비활성화 (완전 삭제 대신)
+                $delete_stmt = $pdo->prepare("
+                    UPDATE wholesale_customers 
+                    SET is_active = 0, updated_at = NOW() 
+                    WHERE id = ?
+                ");
+                
+                if ($delete_stmt->execute([$delete_customer_id])) {
+                    $_SESSION['flash'] = [
+                        'type' => 'success',
+                        'message' => '거래처가 성공적으로 삭제되었습니다.'
+                    ];
+                    
+                    // 거래처 관리 페이지로 리다이렉트
+                    header('Location: wholesale_customer_management.php');
+                    exit;
+                } else {
+                    $_SESSION['flash'] = [
+                        'type' => 'error',
+                        'message' => '거래처 삭제 중 오류가 발생했습니다.'
+                    ];
+                }
+            }
+            
+        } catch (Exception $e) {
+            $_SESSION['flash'] = [
+                'type' => 'error',
+                'message' => '삭제 중 오류가 발생했습니다: ' . $e->getMessage()
+            ];
+            
+            error_log("Wholesale customer delete error: " . $e->getMessage());
+        }
+        
+        // 오류가 있었다면 현재 페이지로 리다이렉트
+        header("Location: edit_wholesale_customer.php?id=$delete_customer_id");
+        exit;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 입력값 검증
     $name = trim($_POST['name'] ?? '');
@@ -219,20 +275,112 @@ if (isset($_SESSION['flash'])) {
                         </div>
                     </div>
 
-                    <div class="flex justify-end space-x-4 pt-4">
-                        <a href="wholesale_customer_management.php" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                            <i class="fas fa-arrow-left mr-2"></i>
-                            <?php echo t('common.cancel'); ?>
-                        </a>
-                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                            <i class="fas fa-save mr-2"></i>
-                            <?php echo t('common.save'); ?>
-                        </button>
+                    <div class="flex justify-between pt-4">
+                        <div>
+                            <button type="button" id="delete-customer-btn" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                <i class="fas fa-trash mr-2"></i>
+                                거래처 삭제
+                            </button>
+                        </div>
+                        <div class="flex space-x-4">
+                            <a href="wholesale_customer_management.php" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                <i class="fas fa-arrow-left mr-2"></i>
+                                목록으로
+                            </a>
+                            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                <i class="fas fa-save mr-2"></i>
+                                저장
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+<!-- 거래처 삭제 확인 모달 -->
+<div id="delete-customer-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                        <i class="fas fa-trash text-red-600"></i>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-2">거래처 삭제</h3>
+                    <div class="text-sm text-gray-500 mb-4">
+                        <p><strong><?php echo htmlspecialchars($customer['name']); ?></strong> 거래처를 삭제하시겠습니까?</p>
+                        <p class="font-semibold text-red-600 mt-2">삭제된 거래처는 복구할 수 없습니다.</p>
+                        <p class="text-xs text-gray-400 mt-2">판매 내역이 있는 거래처는 삭제할 수 없습니다.</p>
+                    </div>
+                </div>
+                <div class="flex space-x-3 justify-center">
+                    <button id="cancel-delete" type="button" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                        취소
+                    </button>
+                    <button id="confirm-delete" type="button" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                        삭제
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 거래처 삭제 폼 (숨김) -->
+<form id="delete-customer-form" method="POST" style="display: none;">
+    <input type="hidden" name="action" value="delete">
+    <input type="hidden" name="customer_id" value="<?php echo $customer_id; ?>">
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteCustomerBtn = document.getElementById('delete-customer-btn');
+    const deleteCustomerModal = document.getElementById('delete-customer-modal');
+    const cancelDeleteBtn = document.getElementById('cancel-delete');
+    const confirmDeleteBtn = document.getElementById('confirm-delete');
+    const deleteCustomerForm = document.getElementById('delete-customer-form');
+    
+    // 거래처 삭제 버튼
+    if (deleteCustomerBtn) {
+        deleteCustomerBtn.addEventListener('click', function() {
+            deleteCustomerModal.classList.remove('hidden');
+        });
+    }
+    
+    // 삭제 취소
+    if (cancelDeleteBtn) {
+        cancelDeleteBtn.addEventListener('click', function() {
+            deleteCustomerModal.classList.add('hidden');
+        });
+    }
+    
+    // 삭제 확인
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', function() {
+            deleteCustomerForm.submit();
+        });
+    }
+    
+    // 모달 외부 클릭시 닫기
+    if (deleteCustomerModal) {
+        deleteCustomerModal.addEventListener('click', function(e) {
+            if (e.target === deleteCustomerModal) {
+                deleteCustomerModal.classList.add('hidden');
+            }
+        });
+    }
+    
+    // ESC 키로 모달 닫기
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !deleteCustomerModal.classList.contains('hidden')) {
+            deleteCustomerModal.classList.add('hidden');
+        }
+    });
+});
+</script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

@@ -154,23 +154,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 
-<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="max-w-3xl mx-auto">
-        <!-- Page Header -->
-        <div class="mb-8 sm:flex sm:items-center sm:justify-between">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-900">상품 정보 수정</h1>
-                <p class="mt-2 text-sm text-gray-700">상품의 상세 정보를 수정합니다.</p>
-            </div>
-            <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-                <a href="product_management.php" class="btn">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    상품 목록으로 돌아가기
-                </a>
-            </div>
+<div class="container-fluid px-4 py-6">
+    <div class="max-w-6xl mx-auto">
+        <!-- Breadcrumb Navigation -->
+        <div class="mb-6">
+            <nav class="flex" aria-label="Breadcrumb">
+                <ol class="flex items-center space-x-2">
+                    <li>
+                        <a href="product_management.php" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-cube mr-1"></i>
+                            상품 관리
+                        </a>
+                    </li>
+                    <li>
+                        <div class="flex items-center">
+                            <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                            <span class="text-gray-600">상품 정보 수정</span>
+                        </div>
+                    </li>
+                </ol>
+            </nav>
         </div>
 
-        <div class="bg-white shadow-lg rounded-lg">
+        <!-- Main Content Card -->
+        <div class="bg-white shadow-sm rounded-lg border">
+            <!-- Card Header -->
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h1 class="text-xl font-semibold text-gray-900">
+                    <i class="fas fa-edit mr-2 text-primary-500"></i>
+                    상품 정보 수정
+                </h1>
+                <p class="mt-1 text-sm text-gray-600">상품의 기본 정보와 지점별 가격을 관리합니다.</p>
+            </div>
+            
             <div class="px-6 py-6">
 
                 <?php if (!empty($errors)) : ?>
@@ -193,239 +209,273 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     </div>
                 <?php endif; ?>
 
-                <form action="edit_product.php?id=<?php echo $product_id; ?>" method="post">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <tbody class="divide-y divide-gray-200">
-                                <!-- 상품 ID -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50 w-48">
-                                        상품 ID
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <?php echo htmlspecialchars($product['id']); ?>
-                                    </td>
-                                </tr>
-                                
-                                <!-- SKU -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
-                                        <span class="text-red-500">*</span> SKU
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <input type="text" name="sku" id="sku" value="<?php echo htmlspecialchars($product['sku']); ?>" required 
-                                               class="block w-full max-w-md rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                    </td>
-                                </tr>
-                                
-                                <!-- 상품명 (한글) -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
-                                        상품명 (한글)
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <input type="text" name="name_ko" id="name_ko" value="<?php echo htmlspecialchars($product['name_ko']); ?>" 
-                                               class="block w-full max-w-md rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                    </td>
-                                </tr>
-                                
-                                <!-- 상품명 (영문) -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
-                                        <span class="text-red-500">*</span> 상품명 (영문)
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <input type="text" name="name_en" id="name_en" value="<?php echo htmlspecialchars($product['name_en']); ?>" required 
-                                               class="block w-full max-w-md rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                    </td>
-                                </tr>
-                                
-                                <!-- 카테고리 -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
-                                        카테고리
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="relative max-w-md">
-                                            <input type="text" id="category_search" 
-                                                   class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
-                                                   placeholder="카테고리 검색...">
-                                            <input type="hidden" name="category_id" id="category_id" value="<?php echo htmlspecialchars($product['category_id']); ?>">
-                                            <div id="category_results" class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden border border-gray-200"></div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                
-                                <!-- 브랜드 -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
-                                        브랜드
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="relative max-w-md">
-                                            <input type="text" id="brand_search" 
-                                                   class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
-                                                   placeholder="브랜드 검색...">
-                                            <input type="hidden" name="brand_id" id="brand_id" value="<?php echo htmlspecialchars($product['brand_id']); ?>">
-                                            <div id="brand_results" class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden border border-gray-200"></div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                
-                                <!-- 박스당 수량 -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
-                                        박스당 수량
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="relative max-w-md">
-                                            <input type="number" name="pieces_per_box" id="pieces_per_box" value="<?php echo htmlspecialchars($product['pieces_per_box'] ?? 1); ?>" min="1" 
-                                                   class="block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" placeholder="1">
-                                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                                                <span class="text-gray-500 sm:text-sm">개</span>
-                                            </div>
-                                        </div>
-                                        <p class="mt-1 text-xs text-gray-500">한 박스에 들어있는 낱개 수량</p>
-                                    </td>
-                                </tr>
-                                
-                                <!-- 상품 설명 -->
-                                <tr>
-                                    <td class="px-6 py-4 align-top text-sm font-medium text-gray-900 bg-gray-50">
-                                        상품 설명
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <textarea id="description" name="description" rows="3" 
-                                                  class="block w-full max-w-lg rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
-                                                  placeholder="상품 설명 입력..."><?php echo htmlspecialchars($product['description']); ?></textarea>
-                                    </td>
-                                </tr>
-                                
-                                <!-- 이미지 URL -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
-                                        이미지 URL
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <input type="url" name="image_url" id="image_url" value="<?php echo htmlspecialchars($product['image_url']); ?>" 
-                                               class="block w-full max-w-lg rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
-                                               placeholder="https://example.com/image.png">
-                                    </td>
-                                </tr>
-                                
-                                <!-- 상태 -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
-                                        상태
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="flex items-center space-x-6">
-                                            <div class="flex items-center">
-                                                <input id="is_active_true" name="is_active" type="radio" value="1" <?php echo ($product['is_active'] == 1) ? 'checked' : ''; ?> 
-                                                       class="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                                                <label for="is_active_true" class="ml-2 text-sm text-gray-700">활성</label>
-                                            </div>
-                                            <div class="flex items-center">
-                                                <input id="is_active_false" name="is_active" type="radio" value="0" <?php echo ($product['is_active'] == 0) ? 'checked' : ''; ?> 
-                                                       class="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                                                <label for="is_active_false" class="ml-2 text-sm text-gray-700">비활성</label>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                
-                                <!-- 지점별 원가 및 판매가 -->
-                                <?php if (!empty($stores)): ?>
-                                <tr>
-                                    <td class="px-6 py-4 align-top text-sm font-medium text-gray-900 bg-gray-50">
-                                        지점별 가격 정보
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <!-- 테이블 헤더 -->
-                                        <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-                                            <table class="min-w-full divide-y divide-gray-300">
-                                                <thead class="bg-gray-50">
-                                                    <tr>
-                                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지점</th>
-                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">원가</th>
-                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">마진(%)</th>
-                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">판매가</th>
-                                                        <?php if ($product['pieces_per_box'] > 1): ?>
-                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">박스원가</th>
-                                                        <?php endif; ?>
-                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">재고</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody class="bg-white divide-y divide-gray-200">
-                                                    <?php foreach ($stores as $store): ?>
-                                                        <tr class="hover:bg-gray-50">
-                                                            <td class="px-4 py-3 text-sm font-medium text-gray-900">
-                                                                <?php echo htmlspecialchars($store['name']); ?>
-                                                            </td>
-                                                            <td class="px-4 py-3 text-sm text-gray-900 text-right">
-                                                                <?php if (isset($inventory_prices[$store['id']]['cost_price'])): ?>
-                                                                    <?php echo number_format($inventory_prices[$store['id']]['cost_price'], 2); ?>
-                                                                <?php else: ?>
-                                                                    <span class="text-gray-400">-</span>
-                                                                <?php endif; ?>
-                                                            </td>
-                                                            <td class="px-4 py-3 text-sm text-gray-900 text-right">
-                                                                <?php if (isset($inventory_prices[$store['id']]['margin_rate'])): ?>
-                                                                    <span class="<?php echo $inventory_prices[$store['id']]['margin_rate'] < 0 ? 'text-red-600' : 'text-green-600'; ?>">
-                                                                        <?php echo number_format($inventory_prices[$store['id']]['margin_rate'], 2); ?>%
-                                                                    </span>
-                                                                <?php else: ?>
-                                                                    <span class="text-gray-400">-</span>
-                                                                <?php endif; ?>
-                                                            </td>
-                                                            <td class="px-4 py-3 text-sm text-right">
-                                                                <input type="number" name="store_prices[<?php echo $store['id']; ?>]" id="store_price_<?php echo $store['id']; ?>" 
-                                                                       value="<?php echo htmlspecialchars($inventory_prices[$store['id']]['selling_price'] ?? ''); ?>" 
-                                                                       class="block w-24 text-right rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" 
-                                                                       placeholder="판매가">
-                                                            </td>
-                                                            <?php if ($product['pieces_per_box'] > 1): ?>
-                                                            <td class="px-4 py-3 text-sm text-gray-900 text-right">
-                                                                <?php if (isset($inventory_prices[$store['id']]['box_cost']) && $inventory_prices[$store['id']]['box_cost'] > 0): ?>
-                                                                    <?php echo number_format($inventory_prices[$store['id']]['box_cost'], 2); ?>
-                                                                    <div class="text-xs text-gray-500">
-                                                                        (<?php echo $product['pieces_per_box']; ?>개입)
-                                                                    </div>
-                                                                <?php else: ?>
-                                                                    <span class="text-gray-400">-</span>
-                                                                <?php endif; ?>
-                                                            </td>
-                                                            <?php endif; ?>
-                                                            <td class="px-4 py-3 text-sm text-gray-500 text-right">
-                                                                <?php if (isset($inventory_prices[$store['id']]['quantity'])): ?>
-                                                                    <?php echo number_format($inventory_prices[$store['id']]['quantity']); ?>개
-                                                                <?php else: ?>
-                                                                    <span class="text-gray-400">0개</span>
-                                                                <?php endif; ?>
-                                                            </td>
-                                                        </tr>
-                                                    <?php endforeach; ?>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        <p class="mt-2 text-xs text-gray-500">판매가를 비워두면 기본 판매가가 적용됩니다.</p>
-                                    </td>
-                                </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
+                <form action="edit_product.php?id=<?php echo $product_id; ?>" method="post" class="space-y-6">
+                    <!-- 기본 정보 섹션 -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h3 class="text-lg font-medium text-blue-900 mb-4">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            기본 정보
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- 상품 ID (읽기 전용) -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-hashtag mr-1 text-gray-400"></i>
+                                    상품 ID
+                                </label>
+                                <div class="bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-500">
+                                    <?php echo htmlspecialchars($product['id']); ?>
+                                </div>
+                            </div>
+                            
+                            <!-- SKU -->
+                            <div>
+                                <label for="sku" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <span class="text-red-500">*</span> SKU
+                                </label>
+                                <input type="text" name="sku" id="sku" value="<?php echo htmlspecialchars($product['sku']); ?>" required 
+                                       class="bg-gray-50 border border-gray-200 rounded-md px-3 py-3 text-sm text-gray-500 w-full font-mono">
+                            </div>
+                            
+                            <!-- 상품명 (영문) -->
+                            <div>
+                                <label for="name_en" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <span class="text-red-500">*</span> 상품명 (영문)
+                                </label>
+                                <input type="text" name="name_en" id="name_en" value="<?php echo htmlspecialchars($product['name_en']); ?>" required 
+                                       class="bg-gray-50 border border-gray-200 rounded-md px-3 py-3 text-sm text-gray-500 w-full">
+                            </div>
+                            
+                            <!-- 상품명 (한글) -->
+                            <div>
+                                <label for="name_ko" class="block text-sm font-medium text-gray-700 mb-2">
+                                    상품명 (한글)
+                                </label>
+                                <input type="text" name="name_ko" id="name_ko" value="<?php echo htmlspecialchars($product['name_ko']); ?>" 
+                                       class="bg-gray-50 border border-gray-200 rounded-md px-3 py-3 text-sm text-gray-500 w-full">
+                            </div>
+                            
+                            <!-- 카테고리 -->
+                            <div>
+                                <label for="category_search" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-sitemap mr-1 text-gray-400"></i>
+                                    카테고리
+                                </label>
+                                <div class="relative">
+                                    <input type="text" id="category_search" 
+                                           class="bg-gray-50 border border-gray-200 rounded-md px-3 py-3 text-sm text-gray-500 w-full" 
+                                           placeholder="카테고리 검색 또는 입력...">
+                                    <input type="hidden" name="category_id" id="category_id" value="<?php echo htmlspecialchars($product['category_id']); ?>">
+                                    <div id="category_results" class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden border border-gray-200"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- 브랜드 -->
+                            <div>
+                                <label for="brand_search" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-tags mr-1 text-gray-400"></i>
+                                    브랜드
+                                </label>
+                                <div class="relative">
+                                    <input type="text" id="brand_search" 
+                                           class="bg-gray-50 border border-gray-200 rounded-md px-3 py-3 text-sm text-gray-500 w-full" 
+                                           placeholder="브랜드 검색 또는 입력...">
+                                    <input type="hidden" name="brand_id" id="brand_id" value="<?php echo htmlspecialchars($product['brand_id']); ?>">
+                                    <div id="brand_results" class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden border border-gray-200"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 추가 정보 -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                            <!-- 박스당 수량 -->
+                            <div>
+                                <label for="pieces_per_box" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-box mr-1 text-gray-400"></i>
+                                    박스당 수량
+                                </label>
+                                <div class="relative">
+                                    <input type="number" name="pieces_per_box" id="pieces_per_box" value="<?php echo htmlspecialchars($product['pieces_per_box'] ?? 1); ?>" min="1" 
+                                           class="bg-gray-50 border border-gray-200 rounded-md px-3 py-3 text-sm text-gray-500 w-full pr-10" placeholder="1">
+                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                        <span class="text-gray-500 sm:text-sm">개</span>
+                                    </div>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-500">한 박스에 들어있는 낱개 수량</p>
+                            </div>
+                            
+                            <!-- 상태 -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-toggle-on mr-1 text-gray-400"></i>
+                                    상태
+                                </label>
+                                <div class="flex items-center space-x-6">
+                                    <div class="flex items-center">
+                                        <input id="is_active_true" name="is_active" type="radio" value="1" <?php echo ($product['is_active'] == 1) ? 'checked' : ''; ?> 
+                                               class="h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500">
+                                        <label for="is_active_true" class="ml-2 text-sm text-gray-700">활성</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input id="is_active_false" name="is_active" type="radio" value="0" <?php echo ($product['is_active'] == 0) ? 'checked' : ''; ?> 
+                                               class="h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500">
+                                        <label for="is_active_false" class="ml-2 text-sm text-gray-700">비활성</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 상품 설명과 이미지 URL -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                            <!-- 상품 설명 -->
+                            <div>
+                                <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-align-left mr-1 text-gray-400"></i>
+                                    상품 설명
+                                </label>
+                                <textarea id="description" name="description" rows="3" 
+                                          class="bg-gray-50 border border-gray-200 rounded-md px-3 py-3 text-sm text-gray-500 w-full" 
+                                          placeholder="상품 설명 입력..."><?php echo htmlspecialchars($product['description']); ?></textarea>
+                            </div>
+                            
+                            <!-- 이미지 URL -->
+                            <div>
+                                <label for="image_url" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-image mr-1 text-gray-400"></i>
+                                    이미지 URL
+                                </label>
+                                <input type="url" name="image_url" id="image_url" value="<?php echo htmlspecialchars($product['image_url']); ?>" 
+                                       class="bg-gray-50 border border-gray-200 rounded-md px-3 py-3 text-sm text-gray-500 w-full" 
+                                       placeholder="https://example.com/image.png">
+                            </div>
+                        </div>
                     </div>
+                                
+                    
+                    <!-- 지점별 가격 정보 섹션 -->
+                    <?php if (!empty($stores)): ?>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <h3 class="text-lg font-medium text-green-900 mb-4">
+                            <i class="fas fa-store mr-2"></i>
+                            지점별 가격 정보
+                        </h3>
+                        <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                            <table class="min-w-full divide-y divide-gray-300">
+                                <thead class="bg-green-100">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-green-700 uppercase tracking-wider">
+                                            <i class="fas fa-map-marker-alt mr-1"></i>
+                                            지점명
+                                        </th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-green-700 uppercase tracking-wider">
+                                            <i class="fas fa-dollar-sign mr-1"></i>
+                                            원가 (낱개)
+                                        </th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-green-700 uppercase tracking-wider">
+                                            <i class="fas fa-percentage mr-1"></i>
+                                            마진율
+                                        </th>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-green-700 uppercase tracking-wider">
+                                            <i class="fas fa-tag mr-1"></i>
+                                            판매가 (낱개)
+                                        </th>
+                                        <?php if ($product['pieces_per_box'] > 1): ?>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-green-700 uppercase tracking-wider">
+                                            <i class="fas fa-box mr-1"></i>
+                                            박스원가
+                                        </th>
+                                        <?php endif; ?>
+                                        <th class="px-4 py-3 text-right text-xs font-medium text-green-700 uppercase tracking-wider">
+                                            <i class="fas fa-warehouse mr-1"></i>
+                                            재고수량
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <?php foreach ($stores as $store): ?>
+                                        <tr class="hover:bg-green-50">
+                                            <td class="px-4 py-4 text-sm font-medium text-gray-900">
+                                                <div class="flex items-center">
+                                                    <div class="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                                                    <?php echo htmlspecialchars($store['name']); ?>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-4 text-sm text-gray-900 text-right font-mono">
+                                                <?php if (isset($inventory_prices[$store['id']]['cost_price'])): ?>
+                                                    <?php echo number_format($inventory_prices[$store['id']]['cost_price'], 2); ?>
+                                                <?php else: ?>
+                                                    <span class="text-gray-400">-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="px-4 py-4 text-sm text-gray-900 text-right">
+                                                <?php if (isset($inventory_prices[$store['id']]['margin_rate'])): ?>
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium <?php echo $inventory_prices[$store['id']]['margin_rate'] < 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'; ?>">
+                                                        <?php echo number_format($inventory_prices[$store['id']]['margin_rate'], 1); ?>%
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="text-gray-400">-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="px-4 py-4 text-sm text-right">
+                                                <input type="number" name="store_prices[<?php echo $store['id']; ?>]" id="store_price_<?php echo $store['id']; ?>" 
+                                                       value="<?php echo htmlspecialchars($inventory_prices[$store['id']]['selling_price'] ?? ''); ?>" 
+                                                       class="block w-28 text-right rounded-md border-gray-300 focus:border-primary-500 focus:ring-primary-500 text-sm font-mono" 
+                                                       placeholder="판매가" step="0.01">
+                                            </td>
+                                            <?php if ($product['pieces_per_box'] > 1): ?>
+                                            <td class="px-4 py-4 text-sm text-gray-900 text-right">
+                                                <?php if (isset($inventory_prices[$store['id']]['box_cost']) && $inventory_prices[$store['id']]['box_cost'] > 0): ?>
+                                                    <div class="font-mono font-medium"><?php echo number_format($inventory_prices[$store['id']]['box_cost'], 2); ?></div>
+                                                    <div class="text-xs text-gray-500 mt-1">
+                                                        (<?php echo $product['pieces_per_box']; ?>개입)
+                                                    </div>
+                                                <?php else: ?>
+                                                    <span class="text-gray-400">-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <?php endif; ?>
+                                            <td class="px-4 py-4 text-sm text-gray-500 text-right">
+                                                <?php if (isset($inventory_prices[$store['id']]['quantity'])): ?>
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                        <?php echo number_format($inventory_prices[$store['id']]['quantity']); ?>개
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                                        0개
+                                                    </span>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-3 p-3 bg-green-100 rounded-md">
+                            <p class="text-sm text-green-700">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                <strong>참고:</strong> 판매가를 비워두면 기본 판매가가 적용됩니다. 원가와 마진율 정보는 재고 관리에서 설정됩니다.
+                            </p>
+                        </div>
+                    </div>
+                    <?php endif; ?>
 
                     <!-- 액션 버튼 -->
-                    <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-8">
-                        <a href="product_management.php" class="btn">
-                            <i class="fas fa-times mr-2"></i>
-                            취소
+                    <div class="flex justify-between items-center pt-6 border-t border-gray-200">
+                        <a href="product_management.php" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                            <i class="fas fa-arrow-left mr-2"></i>
+                            목록으로 돌아가기
                         </a>
-                        <button type="submit" class="btn-primary">
-                            <i class="fas fa-save mr-2"></i>
-                            변경사항 저장
-                        </button>
+                        
+                        <div class="flex space-x-3">
+                            <button type="reset" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                                <i class="fas fa-undo mr-2"></i>
+                                초기화
+                            </button>
+                            <button type="submit" class="inline-flex items-center px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                <i class="fas fa-save mr-2"></i>
+                                변경사항 저장
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

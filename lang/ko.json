@@ -587,7 +587,8 @@
     "js_success": "성공",
     "js_error": "오류",
     "js_communication_error": "통신 오류가 발생했습니다",
-    "js_margin_will_be_applied": "에 %마진율이 적용됩니다. 계속 진행하시겠습니까?"
+    "js_margin_will_be_applied": "에 %마진율이 적용됩니다. 계속 진행하시겠습니까?",
+    "price_change_confirm": "가격변동 확인"
   },
   "price_change": {
     "history": "가격변경 이력 조회",
