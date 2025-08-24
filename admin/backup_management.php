@@ -148,10 +148,10 @@ function formatFileSize($size) {
                     </div>
                     
                     <div id="backup-progress" class="hidden mb-4">
-                        <div class="bg-gray-200 rounded-full h-2">
-                            <div id="progress-bar" class="bg-primary-600 h-2 rounded-full" style="width: 0%"></div>
+                        <div class="bg-gray-200 rounded-full h-4 overflow-hidden">
+                            <div id="progress-bar" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
                         </div>
-                        <p id="progress-text" class="text-sm text-gray-600 mt-2">백업을 준비 중...</p>
+                        <p id="progress-text" class="text-sm text-gray-700 mt-2 font-medium text-center">백업을 준비 중...</p>
                     </div>
                     
                     <button id="create-backup-btn" onclick="createBackup()" 
@@ -181,6 +181,13 @@ function formatFileSize($size) {
                             </label>
                             <input type="file" id="backup-file" name="backup_file" accept=".sql"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                        </div>
+                        
+                        <div id="restore-progress" class="hidden mb-4">
+                            <div class="bg-gray-200 rounded-full h-4 overflow-hidden">
+                                <div id="restore-progress-bar" class="bg-orange-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                            <p id="restore-progress-text" class="text-sm text-gray-700 mt-2 font-medium text-center">복원을 준비 중...</p>
                         </div>
                         
                         <button type="button" onclick="confirmRestore()" 
@@ -287,6 +294,39 @@ function formatFileSize($size) {
 </form>
 
 <script>
+// 진행 상황 업데이트 인터벌
+let progressInterval = null;
+
+// 진행 상황 조회 함수
+async function checkProgress(type = 'backup', progressId = '') {
+    try {
+        const response = await fetch('ajax_backup_progress.php?id=' + progressId);
+        const result = await response.json();
+        
+        if (result.success && result.progress) {
+            // 백업과 복원에 따라 다른 프로그레스 바 사용
+            const progressBar = type === 'backup' 
+                ? document.getElementById('progress-bar')
+                : document.getElementById('restore-progress-bar');
+            const progressText = type === 'backup'
+                ? document.getElementById('progress-text')
+                : document.getElementById('restore-progress-text');
+            const progress = result.progress;
+            
+            if (progress.status === 'processing' || progress.status === 'clearing') {
+                progressBar.style.width = progress.percentage + '%';
+                progressText.textContent = progress.message + ' (' + progress.current + '/' + progress.total + ')';
+            } else if (progress.status === 'completed') {
+                progressBar.style.width = '100%';
+                progressText.textContent = type === 'backup' ? '백업 완료!' : '복원 완료!';
+                clearInterval(progressInterval);
+            }
+        }
+    } catch (error) {
+        console.error('진행 상황 조회 실패:', error);
+    }
+}
+
 // 백업 생성 함수
 async function createBackup() {
     const btn = document.getElementById('create-backup-btn');
@@ -300,31 +340,54 @@ async function createBackup() {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>백업 생성 중...';
     progress.classList.remove('hidden');
+    progressBar.style.width = '0%';
+    progressText.textContent = '백업을 시작합니다...';
     
     try {
-        const response = await fetch('backup_process.php', {
+        // 백업 시작 (비동기로 처리하고 바로 progress_id를 받음)
+        const startResponse = await fetch('backup_process.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `action=create_backup&backup_type=${backupType}`
+            body: `action=start_backup&backup_type=${backupType}`
         });
         
-        const result = await response.json();
-        
-        if (result.success) {
-            progressBar.style.width = '100%';
-            progressText.textContent = '백업이 성공적으로 생성되었습니다.';
+        const startResult = await startResponse.json();
+        if (startResult.progress_id) {
+            // 진행 상황 모니터링 시작
+            progressInterval = setInterval(() => checkProgress('backup', startResult.progress_id), 500);
             
-            // 성공 메시지를 표시하고 페이지 새로고침
-            setTimeout(() => {
-                alert('백업이 성공적으로 생성되었습니다.');
-                location.reload();
-            }, 1000);
+            // 실제 백업 실행
+            const response = await fetch('backup_process.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `action=create_backup&backup_type=${backupType}&progress_id=${startResult.progress_id}`
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                clearInterval(progressInterval);
+                progressBar.style.width = '100%';
+                progressText.textContent = '백업이 성공적으로 생성되었습니다!';
+                
+                // 성공 메시지를 표시하고 페이지 새로고침
+                setTimeout(() => {
+                    alert('백업이 성공적으로 생성되었습니다.\n파일명: ' + result.filename + '\n크기: ' + formatFileSize(result.filesize));
+                    location.reload();
+                }, 1000);
+            } else {
+                clearInterval(progressInterval);
+                alert('백업 생성에 실패했습니다: ' + result.message);
+            }
         } else {
-            alert('백업 생성에 실패했습니다: ' + result.message);
+            alert('백업을 시작할 수 없습니다.');
         }
     } catch (error) {
+        clearInterval(progressInterval);
         alert('백업 생성 중 오류가 발생했습니다: ' + error.message);
     } finally {
         btn.disabled = false;
@@ -334,6 +397,19 @@ async function createBackup() {
             progressBar.style.width = '0%';
             progressText.textContent = '백업을 준비 중...';
         }, 2000);
+    }
+}
+
+// 파일 크기 포맷팅 함수 추가
+function formatFileSize(bytes) {
+    if (bytes >= 1073741824) {
+        return (bytes / 1073741824).toFixed(2) + ' GB';
+    } else if (bytes >= 1048576) {
+        return (bytes / 1048576).toFixed(2) + ' MB';
+    } else if (bytes >= 1024) {
+        return (bytes / 1024).toFixed(2) + ' KB';
+    } else {
+        return bytes + ' bytes';
     }
 }
 
@@ -361,6 +437,18 @@ function confirmRestore() {
 // 데이터 복원 함수
 async function restoreData() {
     const fileInput = document.getElementById('backup-file');
+    const progress = document.getElementById('restore-progress');
+    const progressBar = document.getElementById('restore-progress-bar');
+    const progressText = document.getElementById('restore-progress-text');
+    
+    // 프로그레스 바 표시
+    progress.classList.remove('hidden');
+    progressBar.style.width = '0%';
+    progressText.textContent = '복원을 시작합니다...';
+    
+    // 진행 상황 모니터링 시작
+    progressInterval = setInterval(() => checkProgress('restore'), 500); // 0.5초마다 확인
+    
     const formData = new FormData();
     formData.append('backup_file', fileInput.files[0]);
     formData.append('action', 'restore_data');
@@ -373,14 +461,34 @@ async function restoreData() {
         
         const result = await response.json();
         
+        clearInterval(progressInterval);
+        
         if (result.success) {
-            alert('데이터 복원이 성공적으로 완료되었습니다.');
-            location.reload();
+            progressBar.style.width = '100%';
+            progressText.textContent = '데이터 복원 완료!';
+            
+            let message = '데이터 복원이 성공적으로 완료되었습니다.\n';
+            if (result.stats) {
+                message += '\n성공: ' + result.stats.success + '개';
+                message += '\n실패: ' + result.stats.errors + '개';
+            }
+            
+            setTimeout(() => {
+                alert(message);
+                location.reload();
+            }, 1000);
         } else {
             alert('데이터 복원에 실패했습니다: ' + result.message);
         }
     } catch (error) {
+        clearInterval(progressInterval);
         alert('데이터 복원 중 오류가 발생했습니다: ' + error.message);
+    } finally {
+        setTimeout(() => {
+            progress.classList.add('hidden');
+            progressBar.style.width = '0%';
+            progressText.textContent = '백업을 준비 중...';
+        }, 3000);
     }
 }
 

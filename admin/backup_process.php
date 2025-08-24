@@ -49,6 +49,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 // 액션 확인
 $action = $_POST['action'] ?? '';
+
+// 백업 시작 요청 (progress_id만 반환)
+if ($action === 'start_backup') {
+    $progress_id = uniqid('backup_', true);
+    ob_clean();
+    echo json_encode(['success' => true, 'progress_id' => $progress_id]);
+    ob_end_flush();
+    exit;
+}
+
 if ($action !== 'create_backup') {
     ob_clean();
     echo json_encode(['success' => false, 'message' => '잘못된 액션입니다.']);
@@ -69,6 +79,23 @@ try {
     // 실행 시간과 메모리 제한 증가
     ini_set('max_execution_time', 300); // 5분
     ini_set('memory_limit', '256M');
+    
+    // 진행 상황 추적을 위한 고유 ID (POST로 받거나 새로 생성)
+    $progress_id = $_POST['progress_id'] ?? uniqid('backup_', true);
+    $progress_file = sys_get_temp_dir() . '/backup_progress_' . $progress_id . '.json';
+    
+    // 진행 상황 업데이트 함수
+    function updateProgress($file, $status, $message, $current, $total, $table = '') {
+        $progress = [
+            'status' => $status,
+            'message' => $message,
+            'current' => $current,
+            'total' => $total,
+            'percentage' => $total > 0 ? round(($current / $total) * 100) : 0,
+            'current_table' => $table
+        ];
+        file_put_contents($file, json_encode($progress));
+    }
     
     // 백업 디렉토리 확인
     $backup_dir = __DIR__ . '/../backups/';
@@ -115,9 +142,15 @@ try {
             'success' => true, 
             'message' => "백업이 성공적으로 생성되었습니다. ({$filesizeFormatted})",
             'filename' => $filename,
-            'filesize' => $filesize
+            'filesize' => $filesize,
+            'progress_id' => $progress_id
         ]);
         ob_end_flush();
+        
+        // 진행 상황 파일 삭제
+        if (file_exists($progress_file)) {
+            unlink($progress_file);
+        }
     } else {
         // 실패한 파일이 있으면 삭제
         if (file_exists($filepath)) {
@@ -245,8 +278,22 @@ function createBackupWithPHP($filepath, $conn, $backup_type = 'full') {
             return false;
         }
         
+        // 전체 테이블 수 계산
+        $tables = [];
         while ($table_row = $tables_result->fetch_array()) {
-            $table = $table_row[0];
+            $tables[] = $table_row[0];
+        }
+        $total_tables = count($tables);
+        $current_table = 0;
+        
+        // 진행 상황 초기화
+        updateProgress($progress_file, 'processing', '백업 생성 중', 0, $total_tables);
+        
+        foreach ($tables as $table) {
+            $current_table++;
+            
+            // 진행 상황 업데이트
+            updateProgress($progress_file, 'processing', "테이블 백업 중: $table", $current_table, $total_tables, $table);
             
             // 전체 백업인 경우만 테이블 구조 백업
             if ($backup_type === 'full') {
@@ -258,9 +305,17 @@ function createBackupWithPHP($filepath, $conn, $backup_type = 'full') {
                     fwrite($handle, $create_row[1] . ";\n\n");
                 }
             } else {
-                // 데이터만 백업인 경우 테이블 TRUNCATE 추가
+                // 데이터만 백업인 경우 DELETE 사용 (TRUNCATE보다 안전함)
                 fwrite($handle, "-- Data for table `$table`\n");
-                fwrite($handle, "TRUNCATE TABLE `$table`;\n");
+                fwrite($handle, "DELETE FROM `$table`;\n");
+                // AUTO_INCREMENT 리셋 (PRIMARY KEY가 있는 경우)
+                $auto_increment_check = $conn->query("SHOW TABLE STATUS LIKE '$table'");
+                if ($auto_increment_check) {
+                    $table_info = $auto_increment_check->fetch_assoc();
+                    if ($table_info && $table_info['Auto_increment']) {
+                        fwrite($handle, "ALTER TABLE `$table` AUTO_INCREMENT = 1;\n");
+                    }
+                }
             }
             
             // 테이블 데이터 백업
@@ -300,6 +355,10 @@ function createBackupWithPHP($filepath, $conn, $backup_type = 'full') {
         fwrite($handle, "-- Backup completed successfully\n");
         
         fclose($handle);
+        
+        // 진행 상황 완료
+        updateProgress($progress_file, 'completed', '백업 완료', $total_tables, $total_tables);
+        
         return true;
         
     } catch (Exception $e) {
