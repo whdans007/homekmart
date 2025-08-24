@@ -104,8 +104,8 @@ if (isset($_SESSION['flash'])) {
 }
 ?>
 
-<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="max-w-7xl mx-auto">
+<div class="container-fluid px-4 py-6">
+    <div class="max-w-full mx-auto">
         <div class="mb-6">
             <nav class="flex" aria-label="Breadcrumb">
                 <ol class="flex items-center space-x-2">
@@ -194,29 +194,23 @@ if (isset($_SESSION['flash'])) {
                         </div>
                     </div>
                 <?php else: ?>
-                    <table class="min-w-full divide-y divide-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200 table-fixed">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_sale_number')); ?></th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_customer')); ?></th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_sale_date')); ?></th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_item_count')); ?></th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_sale_amount')); ?></th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_status')); ?></th>
-                                <?php if ($_SESSION['role'] === 'super_admin'): ?>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_store')); ?></th>
-                                <?php endif; ?>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_seller')); ?></th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo htmlspecialchars(t('wholesale_sales_list.table_actions')); ?></th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 10%;">일자</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 45%;">고객명</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 10%;">수량</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 20%;">금액</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style="width: 15%;">판매자</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <?php foreach ($sales as $sale): ?>
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        #<?php echo str_pad($sale['id'], 6, '0', STR_PAD_LEFT); ?>
+                                <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='wholesale_sale_preview.php?id=<?php echo $sale['id']; ?>'">
+                                    <td class="px-4 py-4 text-center text-sm text-gray-900 font-medium">
+                                        <?php echo date('Y-m-d', strtotime($sale['sale_date'])); ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
+                                    <td class="px-4 py-4">
                                         <div class="text-sm font-medium text-gray-900">
                                             <?php echo htmlspecialchars($sale['customer_name']); ?>
                                         </div>
@@ -226,57 +220,16 @@ if (isset($_SESSION['flash'])) {
                                             </div>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo date('Y-m-d', strtotime($sale['sale_date'])); ?>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo number_format($sale['item_count']); ?>개
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
-                                        <?php echo number_format($sale['final_amount']); ?>원
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center">
-                                        <?php
-                                        $status_class = '';
-                                        $status_text = '';
-                                        switch ($sale['status']) {
-                                            case 'draft':
-                                                $status_class = 'bg-yellow-100 text-yellow-800';
-                                                $status_text = t('wholesale_sales_list.status_draft');
-                                                break;
-                                            case 'confirmed':
-                                                $status_class = 'bg-green-100 text-green-800';
-                                                $status_text = t('wholesale_sales_list.status_confirmed');
-                                                break;
-                                            case 'cancelled':
-                                                $status_class = 'bg-red-100 text-red-800';
-                                                $status_text = t('wholesale_sales_list.status_cancelled');
-                                                break;
-                                        }
-                                        ?>
-                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full <?php echo $status_class; ?>">
-                                            <?php echo $status_text; ?>
+                                    <td class="px-4 py-4 text-center text-sm text-gray-900">
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            <?php echo number_format($sale['item_count']); ?>
                                         </span>
                                     </td>
-                                    <?php if ($_SESSION['role'] === 'super_admin'): ?>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            <?php echo htmlspecialchars($sale['store_name']); ?>
-                                        </td>
-                                    <?php endif; ?>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?php echo htmlspecialchars($sale['user_name']); ?>
+                                    <td class="px-4 py-4 text-right text-base text-gray-900 font-bold font-mono">
+                                        <?php echo number_format($sale['final_amount']); ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                        <a href="wholesale_sale_preview.php?id=<?php echo $sale['id']; ?>" 
-                                           class="text-blue-600 hover:text-blue-900 mr-3" title="<?php echo htmlspecialchars(t('wholesale_sales_list.preview_tooltip')); ?>">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                        <?php if ($sale['status'] !== 'cancelled'): ?>
-                                            <button onclick="cancelSale(<?php echo $sale['id']; ?>)" 
-                                                    class="text-red-600 hover:text-red-900" title="<?php echo htmlspecialchars(t('wholesale_sales_list.cancel_tooltip')); ?>">
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        <?php endif; ?>
+                                    <td class="px-4 py-4 text-center text-sm text-gray-900">
+                                        <div class="truncate"><?php echo htmlspecialchars($sale['user_name']); ?></div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

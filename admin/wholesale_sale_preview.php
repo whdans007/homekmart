@@ -21,6 +21,75 @@ $store = null;
 $items = [];
 $errors = [];
 
+// 판매취소(삭제) 처리
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
+    $delete_sale_id = (int)($_POST['sale_id'] ?? 0);
+    
+    if ($delete_sale_id > 0) {
+        try {
+            $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+            $pdo = new PDO($dsn, DB_USER, DB_PASS);
+            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            
+            // 권한 확인 - super_admin이 아닌 경우 본인 점포 데이터만 삭제 가능
+            $check_sql = "SELECT id, store_id FROM wholesale_sales WHERE id = ?";
+            if ($_SESSION['role'] !== 'super_admin') {
+                $check_sql .= " AND store_id = " . (int)$current_store_id;
+            }
+            
+            $check_stmt = $pdo->prepare($check_sql);
+            $check_stmt->execute([$delete_sale_id]);
+            $sale_to_delete = $check_stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$sale_to_delete) {
+                $_SESSION['flash'] = [
+                    'type' => 'error',
+                    'message' => '삭제 권한이 없거나 해당 판매 내역을 찾을 수 없습니다.'
+                ];
+            } else {
+                // 트랜잭션 시작
+                $pdo->beginTransaction();
+                
+                // 1. 판매 항목들 삭제
+                $delete_items_stmt = $pdo->prepare("DELETE FROM wholesale_sale_items WHERE sale_id = ?");
+                $delete_items_stmt->execute([$delete_sale_id]);
+                
+                // 2. 판매 정보 삭제
+                $delete_sale_stmt = $pdo->prepare("DELETE FROM wholesale_sales WHERE id = ?");
+                $delete_sale_stmt->execute([$delete_sale_id]);
+                
+                // 트랜잭션 커밋
+                $pdo->commit();
+                
+                $_SESSION['flash'] = [
+                    'type' => 'success',
+                    'message' => '판매 내역이 성공적으로 삭제되었습니다.'
+                ];
+                
+                // 판매 목록으로 리다이렉트
+                header('Location: wholesale_sales_list.php');
+                exit;
+            }
+            
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollback();
+            }
+            
+            $_SESSION['flash'] = [
+                'type' => 'error',
+                'message' => '삭제 중 오류가 발생했습니다: ' . $e->getMessage()
+            ];
+            
+            error_log("Wholesale sale delete error: " . $e->getMessage());
+        }
+        
+        // 오류가 있었다면 현재 페이지로 리다이렉트
+        header("Location: wholesale_sale_preview.php?id=$delete_sale_id");
+        exit;
+    }
+}
+
 if ($sale_id > 0) {
     try {
         $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
@@ -187,15 +256,19 @@ if (isset($_SESSION['flash'])) {
             <div class="mb-6 text-right">
                 <a href="wholesale_sales.php?edit=<?php echo $sale_id; ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                     <i class="fas fa-edit mr-2"></i>
-                    Edit
+                    수정
                 </a>
                 <button id="print-btn" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <i class="fas fa-print mr-2"></i>
-                    Print
+                    인쇄
                 </button>
-                <a href="wholesale_sales.php" class="ml-3 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <button id="delete-btn" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    <i class="fas fa-trash mr-2"></i>
+                    판매취소
+                </button>
+                <a href="wholesale_sales_list.php" class="ml-3 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                     <i class="fas fa-arrow-left mr-2"></i>
-                    Back to Sales List
+                    목록으로
                 </a>
             </div>
 
@@ -341,14 +414,94 @@ if (isset($_SESSION['flash'])) {
     </div>
 </div>
 
+<!-- 삭제 확인 모달 -->
+<div id="delete-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                        <i class="fas fa-exclamation-triangle text-red-600"></i>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-2">판매 취소</h3>
+                    <div class="text-sm text-gray-500 mb-4">
+                        <p>이 판매 내역을 완전히 삭제하시겠습니까?</p>
+                        <p class="font-semibold text-red-600 mt-2">삭제된 데이터는 복구할 수 없습니다.</p>
+                    </div>
+                </div>
+                <div class="flex space-x-3 justify-center">
+                    <button id="cancel-delete" type="button" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                        취소
+                    </button>
+                    <button id="confirm-delete" type="button" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                        삭제
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 삭제 폼 (숨김) -->
+<form id="delete-form" method="POST" style="display: none;">
+    <input type="hidden" name="action" value="delete">
+    <input type="hidden" name="sale_id" value="<?php echo $sale_id; ?>">
+</form>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const printBtn = document.getElementById('print-btn');
+    const deleteBtn = document.getElementById('delete-btn');
+    const deleteModal = document.getElementById('delete-modal');
+    const cancelDelete = document.getElementById('cancel-delete');
+    const confirmDelete = document.getElementById('confirm-delete');
+    const deleteForm = document.getElementById('delete-form');
+    
+    // 인쇄 버튼
     if (printBtn) {
         printBtn.addEventListener('click', function() {
             window.print();
         });
     }
+    
+    // 삭제 버튼
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function() {
+            deleteModal.classList.remove('hidden');
+        });
+    }
+    
+    // 삭제 취소
+    if (cancelDelete) {
+        cancelDelete.addEventListener('click', function() {
+            deleteModal.classList.add('hidden');
+        });
+    }
+    
+    // 삭제 확인
+    if (confirmDelete) {
+        confirmDelete.addEventListener('click', function() {
+            deleteForm.submit();
+        });
+    }
+    
+    // 모달 외부 클릭시 닫기
+    if (deleteModal) {
+        deleteModal.addEventListener('click', function(e) {
+            if (e.target === deleteModal) {
+                deleteModal.classList.add('hidden');
+            }
+        });
+    }
+    
+    // ESC 키로 모달 닫기
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !deleteModal.classList.contains('hidden')) {
+            deleteModal.classList.add('hidden');
+        }
+    });
 });
 </script>
 

@@ -547,7 +547,8 @@
     "js_success": "Success",
     "js_error": "Error",
     "js_communication_error": "Communication error occurred",
-    "js_margin_will_be_applied": " margin rate will be applied. Do you want to continue?"
+    "js_margin_will_be_applied": " margin rate will be applied. Do you want to continue?",
+    "price_change_confirm": "Price Change Confirm"
   },
   "price_change": {
     "history": "Price Change History Inquiry",

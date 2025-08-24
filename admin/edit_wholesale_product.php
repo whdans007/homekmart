@@ -165,6 +165,67 @@ try {
     $errors[] = t('messages.database_error') . ': ' . $e->getMessage();
 }
 
+// 등록취소(삭제) 처리
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cancel_registration') {
+    $cancel_product_id = (int)($_POST['wholesale_product_id'] ?? 0);
+    
+    if ($cancel_product_id > 0 && $cancel_product_id == $wholesale_product_id) {
+        try {
+            // 권한 확인 - super_admin이 아닌 경우 본인 점포 데이터만 취소 가능
+            $check_sql = "SELECT id, store_id FROM wholesale_products WHERE id = ? AND is_active = 1";
+            if ($_SESSION['role'] !== 'super_admin') {
+                $check_sql .= " AND store_id = " . (int)$current_store_id;
+            }
+            
+            $check_stmt = $pdo->prepare($check_sql);
+            $check_stmt->execute([$cancel_product_id]);
+            $product_to_cancel = $check_stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$product_to_cancel) {
+                $_SESSION['flash'] = [
+                    'type' => 'error',
+                    'message' => '등록취소 권한이 없거나 해당 도매상품을 찾을 수 없습니다.'
+                ];
+            } else {
+                // is_active를 0으로 설정하여 비활성화 (완전 삭제 대신)
+                $cancel_stmt = $pdo->prepare("
+                    UPDATE wholesale_products 
+                    SET is_active = 0, updated_at = NOW() 
+                    WHERE id = ?
+                ");
+                
+                if ($cancel_stmt->execute([$cancel_product_id])) {
+                    $_SESSION['flash'] = [
+                        'type' => 'success',
+                        'message' => '도매상품 등록이 성공적으로 취소되었습니다.'
+                    ];
+                    
+                    // 도매상품 관리 페이지로 리다이렉트
+                    header('Location: wholesale_product_management.php');
+                    exit;
+                } else {
+                    $_SESSION['flash'] = [
+                        'type' => 'error',
+                        'message' => '등록취소 중 오류가 발생했습니다.'
+                    ];
+                }
+            }
+            
+        } catch (Exception $e) {
+            $_SESSION['flash'] = [
+                'type' => 'error',
+                'message' => '등록취소 중 오류가 발생했습니다: ' . $e->getMessage()
+            ];
+            
+            error_log("Wholesale product cancel error: " . $e->getMessage());
+        }
+        
+        // 오류가 있었다면 현재 페이지로 리다이렉트
+        header("Location: edit_wholesale_product.php?id=$cancel_product_id");
+        exit;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 입력값 검증 (새로운 필드들 추가)
     $wholesale_name_ko = trim($_POST['wholesale_name_ko'] ?? '');
@@ -466,19 +527,29 @@ if (isset($_SESSION['flash'])) {
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             <?php echo t('wholesale.base_product_info'); ?>
                         </label>
-                        <div class="p-3 bg-gray-50 rounded-md border">
-                            <div class="font-medium text-gray-900">
-                                <?php echo htmlspecialchars($wholesale_product['name_en'] ?: $wholesale_product['name_ko']); ?>
-                            </div>
-                            <div class="text-sm text-gray-600 mt-1">
+                        <div class="p-3 bg-gray-50 rounded-md border hover:bg-gray-100 cursor-pointer transition-colors" onclick="window.location.href='edit_product.php?id=<?php echo $wholesale_product['product_id']; ?>'" title="상품 정보 수정하기">
+                            <div class="font-medium text-gray-900 mb-1">
+                                <i class="fas fa-edit text-primary-500 mr-2"></i>
+                                <?php echo htmlspecialchars($wholesale_product['name_en'] ?: '상품명 없음'); ?> / 
+                                <?php echo htmlspecialchars($wholesale_product['name_ko'] ?: '상품명 없음'); ?> / 
                                 SKU: <?php echo htmlspecialchars($wholesale_product['sku']); ?>
-                                <?php if ($wholesale_product['name_en'] && $wholesale_product['name_ko']): ?>
-                                    | <?php echo htmlspecialchars($wholesale_product['name_ko']); ?>
-                                <?php endif; ?>
                             </div>
                             <div class="text-xs text-gray-500 mt-1">
                                 원가: <?php echo number_format($wholesale_product['cost_price']); ?> | 
                                 <?php echo t('product.selling_price'); ?>: <?php echo number_format($wholesale_product['selling_price']); ?>
+                                <?php 
+                                $pieces_per_box = $wholesale_product['pieces_per_box'] ?? 1;
+                                if ($pieces_per_box > 1): 
+                                ?>
+                                | 박스포장: <?php echo number_format($pieces_per_box); ?>개입
+                                | 낱개원가: <?php echo number_format($wholesale_product['cost_price'] / $pieces_per_box, 2); ?>
+                                | 낱개판매가: <?php echo number_format($wholesale_product['selling_price'] / $pieces_per_box, 2); ?>
+                                <?php else: ?>
+                                | 단품 (<?php echo number_format($pieces_per_box); ?>개입)
+                                <?php endif; ?>
+                                <span class="inline-block ml-2 text-primary-600 font-medium">
+                                    <i class="fas fa-arrow-right"></i> 클릭하여 상품정보 수정
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -744,15 +815,23 @@ if (isset($_SESSION['flash'])) {
                     <input type="hidden" name="sale_unit" value="box">
 
 
-                    <div class="flex justify-end space-x-4 pt-4">
-                        <a href="wholesale_product_management.php" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                            <i class="fas fa-arrow-left mr-2"></i>
-                            <?php echo t('common.cancel'); ?>
-                        </a>
-                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" onclick="return validateAndSubmit(event)">
-                            <i class="fas fa-save mr-2"></i>
-                            <?php echo t('common.save_changes'); ?>
-                        </button>
+                    <div class="flex justify-between pt-4">
+                        <div>
+                            <button type="button" id="cancel-registration-btn" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                <i class="fas fa-ban mr-2"></i>
+                                등록취소
+                            </button>
+                        </div>
+                        <div class="flex space-x-4">
+                            <a href="wholesale_product_management.php" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                <i class="fas fa-arrow-left mr-2"></i>
+                                목록으로
+                            </a>
+                            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" onclick="return validateAndSubmit(event)">
+                                <i class="fas fa-save mr-2"></i>
+                                저장
+                            </button>
+                        </div>
                     </div>
                 </form>
                 <?php endif; ?>
@@ -760,6 +839,42 @@ if (isset($_SESSION['flash'])) {
         </div>
     </div>
 </div>
+
+<!-- 등록취소 확인 모달 -->
+<div id="cancel-registration-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                        <i class="fas fa-ban text-red-600"></i>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-2">도매상품 등록취소</h3>
+                    <div class="text-sm text-gray-500 mb-4">
+                        <p>이 도매상품의 등록을 취소하시겠습니까?</p>
+                        <p class="font-semibold text-red-600 mt-2">등록을 취소하면 도매상품 목록에서 제거되며, 복구할 수 없습니다.</p>
+                    </div>
+                </div>
+                <div class="flex space-x-3 justify-center">
+                    <button id="cancel-cancel" type="button" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                        취소
+                    </button>
+                    <button id="confirm-cancel" type="button" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                        등록취소
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 등록취소 폼 (숨김) -->
+<form id="cancel-registration-form" method="POST" style="display: none;">
+    <input type="hidden" name="action" value="cancel_registration">
+    <input type="hidden" name="wholesale_product_id" value="<?php echo $wholesale_product_id; ?>">
+</form>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -1291,6 +1406,50 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     }
     
+    // 등록취소 관련 이벤트 설정
+    const cancelRegistrationBtn = document.getElementById('cancel-registration-btn');
+    const cancelRegistrationModal = document.getElementById('cancel-registration-modal');
+    const cancelCancelBtn = document.getElementById('cancel-cancel');
+    const confirmCancelBtn = document.getElementById('confirm-cancel');
+    const cancelRegistrationForm = document.getElementById('cancel-registration-form');
+    
+    // 등록취소 버튼
+    if (cancelRegistrationBtn) {
+        cancelRegistrationBtn.addEventListener('click', function() {
+            cancelRegistrationModal.classList.remove('hidden');
+        });
+    }
+    
+    // 등록취소 취소
+    if (cancelCancelBtn) {
+        cancelCancelBtn.addEventListener('click', function() {
+            cancelRegistrationModal.classList.add('hidden');
+        });
+    }
+    
+    // 등록취소 확인
+    if (confirmCancelBtn) {
+        confirmCancelBtn.addEventListener('click', function() {
+            cancelRegistrationForm.submit();
+        });
+    }
+    
+    // 모달 외부 클릭시 닫기
+    if (cancelRegistrationModal) {
+        cancelRegistrationModal.addEventListener('click', function(e) {
+            if (e.target === cancelRegistrationModal) {
+                cancelRegistrationModal.classList.add('hidden');
+            }
+        });
+    }
+    
+    // ESC 키로 모달 닫기
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !cancelRegistrationModal.classList.contains('hidden')) {
+            cancelRegistrationModal.classList.add('hidden');
+        }
+    });
+
     // 페이지 로드 시 초기화 함수 개선
     function initializePage() {
         // 자동 계산 제거 - 입고내역 선택시에만 계산
