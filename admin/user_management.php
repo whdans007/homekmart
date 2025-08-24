@@ -114,18 +114,17 @@ try {
             <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">ID</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('auth.username'); ?></th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.full_name'); ?></th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('auth.email'); ?></th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.phone'); ?></th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.role'); ?></th>
+                        <th scope="col" class="w-32 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('auth.username'); ?></th>
+                        <th scope="col" class="w-32 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.full_name'); ?></th>
+                        <th scope="col" class="w-48 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('auth.email'); ?></th>
+                        <th scope="col" class="w-28 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.phone'); ?></th>
+                        <th scope="col" class="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.role'); ?></th>
                         <?php if ($has_permissions_column): ?>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.permissions'); ?></th>
+                        <th scope="col" class="w-40 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.permissions'); ?></th>
                         <?php endif; ?>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.store'); ?></th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.created_at'); ?></th>
-                        <th scope="col" class="relative px-6 py-3 border border-gray-300">
+                        <th scope="col" class="w-28 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.store'); ?></th>
+                        <th scope="col" class="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.created_at'); ?></th>
+                        <th scope="col" class="w-20 relative px-3 py-3 border border-gray-300">
                             <span class="sr-only"><?php echo t('common.actions'); ?></span>
                         </th>
                     </tr>
@@ -133,15 +132,14 @@ try {
                 <tbody class="bg-white divide-y divide-gray-200">
                     <?php foreach ($users as $user): ?>
                         <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($user['id']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-300"><?php echo htmlspecialchars($user['username']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border border-gray-300"><?php echo htmlspecialchars($user['full_name']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($user['email']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
+                            <td class="px-3 py-4 text-sm text-gray-900 border border-gray-300 break-words font-medium"><?php echo htmlspecialchars($user['username']); ?></td>
+                            <td class="px-3 py-4 text-sm text-gray-900 border border-gray-300 break-words"><?php echo htmlspecialchars($user['full_name']); ?></td>
+                            <td class="px-3 py-4 text-sm text-gray-500 border border-gray-300 break-all"><?php echo htmlspecialchars($user['email']); ?></td>
+                            <td class="px-3 py-4 text-sm text-gray-500 border border-gray-300 break-words">
                                 <?php echo $has_phone_column && !empty($user['phone']) ? htmlspecialchars($user['phone']) : '<span class="text-gray-400">' . t('user.no_info') . '</span>'; ?>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap border border-gray-300">
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                            <td class="px-3 py-4 border border-gray-300">
+                                <span class="inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full 
                                     <?php 
                                     switch($user['role']) {
                                         case 'super_admin': echo 'bg-purple-100 text-purple-800'; break;
@@ -162,75 +160,51 @@ try {
                                 </span>
                             </td>
                             <?php if ($has_permissions_column): ?>
-                            <td class="px-6 py-4 border border-gray-300">
+                            <td class="px-3 py-4 border border-gray-300">
                                 <?php 
                                 $permissions_info = '';
                                 if ($user['role'] === 'super_admin') {
-                                    $permissions_info = '<span class="text-xs text-purple-600">' . t('user.all_permissions') . '</span>';
+                                    $permissions_info = '<span class="text-xs text-purple-600 font-semibold">' . t('user.all_permissions') . '</span>';
                                 } else if (!empty($user['permissions'])) {
                                     $permissions = json_decode($user['permissions'], true);
                                     if (is_array($permissions)) {
                                         $active_permissions = array_filter($permissions);
-                                        $permission_labels = [
-                                            'admin_access' => t('permissions.admin_access'),
-                                            'user_management' => t('permissions.user_management'),
-                                            'store_management' => t('permissions.store_management'),
-                                            'product_management' => t('permissions.product_management'),
-                                            'purchase_management' => t('permissions.purchase_management'),
-                                            'brand_management' => t('permissions.brand_management'),
-                                            'category_management' => t('permissions.category_management'),
-                                            'supplier_management' => t('permissions.supplier_management'),
-                                            'settings' => t('permissions.settings'),
-                                            'shop_access' => t('permissions.shop_access'),
-                                            'barcode_management' => t('permissions.barcode_management'),
-                                            'accounting_management' => t('permissions.accounting_management')
-                                        ];
+                                        $permission_count = count($active_permissions);
                                         
-                                        $permission_names = [];
-                                        foreach ($active_permissions as $perm => $value) {
-                                            if ($value && isset($permission_labels[$perm])) {
-                                                $permission_names[] = $permission_labels[$perm];
-                                            }
-                                        }
-                                        
-                                        if (!empty($permission_names)) {
-                                            $permissions_info = '<div class="flex flex-wrap gap-1">';
-                                            foreach (array_slice($permission_names, 0, 3) as $name) {
-                                                $permissions_info .= '<span class="inline-block px-1 py-0.5 text-xs bg-gray-100 text-gray-700 rounded">' . $name . '</span>';
-                                            }
-                                            if (count($permission_names) > 3) {
-                                                $permissions_info .= '<span class="text-xs text-gray-500">+' . (count($permission_names) - 3) . '</span>';
-                                            }
-                                            $permissions_info .= '</div>';
+                                        if ($permission_count > 0) {
+                                            $permissions_info = '<div class="text-xs text-center">';
+                                            $permissions_info .= '<span class="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded-full font-semibold">';
+                                            $permissions_info .= $permission_count . ' ' . t('user.permissions_count');
+                                            $permissions_info .= '</span></div>';
                                         } else {
-                                            $permissions_info = '<span class="text-xs text-gray-400">' . t('user.no_permissions') . '</span>';
+                                            $permissions_info = '<span class="text-xs text-gray-400 text-center block">' . t('user.no_permissions') . '</span>';
                                         }
                                     } else {
-                                        $permissions_info = '<span class="text-xs text-gray-400">' . t('user.default_permissions') . '</span>';
+                                        $permissions_info = '<span class="text-xs text-gray-400 text-center block">' . t('user.default_permissions') . '</span>';
                                     }
                                 } else {
-                                    $permissions_info = '<span class="text-xs text-gray-400">' . t('user.default_permissions') . '</span>';
+                                    $permissions_info = '<span class="text-xs text-gray-400 text-center block">' . t('user.default_permissions') . '</span>';
                                 }
                                 echo $permissions_info;
                                 ?>
                             </td>
                             <?php endif; ?>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
+                            <td class="px-3 py-4 text-sm text-gray-500 border border-gray-300 break-words">
                                 <?php echo htmlspecialchars($user['store_name'] ?? t('user.unassigned')); ?>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
+                            <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
                                 <?php echo date('Y-m-d', strtotime($user['created_at'])); ?>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border border-gray-300">
-                                <div class="flex space-x-2">
+                            <td class="px-3 py-4 text-right text-sm font-medium border border-gray-300">
+                                <div class="flex flex-col space-y-1">
                                     <a href="edit_user.php?id=<?php echo $user['id']; ?>" 
-                                       class="text-primary-600 hover:text-primary-900 transition-colors duration-200">
-                                        <i class="fas fa-edit mr-1"></i><?php echo t('common.edit'); ?>
+                                       class="text-primary-600 hover:text-primary-900 transition-colors duration-200 text-xs">
+                                        <i class="fas fa-edit"></i> <?php echo t('common.edit'); ?>
                                     </a>
                                     <a href="delete_user.php?id=<?php echo $user['id']; ?>" 
-                                       class="text-red-600 hover:text-red-900 transition-colors duration-200"
+                                       class="text-red-600 hover:text-red-900 transition-colors duration-200 text-xs"
                                        onclick="return confirm('<?php echo t('user.confirm_delete'); ?>');">
-                                        <i class="fas fa-trash mr-1"></i><?php echo t('common.delete'); ?>
+                                        <i class="fas fa-trash"></i> <?php echo t('common.delete'); ?>
                                     </a>
                                 </div>
                             </td>
@@ -238,7 +212,7 @@ try {
                     <?php endforeach; ?>
                     <?php if (empty($users)): ?>
                         <tr>
-                            <td colspan="<?php echo $has_permissions_column ? ($has_phone_column ? '10' : '9') : ($has_phone_column ? '9' : '8'); ?>" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
+                            <td colspan="<?php echo $has_permissions_column ? ($has_phone_column ? '9' : '8') : ($has_phone_column ? '8' : '7'); ?>" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
                                     <p><?php echo t('user.no_users'); ?></p>
