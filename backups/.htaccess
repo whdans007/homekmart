@@ -1,0 +1,17 @@
+# 백업 파일 디렉토리 보안 설정
+# 외부에서 직접 접근 차단
+
+Order Deny,Allow
+Deny from all
+
+# 백업 파일 확장자 차단
+<Files "*.sql">
+    Deny from all
+</Files>
+
+<Files "*.sql.gz">
+    Deny from all
+</Files>
+
+# 디렉토리 리스팅 차단
+Options -Indexes
