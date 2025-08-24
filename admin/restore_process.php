@@ -274,6 +274,50 @@ function restoreDataOnly($sql_content, $conn) {
         $conn->query("SET CHARACTER SET utf8mb4");
         $conn->query("SET character_set_connection = utf8mb4");
         
+        // 먼저 모든 테이블을 비움 (복원 프로세스에서 직접 처리)
+        $tables_result = $conn->query("SHOW TABLES");
+        $tables = [];
+        if ($tables_result) {
+            while ($table_row = $tables_result->fetch_array()) {
+                $tables[] = $table_row[0];
+            }
+        }
+        
+        $total_tables = count($tables);
+        $current_step = 0;
+        
+        // 진행 상황 초기화
+        $_SESSION['restore_progress'] = [
+            'status' => 'clearing',
+            'message' => '기존 데이터 삭제 중',
+            'current' => 0,
+            'total' => $total_tables * 2, // 삭제 + 삽입
+            'percentage' => 0
+        ];
+        
+        // 각 테이블 데이터 삭제
+        foreach ($tables as $table) {
+            $current_step++;
+            $_SESSION['restore_progress'] = [
+                'status' => 'clearing',
+                'message' => "테이블 비우는 중: $table",
+                'current' => $current_step,
+                'total' => $total_tables * 2,
+                'percentage' => round(($current_step / ($total_tables * 2)) * 100)
+            ];
+            
+            // 각 테이블의 데이터 삭제
+            $delete_query = "DELETE FROM `$table`";
+            $delete_result = $conn->query($delete_query);
+            if ($delete_result) {
+                error_log("Successfully cleared table: $table");
+                // AUTO_INCREMENT 리셋
+                $conn->query("ALTER TABLE `$table` AUTO_INCREMENT = 1");
+            } else {
+                error_log("Failed to clear table $table: " . $conn->error);
+            }
+        }
+        
         // SQL 문을 올바르게 분리하여 실행
         $queries = splitSqlQueries($sql_content);
         $success_count = 0;
@@ -288,7 +332,10 @@ function restoreDataOnly($sql_content, $conn) {
             '/^\/\*/',
             '/^USE\s+/i',
             '/^DROP\s+TABLE/i',  // 데이터 전용이므로 DROP TABLE 무시
-            '/^CREATE\s+TABLE/i' // 데이터 전용이므로 CREATE TABLE 무시
+            '/^CREATE\s+TABLE/i', // 데이터 전용이므로 CREATE TABLE 무시
+            '/^DELETE\s+FROM/i',  // 이미 모든 테이블을 비웠으므로 DELETE 무시
+            '/^TRUNCATE\s+TABLE/i', // 이미 모든 테이블을 비웠으므로 TRUNCATE 무시
+            '/^ALTER\s+TABLE.*AUTO_INCREMENT/i' // AUTO_INCREMENT도 이미 처리했으므로 무시
         ];
         
         foreach ($queries as $query) {
@@ -312,7 +359,7 @@ function restoreDataOnly($sql_content, $conn) {
                 continue;
             }
             
-            // 쿼리 실행
+            // 쿼리 실행 (이제 INSERT 문만 실행됨)
             $result = $conn->query($query);
             if ($result) {
                 $success_count++;
@@ -328,6 +375,19 @@ function restoreDataOnly($sql_content, $conn) {
                     error_log("Warning during data restore: " . $error_msg . " Query: " . substr($query, 0, 200));
                     $error_count--;
                     continue;
+                }
+                
+                // Duplicate entry는 데이터 무결성 문제이므로 중단
+                if (strpos($error_msg, 'Duplicate entry') !== false) {
+                    $conn->rollback();
+                    $conn->query("SET SESSION foreign_key_checks = 1");
+                    $conn->query("SET SESSION unique_checks = 1");
+                    $conn->query("SET SESSION autocommit = 1");
+                    
+                    return [
+                        'success' => false, 
+                        'message' => "데이터 무결성 오류: 중복된 키가 감지되었습니다. DELETE 문이 제대로 실행되지 않았을 가능성이 있습니다. 오류: " . $error_msg
+                    ];
                 }
                 
                 $errors[] = "Query failed: " . substr($query, 0, 100) . "... Error: " . $error_msg;

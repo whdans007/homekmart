@@ -423,3 +423,5 @@
 2025-08-23 16:52:33 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS(클락힐스), role: super_admin
 2025-08-23 16:52:35 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS(클락힐스), role: super_admin
 2025-08-23 16:58:40 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS(클락힐스), role: super_admin
+2025-08-24 16:56:31 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-08-24 17:22:45 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin

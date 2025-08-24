@@ -16,7 +16,23 @@ if (empty($filename)) {
 
 // 파일명 보안 검사
 $filename = basename($filename); // 경로 순회 방지
-if (!preg_match('/^homekmart_backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.(sql|sql\.gz)$/', $filename)) {
+
+// 허용되는 백업 파일 패턴들
+$allowed_patterns = [
+    '/^homekmart_backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.(sql|sql\.gz)$/',     // 전체 백업
+    '/^homekmart_data_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.(sql|sql\.gz)$/',       // 데이터 전용 백업
+    '/^pre_restore_backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.(sql|sql\.gz)$/'    // 복원 전 백업
+];
+
+$is_valid_filename = false;
+foreach ($allowed_patterns as $pattern) {
+    if (preg_match($pattern, $filename)) {
+        $is_valid_filename = true;
+        break;
+    }
+}
+
+if (!$is_valid_filename) {
     http_response_code(400);
     die('잘못된 파일명입니다.');
 }

@@ -4,12 +4,13 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-$page_title = "매입 내역 상세보기";
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('purchase.edit_purchase_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
 if (!is_logged_in() || !in_array($_SESSION['role'], ['super_admin', 'admin'])) {
-    echo "<div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative' role='alert'><strong class='font-bold'>접근 불가:</strong><span class='block sm:inline'> 이 페이지에 접근할 권한이 없습니다.</span></div>";
+    echo "<div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative' role='alert'><strong class='font-bold'>" . t('purchase.access_denied_title') . ":</strong><span class='block sm:inline'> " . t('purchase.access_denied') . "</span></div>";
     require_once __DIR__ . '/partials/footer.php';
     exit;
 }
@@ -29,13 +30,13 @@ try {
     // discount_rate 컬럼 체크 및 추가
     $check_discount_rate = $conn->query("SHOW COLUMNS FROM purchase_items LIKE 'discount_rate'");
     if ($check_discount_rate->num_rows == 0) {
-        $conn->query("ALTER TABLE purchase_items ADD COLUMN discount_rate DECIMAL(5,2) DEFAULT 0.00 COMMENT '할인율 (%)' AFTER unit_price");
+        $conn->query("ALTER TABLE purchase_items ADD COLUMN discount_rate DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Discount Rate (%)' AFTER unit_price");
     }
     
     // discounted_total 컬럼 체크 및 추가
     $check_discounted_total = $conn->query("SHOW COLUMNS FROM purchase_items LIKE 'discounted_total'");
     if ($check_discounted_total->num_rows == 0) {
-        $conn->query("ALTER TABLE purchase_items ADD COLUMN discounted_total DECIMAL(10,2) DEFAULT NULL COMMENT '할인후 총액' AFTER discount_rate");
+        $conn->query("ALTER TABLE purchase_items ADD COLUMN discounted_total DECIMAL(10,2) DEFAULT NULL COMMENT 'Discounted Total' AFTER discount_rate");
         // 기존 데이터 초기화
         $conn->query("UPDATE purchase_items SET discounted_total = (quantity * unit_price) WHERE discounted_total IS NULL");
     }
@@ -161,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $soft_delete_stmt->close();
             
             $conn->commit();
-            $message = '매입 내역이 성공적으로 삭제되었습니다. (복원 가능)';
+            $message = t('purchase.js_delete_success');
             $message_type = 'success';
             
             // 삭제 후 목록으로 리다이렉트
@@ -177,13 +178,141 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         
         // 사용자에게 더 자세한 오류 정보 제공
         if (strpos($error_msg, '아이템') !== false) {
-            $message = '매입 내역 삭제 중 특정 아이템 처리에서 오류가 발생했습니다: ' . $error_msg;
+            $message = t('purchase.js_delete_error') . ': ' . $error_msg;
         } else if (strpos($error_msg, 'deleted_at') !== false) {
             $message = '데이터베이스 구조 오류입니다. Soft Delete 설정을 다시 실행해 주세요.';
         } else {
-            $message = '매입 내역 삭제에 실패했습니다: ' . $error_msg;
+            $message = t('purchase.js_delete_error') . ': ' . $error_msg;
         }
         $message_type = 'error';
+    }
+}
+
+// 여러 매입 상품 일괄 수정 처리
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_multiple_items') {
+    if (isset($_POST['items']) && is_array($_POST['items'])) {
+        try {
+            $conn->begin_transaction();
+            
+            $updated_count = 0;
+            $errors = [];
+            
+            foreach ($_POST['items'] as $item_data) {
+                $item_id = (int)$item_data['item_id'];
+                $new_quantity = (int)$item_data['quantity'];
+                $new_unit_price = (float)$item_data['unit_price'];
+                $new_purchase_type = $item_data['purchase_type'] ?? 'piece';
+                $new_pieces_per_box = isset($item_data['pieces_per_box']) ? (int)$item_data['pieces_per_box'] : null;
+                $discount_rate = isset($item_data['discount_rate']) ? (float)$item_data['discount_rate'] : 0.00;
+                
+                // 기존 아이템 정보 조회
+                $item_stmt = $conn->prepare("
+                    SELECT pi.*, pr.pieces_per_box, u.store_id 
+                    FROM purchase_items pi 
+                    JOIN products pr ON pi.product_id = pr.id
+                    JOIN purchases p ON pi.purchase_id = p.purchase_id
+                    JOIN users u ON u.id = ?
+                    WHERE pi.item_id = ? AND pi.purchase_id = ?
+                ");
+                $item_stmt->bind_param("iii", $_SESSION['user_id'], $item_id, $purchase_id);
+                $item_stmt->execute();
+                $old_info = $item_stmt->get_result()->fetch_assoc();
+                $item_stmt->close();
+                
+                if ($old_info) {
+                    // 기존 실제 입고 수량 계산
+                    $old_actual_quantity = (int)$old_info['quantity'];
+                    if ($old_info['purchase_type'] === 'box') {
+                        $old_actual_quantity = (int)$old_info['quantity'] * ($old_info['pieces_per_box'] ?? 1);
+                    }
+                    
+                    // 새로운 실제 입고 수량 계산
+                    $new_actual_quantity = $new_quantity;
+                    if ($new_purchase_type === 'box') {
+                        $new_actual_quantity = $new_quantity * ($old_info['pieces_per_box'] ?? 1);
+                    }
+                    
+                    // 재고 수량 조정
+                    if ($old_info['store_id']) {
+                        $quantity_diff = $new_actual_quantity - $old_actual_quantity;
+                        
+                        if ($quantity_diff != 0) {
+                            $inv_stmt = $conn->prepare("UPDATE inventory SET quantity = quantity + ? WHERE product_id = ? AND store_id = ?");
+                            $inv_stmt->bind_param("iii", $quantity_diff, $old_info['product_id'], $old_info['store_id']);
+                            $inv_stmt->execute();
+                            $inv_stmt->close();
+                            
+                            // 재고 트랜잭션 로그 기록
+                            try {
+                                $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
+                                $inv_id_stmt->bind_param("ii", $old_info['product_id'], $old_info['store_id']);
+                                $inv_id_stmt->execute();
+                                $inv_id_result = $inv_id_stmt->get_result();
+                                
+                                if ($inv_row = $inv_id_result->fetch_assoc()) {
+                                    $trans_type = $quantity_diff > 0 ? 'IN' : 'OUT';
+                                    $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, ?, ?, ?)");
+                                    $remarks = "매입 상품 일괄 수정 (Purchase Item ID: {$item_id})";
+                                    $trans_stmt->bind_param("iisis", $inv_row['id'], $_SESSION['user_id'], $trans_type, $quantity_diff, $remarks);
+                                    $trans_stmt->execute();
+                                    $trans_stmt->close();
+                                }
+                                $inv_id_stmt->close();
+                            } catch (Exception $log_error) {
+                                error_log("Transaction log failed: " . $log_error->getMessage());
+                            }
+                        }
+                    }
+                    
+                    // 상품의 박스 수량도 업데이트 (제공된 경우)
+                    if ($new_pieces_per_box !== null && $new_pieces_per_box > 0) {
+                        $update_product_stmt = $conn->prepare("UPDATE products SET pieces_per_box = ? WHERE id = ?");
+                        $update_product_stmt->bind_param("ii", $new_pieces_per_box, $old_info['product_id']);
+                        $update_product_stmt->execute();
+                        $update_product_stmt->close();
+                    }
+                    
+                    // 할인 정보 계산
+                    $original_total = $new_quantity * $new_unit_price;
+                    $discounted_total = $original_total * (1 - $discount_rate / 100);
+                    
+                    // 매입 상품 정보 업데이트
+                    $update_item_stmt = $conn->prepare("UPDATE purchase_items SET quantity = ?, unit_price = ?, purchase_type = ?, discount_rate = ?, discounted_total = ? WHERE item_id = ?");
+                    $update_item_stmt->bind_param("idsidi", $new_quantity, $new_unit_price, $new_purchase_type, $discount_rate, $discounted_total, $item_id);
+                    $update_item_stmt->execute();
+                    $update_item_stmt->close();
+                    
+                    $updated_count++;
+                } else {
+                    $errors[] = "상품 ID {$item_id}를 찾을 수 없습니다.";
+                }
+            }
+            
+            // 매입 전체 합계 재계산 및 업데이트
+            $update_stmt = $conn->prepare("
+                UPDATE purchases SET 
+                    total_amount = (SELECT COALESCE(SUM(CASE WHEN discounted_total IS NOT NULL THEN discounted_total ELSE quantity * unit_price END), 0) FROM purchase_items WHERE purchase_id = ?),
+                    total_items = (SELECT COUNT(*) FROM purchase_items WHERE purchase_id = ?)
+                WHERE purchase_id = ?
+            ");
+            $update_stmt->bind_param("iii", $purchase_id, $purchase_id, $purchase_id);
+            $update_stmt->execute();
+            $update_stmt->close();
+            
+            $conn->commit();
+            
+            if (count($errors) > 0) {
+                $message = "{$updated_count}개 상품이 수정되었습니다. 오류: " . implode(", ", $errors);
+                $message_type = 'warning';
+            } else {
+                $message = "{$updated_count}개 상품이 성공적으로 수정되었습니다.";
+                $message_type = 'success';
+            }
+        } catch (Exception $e) {
+            $conn->rollback();
+            $message = '상품 일괄 수정에 실패했습니다: ' . $e->getMessage();
+            $message_type = 'error';
+        }
     }
 }
 
@@ -298,7 +427,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $soft_delete_stmt->close();
                     
                     $conn->commit();
-                    $message = '마지막 매입 상품이 삭제되어 전체 매입 내역이 삭제되었습니다. (복원 가능)';
+                    $message = t('purchase.js_delete_success');
                     $message_type = 'success';
                     
                     // 전체 매입 내역이 삭제되었으므로 목록으로 리다이렉트
@@ -317,17 +446,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $update_stmt->close();
                     
                     $conn->commit();
-                    $message = '매입 상품이 성공적으로 삭제되었습니다.';
+                    $message = t('purchase.js_delete_success');
                     $message_type = 'success';
                 }
             } else {
-                throw new Exception('삭제할 상품을 찾을 수 없습니다.');
+                throw new Exception(t('purchase.item_not_found'));
             }
         } catch (Exception $e) {
             $conn->rollback();
             $error_msg = $e->getMessage();
             error_log("Delete item failed: {$error_msg} for item_id: {$item_id}, purchase_id: {$purchase_id}");
-            $message = '상품 삭제에 실패했습니다: ' . $error_msg;
+            $message = t('purchase.js_delete_error') . ': ' . $error_msg;
             $message_type = 'error';
         }
     }
@@ -448,74 +577,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// 개별 할인 업데이트 처리 (AJAX)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_discount') {
-    header('Content-Type: application/json');
-    
-    $item_id = (int)$_POST['item_id'];
-    $discount_rate = (float)$_POST['discount_rate'];
-    
-    if ($discount_rate < 0 || $discount_rate > 100) {
-        echo json_encode(['success' => false, 'message' => '할인율은 0-100 사이의 값이어야 합니다.']);
-        exit;
-    }
-    
-    try {
-        $conn->begin_transaction();
-        
-        // 기존 아이템 정보 조회
-        $item_stmt = $conn->prepare("SELECT quantity, unit_price FROM purchase_items WHERE item_id = ? AND purchase_id = ?");
-        $item_stmt->bind_param("ii", $item_id, $purchase_id);
-        $item_stmt->execute();
-        $item_info = $item_stmt->get_result()->fetch_assoc();
-        $item_stmt->close();
-        
-        if (!$item_info) {
-            throw new Exception('상품을 찾을 수 없습니다.');
-        }
-        
-        // 할인후 총액 계산
-        $original_total = $item_info['quantity'] * $item_info['unit_price'];
-        $discounted_total = $original_total * (1 - $discount_rate / 100);
-        
-        // 할인 정보 업데이트
-        $update_stmt = $conn->prepare("UPDATE purchase_items SET discount_rate = ?, discounted_total = ? WHERE item_id = ?");
-        $update_stmt->bind_param("ddi", $discount_rate, $discounted_total, $item_id);
-        $update_stmt->execute();
-        $update_stmt->close();
-        
-        // 매입 전체 합계 재계산 (할인후 금액 기준)
-        $update_purchase_stmt = $conn->prepare("
-            UPDATE purchases SET 
-                total_amount = (SELECT COALESCE(SUM(CASE WHEN discounted_total IS NOT NULL THEN discounted_total ELSE quantity * unit_price END), 0) FROM purchase_items WHERE purchase_id = ?)
-            WHERE purchase_id = ?
-        ");
-        $update_purchase_stmt->bind_param("ii", $purchase_id, $purchase_id);
-        $update_purchase_stmt->execute();
-        $update_purchase_stmt->close();
-        
-        // 새로운 총 금액 조회
-        $total_stmt = $conn->prepare("SELECT total_amount FROM purchases WHERE purchase_id = ?");
-        $total_stmt->bind_param("i", $purchase_id);
-        $total_stmt->execute();
-        $new_total = $total_stmt->get_result()->fetch_assoc()['total_amount'];
-        $total_stmt->close();
-        
-        $conn->commit();
-        
-        echo json_encode([
-            'success' => true,
-            'message' => '할인이 성공적으로 적용되었습니다.',
-            'new_total_amount' => $new_total
-        ]);
-        exit;
-        
-    } catch (Exception $e) {
-        $conn->rollback();
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-        exit;
-    }
-}
 
 // 일괄 할인 적용 처리
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'apply_bulk_discount') {
@@ -562,16 +623,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $update_purchase_stmt->close();
             
             $conn->commit();
-            $message = "{$updated_count}개 상품에 {$discount_rate}% 할인이 적용되었습니다.";
+            $message = str_replace(['{count}', '{rate}'], [$updated_count, $discount_rate], t('purchase.js_discount_applied'));
             $message_type = 'success';
             
         } catch (Exception $e) {
             $conn->rollback();
-            $message = '일괄 할인 적용 중 오류가 발생했습니다: ' . $e->getMessage();
+            $message = t('purchase.js_save_error') . ': ' . $e->getMessage();
             $message_type = 'error';
         }
     } else {
-        $message = '올바른 할인율(0-100%)을 입력하고 상품을 선택해주세요.';
+        $message = t('purchase.js_discount_rate_invalid');
         $message_type = 'error';
     }
 }
@@ -680,7 +741,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $message_type = 'error';
         }
     } else {
-        $message = '상품, 수량, 단가를 올바르게 입력해주세요.';
+        $message = t('purchase.required_fields');
         $message_type = 'error';
     }
 }
@@ -779,6 +840,16 @@ $items_result = $stmt->get_result();
         opacity: 1;
     }
 }
+
+/* 체크박스 열 hover 스타일 */
+tr[id^="row-"] td:first-child {
+    cursor: pointer;
+    user-select: none;
+}
+
+tr[id^="row-"] td:first-child:hover {
+    background-color: rgba(99, 102, 241, 0.05);
+}
 </style>
 
 <!-- Page header -->
@@ -792,7 +863,7 @@ $items_result = $stmt->get_result();
             <?php if ($has_deleted_at): ?>
             <button type="button" id="delete-purchase-btn" class="inline-flex items-center justify-center rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 shadow-sm hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
                 <i class="fas fa-trash-alt mr-2"></i>
-                매입 내역 삭제
+                <?php echo t('common.delete'); ?>
             </button>
             <?php else: ?>
             <a href="setup_soft_delete_purchases.php" class="inline-flex items-center justify-center rounded-md border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700 shadow-sm hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2">
@@ -834,7 +905,7 @@ $items_result = $stmt->get_result();
                         <i class="fas fa-building text-blue-500 mr-2"></i>
                     </div>
                     <div>
-                        <span class="text-sm font-medium text-gray-600">거래처:</span>
+                        <span class="text-sm font-medium text-gray-600"><?php echo t('purchase.supplier'); ?>:</span>
                         <span class="text-base font-semibold text-gray-900 ml-2"><?php echo htmlspecialchars($purchase['supplier_name']); ?></span>
                     </div>
                 </div>
@@ -843,7 +914,7 @@ $items_result = $stmt->get_result();
                         <i class="fas fa-calendar-alt text-green-500 mr-2"></i>
                     </div>
                     <div>
-                        <span class="text-sm font-medium text-gray-600">매입날짜:</span>
+                        <span class="text-sm font-medium text-gray-600"><?php echo t('purchase.purchase_date'); ?>:</span>
                         <span class="text-base font-semibold text-gray-900 ml-2"><?php echo htmlspecialchars($purchase['purchase_date']); ?></span>
                     </div>
                 </div>
@@ -852,7 +923,7 @@ $items_result = $stmt->get_result();
                         <span class="text-purple-500 text-lg font-bold mr-2">₱</span>
                     </div>
                     <div>
-                        <span class="text-sm font-medium text-gray-600">총매입금액:</span>
+                        <span class="text-sm font-medium text-gray-600"><?php echo t('purchase.total_amount'); ?>:</span>
                         <span class="text-base font-semibold text-gray-900 ml-2 total-amount"><?php echo number_format($purchase['total_amount'], 2); ?></span>
                     </div>
                 </div>
@@ -861,26 +932,32 @@ $items_result = $stmt->get_result();
 
         <!-- 매입 상품 목록 -->
         <div class="mb-6">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">매입 상품 내역</h3>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900"><?php echo t('purchase.purchase_items'); ?></h3>
+                <button type="button" id="save-all-changes" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    <i class="fas fa-save mr-2"></i>
+                    <?php echo t('purchase.save_changes'); ?>
+                </button>
+            </div>
             <div class="shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
                 <table class="w-full table-fixed divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="w-8 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 <input type="checkbox" id="select-all" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                             </th>
                             <th class="w-20 px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                            <th class="w-32 px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품명</th>
-                            <th class="w-16 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">단위</th>
-                            <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">수량</th>
-                            <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">박스/개</th>
-                            <th class="w-20 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">단가</th>
-                            <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">낱개가</th>
-                            <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">입고량</th>
-                            <th class="w-20 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">합계</th>
-                            <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">할인율</th>
-                            <th class="w-24 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">할인후합계</th>
-                            <th class="w-20 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+                            <th class="w-48 px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.product_name'); ?></th>
+                            <th class="w-20 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit'); ?></th>
+                            <th class="w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.quantity'); ?></th>
+                            <th class="w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.pieces_per_box'); ?></th>
+                            <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit_price'); ?></th>
+                            <th class="w-14 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.piece_price'); ?></th>
+                            <th class="w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total_pieces'); ?></th>
+                            <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total'); ?></th>
+                            <th class="w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.discount_rate'); ?></th>
+                            <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.discounted_total'); ?></th>
+                            <th class="w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.delete'); ?></th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -904,85 +981,80 @@ $items_result = $stmt->get_result();
                                 $piece_price = $item['unit_price'];
                             }
                         ?>
-                                <tr class="hover:bg-gray-50 transition-colors duration-150 cursor-pointer" id="row-<?php echo $item['item_id']; ?>">
-                                    <td class="w-10 px-1 py-3 text-center">
+                                <tr class="hover:bg-gray-50 transition-colors duration-150" id="row-<?php echo $item['item_id']; ?>">
+                                    <td class="w-8 px-1 py-3 text-center">
                                         <input type="checkbox" class="item-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" value="<?php echo $item['item_id']; ?>">
                                     </td>
-                                    <td class="w-20 px-1 py-3 text-sm font-medium text-gray-900 truncate" title="<?php echo htmlspecialchars($item['sku']); ?>">
+                                    <td class="w-20 px-1 py-3 text-xs font-medium text-gray-900" title="<?php echo htmlspecialchars($item['sku']); ?>">
                                         <?php echo htmlspecialchars($item['sku']); ?>
                                     </td>
-                                    <td class="w-32 px-2 py-3">
-                                        <div class="text-sm font-medium text-gray-900 truncate" title="<?php echo htmlspecialchars($item['product_name']); ?>"><?php echo htmlspecialchars($item['product_name']); ?></div>
+                                    <td class="w-48 px-2 py-3">
+                                        <div class="text-sm font-medium text-gray-900" title="<?php echo htmlspecialchars($item['product_name']); ?>"><?php echo htmlspecialchars($item['product_name']); ?></div>
                                         <?php if (!empty($item['product_name_en'])): ?>
-                                        <div class="text-xs text-gray-600 italic truncate" title="<?php echo htmlspecialchars($item['product_name_en']); ?>"><?php echo htmlspecialchars($item['product_name_en']); ?></div>
+                                        <div class="text-xs text-gray-600 italic" title="<?php echo htmlspecialchars($item['product_name_en']); ?>"><?php echo htmlspecialchars($item['product_name_en']); ?></div>
                                         <?php endif; ?>
                                         <?php if ($item['barcode']): ?>
-                                        <div class="text-xs text-gray-500 truncate" title="바코드: <?php echo htmlspecialchars($item['barcode']); ?>">바코드: <?php echo htmlspecialchars($item['barcode']); ?></div>
+                                        <div class="text-xs text-gray-500" title="바코드: <?php echo htmlspecialchars($item['barcode']); ?>">바코드: <?php echo htmlspecialchars($item['barcode']); ?></div>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="w-16 px-1 py-3 text-center">
+                                    <td class="w-20 px-1 py-3 text-center">
                                         <div class="flex items-center justify-center space-x-1">
-                                            <label class="inline-flex items-center">
+                                            <label class="inline-flex items-center text-xs">
                                                 <input type="radio" name="purchase_type_<?php echo $item['item_id']; ?>" 
-                                                       class="type-input text-indigo-600 border-gray-300 focus:ring-indigo-500" 
+                                                       class="type-input text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-1" 
                                                        value="box" 
                                                        data-item-id="<?php echo $item['item_id']; ?>"
                                                        <?php echo $item['purchase_type'] === 'box' ? 'checked' : ''; ?>>
-                                                <span class="ml-1 text-xs">박스</span>
+                                                <span class="text-gray-700"><?php echo t('purchase.box'); ?></span>
                                             </label>
-                                            <label class="inline-flex items-center">
+                                            <label class="inline-flex items-center text-xs">
                                                 <input type="radio" name="purchase_type_<?php echo $item['item_id']; ?>" 
-                                                       class="type-input text-indigo-600 border-gray-300 focus:ring-indigo-500" 
+                                                       class="type-input text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-1" 
                                                        value="piece" 
                                                        data-item-id="<?php echo $item['item_id']; ?>"
                                                        <?php echo $item['purchase_type'] === 'piece' ? 'checked' : ''; ?>>
-                                                <span class="ml-1 text-xs">낱개</span>
+                                                <span class="text-gray-700"><?php echo t('purchase.piece'); ?></span>
                                             </label>
                                         </div>
                                     </td>
-                                    <td class="w-16 px-1 py-3 text-sm text-gray-900 text-right">
+                                    <td class="w-12 px-1 py-3 text-sm text-gray-900 text-right">
                                         <input type="number" 
-                                               class="quantity-input w-full px-2 py-1 border border-gray-300 rounded-md text-right text-sm hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
+                                               class="quantity-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-xs hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
                                                value="<?php echo $item['quantity']; ?>" 
                                                data-item-id="<?php echo $item['item_id']; ?>"
                                                data-original-value="<?php echo $item['quantity']; ?>"
                                                min="1">
                                     </td>
-                                    <td class="w-16 px-1 py-3 text-sm text-gray-500 text-right">
+                                    <td class="w-12 px-1 py-3 text-sm text-gray-500 text-right">
                                         <input type="number" 
-                                               class="pieces-input w-full px-2 py-1 border border-gray-300 rounded-md text-right text-sm hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
+                                               class="pieces-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-xs hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
                                                value="<?php echo $item['pieces_per_box'] ?? 1; ?>" 
                                                data-item-id="<?php echo $item['item_id']; ?>"
                                                data-original-value="<?php echo $item['pieces_per_box'] ?? 1; ?>"
                                                min="1">
                                     </td>
-                                    <td class="w-20 px-1 py-3 text-sm text-gray-900 text-right">
+                                    <td class="w-16 px-1 py-3 text-sm text-gray-900 text-right">
                                         <input type="number" 
-                                               class="price-input w-full px-2 py-1 border border-gray-300 rounded-md text-right text-sm hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
+                                               class="price-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-xs hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
                                                value="<?php echo $item['unit_price']; ?>" 
                                                data-item-id="<?php echo $item['item_id']; ?>"
                                                data-original-value="<?php echo $item['unit_price']; ?>"
                                                min="0" 
                                                step="0.01">
                                     </td>
-                                    <td class="w-16 px-1 py-3 text-sm text-gray-500 text-right"><?php echo number_format($piece_price, 2); ?></td>
-                                    <td class="w-16 px-1 py-3 text-sm text-gray-900 text-right font-semibold">
-                                        <span class="text-blue-600"><?php echo number_format($item['total_pieces']); ?>개</span>
+                                    <td class="w-14 px-1 py-3 text-xs text-gray-500 text-right"><?php echo number_format($piece_price, 2); ?></td>
+                                    <td class="w-10 px-1 py-3 text-xs text-gray-900 text-right font-semibold">
+                                        <span class="text-blue-600"><?php echo number_format($item['total_pieces']); ?></span>
                                     </td>
-                                    <td class="w-20 px-1 py-3 text-sm text-gray-900 text-right font-bold"><?php echo number_format($item_total, 2); ?></td>
-                                    <td class="w-16 px-1 py-3 text-center">
-                                        <input type="number" class="discount-rate w-12 px-1 py-1 border border-gray-300 rounded-md text-center text-xs focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo number_format($item['discount_rate'], 1); ?>" min="0" max="100" step="0.1" placeholder="0">%
+                                    <td class="w-16 px-1 py-3 text-xs text-gray-900 text-right font-bold"><?php echo number_format($item_total, 2); ?></td>
+                                    <td class="w-10 px-1 py-3 text-center">
+                                        <input type="number" class="discount-rate w-9 px-0 py-1 border border-gray-300 rounded-md text-center text-xs focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo number_format($item['discount_rate'], 1); ?>" min="0" max="100" step="0.1" placeholder="0">
                                     </td>
-                                    <td class="w-24 px-1 py-3 text-sm text-gray-900 text-right font-bold discounted-total"><?php echo number_format($item['discounted_total'], 2); ?></td>
-                                    <td class="w-20 px-1 py-3 text-center">
-                                        <div class="flex items-center justify-center space-x-2">
-                                            <button type="button" class="delete-btn inline-flex items-center justify-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 transition-colors duration-200" data-item-id="<?php echo $item['item_id']; ?>">
-                                                <i class="fas fa-trash-alt text-xs"></i>
-                                            </button>
-                                            <div class="save-indicator hidden" id="save-indicator-<?php echo $item['item_id']; ?>">
-                                                <i class="fas fa-spinner fa-spin text-indigo-600 text-xs"></i>
-                                            </div>
-                                        </div>
+                                    <td class="w-16 px-1 py-3 text-xs text-gray-900 text-right font-bold discounted-total"><?php echo number_format($item['discounted_total'], 2); ?></td>
+                                    <td class="w-10 px-1 py-3 text-center">
+                                        <button type="button" class="delete-btn inline-flex items-center justify-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 transition-colors duration-200" data-item-id="<?php echo $item['item_id']; ?>">
+                                            <i class="fas fa-trash-alt text-xs"></i>
+                                        </button>
                                     </td>
                                 </tr>
                         <?php endwhile; ?>
@@ -991,20 +1063,20 @@ $items_result = $stmt->get_result();
             </div>
         </div>
         
-        <!-- 일괄 할인 적용 컨트롤 -->
+        <!-- Bulk Discount Control -->
         <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
-                    <label class="text-sm font-medium text-gray-700">선택된 상품에 일괄 할인율 적용:</label>
+                    <label class="text-sm font-medium text-gray-700"><?php echo t('purchase.bulk_discount'); ?>:</label>
                     <input type="number" id="bulk-discount-rate" class="w-20 px-3 py-2 border border-gray-300 rounded-md text-center focus:border-indigo-500 focus:ring-indigo-500" min="0" max="100" step="0.1" placeholder="0">
                     <span class="text-sm text-gray-600">%</span>
                 </div>
                 <button type="button" id="apply-bulk-discount" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                     <i class="fas fa-percent mr-2"></i>
-                    일괄 할인 적용
+                    <?php echo t('purchase.apply_bulk_discount'); ?>
                 </button>
             </div>
-            <p class="mt-2 text-xs text-gray-500">상품 행을 클릭하면 선택/해제됩니다. 선택한 후 할인율을 입력하고 버튼을 클릭하세요.</p>
+            <p class="mt-2 text-xs text-gray-500"><?php echo t('purchase.bulk_discount_desc'); ?></p>
         </div>
         
         <!-- 상품 추가 버튼 -->
@@ -1016,12 +1088,12 @@ $items_result = $stmt->get_result();
             </a>
         </div>
         
-        <!-- 합계 정보 -->
+        <!-- Summary Information -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div class="px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 border-b border-gray-200">
                 <h3 class="text-lg font-semibold text-black flex items-center">
                     <i class="fas fa-chart-bar mr-2"></i>
-                    매입 합계 정보
+                    <?php echo t('purchase.summary'); ?>
                 </h3>
             </div>
             <div class="overflow-x-auto">
@@ -1043,7 +1115,7 @@ $items_result = $stmt->get_result();
                             <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700 border-r border-gray-200">
                                 <div class="flex items-center justify-center mb-2">
                                     <i class="fas fa-warehouse text-blue-600 text-lg mr-2"></i>
-                                    총 입고수량 (낱개)
+                                    <?php echo t('purchase.total_pieces_count'); ?>
                                 </div>
                             </th>
                             <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">
@@ -1081,14 +1153,39 @@ $items_result = $stmt->get_result();
 </div>
 
 <script>
+// PHP에서 JavaScript로 언어 데이터 전달
+const lang = {
+    js_confirm_delete: <?php echo json_encode(t('purchase.js_confirm_delete')); ?>,
+    js_update_error: <?php echo json_encode(t('purchase.js_update_error')); ?>,
+    js_quantity_required: <?php echo json_encode(t('purchase.js_quantity_required')); ?>,
+    js_pieces_required: <?php echo json_encode(t('purchase.js_pieces_required')); ?>,
+    js_price_required: <?php echo json_encode(t('purchase.js_price_required')); ?>,
+    js_saving: <?php echo json_encode(t('purchase.js_saving')); ?>,
+    js_save_success: <?php echo json_encode(t('purchase.js_save_success')); ?>,
+    js_save_error: <?php echo json_encode(t('purchase.js_save_error')); ?>,
+    js_no_changes: <?php echo json_encode(t('purchase.js_no_changes')); ?>,
+    js_updating: <?php echo json_encode(t('purchase.js_updating')); ?>,
+    js_deleting: <?php echo json_encode(t('purchase.js_deleting')); ?>,
+    js_delete_success: <?php echo json_encode(t('purchase.js_delete_success')); ?>,
+    js_delete_error: <?php echo json_encode(t('purchase.js_delete_error')); ?>,
+    js_network_error: <?php echo json_encode(t('purchase.js_network_error')); ?>,
+    js_apply_discount: <?php echo json_encode(t('purchase.js_apply_discount')); ?>,
+    js_discount_applied: <?php echo json_encode(t('purchase.js_discount_applied')); ?>,
+    js_confirm_delete_last_item: <?php echo json_encode(t('purchase.js_confirm_delete_last_item')); ?>,
+    js_confirm_delete_item: <?php echo json_encode(t('purchase.js_confirm_delete_item')); ?>,
+    js_confirm_delete_purchase: <?php echo json_encode(t('purchase.js_confirm_delete_purchase')); ?>,
+    js_discount_rate_invalid: <?php echo json_encode(t('purchase.js_discount_rate_invalid')); ?>,
+    js_confirm_apply_discount: <?php echo json_encode(t('purchase.js_confirm_apply_discount')); ?>
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('페이지 로드 완료');
     
-    // 자동 저장을 위한 디바운스 타이머 객체
-    const saveTimers = {};
+    // 변경사항 추적 객체
+    const changedItems = new Map();
     
-    // 자동 저장 함수
-    function autoSaveItem(itemId) {
+    // 변경사항 추적 함수
+    function trackChange(itemId) {
         const row = document.getElementById('row-' + itemId);
         if (!row) return;
         
@@ -1101,54 +1198,90 @@ document.addEventListener('DOMContentLoaded', function() {
         const piecesPerBox = row.querySelector('.pieces-input').value;
         const discountRate = row.querySelector('.discount-rate').value || 0;
         
-        console.log('자동 저장 시작:', itemId, { quantity, unitPrice, purchaseType, piecesPerBox, discountRate });
+        // 변경사항 저장
+        changedItems.set(itemId, {
+            quantity: quantity,
+            unitPrice: unitPrice,
+            purchaseType: purchaseType,
+            piecesPerBox: piecesPerBox,
+            discountRate: discountRate
+        });
+        
+        // 행에 변경 표시 추가
+        row.classList.add('bg-yellow-50');
+        
+        // 저장 버튼 활성화
+        const saveButton = document.getElementById('save-all-changes');
+        if (saveButton) {
+            saveButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            saveButton.disabled = false;
+        }
+        
+        console.log('변경사항 추적:', itemId, changedItems.get(itemId));
+    }
+    
+    // 모든 변경사항 저장 함수
+    function saveAllChanges() {
+        if (changedItems.size === 0) {
+            showNotification('변경된 항목이 없습니다.', 'info');
+            return;
+        }
         
         // 유효성 검사
-        if (!quantity || quantity <= 0) {
-            showNotification('수량은 1 이상이어야 합니다.', 'error');
-            return;
-        }
+        let hasError = false;
+        changedItems.forEach((data, itemId) => {
+            if (!data.quantity || data.quantity <= 0) {
+                showNotification(lang.js_quantity_required.replace('{itemId}', itemId), 'error');
+                hasError = true;
+            }
+            if (data.unitPrice === '' || parseFloat(data.unitPrice) < 0) {
+                showNotification(lang.js_price_required.replace('{itemId}', itemId), 'error');
+                hasError = true;
+            }
+            if (!data.piecesPerBox || data.piecesPerBox <= 0) {
+                showNotification(lang.js_pieces_required.replace('{itemId}', itemId), 'error');
+                hasError = true;
+            }
+        });
         
-        if (unitPrice === '' || parseFloat(unitPrice) < 0) {
-            showNotification('단가는 0 이상이어야 합니다.', 'error');
-            return;
-        }
-        
-        if (!piecesPerBox || piecesPerBox <= 0) {
-            showNotification('박스당 개수는 1 이상이어야 합니다.', 'error');
-            return;
-        }
-        
-        // 저장 중 표시
-        showSaveIndicator(itemId, true);
+        if (hasError) return;
         
         // 폼 데이터 생성
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = window.location.pathname + window.location.search;
-        form.innerHTML = `
-            <input type="hidden" name="action" value="update_item">
-            <input type="hidden" name="item_id" value="${itemId}">
-            <input type="hidden" name="quantity" value="${quantity}">
-            <input type="hidden" name="unit_price" value="${unitPrice}">
-            <input type="hidden" name="purchase_type" value="${purchaseType}">
-            <input type="hidden" name="pieces_per_box" value="${piecesPerBox}">
-            <input type="hidden" name="discount_rate" value="${discountRate}">
-        `;
+        
+        // action 필드
+        const actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = 'update_multiple_items';
+        form.appendChild(actionInput);
+        
+        // 변경된 각 항목 데이터 추가
+        let index = 0;
+        changedItems.forEach((data, itemId) => {
+            form.innerHTML += `
+                <input type="hidden" name="items[${index}][item_id]" value="${itemId}">
+                <input type="hidden" name="items[${index}][quantity]" value="${data.quantity}">
+                <input type="hidden" name="items[${index}][unit_price]" value="${data.unitPrice}">
+                <input type="hidden" name="items[${index}][purchase_type]" value="${data.purchaseType}">
+                <input type="hidden" name="items[${index}][pieces_per_box]" value="${data.piecesPerBox}">
+                <input type="hidden" name="items[${index}][discount_rate]" value="${data.discountRate}">
+            `;
+            index++;
+        });
+        
         document.body.appendChild(form);
-        form.submit();
-    }
-    
-    // 저장 인디케이터 표시/숨기기
-    function showSaveIndicator(itemId, show) {
-        const indicator = document.getElementById('save-indicator-' + itemId);
-        if (indicator) {
-            if (show) {
-                indicator.classList.remove('hidden');
-            } else {
-                indicator.classList.add('hidden');
-            }
+        
+        // 저장 중 표시
+        const saveButton = document.getElementById('save-all-changes');
+        if (saveButton) {
+            saveButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + lang.js_saving;
+            saveButton.disabled = true;
         }
+        
+        form.submit();
     }
     
     // 알림 표시 함수
@@ -1175,10 +1308,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('quantity-input')) {
             const itemId = e.target.dataset.itemId;
-            clearTimeout(saveTimers[itemId]);
-            saveTimers[itemId] = setTimeout(() => {
-                autoSaveItem(itemId);
-            }, 1000);
+            trackChange(itemId);
         }
     });
     
@@ -1186,10 +1316,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('price-input')) {
             const itemId = e.target.dataset.itemId;
-            clearTimeout(saveTimers[itemId]);
-            saveTimers[itemId] = setTimeout(() => {
-                autoSaveItem(itemId);
-            }, 1000);
+            trackChange(itemId);
         }
     });
     
@@ -1197,10 +1324,58 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('pieces-input')) {
             const itemId = e.target.dataset.itemId;
-            clearTimeout(saveTimers[itemId]);
-            saveTimers[itemId] = setTimeout(() => {
-                autoSaveItem(itemId);
-            }, 1000);
+            trackChange(itemId);
+        }
+    });
+    
+    // 입력 필드에서 엔터키 처리
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const target = e.target;
+            const row = target.closest('tr[id^="row-"]');
+            if (!row) return;
+            
+            // 수량 입력 필드에서 엔터 → 박스/개 입력 필드로
+            if (target.classList.contains('quantity-input')) {
+                e.preventDefault();
+                const piecesInput = row.querySelector('.pieces-input');
+                if (piecesInput) {
+                    piecesInput.focus();
+                    piecesInput.select();
+                }
+            }
+            // 박스/개 입력 필드에서 엔터 → 단가 입력 필드로
+            else if (target.classList.contains('pieces-input')) {
+                e.preventDefault();
+                const priceInput = row.querySelector('.price-input');
+                if (priceInput) {
+                    priceInput.focus();
+                    priceInput.select();
+                }
+            }
+            // 단가 입력 필드에서 엔터 → 할인율 입력 필드로
+            else if (target.classList.contains('price-input')) {
+                e.preventDefault();
+                const discountInput = row.querySelector('.discount-rate');
+                if (discountInput) {
+                    discountInput.focus();
+                    discountInput.select();
+                }
+            }
+            // 할인율 입력 필드에서 엔터 → 다음 행의 수량 입력 필드로
+            else if (target.classList.contains('discount-rate')) {
+                e.preventDefault();
+                const allRows = document.querySelectorAll('tr[id^="row-"]');
+                const currentIndex = Array.from(allRows).indexOf(row);
+                if (currentIndex < allRows.length - 1) {
+                    const nextRow = allRows[currentIndex + 1];
+                    const nextQuantityInput = nextRow.querySelector('.quantity-input');
+                    if (nextQuantityInput) {
+                        nextQuantityInput.focus();
+                        nextQuantityInput.select();
+                    }
+                }
+            }
         }
     });
     
@@ -1208,12 +1383,17 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('type-input')) {
             const itemId = e.target.dataset.itemId;
-            clearTimeout(saveTimers[itemId]);
-            saveTimers[itemId] = setTimeout(() => {
-                autoSaveItem(itemId);
-            }, 1000);
+            trackChange(itemId);
         }
     });
+    
+    // 저장 버튼 클릭 이벤트
+    const saveAllButton = document.getElementById('save-all-changes');
+    if (saveAllButton) {
+        saveAllButton.addEventListener('click', function() {
+            saveAllChanges();
+        });
+    }
     
     // 삭제 버튼 클릭 시 - 이벤트 위임 사용
     document.addEventListener('click', function(e) {
@@ -1232,10 +1412,10 @@ document.addEventListener('DOMContentLoaded', function() {
             let confirmMessage = '';
             if (currentItemCount <= 1) {
                 // 마지막 상품을 삭제하는 경우
-                confirmMessage = '이 상품을 삭제하면 매입 내역에 상품이 없어집니다.\n\n전체 매입 내역이 삭제됩니다. (복원 가능)\n재고에서도 해당 수량이 차감됩니다.\n\n계속하시겠습니까?';
+                confirmMessage = lang.js_confirm_delete_last_item;
             } else {
                 // 일반적인 상품 삭제
-                confirmMessage = '이 상품을 매입 목록에서 삭제하시겠습니까?\n삭제하면 재고에서도 해당 수량이 차감됩니다.';
+                confirmMessage = lang.js_confirm_delete_item;
             }
             
             if (confirm(confirmMessage)) {
@@ -1271,7 +1451,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             console.log('전체 매입 삭제 버튼 클릭');
         
-        if (confirm('이 매입 내역 전체를 삭제하시겠습니까?\n\n삭제된 매입 내역은 복원이 가능하며, 모든 매입 상품의 재고가 차감됩니다.\n\n계속하시겠습니까?')) {
+        if (confirm(lang.js_confirm_delete_purchase)) {
             console.log('전체 매입 삭제 확인됨');
             
             // 기존 폼이 있다면 제거
@@ -1328,24 +1508,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 행 클릭으로 체크박스 선택/해제
+    // 체크박스 열 클릭으로 체크박스 선택/해제
     document.addEventListener('click', function(e) {
-        const row = e.target.closest('tr[id^="row-"]');
+        // 체크박스 셀을 클릭했는지 확인 (첫 번째 td)
+        const td = e.target.closest('td');
+        if (!td) return;
+        
+        const row = td.closest('tr[id^="row-"]');
         if (!row) return;
         
-        // 이미 편집 모드인 행은 제외 (더 정확한 검사)
-        const editActionsDiv = row.querySelector('.edit-actions');
-        if (editActionsDiv && (editActionsDiv.style.display === 'flex' || editActionsDiv.style.display === 'block')) {
-            return;
-        }
+        // 첫 번째 열(체크박스 열)인지 확인
+        const isCheckboxColumn = td === row.cells[0];
+        if (!isCheckboxColumn) return;
         
-        // 체크박스, 버튼, input 요소 클릭은 제외
-        if (e.target.type === 'checkbox' || 
-            e.target.tagName === 'BUTTON' || 
-            e.target.tagName === 'INPUT' || 
-            e.target.tagName === 'SELECT' ||
-            e.target.closest('button') || 
-            e.target.closest('.action-buttons')) {
+        // 체크박스 자체를 클릭한 경우는 기본 동작 유지
+        if (e.target.type === 'checkbox') {
             return;
         }
         
@@ -1380,11 +1557,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (checkbox && checkbox.checked) {
             row.classList.add('bg-blue-50', 'border-l-4', 'border-l-blue-500');
             row.classList.remove('hover:bg-gray-50');
-            row.style.cursor = 'pointer';
         } else {
             row.classList.remove('bg-blue-50', 'border-l-4', 'border-l-blue-500');
             row.classList.add('hover:bg-gray-50');
-            row.style.cursor = 'pointer';
         }
     }
     
@@ -1395,14 +1570,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const checkedItems = document.querySelectorAll('.item-checkbox:checked');
             
             if (discountRate < 0 || discountRate > 100) {
-                alert('할인율은 0에서 100 사이의 값을 입력해주세요.');
+                alert(lang.js_discount_rate_invalid);
                 return;
             }
             
             // 선택된 아이템 ID 배열 생성
             const selectedItems = Array.from(checkedItems).map(cb => cb.value);
             
-            if (confirm(`선택된 ${checkedItems.length}개 상품에 ${discountRate}% 할인을 적용하시겠습니까?\n\n이 작업은 데이터베이스에 저장됩니다.`)) {
+            if (confirm(lang.js_confirm_apply_discount.replace('{count}', checkedItems.length).replace('{rate}', discountRate))) {
                 // 서버로 데이터 전송
                 const form = document.createElement('form');
                 form.method = 'POST';
@@ -1437,18 +1612,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // 개별 할인율 입력 시 할인후 합계 업데이트 및 서버 저장
-    let discountSaveTimeout;
+    // 개별 할인율 입력 시 할인후 합계 업데이트 및 변경사항 추적
     document.addEventListener('input', function(e) {
         if (e.target.classList.contains('discount-rate')) {
             const row = e.target.closest('tr');
+            const itemId = row.id.replace('row-', '');
             updateDiscountedTotal(row);
-            
-            // 디바운스: 1초 후에 서버에 자동 저장
-            clearTimeout(discountSaveTimeout);
-            discountSaveTimeout = setTimeout(() => {
-                saveDiscountToServer(row);
-            }, 1000);
+            trackChange(itemId);
         }
     });
     
@@ -1470,61 +1640,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // 할인 정보를 서버에 저장
-    function saveDiscountToServer(row) {
-        const itemId = row.id.replace('row-', '');
-        const discountRate = parseFloat(row.querySelector('.discount-rate').value) || 0;
-        
-        if (discountRate < 0 || discountRate > 100) {
-            alert('할인율은 0에서 100 사이의 값을 입력해주세요.');
-            return;
-        }
-        
-        // AJAX로 서버에 전송
-        const formData = new FormData();
-        formData.append('action', 'update_discount');
-        formData.append('item_id', itemId);
-        formData.append('discount_rate', discountRate);
-        
-        fetch(window.location.pathname + window.location.search, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // 성공시 시각적 피드백
-                row.style.backgroundColor = '#dcfce7'; // 연한 녹색
-                setTimeout(() => {
-                    row.style.backgroundColor = '';
-                }, 1500);
-                
-                // 총 매입 금액 업데이트 (데이터가 있으면)
-                if (data.new_total_amount) {
-                    const totalAmountElements = document.querySelectorAll('.total-amount');
-                    totalAmountElements.forEach(el => {
-                        el.textContent = new Intl.NumberFormat('ko-KR', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        }).format(data.new_total_amount);
-                    });
-                }
-            } else {
-                alert('할인 정보 저장 실패: ' + (data.message || '알 수 없는 오류'));
-            }
-        })
-        .catch(error => {
-            console.error('할인 저장 오류:', error);
-            alert('할인 정보 저장 중 오류가 발생했습니다.');
-        });
-    }
     
     // 페이지 로드 시 초기화
     updateBulkDiscountButton();
     
-    // 모든 행에 커서 포인터 적용 및 초기 선택 상태 설정
+    // 모든 행의 초기 선택 상태 설정
     document.querySelectorAll('tr[id^="row-"]').forEach(row => {
-        row.style.cursor = 'pointer';
         updateRowSelection(row);
     });
     
