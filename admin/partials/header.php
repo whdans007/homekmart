@@ -255,6 +255,11 @@ if (!empty($_SESSION['user_id'])) {
                                     <?php echo t('navigation.settings'); ?>
                                 </a>
                                 
+                                <a href="backup_management.php" class="<?php echo ($current_page == 'backup_management.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-database mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
+                                    데이터베이스 백업
+                                </a>
+                                
                                 <a href="excel_test.php" class="<?php echo ($current_page == 'excel_test.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-file-excel mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
                                     <?php echo t('navigation.excel_test'); ?>
@@ -482,6 +487,10 @@ if (!empty($_SESSION['user_id'])) {
                         <div class="space-y-1">
                             <a href="settings.php" class="<?php echo ($current_page == 'settings.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-cog mr-2 text-xs"></i><?php echo t('navigation.settings'); ?>
+                            </a>
+                            
+                            <a href="backup_management.php" class="<?php echo ($current_page == 'backup_management.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-database mr-2 text-xs"></i>데이터베이스 백업
                             </a>
                             
                             <a href="excel_test.php" class="<?php echo ($current_page == 'excel_test.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
