@@ -21,21 +21,12 @@ if (!has_permission('purchase_management')) {
 
 $conn = get_db_connection();
 
-// 검색 필터 변수
-$start_date = $_GET['start_date'] ?? '';
-$end_date = $_GET['end_date'] ?? '';
-$supplier_filter = $_GET['supplier_id'] ?? '';
-
 // 페이지네이션 변수
 $current_page = max(1, (int)($_GET['page'] ?? 1));
 $items_per_page = 20;
 $offset = ($current_page - 1) * $items_per_page;
 
-// 거래처 목록 가져오기 (필터용)
-$suppliers_sql = "SELECT id, name FROM suppliers ORDER BY name";
-$suppliers_result = $conn->query($suppliers_sql);
-
-// 검색 조건 구성
+// 검색 조건 구성 (삭제 상태만 확인)
 $where_conditions = [];
 $params = [];
 $param_types = '';
@@ -56,23 +47,6 @@ if ($has_deleted_at) {
     $where_conditions[] = "p.status != 'deleted'";
 }
 
-if (!empty($start_date)) {
-    $where_conditions[] = "p.purchase_date >= ?";
-    $params[] = $start_date;
-    $param_types .= 's';
-}
-
-if (!empty($end_date)) {
-    $where_conditions[] = "p.purchase_date <= ?";
-    $params[] = $end_date;
-    $param_types .= 's';
-}
-
-if (!empty($supplier_filter)) {
-    $where_conditions[] = "p.supplier_id = ?";
-    $params[] = $supplier_filter;
-    $param_types .= 'i';
-}
 
 $where_clause = '';
 if (!empty($where_conditions)) {
@@ -344,46 +318,6 @@ if (isset($_GET['debug'])) {
         </div>
     </div>
 
-    <!-- 검색 필터 폼 -->
-    <div class="bg-white shadow rounded-lg mb-6 p-6">
-        <form method="GET" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                    <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('purchase.start_date'); ?></label>
-                    <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>" 
-                           class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
-                </div>
-                <div>
-                    <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('purchase.end_date'); ?></label>
-                    <input type="date" id="end_date" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>" 
-                           class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
-                </div>
-                <div>
-                    <label for="supplier_id" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('purchase.supplier'); ?></label>
-                    <select id="supplier_id" name="supplier_id" 
-                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
-                        <option value=""><?php echo t('purchase.all_suppliers'); ?></option>
-                        <?php if ($suppliers_result && $suppliers_result->num_rows > 0): ?>
-                            <?php $suppliers_result->data_seek(0); // 결과 포인터 리셋 ?>
-                            <?php while ($supplier = $suppliers_result->fetch_assoc()): ?>
-                                <option value="<?php echo $supplier['id']; ?>" <?php echo ($supplier_filter == $supplier['id']) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($supplier['name']); ?>
-                                </option>
-                            <?php endwhile; ?>
-                        <?php endif; ?>
-                    </select>
-                </div>
-                <div class="flex items-end space-x-2">
-                    <button type="submit" class="flex-1 bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                        <i class="fas fa-search mr-2"></i><?php echo t('purchase.search'); ?>
-                    </button>
-                    <a href="purchase_management.php" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 text-center">
-                        <i class="fas fa-redo mr-2"></i><?php echo t('purchase.reset'); ?>
-                    </a>
-                </div>
-            </div>
-        </form>
-    </div>
 
     <!-- 컬럼 토글 컨트롤 (데스크톱만) -->
     <div class="hidden md:block bg-white shadow rounded-lg mb-4 p-4">
@@ -491,7 +425,7 @@ if (isset($_GET['debug'])) {
                                     <a href="purchase_price_change.php?purchase_id=<?php echo $row['purchase_id']; ?>" 
                                        class="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                                         <i class="fas fa-edit mr-1"></i>
-                                        가격변경확인
+<?php echo t('purchase.price_change_confirm'); ?>
                                     </a>
                                 </td>
                             </tr>

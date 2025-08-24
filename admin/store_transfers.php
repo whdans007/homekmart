@@ -263,7 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // 이동 기록 업데이트
                 $update_stmt = $pdo->prepare("
                     UPDATE store_transfers 
-                    SET from_store_id = ?, to_store_id = ?, transfer_date = ?, total_amount = ?, final_amount = ?, updated_at = NOW()
+                    SET from_store_id = ?, to_store_id = ?, transfer_date = ?, total_amount = ?, final_amount = ?
                     WHERE id = ?
                 ");
                 $update_stmt->execute([$from_store_id, $to_store_id, $transfer_date, $total_amount, $total_amount, $edit_transfer_id_post]);
@@ -278,8 +278,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // 새로운 이동 등록
                 $transfer_stmt = $pdo->prepare("
-                    INSERT INTO store_transfers (from_store_id, to_store_id, user_id, transfer_date, total_amount, final_amount, status, created_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, 'confirmed', NOW())
+                    INSERT INTO store_transfers (from_store_id, to_store_id, user_id, transfer_date, total_amount, final_amount, status) 
+                    VALUES (?, ?, ?, ?, ?, ?, 'confirmed')
                 ");
                 $transfer_stmt->execute([$from_store_id, $to_store_id, $_SESSION['user_id'], $transfer_date, $total_amount, $total_amount]);
                 $transfer_id = $pdo->lastInsertId();
@@ -297,8 +297,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // 이동 항목 추가
                 $item_stmt = $pdo->prepare("
-                    INSERT INTO store_transfer_items (transfer_id, product_id, quantity, unit_cost_price, total_price, remarks, created_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, NOW())
+                    INSERT INTO store_transfer_items (transfer_id, product_id, quantity, unit_cost_price, total_price, remarks) 
+                    VALUES (?, ?, ?, ?, ?, ?)
                 ");
                 $item_stmt->execute([$transfer_id, $product_id, $quantity, $unit_cost_price, $total_price, $remarks]);
                 
@@ -318,8 +318,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     // 새로운 재고 레코드 생성 (이동하는 원가로 설정)
                     $to_inventory_insert = $pdo->prepare("
-                        INSERT INTO inventory (product_id, store_id, quantity, cost_price, created_at, updated_at) 
-                        VALUES (?, ?, ?, ?, NOW(), NOW())
+                        INSERT INTO inventory (product_id, store_id, quantity, cost_price) 
+                        VALUES (?, ?, ?, ?)
                     ");
                     $to_inventory_insert->execute([$product_id, $to_store_id, $quantity, $unit_cost_price]);
                 }

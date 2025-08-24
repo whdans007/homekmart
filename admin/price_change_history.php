@@ -140,7 +140,7 @@ try {
                 <div class="flex items-center space-x-2">
                     <input type="date" id="datePicker" value="<?php echo $selected_date; ?>" 
                            class="rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                           onchange="window.location.href='?date=' + this.value">
+                           onchange="selectedIds = []; window.location.href='?date=' + this.value">
                     <span class="text-sm text-gray-600">
                         <?php 
                         $day_names = ['일', '월', '화', '수', '목', '금', '토'];
@@ -171,11 +171,11 @@ try {
             </div>
             
             <div class="flex items-center space-x-2">
-                <button id="deleteSelectedBtn" onclick="deleteSelected()" style="display:none;" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
-                    <i class="fas fa-trash mr-2"></i>
-                    <?php echo t('price_change.delete_selected'); ?>
+                <button id="printPriceCardsBtn" onclick="openPriceCardModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    <i class="fas fa-tags mr-2"></i>
+                    <?php echo t('price_change.print_price_cards'); ?>
                 </button>
-                <button id="printSelectedBtn" onclick="openSelectedPrintModal()" style="display:none;" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <button id="printSelectedBtn" onclick="openSelectedPrintModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
                     <i class="fas fa-print mr-2"></i>
                     <?php echo t('price_change.print_selected'); ?>
                 </button>
@@ -207,12 +207,12 @@ try {
                                 <input type="checkbox" id="selectAll" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                             </th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">SKU</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">바코드</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.product_name'); ?></th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.old_cost_price'); ?></th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.new_cost_price'); ?></th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.old_selling_price'); ?></th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.new_selling_price'); ?></th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.change_type_col'); ?></th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.changed_by'); ?></th>
                         </tr>
                     </thead>
@@ -224,6 +224,13 @@ try {
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300">
                                     <?php echo htmlspecialchars($change['sku'] ?? 'N/A'); ?>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-center border border-gray-300">
+                                    <?php if (!empty($change['sku'])): ?>
+                                        <svg class="barcode inline-block" data-sku="<?php echo htmlspecialchars($change['sku']); ?>"></svg>
+                                    <?php else: ?>
+                                        <span class="text-gray-400 text-xs">-</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap border border-gray-300">
                                     <?php if (!empty($change['product_name_en'])): ?>
@@ -260,27 +267,6 @@ try {
                                     <?php else: ?>
                                         <span class="text-gray-400">-</span>
                                     <?php endif; ?>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-center border border-gray-300">
-                                    <?php
-                                    $type_colors = [
-                                        'both' => 'bg-purple-100 text-purple-800',
-                                        'cost_only' => 'bg-green-100 text-green-800',
-                                        'selling_only' => 'bg-blue-100 text-blue-800',
-                                        'margin_adjust' => 'bg-orange-100 text-orange-800'
-                                    ];
-                                    $type_labels = [
-                                        'both' => t('price_change.both_price'),
-                                        'cost_only' => t('price_change.cost_only'),
-                                        'selling_only' => t('price_change.selling_only'),
-                                        'margin_adjust' => t('price_change.margin_adjust')
-                                    ];
-                                    $color_class = $type_colors[$change['change_type']] ?? 'bg-gray-100 text-gray-800';
-                                    $label = $type_labels[$change['change_type']] ?? $change['change_type'];
-                                    ?>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full <?php echo $color_class; ?>">
-                                        <?php echo $label; ?>
-                                    </span>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap border border-gray-300">
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($change['changed_by'] ?? 'N/A'); ?></div>
@@ -335,6 +321,115 @@ try {
     </div>
 </div>
 
+<!-- Price Card Print Modal -->
+<div id="priceCardModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900"><?php echo t('price_change.print_price_cards'); ?></h3>
+                <button onclick="closePriceCardModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="flex items-center justify-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
+                <button onclick="printPriceCards()" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">
+                    <i class="fas fa-print mr-2"></i>프라이스카드 인쇄
+                </button>
+            </div>
+            
+            <!-- 프라이스카드 미리보기 -->
+            <div id="priceCardContent" class="border rounded-lg p-4 bg-gray-50 text-center" style="max-height: 600px; overflow-y: auto;">
+                <!-- 프라이스카드들이 여기에 생성됩니다 -->
+            </div>
+            
+            <style>
+                /* 미리보기용 CSS - 실제 크기 표시 */
+                #priceCardContent table {
+                    width: 70mm;
+                    height: 28mm;
+                    border: 1px solid #000;
+                    margin: 5mm auto;
+                    background: white;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    border-collapse: collapse;
+                }
+                
+                #priceCardContent .name-cell {
+                    height: 11mm;
+                    text-align: center;
+                    padding: 0.3mm;
+                    vertical-align: middle;
+                }
+                
+                #priceCardContent .product-name-en-line1 {
+                    font-size: 9pt;
+                    font-weight: bold;
+                    line-height: 1.0;
+                    margin-bottom: 0.2mm;
+                }
+                
+                #priceCardContent .product-name-en-line2 {
+                    font-size: 9pt;
+                    font-weight: bold;
+                    line-height: 1.0;
+                    margin-bottom: 0.2mm;
+                }
+                
+                #priceCardContent .product-name-ko {
+                    font-size: 8pt;
+                    font-weight: normal;
+                    line-height: 1.0;
+                }
+                
+                #priceCardContent .divider-row {
+                    height: 1mm;
+                }
+                
+                #priceCardContent .divider-line {
+                    height: 1mm;
+                    border-bottom: 1px solid #000;
+                    padding: 0;
+                }
+                
+                #priceCardContent .content-row {
+                    height: 16mm;
+                }
+                
+                #priceCardContent .barcode-cell {
+                    width: 42mm;
+                    text-align: center;
+                    padding: 1mm;
+                    vertical-align: middle;
+                }
+                
+                #priceCardContent .price-cell {
+                    width: 28mm;
+                    text-align: center;
+                    border-left: 1px solid #000;
+                    font-size: 14pt;
+                    font-weight: bold;
+                    padding: 1mm;
+                    vertical-align: middle;
+                }
+                
+                #priceCardContent .price-card-barcode {
+                    width: 38mm !important;
+                    height: 14mm !important;
+                    display: block;
+                    margin: 0 auto;
+                }
+                
+                #priceCardContent td {
+                    border: none;
+                    padding: 0.5mm;
+                }
+                
+            </style>
+        </div>
+    </div>
+</div>
+
 <?php 
 // JavaScript에서 사용할 번역 키들
 $js_keys = [
@@ -348,6 +443,9 @@ $js_keys = [
 ];
 echo get_js_translation_script($js_keys); 
 ?>
+
+<!-- JsBarcode 라이브러리 -->
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
 <script>
 let modalCurrentDate = '<?php echo date('Y-m-d'); ?>';
@@ -378,8 +476,37 @@ function toggleRowSelection(row, event) {
     updateSelectedCount();
 }
 
+// 바코드 생성 함수
+function generateBarcodes() {
+    const barcodeElements = document.querySelectorAll('.barcode');
+    barcodeElements.forEach(element => {
+        const sku = element.getAttribute('data-sku');
+        if (sku && sku !== 'N/A') {
+            try {
+                JsBarcode(element, sku, {
+                    format: "CODE128",
+                    width: 1,
+                    height: 20,
+                    displayValue: false,
+                    margin: 0
+                });
+            } catch (e) {
+                console.error('바코드 생성 실패:', sku, e);
+                element.innerHTML = '<span class="text-red-400 text-xs">오류</span>';
+            }
+        }
+    });
+}
+
 // 전체 선택/해제
 document.addEventListener('DOMContentLoaded', function() {
+    // 초기 버튼 상태 설정
+    document.getElementById('printSelectedBtn').disabled = true;
+    document.getElementById('printPriceCardsBtn').disabled = true;
+    
+    // 바코드 생성
+    generateBarcodes();
+    
     const selectAll = document.getElementById('selectAll');
     if (selectAll) {
         selectAll.addEventListener('change', function() {
@@ -437,56 +564,23 @@ document.addEventListener('DOMContentLoaded', function() {
 // 선택된 항목 수 업데이트
 function updateSelectedCount() {
     const countElement = document.getElementById('selectedCount');
-    const deleteBtn = document.getElementById('deleteSelectedBtn');
     const printSelectedBtn = document.getElementById('printSelectedBtn');
+    const printPriceCardsBtn = document.getElementById('printPriceCardsBtn');
     
     if (selectedIds.length > 0) {
         countElement.style.display = 'block';
         countElement.querySelector('span').textContent = selectedIds.length;
-        deleteBtn.style.display = 'inline-flex';
-        printSelectedBtn.style.display = 'inline-flex';
+        printSelectedBtn.disabled = false;
+        printPriceCardsBtn.disabled = false;
     } else {
         countElement.style.display = 'none';
-        deleteBtn.style.display = 'none';
-        printSelectedBtn.style.display = 'none';
+        printSelectedBtn.disabled = true;
+        printPriceCardsBtn.disabled = true;
     }
 }
 
-// 선택된 항목 삭제
-function deleteSelected() {
-    if (selectedIds.length === 0) {
-        alert(t('price_change.select_items_to_print'));
-        return;
-    }
-    
-    if (!confirm(t('price_change.confirm_delete_selected', {count: selectedIds.length}))) {
-        return;
-    }
-    
-    // AJAX로 삭제 요청
-    fetch('ajax_delete_price_changes.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            ids: selectedIds
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(data.message || t('price_change.delete_success'));
-            location.reload();
-        } else {
-            alert(data.message || t('price_change.delete_error'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert(t('price_change.delete_error'));
-    });
-}
+// 선택된 항목 삭제 함수 (현재 사용하지 않음)
+// function deleteSelected() { ... }
 
 function openPrintModal() {
     document.getElementById('printModal').classList.remove('hidden');
@@ -497,7 +591,7 @@ function openPrintModal() {
 
 function openSelectedPrintModal() {
     if (selectedIds.length === 0) {
-        alert(t('price_change.select_items_to_print'));
+        alert('항목을 선택해주세요.');
         return;
     }
     
@@ -529,6 +623,8 @@ function loadPrintData(date) {
                 </div>
             `;
             container.innerHTML = printHeader + html;
+            // 인쇄 모달에서 바코드 생성
+            generateBarcodes();
         })
         .catch(error => {
             container.innerHTML = '<div class="text-center py-8 text-red-600">데이터 로딩 실패: ' + error.message + '</div>';
@@ -562,6 +658,8 @@ function loadSelectedPrintData(date) {
                 </div>
             `;
             container.innerHTML = printHeader + html;
+            // 선택된 항목 인쇄 모달에서 바코드 생성
+            generateBarcodes();
         })
         .catch(error => {
             container.innerHTML = '<div class="text-center py-8 text-red-600">' + t('price_change.delete_error') + ': ' + error.message + '</div>';
@@ -591,10 +689,12 @@ function printModalContent() {
                 th, td { border: 1px solid #000; padding: 8px; text-align: left; font-size: 12px; }
                 th { background-color: #f5f5f5; font-weight: bold; }
                 .no-print { display: none; }
+                .barcode svg { max-width: 80px; height: auto; }
                 @media print {
                     body { margin: 0; }
                     table { font-size: 10px; }
                     th, td { padding: 4px; }
+                    .barcode svg { max-width: 60px; }
                 }
             </style>
         </head>
@@ -607,10 +707,475 @@ function printModalContent() {
     printWindow.print();
 }
 
+// 프라이스카드 모달 열기
+function openPriceCardModal() {
+    if (selectedIds.length === 0) {
+        alert('항목을 선택해주세요.');
+        return;
+    }
+    
+    document.getElementById('priceCardModal').classList.remove('hidden');
+    generatePriceCardContent();
+}
+
+// 프라이스카드 모달 닫기
+function closePriceCardModal() {
+    document.getElementById('priceCardModal').classList.add('hidden');
+}
+
+// 프라이스카드 내용 생성
+function generatePriceCardContent() {
+    const container = document.getElementById('priceCardContent');
+    container.innerHTML = '<div class="text-center py-8 text-gray-500">데이터를 불러오는 중...</div>';
+    
+    // AJAX로 선택된 ID들의 데이터 가져오기
+    console.log('Sending IDs:', selectedIds);
+    
+    fetch('ajax_price_card_final.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            ids: selectedIds
+        })
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        return response.text();
+    })
+    .then(text => {
+        console.log('Raw response:', text);
+        try {
+            const data = JSON.parse(text);
+            console.log('Parsed data:', data);
+            
+            if (!data.success) {
+                container.innerHTML = '<div class="text-center py-8 text-red-500">데이터를 불러오는데 실패했습니다: ' + (data.message || 'Unknown error') + '</div>';
+                return;
+            }
+        
+        if (data.products.length === 0) {
+            container.innerHTML = '<div class="text-center py-8 text-gray-500">선택한 항목의 데이터를 찾을 수 없습니다.</div>';
+            return;
+        }
+        
+        let cardsHtml = '';
+        
+        data.products.forEach(product => {
+            const sku = product.sku;
+            let productNameEn = product.product_name_en || '';
+            let productNameKo = product.product_name_ko || '';
+            const sellingPrice = product.selling_price;
+            
+            // 영문 상품명 2줄 처리
+            let productNameEnLine1 = '';
+            let productNameEnLine2 = '';
+            
+            if (productNameEn.length > 20) {
+                // 단어 단위로 분할하되, 공백이 없으면 강제 분할
+                const words = productNameEn.split(' ');
+                let line1 = '';
+                let line2 = '';
+                
+                for (let word of words) {
+                    if ((line1 + ' ' + word).trim().length <= 20) {
+                        line1 = (line1 + ' ' + word).trim();
+                    } else {
+                        line2 = (line2 + ' ' + word).trim();
+                    }
+                }
+                
+                // 첫 번째 줄이 너무 길면 강제 분할
+                if (line1.length > 20) {
+                    productNameEnLine1 = line1.substring(0, 20);
+                    productNameEnLine2 = line1.substring(20) + ' ' + line2;
+                } else {
+                    productNameEnLine1 = line1;
+                    productNameEnLine2 = line2;
+                }
+                
+                // 두 번째 줄도 길면 자르기
+                if (productNameEnLine2.length > 20) {
+                    productNameEnLine2 = productNameEnLine2.substring(0, 17) + '...';
+                }
+            } else {
+                productNameEnLine1 = productNameEn;
+                productNameEnLine2 = '';
+            }
+            
+            // 한글 길이 제한
+            if (productNameKo.length > 20) {
+                productNameKo = productNameKo.substring(0, 17) + '...';
+            }
+            
+            cardsHtml += `
+                <table>
+                    <tr class="name-row">
+                        <td colspan="2" class="name-cell">
+                            <div class="product-name-en-line1">${productNameEnLine1}</div>
+                            ${productNameEnLine2 ? `<div class="product-name-en-line2">${productNameEnLine2}</div>` : ''}
+                            <div class="product-name-ko">${productNameKo}</div>
+                        </td>
+                    </tr>
+                    <tr class="divider-row">
+                        <td colspan="2" class="divider-line"></td>
+                    </tr>
+                    <tr class="content-row">
+                        <td class="barcode-cell">
+                            <svg class="price-card-barcode" data-sku="${sku}"></svg>
+                        </td>
+                        <td class="price-cell">
+                            ${sellingPrice}
+                        </td>
+                    </tr>
+                </table>
+            `;
+        });
+        
+            container.innerHTML = cardsHtml;
+            
+            // 바코드 생성
+            setTimeout(() => {
+                generatePriceCardBarcodes();
+            }, 100);
+        } catch (e) {
+            console.error('JSON parse error:', e);
+            container.innerHTML = '<div class="text-center py-8 text-red-500">응답 파싱 오류: ' + e.message + '</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Fetch error:', error);
+        container.innerHTML = '<div class="text-center py-8 text-red-500">네트워크 오류: ' + error.message + '</div>';
+    });
+}
+
+// 프라이스카드 바코드 생성 (Rongta TSC 최적화)
+function generatePriceCardBarcodes() {
+    const barcodeElements = document.querySelectorAll('.price-card-barcode');
+    barcodeElements.forEach(element => {
+        const sku = element.getAttribute('data-sku');
+        if (sku && sku !== 'N/A') {
+            try {
+                // EAN-13 형식 확인 (13자리 숫자)
+                if (/^\d{13}$/.test(sku)) {
+                    // EAN-13 바코드 생성
+                    JsBarcode(element, sku, {
+                        format: "EAN13",
+                        width: 1.0,
+                        height: 28,
+                        displayValue: true,
+                        fontSize: 8,
+                        fontOptions: "bold",
+                        textMargin: 1,
+                        margin: 1,
+                        background: "#ffffff",
+                        lineColor: "#000000"
+                    });
+                } else if (/^\d{12}$/.test(sku)) {
+                    // UPC-A (12자리) - EAN-13으로 변환하여 생성
+                    const ean13 = '0' + sku; // 앞에 0 추가
+                    JsBarcode(element, ean13, {
+                        format: "EAN13",
+                        width: 1.0,
+                        height: 28,
+                        displayValue: true,
+                        fontSize: 8,
+                        fontOptions: "bold",
+                        textMargin: 1,
+                        margin: 1,
+                        background: "#ffffff",
+                        lineColor: "#000000"
+                    });
+                } else if (/^\d{8}$/.test(sku)) {
+                    // EAN-8 바코드 생성
+                    JsBarcode(element, sku, {
+                        format: "EAN8",
+                        width: 1.2,
+                        height: 28,
+                        displayValue: true,
+                        fontSize: 8,
+                        fontOptions: "bold",
+                        textMargin: 1,
+                        margin: 1,
+                        background: "#ffffff",
+                        lineColor: "#000000"
+                    });
+                } else {
+                    // 기타 형식은 CODE128로 처리
+                    JsBarcode(element, sku, {
+                        format: "CODE128",
+                        width: 1.2,
+                        height: 28,
+                        displayValue: true,
+                        fontSize: 8,
+                        fontOptions: "bold",
+                        textMargin: 1,
+                        margin: 1,
+                        background: "#ffffff",
+                        lineColor: "#000000"
+                    });
+                }
+            } catch (e) {
+                console.error('바코드 생성 실패:', sku, e);
+                // 실패 시 CODE128로 재시도
+                try {
+                    JsBarcode(element, sku, {
+                        format: "CODE128",
+                        width: 1.2,
+                        height: 28,
+                        displayValue: true,
+                        fontSize: 8,
+                        fontOptions: "bold",
+                        textMargin: 1,
+                        margin: 1,
+                        background: "#ffffff",
+                        lineColor: "#000000"
+                    });
+                } catch (e2) {
+                    element.innerHTML = '<text style="font-size: 10px; font-weight: bold;">바코드 오류</text>';
+                }
+            }
+        } else {
+            element.innerHTML = '<text style="font-size: 10px; color: #666;">SKU 없음</text>';
+        }
+    });
+}
+
+// 바코드 생성 완료를 확인하는 함수
+function checkBarcodesReady(container) {
+    const barcodes = container.querySelectorAll('.price-card-barcode');
+    if (barcodes.length === 0) return false;
+    
+    let allReady = true;
+    barcodes.forEach(barcode => {
+        const svgElement = barcode.querySelector('svg');
+        if (!svgElement || svgElement.children.length === 0) {
+            allReady = false;
+        }
+    });
+    
+    return allReady;
+}
+
+// 프라이스카드 인쇄
+function printPriceCards() {
+    const container = document.getElementById('priceCardContent');
+    
+    // 바코드 생성 완료를 기다리는 함수
+    function waitForBarcodes(callback, maxAttempts = 15) {
+        let attempts = 0;
+        
+        function check() {
+            attempts++;
+            
+            if (checkBarcodesReady(container)) {
+                console.log('바코드 생성 완료, 인쇄 시작');
+                callback();
+            } else if (attempts < maxAttempts) {
+                console.log('바코드 생성 대기 중... (' + attempts + '/' + maxAttempts + ')');
+                setTimeout(check, 200);
+            } else {
+                console.log('바코드 생성 시간 초과, 강제 인쇄 시도');
+                callback(); // 타임아웃되어도 인쇄 시도
+            }
+        }
+        
+        check();
+    }
+    
+    waitForBarcodes(() => {
+        const printContent = container.innerHTML;
+        
+        // 내용 확인
+        if (!printContent || printContent.trim() === '') {
+            alert('인쇄할 내용이 없습니다.');
+            return;
+        }
+        
+        // SVG 요소가 있는지 확인
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = printContent;
+        const svgElements = tempDiv.querySelectorAll('svg');
+        
+        console.log('생성된 SVG 요소 수:', svgElements.length);
+        
+        if (svgElements.length === 0) {
+            alert('바코드가 생성되지 않았습니다. 잠시 후 다시 시도해주세요.');
+            return;
+        }
+        
+        const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Price Cards - Rongta TSC</title>
+            <style>
+                @media print {
+                    @page {
+                        size: 72mm 30mm;
+                        margin: 0;
+                    }
+                    
+                    body {
+                        margin: 0;
+                        padding: 0;
+                        font-family: "Arial Black", Arial, sans-serif;
+                        font-size: 12px;
+                        line-height: 1.2;
+                        -webkit-print-color-adjust: exact;
+                        color-adjust: exact;
+                        width: 72mm;
+                        height: 30mm;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        overflow: hidden;
+                    }
+                    
+                    table {
+                        margin-top: 0 !important;
+                        height: 28mm !important;
+                        padding: 1mm !important;
+                    }
+                }
+                
+                body {
+                    font-family: "Arial Black", Arial, sans-serif;
+                    margin: 0;
+                    padding: 0;
+                    width: 72mm;
+                    height: 30mm;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    overflow: hidden;
+                }
+                
+                table {
+                    border-collapse: collapse;
+                    width: 70mm;
+                    height: 28mm;
+                    border: none;
+                    margin: 0 auto;
+                    page-break-inside: avoid;
+                    background: white;
+                    padding: 1mm;
+                }
+                
+                td {
+                    border: none;
+                    padding: 0.5mm;
+                    vertical-align: middle;
+                }
+                
+                .name-row {
+                    height: 16mm;
+                }
+                
+                .name-cell {
+                    text-align: center;
+                    padding: 0.3mm;
+                }
+                
+                .product-name-en-line1 {
+                    font-size: 9pt;
+                    font-weight: bold;
+                    line-height: 1.0;
+                    margin-bottom: 0.2mm;
+                }
+                
+                .product-name-en-line2 {
+                    font-size: 9pt;
+                    font-weight: bold;
+                    line-height: 1.0;
+                    margin-bottom: 0.2mm;
+                }
+                
+                .product-name-ko {
+                    font-size: 8pt;
+                    font-weight: bold;
+                    line-height: 1.0;
+                }
+                
+                .divider-row {
+                    height: 1mm;
+                }
+                
+                .divider-line {
+                    height: 1mm;
+                    border-bottom: 1px solid #000;
+                    padding: 0;
+                }
+                
+                .content-row {
+                    height: 11mm;
+                }
+                
+                .barcode-cell {
+                    width: 42mm;
+                    text-align: center;
+                    padding: 0.5mm;
+                }
+                
+                .price-cell {
+                    width: 28mm;
+                    text-align: center;
+                    font-size: 26pt;
+                    font-weight: bold;
+                    padding: 0.5mm;
+                }
+                
+                .price-card-barcode {
+                    width: 32mm !important;
+                    height: 10mm !important;
+                    display: block;
+                    margin: 0 auto;
+                }
+                
+                /* 바코드 텍스트 스타일 */
+                .price-card-barcode text {
+                    font-weight: bold !important;
+                    font-family: "Arial Black", Arial, sans-serif !important;
+                }
+                
+                /* TSC 프린터 최적화 */
+                * {
+                    -webkit-print-color-adjust: exact;
+                    color-adjust: exact;
+                }
+            </style>
+        </head>
+        <body>
+            ${printContent}
+        </body>
+        </html>
+    `);
+        printWindow.document.close();
+        
+        // 프린트 윈도우가 로드된 후 인쇄
+        printWindow.onload = function() {
+            console.log('프린트 윈도우 로드 완료');
+            // 프린트 윈도우에서도 바코드가 제대로 렌더링될 때까지 기다림
+            setTimeout(() => {
+                printWindow.print();
+            }, 100);
+        };
+    });
+}
+
 // 모달 외부 클릭시 닫기
 document.getElementById('printModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closePrintModal();
+    }
+});
+
+document.getElementById('priceCardModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePriceCardModal();
     }
 });
 </script>

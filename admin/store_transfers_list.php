@@ -200,7 +200,7 @@ if (isset($_SESSION['flash'])) {
                                         <?php echo $transfer['item_count']; ?>개
                                     </td>
                                     <td class="px-3 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
-                                        ₩<?php echo number_format($transfer['total_amount'], 2); ?>
+                                        <?php echo number_format($transfer['total_amount'], 2); ?>
                                     </td>
                                     <td class="px-3 py-4 whitespace-nowrap text-center">
                                         <?php 

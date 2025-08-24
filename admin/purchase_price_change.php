@@ -3,7 +3,8 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-$page_title = "매입건별 가격변동 분석 - HOME K MART";
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('purchase.price_change_analysis') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 require_once __DIR__ . '/../lib/margin_helper.php';
@@ -12,7 +13,7 @@ require_once __DIR__ . '/../lib/margin_helper.php';
 if (!has_permission('purchase_management')) {
     $_SESSION['flash'] = [
         'type' => 'error', 
-        'message' => '매입관리에 접근할 권한이 없습니다.'
+        'message' => t('messages.permission_denied')
     ];
     header('Location: shop.php');
     exit;
@@ -23,7 +24,7 @@ $purchase_id = $_GET['purchase_id'] ?? '';
 if (empty($purchase_id)) {
     $_SESSION['flash'] = [
         'type' => 'error',
-        'message' => '매입 ID가 지정되지 않았습니다.'
+        'message' => t('purchase.no_purchase_id_specified')
     ];
     header('Location: purchase_management.php');
     exit;
@@ -44,7 +45,7 @@ $purchase_result = $purchase_stmt->get_result();
 if ($purchase_result->num_rows == 0) {
     $_SESSION['flash'] = [
         'type' => 'error',
-        'message' => '해당 매입건을 찾을 수 없습니다.'
+        'message' => t('purchase.purchase_not_found')
     ];
     header('Location: purchase_management.php');
     exit;
@@ -95,19 +96,19 @@ $items_result = $items_stmt->get_result();
 <!-- 타이틀을 컨테이너 밖으로 이동 -->
 <div class="bg-gray-50 py-4 mb-1">
     <div class="text-center">
-        <h1 class="text-3xl font-bold text-gray-900 mb-3">매입건별 가격변동 분석</h1>
+        <h1 class="text-3xl font-bold text-gray-900 mb-3"><?php echo t('purchase.price_change_analysis'); ?></h1>
         <!-- 매입 정보 테이블 -->
         <div class="container mx-auto px-4 sm:px-6 lg:px-8">
             <table class="w-full border-collapse border border-gray-300">
                 <tbody>
                     <tr>
-                        <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 text-center">매입번호</td>
+                        <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 text-center"><?php echo t('purchase.purchase_number'); ?></td>
                         <td class="border border-gray-300 px-4 py-2 text-sm text-gray-900 text-center"><?php echo htmlspecialchars($purchase_id); ?></td>
-                        <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 text-center">거래처</td>
+                        <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 text-center"><?php echo t('supplier.supplier'); ?></td>
                         <td class="border border-gray-300 px-4 py-2 text-sm text-gray-900 text-center"><?php echo htmlspecialchars($purchase_info['supplier_name']); ?></td>
-                        <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 text-center">매입일</td>
+                        <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 text-center"><?php echo t('purchase.purchase_date'); ?></td>
                         <td class="border border-gray-300 px-4 py-2 text-sm text-gray-900 text-center"><?php echo htmlspecialchars($purchase_info['purchase_date']); ?></td>
-                        <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 text-center">점포</td>
+                        <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 text-center"><?php echo t('store.store'); ?></td>
                         <td class="border border-gray-300 px-4 py-2 text-sm text-gray-900 text-center"><?php echo htmlspecialchars($current_store_name); ?></td>
                     </tr>
                 </tbody>
@@ -122,15 +123,15 @@ $items_result = $items_stmt->get_result();
             <!-- 가격 변동 선택 버튼들 -->
             <div class="flex space-x-2">
                 <button id="selectIncreaseBtn" class="inline-flex items-center justify-center rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
-                    <i class="fas fa-arrow-up mr-1"></i> 인상선택 (<span id="increaseCount">0</span>)
+                    <i class="fas fa-arrow-up mr-1"></i> <?php echo t('purchase.select_increase'); ?> (<span id="increaseCount">0</span>)
                 </button>
                 
                 <button id="selectDecreaseBtn" class="inline-flex items-center justify-center rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-                    <i class="fas fa-arrow-down mr-1"></i> 인하선택 (<span id="decreaseCount">0</span>)
+                    <i class="fas fa-arrow-down mr-1"></i> <?php echo t('purchase.select_decrease'); ?> (<span id="decreaseCount">0</span>)
                 </button>
                 
                 <button id="clearSelectionBtn" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
-                    <i class="fas fa-times mr-1"></i> 선택해제
+                    <i class="fas fa-times mr-1"></i> <?php echo t('purchase.clear_selection'); ?>
                 </button>
             </div>
             
@@ -141,11 +142,11 @@ $items_result = $items_stmt->get_result();
                 
                 <!-- 저장 버튼 -->
                 <button id="saveBtn" class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 print:hidden disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                    <i class="fas fa-save mr-2"></i> 저장 (<span id="selectedCount">0</span>개)
+                    <i class="fas fa-save mr-2"></i> <?php echo t('common.save'); ?> (<span id="selectedCount">0</span><?php echo t('common.items'); ?>)
                 </button>
             </div>
             <a href="purchase_management.php" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                <i class="fas fa-arrow-left mr-2"></i> 매입관리로 돌아가기
+                <i class="fas fa-arrow-left mr-2"></i> <?php echo t('purchase.back_to_purchase_management'); ?>
             </a>
         </div>
     </div>
@@ -180,13 +181,13 @@ $items_result = $items_stmt->get_result();
                         <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 print:hidden">
                             <input type="checkbox" id="selectAll" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
                         </th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">상품정보</th>
-                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">기존원가</th>
-                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">매입원가<br><span class="text-xs normal-case">(낱개단위)</span></th>
-                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">원가변동</th>
-                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">마진율</th>
-                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">기존판매가</th>
-                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">예상판매가<br><span class="text-xs normal-case">(매입원가기준)</span></th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('product.product_info'); ?></th>
+                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.existing_cost'); ?></th>
+                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.purchase_cost'); ?><br><span class="text-xs normal-case">(<?php echo t('purchase.per_unit'); ?>)</span></th>
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.cost_change'); ?></th>
+                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.margin_rate'); ?></th>
+                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.existing_selling_price'); ?></th>
+                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.expected_selling_price'); ?><br><span class="text-xs normal-case">(<?php echo t('purchase.based_on_purchase_cost'); ?>)</span></th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -246,20 +247,20 @@ $items_result = $items_stmt->get_result();
                                     <span class="text-sm font-mono font-semibold text-blue-600"><?php echo number_format($item['purchase_unit_price_per_piece'], 2); ?></span>
                                     <?php if ($item['purchase_type'] === 'box' && $item['pieces_per_box']): ?>
                                         <div class="text-xs text-gray-500">
-                                            박스: <?php echo number_format($item['unit_price'], 2); ?>
-                                            (<?php echo $item['pieces_per_box']; ?>개입)
+                                            <?php echo t('product.box'); ?>: <?php echo number_format($item['unit_price'], 2); ?>
+                                            (<?php echo $item['pieces_per_box']; ?><?php echo t('product.pieces_per_box_unit'); ?>)
                                         </div>
                                     <?php endif; ?>
                                 </td>
                                 <td class="px-3 py-4 text-center border border-gray-300">
                                     <?php if (abs($price_change) < 1): ?>
                                         <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-                                            동일
+                                            <?php echo t('purchase.same'); ?>
                                         </span>
                                     <?php elseif ($price_change > 0): ?>
                                         <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
                                             <i class="fas fa-arrow-up mr-1"></i>
-                                            인상 <?php echo number_format(abs($price_change)); ?>
+                                            <?php echo t('purchase.increase'); ?> <?php echo number_format(abs($price_change)); ?>
                                         </span>
                                         <div class="text-xs text-red-600 mt-1">
                                             (+<?php echo number_format($price_change_percent, 1); ?>%)
@@ -267,7 +268,7 @@ $items_result = $items_stmt->get_result();
                                     <?php else: ?>
                                         <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                                             <i class="fas fa-arrow-down mr-1"></i>
-                                            인하 <?php echo number_format(abs($price_change)); ?>
+                                            <?php echo t('purchase.decrease'); ?> <?php echo number_format(abs($price_change)); ?>
                                         </span>
                                         <div class="text-xs text-green-600 mt-1">
                                             (<?php echo number_format($price_change_percent, 1); ?>%)
@@ -301,7 +302,7 @@ $items_result = $items_stmt->get_result();
                                     <div class="price-difference text-xs text-gray-500" 
                                          data-product-id="<?php echo $item['product_id']; ?>"
                                          data-current-price="<?php echo $item['current_selling_price']; ?>">
-                                        차이: <?php echo number_format($new_selling_price - $item['current_selling_price']); ?>
+                                        <?php echo t('purchase.difference'); ?>: <?php echo number_format($new_selling_price - $item['current_selling_price']); ?>
                                     </div>
                                 </td>
                             </tr>
@@ -313,8 +314,8 @@ $items_result = $items_stmt->get_result();
                             <td colspan="8" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-box-open text-4xl text-gray-400"></i>
-                                    <p class="mt-4">매입 상품이 없습니다.</p>
-                                    <p class="text-xs text-gray-400">이 매입건에 등록된 상품이 없습니다.</p>
+                                    <p class="mt-4"><?php echo t('purchase.no_purchase_items'); ?></p>
+                                    <p class="text-xs text-gray-400"><?php echo t('purchase.no_registered_items'); ?></p>
                                 </div>
                             </td>
                         </tr>
@@ -463,20 +464,20 @@ document.addEventListener('DOMContentLoaded', function() {
     if (saveBtnElement) {
         saveBtnElement.addEventListener('click', function() {
             if (selectedItems.size === 0) {
-                alert('상품을 먼저 선택해주세요.');
+                alert('<?php echo addslashes(t('purchase.js_select_products_first')); ?>');
                 return;
             }
             
             const marginRate = parseFloat(document.getElementById('bulkMarginInput').value);
             
             if (isNaN(marginRate) || marginRate < 0) {
-                alert('올바른 마진율을 입력해주세요.');
+                alert('<?php echo addslashes(t('purchase.js_enter_valid_margin')); ?>');
                 document.getElementById('bulkMarginInput').focus();
                 return;
             }
             
             // 확인 대화상자
-            if (confirm(`선택된 ${selectedItems.size}개 상품에 ${marginRate}% 마진율을 적용하여 데이터베이스에 저장하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
+            if (confirm(`<?php echo addslashes(t('purchase.js_confirm_apply_margin')); ?>`.replace('{count}', selectedItems.size).replace('{rate}', marginRate) + '\n\n<?php echo addslashes(t('purchase.js_irreversible_action')); ?>')) {
                 applyBulkMarginRateDatabase(marginRate);
             }
         });
@@ -534,7 +535,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const currentPrice = parseFloat(priceDifferenceDiv.dataset.currentPrice);
             const priceDifference = expectedPrice - currentPrice;
             
-            priceDifferenceDiv.textContent = '차이: ' + priceDifference.toLocaleString();
+            priceDifferenceDiv.textContent = '<?php echo addslashes(t('purchase.difference')); ?>: ' + priceDifference.toLocaleString();
         }
     }
     
@@ -574,7 +575,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // 버튼 비활성화 및 로딩 상태
         saveBtn.disabled = true;
         const originalText = saveBtn.innerHTML;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>데이터베이스 저장 중...';
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i><?php echo addslashes(t('purchase.js_saving_to_database')); ?>...';
         
         // 선택된 상품 ID 배열 생성
         const productIds = Array.from(selectedItems);
@@ -627,7 +628,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (e) {
                 console.error('JSON 파싱 오류:', e);
                 console.error('서버 응답:', text);
-                throw new Error('서버에서 올바르지 않은 응답을 받았습니다.');
+                throw new Error('<?php echo addslashes(t('purchase.js_invalid_server_response')); ?>');
             }
         })
         .then(data => {
@@ -647,7 +648,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 // 성공 시
-                showSuccessMessage(`성공: ${data.message}`);
+                showSuccessMessage(`<?php echo addslashes(t('purchase.js_success')); ?>: ${data.message}`);
                 
                 // 페이지 새로고침하여 업데이트된 정보 표시
                 setTimeout(() => {
@@ -657,12 +658,12 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 console.log('실패 응답 처리:', data.message);
                 // 실패 시
-                alert('오류: ' + data.message);
+                alert('<?php echo addslashes(t('purchase.js_error')); ?>: ' + data.message);
             }
         })
         .catch(error => {
             console.error('AJAX 요청 오류:', error);
-            alert('통신 오류가 발생했습니다: ' + error.message);
+            alert('<?php echo addslashes(t('purchase.js_communication_error')); ?>: ' + error.message);
         })
         .finally(() => {
             // 버튼 원상복구

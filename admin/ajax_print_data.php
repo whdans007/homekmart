@@ -103,15 +103,16 @@ try {
         $where_conditions = [];
         $params = [];
         
-        // 선택된 날짜의 데이터만 조회
-        $where_conditions[] = "DATE(pch.changed_at) = ?";
-        $params[] = $selected_date;
-
         // 선택된 ID 필터링 (POST 요청인 경우)
         if (!empty($selected_ids)) {
+            // 선택된 ID가 있으면 날짜 조건 무시
             $placeholders = str_repeat('?,', count($selected_ids) - 1) . '?';
             $where_conditions[] = "pch.id IN ($placeholders)";
             $params = array_merge($params, $selected_ids);
+        } else {
+            // 선택된 ID가 없을 때만 날짜 조건 적용
+            $where_conditions[] = "DATE(pch.changed_at) = ?";
+            $params[] = $selected_date;
         }
 
         // 점포별 필터링 (super_admin이 아닌 경우)
@@ -159,8 +160,13 @@ try {
 <?php elseif (empty($price_changes)): ?>
     <div style="text-align: center; padding: 40px; color: #666;">
         <i class="fas fa-calendar-times" style="font-size: 48px; margin-bottom: 15px;"></i>
-        <h3>No price change history for this date</h3>
-        <p>No price change history found for <?php echo $selected_date; ?></p>
+        <?php if (!empty($selected_ids)): ?>
+            <h3>No data found for selected items</h3>
+            <p>The selected items could not be found</p>
+        <?php else: ?>
+            <h3>No price change history for this date</h3>
+            <p>No price change history found for <?php echo $selected_date; ?></p>
+        <?php endif; ?>
     </div>
 <?php else: ?>
     <!-- 요약 정보 -->
@@ -174,7 +180,11 @@ try {
                 <?php endif; ?>
             </div>
             <div>
-                <strong>Selected Date:</strong> <?php echo $selected_date; ?>
+                <?php if (!empty($selected_ids)): ?>
+                    <strong>Selected Items from Various Dates</strong>
+                <?php else: ?>
+                    <strong>Selected Date:</strong> <?php echo $selected_date; ?>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -187,10 +197,10 @@ try {
                     <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold; width: 5%;">
                         No
                     </th>
-                    <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold; width: 15%;">
-                        SKU
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: center; font-weight: bold; width: 15%;">
+                        SKU / 바코드
                     </th>
-                    <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold; width: 35%;">
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold; width: 40%;">
                         Product Name
                     </th>
                     <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11.25%;">
@@ -213,8 +223,15 @@ try {
                         <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
                             <?php echo $index + 1; ?>
                         </td>
-                        <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace;">
-                            <?php echo htmlspecialchars($change['sku'] ?? 'N/A'); ?>
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                            <?php if (!empty($change['sku'])): ?>
+                                <svg class="barcode" data-sku="<?php echo htmlspecialchars($change['sku']); ?>" style="max-width: 80px; height: 20px; display: block; margin: 0 auto;"></svg>
+                                <div style="font-family: monospace; font-size: 12px; margin-top: 4px; text-align: center; font-weight: bold;">
+                                    <?php echo htmlspecialchars($change['sku']); ?>
+                                </div>
+                            <?php else: ?>
+                                <span style="color: #999; font-size: 12px;">-</span>
+                            <?php endif; ?>
                         </td>
                         <td style="border: 1px solid #ddd; padding: 8px;">
                             <?php if (!empty($change['product_name_en'])): ?>

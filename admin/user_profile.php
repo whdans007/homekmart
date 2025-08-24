@@ -33,6 +33,10 @@ try {
         throw new Exception(t('messages.user_not_found'));
     }
 
+    // 지점 목록 가져오기
+    $stores_stmt = $pdo->query("SELECT id, name FROM stores ORDER BY name ASC");
+    $stores = $stores_stmt->fetchAll(PDO::FETCH_ASSOC);
+
 } catch (Exception $e) {
     $errors[] = t('messages.database_error') . ': ' . $e->getMessage();
 }
@@ -42,6 +46,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($user_data)) {
     $full_name = trim($_POST['full_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
+    $store_id = $_POST['store_id'] ?? '';
     $current_password = $_POST['current_password'] ?? '';
     $new_password = $_POST['new_password'] ?? '';
     $new_password_confirm = $_POST['new_password_confirm'] ?? '';
@@ -49,6 +54,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($user_data)) {
     // 유효성 검사
     if (empty($full_name)) $errors[] = t('forms.required_field');
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = t('forms.invalid_email');
+    
+    // 지점 유효성 검사
+    if (!empty($store_id) && !filter_var($store_id, FILTER_VALIDATE_INT)) {
+        $errors[] = t('user.invalid_store');
+    }
     
     // 비밀번호 변경 시 유효성 검사
     if (!empty($new_password)) {
@@ -72,8 +82,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($user_data)) {
 
             if (empty($errors)) {
                 // 업데이트 쿼리 준비
-                $update_fields = ["full_name = ?", "email = ?"];
-                $params = [$full_name, $email];
+                $update_fields = ["full_name = ?", "email = ?", "store_id = ?"];
+                $params = [$full_name, $email, $store_id ?: null];
                 
                 if ($has_phone_column) {
                     $update_fields[] = "phone = ?";
@@ -93,6 +103,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($user_data)) {
 
                 // 세션 정보 업데이트
                 $_SESSION['full_name'] = $full_name;
+                $_SESSION['store_id'] = $store_id;
 
                 $success_message = t('user.profile_updated');
                 
@@ -203,9 +214,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($user_data)) {
                 <p class="mt-1 text-xs text-gray-500"><?php echo t('user.role_readonly'); ?></p>
             </div>
             <div class="sm:col-span-3">
-                <label for="store_display" class="block text-sm font-medium text-gray-700"><?php echo t('user.store'); ?></label>
-                <input type="text" id="store_display" value="<?php echo htmlspecialchars($current_store_name); ?>" readonly class="mt-1 block w-full border-gray-300 rounded-md shadow-sm bg-gray-50 sm:text-sm cursor-not-allowed">
-                <p class="mt-1 text-xs text-gray-500"><?php echo t('user.store_readonly'); ?></p>
+                <label for="store_id" class="block text-sm font-medium text-gray-700"><?php echo t('user.store'); ?></label>
+                <select id="store_id" name="store_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                    <option value=""><?php echo t('store.select_store'); ?></option>
+                    <?php foreach ($stores as $store): ?>
+                        <option value="<?php echo $store['id']; ?>" <?php echo ($user_data['store_id'] == $store['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($store['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <p class="mt-1 text-xs text-gray-500"><?php echo t('user.store_changeable'); ?></p>
             </div>
         </div>
     </div>
