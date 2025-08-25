@@ -374,9 +374,8 @@ async function createBackup() {
                 progressBar.style.width = '100%';
                 progressText.textContent = '백업이 성공적으로 생성되었습니다!';
                 
-                // 성공 메시지를 표시하고 페이지 새로고침
+                // 페이지 새로고침만 수행 (메시지 표시 제거)
                 setTimeout(() => {
-                    alert('백업이 성공적으로 생성되었습니다.\n파일명: ' + result.filename + '\n크기: ' + formatFileSize(result.filesize));
                     location.reload();
                 }, 1000);
             } else {
