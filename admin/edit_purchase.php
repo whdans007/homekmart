@@ -1612,19 +1612,99 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // 개별 할인율 입력 시 할인후 합계 업데이트 및 변경사항 추적
+    // 실시간 계산을 위한 이벤트 리스너
     document.addEventListener('input', function(e) {
+        const row = e.target.closest('tr');
+        if (!row) return;
+        
+        const itemId = row.id.replace('row-', '');
+        
+        // 수량, 단가, 박스당개수 변경 시 실시간 계산
+        if (e.target.classList.contains('quantity-input') || 
+            e.target.classList.contains('price-input') || 
+            e.target.classList.contains('pieces-input')) {
+            calculateRowTotal(row);
+            trackChange(itemId);
+            updatePageTotal(); // 전체 합계 업데이트
+        }
+        
+        // 할인율 변경 시
         if (e.target.classList.contains('discount-rate')) {
-            const row = e.target.closest('tr');
-            const itemId = row.id.replace('row-', '');
             updateDiscountedTotal(row);
             trackChange(itemId);
+            updatePageTotal(); // 전체 합계 업데이트
         }
     });
     
+    // 구매 유형 변경 시 실시간 계산
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('type-input')) {
+            const row = e.target.closest('tr');
+            const itemId = row.id.replace('row-', '');
+            calculateRowTotal(row);
+            trackChange(itemId);
+            updatePageTotal(); // 전체 합계 업데이트
+        }
+    });
+    
+    // 행별 합계 계산
+    function calculateRowTotal(row) {
+        const quantityInput = row.querySelector('.quantity-input');
+        const priceInput = row.querySelector('.price-input');
+        const piecesInput = row.querySelector('.pieces-input');
+        const typeInput = row.querySelector('.type-input:checked');
+        const discountRateInput = row.querySelector('.discount-rate');
+        
+        const quantity = parseFloat(quantityInput.value) || 0;
+        const unitPrice = parseFloat(priceInput.value) || 0;
+        const piecesPerBox = parseFloat(piecesInput.value) || 1;
+        const purchaseType = typeInput ? typeInput.value : 'piece';
+        const discountRate = parseFloat(discountRateInput.value) || 0;
+        
+        // 개당 가격 계산
+        let piecePrice = unitPrice;
+        if (purchaseType === 'box' && piecesPerBox > 0) {
+            piecePrice = unitPrice / piecesPerBox;
+        }
+        
+        // 총 개수 계산
+        let totalPieces = quantity;
+        if (purchaseType === 'box') {
+            totalPieces = quantity * piecesPerBox;
+        }
+        
+        // 합계 계산
+        const total = quantity * unitPrice;
+        
+        // 할인 후 합계 계산
+        const discountedTotal = total * (1 - discountRate / 100);
+        
+        // UI 업데이트
+        // 개당 가격 (8번째 셀)
+        row.cells[7].textContent = new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(piecePrice);
+        
+        // 총 개수 (9번째 셀)
+        row.cells[8].innerHTML = `<span class="text-blue-600">${new Intl.NumberFormat('ko-KR').format(totalPieces)}</span>`;
+        
+        // 합계 (10번째 셀)
+        row.cells[9].textContent = new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(total);
+        
+        // 할인 후 합계 (12번째 셀)
+        row.querySelector('.discounted-total').textContent = new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(discountedTotal);
+    }
+    
     // 할인후 합계 계산 및 업데이트
     function updateDiscountedTotal(row) {
-        const originalTotalCell = row.cells[row.cells.length - 4]; // 합계 셀
+        const originalTotalCell = row.cells[9]; // 합계 셀
         const discountRateInput = row.querySelector('.discount-rate');
         const discountedTotalCell = row.querySelector('.discounted-total');
         
@@ -1637,6 +1717,58 @@ document.addEventListener('DOMContentLoaded', function() {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             }).format(discountedTotal);
+        }
+    }
+    
+    // 페이지 전체 합계 업데이트
+    function updatePageTotal() {
+        let totalAmount = 0;
+        let totalPieces = 0;
+        let totalDiscountedAmount = 0;
+        
+        document.querySelectorAll('tr[id^="row-"]').forEach(row => {
+            // 합계 (10번째 셀)
+            const total = parseFloat(row.cells[9].textContent.replace(/,/g, '')) || 0;
+            totalAmount += total;
+            
+            // 총 개수 (9번째 셀)
+            const pieces = parseFloat(row.cells[8].textContent.replace(/,/g, '')) || 0;
+            totalPieces += pieces;
+            
+            // 할인 후 합계
+            const discountedTotal = parseFloat(row.querySelector('.discounted-total').textContent.replace(/,/g, '')) || 0;
+            totalDiscountedAmount += discountedTotal;
+        });
+        
+        // 상단 총 금액 업데이트
+        const totalAmountElement = document.querySelector('.total-amount');
+        if (totalAmountElement) {
+            totalAmountElement.textContent = new Intl.NumberFormat('ko-KR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(totalAmount);
+        }
+        
+        // 요약 테이블 업데이트 (있을 경우)
+        const summaryTotalElement = document.querySelector('.summary-total-amount');
+        if (summaryTotalElement) {
+            summaryTotalElement.textContent = new Intl.NumberFormat('ko-KR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(totalAmount);
+        }
+        
+        const summaryTotalPiecesElement = document.querySelector('.summary-total-pieces');
+        if (summaryTotalPiecesElement) {
+            summaryTotalPiecesElement.textContent = new Intl.NumberFormat('ko-KR').format(totalPieces);
+        }
+        
+        const summaryDiscountedTotalElement = document.querySelector('.summary-discounted-total');
+        if (summaryDiscountedTotalElement) {
+            summaryDiscountedTotalElement.textContent = new Intl.NumberFormat('ko-KR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(totalDiscountedAmount);
         }
     }
     
