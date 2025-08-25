@@ -76,9 +76,13 @@ if (!in_array($backup_type, ['full', 'data_only'])) {
 }
 
 try {
+    // 에러 로깅 활성화 (디버깅용)
+    error_reporting(E_ALL);
+    ini_set('log_errors', 1);
+    
     // 실행 시간과 메모리 제한 증가
-    ini_set('max_execution_time', 300); // 5분
-    ini_set('memory_limit', '256M');
+    @ini_set('max_execution_time', 300); // 5분
+    @ini_set('memory_limit', '256M');
     
     // 진행 상황 추적을 위한 고유 ID (POST로 받거나 새로 생성)
     $progress_id = $_POST['progress_id'] ?? uniqid('backup_', true);
@@ -114,19 +118,25 @@ try {
     
     // 데이터베이스 연결
     $conn = get_db_connection();
+    if (!$conn) {
+        throw new Exception("데이터베이스 연결에 실패했습니다.");
+    }
+    
+    // UTF-8 설정
+    $conn->set_charset("utf8mb4");
     
     // exec 함수 사용 가능 여부 확인
     if (function_exists('exec') && function_exists('shell_exec')) {
         // 백업 생성 방법 1: mysqldump 사용 (가능한 경우)
-        $success = createBackupWithMysqldump($filepath, $conn, $backup_type);
+        $success = createBackupWithMysqldump($filepath, $conn, $backup_type, $progress_file);
         
         // mysqldump가 실패하면 PHP로 백업 생성
         if (!$success) {
-            $success = createBackupWithPHP($filepath, $conn, $backup_type);
+            $success = createBackupWithPHP($filepath, $conn, $backup_type, $progress_file);
         }
     } else {
         // exec 함수 사용 불가능한 경우 PHP 백업만 사용
-        $success = createBackupWithPHP($filepath, $conn, $backup_type);
+        $success = createBackupWithPHP($filepath, $conn, $backup_type, $progress_file);
     }
     
     $conn->close();
@@ -140,7 +150,7 @@ try {
         ob_clean();
         echo json_encode([
             'success' => true, 
-            'message' => "백업이 성공적으로 생성되었습니다. ({$filesizeFormatted})",
+            'message' => "", // 메시지 제거
             'filename' => $filename,
             'filesize' => $filesize,
             'progress_id' => $progress_id
@@ -162,7 +172,18 @@ try {
     }
     
 } catch (Exception $e) {
-    error_log("Backup creation error: " . $e->getMessage());
+    error_log("Backup creation error: " . $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
+    
+    // 진행 상황 파일 삭제
+    if (isset($progress_file) && file_exists($progress_file)) {
+        unlink($progress_file);
+    }
+    
+    // 연결이 열려있으면 닫기
+    if (isset($conn) && $conn) {
+        $conn->close();
+    }
+    
     ob_clean();
     echo json_encode(['success' => false, 'message' => '백업 생성 중 오류가 발생했습니다: ' . $e->getMessage()]);
     ob_end_flush();
@@ -171,7 +192,7 @@ try {
 /**
  * mysqldump를 사용하여 백업 생성
  */
-function createBackupWithMysqldump($filepath, $conn, $backup_type = 'full') {
+function createBackupWithMysqldump($filepath, $conn, $backup_type = 'full', $progress_file = null) {
     try {
         // exec 함수 사용 불가능한 경우 바로 실패 반환
         if (!function_exists('exec') || !function_exists('shell_exec')) {
@@ -248,7 +269,7 @@ function createBackupWithMysqldump($filepath, $conn, $backup_type = 'full') {
 /**
  * PHP로 직접 백업 생성
  */
-function createBackupWithPHP($filepath, $conn, $backup_type = 'full') {
+function createBackupWithPHP($filepath, $conn, $backup_type = 'full', $progress_file = null) {
     try {
         $handle = fopen($filepath, 'w');
         if (!$handle) {
@@ -286,14 +307,18 @@ function createBackupWithPHP($filepath, $conn, $backup_type = 'full') {
         $total_tables = count($tables);
         $current_table = 0;
         
-        // 진행 상황 초기화
-        updateProgress($progress_file, 'processing', '백업 생성 중', 0, $total_tables);
+        // 진행 상황 초기화 (progress_file이 있는 경우만)
+        if ($progress_file) {
+            updateProgress($progress_file, 'processing', '백업 생성 중', 0, $total_tables);
+        }
         
         foreach ($tables as $table) {
             $current_table++;
             
-            // 진행 상황 업데이트
-            updateProgress($progress_file, 'processing', "테이블 백업 중: $table", $current_table, $total_tables, $table);
+            // 진행 상황 업데이트 (progress_file이 있는 경우만)
+            if ($progress_file) {
+                updateProgress($progress_file, 'processing', "테이블 백업 중: $table", $current_table, $total_tables, $table);
+            }
             
             // 전체 백업인 경우만 테이블 구조 백업
             if ($backup_type === 'full') {
@@ -356,8 +381,10 @@ function createBackupWithPHP($filepath, $conn, $backup_type = 'full') {
         
         fclose($handle);
         
-        // 진행 상황 완료
-        updateProgress($progress_file, 'completed', '백업 완료', $total_tables, $total_tables);
+        // 진행 상황 완료 (progress_file이 있는 경우만)
+        if ($progress_file) {
+            updateProgress($progress_file, 'completed', '백업 완료', $total_tables, $total_tables);
+        }
         
         return true;
         
