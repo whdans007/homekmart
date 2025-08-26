@@ -53,7 +53,7 @@ try {
 
         $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
 
-        // 가격변경 이력 조회 (페이징 없이 모든 레코드)
+        // 가격변경 이력 조회
         $sql = "
             SELECT 
                 pch.*,
@@ -493,7 +493,7 @@ function generateBarcodes() {
                 });
             } catch (e) {
                 console.error('<?php echo t('price_change.barcode_generation_failed'); ?>:', sku, e);
-                element.innerHTML = '<span class="text-red-400 text-xs">오류</span>';
+                element.innerHTML = '<span class="text-red-400 text-xs">' + t('common.error') + '</span>';
             }
         }
     });
@@ -579,9 +579,6 @@ function updateSelectedCount() {
         printPriceCardsBtn.disabled = true;
     }
 }
-
-// 선택된 항목 삭제 함수 (현재 사용하지 않음)
-// function deleteSelected() { ... }
 
 function openPrintModal() {
     document.getElementById('printModal').classList.remove('hidden');
@@ -730,8 +727,6 @@ function generatePriceCardContent() {
     container.innerHTML = '<div class="text-center py-8 text-gray-500">데이터를 불러오는 중...</div>';
     
     // AJAX로 선택된 ID들의 데이터 가져오기
-    console.log('Sending IDs:', selectedIds);
-    
     fetch('ajax_price_card_final.php', {
         method: 'POST',
         headers: {
@@ -741,15 +736,10 @@ function generatePriceCardContent() {
             ids: selectedIds
         })
     })
-    .then(response => {
-        console.log('Response status:', response.status);
-        return response.text();
-    })
+    .then(response => response.text())
     .then(text => {
-        console.log('Raw response:', text);
         try {
             const data = JSON.parse(text);
-            console.log('Parsed data:', data);
             
             if (!data.success) {
                 container.innerHTML = '<div class="text-center py-8 text-red-500">데이터를 불러오는데 실패했습니다: ' + (data.message || 'Unknown error') + '</div>';
@@ -971,13 +961,10 @@ function printPriceCards() {
             attempts++;
             
             if (checkBarcodesReady(container)) {
-                console.log('Barcodes generated, starting print');
                 callback();
             } else if (attempts < maxAttempts) {
-                console.log('Waiting for barcodes... (' + attempts + '/' + maxAttempts + ')');
                 setTimeout(check, 200);
             } else {
-                console.log('Barcode generation timeout, forcing print');
                 callback(); // 타임아웃되어도 인쇄 시도
             }
         }
@@ -998,8 +985,6 @@ function printPriceCards() {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = printContent;
         const svgElements = tempDiv.querySelectorAll('svg');
-        
-        console.log('생성된 SVG 요소 수:', svgElements.length);
         
         if (svgElements.length === 0) {
             alert('<?php echo t('price_change.barcode_not_generated'); ?>');
@@ -1158,7 +1143,6 @@ function printPriceCards() {
         
         // 프린트 윈도우가 로드된 후 인쇄
         printWindow.onload = function() {
-            console.log('프린트 윈도우 로드 완료');
             // 프린트 윈도우에서도 바코드가 제대로 렌더링될 때까지 기다림
             setTimeout(() => {
                 printWindow.print();

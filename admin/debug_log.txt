@@ -434,3 +434,4 @@
 2025-08-25 13:44:48 - inventory 테이블 selling_price 컬럼 존재 여부: true
 2025-08-25 13:44:49 - 가격변경 이력 저장 - store_id: 1, change_type: both
 2025-08-26 13:47:31 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-08-26 15:16:08 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin

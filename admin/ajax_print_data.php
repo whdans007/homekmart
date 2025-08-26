@@ -131,13 +131,11 @@ try {
                 p.name_en as product_name_en,
                 p.sku,
                 u.username as changed_by,
-                s.name as store_name,
-                sup.name as supplier_name
+                s.name as store_name
             FROM price_change_history pch
             LEFT JOIN products p ON pch.product_id = p.id
             LEFT JOIN users u ON pch.changed_by_user_id = u.id
             LEFT JOIN stores s ON pch.store_id = s.id
-            LEFT JOIN suppliers sup ON p.supplier_id = sup.id
             $where_clause
             ORDER BY pch.changed_at DESC
         ";
@@ -199,25 +197,22 @@ try {
                     <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold; width: 5%;">
                         No
                     </th>
-                    <th style="border: 1px solid #ddd; padding: 12px; text-align: center; font-weight: bold; width: 12%;">
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: center; font-weight: bold; width: 15%;">
                         SKU / <?php echo t('price_change.barcode'); ?>
                     </th>
-                    <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold; width: 15%;">
-                        <?php echo t('price_change.supplier'); ?>
-                    </th>
-                    <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold; width: 28%;">
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold; width: 35%;">
                         <?php echo t('price_change.product_name'); ?>
                     </th>
-                    <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11.25%;">
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11%;">
                         <?php echo t('price_change.old_cost_price'); ?>
                     </th>
-                    <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11.25%;">
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11%;">
                         <?php echo t('price_change.new_cost_price'); ?>
                     </th>
-                    <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11.25%;">
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11%;">
                         <?php echo t('price_change.old_selling_price'); ?>
                     </th>
-                    <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11.25%;">
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11%;">
                         <?php echo t('price_change.new_selling_price'); ?>
                     </th>
                 </tr>
@@ -237,9 +232,6 @@ try {
                             <?php else: ?>
                                 <span style="color: #999; font-size: 12px;">-</span>
                             <?php endif; ?>
-                        </td>
-                        <td style="border: 1px solid #ddd; padding: 8px;">
-                            <?php echo htmlspecialchars($change['supplier_name'] ?? '-'); ?>
                         </td>
                         <td style="border: 1px solid #ddd; padding: 8px;">
                             <?php if (!empty($change['product_name_en'])): ?>
