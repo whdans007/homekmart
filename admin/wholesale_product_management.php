@@ -134,7 +134,7 @@ try {
 
 ?>
 
-<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="container mx-auto px-2 sm:px-3 md:px-4 py-8">
     <div class="flex justify-between items-center mb-6">
         <div>
             <h1 class="text-3xl font-bold text-gray-900"><?php echo t('navigation.wholesale_product_management'); ?></h1>

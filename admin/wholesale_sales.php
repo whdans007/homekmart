@@ -222,8 +222,8 @@ if (isset($_SESSION['flash'])) {
 
 ?>
 
-<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="max-w-6xl mx-auto">
+<div class="container mx-auto px-2 sm:px-3 md:px-4 py-8">
+    <div class="w-full mx-auto">
         <div class="mb-6">
             <nav class="flex" aria-label="Breadcrumb">
                 <ol class="flex items-center space-x-2">
@@ -500,7 +500,7 @@ if (isset($_SESSION['flash'])) {
 <!-- 상품 목록 모달 -->
 <div id="product-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
     <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[70vh] flex flex-col">
+        <div class="bg-white rounded-lg shadow-xl w-full max-h-[70vh] flex flex-col">
             <div class="flex items-center justify-between p-4 border-b border-gray-200">
                 <h3 class="text-base font-medium text-gray-900">
                     <i class="fas fa-box mr-2 text-green-500"></i>
