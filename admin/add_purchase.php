@@ -350,7 +350,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <!-- 3. 상품 검색 -->
         <div class="mb-6 relative">
-            <label for="product_search" class="block text-sm font-medium text-gray-700">상품명 또는 바코드 검색</label>
+            <label for="product_search" class="block text-sm font-medium text-gray-700"><?php echo t('purchase.product_search_label'); ?></label>
             <div class="relative mt-1">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <i class="fas fa-search text-gray-400"></i>
@@ -571,7 +571,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <i class="fas fa-plus mr-2"></i>
                                     <span class="font-medium">"${searchTerm}" ${translations.new_supplier_registration}</span>
                                 </div>
-                                <div class="text-sm text-green-600">↵ 엔터 또는 클릭하여 새 거래처를 등록하세요</div>
+                                <div class="text-sm text-green-600"><?php echo t('purchase.supplier_register_hint'); ?></div>
                             `;
                             addNewDiv.addEventListener('click', () => showAddSupplierModal(searchTerm));
                             supplierSearchResults.appendChild(addNewDiv);
@@ -588,7 +588,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                         <i class="fas fa-plus mr-2"></i>
                                         <span class="font-medium">"${searchTerm}" ${translations.new_supplier_registration}</span>
                                     </div>
-                                    <div class="text-sm text-green-600">검색 결과가 없습니다. ↵ 엔터 또는 클릭하여 새 거래처를 등록하세요</div>
+                                    <div class="text-sm text-green-600"><?php echo t('purchase.supplier_no_results_register'); ?></div>
                                 </div>
                             `;
                             supplierSearchResults.querySelector('div').addEventListener('click', () => showAddSupplierModal(searchTerm));
@@ -601,7 +601,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        supplierSearchResults.innerHTML = '<div class="p-3 text-red-500">검색 중 오류가 발생했습니다.</div>';
+                        supplierSearchResults.innerHTML = '<div class="p-3 text-red-500"><?php echo t("purchase.supplier_search_error"); ?></div>';
                         supplierSearchResults.classList.remove('hidden');
                         currentSupplierResults = [];
                     });
@@ -898,16 +898,16 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <div class="p-3 bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500">
                                     <div class="text-gray-600 mb-3 flex items-center">
                                         <i class="fas fa-info-circle text-blue-500 mr-2"></i>
-                                        검색 결과가 없습니다.
+                                        <?php echo t('purchase.no_search_results'); ?>
                                     </div>
                                     <button type="button" id="add-new-product-btn" 
                                             class="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-sm font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center border-2 border-green-400 hover:border-green-500">
                                         <i class="fas fa-plus-circle mr-2 text-lg"></i>
-                                        <span class="font-semibold">"${searchTerm}" 신규상품 추가하기</span>
+                                        <span class="font-semibold">"${searchTerm}" <?php echo t('purchase.add_new_product'); ?></span>
                                     </button>
                                     <div class="text-xs text-gray-500 mt-2 text-center">
                                         <i class="fas fa-lightbulb mr-1"></i>
-                                        새로운 상품을 빠르게 등록하세요
+                                        <?php echo t('purchase.quick_product_registration'); ?>
                                     </div>
                                 </div>
                             `;
@@ -933,7 +933,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <div class="p-3 bg-red-50 border-l-4 border-red-500">
                             <div class="text-red-600 text-sm">
                                 <i class="fas fa-exclamation-triangle mr-2"></i>
-                                검색 중 오류가 발생했습니다. 네트워크 연결을 확인하고 다시 시도해주세요.
+<?php echo t('purchase.product_search_network_error'); ?>
                             </div>
                         </div>
                     `;
@@ -1016,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-lg font-semibold text-gray-900">
                                 <i class="fas fa-plus-circle text-green-600 mr-2"></i>
-                                신규상품 간편등록
+                                <?php echo t('purchase.quick_product_registration_title'); ?>
                             </h3>
                             <button type="button" id="close-modal" class="text-gray-400 hover:text-gray-600 p-1">
                                 <i class="fas fa-times text-lg"></i>
@@ -1058,7 +1058,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <!-- 박스당 개수 -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">
-                                        박스당 개수
+                                        <?php echo t('purchase.pieces_per_box'); ?>
                                     </label>
                                     <input type="number" id="product-pieces-per-box" name="pieces_per_box"
                                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
@@ -1080,12 +1080,12 @@ document.addEventListener('DOMContentLoaded', function () {
                             <div class="flex justify-end space-x-3 pt-4 border-t">
                                 <button type="button" id="cancel-add-product"
                                         class="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors">
-                                    취소
+                                    <?php echo t('common.cancel'); ?>
                                 </button>
                                 <button type="submit" id="save-new-product"
                                         class="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors font-medium">
                                     <i class="fas fa-save mr-1"></i>
-                                    저장 후 추가
+                                    <?php echo t('purchase.save_and_add'); ?>
                                 </button>
                             </div>
                         </form>
@@ -1094,7 +1094,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <div id="modal-loading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center hidden rounded-lg">
                             <div class="text-center">
                                 <i class="fas fa-spinner fa-spin text-2xl text-green-600 mb-2"></i>
-                                <p class="text-sm text-gray-600">등록 중...</p>
+                                <p class="text-sm text-gray-600"><?php echo t('purchase.registering'); ?></p>
                             </div>
                         </div>
                     </div>
@@ -1287,7 +1287,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 resetProductSearch();
             } else {
                 // 오류 메시지 표시 (상세 정보 포함)
-                let errorMsg = '상품 등록 실패: ' + data.message;
+                let errorMsg = t('js.product_register_failed') + ': ' + data.message;
                 
                 // 개발 환경용 상세 정보
                 if (data.sql_error) {
@@ -1302,7 +1302,7 @@ document.addEventListener('DOMContentLoaded', function () {
         })
         .catch(error => {
             loadingOverlay.classList.add('hidden');
-            console.error('상품 등록 오류:', error);
+            console.error(t('js.product_register_error') + ':', error);
             alert(t('js.product_register_error'));
         });
     }
@@ -1355,14 +1355,14 @@ document.addEventListener('DOMContentLoaded', function () {
                                class="purchase-type text-indigo-600 border-gray-300 focus:ring-indigo-500" 
                                ${purchaseType === 'box' ? 'checked' : ''} 
                                ${isExisting ? 'disabled' : ''}>
-                        <span class="ml-1 text-xs">박스</span>
+                        <span class="ml-1 text-xs"><?php echo t('purchase.box_unit'); ?></span>
                     </label>
                     <label class="inline-flex items-center">
                         <input type="radio" name="items[${itemIndex}][purchase_type]" value="piece" 
                                class="purchase-type text-indigo-600 border-gray-300 focus:ring-indigo-500" 
                                ${purchaseType === 'piece' ? 'checked' : ''} 
                                ${isExisting ? 'disabled' : ''}>
-                        <span class="ml-1 text-xs">낱개</span>
+                        <span class="ml-1 text-xs"><?php echo t('purchase.piece_unit'); ?></span>
                     </label>
                 </div>
                 ${isExisting ? `<input type="hidden" name="items[${itemIndex}][purchase_type]" value="${purchaseType}">` : ''}
@@ -1569,13 +1569,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.log('상품 박스당 수량 업데이트 성공:', data);
             } else {
                 // 오류 메시지 표시
-                showRowMessage(row, data.error || '박스당 수량 업데이트에 실패했습니다.', 'error');
+                showRowMessage(row, data.error || t('js.pieces_per_box_update_failed'), 'error');
                 console.error('상품 박스당 수량 업데이트 실패:', data);
             }
         })
         .catch(error => {
             console.error('박스당 수량 업데이트 요청 실패:', error);
-            showRowMessage(row, '네트워크 오류가 발생했습니다.', 'error');
+            showRowMessage(row, t('js.network_error'), 'error');
         });
     }
     
@@ -1639,11 +1639,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                         <div class="flex justify-end space-x-3 pt-4">
                             <button type="button" onclick="closeModal()" class="btn">
-                                취소
+                                <?php echo t('common.cancel'); ?>
                             </button>
                             <button type="submit" class="btn-success">
                                 <i class="fas fa-plus mr-1"></i>
-                                등록
+                                <?php echo t('common.add'); ?>
                             </button>
                         </div>
                     </form>

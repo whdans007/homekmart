@@ -273,7 +273,7 @@ if (!empty($_SESSION['user_id'])) {
         </div>
         
         <!-- Main content -->
-        <div class="flex flex-col w-0 flex-1 overflow-hidden">
+        <div class="flex flex-col flex-1 overflow-hidden">
             <!-- Top header -->
             <div class="relative z-10 flex-shrink-0 flex h-16 bg-white shadow">
                 <div class="flex-1 px-4 flex justify-between">
@@ -504,8 +504,8 @@ if (!empty($_SESSION['user_id'])) {
             
             <!-- Main content area -->
             <main class="flex-1 relative overflow-y-auto focus:outline-none">
-                <div class="py-6">
-                    <div class="max-w-7xl ml-4 mr-auto px-4 sm:px-6 md:px-8">
+                <div class="py-0">
+                    <div class="w-full px-0">
 
 <script>
 // Language Switcher

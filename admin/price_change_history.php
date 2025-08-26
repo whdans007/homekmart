@@ -143,9 +143,10 @@ try {
                            onchange="selectedIds = []; window.location.href='?date=' + this.value">
                     <span class="text-sm text-gray-600">
                         <?php 
-                        $day_names = ['일', '월', '화', '수', '목', '금', '토'];
-                        $day_of_week = $day_names[date('w', strtotime($selected_date))];
-                        echo "({$day_of_week}요일)";
+                        $day_keys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                        $day_of_week = t('price_change.' . $day_keys[date('w', strtotime($selected_date))]);
+                        $day_suffix = t('price_change.day_suffix');
+                        echo $day_suffix ? "({$day_of_week}{$day_suffix})" : "({$day_of_week})";
                         ?>
                     </span>
                 </div>
@@ -207,7 +208,7 @@ try {
                                 <input type="checkbox" id="selectAll" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                             </th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">SKU</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">바코드</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.barcode'); ?></th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.product_name'); ?></th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.old_cost_price'); ?></th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.new_cost_price'); ?></th>
@@ -284,7 +285,7 @@ try {
 
 <!-- Print Preview Modal -->
 <div id="printModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 shadow-lg rounded-md bg-white">
         <div class="mt-3">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-bold text-gray-900"><?php echo t('common.print_preview'); ?></h3>
@@ -306,7 +307,7 @@ try {
                     <?php echo t('common.today'); ?>
                 </button>
                 <button onclick="printModalContent()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
-                    <i class="fas fa-print"></i> 인쇄
+                    <i class="fas fa-print"></i> <?php echo t('price_change.print'); ?>
                 </button>
             </div>
             
@@ -314,7 +315,7 @@ try {
             <div id="modalPrintContent" class="border rounded-lg p-4 bg-white" style="max-height: 500px; overflow-y: auto;">
                 <div class="text-center py-8">
                     <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
-                    <p class="mt-2 text-gray-600">데이터 로딩 중...</p>
+                    <p class="mt-2 text-gray-600"><?php echo t('price_change.loading_data'); ?></p>
                 </div>
             </div>
         </div>
@@ -323,7 +324,7 @@ try {
 
 <!-- Price Card Print Modal -->
 <div id="priceCardModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 shadow-lg rounded-md bg-white">
         <div class="mt-3">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-bold text-gray-900"><?php echo t('price_change.print_price_cards'); ?></h3>
@@ -334,7 +335,7 @@ try {
             
             <div class="flex items-center justify-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
                 <button onclick="printPriceCards()" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">
-                    <i class="fas fa-print mr-2"></i>프라이스카드 인쇄
+                    <i class="fas fa-print mr-2"></i><?php echo t('price_change.print_price_cards'); ?>
                 </button>
             </div>
             
@@ -491,7 +492,7 @@ function generateBarcodes() {
                     margin: 0
                 });
             } catch (e) {
-                console.error('바코드 생성 실패:', sku, e);
+                console.error('<?php echo t('price_change.barcode_generation_failed'); ?>:', sku, e);
                 element.innerHTML = '<span class="text-red-400 text-xs">오류</span>';
             }
         }
@@ -610,7 +611,7 @@ function loadPrintData(date) {
     document.getElementById('modalDatePicker').value = date;
     
     const container = document.getElementById('modalPrintContent');
-    container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i><p class="mt-2 text-gray-600">데이터 로딩 중...</p></div>';
+    container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i><p class="mt-2 text-gray-600"><?php echo t('price_change.loading_data'); ?></p></div>';
     
     fetch(`ajax_print_data.php?date=${date}`)
         .then(response => response.text())
@@ -627,7 +628,7 @@ function loadPrintData(date) {
             generateBarcodes();
         })
         .catch(error => {
-            container.innerHTML = '<div class="text-center py-8 text-red-600">데이터 로딩 실패: ' + error.message + '</div>';
+            container.innerHTML = '<div class="text-center py-8 text-red-600"><?php echo t('price_change.loading_failed'); ?>: ' + error.message + '</div>';
         });
 }
 
@@ -917,7 +918,7 @@ function generatePriceCardBarcodes() {
                     });
                 }
             } catch (e) {
-                console.error('바코드 생성 실패:', sku, e);
+                console.error('<?php echo t('price_change.barcode_generation_failed'); ?>:', sku, e);
                 // 실패 시 CODE128로 재시도
                 try {
                     JsBarcode(element, sku, {
@@ -933,7 +934,7 @@ function generatePriceCardBarcodes() {
                         lineColor: "#000000"
                     });
                 } catch (e2) {
-                    element.innerHTML = '<text style="font-size: 10px; font-weight: bold;">바코드 오류</text>';
+                    element.innerHTML = '<text style="font-size: 10px; font-weight: bold;"><?php echo t('price_change.barcode_error'); ?></text>';
                 }
             }
         } else {
@@ -970,13 +971,13 @@ function printPriceCards() {
             attempts++;
             
             if (checkBarcodesReady(container)) {
-                console.log('바코드 생성 완료, 인쇄 시작');
+                console.log('Barcodes generated, starting print');
                 callback();
             } else if (attempts < maxAttempts) {
-                console.log('바코드 생성 대기 중... (' + attempts + '/' + maxAttempts + ')');
+                console.log('Waiting for barcodes... (' + attempts + '/' + maxAttempts + ')');
                 setTimeout(check, 200);
             } else {
-                console.log('바코드 생성 시간 초과, 강제 인쇄 시도');
+                console.log('Barcode generation timeout, forcing print');
                 callback(); // 타임아웃되어도 인쇄 시도
             }
         }
@@ -989,7 +990,7 @@ function printPriceCards() {
         
         // 내용 확인
         if (!printContent || printContent.trim() === '') {
-            alert('인쇄할 내용이 없습니다.');
+            alert('<?php echo t('price_change.print_content_empty'); ?>');
             return;
         }
         
@@ -1001,7 +1002,7 @@ function printPriceCards() {
         console.log('생성된 SVG 요소 수:', svgElements.length);
         
         if (svgElements.length === 0) {
-            alert('바코드가 생성되지 않았습니다. 잠시 후 다시 시도해주세요.');
+            alert('<?php echo t('price_change.barcode_not_generated'); ?>');
             return;
         }
         

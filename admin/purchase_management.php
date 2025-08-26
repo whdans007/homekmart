@@ -185,12 +185,59 @@ if (isset($_GET['debug'])) {
 /* 반응형 테이블 스타일 */
 .responsive-table {
     overflow-x: auto;
+    width: 100%;
+}
+
+/* 전체 화면 사용을 위한 추가 스타일 */
+body > div > div.flex.flex-col.flex-1.overflow-hidden > main {
+    max-width: none !important;
+    width: 100% !important;
+}
+
+body > div > div.flex.flex-col.flex-1.overflow-hidden > main > div > div {
+    max-width: none !important;
+    width: 100% !important;
+}
+
+/* 1920px 화면에서 전체 너비 활용 */
+#purchaseManagementContainer {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+/* 모바일에서 사이드바가 숨겨질 때 */
+@media (max-width: 767px) {
+    #purchaseManagementContainer {
+        width: 100vw !important;
+    }
+}
+
+/* 데스크톱에서 사이드바 제외한 전체 너비 */
+@media (min-width: 768px) {
+    #purchaseManagementContainer {
+        width: calc(100vw - 320px) !important; /* 사이드바 320px 제외 */
+    }
 }
 
 .table-compact td, .table-compact th {
     padding: 0.5rem 0.75rem !important;
     font-size: 0.875rem;
 }
+
+/* 테이블 전체 너비 사용 */
+#purchaseTable {
+    width: 100% !important;
+    table-layout: auto !important;
+}
+
+/* 각 컬럼 최적화 */
+th[data-column="number"] { width: 50px !important; }
+th[data-column="datetime"] { min-width: 150px !important; }
+th[data-column="supplier"] { min-width: 200px !important; }
+th[data-column="total_items"] { min-width: 100px !important; }
+th[data-column="total_pieces"] { min-width: 100px !important; }
+th[data-column="amount"] { min-width: 120px !important; }
+th[data-column="actions"] { min-width: 150px !important; }
 
 /* 컬럼 토글 관련 스타일 */
 .column-toggle-btn {
@@ -303,8 +350,8 @@ if (isset($_GET['debug'])) {
 }
 </style>
 
-<div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="flex justify-between items-center mb-6">
+<div id="purchaseManagementContainer" class="w-full" style="width: calc(100vw - 320px); max-width: none !important; padding: 1rem; margin: 0;">
+    <div class="w-full flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold text-gray-900"><?php echo t('purchase.list'); ?></h1>
         <div class="flex space-x-3">
             <?php if (!$has_deleted_at): ?>
@@ -320,8 +367,8 @@ if (isset($_GET['debug'])) {
 
 
     <!-- 컬럼 토글 컨트롤 (데스크톱만) -->
-    <div class="hidden md:block bg-white shadow rounded-lg mb-4 p-4">
-        <div class="flex flex-wrap items-center gap-2">
+    <div class="hidden md:block w-full bg-white shadow rounded-lg mb-4 p-4">
+        <div class="w-full flex flex-wrap items-center gap-2">
             <span class="text-sm font-medium text-gray-700 mr-3"><?php echo t('common.show_columns'); ?>:</span>
             <button class="column-toggle-btn active" data-column="number"><?php echo t('purchase.number'); ?></button>
             <button class="column-toggle-btn active" data-column="datetime"><?php echo t('purchase.date_time'); ?></button>
@@ -392,9 +439,9 @@ if (isset($_GET['debug'])) {
 
     <!-- 데스크톱 테이블 뷰 -->
     <!-- 디버그: 데이터 <?php echo $data_count; ?>개 -->
-    <div class="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-300">
-        <div class="responsive-table">
-            <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300 table-compact" id="purchaseTable">
+    <div class="w-full bg-white shadow-lg rounded-lg overflow-hidden border border-gray-300">
+        <div class="responsive-table w-full">
+            <table class="w-full divide-y divide-gray-200 border-collapse border border-gray-300 table-compact" id="purchaseTable">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-high" data-column="number"><?php echo t('purchase.number'); ?></th>
@@ -447,8 +494,8 @@ if (isset($_GET['debug'])) {
         
         <!-- 페이지네이션 -->
         <?php if ($total_pages > 1): ?>
-        <div class="pagination-container">
-            <div class="flex items-center justify-between">
+        <div class="pagination-container w-full">
+            <div class="w-full flex items-center justify-between">
                 <div class="text-sm text-gray-700">
                     <?php 
                     $start_item = ($current_page - 1) * $items_per_page + 1;
