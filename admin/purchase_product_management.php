@@ -72,6 +72,8 @@ try {
             pr.name_en,
             pr.name_ko,
             pr.pieces_per_box,
+            b.name_en as brand_name_en,
+            b.name_ko as brand_name_ko,
             pi.quantity,
             pi.unit_price,
             pi.purchase_type,
@@ -85,6 +87,7 @@ try {
         FROM purchase_items pi
         JOIN purchases p ON pi.purchase_id = p.purchase_id
         JOIN products pr ON pi.product_id = pr.id
+        LEFT JOIN brands b ON pr.brand_id = b.id
         LEFT JOIN suppliers s ON p.supplier_id = s.id
         WHERE $where_condition 
         $deleted_condition
@@ -223,6 +226,9 @@ $conn->close();
                             <?php echo t('product.sku'); ?>
                         </th>
                         <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
+                            <?php echo t('product.brand'); ?>
+                        </th>
+                        <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
                             <?php echo t('product.name'); ?>
                         </th>
                         <th scope="col" class="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase">
@@ -256,6 +262,15 @@ $conn->close();
                         <?php endif; ?>
                         <td class="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900">
                             <?php echo htmlspecialchars($product['sku']); ?>
+                        </td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                            <?php if (!empty($product['brand_name_en']) || !empty($product['brand_name_ko'])): ?>
+                                <span class="font-medium">
+                                    <?php echo htmlspecialchars($product['brand_name_en'] ?? ''); ?><?php if (!empty($product['brand_name_en']) && !empty($product['brand_name_ko'])): ?>/<?php endif; ?><?php echo htmlspecialchars($product['brand_name_ko'] ?? ''); ?>
+                                </span>
+                            <?php else: ?>
+                                <span class="text-gray-400">-</span>
+                            <?php endif; ?>
                         </td>
                         <td class="px-2 py-1 text-xs text-gray-900">
                             <div class="text-gray-800"><?php echo htmlspecialchars($product['name_en']); ?></div>
