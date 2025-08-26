@@ -129,7 +129,7 @@ try {
 $conn->close();
 ?>
 
-<div class="container mx-auto px-2 py-4">
+<div class="w-full px-2 py-4">
     <div class="flex justify-between items-center mb-3">
         <div>
             <h1 class="text-lg font-bold text-gray-900"><?php echo t('purchase_product.management'); ?></h1>

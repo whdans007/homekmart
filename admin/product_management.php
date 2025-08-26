@@ -95,7 +95,7 @@ try {
 
 ?>
 
-<div class="container mx-auto px-2 sm:px-3 md:px-4 py-8">
+<div class="w-full px-2 sm:px-3 md:px-4 py-8">
     <div class="flex justify-between items-center mb-6">
         <div>
             <h1 class="text-3xl font-bold text-gray-900"><?php echo t('product.list'); ?></h1>

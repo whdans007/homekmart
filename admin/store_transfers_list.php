@@ -78,7 +78,7 @@ if (isset($_SESSION['flash'])) {
 }
 ?>
 
-<div class="container mx-auto px-2 sm:px-3 md:px-4 py-8">
+<div class="w-full px-2 sm:px-3 md:px-4 py-8">
     <div class="w-full mx-auto">
         <!-- 페이지 헤더 -->
         <div class="mb-8 sm:flex sm:items-center sm:justify-between">
