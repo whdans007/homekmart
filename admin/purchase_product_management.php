@@ -59,10 +59,10 @@ try {
     // SQL 쿼리 구성 - 표시 모드에 따라 조건 변경
     if ($display_mode === 'recent') {
         $where_condition = "DATE(p.purchase_date) BETWEEN ? AND ?";
-        $order_clause = "ORDER BY pr.id DESC, p.purchase_date DESC";
+        $order_clause = "ORDER BY pi.item_id DESC";
     } else {
         $where_condition = "DATE(p.purchase_date) = ?";
-        $order_clause = "ORDER BY pr.id DESC, p.purchase_date DESC";
+        $order_clause = "ORDER BY pi.item_id DESC";
     }
     
     $sql = "
@@ -215,6 +215,9 @@ $conn->close();
                         <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
                             <?php echo t('purchase.purchase_date'); ?>
                         </th>
+                        <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
+                            거래처
+                        </th>
                         <?php endif; ?>
                         <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
                             <?php echo t('product.sku'); ?>
@@ -246,6 +249,9 @@ $conn->close();
                         <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
                             <div class="text-gray-800"><?php echo date('m.d', strtotime($product['purchase_date'])); ?></div>
                             <div class="text-gray-500 text-xs"><?php echo date('D', strtotime($product['purchase_date'])); ?></div>
+                        </td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                            <?php echo htmlspecialchars($product['supplier_name'] ?? '-'); ?>
                         </td>
                         <?php endif; ?>
                         <td class="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900">
@@ -327,71 +333,96 @@ $conn->close();
                     <tbody>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50 w-1/3"><?php echo t('product.name_en'); ?></td>
-                            <td class="px-4 py-2 relative" id="modal-name-en-container">
-                                <div id="modal-name-en-display" class="flex items-center justify-between">
-                                    <span id="modal-name-en"></span>
-                                    <button id="edit-name-en-btn" class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
-                                        <i class="fas fa-edit mr-1"></i><?php echo t('common.edit'); ?>
-                                    </button>
-                                </div>
-                                <div id="modal-name-en-edit" class="hidden flex items-center space-x-2">
-                                    <input type="text" id="modal-name-en-input" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" maxlength="255">
-                                    <button id="save-name-en-btn" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
-                                        <i class="fas fa-save mr-1"></i><?php echo t('common.save'); ?>
-                                    </button>
-                                    <button id="cancel-name-en-btn" class="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600">
-                                        <i class="fas fa-times mr-1"></i><?php echo t('common.cancel'); ?>
-                                    </button>
-                                </div>
+                            <td class="px-4 py-2">
+                                <input type="text" id="modal-name-en" class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" maxlength="255">
                             </td>
                         </tr>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50 w-1/3"><?php echo t('product.name_ko'); ?></td>
-                            <td class="px-4 py-2 relative" id="modal-name-ko-container">
-                                <div id="modal-name-ko-display" class="flex items-center justify-between">
-                                    <span id="modal-name-ko"></span>
-                                    <button id="edit-name-ko-btn" class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
-                                        <i class="fas fa-edit mr-1"></i><?php echo t('common.edit'); ?>
-                                    </button>
-                                </div>
-                                <div id="modal-name-ko-edit" class="hidden flex items-center space-x-2">
-                                    <input type="text" id="modal-name-ko-input" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" maxlength="255">
-                                    <button id="save-name-ko-btn" class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
-                                        <i class="fas fa-save mr-1"></i><?php echo t('common.save'); ?>
-                                    </button>
-                                    <button id="cancel-name-ko-btn" class="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600">
-                                        <i class="fas fa-times mr-1"></i><?php echo t('common.cancel'); ?>
-                                    </button>
-                                </div>
+                            <td class="px-4 py-2">
+                                <input type="text" id="modal-name-ko" class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" maxlength="255">
                             </td>
                         </tr>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50">SKU</td>
-                            <td class="px-4 py-2 font-mono" id="modal-sku"></td>
+                            <td class="px-4 py-2">
+                                <input type="text" id="modal-sku" class="w-full px-2 py-1 text-sm font-mono border border-gray-300 rounded bg-gray-100" readonly>
+                            </td>
                         </tr>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.barcode'); ?></td>
-                            <td class="px-4 py-2 font-mono" id="modal-barcode"></td>
+                            <td class="px-4 py-2">
+                                <input type="text" id="modal-barcode" class="w-full px-2 py-1 text-sm font-mono border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500">
+                            </td>
                         </tr>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.brand'); ?></td>
-                            <td class="px-4 py-2" id="modal-brand"></td>
+                            <td class="px-4 py-2">
+                                <!-- 선택된 브랜드 표시 -->
+                                <div class="mb-2 p-2 bg-gray-50 border border-gray-200 rounded">
+                                    <span id="modal-brand-display" class="text-sm text-gray-700">선택된 브랜드 없음</span>
+                                </div>
+                                <!-- 검색 및 신규등록 -->
+                                <div class="flex space-x-2">
+                                    <input type="text" id="modal-brand-search" 
+                                           class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="브랜드 검색...">
+                                    <button type="button" id="modal-brand-new-btn" class="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded">
+                                        신규등록
+                                    </button>
+                                </div>
+                                <input type="hidden" id="modal-brand-id" value="">
+                                <input type="hidden" id="modal-brand-en" value="">
+                                <input type="hidden" id="modal-brand-ko" value="">
+                                <div id="brand-search-results" class="absolute z-10 mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-48 overflow-y-auto" style="width: calc(100% - 1rem); left: 1rem;">
+                                    <!-- 검색 결과가 여기 표시됩니다 -->
+                                </div>
+                            </td>
                         </tr>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.category'); ?></td>
-                            <td class="px-4 py-2" id="modal-category"></td>
+                            <td class="px-4 py-2">
+                                <!-- 선택된 카테고리 표시 -->
+                                <div class="mb-2 p-2 bg-gray-50 border border-gray-200 rounded">
+                                    <span id="modal-category-display" class="text-sm text-gray-700">선택된 카테고리 없음</span>
+                                </div>
+                                <!-- 검색 및 신규등록 -->
+                                <div class="flex space-x-2">
+                                    <input type="text" id="modal-category-search" 
+                                           class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="카테고리 검색...">
+                                    <button type="button" id="modal-category-new-btn" class="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded">
+                                        신규등록
+                                    </button>
+                                </div>
+                                <input type="hidden" id="modal-category-id" value="">
+                                <input type="hidden" id="modal-category-en" value="">
+                                <input type="hidden" id="modal-category-ko" value="">
+                                <div id="category-search-results" class="absolute z-10 mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-48 overflow-y-auto" style="width: calc(100% - 1rem); left: 1rem;">
+                                    <!-- 검색 결과가 여기 표시됩니다 -->
+                                </div>
+                            </td>
                         </tr>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.box_packaging'); ?></td>
-                            <td class="px-4 py-2" id="modal-box-info"></td>
+                            <td class="px-4 py-2">
+                                <input type="number" id="modal-pieces-per-box" class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" min="1">
+                            </td>
                         </tr>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50 align-top"><?php echo t('product.description'); ?></td>
-                            <td class="px-4 py-2 whitespace-pre-wrap" id="modal-description"></td>
+                            <td class="px-4 py-2">
+                                <textarea id="modal-description" class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500" rows="3"></textarea>
+                            </td>
                         </tr>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.status'); ?></td>
-                            <td class="px-4 py-2" id="modal-status"></td>
+                            <td class="px-4 py-2">
+                                <select id="modal-status" class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="1">활성</option>
+                                    <option value="0">비활성</option>
+                                </select>
+                            </td>
                         </tr>
                         <tr>
                             <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.last_modified'); ?></td>
@@ -399,6 +430,13 @@ $conn->close();
                         </tr>
                     </tbody>
                 </table>
+                
+                <!-- 저장 버튼 추가 -->
+                <div class="flex justify-end mt-4">
+                    <button id="save-all-product-details-btn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        <i class="fas fa-save mr-2"></i><?php echo t('common.save'); ?> 변경사항
+                    </button>
+                </div>
 
                 <!-- Pricing by Store -->
                 <h4 class="text-lg font-semibold text-gray-800 mb-2"><?php echo t('product.inventory_pricing'); ?></h4>
@@ -611,18 +649,27 @@ document.addEventListener('DOMContentLoaded', function() {
         sku: document.getElementById('modal-sku'),
         barcode: document.getElementById('modal-barcode'),
         description: document.getElementById('modal-description'),
-        brand: document.getElementById('modal-brand'),
-        category: document.getElementById('modal-category'),
-        boxInfo: document.getElementById('modal-box-info'),
+        brandEn: document.getElementById('modal-brand-en'),
+        brandKo: document.getElementById('modal-brand-ko'),
+        brandId: document.getElementById('modal-brand-id'),
+        categoryEn: document.getElementById('modal-category-en'),
+        categoryKo: document.getElementById('modal-category-ko'),
+        categoryId: document.getElementById('modal-category-id'),
+        piecesPerBox: document.getElementById('modal-pieces-per-box'),
         inventoryWrapper: document.getElementById('modal-inventory-wrapper'),
         totalStock: document.getElementById('modal-total-stock'),
         image: document.getElementById('modal-image'),
-        status: document.getElementById('modal-status'),
+        statusSelect: document.getElementById('modal-status'),
         lastModified: document.getElementById('modal-last-modified'),
         loading: document.getElementById('modal-loading'),
         bodyWrapper: document.getElementById('modal-body-wrapper'),
         imageContent: document.getElementById('modal-image-content')
     };
+    
+    // 브랜드와 카테고리 데이터 저장용
+    let brandsData = [];
+    let categoriesData = [];
+    let originalProductData = {};
 
     function showModal() {
         modal.classList.remove('hidden');
@@ -633,6 +680,22 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reset content
         modalContent.loading.style.display = 'block';
         modalContent.bodyWrapper.classList.add('hidden');
+        
+        // 변경사항 확인
+        if (currentProductId && hasChanges()) {
+            if (confirm('저장하지 않은 변경사항이 있습니다. 그래도 닫으시겠습니까?')) {
+                // 원본 데이터 초기화
+                originalProductData = {};
+                currentProductId = null;
+            } else {
+                modal.classList.remove('hidden');
+                return;
+            }
+        }
+        
+        // 원본 데이터 초기화
+        originalProductData = {};
+        currentProductId = null;
     }
 
     closeModalBtn.addEventListener('click', hideModal);
@@ -643,9 +706,340 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // 브랜드 검색 기능
+    let brandSearchTimeout = null;
+    const brandSearchResults = document.getElementById('brand-search-results');
+    const brandSearchInput = document.getElementById('modal-brand-search');
+    const brandDisplay = document.getElementById('modal-brand-display');
+    const brandNewBtn = document.getElementById('modal-brand-new-btn');
+    
+    // 브랜드 검색 입력 이벤트
+    brandSearchInput.addEventListener('input', function() {
+        clearTimeout(brandSearchTimeout);
+        const searchTerm = this.value.trim();
+        
+        brandSearchTimeout = setTimeout(() => {
+            if (searchTerm.length > 0) {
+                searchBrands(searchTerm);
+            } else {
+                brandSearchResults.classList.add('hidden');
+            }
+        }, 300);
+    });
+    
+    brandSearchInput.addEventListener('focus', function() {
+        const searchTerm = this.value.trim();
+        if (searchTerm.length > 0) {
+            searchBrands(searchTerm);
+        } else {
+            // 포커스 시 빈 검색어면 전체 목록 표시
+            searchBrands('');
+        }
+    });
+    
+    // 브랜드 신규등록 버튼 클릭 이벤트
+    brandNewBtn.addEventListener('click', function() {
+        showBrandRegistrationModal();
+    });
+    
+    function searchBrands(query) {
+        fetch(`ajax_search_brands.php?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    displayBrandSearchResults(result.brands, query);
+                }
+            })
+            .catch(error => console.error('Brand search error:', error));
+    }
+    
+    function displayBrandSearchResults(brands, query) {
+        brandSearchResults.innerHTML = '';
+        
+        if (brands.length > 0) {
+            brands.forEach(brand => {
+                const div = document.createElement('div');
+                div.className = 'px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm';
+                // 영문명과 한글명 모두 표시
+                let displayText = brand.name_en || '';
+                if (brand.name_ko || brand.name) {
+                    if (displayText) {
+                        displayText += ` / ${brand.name_ko || brand.name}`;
+                    } else {
+                        displayText = brand.name_ko || brand.name || '';
+                    }
+                }
+                div.textContent = displayText;
+                div.onclick = function() {
+                    // 선택된 브랜드 정보 저장
+                    modalContent.brandEn.value = brand.name_en || '';
+                    modalContent.brandKo.value = brand.name_ko || brand.name || '';
+                    modalContent.brandId.value = brand.id;
+                    
+                    // 선택된 브랜드 표시
+                    let displayText = '';
+                    if (brand.name_en) {
+                        displayText = brand.name_en;
+                    }
+                    if (brand.name_ko || brand.name) {
+                        if (displayText) {
+                            displayText += ' / ' + (brand.name_ko || brand.name);
+                        } else {
+                            displayText = brand.name_ko || brand.name;
+                        }
+                    }
+                    brandDisplay.textContent = displayText || '선택된 브랜드 없음';
+                    
+                    // 검색 입력 초기화 및 결과 숨기기
+                    brandSearchInput.value = '';
+                    brandSearchResults.classList.add('hidden');
+                };
+                brandSearchResults.appendChild(div);
+            });
+        }
+        
+        // 브랜드 선택 취소 옵션 추가
+        if (modalContent.brandId.value) {
+            const clearDiv = document.createElement('div');
+            clearDiv.className = 'px-3 py-2 bg-red-50 hover:bg-red-100 cursor-pointer text-sm font-medium text-red-700 border-t';
+            clearDiv.innerHTML = `<i class="fas fa-times mr-2"></i>브랜드 선택 취소`;
+            clearDiv.onclick = function() {
+                // 브랜드 선택 취소
+                modalContent.brandEn.value = '';
+                modalContent.brandKo.value = '';
+                modalContent.brandId.value = '';
+                brandDisplay.textContent = '선택된 브랜드 없음';
+                brandSearchInput.value = '';
+                brandSearchResults.classList.add('hidden');
+            };
+            brandSearchResults.appendChild(clearDiv);
+        }
+        
+        brandSearchResults.classList.remove('hidden');
+    }
+    
+    function addNewBrand(name) {
+        const formData = new FormData();
+        formData.append('name', name);
+        
+        fetch('ajax_add_brand_quick.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(result => {
+            console.log('Brand add result:', result);
+            if (result.success) {
+                modalContent.brandEn.value = result.data.name_en || '';
+                modalContent.brandKo.value = result.data.name_ko || result.data.name || '';
+                modalContent.brandId.value = result.data.id;
+                
+                // 선택된 브랜드 표시 업데이트
+                let displayText = '';
+                if (result.data.name_en) {
+                    displayText = result.data.name_en;
+                }
+                if (result.data.name_ko || result.data.name) {
+                    if (displayText) {
+                        displayText += ' / ' + (result.data.name_ko || result.data.name);
+                    } else {
+                        displayText = result.data.name_ko || result.data.name;
+                    }
+                }
+                brandDisplay.textContent = displayText || '선택된 브랜드 없음';
+                brandSearchInput.value = '';
+                brandSearchResults.classList.add('hidden');
+                showToast(result.message, result.exists ? 'info' : 'success');
+            } else {
+                console.error('Brand add failed:', result.message);
+                showToast(result.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Brand add error:', error);
+            showToast('브랜드 추가 중 오류가 발생했습니다: ' + error.message, 'error');
+        });
+    }
+    
+    // 카테고리 검색 기능
+    let categorySearchTimeout = null;
+    const categorySearchResults = document.getElementById('category-search-results');
+    const categorySearchInput = document.getElementById('modal-category-search');
+    const categoryDisplay = document.getElementById('modal-category-display');
+    const categoryNewBtn = document.getElementById('modal-category-new-btn');
+    
+    // 카테고리 검색 입력 이벤트
+    categorySearchInput.addEventListener('input', function() {
+        clearTimeout(categorySearchTimeout);
+        const searchTerm = this.value.trim();
+        
+        categorySearchTimeout = setTimeout(() => {
+            if (searchTerm.length > 0) {
+                searchCategories(searchTerm);
+            } else {
+                categorySearchResults.classList.add('hidden');
+            }
+        }, 300);
+    });
+    
+    categorySearchInput.addEventListener('focus', function() {
+        const searchTerm = this.value.trim();
+        if (searchTerm.length > 0) {
+            searchCategories(searchTerm);
+        } else {
+            // 포커스 시 빈 검색어면 전체 목록 표시
+            searchCategories('');
+        }
+    });
+    
+    // 카테고리 신규등록 버튼 클릭 이벤트
+    categoryNewBtn.addEventListener('click', function() {
+        showCategoryRegistrationModal();
+    });
+    
+    function searchCategories(query) {
+        fetch(`ajax_search_categories.php?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    displayCategorySearchResults(result.categories, query);
+                }
+            })
+            .catch(error => console.error('Category search error:', error));
+    }
+    
+    function displayCategorySearchResults(categories, query) {
+        categorySearchResults.innerHTML = '';
+        
+        if (categories.length > 0) {
+            categories.forEach(category => {
+                const div = document.createElement('div');
+                div.className = 'px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm';
+                // 영문명과 한글명 모두 표시
+                let displayText = category.name_en || '';
+                if (category.name_ko || category.name) {
+                    if (displayText) {
+                        displayText += ` / ${category.name_ko || category.name}`;
+                    } else {
+                        displayText = category.name_ko || category.name || '';
+                    }
+                }
+                div.textContent = displayText;
+                div.onclick = function() {
+                    // 선택된 카테고리 정보 저장
+                    modalContent.categoryEn.value = category.name_en || '';
+                    modalContent.categoryKo.value = category.name_ko || category.name || '';
+                    modalContent.categoryId.value = category.id;
+                    
+                    // 선택된 카테고리 표시
+                    let displayText = '';
+                    if (category.name_en) {
+                        displayText = category.name_en;
+                    }
+                    if (category.name_ko || category.name) {
+                        if (displayText) {
+                            displayText += ' / ' + (category.name_ko || category.name);
+                        } else {
+                            displayText = category.name_ko || category.name;
+                        }
+                    }
+                    categoryDisplay.textContent = displayText || '선택된 카테고리 없음';
+                    
+                    // 검색 입력 초기화 및 결과 숨기기
+                    categorySearchInput.value = '';
+                    categorySearchResults.classList.add('hidden');
+                };
+                categorySearchResults.appendChild(div);
+            });
+        }
+        
+        // 카테고리 선택 취소 옵션 추가
+        if (modalContent.categoryId.value) {
+            const clearDiv = document.createElement('div');
+            clearDiv.className = 'px-3 py-2 bg-red-50 hover:bg-red-100 cursor-pointer text-sm font-medium text-red-700 border-t';
+            clearDiv.innerHTML = `<i class="fas fa-times mr-2"></i>카테고리 선택 취소`;
+            clearDiv.onclick = function() {
+                // 카테고리 선택 취소
+                modalContent.categoryEn.value = '';
+                modalContent.categoryKo.value = '';
+                modalContent.categoryId.value = '';
+                categoryDisplay.textContent = '선택된 카테고리 없음';
+                categorySearchInput.value = '';
+                categorySearchResults.classList.add('hidden');
+            };
+            categorySearchResults.appendChild(clearDiv);
+        }
+        
+        categorySearchResults.classList.remove('hidden');
+    }
+    
+    function addNewCategory(name) {
+        const formData = new FormData();
+        formData.append('name', name);
+        
+        fetch('ajax_add_category_quick.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(result => {
+            console.log('Category add result:', result);
+            if (result.success) {
+                modalContent.categoryEn.value = result.data.name_en || '';
+                modalContent.categoryKo.value = result.data.name_ko || result.data.name || '';
+                modalContent.categoryId.value = result.data.id;
+                
+                // 선택된 카테고리 표시 업데이트
+                let displayText = '';
+                if (result.data.name_en) {
+                    displayText = result.data.name_en;
+                }
+                if (result.data.name_ko || result.data.name) {
+                    if (displayText) {
+                        displayText += ' / ' + (result.data.name_ko || result.data.name);
+                    } else {
+                        displayText = result.data.name_ko || result.data.name;
+                    }
+                }
+                categoryDisplay.textContent = displayText || '선택된 카테고리 없음';
+                categorySearchInput.value = '';
+                categorySearchResults.classList.add('hidden');
+                showToast(result.message, result.exists ? 'info' : 'success');
+            } else {
+                console.error('Category add failed:', result.message);
+                showToast(result.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Category add error:', error);
+            showToast('카테고리 추가 중 오류가 발생했습니다: ' + error.message, 'error');
+        });
+    }
+    
+    // 모달 외부 클릭 시 검색 결과 숨기기
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#modal-brand-search') && !e.target.closest('#brand-search-results')) {
+            brandSearchResults.classList.add('hidden');
+        }
+        if (!e.target.closest('#modal-category-search') && !e.target.closest('#category-search-results')) {
+            categorySearchResults.classList.add('hidden');
+        }
+    });
+    
     // 전역 함수로 showProductDetails 정의
     window.showProductDetails = function(productId) {
         showModal();
+        currentProductId = productId;
         
         const url = `ajax_get_product_details.php?id=${productId}${currentStoreId ? `&store_id=${currentStoreId}` : ''}`;
         fetch(url)
@@ -654,19 +1048,67 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (result.success) {
                     const product = result.data;
                     
-                    // Populate modal with new resume style
-                    modalContent.name.textContent = translations.productDetails; // 제목 고정
-                    modalContent.nameEn.textContent = product.name_en || ' ';
-                    modalContent.nameKo.textContent = product.name_ko || ' ';
-                    modalContent.sku.textContent = product.sku || 'N/A';
-                    modalContent.description.textContent = product.description || translations.noDescription;
-                    modalContent.brand.textContent = product.brand_name_ko || 'N/A';
-                    modalContent.category.textContent = product.category_name || 'N/A';
+                    // 원본 데이터 저장
+                    originalProductData = {
+                        name_en: product.name_en || '',
+                        name_ko: product.name_ko || '',
+                        sku: product.sku || '',
+                        barcode: product.barcode || '',
+                        brand_id: product.brand_id || '',
+                        category_id: product.category_id || '',
+                        pieces_per_box: product.pieces_per_box || 1,
+                        description: product.description || '',
+                        is_active: product.is_active || 1
+                    };
                     
-                    // Barcode and Box packaging information
-                    modalContent.barcode.textContent = product.barcode || translations.noBarcode;
-                    const piecesPerBox = parseInt(product.pieces_per_box) || 1;
-                    modalContent.boxInfo.innerHTML = `<span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">${piecesPerBox}${translations.piecesPerBox}</span>`;
+                    // 폼 필드에 데이터 채우기
+                    modalContent.name.textContent = translations.productDetails;
+                    modalContent.nameEn.value = product.name_en || '';
+                    modalContent.nameKo.value = product.name_ko || '';
+                    modalContent.sku.value = product.sku || '';
+                    modalContent.barcode.value = product.barcode || '';
+                    
+                    // 브랜드 설정
+                    modalContent.brandEn.value = product.brand_name_en || '';
+                    modalContent.brandKo.value = product.brand_name_ko || '';
+                    modalContent.brandId.value = product.brand_id || '';
+                    
+                    // 브랜드 표시 업데이트
+                    let brandDisplayText = '';
+                    if (product.brand_name_en) {
+                        brandDisplayText = product.brand_name_en;
+                    }
+                    if (product.brand_name_ko) {
+                        if (brandDisplayText) {
+                            brandDisplayText += ' / ' + product.brand_name_ko;
+                        } else {
+                            brandDisplayText = product.brand_name_ko;
+                        }
+                    }
+                    brandDisplay.textContent = brandDisplayText || '선택된 브랜드 없음';
+                    
+                    // 카테고리 설정
+                    modalContent.categoryEn.value = product.category_name_en || '';
+                    modalContent.categoryKo.value = product.category_name_ko || product.category_name || '';
+                    modalContent.categoryId.value = product.category_id || '';
+                    
+                    // 카테고리 표시 업데이트
+                    let categoryDisplayText = '';
+                    if (product.category_name_en) {
+                        categoryDisplayText = product.category_name_en;
+                    }
+                    if (product.category_name_ko || product.category_name) {
+                        if (categoryDisplayText) {
+                            categoryDisplayText += ' / ' + (product.category_name_ko || product.category_name);
+                        } else {
+                            categoryDisplayText = product.category_name_ko || product.category_name;
+                        }
+                    }
+                    categoryDisplay.textContent = categoryDisplayText || '선택된 카테고리 없음';
+                    
+                    modalContent.piecesPerBox.value = product.pieces_per_box || 1;
+                    modalContent.description.value = product.description || '';
+                    modalContent.statusSelect.value = product.is_active !== undefined ? product.is_active : 1;
                     
                     // Inventory and Pricing by Store
                     console.log('Product inventory data:', product.inventory);
@@ -724,10 +1166,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         modalContent.imageContent.classList.add('hidden');
                     }
 
-                    // Meta
-                    modalContent.status.innerHTML = product.is_active 
-                        ? `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">${translations.activeStatus}</span>`
-                        : `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">${translations.inactiveStatus}</span>`;
+                    // Meta (status는 이제 select로 변경됨)
                     
                     const lastModifiedDate = new Date(product.updated_at).toLocaleString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                     modalContent.lastModified.innerHTML = `${translations.lastModified}: ${lastModifiedDate} <br> by ${product.last_modified_by || 'N/A'}`;
@@ -1250,122 +1689,137 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 상품명 편집 기능
-    let currentEditingProductId = null;
+    // 변경사항 감지
+    function hasChanges() {
+        return (
+            modalContent.nameEn.value !== originalProductData.name_en ||
+            modalContent.nameKo.value !== originalProductData.name_ko ||
+            modalContent.barcode.value !== originalProductData.barcode ||
+            modalContent.brandId.value !== String(originalProductData.brand_id || '') ||
+            modalContent.categoryId.value !== String(originalProductData.category_id || '') ||
+            modalContent.piecesPerBox.value !== String(originalProductData.pieces_per_box) ||
+            modalContent.description.value !== originalProductData.description ||
+            modalContent.statusSelect.value !== String(originalProductData.is_active)
+        );
+    }
     
-    // 상품명 편집 모드 전환 (영어)
-    document.getElementById('edit-name-en-btn').addEventListener('click', function() {
-        if (!currentProductId) return;
-        
-        const displayDiv = document.getElementById('modal-name-en-display');
-        const editDiv = document.getElementById('modal-name-en-edit');
-        const input = document.getElementById('modal-name-en-input');
-        const currentName = document.getElementById('modal-name-en').textContent;
-        
-        input.value = currentName;
-        displayDiv.classList.add('hidden');
-        editDiv.classList.remove('hidden');
-        input.focus();
-        input.select();
-        
-        currentEditingProductId = currentProductId;
+    // 입력 필드 변경 감지
+    const watchFields = [
+        modalContent.nameEn, modalContent.nameKo, modalContent.barcode,
+        modalContent.brandKo, modalContent.brandEn, modalContent.categoryKo, modalContent.categoryEn,
+        modalContent.piecesPerBox, modalContent.description, modalContent.statusSelect
+    ];
+    
+    watchFields.forEach(field => {
+        if (field) {
+            field.addEventListener('input', function() {
+                const saveBtn = document.getElementById('save-all-product-details-btn');
+                if (hasChanges()) {
+                    saveBtn.classList.remove('disabled:bg-gray-400');
+                    saveBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                } else {
+                    saveBtn.classList.add('disabled:bg-gray-400');
+                }
+            });
+            
+            field.addEventListener('change', function() {
+                const saveBtn = document.getElementById('save-all-product-details-btn');
+                if (hasChanges()) {
+                    saveBtn.classList.remove('disabled:bg-gray-400');
+                    saveBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                } else {
+                    saveBtn.classList.add('disabled:bg-gray-400');
+                }
+            });
+        }
     });
     
-    // 상품명 편집 모드 전환 (한글)
-    document.getElementById('edit-name-ko-btn').addEventListener('click', function() {
-        if (!currentProductId) return;
+    // 모든 상품 정보 저장
+    document.getElementById('save-all-product-details-btn').addEventListener('click', function() {
+        if (!currentProductId || !hasChanges()) {
+            showToast('변경된 내용이 없습니다.', 'info');
+            return;
+        }
         
-        const displayDiv = document.getElementById('modal-name-ko-display');
-        const editDiv = document.getElementById('modal-name-ko-edit');
-        const input = document.getElementById('modal-name-ko-input');
-        const currentName = document.getElementById('modal-name-ko').textContent;
+        // 유효성 검사
+        if (!modalContent.nameKo.value.trim()) {
+            showToast('한글 상품명은 필수입니다.', 'error');
+            modalContent.nameKo.focus();
+            return;
+        }
         
-        input.value = currentName;
-        displayDiv.classList.add('hidden');
-        editDiv.classList.remove('hidden');
-        input.focus();
-        input.select();
-        
-        currentEditingProductId = currentProductId;
-    });
-    
-    // 상품명 저장 함수
-    function saveProductName(language, newName) {
-        if (!currentEditingProductId) return;
-        
-        const formData = new FormData();
-        formData.append('product_id', currentEditingProductId);
-        formData.append('language', language);
-        formData.append('product_name', newName.trim());
-        
-        const saveBtn = document.getElementById(`save-name-${language}-btn`);
+        const saveBtn = this;
         const originalText = saveBtn.innerHTML;
         
         // 저장 중 상태
         saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>' + translations.savingText;
         saveBtn.disabled = true;
         
-        fetch('ajax_update_product_name.php', {
+        const formData = new FormData();
+        formData.append('product_id', currentProductId);
+        formData.append('name_en', modalContent.nameEn.value.trim());
+        formData.append('name_ko', modalContent.nameKo.value.trim());
+        formData.append('barcode', modalContent.barcode.value.trim());
+        formData.append('brand_id', modalContent.brandId.value);
+        formData.append('category_id', modalContent.categoryId.value);
+        formData.append('pieces_per_box', modalContent.piecesPerBox.value);
+        formData.append('description', modalContent.description.value.trim());
+        formData.append('is_active', modalContent.statusSelect.value);
+        
+        fetch('ajax_update_product_details.php', {
             method: 'POST',
             body: formData
         })
-        .then(response => {
-            console.log('Response status:', response.status);
-            console.log('Response headers:', response.headers);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            return response.text(); // 먼저 텍스트로 받아서 확인
-        })
-        .then(text => {
-            console.log('Response text:', text);
-            
-            try {
-                const result = JSON.parse(text);
-                console.log('Parsed result:', result);
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast(result.message, 'success');
                 
-                if (result.success) {
-                    showToast(result.message, 'success');
-                    
-                    // UI 업데이트
-                    document.getElementById(`modal-name-${language}`).textContent = newName;
-                    
-                    // 테이블 목록에서도 해당 상품의 상품명 업데이트 (페이지 새로고침 없이 즉시 반영)
-                    updateProductNameInTable(currentEditingProductId, language, newName);
-                    
-                    cancelProductNameEdit(language);
-                    
-                } else {
-                    showToast(`오류: ${result.message}`, 'error');
-                }
-            } catch (parseError) {
-                console.error('JSON 파싱 오류:', parseError);
-                console.error('원본 응답:', text);
-                showToast('서버 응답을 처리할 수 없습니다: ' + text.substring(0, 100), 'error');
+                // 원본 데이터 업데이트
+                originalProductData = {
+                    name_en: modalContent.nameEn.value,
+                    name_ko: modalContent.nameKo.value,
+                    sku: modalContent.sku.value,
+                    barcode: modalContent.barcode.value,
+                    brand_id: modalContent.brandId.value,
+                    category_id: modalContent.categoryId.value,
+                    pieces_per_box: modalContent.piecesPerBox.value,
+                    description: modalContent.description.value,
+                    is_active: modalContent.statusSelect.value
+                };
+                
+                // 테이블 목록 업데이트
+                updateProductInTable(currentProductId);
+                
+                // 저장 버튼 비활성화
+                saveBtn.classList.add('disabled:bg-gray-400');
+                
+                // 모달 닫기
+                hideModal();
+                
+            } else {
+                showToast(`오류: ${result.message}`, 'error');
             }
         })
         .catch(error => {
-            console.error('상품명 저장 오류:', error);
-            showToast('상품명 저장 중 오류가 발생했습니다: ' + error.message, 'error');
+            console.error('상품 정보 저장 오류:', error);
+            showToast('상품 정보 저장 중 오류가 발생했습니다.', 'error');
         })
         .finally(() => {
             saveBtn.innerHTML = originalText;
             saveBtn.disabled = false;
         });
-    }
+    });
     
-    // 테이블에서 상품명 업데이트 함수
-    function updateProductNameInTable(productId, language, newName) {
-        // 테이블의 모든 행을 확인하여 해당 상품의 상품명을 업데이트
+    // 테이블에서 상품 정보 업데이트 함수
+    function updateProductInTable(productId) {
+        // 테이블의 모든 행을 확인하여 해당 상품의 정보를 업데이트
         const tableRows = document.querySelectorAll('tbody tr[onclick*="showProductDetails"]');
         
         tableRows.forEach(row => {
             const onclickAttr = row.getAttribute('onclick');
             if (onclickAttr && onclickAttr.includes(`showProductDetails(${productId})`)) {
                 // 해당 상품 행을 찾았으면 상품명 업데이트
-                // 상품명이 있는 셀을 찾기 (text-gray-800과 text-gray-600 클래스가 있는 div가 포함된 셀)
                 const nameCells = row.querySelectorAll('td');
                 let nameCell = null;
                 
@@ -1382,87 +1836,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     const nameEn = nameCell.querySelector('.text-gray-800');
                     const nameKo = nameCell.querySelector('.text-gray-600');
                     
-                    if (language === 'en' && nameEn) {
-                        nameEn.textContent = newName;
-                    } else if (language === 'ko' && nameKo) {
-                        nameKo.textContent = newName;
+                    if (nameEn) {
+                        nameEn.textContent = modalContent.nameEn.value;
+                    }
+                    if (nameKo) {
+                        nameKo.textContent = modalContent.nameKo.value;
                     }
                 }
+                
+                // 박스당 수량으로 재고 수량 재계산 (필요한 경우)
+                // 이 부분은 purchase_products 데이터 구조에 따라 조정 필요
             }
         });
     }
 
-    // 상품명 편집 취소 함수
-    function cancelProductNameEdit(language) {
-        const displayDiv = document.getElementById(`modal-name-${language}-display`);
-        const editDiv = document.getElementById(`modal-name-${language}-edit`);
-        
-        displayDiv.classList.remove('hidden');
-        editDiv.classList.add('hidden');
-        
-        // 입력값 초기화
-        document.getElementById(`modal-name-${language}-input`).value = '';
-        currentEditingProductId = null;
-    }
-    
-    // 영어 상품명 저장 버튼
-    document.getElementById('save-name-en-btn').addEventListener('click', function() {
-        const newName = document.getElementById('modal-name-en-input').value.trim();
-        if (!newName) {
-            showToast(translations.productNameRequired, 'error');
-            return;
-        }
-        if (newName.length > 255) {
-            showToast(translations.productNameTooLong, 'error');
-            return;
-        }
-        saveProductName('en', newName);
-    });
-    
-    // 한글 상품명 저장 버튼
-    document.getElementById('save-name-ko-btn').addEventListener('click', function() {
-        const newName = document.getElementById('modal-name-ko-input').value.trim();
-        if (!newName) {
-            showToast(translations.productNameRequired, 'error');
-            return;
-        }
-        if (newName.length > 255) {
-            showToast(translations.productNameTooLong, 'error');
-            return;
-        }
-        saveProductName('ko', newName);
-    });
-    
-    // 영어 상품명 취소 버튼
-    document.getElementById('cancel-name-en-btn').addEventListener('click', function() {
-        cancelProductNameEdit('en');
-    });
-    
-    // 한글 상품명 취소 버튼
-    document.getElementById('cancel-name-ko-btn').addEventListener('click', function() {
-        cancelProductNameEdit('ko');
-    });
-    
-    // 엔터키로 저장, ESC키로 취소
-    document.getElementById('modal-name-en-input').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            document.getElementById('save-name-en-btn').click();
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
-            cancelProductNameEdit('en');
-        }
-    });
-    
-    document.getElementById('modal-name-ko-input').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            document.getElementById('save-name-ko-btn').click();
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
-            cancelProductNameEdit('ko');
-        }
-    });
 
     // ESC 키로 모달 닫기
     document.addEventListener('keydown', function(event) {
@@ -1470,6 +1857,204 @@ document.addEventListener('DOMContentLoaded', function() {
             hideModal();
         }
     });
+
+    // 브랜드 신규등록 모달 함수
+    function showBrandRegistrationModal() {
+        const modalHtml = `
+            <div id="brand-registration-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                    <div class="mt-3">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">브랜드 신규등록</h3>
+                        <div class="mt-2">
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">영문명</label>
+                                <input type="text" id="new-brand-en" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">한글명</label>
+                                <input type="text" id="new-brand-ko" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        <div class="mt-4 flex justify-end space-x-2">
+                            <button id="brand-reg-cancel" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">취소</button>
+                            <button id="brand-reg-save" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">저장</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        const modal = document.getElementById('brand-registration-modal');
+        const cancelBtn = document.getElementById('brand-reg-cancel');
+        const saveBtn = document.getElementById('brand-reg-save');
+        const brandEnInput = document.getElementById('new-brand-en');
+        const brandKoInput = document.getElementById('new-brand-ko');
+        
+        cancelBtn.onclick = function() {
+            modal.remove();
+        };
+        
+        saveBtn.onclick = function() {
+            const brandNameKo = brandKoInput.value.trim();
+            const brandNameEn = brandEnInput.value.trim();
+            
+            if (brandNameKo || brandNameEn) {
+                // 새로운 브랜드 추가 함수 호출
+                const formData = new FormData();
+                formData.append('name_ko', brandNameKo);
+                formData.append('name_en', brandNameEn);
+                
+                fetch('ajax_add_brand_full.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        // 브랜드 정보 업데이트
+                        modalContent.brandEn.value = result.data.name_en || '';
+                        modalContent.brandKo.value = result.data.name_ko || '';
+                        modalContent.brandId.value = result.data.id;
+                        
+                        // 브랜드 표시 업데이트
+                        let displayText = '';
+                        if (result.data.name_en) {
+                            displayText = result.data.name_en;
+                        }
+                        if (result.data.name_ko) {
+                            if (displayText) {
+                                displayText += ' / ' + result.data.name_ko;
+                            } else {
+                                displayText = result.data.name_ko;
+                            }
+                        }
+                        brandDisplay.textContent = displayText || '선택된 브랜드 없음';
+                        brandSearchInput.value = '';
+                        
+                        showToast(result.message, result.exists ? 'info' : 'success');
+                    } else {
+                        showToast(result.message, 'error');
+                    }
+                    modal.remove();
+                })
+                .catch(error => {
+                    console.error('Brand add error:', error);
+                    showToast('브랜드 추가 중 오류가 발생했습니다.', 'error');
+                    modal.remove();
+                });
+            } else {
+                showToast('브랜드명을 입력해주세요.', 'error');
+            }
+        };
+        
+        // ESC 키로 닫기
+        modal.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                modal.remove();
+            }
+        });
+    }
+    
+    // 카테고리 신규등록 모달 함수
+    function showCategoryRegistrationModal() {
+        const modalHtml = `
+            <div id="category-registration-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                    <div class="mt-3">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">카테고리 신규등록</h3>
+                        <div class="mt-2">
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">영문명</label>
+                                <input type="text" id="new-category-en" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="mb-3">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">한글명</label>
+                                <input type="text" id="new-category-ko" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        <div class="mt-4 flex justify-end space-x-2">
+                            <button id="category-reg-cancel" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">취소</button>
+                            <button id="category-reg-save" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">저장</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        const modal = document.getElementById('category-registration-modal');
+        const cancelBtn = document.getElementById('category-reg-cancel');
+        const saveBtn = document.getElementById('category-reg-save');
+        const categoryEnInput = document.getElementById('new-category-en');
+        const categoryKoInput = document.getElementById('new-category-ko');
+        
+        cancelBtn.onclick = function() {
+            modal.remove();
+        };
+        
+        saveBtn.onclick = function() {
+            const categoryNameKo = categoryKoInput.value.trim();
+            const categoryNameEn = categoryEnInput.value.trim();
+            
+            if (categoryNameKo || categoryNameEn) {
+                // 새로운 카테고리 추가 함수 호출
+                const formData = new FormData();
+                formData.append('name_ko', categoryNameKo);
+                formData.append('name_en', categoryNameEn);
+                
+                fetch('ajax_add_category_full.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        // 카테고리 정보 업데이트
+                        modalContent.categoryEn.value = result.data.name_en || '';
+                        modalContent.categoryKo.value = result.data.name_ko || '';
+                        modalContent.categoryId.value = result.data.id;
+                        
+                        // 카테고리 표시 업데이트
+                        let displayText = '';
+                        if (result.data.name_en) {
+                            displayText = result.data.name_en;
+                        }
+                        if (result.data.name_ko) {
+                            if (displayText) {
+                                displayText += ' / ' + result.data.name_ko;
+                            } else {
+                                displayText = result.data.name_ko;
+                            }
+                        }
+                        categoryDisplay.textContent = displayText || '선택된 카테고리 없음';
+                        categorySearchInput.value = '';
+                        
+                        showToast(result.message, result.exists ? 'info' : 'success');
+                    } else {
+                        showToast(result.message, 'error');
+                    }
+                    modal.remove();
+                })
+                .catch(error => {
+                    console.error('Category add error:', error);
+                    showToast('카테고리 추가 중 오류가 발생했습니다.', 'error');
+                    modal.remove();
+                });
+            } else {
+                showToast('카테고리명을 입력해주세요.', 'error');
+            }
+        };
+        
+        // ESC 키로 닫기
+        modal.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                modal.remove();
+            }
+        });
+    }
 });
 </script>
 

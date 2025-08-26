@@ -1,6 +1,7 @@
 <?php
 // 출력 버퍼링 시작하여 예기치 않은 출력 방지
 ob_start();
+session_start();
 
 try {
     require_once __DIR__ . '/../config/db_config.php';
@@ -22,11 +23,15 @@ if (session_status() === PHP_SESSION_NONE) {
 ob_clean();
 header('Content-Type: application/json');
 
-// 권한 체크
-if (!is_logged_in() || !has_permission('product_management')) {
+// 권한 체크 - 매입관리 권한도 허용
+if (!is_logged_in() || (!has_permission('product_management') && !has_permission('purchase_management'))) {
     echo json_encode(['success' => false, 'message' => '권한이 없습니다.']);
     exit;
 }
+
+// 검색어 파라미터 처리
+$search = $_GET['q'] ?? '';
+$search = trim($search);
 
 try {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
@@ -50,28 +55,107 @@ try {
         exit;
     }
 
-    // 카테고리 목록 조회 (status 컬럼이 없을 수도 있으므로 먼저 확인)
-    $check_column_sql = "SHOW COLUMNS FROM categories LIKE 'status'";
-    $check_stmt = $pdo->prepare($check_column_sql);
-    $check_stmt->execute();
-    $has_status_column = $check_stmt->fetch();
-
-    if ($has_status_column) {
-        // status 컬럼이 있는 경우 활성화된 카테고리만 조회
-        $sql = "SELECT id, name_ko, name_en, description 
-                FROM categories 
-                WHERE status = 'active' 
-                ORDER BY name_ko ASC";
-    } else {
-        // status 컬럼이 없는 경우 모든 카테고리 조회
-        $sql = "SELECT id, name_ko, name_en, description 
-                FROM categories 
-                ORDER BY name_ko ASC";
+    // 테이블 컬럼 확인
+    $columns_check = $pdo->query("SHOW COLUMNS FROM categories");
+    $has_name = false;
+    $has_name_ko = false;
+    $has_name_en = false;
+    
+    while ($column = $columns_check->fetch(PDO::FETCH_ASSOC)) {
+        if ($column['Field'] == 'name') $has_name = true;
+        if ($column['Field'] == 'name_ko') $has_name_ko = true;
+        if ($column['Field'] == 'name_en') $has_name_en = true;
     }
     
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // SELECT 필드 구성
+    $select_fields = ["id"];
+    if ($has_name_ko) $select_fields[] = "name_ko";
+    if ($has_name_en) $select_fields[] = "name_en";
+    if ($has_name) $select_fields[] = "name";
+    
+    $categories = [];
+    
+    if (!empty($search)) {
+        // 검색어가 있는 경우
+        $search_pattern = '%' . $search . '%';
+        $search_start = $search . '%';
+        
+        // WHERE 조건 구성
+        $where_conditions = [];
+        $params = [];
+        
+        if ($has_name_ko) {
+            $where_conditions[] = "name_ko LIKE ?";
+            $params[] = $search_pattern;
+        }
+        if ($has_name_en) {
+            $where_conditions[] = "name_en LIKE ?";
+            $params[] = $search_pattern;
+        }
+        if ($has_name) {
+            $where_conditions[] = "name LIKE ?";
+            $params[] = $search_pattern;
+        }
+        
+        // ORDER BY 절 구성
+        $order_cases = [];
+        $case_num = 1;
+        if ($has_name_ko) {
+            $order_cases[] = "WHEN name_ko LIKE ? THEN $case_num";
+            $params[] = $search_start;
+            $case_num++;
+        }
+        if ($has_name_en) {
+            $order_cases[] = "WHEN name_en LIKE ? THEN $case_num";
+            $params[] = $search_start;
+            $case_num++;
+        }
+        if ($has_name) {
+            $order_cases[] = "WHEN name LIKE ? THEN $case_num";
+            $params[] = $search_start;
+            $case_num++;
+        }
+        
+        $order_field = $has_name_ko ? "name_ko" : ($has_name ? "name" : "id");
+        
+        $sql = "SELECT " . implode(", ", $select_fields) . " 
+                FROM categories 
+                WHERE " . implode(" OR ", $where_conditions) . "
+                ORDER BY 
+                    CASE " . implode(" ", $order_cases) . "
+                        ELSE $case_num
+                    END,
+                    $order_field
+                LIMIT 20";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+    } else {
+        // 검색어가 없는 경우 상위 20개
+        $order_field = $has_name_ko ? "name_ko" : ($has_name ? "name" : "id");
+        $sql = "SELECT " . implode(", ", $select_fields) . " FROM categories ORDER BY $order_field LIMIT 20";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+    }
+    
+    $result_array = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // 결과 재구성
+    foreach ($result_array as $row) {
+        $category_name = "";
+        if ($has_name_ko && !empty($row['name_ko'])) {
+            $category_name = $row['name_ko'];
+        } else if ($has_name && !empty($row['name'])) {
+            $category_name = $row['name'];
+        }
+        
+        $categories[] = [
+            'id' => $row['id'],
+            'name' => $category_name,
+            'name_ko' => isset($row['name_ko']) ? $row['name_ko'] : null,
+            'name_en' => isset($row['name_en']) ? $row['name_en'] : null
+        ];
+    }
 
     // 디버깅 로그
     error_log("카테고리 로드 성공: " . count($categories) . "개 카테고리 조회됨");
