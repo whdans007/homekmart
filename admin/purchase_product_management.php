@@ -22,6 +22,22 @@ $selected_date = $_GET['date'] ?? date('Y-m-d');
 $prev_date = date('Y-m-d', strtotime($selected_date . ' -1 day'));
 $next_date = date('Y-m-d', strtotime($selected_date . ' +1 day'));
 
+// 검색 변수
+$search_term = $_GET['search'] ?? '';
+$search_term = trim($search_term);
+
+// URL 파라미터를 생성하는 함수
+function build_url_params($mode, $date = null, $search = null) {
+    $params = ['mode' => $mode];
+    if ($mode === 'date' && $date) {
+        $params['date'] = $date;
+    }
+    if (!empty($search)) {
+        $params['search'] = $search;
+    }
+    return http_build_query($params);
+}
+
 // 최근 데이터 조회를 위한 날짜 범위
 $recent_days = 7; // 최근 7일
 $start_date = date('Y-m-d', strtotime("-$recent_days days"));
@@ -65,6 +81,12 @@ try {
         $order_clause = "ORDER BY pi.item_id DESC";
     }
     
+    // 검색 조건 추가
+    $search_condition = '';
+    if (!empty($search_term)) {
+        $search_condition = " AND (pr.sku LIKE ? OR pr.name_ko LIKE ? OR pr.name_en LIKE ?)";
+    }
+    
     $sql = "
         SELECT 
             pr.id as product_id,
@@ -91,6 +113,7 @@ try {
         LEFT JOIN suppliers s ON p.supplier_id = s.id
         WHERE $where_condition 
         $deleted_condition
+        $search_condition
         $order_clause
     ";
     
@@ -100,10 +123,29 @@ try {
     }
     
     // 바인딩 파라미터 설정
+    $bind_params = [];
+    $bind_types = '';
+    
     if ($display_mode === 'recent') {
-        $stmt->bind_param("ss", $start_date, $end_date);
+        $bind_params[] = $start_date;
+        $bind_params[] = $end_date;
+        $bind_types .= 'ss';
     } else {
-        $stmt->bind_param("s", $selected_date);
+        $bind_params[] = $selected_date;
+        $bind_types .= 's';
+    }
+    
+    // 검색어가 있으면 검색 파라미터 추가
+    if (!empty($search_term)) {
+        $search_like = "%$search_term%";
+        $bind_params[] = $search_like;
+        $bind_params[] = $search_like;
+        $bind_params[] = $search_like;
+        $bind_types .= 'sss';
+    }
+    
+    if (!empty($bind_params)) {
+        $stmt->bind_param($bind_types, ...$bind_params);
     }
     if (!$stmt->execute()) {
         throw new Exception("Execute failed: " . $stmt->error);
@@ -143,57 +185,98 @@ $conn->close();
     <!-- 표시 모드 및 날짜 네비게이션 -->
     <div class="bg-white rounded shadow mb-3">
         <div class="px-3 py-2">
-            <!-- 표시 모드 선택 -->
-            <div class="flex items-center justify-center space-x-4 mb-3">
+            <!-- 표시 모드 및 매입이력 정보 한 줄 표시 -->
+            <div class="flex items-center justify-between">
+                <!-- 표시 모드 선택 -->
                 <div class="flex items-center space-x-2">
                     <span class="text-sm text-gray-600"><?php echo t('purchase_product.display_mode'); ?>:</span>
-                    <a href="?mode=recent" class="px-3 py-1 text-xs rounded-full <?php echo $display_mode === 'recent' ? 'bg-blue-100 text-blue-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
+                    <a href="?<?php echo build_url_params('recent', null, $search_term); ?>" class="px-3 py-1 text-xs rounded-full <?php echo $display_mode === 'recent' ? 'bg-blue-100 text-blue-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
                         <i class="fas fa-calendar-week mr-1"></i>
                         <?php echo t('purchase_product.recent_7_days'); ?>
                     </a>
-                    <a href="?mode=date&date=<?php echo $selected_date; ?>" class="px-3 py-1 text-xs rounded-full <?php echo $display_mode === 'date' ? 'bg-blue-100 text-blue-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
+                    <a href="?<?php echo build_url_params('date', $selected_date, $search_term); ?>" class="px-3 py-1 text-xs rounded-full <?php echo $display_mode === 'date' ? 'bg-blue-100 text-blue-800 font-medium' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>">
                         <i class="fas fa-calendar-day mr-1"></i>
                         <?php echo t('common.date'); ?>
                     </a>
                 </div>
-            </div>
-            
-            <!-- 날짜 정보 표시 -->
-            <?php if ($display_mode === 'recent'): ?>
-            <div class="text-center">
-                <div class="text-sm font-semibold text-gray-900">
-                    <i class="fas fa-calendar-week text-blue-600 mr-2"></i>
-                    <?php echo t('purchase_product.recent_purchase_history'); ?> (<?php echo date('Y.m.d', strtotime($start_date)); ?> ~ <?php echo date('Y.m.d', strtotime($end_date)); ?>)
-                </div>
-                <div class="text-xs text-gray-600 mt-1">
-                    <?php echo t('purchase_product.recent_7_days'); ?>
-                </div>
-            </div>
-            <?php else: ?>
-            <div class="flex items-center justify-center space-x-2">
-                <a href="?mode=date&date=<?php echo $prev_date; ?>" class="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50">
-                    <i class="fas fa-chevron-left mr-1"></i>
-                    <?php echo t('common.previous'); ?>
-                </a>
                 
+                <!-- 선택된 모드에 따른 정보 표시 -->
+                <?php if ($display_mode === 'recent'): ?>
+                <div class="text-sm text-gray-700">
+                    <i class="fas fa-calendar-week text-blue-600 mr-1"></i>
+                    <?php echo t('purchase_product.recent_purchase_history'); ?> 
+                    <span class="text-gray-500">(<?php echo date('Y.m.d', strtotime($start_date)); ?> ~ <?php echo date('Y.m.d', strtotime($end_date)); ?>)</span>
+                </div>
+                <?php else: ?>
                 <div class="flex items-center space-x-2">
+                    <a href="?<?php echo build_url_params('date', $prev_date, $search_term); ?>" class="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50">
+                        <i class="fas fa-chevron-left mr-1"></i>
+                        <?php echo t('common.previous'); ?>
+                    </a>
                     <input type="date" id="date-picker" value="<?php echo $selected_date; ?>" 
                            class="border border-gray-300 rounded px-2 py-1 text-xs"
-                           onchange="window.location.href='?mode=date&date=' + this.value;">
-                    <span class="text-sm font-semibold text-gray-900">
+                           onchange="window.location.href='?<?php echo build_url_params('date', '', $search_term); ?>'.replace('date=', 'date=' + this.value);">
+                    <span class="text-sm font-medium text-gray-900">
                         <?php echo date('Y년 m월 d일 (l)', strtotime($selected_date)); ?>
                     </span>
+                    <a href="?<?php echo build_url_params('date', $next_date, $search_term); ?>" class="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50">
+                        <?php echo t('common.next'); ?>
+                        <i class="fas fa-chevron-right ml-1"></i>
+                    </a>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- 검색 기능 -->
+    <div class="bg-white rounded shadow mb-3">
+        <div class="px-3 py-2">
+            <form action="purchase_product_management.php" method="get" class="flex items-center space-x-3">
+                <!-- 현재 모드와 날짜 유지를 위한 hidden 필드 -->
+                <input type="hidden" name="mode" value="<?php echo htmlspecialchars($display_mode); ?>">
+                <?php if ($display_mode === 'date'): ?>
+                <input type="hidden" name="date" value="<?php echo htmlspecialchars($selected_date); ?>">
+                <?php endif; ?>
+                
+                <!-- 검색 입력 필드 -->
+                <div class="flex-1 relative">
+                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                        <i class="fas fa-search text-gray-400 text-sm"></i>
+                    </div>
+                    <input type="search" 
+                           name="search" 
+                           placeholder="SKU, 상품명(한글/영문) 검색..."
+                           class="block w-full rounded-md border-gray-300 pl-10 pr-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500" 
+                           value="<?php echo htmlspecialchars($search_term); ?>">
                 </div>
                 
-                <a href="?mode=date&date=<?php echo $next_date; ?>" class="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50">
-                    <?php echo t('common.next'); ?>
-                    <i class="fas fa-chevron-right ml-1"></i>
+                <!-- 검색 버튼 -->
+                <button type="submit" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-search mr-1"></i>
+                    검색
+                </button>
+                
+                <!-- 초기화 버튼 -->
+                <?php if (!empty($search_term)): ?>
+                <a href="?<?php echo build_url_params($display_mode, $display_mode === 'date' ? $selected_date : null, ''); ?>" 
+                   class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-times mr-1"></i>
+                    초기화
                 </a>
+                <?php endif; ?>
+            </form>
+            
+            <!-- 검색 결과 정보 -->
+            <?php if (!empty($search_term)): ?>
+            <div class="mt-2 text-sm text-gray-600">
+                <i class="fas fa-info-circle mr-1"></i>
+                '<strong><?php echo htmlspecialchars($search_term); ?></strong>' 검색 결과: 
+                <span class="font-medium"><?php echo count($purchase_products); ?>개</span> 상품
             </div>
             <?php endif; ?>
         </div>
     </div>
-
 
     <!-- 상품 목록 테이블 -->
     <div class="bg-white shadow rounded-lg overflow-hidden">
