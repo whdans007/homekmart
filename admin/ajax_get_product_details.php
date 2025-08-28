@@ -47,7 +47,8 @@ try {
     $stmt = $pdo->prepare("
         SELECT 
             p.*, 
-            c.name as category_name, 
+            c.name as category_name,
+            c.name_en as category_name_en,
             b.name_ko as brand_name_ko,
             b.name_en as brand_name_en,
             u.full_name as last_modified_by

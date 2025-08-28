@@ -47,7 +47,6 @@ try {
     
     $has_id_auto = false;
     $has_name = false;
-    $has_name_ko = false;
     $has_name_en = false;
     $has_created_at = false;
     
@@ -56,7 +55,6 @@ try {
             $has_id_auto = true;
         }
         if ($column['Field'] == 'name') $has_name = true;
-        if ($column['Field'] == 'name_ko') $has_name_ko = true;
         if ($column['Field'] == 'name_en') $has_name_en = true;
         if ($column['Field'] == 'created_at') $has_created_at = true;
     }
@@ -66,8 +64,8 @@ try {
     $bind_types = "";
     $bind_values = [];
     
-    if ($has_name_ko && !empty($name_ko)) {
-        $where_conditions[] = "name_ko = ?";
+    if ($has_name && !empty($name_ko)) {
+        $where_conditions[] = "name = ?";
         $bind_types .= "s";
         $bind_values[] = &$name_ko;
     }
@@ -76,17 +74,11 @@ try {
         $bind_types .= "s";
         $bind_values[] = &$name_en;
     }
-    if ($has_name && !empty($name_ko)) {
-        $where_conditions[] = "name = ?";
-        $bind_types .= "s";
-        $bind_values[] = &$name_ko;
-    }
     
     if (!empty($where_conditions)) {
         $check_sql = "SELECT id, " . 
-                     ($has_name_ko ? "name_ko" : "") . 
-                     ($has_name_ko && $has_name_en ? ", name_en" : ($has_name_en ? "name_en" : "")) . 
-                     ($has_name && !$has_name_ko ? "name" : "") . 
+                     ($has_name ? "name" : "") . 
+                     ($has_name && $has_name_en ? ", name_en" : ($has_name_en ? "name_en" : "")) . 
                      " FROM categories WHERE " . implode(" OR ", $where_conditions);
         
         $check_stmt = $conn->prepare($check_sql);
@@ -110,8 +102,7 @@ try {
                 'message' => '이미 존재하는 카테고리입니다.',
                 'data' => [
                     'id' => $existing_category['id'],
-                    'name_ko' => isset($existing_category['name_ko']) ? $existing_category['name_ko'] : 
-                                (isset($existing_category['name']) ? $existing_category['name'] : null),
+                    'name_ko' => isset($existing_category['name']) ? $existing_category['name'] : null,
                     'name_en' => isset($existing_category['name_en']) ? $existing_category['name_en'] : null
                 ]
             ]);
@@ -129,36 +120,25 @@ try {
         $max_id_row = $max_id_result->fetch_assoc();
         $next_id = ($max_id_row['max_id'] ?? 0) + 1;
         
-        if ($has_name_ko && $has_name_en) {
+        if ($has_name && $has_name_en) {
             if ($has_created_at) {
-                $insert_sql = "INSERT INTO categories (id, name_ko, name_en, created_at) VALUES (?, ?, ?, NOW())";
+                $insert_sql = "INSERT INTO categories (id, name, name_en, created_at) VALUES (?, ?, ?, NOW())";
                 $insert_stmt = $conn->prepare($insert_sql);
                 $insert_stmt->bind_param("iss", $next_id, $name_ko, $name_en);
             } else {
-                $insert_sql = "INSERT INTO categories (id, name_ko, name_en) VALUES (?, ?, ?)";
+                $insert_sql = "INSERT INTO categories (id, name, name_en) VALUES (?, ?, ?)";
                 $insert_stmt = $conn->prepare($insert_sql);
                 $insert_stmt->bind_param("iss", $next_id, $name_ko, $name_en);
-            }
-        } else if ($has_name_ko) {
-            if ($has_created_at) {
-                $insert_sql = "INSERT INTO categories (id, name_ko, created_at) VALUES (?, ?, NOW())";
-                $insert_stmt = $conn->prepare($insert_sql);
-                $insert_stmt->bind_param("is", $next_id, $name_ko);
-            } else {
-                $insert_sql = "INSERT INTO categories (id, name_ko) VALUES (?, ?)";
-                $insert_stmt = $conn->prepare($insert_sql);
-                $insert_stmt->bind_param("is", $next_id, $name_ko);
             }
         } else if ($has_name) {
-            $name_value = !empty($name_ko) ? $name_ko : $name_en;
             if ($has_created_at) {
                 $insert_sql = "INSERT INTO categories (id, name, created_at) VALUES (?, ?, NOW())";
                 $insert_stmt = $conn->prepare($insert_sql);
-                $insert_stmt->bind_param("is", $next_id, $name_value);
+                $insert_stmt->bind_param("is", $next_id, $name_ko);
             } else {
                 $insert_sql = "INSERT INTO categories (id, name) VALUES (?, ?)";
                 $insert_stmt = $conn->prepare($insert_sql);
-                $insert_stmt->bind_param("is", $next_id, $name_value);
+                $insert_stmt->bind_param("is", $next_id, $name_ko);
             }
         } else {
             throw new Exception("categories 테이블에 name 관련 컬럼이 없습니다.");
@@ -167,31 +147,22 @@ try {
         $new_category_id = $next_id;
     } else {
         // AUTO_INCREMENT가 설정된 경우
-        if ($has_name_ko && $has_name_en) {
+        if ($has_name && $has_name_en) {
             if ($has_created_at) {
-                $insert_sql = "INSERT INTO categories (name_ko, name_en, created_at) VALUES (?, ?, NOW())";
+                $insert_sql = "INSERT INTO categories (name, name_en, created_at) VALUES (?, ?, NOW())";
             } else {
-                $insert_sql = "INSERT INTO categories (name_ko, name_en) VALUES (?, ?)";
+                $insert_sql = "INSERT INTO categories (name, name_en) VALUES (?, ?)";
             }
             $insert_stmt = $conn->prepare($insert_sql);
             $insert_stmt->bind_param("ss", $name_ko, $name_en);
-        } else if ($has_name_ko) {
-            if ($has_created_at) {
-                $insert_sql = "INSERT INTO categories (name_ko, created_at) VALUES (?, NOW())";
-            } else {
-                $insert_sql = "INSERT INTO categories (name_ko) VALUES (?)";
-            }
-            $insert_stmt = $conn->prepare($insert_sql);
-            $insert_stmt->bind_param("s", $name_ko);
         } else if ($has_name) {
-            $name_value = !empty($name_ko) ? $name_ko : $name_en;
             if ($has_created_at) {
                 $insert_sql = "INSERT INTO categories (name, created_at) VALUES (?, NOW())";
             } else {
                 $insert_sql = "INSERT INTO categories (name) VALUES (?)";
             }
             $insert_stmt = $conn->prepare($insert_sql);
-            $insert_stmt->bind_param("s", $name_value);
+            $insert_stmt->bind_param("s", $name_ko);
         } else {
             throw new Exception("categories 테이블에 name 관련 컬럼이 없습니다.");
         }
