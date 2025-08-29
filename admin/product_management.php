@@ -96,17 +96,6 @@ try {
 ?>
 
 <div class="w-full px-2 sm:px-3 md:px-4 py-8">
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900"><?php echo t('product.list'); ?></h1>
-            <?php if (!$error_message && isset($total_products)): ?>
-                <p class="text-sm text-gray-600 mt-1"><?php echo str_replace('{count}', number_format($total_products), t('product.total_products')); ?></p>
-            <?php endif; ?>
-        </div>
-        <a href="add_product.php" class="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-            <i class="fas fa-plus mr-2"></i> <?php echo t('product.add_new_product'); ?>
-        </a>
-    </div>
 
     <!-- Flash messages -->
     <?php if (isset($_SESSION['flash'])): ?>
@@ -116,13 +105,13 @@ try {
             $alert_class = $flash['type'] === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800';
             $icon_class = $flash['type'] === 'success' ? 'fa-check-circle text-green-400' : 'fa-exclamation-circle text-red-400';
             ?>
-            <div class="<?php echo $alert_class; ?> border rounded-md p-4">
-                <div class="flex">
-                    <div class="flex-shrink-0">
-                        <i class="fas <?php echo $icon_class; ?>"></i>
+            <div class="<?php echo $flash['type'] === 'success' ? 'alert-success' : 'alert-error'; ?>">
+                <div class="alert-content">
+                    <div class="alert-icon-wrapper">
+                        <i class="fas <?php echo $flash['type'] === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?> alert-icon"></i>
                     </div>
-                    <div class="ml-3">
-                        <p class="text-sm"><?php echo htmlspecialchars($flash['message']); ?></p>
+                    <div class="alert-message">
+                        <p class="alert-text"><?php echo htmlspecialchars($flash['message']); ?></p>
                     </div>
                 </div>
             </div>
@@ -153,63 +142,81 @@ try {
     </div>
 
     <?php if ($error_message): ?>
-        <div class="bg-red-50 border border-red-200 rounded-md p-4">
-            <p class="text-sm text-red-800"><?php echo htmlspecialchars($error_message); ?></p>
+        <div class="alert-error">
+            <div class="alert-content">
+                <div class="alert-icon-wrapper">
+                    <i class="fas fa-exclamation-circle alert-icon"></i>
+                </div>
+                <div class="alert-message">
+                    <p class="alert-text"><?php echo htmlspecialchars($error_message); ?></p>
+                </div>
+            </div>
         </div>
     <?php elseif (empty($products)): ?>
-        <div class="text-center py-12">
-            <i class="fas fa-box-open text-5xl text-gray-400"></i>
-            <h2 class="mt-4 text-lg font-medium text-gray-900"><?php echo t('product.no_products'); ?></h2>
-            <p class="mt-1 text-sm text-gray-500"><?php echo t('product.no_products_desc'); ?></p>
+        <div class="empty-state">
+            <i class="fas fa-box-open empty-state-icon"></i>
+            <h2 class="empty-state-title"><?php echo t('product.no_products'); ?></h2>
+            <p class="empty-state-description"><?php echo t('product.no_products_desc'); ?></p>
             <div class="mt-6">
-                <a href="add_product.php" class="inline-flex items-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                <a href="add_product.php" class="btn-primary">
                     <i class="fas fa-plus mr-2"></i> <?php echo t('product.add_new_product'); ?>
                 </a>
             </div>
         </div>
     <?php else: ?>
-        <div class="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-300">
+        <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
+            <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
+                <h3 class="text-lg leading-6 font-semibold text-gray-900">
+                    <?php echo t('product.list'); ?> 
+                    <?php if (!$error_message && isset($total_products)): ?>
+                        <span class="text-sm font-normal text-gray-500">(총 <?php echo number_format($total_products); ?>개)</span>
+                    <?php endif; ?>
+                </h3>
+                <a href="add_product.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+                    <i class="fas fa-plus mr-2"></i><?php echo t('product.add_new_product'); ?>
+                </a>
+            </div>
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
-                    <thead class="bg-gray-50">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">SKU</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('product.brand'); ?></th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('product.name_ko'); ?></th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('product.category'); ?></th>
-                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('product.pieces_per_box'); ?></th>
-                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('product.status'); ?></th>
-                            <th scope="col" class="relative px-6 py-3 border border-gray-300">
+                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">SKU</th>
+                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('product.brand'); ?></th>
+                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('product.name_ko'); ?></th>
+                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('product.category'); ?></th>
+                            <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('product.pieces_per_box'); ?></th>
+                            <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('product.status'); ?></th>
+                            <th scope="col" class="px-6 py-4 relative text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                 <span class="sr-only"><?php echo t('common.actions'); ?></span>
                             </th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="bg-white">
                         <?php foreach ($products as $product): ?>
-                            <tr class="hover:bg-gray-50 cursor-pointer product-row" data-product-id="<?php echo $product['id']; ?>">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500 border border-gray-300"><?php echo htmlspecialchars($product['sku']); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap border border-gray-300">
+                            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer product-row" data-product-id="<?php echo $product['id']; ?>">
+                                <td class="px-6 py-4 whitespace-nowrap font-mono text-gray-500"><?php echo htmlspecialchars($product['sku']); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($product['name_ko']); ?></div>
                                     <div class="text-xs text-gray-500"><?php echo htmlspecialchars($product['name_en']); ?></div>
                                     <?php if ($product['barcode']): ?>
                                         <div class="text-xs text-gray-400"><?php echo t('product.barcode'); ?>: <?php echo htmlspecialchars($product['barcode']); ?></div>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($product['brand_name'] ?? 'N/A'); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($product['category_name'] ?? 'N/A'); ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-center border border-gray-300">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($product['brand_name'] ?? 'N/A'); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($product['category_name'] ?? 'N/A'); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
                                     <span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
                                         <?php echo number_format($product['pieces_per_box'] ?? 1); ?><?php echo t('purchase.pieces'); ?>
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-center border border-gray-300">
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
                                     <?php if ($product['is_active']): ?>
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><?php echo t('product.active'); ?></span>
                                     <?php else: ?>
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800"><?php echo t('product.inactive'); ?></span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border border-gray-300">
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <a href="edit_product.php?id=<?php echo $product['id']; ?>" class="text-primary-600 hover:text-primary-900" onclick="event.stopPropagation();"><?php echo t('common.edit'); ?></a>
                                     <a href="delete_product.php?id=<?php echo $product['id']; ?>" class="text-red-600 hover:text-red-900 ml-4" onclick="event.stopPropagation(); return confirmDelete('<?php echo htmlspecialchars($product['name_ko'], ENT_QUOTES); ?>')"><?php echo t('common.delete'); ?></a>
                                 </td>
@@ -319,7 +326,7 @@ try {
         <!-- Modal Header -->
         <div class="flex justify-between items-center p-4 border-b rounded-t-lg">
             <div>
-                <h3 class="text-xl font-semibold text-gray-800" id="modal-product-name"><?php echo t('product.details'); ?></h3>
+                <h3 class="modal-title" id="modal-product-name"><?php echo t('product.details'); ?></h3>
                 <div class="flex items-center space-x-1 text-sm text-blue-600 mt-1">
                     <i class="fas fa-store"></i>
                     <span><?php echo str_replace('{store}', htmlspecialchars($current_store_name), t('product.store_based')); ?></span>

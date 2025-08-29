@@ -70,13 +70,13 @@ try {
 ?>
 
 <!-- Page header -->
-<div class="mb-8 sm:flex sm:items-center sm:justify-between">
-    <div>
-        <h1 class="text-3xl font-bold text-gray-900"><?php echo t('user.list'); ?></h1>
-        <p class="mt-2 text-sm text-gray-700"><?php echo t('user.management_desc'); ?></p>
+<div class="page-header">
+    <div class="page-header-content">
+        <h1 class="page-title"><?php echo t('user.list'); ?></h1>
+        <p class="sub-title"><?php echo t('user.management_desc'); ?></p>
     </div>
-    <div class="mt-4 sm:mt-0">
-        <a href="add_user.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+    <div class="page-header-actions">
+        <a href="add_user.php" class="btn-primary">
             <i class="fas fa-user-plus mr-2"></i>
             <?php echo t('user.add'); ?>
         </a>
@@ -84,37 +84,37 @@ try {
 </div>
 
 <?php if ($flash): ?>
-    <div class="mb-6 <?php echo $flash['type'] === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'; ?> rounded-md p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas <?php echo $flash['type'] === 'success' ? 'fa-check-circle text-green-400' : 'fa-exclamation-circle text-red-400'; ?>"></i>
+    <div class="<?php echo $flash['type'] === 'success' ? 'alert-success' : 'alert-error'; ?>">
+        <div class="alert-content">
+            <div class="alert-icon-wrapper">
+                <i class="fas <?php echo $flash['type'] === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?> alert-icon"></i>
             </div>
-            <div class="ml-3">
-                <p class="text-sm <?php echo $flash['type'] === 'success' ? 'text-green-800' : 'text-red-800'; ?>"><?php echo htmlspecialchars($flash['message']); ?></p>
+            <div class="alert-message">
+                <p class="alert-text"><?php echo htmlspecialchars($flash['message']); ?></p>
             </div>
         </div>
     </div>
 <?php endif; ?>
 
 <?php if ($error_message): ?>
-    <div class="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-exclamation-circle text-red-400"></i>
+    <div class="alert-error">
+        <div class="alert-content">
+            <div class="alert-icon-wrapper">
+                <i class="fas fa-exclamation-circle alert-icon"></i>
             </div>
-            <div class="ml-3">
-                <p class="text-sm text-red-800"><?php echo htmlspecialchars($error_message); ?></p>
+            <div class="alert-message">
+                <p class="alert-text"><?php echo htmlspecialchars($error_message); ?></p>
             </div>
         </div>
     </div>
 <?php else: ?>
     <!-- Users Table -->
-    <div class="bg-white shadow overflow-hidden sm:rounded-md border border-gray-300">
+    <div class="table-container">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
-                <thead class="bg-gray-50">
+            <table class="table-standard">
+                <thead class="table-header">
                     <tr>
-                        <th scope="col" class="w-32 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('auth.username'); ?></th>
+                        <th scope="col" class="w-32"><?php echo t('auth.username'); ?></th>
                         <th scope="col" class="w-32 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.full_name'); ?></th>
                         <th scope="col" class="w-48 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('auth.email'); ?></th>
                         <th scope="col" class="w-28 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.phone'); ?></th>
@@ -129,7 +129,7 @@ try {
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="table-body">
                     <?php foreach ($users as $user): ?>
                         <tr class="hover:bg-gray-50">
                             <td class="px-3 py-4 text-sm text-gray-900 border border-gray-300 break-words font-medium"><?php echo htmlspecialchars($user['username']); ?></td>

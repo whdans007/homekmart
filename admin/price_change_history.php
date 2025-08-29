@@ -83,22 +83,7 @@ try {
 }
 ?>
 
-<div class="w-full px-4 sm:px-6 lg:px-8 py-8">
-    <div class="mb-6">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900"><?php echo t('price_change.history'); ?></h1>
-            <p class="text-sm text-gray-600 mt-1"><?php echo str_replace('{store}', htmlspecialchars($current_store_name), t('price_change.store_info')); ?></p>
-            <?php if (!$error_message && isset($total_records)): ?>
-                <p class="text-sm text-gray-600">
-                    <?php echo format_date($selected_date, 'long'); ?> - 
-                    <?php echo str_replace('{count}', number_format($total_records), t('price_change.total_records')); ?>
-                </p>
-            <?php endif; ?>
-            <p class="text-sm text-gray-500 mt-1" id="selectedCount" style="display:none;">
-                <?php echo t('price_change.selected_items'); ?>: <span class="font-semibold">0</span><?php echo t('common.items'); ?>
-            </p>
-        </div>
-    </div>
+<div class="w-full px-2 sm:px-3 md:px-4 py-8">
 
     <!-- Flash messages -->
     <?php if (isset($_SESSION['flash'])): ?>
@@ -171,20 +156,6 @@ try {
                 <?php endif; ?>
             </div>
             
-            <div class="flex items-center space-x-2">
-                <button id="printPriceCardsBtn" onclick="openPriceCardModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                    <i class="fas fa-tags mr-2"></i>
-                    <?php echo t('price_change.print_price_cards'); ?>
-                </button>
-                <button id="printSelectedBtn" onclick="openSelectedPrintModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                    <i class="fas fa-print mr-2"></i>
-                    <?php echo t('price_change.print_selected'); ?>
-                </button>
-                <button onclick="openPrintModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-                    <i class="fas fa-print mr-2"></i>
-                    <?php echo t('common.print_preview'); ?>
-                </button>
-            </div>
         </div>
     </div>
 
@@ -199,41 +170,66 @@ try {
             <p class="mt-1 text-sm text-gray-500"><?php echo t('price_change.no_history_desc'); ?></p>
         </div>
     <?php else: ?>
-        <div class="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-300">
+        <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
+            <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
+                <h3 class="text-lg leading-6 font-semibold text-gray-900">
+                    <?php echo t('price_change.history'); ?>
+                    <?php if (!$error_message && isset($total_records)): ?>
+                        <span class="text-sm font-normal text-gray-500 ml-2">(총 <?php echo number_format($total_records); ?>건)</span>
+                    <?php endif; ?>
+                </h3>
+                <div class="flex items-center space-x-2">
+                    <p class="text-sm text-gray-500" id="selectedCount" style="display:none;">
+                        <?php echo t('price_change.selected_items'); ?>: <span class="font-semibold">0</span><?php echo t('common.items'); ?>
+                    </p>
+                    <button id="printPriceCardsBtn" onclick="openPriceCardModal()" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        <i class="fas fa-tags mr-2"></i>
+                        <?php echo t('price_change.print_price_cards'); ?>
+                    </button>
+                    <button id="printSelectedBtn" onclick="openSelectedPrintModal()" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        <i class="fas fa-print mr-2"></i>
+                        <?php echo t('price_change.print_selected'); ?>
+                    </button>
+                    <button onclick="openPrintModal()" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                        <i class="fas fa-print mr-2"></i>
+                        <?php echo t('common.print_preview'); ?>
+                    </button>
+                </div>
+            </div>
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
-                    <thead class="bg-gray-50">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="px-3 py-3 text-center border border-gray-300" style="width: 40px;">
+                            <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider" style="width: 40px;">
                                 <input type="checkbox" id="selectAll" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                             </th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">SKU</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.barcode'); ?></th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.product_name'); ?></th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.old_cost_price'); ?></th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.new_cost_price'); ?></th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.old_selling_price'); ?></th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.new_selling_price'); ?></th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('price_change.changed_by'); ?></th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">SKU</th>
+                            <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.barcode'); ?></th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.product_name'); ?></th>
+                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.old_cost_price'); ?></th>
+                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.new_cost_price'); ?></th>
+                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.old_selling_price'); ?></th>
+                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.new_selling_price'); ?></th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.changed_by'); ?></th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="bg-white">
                         <?php foreach ($price_changes as $change): ?>
-                            <tr class="hover:bg-gray-50 cursor-pointer" onclick="toggleRowSelection(this, event)" data-id="<?php echo $change['id']; ?>">
-                                <td class="px-3 py-3 text-center border border-gray-300" onclick="event.stopPropagation();">
+                            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="toggleRowSelection(this, event)" data-id="<?php echo $change['id']; ?>">
+                                <td class="px-6 py-4 text-center" onclick="event.stopPropagation();">
                                     <input type="checkbox" class="row-checkbox rounded border-gray-300 text-primary-600 focus:ring-primary-500" data-id="<?php echo $change['id']; ?>">
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                     <?php echo htmlspecialchars($change['sku'] ?? 'N/A'); ?>
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-center border border-gray-300">
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
                                     <?php if (!empty($change['sku'])): ?>
                                         <svg class="barcode inline-block" data-sku="<?php echo htmlspecialchars($change['sku']); ?>"></svg>
                                     <?php else: ?>
                                         <span class="text-gray-400 text-xs">-</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap border border-gray-300">
+                                <td class="px-6 py-4 whitespace-nowrap">
                                     <?php if (!empty($change['product_name_en'])): ?>
                                         <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($change['product_name_en']); ?></div>
                                         <div class="text-xs text-gray-500"><?php echo htmlspecialchars($change['product_name_ko'] ?? 'N/A'); ?></div>
@@ -241,35 +237,35 @@ try {
                                         <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($change['product_name_ko'] ?? 'N/A'); ?></div>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-right border border-gray-300">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                                     <?php if ($change['old_cost_price']): ?>
                                         <span class="text-gray-900"><?php echo number_format($change['old_cost_price']); ?></span>
                                     <?php else: ?>
                                         <span class="text-gray-400">-</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-right border border-gray-300">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                                     <?php if ($change['new_cost_price']): ?>
                                         <span class="text-green-600 font-semibold"><?php echo number_format($change['new_cost_price']); ?></span>
                                     <?php else: ?>
                                         <span class="text-gray-400">-</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-right border border-gray-300">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                                     <?php if ($change['old_selling_price']): ?>
                                         <span class="text-gray-900"><?php echo number_format($change['old_selling_price']); ?></span>
                                     <?php else: ?>
                                         <span class="text-gray-400">-</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-right border border-gray-300">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
                                     <?php if ($change['new_selling_price']): ?>
                                         <span class="text-blue-600 font-semibold"><?php echo number_format($change['new_selling_price']); ?></span>
                                     <?php else: ?>
                                         <span class="text-gray-400">-</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap border border-gray-300">
+                                <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($change['changed_by'] ?? 'N/A'); ?></div>
                                     <div class="text-xs text-gray-500"><?php echo date('Y-m-d H:i', strtotime($change['changed_at'])); ?></div>
                                 </td>

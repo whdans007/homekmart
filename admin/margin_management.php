@@ -78,7 +78,7 @@ try {
 
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold text-gray-900">마진 규칙 관리</h1>
+        <h1 class="page-title">마진 규칙 관리</h1>
     </div>
 
     <?php if ($success_message): ?>

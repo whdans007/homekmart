@@ -39,13 +39,13 @@ try {
 ?>
 
 <!-- Page header -->
-<div class="mb-8 sm:flex sm:items-center sm:justify-between">
-    <div>
-        <h1 class="text-3xl font-bold text-gray-900"><?php echo t('store.list'); ?></h1>
-        <p class="mt-2 text-sm text-gray-700"><?php echo t('store.management_desc'); ?></p>
+<div class="page-header">
+    <div class="page-header-content">
+        <h1 class="page-title"><?php echo t('store.list'); ?></h1>
+        <p class="sub-title"><?php echo t('store.management_desc'); ?></p>
     </div>
-    <div class="mt-4 sm:mt-0">
-        <a href="add_store.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+    <div class="page-header-actions">
+        <a href="add_store.php" class="btn-primary">
             <i class="fas fa-plus mr-2"></i>
             <?php echo t('store.add'); ?>
         </a>

@@ -44,19 +44,7 @@ try {
 }
 ?>
 
-<!-- Page header -->
-<div class="mb-8 sm:flex sm:items-center sm:justify-between">
-    <div>
-        <h1 class="text-3xl font-bold text-gray-900"><?php echo t('supplier.list'); ?></h1>
-        <p class="mt-2 text-sm text-gray-700"><?php echo t('supplier.management_desc'); ?></p>
-    </div>
-    <div class="mt-4 sm:mt-0">
-        <a href="add_supplier.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
-            <i class="fas fa-plus mr-2"></i>
-            <?php echo t('supplier.add'); ?>
-        </a>
-    </div>
-</div>
+<div class="w-full px-2 sm:px-3 md:px-4 py-8">
 
 <?php if ($flash): ?>
     <div class="mb-6 <?php echo $flash['type'] === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'; ?> rounded-md p-4">
@@ -84,30 +72,39 @@ try {
     </div>
 <?php else: ?>
     <!-- Suppliers Table -->
-    <div class="bg-white shadow overflow-hidden sm:rounded-md border border-gray-300">
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
+        <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
+            <h3 class="text-lg leading-6 font-semibold text-gray-900">
+                <?php echo t('supplier.list'); ?> 
+                <span class="text-sm font-normal text-gray-500">(총 <?php echo count($suppliers); ?>개)</span>
+            </h3>
+            <a href="add_supplier.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+                <i class="fas fa-plus mr-2"></i><?php echo t('supplier.add'); ?>
+            </a>
+        </div>
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
-                <thead class="bg-gray-50">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">ID</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('supplier.name'); ?></th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('supplier.phone'); ?></th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('supplier.memo'); ?></th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('supplier.created_at'); ?></th>
-                        <th scope="col" class="relative px-6 py-3 border border-gray-300">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ID</th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('supplier.name'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('supplier.phone'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('supplier.memo'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('supplier.created_at'); ?></th>
+                        <th scope="col" class="relative px-6 py-4">
                             <span class="sr-only"><?php echo t('common.actions'); ?></span>
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white">
                     <?php foreach ($suppliers as $supplier): ?>
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($supplier['id']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($supplier['name']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo htmlspecialchars($supplier['phone'] ?? '-'); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo nl2br(htmlspecialchars($supplier['memo'] ?? '-')); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo date('Y-m-d', strtotime($supplier['created_at'])); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border border-gray-300">
+                        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($supplier['id']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($supplier['name']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($supplier['phone'] ?? '-'); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo nl2br(htmlspecialchars($supplier['memo'] ?? '-')); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo date('Y-m-d', strtotime($supplier['created_at'])); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="flex space-x-2">
                                     <a href="edit_supplier.php?id=<?php echo $supplier['id']; ?>" 
                                        class="text-primary-600 hover:text-primary-900 transition-colors duration-200">
@@ -124,7 +121,7 @@ try {
                     <?php endforeach; ?>
                     <?php if (empty($suppliers)): ?>
                         <tr>
-                            <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
+                            <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-truck text-4xl text-gray-300 mb-4"></i>
                                     <p><?php echo t('supplier.no_suppliers'); ?></p>
