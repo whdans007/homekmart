@@ -360,21 +360,21 @@ try {
                 }
                 
                 #priceCardContent .product-name-en-line1 {
-                    font-size: 9pt;
+                    font-size: 11pt;
                     font-weight: bold;
                     line-height: 1.0;
                     margin-bottom: 0.2mm;
                 }
                 
                 #priceCardContent .product-name-en-line2 {
-                    font-size: 9pt;
+                    font-size: 11pt;
                     font-weight: bold;
                     line-height: 1.0;
                     margin-bottom: 0.2mm;
                 }
                 
                 #priceCardContent .product-name-ko {
-                    font-size: 8pt;
+                    font-size: 10pt;
                     font-weight: normal;
                     line-height: 1.0;
                 }
@@ -1069,21 +1069,21 @@ function printPriceCards() {
                 }
                 
                 .product-name-en-line1 {
-                    font-size: 9pt;
+                    font-size: 11pt;
                     font-weight: bold;
                     line-height: 1.0;
                     margin-bottom: 0.2mm;
                 }
                 
                 .product-name-en-line2 {
-                    font-size: 9pt;
+                    font-size: 11pt;
                     font-weight: bold;
                     line-height: 1.0;
                     margin-bottom: 0.2mm;
                 }
                 
                 .product-name-ko {
-                    font-size: 8pt;
+                    font-size: 10pt;
                     font-weight: bold;
                     line-height: 1.0;
                 }
