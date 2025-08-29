@@ -350,20 +350,7 @@ th[data-column="actions"] { min-width: 150px !important; }
 }
 </style>
 
-<div id="purchaseManagementContainer" class="w-full" style="width: calc(100vw - 320px); max-width: none !important; padding: 1rem; margin: 0;">
-    <div class="w-full flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold text-gray-900"><?php echo t('purchase.list'); ?></h1>
-        <div class="flex space-x-3">
-            <?php if (!$has_deleted_at): ?>
-            <a href="setup_soft_delete_purchases.php" class="inline-flex items-center justify-center rounded-md border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700 shadow-sm hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2">
-                <i class="fas fa-database mr-2"></i> <?php echo t('purchase.soft_delete_setup'); ?>
-            </a>
-            <?php endif; ?>
-            <a href="add_purchase.php" class="inline-flex items-center justify-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                <i class="fas fa-plus mr-2"></i> <?php echo t('purchase.new_purchase'); ?>
-            </a>
-        </div>
-    </div>
+<div class="w-full px-2 sm:px-3 md:px-4 py-8">
 
 
     <!-- 컬럼 토글 컨트롤 (데스크톱만) -->
@@ -439,36 +426,54 @@ th[data-column="actions"] { min-width: 150px !important; }
 
     <!-- 데스크톱 테이블 뷰 -->
     <!-- 디버그: 데이터 <?php echo $data_count; ?>개 -->
-    <div class="w-full bg-white shadow-lg rounded-lg overflow-hidden border border-gray-300">
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
+        <!-- 테이블 헤더 -->
+        <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
+            <h3 class="text-lg leading-6 font-semibold text-gray-900">
+                <?php echo t('purchase.list'); ?>
+            </h3>
+            <div class="flex space-x-3">
+                <?php if (!$has_deleted_at): ?>
+                <a href="setup_soft_delete_purchases.php" class="inline-flex items-center px-4 py-2 border border-yellow-300 rounded-md shadow-sm text-sm font-medium text-yellow-700 bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                    <i class="fas fa-database mr-2"></i>
+                    <?php echo t('purchase.soft_delete_setup'); ?>
+                </a>
+                <?php endif; ?>
+                <a href="add_purchase.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-plus mr-2"></i>
+                    <?php echo t('purchase.new_purchase'); ?>
+                </a>
+            </div>
+        </div>
         <div class="responsive-table w-full">
-            <table class="w-full divide-y divide-gray-200 border-collapse border border-gray-300 table-compact" id="purchaseTable">
-                <thead class="bg-gray-50">
+            <table class="min-w-full table-compact" id="purchaseTable">
+                <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-high" data-column="number"><?php echo t('purchase.number'); ?></th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-high" data-column="datetime"><?php echo t('purchase.date_time'); ?></th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-high mobile-hidden" data-column="supplier"><?php echo t('purchase.supplier'); ?></th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-medium tablet-hidden" data-column="total_items"><?php echo t('purchase.total_items'); ?></th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-medium tablet-hidden" data-column="total_pieces"><?php echo t('purchase.total_pieces'); ?></th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-high" data-column="amount"><?php echo t('purchase.purchase_amount'); ?></th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 priority-high" data-column="actions"><?php echo t('common.actions'); ?></th>
+                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high" data-column="number"><?php echo t('purchase.number'); ?></th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high" data-column="datetime"><?php echo t('purchase.date_time'); ?></th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high mobile-hidden" data-column="supplier"><?php echo t('purchase.supplier'); ?></th>
+                        <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-medium tablet-hidden" data-column="total_items"><?php echo t('purchase.total_items'); ?></th>
+                        <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-medium tablet-hidden" data-column="total_pieces"><?php echo t('purchase.total_pieces'); ?></th>
+                        <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high" data-column="amount"><?php echo t('purchase.purchase_amount'); ?></th>
+                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high" data-column="actions"><?php echo t('common.actions'); ?></th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white">
                     <?php if ($result && $result->num_rows > 0): ?>
                         <?php $result->data_seek(0); // 결과 포인터 리셋 ?>
                         <?php $row_number = 1; ?>
                         <?php while($row = $result->fetch_assoc()): ?>
-                            <tr class="hover:bg-gray-50 clickable-row" data-purchase-id="<?php echo $row['purchase_id']; ?>">
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center border border-gray-300 priority-high" data-column="number"><?php echo $row_number++; ?></td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-300 priority-high" data-column="datetime"><?php echo htmlspecialchars($row['purchase_datetime']); ?></td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-300 priority-high mobile-hidden" data-column="supplier"><?php echo htmlspecialchars($row['supplier_name']); ?></td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300 priority-medium tablet-hidden" data-column="total_items"><?php echo htmlspecialchars($row['total_items']); ?></td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300 priority-medium tablet-hidden" data-column="total_pieces">
+                            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 clickable-row" data-purchase-id="<?php echo $row['purchase_id']; ?>">
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center border border-gray-100 priority-high" data-column="number"><?php echo $row_number++; ?></td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-100 priority-high" data-column="datetime"><?php echo htmlspecialchars($row['purchase_datetime']); ?></td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-100 priority-high mobile-hidden" data-column="supplier"><?php echo htmlspecialchars($row['supplier_name']); ?></td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-100 priority-medium tablet-hidden" data-column="total_items"><?php echo htmlspecialchars($row['total_items']); ?></td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-100 priority-medium tablet-hidden" data-column="total_pieces">
                                     <span class="font-medium"><?php echo number_format($row['total_pieces'] ?? 0); ?></span>
                                     <span class="text-xs text-gray-400 ml-1"><?php echo t('purchase.pieces'); ?></span>
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-300 priority-high" data-column="amount"><?php echo number_format($row['total_amount'], 2); ?></td>
-                                <td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium border border-gray-300 priority-high" data-column="actions">
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-100 priority-high" data-column="amount"><?php echo number_format($row['total_amount'], 2); ?></td>
+                                <td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium border border-gray-100 priority-high" data-column="actions">
                                     <a href="purchase_price_change.php?purchase_id=<?php echo $row['purchase_id']; ?>" 
                                        class="inline-flex items-center px-3 py-1 text-xs font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                                         <i class="fas fa-edit mr-1"></i>
@@ -479,7 +484,7 @@ th[data-column="actions"] { min-width: 150px !important; }
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
+                            <td colspan="7" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-100">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-dolly-flatbed text-4xl text-gray-400"></i>
                                     <p class="mt-4"><?php echo t('purchase.no_purchases'); ?></p>
@@ -494,7 +499,7 @@ th[data-column="actions"] { min-width: 150px !important; }
         
         <!-- 페이지네이션 -->
         <?php if ($total_pages > 1): ?>
-        <div class="pagination-container w-full">
+        <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between w-full">
             <div class="w-full flex items-center justify-between">
                 <div class="text-sm text-gray-700">
                     <?php 
@@ -513,7 +518,7 @@ th[data-column="actions"] { min-width: 150px !important; }
                     <!-- 이전 페이지 -->
                     <?php if ($current_page > 1): ?>
                         <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $current_page - 1])); ?>" 
-                           class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                           class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <i class="fas fa-chevron-left mr-1"></i>
                             <?php echo t('common.previous'); ?>
                         </a>
@@ -527,7 +532,7 @@ th[data-column="actions"] { min-width: 150px !important; }
                     // 첫 페이지
                     if ($start_page > 1): ?>
                         <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => 1])); ?>" 
-                           class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">1</a>
+                           class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-md hover:bg-gray-50">1</a>
                         <?php if ($start_page > 2): ?>
                             <span class="px-2 py-2 text-sm text-gray-500">...</span>
                         <?php endif; ?>
@@ -541,7 +546,7 @@ th[data-column="actions"] { min-width: 150px !important; }
                             </span>
                         <?php else: ?>
                             <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>" 
-                               class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                               class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-md hover:bg-gray-50">
                                 <?php echo $i; ?>
                             </a>
                         <?php endif; ?>
@@ -553,13 +558,13 @@ th[data-column="actions"] { min-width: 150px !important; }
                             <span class="px-2 py-2 text-sm text-gray-500">...</span>
                         <?php endif; ?>
                         <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $total_pages])); ?>" 
-                           class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"><?php echo $total_pages; ?></a>
+                           class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-md hover:bg-gray-50"><?php echo $total_pages; ?></a>
                     <?php endif; ?>
                     
                     <!-- 다음 페이지 -->
                     <?php if ($current_page < $total_pages): ?>
                         <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $current_page + 1])); ?>" 
-                           class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                           class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500">
                             <?php echo t('common.next'); ?>
                             <i class="fas fa-chevron-right ml-1"></i>
                         </a>

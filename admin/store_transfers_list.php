@@ -80,20 +80,6 @@ if (isset($_SESSION['flash'])) {
 
 <div class="w-full px-2 sm:px-3 md:px-4 py-8">
     <div class="w-full mx-auto">
-        <!-- 페이지 헤더 -->
-        <div class="mb-8 sm:flex sm:items-center sm:justify-between">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-900"><?php echo t('store_transfer.list'); ?></h1>
-                <p class="mt-2 text-sm text-gray-700"><?php echo t('store_transfer.list_description'); ?></p>
-            </div>
-            <div class="mt-4 sm:mt-0">
-                <a href="store_transfers.php" 
-                   class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
-                    <i class="fas fa-plus mr-2"></i>
-                    <?php echo t('store_transfer.register'); ?>
-                </a>
-            </div>
-        </div>
 
         <?php if (isset($flash)): ?>
             <div class="mb-6 p-4 rounded-md <?php echo $flash['type'] === 'error' ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'; ?>">
@@ -125,12 +111,17 @@ if (isset($_SESSION['flash'])) {
 
 
         <!-- 이동 목록 테이블 -->
-        <div class="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">
+        <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
+            <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
+                <h3 class="text-lg leading-6 font-semibold text-gray-900">
                     <?php echo t('store_transfer.history'); ?> 
                     <span class="text-sm font-normal text-gray-500">(총 <?php echo count($transfers); ?>건)</span>
                 </h3>
+                <a href="store_transfers.php" 
+                   class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+                    <i class="fas fa-plus mr-2"></i>
+                    <?php echo t('store_transfer.register'); ?>
+                </a>
             </div>
             
             <?php if (empty($transfers)): ?>
@@ -147,38 +138,38 @@ if (isset($_SESSION['flash'])) {
             <?php else: ?>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
+                        <thead class="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo t('store_transfer.number'); ?>
                                 </th>
-                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo t('store_transfer.transfer_date'); ?>
                                 </th>
-                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo t('store_transfer.route'); ?>
                                 </th>
-                                <th scope="col" class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo t('store_transfer.product_count'); ?>
                                 </th>
-                                <th scope="col" class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo t('store_transfer.total_amount'); ?>
                                 </th>
-                                <th scope="col" class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo t('store_transfer.status'); ?>
                                 </th>
-                                <th scope="col" class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo t('store_transfer.handler'); ?>
                                 </th>
-                                <th scope="col" class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo t('store_transfer.action'); ?>
                                 </th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <?php foreach ($transfers as $transfer): ?>
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-3 py-4 whitespace-nowrap">
+                                <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="window.location.href='store_transfer_preview.php?id=<?php echo $transfer['id']; ?>'">
+                                    <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm font-medium text-gray-900">
                                             #<?php echo str_pad($transfer['id'], 6, '0', STR_PAD_LEFT); ?>
                                         </div>
@@ -186,23 +177,23 @@ if (isset($_SESSION['flash'])) {
                                             <?php echo date('m-d H:i', strtotime($transfer['created_at'])); ?>
                                         </div>
                                     </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         <?php echo date('Y-m-d', strtotime($transfer['transfer_date'])); ?>
                                     </td>
-                                    <td class="px-3 py-4">
+                                    <td class="px-6 py-4">
                                         <div class="text-sm text-gray-900">
                                             <span class="font-medium text-red-600"><?php echo htmlspecialchars($transfer['from_store_name']); ?></span>
                                             <i class="fas fa-arrow-right mx-2 text-gray-400"></i>
                                             <span class="font-medium text-blue-600"><?php echo htmlspecialchars($transfer['to_store_name']); ?></span>
                                         </div>
                                     </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
                                         <?php echo $transfer['item_count']; ?>개
                                     </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
                                         <?php echo number_format($transfer['total_amount'], 2); ?>
                                     </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-center">
+                                    <td class="px-6 py-4 whitespace-nowrap text-center">
                                         <?php 
                                         $status_classes = [
                                             'draft' => 'bg-yellow-100 text-yellow-800',
@@ -221,17 +212,14 @@ if (isset($_SESSION['flash'])) {
                                             <?php echo $status_name; ?>
                                         </span>
                                     </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         <?php echo htmlspecialchars($transfer['user_name'] ?? t('store_transfer.unknown')); ?>
                                     </td>
-                                    <td class="px-3 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                         <div class="flex justify-center space-x-1">
-                                            <a href="store_transfer_preview.php?id=<?php echo $transfer['id']; ?>" 
-                                               class="text-blue-600 hover:text-blue-900" title="<?php echo t('store_transfer.view_tooltip'); ?>">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
                                             <a href="store_transfers.php?edit=<?php echo $transfer['id']; ?>" 
-                                               class="text-green-600 hover:text-green-900" title="<?php echo t('store_transfer.edit_tooltip'); ?>">
+                                               class="text-green-600 hover:text-green-900" title="<?php echo t('store_transfer.edit_tooltip'); ?>"
+                                               onclick="event.stopPropagation();">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                         </div>

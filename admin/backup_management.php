@@ -80,7 +80,7 @@ function formatFileSize($size) {
     <div class="max-w-7xl mx-auto">
         <!-- 헤더 -->
         <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900"><?php echo t('backup.management_title'); ?></h1>
+            <h1 class="page-title"><?php echo t('backup.management_title'); ?></h1>
             <p class="mt-2 text-gray-600"><?php echo t('backup.management_description'); ?></p>
         </div>
 

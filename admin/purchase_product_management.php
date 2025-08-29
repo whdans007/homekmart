@@ -174,13 +174,7 @@ try {
 $conn->close();
 ?>
 
-<div class="w-full px-2 py-4">
-    <div class="flex justify-between items-center mb-3">
-        <div>
-            <h1 class="text-lg font-bold text-gray-900"><?php echo t('purchase_product.management'); ?></h1>
-            <p class="text-xs text-gray-600"><?php echo t('purchase_product.description'); ?></p>
-        </div>
-    </div>
+<div class="w-full px-2 sm:px-3 md:px-4 py-8">
 
     <!-- 표시 모드 및 날짜 네비게이션 -->
     <div class="bg-white rounded shadow mb-3">
@@ -279,11 +273,11 @@ $conn->close();
     </div>
 
     <!-- 상품 목록 테이블 -->
-    <div class="bg-white shadow rounded-lg overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg leading-6 font-medium text-gray-900">
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
+        <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
+            <h3 class="text-lg leading-6 font-semibold text-gray-900">
                 <?php echo t('purchase_product.product_list'); ?>
-                <span class="text-sm text-gray-500 ml-2">(<?php echo count($purchase_products); ?><?php echo t('common.items'); ?>)</span>
+                <span class="text-sm font-normal text-gray-500 ml-2">(<?php echo count($purchase_products); ?><?php echo t('common.items'); ?>)</span>
             </h3>
         </div>
         
@@ -294,59 +288,59 @@ $conn->close();
         </div>
         <?php else: ?>
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 text-xs">
-                <thead class="bg-gray-50">
+            <table class="min-w-full text-xs">
+                <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
                         <?php if ($display_mode === 'recent'): ?>
-                        <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('purchase.purchase_date'); ?>
                         </th>
-                        <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             거래처
                         </th>
                         <?php endif; ?>
-                        <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('product.sku'); ?>
                         </th>
-                        <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('product.brand'); ?>
                         </th>
-                        <th scope="col" class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('product.name'); ?>
                         </th>
-                        <th scope="col" class="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase">
+                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('purchase.quantity'); ?>
                         </th>
-                        <th scope="col" class="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase">
+                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('purchase.unit_price'); ?>
                         </th>
-                        <th scope="col" class="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase">
+                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('purchase_product.piece_price'); ?>
                         </th>
-                        <th scope="col" class="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase">
+                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('purchase_product.stock_quantity'); ?>
                         </th>
-                        <th scope="col" class="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase">
+                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('purchase.total_amount'); ?>
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white">
                     <?php foreach ($purchase_products as $product): ?>
-                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="showProductDetails(<?php echo $product['product_id']; ?>)">
+                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="showProductDetails(<?php echo $product['product_id']; ?>)">
                         <?php if ($display_mode === 'recent'): ?>
-                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div class="text-gray-800"><?php echo date('m.d', strtotime($product['purchase_date'])); ?></div>
                             <div class="text-gray-500 text-xs"><?php echo date('D', strtotime($product['purchase_date'])); ?></div>
                         </td>
-                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <?php echo htmlspecialchars($product['supplier_name'] ?? '-'); ?>
                         </td>
                         <?php endif; ?>
-                        <td class="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             <?php echo htmlspecialchars($product['sku']); ?>
                         </td>
-                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <?php if (!empty($product['brand_name_en']) || !empty($product['brand_name_ko'])): ?>
                                 <span class="font-medium">
                                     <?php echo htmlspecialchars($product['brand_name_en'] ?? ''); ?><?php if (!empty($product['brand_name_en']) && !empty($product['brand_name_ko'])): ?>/<?php endif; ?><?php echo htmlspecialchars($product['brand_name_ko'] ?? ''); ?>
@@ -355,20 +349,20 @@ $conn->close();
                                 <span class="text-gray-400">-</span>
                             <?php endif; ?>
                         </td>
-                        <td class="px-2 py-1 text-xs text-gray-900">
+                        <td class="px-6 py-4 text-sm text-gray-900">
                             <div class="text-gray-800"><?php echo htmlspecialchars($product['name_en']); ?></div>
                             <div class="text-gray-600"><?php echo htmlspecialchars($product['name_ko']); ?></div>
                         </td>
-                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900 text-right">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                             <?php echo number_format($product['quantity']); ?>
                         </td>
-                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900 text-right">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                             <?php echo number_format($product['unit_price'], 2); ?>
                         </td>
-                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900 text-right">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                             <?php echo number_format($product['piece_price'], 2); ?>
                         </td>
-                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900 text-right">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                             <?php
                             $total_pieces = $product['purchase_type'] === 'box' ? 
                                 $product['quantity'] * $product['pieces_per_box'] : 
@@ -376,7 +370,7 @@ $conn->close();
                             echo number_format($total_pieces);
                             ?>
                         </td>
-                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900 text-right font-medium">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
                             <?php echo number_format($product['total_amount'], 2); ?>
                         </td>
                     </tr>

@@ -97,23 +97,7 @@ try {
 
 ?>
 
-<div class="w-full px-4 sm:px-6 lg:px-8 py-8">
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900"><?php echo t('product.new_products_management'); ?></h1>
-            <p class="mt-2 text-sm text-gray-600"><?php echo t('product.registered_last_7_days'); ?></p>
-        </div>
-        <div class="flex space-x-4">
-            <a href="product_management.php" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                <i class="fas fa-box-open mr-2"></i>
-                <?php echo t('product.management'); ?>
-            </a>
-            <a href="add_product.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                <i class="fas fa-plus mr-2"></i>
-                <?php echo t('product.add_new_product'); ?>
-            </a>
-        </div>
-    </div>
+<div class="w-full px-2 sm:px-3 md:px-4 py-8">
 
     <!-- 검색 및 필터 -->
     <div class="bg-white shadow rounded-lg p-4 mb-6">
@@ -159,7 +143,23 @@ try {
     <?php endif; ?>
 
     <!-- 신상품 테이블 -->
-    <div class="bg-white shadow overflow-hidden rounded-lg border-2 border-gray-400">
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
+        <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
+            <h3 class="text-lg leading-6 font-semibold text-gray-900">
+                <?php echo t('product.new_products_management'); ?> 
+                <?php if (!$error_message && isset($total_products)): ?>
+                    <span class="text-sm font-normal text-gray-500">(총 <?php echo number_format($total_products); ?>개)</span>
+                <?php endif; ?>
+            </h3>
+            <div class="flex space-x-3">
+                <a href="product_management.php" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+                    <i class="fas fa-box-open mr-2"></i><?php echo t('product.management'); ?>
+                </a>
+                <a href="add_product.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+                    <i class="fas fa-plus mr-2"></i><?php echo t('product.add_new_product'); ?>
+                </a>
+            </div>
+        </div>
         
         <?php if (empty($products)): ?>
         <div class="px-6 py-12 text-center">
@@ -174,31 +174,31 @@ try {
         <?php else: ?>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+                <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('product.registration_date'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('product.sku'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('product.name'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('product.brand'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('product.category'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('product.status'); ?>
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white">
                     <?php foreach ($products as $product): ?>
-                    <tr class="hover:bg-gray-50 cursor-pointer product-row" data-product-id="<?php echo $product['id']; ?>">
+                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer product-row" data-product-id="<?php echo $product['id']; ?>">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             <div class="flex flex-col">
                                 <span class="font-medium"><?php echo date('Y-m-d', strtotime($product['created_at'])); ?></span>
@@ -257,7 +257,7 @@ try {
 
         <!-- 페이징 -->
         <?php if ($total_pages > 1): ?>
-        <div class="bg-white px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+        <div class="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between">
             <div class="flex-1 flex justify-between sm:hidden">
                 <?php if ($page > 1): ?>
                     <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
