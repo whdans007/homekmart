@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CSS Watch 모드 테스트 - 자동 빌드 확인용 주석 */
+/* HOME K MART 통합 디자인 시스템 Import */
+@import '../admin/css/design-system.css';
 
 /* 버튼 스타일 통일 */
 @layer components {

@@ -69,19 +69,7 @@ try {
 }
 ?>
 
-<!-- Page header -->
-<div class="page-header">
-    <div class="page-header-content">
-        <h1 class="page-title"><?php echo t('user.list'); ?></h1>
-        <p class="sub-title"><?php echo t('user.management_desc'); ?></p>
-    </div>
-    <div class="page-header-actions">
-        <a href="add_user.php" class="btn-primary">
-            <i class="fas fa-user-plus mr-2"></i>
-            <?php echo t('user.add'); ?>
-        </a>
-    </div>
-</div>
+<div class="w-full px-2 sm:px-3 md:px-4 py-8">
 
 <?php if ($flash): ?>
     <div class="<?php echo $flash['type'] === 'success' ? 'alert-success' : 'alert-error'; ?>">
@@ -109,36 +97,47 @@ try {
     </div>
 <?php else: ?>
     <!-- Users Table -->
-    <div class="table-container">
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
+        <!-- 테이블 헤더 -->
+        <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
+            <h3 class="text-lg leading-6 font-semibold text-gray-900">
+                <?php echo t('user.list'); ?> <span class="text-sm font-normal text-gray-500">(총 <?php echo count($users); ?>건)</span>
+            </h3>
+            <div class="flex space-x-3">
+                <a href="add_user.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-user-plus mr-2"></i>
+                    <?php echo t('user.add'); ?>
+                </a>
+            </div>
+        </div>
+        
         <div class="overflow-x-auto">
-            <table class="table-standard">
-                <thead class="table-header">
+            <table class="min-w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th scope="col" class="w-32"><?php echo t('auth.username'); ?></th>
-                        <th scope="col" class="w-32 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.full_name'); ?></th>
-                        <th scope="col" class="w-48 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('auth.email'); ?></th>
-                        <th scope="col" class="w-28 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.phone'); ?></th>
-                        <th scope="col" class="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.role'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('auth.username'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('user.full_name'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('auth.email'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('user.phone'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('user.role'); ?></th>
                         <?php if ($has_permissions_column): ?>
-                        <th scope="col" class="w-40 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.permissions'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('user.permissions'); ?></th>
                         <?php endif; ?>
-                        <th scope="col" class="w-28 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.store'); ?></th>
-                        <th scope="col" class="w-24 px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('user.created_at'); ?></th>
-                        <th scope="col" class="w-20 relative px-3 py-3 border border-gray-300">
-                            <span class="sr-only"><?php echo t('common.actions'); ?></span>
-                        </th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('user.store'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('user.created_at'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('common.actions'); ?></th>
                     </tr>
                 </thead>
-                <tbody class="table-body">
+                <tbody class="bg-white">
                     <?php foreach ($users as $user): ?>
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-3 py-4 text-sm text-gray-900 border border-gray-300 break-words font-medium"><?php echo htmlspecialchars($user['username']); ?></td>
-                            <td class="px-3 py-4 text-sm text-gray-900 border border-gray-300 break-words"><?php echo htmlspecialchars($user['full_name']); ?></td>
-                            <td class="px-3 py-4 text-sm text-gray-500 border border-gray-300 break-all"><?php echo htmlspecialchars($user['email']); ?></td>
-                            <td class="px-3 py-4 text-sm text-gray-500 border border-gray-300 break-words">
+                        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="window.location.href='edit_user.php?id=<?php echo $user['id']; ?>'">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($user['username']); ?></td>
+                            <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($user['full_name']); ?></td>
+                            <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($user['email']); ?></td>
+                            <td class="px-6 py-4 text-sm text-gray-500">
                                 <?php echo $has_phone_column && !empty($user['phone']) ? htmlspecialchars($user['phone']) : '<span class="text-gray-400">' . t('user.no_info') . '</span>'; ?>
                             </td>
-                            <td class="px-3 py-4 border border-gray-300">
+                            <td class="px-6 py-4">
                                 <span class="inline-flex px-1.5 py-0.5 text-xs font-semibold rounded-full 
                                     <?php 
                                     switch($user['role']) {
@@ -160,7 +159,7 @@ try {
                                 </span>
                             </td>
                             <?php if ($has_permissions_column): ?>
-                            <td class="px-3 py-4 border border-gray-300">
+                            <td class="px-6 py-4">
                                 <?php 
                                 $permissions_info = '';
                                 if ($user['role'] === 'super_admin') {
@@ -189,22 +188,21 @@ try {
                                 ?>
                             </td>
                             <?php endif; ?>
-                            <td class="px-3 py-4 text-sm text-gray-500 border border-gray-300 break-words">
+                            <td class="px-6 py-4 text-sm text-gray-500">
                                 <?php echo htmlspecialchars($user['store_name'] ?? t('user.unassigned')); ?>
                             </td>
-                            <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <?php echo date('Y-m-d', strtotime($user['created_at'])); ?>
                             </td>
-                            <td class="px-3 py-4 text-right text-sm font-medium border border-gray-300">
-                                <div class="flex flex-col space-y-1">
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <div class="flex space-x-2">
                                     <a href="edit_user.php?id=<?php echo $user['id']; ?>" 
-                                       class="text-primary-600 hover:text-primary-900 transition-colors duration-200 text-xs">
-                                        <i class="fas fa-edit"></i> <?php echo t('common.edit'); ?>
+                                       class="text-green-600 hover:text-green-900" onclick="event.stopPropagation();" title="<?php echo t('common.edit'); ?>">
+                                        <i class="fas fa-edit"></i>
                                     </a>
                                     <a href="delete_user.php?id=<?php echo $user['id']; ?>" 
-                                       class="text-red-600 hover:text-red-900 transition-colors duration-200 text-xs"
-                                       onclick="return confirm('<?php echo t('user.confirm_delete'); ?>');">
-                                        <i class="fas fa-trash"></i> <?php echo t('common.delete'); ?>
+                                       class="text-red-600 hover:text-red-900" onclick="event.stopPropagation(); return confirm('<?php echo t('user.confirm_delete'); ?>');" title="<?php echo t('common.delete'); ?>">
+                                        <i class="fas fa-trash"></i>
                                     </a>
                                 </div>
                             </td>
@@ -212,14 +210,14 @@ try {
                     <?php endforeach; ?>
                     <?php if (empty($users)): ?>
                         <tr>
-                            <td colspan="<?php echo $has_permissions_column ? ($has_phone_column ? '9' : '8') : ($has_phone_column ? '8' : '7'); ?>" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
-                                <div class="flex flex-col items-center">
-                                    <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
-                                    <p><?php echo t('user.no_users'); ?></p>
-                                    <a href="add_user.php" class="mt-2 text-primary-600 hover:text-primary-500">
-                                        <?php echo t('user.add_first_user'); ?>
-                                    </a>
-                                </div>
+                            <td colspan="<?php echo $has_permissions_column ? ($has_phone_column ? '9' : '8') : ($has_phone_column ? '8' : '7'); ?>" class="px-6 py-12 text-center">
+                                <i class="fas fa-users text-gray-400 text-4xl mb-4"></i>
+                                <h3 class="text-lg font-medium text-gray-900 mb-2"><?php echo t('user.no_users'); ?></h3>
+                                <p class="text-gray-600 mb-4">새로운 사용자를 등록하여 시작하세요.</p>
+                                <a href="add_user.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">
+                                    <i class="fas fa-plus mr-2"></i>
+                                    <?php echo t('user.add_first_user'); ?>
+                                </a>
                             </td>
                         </tr>
                     <?php endif; ?>
@@ -228,5 +226,7 @@ try {
         </div>
     </div>
 <?php endif; ?>
+
+</div>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

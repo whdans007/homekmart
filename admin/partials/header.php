@@ -106,6 +106,13 @@ if (!empty($_SESSION['user_id'])) {
                                     <?php echo t('navigation.store_management'); ?>
                                 </a>
                                 <?php endif; ?>
+                                
+                                <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                                <a href="price_label_print.php" class="<?php echo in_array($current_page, ['price_label_print.php', 'price_label_preview.php']) ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-tags mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
+                                    <?php echo t('navigation.price_label_print'); ?>
+                                </a>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <?php endif; ?>
@@ -347,6 +354,12 @@ if (!empty($_SESSION['user_id'])) {
                             <?php if (has_permission('store_management') || $_SESSION['role'] === 'super_admin'): ?>
                             <a href="store_management.php" class="<?php echo in_array($current_page, ['store_management.php', 'add_store.php', 'edit_store.php']) ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-store mr-2 text-xs"></i><?php echo t('navigation.store_management'); ?>
+                            </a>
+                            <?php endif; ?>
+                            
+                            <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                            <a href="price_label_print.php" class="<?php echo in_array($current_page, ['price_label_print.php', 'price_label_preview.php']) ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-tags mr-2 text-xs"></i><?php echo t('navigation.price_label_print'); ?>
                             </a>
                             <?php endif; ?>
                         </div>

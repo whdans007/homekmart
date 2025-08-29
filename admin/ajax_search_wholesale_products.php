@@ -5,7 +5,7 @@ require_once __DIR__ . '/../config/db_config.php';
 
 // 세션 및 권한 확인
 ensure_logged_in();
-if (!has_permission('wholesale_management')) {
+if (!has_permission('wholesale_management') && !has_permission('product_management')) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => '권한이 없습니다.']);
     exit;
