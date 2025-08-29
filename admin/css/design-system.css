@@ -5,6 +5,90 @@
  */
 
 /* ==========================================================================
+   프린트 스타일
+   ========================================================================== */
+
+/* 가격표 출력 전용 프린트 스타일 */
+@media print {
+    /* 기본 프린트 설정 */
+    @page {
+        size: A4;
+        margin: 5mm;
+    }
+    
+    /* 프린트시 숨길 요소들 */
+    .no-print,
+    .no-print *,
+    header,
+    nav,
+    .breadcrumb,
+    button:not(.print-btn),
+    .btn:not(.print-btn),
+    .fixed,
+    .sticky {
+        display: none !important;
+    }
+    
+    /* 프린트 영역만 보이기 */
+    body * {
+        visibility: hidden;
+    }
+    
+    .print-area,
+    .print-area * {
+        visibility: visible;
+    }
+    
+    .print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white;
+    }
+    
+    /* 페이지 구분 */
+    .page-break {
+        page-break-after: always;
+        break-after: page;
+    }
+    
+    /* 라벨 그리드 최적화 */
+    .label-grid {
+        display: grid !important;
+        gap: 1mm !important;
+        width: 100% !important;
+        max-width: 200mm !important;
+    }
+    
+    /* 개별 라벨 스타일 */
+    .price-label {
+        border: 1px solid #000 !important;
+        background: white !important;
+        padding: 1mm !important;
+        box-sizing: border-box !important;
+        break-inside: avoid;
+        font-family: 'Arial', sans-serif !important;
+        color: #000 !important;
+    }
+    
+    /* 텍스트 선명도 향상 */
+    .label-header,
+    .label-price,
+    .label-sku {
+        color: #000 !important;
+        text-shadow: none !important;
+    }
+    
+    /* 바코드 영역 */
+    .label-barcode {
+        border: 1px solid #000 !important;
+        background: #f9f9f9 !important;
+        font-family: 'Courier New', monospace !important;
+    }
+}
+
+/* ==========================================================================
    타이포그래피 시스템
    ========================================================================== */
 

@@ -498,8 +498,11 @@ function generateBarcodes() {
 // 전체 선택/해제
 document.addEventListener('DOMContentLoaded', function() {
     // 초기 버튼 상태 설정
-    document.getElementById('printSelectedBtn').disabled = true;
-    document.getElementById('printPriceCardsBtn').disabled = true;
+    const printSelectedBtn = document.getElementById('printSelectedBtn');
+    const printPriceCardsBtn = document.getElementById('printPriceCardsBtn');
+    
+    if (printSelectedBtn) printSelectedBtn.disabled = true;
+    if (printPriceCardsBtn) printPriceCardsBtn.disabled = true;
     
     // 바코드 생성
     generateBarcodes();
@@ -565,14 +568,17 @@ function updateSelectedCount() {
     const printPriceCardsBtn = document.getElementById('printPriceCardsBtn');
     
     if (selectedIds.length > 0) {
-        countElement.style.display = 'block';
-        countElement.querySelector('span').textContent = selectedIds.length;
-        printSelectedBtn.disabled = false;
-        printPriceCardsBtn.disabled = false;
+        if (countElement) {
+            countElement.style.display = 'block';
+            const spanElement = countElement.querySelector('span');
+            if (spanElement) spanElement.textContent = selectedIds.length;
+        }
+        if (printSelectedBtn) printSelectedBtn.disabled = false;
+        if (printPriceCardsBtn) printPriceCardsBtn.disabled = false;
     } else {
-        countElement.style.display = 'none';
-        printSelectedBtn.disabled = true;
-        printPriceCardsBtn.disabled = true;
+        if (countElement) countElement.style.display = 'none';
+        if (printSelectedBtn) printSelectedBtn.disabled = true;
+        if (printPriceCardsBtn) printPriceCardsBtn.disabled = true;
     }
 }
 

@@ -38,75 +38,75 @@ try {
 }
 ?>
 
-<!-- Page header -->
-<div class="page-header">
-    <div class="page-header-content">
-        <h1 class="page-title"><?php echo t('store.list'); ?></h1>
-        <p class="sub-title"><?php echo t('store.management_desc'); ?></p>
-    </div>
-    <div class="page-header-actions">
-        <a href="add_store.php" class="btn-primary">
-            <i class="fas fa-plus mr-2"></i>
-            <?php echo t('store.add'); ?>
-        </a>
-    </div>
-</div>
+<div class="w-full px-2 sm:px-3 md:px-4 py-8">
 
 <?php if ($flash): ?>
-    <div class="mb-6 <?php echo $flash['type'] === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'; ?> rounded-md p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas <?php echo $flash['type'] === 'success' ? 'fa-check-circle text-green-400' : 'fa-exclamation-circle text-red-400'; ?>"></i>
+    <div class="<?php echo $flash['type'] === 'success' ? 'alert-success' : 'alert-error'; ?>">
+        <div class="alert-content">
+            <div class="alert-icon-wrapper">
+                <i class="fas <?php echo $flash['type'] === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?> alert-icon"></i>
             </div>
-            <div class="ml-3">
-                <p class="text-sm <?php echo $flash['type'] === 'success' ? 'text-green-800' : 'text-red-800'; ?>"><?php echo htmlspecialchars($flash['message']); ?></p>
+            <div class="alert-message">
+                <p class="alert-text"><?php echo htmlspecialchars($flash['message']); ?></p>
             </div>
         </div>
     </div>
 <?php endif; ?>
 
 <?php if ($error_message): ?>
-    <div class="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-exclamation-circle text-red-400"></i>
+    <div class="alert-error">
+        <div class="alert-content">
+            <div class="alert-icon-wrapper">
+                <i class="fas fa-exclamation-circle alert-icon"></i>
             </div>
-            <div class="ml-3">
-                <p class="text-sm text-red-800"><?php echo htmlspecialchars($error_message); ?></p>
+            <div class="alert-message">
+                <p class="alert-text"><?php echo htmlspecialchars($error_message); ?></p>
             </div>
         </div>
     </div>
 <?php else: ?>
     <!-- Stores Table -->
-    <div class="bg-white shadow overflow-hidden sm:rounded-md border border-gray-300">
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
+        <!-- 테이블 헤더 -->
+        <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
+            <h3 class="text-lg leading-6 font-semibold text-gray-900">
+                <?php echo t('store.list'); ?> <span class="text-sm font-normal text-gray-500">(총 <?php echo count($stores); ?>건)</span>
+            </h3>
+            <div class="flex space-x-3">
+                <a href="add_store.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-plus mr-2"></i>
+                    <?php echo t('store.add'); ?>
+                </a>
+            </div>
+        </div>
+        
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
-                <thead class="bg-gray-50">
+            <table class="min-w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">ID</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('store.name'); ?></th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('store.created_at'); ?></th>
-                        <th scope="col" class="relative px-6 py-3 border border-gray-300">
-                            <span class="sr-only"><?php echo t('common.actions'); ?></span>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ID</th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('store.name'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('store.created_at'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            <?php echo t('common.actions'); ?>
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white">
                     <?php foreach ($stores as $store): ?>
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($store['id']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300"><?php echo htmlspecialchars($store['name']); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border border-gray-300"><?php echo date('Y-m-d', strtotime($store['created_at'])); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium border border-gray-300">
+                        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="window.location.href='edit_store.php?id=<?php echo $store['id']; ?>'">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($store['id']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($store['name']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo date('Y-m-d', strtotime($store['created_at'])); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="flex space-x-2">
                                     <a href="edit_store.php?id=<?php echo $store['id']; ?>" 
-                                       class="text-primary-600 hover:text-primary-900 transition-colors duration-200">
-                                        <i class="fas fa-edit mr-1"></i><?php echo t('common.edit'); ?>
+                                       class="text-green-600 hover:text-green-900" onclick="event.stopPropagation();" title="<?php echo t('common.edit'); ?>">
+                                        <i class="fas fa-edit"></i>
                                     </a>
                                     <a href="delete_store.php?id=<?php echo $store['id']; ?>" 
-                                       class="text-red-600 hover:text-red-900 transition-colors duration-200"
-                                       onclick="return confirm('<?php echo t('store.confirm_delete'); ?>');">
-                                        <i class="fas fa-trash mr-1"></i><?php echo t('common.delete'); ?>
+                                       class="text-red-600 hover:text-red-900" onclick="event.stopPropagation(); return confirm('<?php echo t('store.confirm_delete'); ?>');" title="<?php echo t('common.delete'); ?>">
+                                        <i class="fas fa-trash"></i>
                                     </a>
                                 </div>
                             </td>
@@ -114,14 +114,14 @@ try {
                     <?php endforeach; ?>
                     <?php if (empty($stores)): ?>
                         <tr>
-                            <td colspan="4" class="px-6 py-12 text-center text-sm text-gray-500 border border-gray-300">
-                                <div class="flex flex-col items-center">
-                                    <i class="fas fa-store text-4xl text-gray-300 mb-4"></i>
-                                    <p><?php echo t('store.no_stores'); ?></p>
-                                    <a href="add_store.php" class="mt-2 text-primary-600 hover:text-primary-500">
-                                        <?php echo t('store.add_first_store'); ?>
-                                    </a>
-                                </div>
+                            <td colspan="4" class="px-6 py-12 text-center">
+                                <i class="fas fa-store text-gray-400 text-4xl mb-4"></i>
+                                <h3 class="text-lg font-medium text-gray-900 mb-2"><?php echo t('store.no_stores'); ?></h3>
+                                <p class="text-gray-600 mb-4">새로운 매장을 등록하여 시작하세요.</p>
+                                <a href="add_store.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">
+                                    <i class="fas fa-plus mr-2"></i>
+                                    <?php echo t('store.add_first_store'); ?>
+                                </a>
                             </td>
                         </tr>
                     <?php endif; ?>
@@ -130,5 +130,7 @@ try {
         </div>
     </div>
 <?php endif; ?>
+
+</div>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
