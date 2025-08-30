@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOME K MART - 온라인 슈퍼마켓</title>
+    <meta name="description" content="HOME K MART에서 신선한 식재료부터 생활용품까지 한번에! 당일배송 서비스로 더욱 편리하게">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/shop.css">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="../mobile/manifest.json">
+    <meta name="theme-color" content="#DE121C">
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="container">
+            <div class="flex items-center justify-between py-2">
+                <div class="flex items-center">
+                    <span>고객센터: 1588-1234</span>
+                </div>
+                <div class="flex items-center">
+                    <a href="#">매장찾기</a>
+                    <a href="#">고객센터</a>
+                    <a href="#" id="loginLink">로그인</a>
+                    <a href="#">회원가입</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Header -->
+    <header class="main-header">
+        <div class="container">
+            <div class="flex items-center py-4">
+                <!-- Logo -->
+                <a href="#" class="logo">
+                    <i class="fas fa-store"></i> HOME K MART
+                </a>
+                
+                <!-- Store Selector -->
+                <div class="store-selector">
+                    <div class="current-store" onclick="toggleStoreList()">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <div class="store-info">
+                            <span class="store-label">배송지</span>
+                            <span class="store-name" id="currentStoreName">점포 선택</span>
+                        </div>
+                        <i class="fas fa-chevron-down arrow"></i>
+                    </div>
+                    <div class="store-dropdown" id="storeDropdown">
+                        <div class="dropdown-header">
+                            <h4>배송 가능한 점포</h4>
+                            <button onclick="toggleStoreList()" class="close-btn">×</button>
+                        </div>
+                        <div class="store-list" id="storeList">
+                            <div class="loading">점포 정보를 불러오는 중...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Search Bar -->
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="상품명을 검색해 보세요" />
+                    <button class="search-btn" onclick="searchProducts()">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                
+                <!-- Header Actions -->
+                <div class="header-actions">
+                    <button class="cart-icon" onclick="toggleCart()">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span class="cart-badge" id="cartBadge" style="display: none;">0</span>
+                    </button>
+                    <button class="login-btn" onclick="toggleLogin()">로그인</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Navigation Menu -->
+        <nav class="nav-menu">
+            <div class="container">
+                <ul>
+                    <li><a href="#" class="active">홈</a></li>
+                    <li><a href="#weekly-deals">주간특가</a></li>
+                    <li><a href="#new-products">신상품</a></li>
+                    <li><a href="#fresh">신선식품</a></li>
+                    <li><a href="#processed">가공식품</a></li>
+                    <li><a href="#frozen">냉동식품</a></li>
+                    <li><a href="#living">생활용품</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Banner Slider -->
+    <section class="banner-slider">
+        <div class="banner-slide active">
+            <div class="banner-content">
+                <h2>🛒 주간 특가 세일!</h2>
+                <p>신선한 식재료와 생활용품을 특가로 만나보세요</p>
+                <button class="banner-btn" onclick="scrollToSection('weekly-deals')">특가 상품 보기</button>
+            </div>
+        </div>
+        <div class="banner-slide">
+            <div class="banner-content">
+                <h2>🚚 당일 배송 서비스</h2>
+                <p>오전 11시 이전 주문 시 당일 배송! (신선식품 한정)</p>
+                <button class="banner-btn" onclick="scrollToSection('fresh')">신선식품 보기</button>
+            </div>
+        </div>
+        <div class="banner-slide">
+            <div class="banner-content">
+                <h2>🎯 신상품 입고</h2>
+                <p>매주 새로운 상품들을 만나보세요</p>
+                <button class="banner-btn" onclick="scrollToSection('new-products')">신상품 보기</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Categories Section -->
+    <section class="section">
+        <div class="container">
+            <h2 class="section-title">상품 카테고리</h2>
+            <div class="category-grid" id="categoriesGrid">
+                <!-- 카테고리들이 여기에 동적으로 로드됩니다 -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Weekly Deals Section -->
+    <section id="weekly-deals" class="section">
+        <div class="container">
+            <h2 class="section-title">🔥 이번 주 특가</h2>
+            <div class="loading" id="dealsLoading">
+                <i class="fas fa-spinner"></i> 특가 상품을 불러오는 중...
+            </div>
+            <div class="product-grid" id="dealsGrid" style="display: none;">
+                <!-- 특가 상품들이 여기에 로드됩니다 -->
+            </div>
+        </div>
+    </section>
+
+    <!-- New Products Section -->
+    <section id="new-products" class="section" style="background: #f8f9fa;">
+        <div class="container">
+            <h2 class="section-title">✨ 신상품</h2>
+            <div class="loading" id="newLoading">
+                <i class="fas fa-spinner"></i> 신상품을 불러오는 중...
+            </div>
+            <div class="product-grid" id="newGrid" style="display: none;">
+                <!-- 신상품들이 여기에 로드됩니다 -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Fresh Products Section -->
+    <section id="fresh" class="section">
+        <div class="container">
+            <h2 class="section-title">🥬 신선식품</h2>
+            <div class="loading" id="freshLoading">
+                <i class="fas fa-spinner"></i> 신선식품을 불러오는 중...
+            </div>
+            <div class="product-grid" id="freshGrid" style="display: none;">
+                <!-- 신선식품들이 여기에 로드됩니다 -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Special Features Section -->
+    <section class="section feature-section">
+        <div class="container">
+            <h2 class="section-title">HOME K MART 특별 서비스</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-truck"></i>
+                    </div>
+                    <h3 class="feature-title">당일 배송</h3>
+                    <p class="feature-desc">신선식품 오전 11시 이전 주문 시 당일 배송해드립니다</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-leaf"></i>
+                    </div>
+                    <h3 class="feature-title">신선 보장</h3>
+                    <p class="feature-desc">엄격한 품질 관리로 항상 신선한 제품만 배송합니다</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-boxes"></i>
+                    </div>
+                    <h3 class="feature-title">대량 구매</h3>
+                    <p class="feature-desc">박스 단위 구매 시 더욱 저렴한 가격으로 제공합니다</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3 class="feature-title">품질 보증</h3>
+                    <p class="feature-desc">만족하지 않으시면 100% 환불해드립니다</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-section">
+                    <h3>회사 정보</h3>
+                    <ul>
+                        <li><a href="#">회사 소개</a></li>
+                        <li><a href="#">매장 안내</a></li>
+                        <li><a href="#">채용 정보</a></li>
+                        <li><a href="#">투자자 정보</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>고객 서비스</h3>
+                    <ul>
+                        <li><a href="#">고객센터</a></li>
+                        <li><a href="#">자주 묻는 질문</a></li>
+                        <li><a href="#">배송 안내</a></li>
+                        <li><a href="#">교환/반품 안내</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>쇼핑 정보</h3>
+                    <ul>
+                        <li><a href="#">이용약관</a></li>
+                        <li><a href="#">개인정보처리방침</a></li>
+                        <li><a href="#">전자금융거래약관</a></li>
+                        <li><a href="#">청소년보호정책</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>소셜 미디어</h3>
+                    <ul>
+                        <li><a href="#"><i class="fab fa-facebook"></i> Facebook</a></li>
+                        <li><a href="#"><i class="fab fa-instagram"></i> Instagram</a></li>
+                        <li><a href="#"><i class="fab fa-youtube"></i> YouTube</a></li>
+                        <li><a href="#"><i class="fab fa-blog"></i> Blog</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 HOME K MART. All rights reserved. | 대표전화: 1588-1234 | 사업자등록번호: 123-45-67890</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="js/shop.js"></script>
+    
+    <!-- Service Worker for PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('../mobile/sw.js');
+            });
+        }
+    </script>
+</body>
+</html>

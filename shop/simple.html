@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOME K MART - 온라인 쇼핑몰</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <div id="app">
+        <!-- Header -->
+        <header class="bg-white shadow-md sticky top-0 z-50">
+            <div class="container mx-auto px-4">
+                <nav class="flex items-center justify-between py-4">
+                    <!-- Logo -->
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-store text-2xl text-blue-600"></i>
+                        <h1 class="text-xl font-bold text-gray-800">HOME K MART</h1>
+                    </div>
+                    
+                    <!-- Search -->
+                    <div class="hidden md:flex flex-1 max-w-md mx-8">
+                        <div class="relative w-full">
+                            <input type="text" placeholder="상품을 검색해보세요..." 
+                                   class="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg">
+                            <button class="absolute right-2 top-2 text-gray-500">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Navigation -->
+                    <div class="flex items-center space-x-4">
+                        <button class="relative p-2 text-gray-700 hover:text-blue-600">
+                            <i class="fas fa-shopping-cart text-xl"></i>
+                            <span id="cart-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
+                        </button>
+                        <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            로그인
+                        </button>
+                    </div>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-16">
+            <div class="container mx-auto px-4 text-center">
+                <h2 class="text-4xl font-bold mb-4">HOME K MART에 오신 것을 환영합니다</h2>
+                <p class="text-xl mb-8">다양한 상품을 합리적인 가격에 만나보세요</p>
+                <button onclick="scrollToProducts()" class="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100">
+                    상품 보러가기
+                </button>
+            </div>
+        </section>
+
+        <!-- Categories -->
+        <section class="py-12">
+            <div class="container mx-auto px-4">
+                <h3 class="text-2xl font-bold text-center mb-8">카테고리</h3>
+                <div id="categories" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                    <!-- 카테고리가 여기에 로드됩니다 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Products -->
+        <section id="products" class="py-12 bg-white">
+            <div class="container mx-auto px-4">
+                <h3 class="text-2xl font-bold text-center mb-8">인기 상품</h3>
+                <div id="loading" class="text-center text-gray-500 mb-8">
+                    <i class="fas fa-spinner fa-spin"></i> 상품을 불러오는 중...
+                </div>
+                <div id="product-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 hidden">
+                    <!-- 상품들이 여기에 로드됩니다 -->
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        console.log('스크립트 로드됨');
+
+        // 카테고리 데이터
+        const categories = [
+            { id: 1, name_kr: '전자제품', icon_class: 'fas fa-mobile-alt' },
+            { id: 2, name_kr: '의류', icon_class: 'fas fa-tshirt' },
+            { id: 3, name_kr: '생활용품', icon_class: 'fas fa-home' },
+            { id: 4, name_kr: '식품', icon_class: 'fas fa-apple-alt' },
+            { id: 5, name_kr: '뷰티', icon_class: 'fas fa-heart' },
+            { id: 6, name_kr: '스포츠', icon_class: 'fas fa-running' }
+        ];
+
+        // 상품 데이터
+        const products = [
+            {
+                id: 1,
+                name_kr: '스마트폰 갤럭시',
+                category_name: '전자제품',
+                selling_price: 899000,
+                description: '최신 스마트폰으로 뛰어난 성능을 제공합니다'
+            },
+            {
+                id: 2,
+                name_kr: '캐주얼 티셔츠',
+                category_name: '의류',
+                selling_price: 29000,
+                description: '편안하고 스타일리시한 티셔츠입니다'
+            },
+            {
+                id: 3,
+                name_kr: '스테인리스 텀블러',
+                category_name: '생활용품',
+                selling_price: 25000,
+                description: '보온보냉이 우수한 스테인리스 텀블러입니다'
+            },
+            {
+                id: 4,
+                name_kr: '유기농 사과',
+                category_name: '식품',
+                selling_price: 8000,
+                description: '당도 높은 유기농 사과입니다'
+            },
+            {
+                id: 5,
+                name_kr: '수분크림',
+                category_name: '뷰티',
+                selling_price: 35000,
+                description: '피부에 수분과 영양을 공급하는 크림입니다'
+            },
+            {
+                id: 6,
+                name_kr: '요가 매트',
+                category_name: '스포츠',
+                selling_price: 45000,
+                description: '미끄럼방지 기능이 있는 요가 매트입니다'
+            }
+        ];
+
+        // 가격 포맷팅
+        function formatPrice(price) {
+            return new Intl.NumberFormat('ko-KR').format(price);
+        }
+
+        // 카테고리 렌더링
+        function renderCategories() {
+            const categoriesContainer = document.getElementById('categories');
+            categoriesContainer.innerHTML = '';
+            
+            categories.forEach(category => {
+                const categoryElement = document.createElement('div');
+                categoryElement.className = 'bg-white p-6 rounded-lg shadow-md text-center hover:shadow-lg transition-shadow cursor-pointer';
+                categoryElement.innerHTML = `
+                    <i class="${category.icon_class} text-3xl text-blue-600 mb-3"></i>
+                    <p class="font-medium text-gray-800">${category.name_kr}</p>
+                `;
+                categoriesContainer.appendChild(categoryElement);
+            });
+            
+            console.log('카테고리 렌더링 완료:', categories.length);
+        }
+
+        // 상품 렌더링
+        function renderProducts() {
+            const productGrid = document.getElementById('product-grid');
+            const loading = document.getElementById('loading');
+            
+            // 로딩 시뮬레이션
+            setTimeout(() => {
+                loading.classList.add('hidden');
+                productGrid.classList.remove('hidden');
+                
+                products.forEach(product => {
+                    const productElement = document.createElement('div');
+                    productElement.className = 'bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow';
+                    productElement.innerHTML = `
+                        <div class="h-48 bg-gray-200 flex items-center justify-center">
+                            <i class="fas fa-image text-4xl text-gray-400"></i>
+                        </div>
+                        <div class="p-4">
+                            <p class="text-xs text-gray-500 mb-1">${product.category_name}</p>
+                            <h4 class="font-semibold text-gray-800 mb-2">${product.name_kr}</h4>
+                            <p class="text-sm text-gray-600 mb-3">${product.description}</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-lg font-bold text-blue-600">₩${formatPrice(product.selling_price)}</span>
+                                <button class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm">
+                                    <i class="fas fa-cart-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    productGrid.appendChild(productElement);
+                });
+                
+                console.log('상품 렌더링 완료:', products.length);
+            }, 1000);
+        }
+
+        // 스크롤 함수
+        function scrollToProducts() {
+            document.getElementById('products').scrollIntoView({ 
+                behavior: 'smooth' 
+            });
+        }
+
+        // 페이지 로드 시 실행
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM 로드 완료');
+            renderCategories();
+            renderProducts();
+        });
+    </script>
+</body>
+</html>
