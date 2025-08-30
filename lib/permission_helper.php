@@ -320,11 +320,26 @@ function can_access_admin() {
  * @param string $redirect_url 권한 없을 때 이동할 URL (기본: index.php)
  */
 function require_permission($required_permission, $redirect_url = 'index.php') {
+    // 세션 시작 확인
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    
     if (!has_permission($required_permission)) {
         $_SESSION['flash'] = [
             'type' => 'error',
             'message' => '해당 기능에 접근할 권한이 없습니다.'
         ];
+        
+        // 상대 경로를 절대 경로로 변환
+        if (!preg_match('#^https?://#', $redirect_url)) {
+            // 현재 디렉토리를 기준으로 한 상대 경로 처리
+            $current_dir = dirname($_SERVER['PHP_SELF']);
+            if ($current_dir !== '/') {
+                $redirect_url = $current_dir . '/' . ltrim($redirect_url, '/');
+            }
+        }
+        
         header("Location: " . $redirect_url);
         exit;
     }
