@@ -214,6 +214,39 @@ if (!empty($_SESSION['user_id'])) {
                         </div>
                         <?php endif; ?>
 
+                        <!-- 쇼핑몰 관리 카드 (빨간색) -->
+                        <?php if (has_permission('admin_access') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                        <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-2 border border-red-200 shadow-sm">
+                            <div class="flex items-center mb-3">
+                                <div class="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-shopping-bag text-white text-sm"></i>
+                                </div>
+                                <h3 class="text-sm font-semibold text-red-800">쇼핑몰 관리</h3>
+                            </div>
+                            <div class="space-y-1">
+                                <a href="shop_dashboard.php" class="<?php echo ($current_page == 'shop_dashboard.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-chart-pie mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
+                                    통합 대시보드
+                                </a>
+                                
+                                <a href="store_product_planner.php" class="<?php echo ($current_page == 'store_product_planner.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-project-diagram mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
+                                    점포별 상품 배치
+                                </a>
+                                
+                                <a href="shop_category_manager.php" class="<?php echo ($current_page == 'shop_category_manager.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-layer-group mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
+                                    카테고리별 관리
+                                </a>
+                                
+                                <a href="shop_store_compare.php" class="<?php echo ($current_page == 'shop_store_compare.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-balance-scale mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
+                                    점포 비교 분석
+                                </a>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
                         <!-- 기타정보관리 카드 (보라색) -->
                         <?php if (has_permission('supplier_management') || has_permission('brand_management') || has_permission('category_management') || $_SESSION['role'] === 'super_admin'): ?>
                         <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-2 border border-purple-200 shadow-sm">
@@ -453,6 +486,35 @@ if (!empty($_SESSION['user_id'])) {
                             
                             <a href="new_products_management.php" class="<?php echo ($current_page == 'new_products_management.php') ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-star mr-2 text-xs"></i><?php echo t('navigation.new_products_management'); ?>
+                            </a>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- 모바일 쇼핑몰 관리 카드 -->
+                    <?php if (has_permission('admin_access') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                    <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-1.5 border border-red-200">
+                        <div class="flex items-center mb-2">
+                            <div class="w-6 h-6 bg-red-600 rounded flex items-center justify-center mr-2">
+                                <i class="fas fa-shopping-bag text-white text-xs"></i>
+                            </div>
+                            <h4 class="text-xs font-semibold text-red-800">쇼핑몰 관리</h4>
+                        </div>
+                        <div class="space-y-1">
+                            <a href="shop_dashboard.php" class="<?php echo ($current_page == 'shop_dashboard.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-chart-pie mr-2 text-xs"></i>통합 대시보드
+                            </a>
+                            
+                            <a href="store_product_planner.php" class="<?php echo ($current_page == 'store_product_planner.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-project-diagram mr-2 text-xs"></i>점포별 상품 배치
+                            </a>
+                            
+                            <a href="shop_category_manager.php" class="<?php echo ($current_page == 'shop_category_manager.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-layer-group mr-2 text-xs"></i>카테고리별 관리
+                            </a>
+                            
+                            <a href="shop_store_compare.php" class="<?php echo ($current_page == 'shop_store_compare.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-balance-scale mr-2 text-xs"></i>점포 비교 분석
                             </a>
                         </div>
                     </div>

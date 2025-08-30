@@ -1,0 +1,58 @@
+# HOME K MART Shop .htaccess Configuration
+# Hostinger/Synology 환경 최적화
+
+# Apache 모듈 확인 및 활성화
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # 기본 경로 설정
+    RewriteBase /homekmart/shop/
+    
+    # API 라우팅 (수정된 버전)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^api/(.*)$ api/index.php?route=$1 [QSA,L]
+    
+    # 정적 파일은 그대로 서빙
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+    
+    # SPA 라우팅 (메인 페이지)
+    RewriteCond %{REQUEST_URI} !^/homekmart/shop/api/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
+
+# mod_rewrite가 없는 경우 대체 방법
+<IfModule !mod_rewrite.c>
+    # 직접 파일 접근 허용
+    <Files "*.php">
+        Require all granted
+    </Files>
+</IfModule>
+
+# 보안 설정
+Options -Indexes
+
+# 민감한 파일 접근 차단
+<FilesMatch "\.(env|json|lock|ini|log|sql)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# 압축 설정
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/javascript
+</IfModule>
+
+# 브라우저 캐시
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType application/json "access plus 1 minute"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
