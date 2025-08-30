@@ -4,48 +4,78 @@
  * 모든 점포의 상품 현황을 한눈에 확인하고 관리할 수 있는 종합 대시보드
  */
 
-session_start();
 require_once '../config/db_config.php';
 require_once '../lib/permission_helper.php';
 
 // 권한 확인
-require_permission('admin_access', '../login.php');
+require_permission('admin_access', 'index.php');
 
 $conn = get_db_connection();
 
 // 통계 데이터 수집
 $stats = [];
 
-// 1. 전체 통계
+// 1. 전체 통계 - 실제 테이블 구조에 맞게 수정
 $total_stats_sql = "SELECT 
     COUNT(DISTINCT p.id) as total_products,
-    COUNT(DISTINCT sp.product_id) as store_products,
     COUNT(DISTINCT s.id) as active_stores,
-    COUNT(DISTINCT CASE WHEN sp.is_featured = 1 THEN sp.product_id END) as featured_products
+    COUNT(DISTINCT c.id) as categories_count,
+    AVG(p.selling_price) as avg_price
 FROM products p
-LEFT JOIN store_products sp ON p.id = sp.product_id AND sp.is_available = 1
-LEFT JOIN stores s ON sp.store_id = s.id AND s.is_active = 1
-WHERE p.status = 'active' OR p.status IS NULL";
+CROSS JOIN stores s
+LEFT JOIN categories c ON p.category_id = c.id";
 
 $total_result = $conn->query($total_stats_sql);
 $stats['total'] = $total_result->fetch_assoc();
 
-// 2. 점포별 상품 통계
-$store_stats_sql = "SELECT 
-    s.id,
-    s.name,
-    s.address,
-    s.manager,
-    s.is_active,
-    COUNT(sp.product_id) as product_count,
-    COUNT(CASE WHEN sp.is_featured = 1 THEN 1 END) as featured_count,
-    COUNT(CASE WHEN sp.is_available = 0 THEN 1 END) as hidden_count,
-    MAX(sp.updated_at) as last_updated
-FROM stores s
-LEFT JOIN store_products sp ON s.id = sp.store_id
-WHERE s.is_active = 1
-GROUP BY s.id, s.name, s.address, s.manager, s.is_active
-ORDER BY s.name";
+// store_products 테이블 존재 여부 확인
+$tables_sql = "SHOW TABLES LIKE 'store_products'";
+$table_exists = $conn->query($tables_sql)->num_rows > 0;
+
+if ($table_exists) {
+    // store_products 테이블이 존재하는 경우
+    $store_products_sql = "SELECT 
+        COUNT(DISTINCT sp.product_id) as store_products,
+        COUNT(DISTINCT CASE WHEN sp.is_featured = 1 THEN sp.product_id END) as featured_products
+    FROM store_products sp WHERE sp.is_available = 1";
+    $sp_result = $conn->query($store_products_sql);
+    $sp_data = $sp_result->fetch_assoc();
+    $stats['total']['store_products'] = $sp_data['store_products'];
+    $stats['total']['featured_products'] = $sp_data['featured_products'];
+} else {
+    // store_products 테이블이 없는 경우
+    $stats['total']['store_products'] = $stats['total']['total_products'];
+    $stats['total']['featured_products'] = 0;
+}
+
+// 2. 점포별 상품 통계 - 실제 테이블 구조에 맞게 수정
+if ($table_exists) {
+    // store_products 테이블이 있는 경우
+    $store_stats_sql = "SELECT 
+        s.id,
+        s.name,
+        s.created_at,
+        COUNT(sp.product_id) as product_count,
+        COUNT(CASE WHEN sp.is_featured = 1 THEN 1 END) as featured_count,
+        COUNT(CASE WHEN sp.is_available = 0 THEN 1 END) as hidden_count,
+        MAX(sp.updated_at) as last_updated
+    FROM stores s
+    LEFT JOIN store_products sp ON s.id = sp.store_id
+    GROUP BY s.id, s.name, s.created_at
+    ORDER BY s.name";
+} else {
+    // store_products 테이블이 없는 경우 - 기본 점포 정보만
+    $store_stats_sql = "SELECT 
+        s.id,
+        s.name,
+        s.created_at,
+        0 as product_count,
+        0 as featured_count,
+        0 as hidden_count,
+        NULL as last_updated
+    FROM stores s
+    ORDER BY s.name";
+}
 
 $store_result = $conn->query($store_stats_sql);
 $stats['stores'] = [];
@@ -53,20 +83,54 @@ while ($row = $store_result->fetch_assoc()) {
     $stats['stores'][] = $row;
 }
 
-// 3. 카테고리별 분포
-$category_stats_sql = "SELECT 
-    c.id,
-    c.name as category_name,
-    c.icon_class,
-    COUNT(DISTINCT p.id) as total_products,
-    COUNT(DISTINCT sp.product_id) as store_products,
-    COUNT(DISTINCT sp.store_id) as stores_count
-FROM categories c
-LEFT JOIN products p ON c.id = p.category_id AND (p.status = 'active' OR p.status IS NULL)
-LEFT JOIN store_products sp ON p.id = sp.product_id AND sp.is_available = 1
-GROUP BY c.id, c.name, c.icon_class
-HAVING total_products > 0
-ORDER BY store_products DESC, c.name";
+// 3. 카테고리별 분포 - 실제 테이블 구조 확인
+$cat_desc_sql = "DESCRIBE categories";
+$cat_desc_result = $conn->query($cat_desc_sql);
+$cat_columns = [];
+while ($col = $cat_desc_result->fetch_assoc()) {
+    $cat_columns[] = $col['Field'];
+}
+
+// 카테고리 이름 컬럼 찾기
+$name_column = 'name';
+if (in_array('name_kr', $cat_columns)) {
+    $name_column = 'name_kr';
+} elseif (in_array('category_name', $cat_columns)) {
+    $name_column = 'category_name';
+}
+
+$icon_column = in_array('icon_class', $cat_columns) ? 'c.icon_class' : "'fas fa-folder' as icon_class";
+
+if ($table_exists) {
+    // store_products 테이블이 있는 경우
+    $category_stats_sql = "SELECT 
+        c.id,
+        c.$name_column as category_name,
+        $icon_column,
+        COUNT(DISTINCT p.id) as total_products,
+        COUNT(DISTINCT sp.product_id) as store_products,
+        COUNT(DISTINCT sp.store_id) as stores_count
+    FROM categories c
+    LEFT JOIN products p ON c.id = p.category_id
+    LEFT JOIN store_products sp ON p.id = sp.product_id AND sp.is_available = 1
+    GROUP BY c.id, c.$name_column" . (in_array('icon_class', $cat_columns) ? ', c.icon_class' : '') . "
+    HAVING total_products > 0
+    ORDER BY store_products DESC, c.$name_column";
+} else {
+    // store_products 테이블이 없는 경우
+    $category_stats_sql = "SELECT 
+        c.id,
+        c.$name_column as category_name,
+        $icon_column,
+        COUNT(p.id) as total_products,
+        COUNT(p.id) as store_products,
+        1 as stores_count
+    FROM categories c
+    LEFT JOIN products p ON c.id = p.category_id
+    GROUP BY c.id, c.$name_column" . (in_array('icon_class', $cat_columns) ? ', c.icon_class' : '') . "
+    HAVING total_products > 0
+    ORDER BY total_products DESC, c.$name_column";
+}
 
 $category_result = $conn->query($category_stats_sql);
 $stats['categories'] = [];
@@ -74,25 +138,32 @@ while ($row = $category_result->fetch_assoc()) {
     $stats['categories'][] = $row;
 }
 
-// 4. 최근 활동
-$recent_activity_sql = "SELECT 
-    'product_added' as activity_type,
-    sp.created_at as activity_time,
-    p.name_kr as product_name,
-    s.name as store_name,
-    u.full_name as user_name
-FROM store_products sp
-JOIN products p ON sp.product_id = p.id
-JOIN stores s ON sp.store_id = s.id
-LEFT JOIN users u ON sp.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-WHERE sp.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-ORDER BY sp.created_at DESC
-LIMIT 10";
-
-$activity_result = $conn->query($recent_activity_sql);
-$stats['recent_activities'] = [];
-while ($row = $activity_result->fetch_assoc()) {
-    $stats['recent_activities'][] = $row;
+// 4. 최근 활동 - 실제 테이블 구조에 맞게 수정
+if ($table_exists) {
+    // store_products 테이블이 있는 경우
+    $product_name_column = in_array('name_kr', $cat_columns) ? 'name_kr' : 'name';
+    $recent_activity_sql = "SELECT 
+        'product_added' as activity_type,
+        sp.created_at as activity_time,
+        COALESCE(p.$product_name_column, p.name, 'Unknown Product') as product_name,
+        s.name as store_name
+    FROM store_products sp
+    JOIN products p ON sp.product_id = p.id
+    JOIN stores s ON sp.store_id = s.id
+    WHERE sp.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+    ORDER BY sp.created_at DESC
+    LIMIT 10";
+    
+    $activity_result = $conn->query($recent_activity_sql);
+    $stats['recent_activities'] = [];
+    if ($activity_result) {
+        while ($row = $activity_result->fetch_assoc()) {
+            $stats['recent_activities'][] = $row;
+        }
+    }
+} else {
+    // store_products 테이블이 없는 경우
+    $stats['recent_activities'] = [];
 }
 
 include 'partials/header.php';
@@ -222,7 +293,7 @@ include 'partials/header.php';
                                         <h6 class="card-title mb-0 text-primary"><?= htmlspecialchars($store['name']) ?></h6>
                                         <span class="badge bg-success">운영중</span>
                                     </div>
-                                    <p class="text-muted small mb-2"><?= htmlspecialchars($store['address'] ?: '주소 없음') ?></p>
+                                    <p class="text-muted small mb-2">개설일: <?= date('Y-m-d', strtotime($store['created_at'])) ?></p>
                                     
                                     <div class="row text-center">
                                         <div class="col-4">
@@ -275,8 +346,7 @@ include 'partials/header.php';
                                 <thead class="table-light">
                                     <tr>
                                         <th>점포명</th>
-                                        <th>주소</th>
-                                        <th>담당자</th>
+                                        <th>개설일</th>
                                         <th class="text-center">전체 상품</th>
                                         <th class="text-center">추천 상품</th>
                                         <th class="text-center">숨김 상품</th>
@@ -291,8 +361,7 @@ include 'partials/header.php';
                                             <strong class="text-primary"><?= htmlspecialchars($store['name']) ?></strong>
                                             <span class="badge bg-success ms-2">운영중</span>
                                         </td>
-                                        <td><small><?= htmlspecialchars($store['address'] ?: '-') ?></small></td>
-                                        <td><small><?= htmlspecialchars($store['manager'] ?: '-') ?></small></td>
+                                        <td><small><?= date('Y-m-d', strtotime($store['created_at'])) ?></small></td>
                                         <td class="text-center"><strong><?= $store['product_count'] ?></strong></td>
                                         <td class="text-center"><span class="text-warning"><?= $store['featured_count'] ?></span></td>
                                         <td class="text-center"><span class="text-muted"><?= $store['hidden_count'] ?></span></td>

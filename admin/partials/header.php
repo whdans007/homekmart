@@ -87,7 +87,7 @@ if (!empty($_SESSION['user_id'])) {
                                 <?php endif; ?>
                                 
                                 <?php if (has_permission('shop_access')): ?>
-                                <a href="shop.php" class="<?php echo ($current_page == 'shop.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                <a href="shop_dashboard.php" class="<?php echo ($current_page == 'shop_dashboard.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-shopping-cart mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
                                     <?php echo t('navigation.shop'); ?>
                                 </a>
