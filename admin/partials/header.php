@@ -229,6 +229,21 @@ if (!empty($_SESSION['user_id'])) {
                                     통합 대시보드
                                 </a>
                                 
+                                <a href="display_sections.php" class="<?php echo ($current_page == 'display_sections.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-th-large mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
+                                    진열 섹션 관리
+                                </a>
+                                
+                                <a href="product_display.php" class="<?php echo ($current_page == 'product_display.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-cubes mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
+                                    상품 진열 관리
+                                </a>
+                                
+                                <a href="orders.php" class="<?php echo ($current_page == 'orders.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-shopping-cart mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
+                                    주문 관리
+                                </a>
+                                
                                 <a href="store_product_planner.php" class="<?php echo ($current_page == 'store_product_planner.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-project-diagram mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
                                     점포별 상품 배치
@@ -503,6 +518,18 @@ if (!empty($_SESSION['user_id'])) {
                         <div class="space-y-1">
                             <a href="shop_dashboard.php" class="<?php echo ($current_page == 'shop_dashboard.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-chart-pie mr-2 text-xs"></i>통합 대시보드
+                            </a>
+                            
+                            <a href="display_sections.php" class="<?php echo ($current_page == 'display_sections.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-th-large mr-2 text-xs"></i>진열 섹션 관리
+                            </a>
+                            
+                            <a href="product_display.php" class="<?php echo ($current_page == 'product_display.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-cubes mr-2 text-xs"></i>상품 진열 관리
+                            </a>
+                            
+                            <a href="orders.php" class="<?php echo ($current_page == 'orders.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-shopping-cart mr-2 text-xs"></i>주문 관리
                             </a>
                             
                             <a href="store_product_planner.php" class="<?php echo ($current_page == 'store_product_planner.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">

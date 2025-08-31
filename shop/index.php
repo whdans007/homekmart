@@ -1,370 +1,537 @@
 <?php
-// HOME K MART 온라인 쇼핑몰 메인 페이지
-require_once '../config/db_config.php';
+require_once __DIR__ . '/../config/db_config.php';
 
-// 기본 설정
-$site_title = "HOME K MART - 온라인 쇼핑몰";
-$api_base_url = "/homekmart/shop/api";
+$conn = get_db_connection();
+
+// 선택된 점포 (기본값: 첫 번째 활성 점포)
+$selected_store_id = isset($_GET['store_id']) ? (int)$_GET['store_id'] : 1;
+
+// 점포 목록 조회
+$stores_query = "SELECT * FROM stores WHERE is_active = 1 ORDER BY name ASC";
+$stores_result = $conn->query($stores_query);
+
+// 선택된 점포 정보
+$store_stmt = $conn->prepare("SELECT * FROM stores WHERE id = ? AND is_active = 1");
+$store_stmt->bind_param("i", $selected_store_id);
+$store_stmt->execute();
+$store_result = $store_stmt->get_result();
+$current_store = $store_result->fetch_assoc();
+$store_stmt->close();
+
+if (!$current_store) {
+    // 기본 점포로 리다이렉트
+    $first_store_query = "SELECT id FROM stores WHERE is_active = 1 ORDER BY id ASC LIMIT 1";
+    $first_store_result = $conn->query($first_store_query);
+    if ($first_store = $first_store_result->fetch_assoc()) {
+        header("Location: index.php?store_id=" . $first_store['id']);
+        exit;
+    }
+}
+
+// 진열 섹션과 상품 조회
+$sections_query = "
+    SELECT ds.*, 
+           COUNT(pd.id) as product_count
+    FROM display_sections ds
+    LEFT JOIN product_displays pd ON ds.id = pd.section_id 
+        AND pd.store_id = ? 
+        AND pd.is_active = 1
+        AND (pd.start_date IS NULL OR pd.start_date <= CURDATE())
+        AND (pd.end_date IS NULL OR pd.end_date >= CURDATE())
+    WHERE ds.is_active = 1 AND ds.show_on_main = 1
+    GROUP BY ds.id
+    ORDER BY ds.display_order ASC
+";
+$sections_stmt = $conn->prepare($sections_query);
+$sections_stmt->bind_param("i", $selected_store_id);
+$sections_stmt->execute();
+$sections_result = $sections_stmt->get_result();
+$sections = $sections_result->fetch_all(MYSQLI_ASSOC);
+$sections_stmt->close();
 ?>
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="HOME K MART 온라인 쇼핑몰에서 다양한 상품을 만나보세요">
-    <title><?= $site_title ?></title>
-    
-    <!-- CSS Frameworks -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#2563eb',
-                        secondary: '#64748b'
-                    }
-                }
-            }
-        }
-    </script>
-    
-    <!-- Vue.js 3 -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- PWA -->
-    <link rel="manifest" href="../mobile/manifest.json">
-    <meta name="theme-color" content="#2563eb">
-    
+    <title><?php echo htmlspecialchars($current_store['name'] ?? 'HOME K MART'); ?> - 온라인 쇼핑몰</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        [v-cloak] { display: none; }
+        .store-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+        }
+        
+        .section-title {
+            position: relative;
+            margin: 3rem 0 2rem 0;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f8f9fa;
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 60px;
+            height: 2px;
+            background: #667eea;
+        }
+        
+        .product-card {
+            border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            height: 100%;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            cursor: pointer;
+        }
+        
+        .product-image {
+            height: 200px;
+            object-fit: cover;
+            background: #f8f9fa;
+        }
+        
+        .product-image-placeholder {
+            height: 200px;
+            background: linear-gradient(45deg, #f8f9fa 25%, transparent 25%),
+                        linear-gradient(-45deg, #f8f9fa 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #f8f9fa 75%),
+                        linear-gradient(-45deg, transparent 75%, #f8f9fa 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+        }
+        
+        .badge-custom {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+        }
+        
+        .price-tag {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #dc3545;
+        }
+        
+        .store-selector {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 1rem;
+            margin: -30px auto 2rem auto;
+            max-width: 400px;
+            position: relative;
+            z-index: 100;
+        }
+        
+        .banner-carousel {
+            height: 300px;
+            overflow: hidden;
+            border-radius: 10px;
+        }
+        
+        .banner-item {
+            height: 300px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+        }
+        
+        .grid-layout {
+            display: grid;
+            gap: 1.5rem;
+        }
+        
+        @media (min-width: 576px) {
+            .grid-layout { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        @media (min-width: 768px) {
+            .grid-layout { grid-template-columns: repeat(3, 1fr); }
+        }
+        
+        @media (min-width: 992px) {
+            .grid-layout { grid-template-columns: repeat(4, 1fr); }
+        }
     </style>
 </head>
-<body class="bg-gray-50">
-    <div id="app" v-cloak>
-        <!-- Header -->
-        <header class="bg-white shadow-md sticky top-0 z-50">
-            <div class="container mx-auto px-4">
-                <nav class="flex items-center justify-between py-4">
-                    <!-- Logo -->
-                    <div class="flex items-center space-x-2">
-                        <i class="fas fa-store text-2xl text-primary"></i>
-                        <h1 class="text-xl font-bold text-gray-800">HOME K MART</h1>
-                    </div>
-                    
-                    <!-- Search -->
-                    <div class="hidden md:flex flex-1 max-w-md mx-8">
-                        <div class="relative w-full">
-                            <input 
-                                type="text" 
-                                placeholder="상품을 검색해보세요..." 
-                                class="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                                v-model="searchQuery"
-                                @keyup.enter="searchProducts"
-                            >
-                            <button @click="searchProducts" class="absolute right-2 top-2 text-gray-500 hover:text-primary">
-                                <i class="fas fa-search"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Navigation -->
-                    <div class="flex items-center space-x-4">
-                        <button @click="toggleCart" class="relative p-2 text-gray-700 hover:text-primary">
-                            <i class="fas fa-shopping-cart text-xl"></i>
-                            <span v-if="cartCount > 0" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                                {{ cartCount }}
-                            </span>
-                        </button>
-                        
-                        <button v-if="!isLoggedIn" @click="showLogin = true" class="px-4 py-2 text-primary hover:bg-primary hover:text-white border border-primary rounded-lg transition">
-                            로그인
-                        </button>
-                        
-                        <div v-else class="flex items-center space-x-2">
-                            <span class="text-gray-700">{{ user.name }}님</span>
-                            <button @click="logout" class="text-gray-500 hover:text-red-500">
-                                <i class="fas fa-sign-out-alt"></i>
-                            </button>
-                        </div>
-                    </div>
-                </nav>
-                
-                <!-- Mobile Search -->
-                <div class="md:hidden pb-4">
-                    <div class="relative">
-                        <input 
-                            type="text" 
-                            placeholder="상품을 검색해보세요..." 
-                            class="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg"
-                            v-model="searchQuery"
-                            @keyup.enter="searchProducts"
-                        >
-                        <button @click="searchProducts" class="absolute right-2 top-2 text-gray-500">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div>
+<body>
+    <!-- 헤더 -->
+    <div class="store-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="mb-0">
+                        <i class="fas fa-store me-3"></i><?php echo htmlspecialchars($current_store['name'] ?? 'HOME K MART'); ?>
+                    </h1>
+                    <p class="mb-0 mt-2">
+                        <?php if ($current_store['address']): ?>
+                            <i class="fas fa-map-marker-alt me-2"></i><?php echo htmlspecialchars($current_store['address']); ?>
+                        <?php endif; ?>
+                        <?php if ($current_store['phone']): ?>
+                            <i class="fas fa-phone ms-3 me-2"></i><?php echo htmlspecialchars($current_store['phone']); ?>
+                        <?php endif; ?>
+                    </p>
                 </div>
-            </div>
-        </header>
-        
-        <!-- Main Content -->
-        <main class="container mx-auto px-4 py-8">
-            <!-- Hero Section -->
-            <section class="bg-gradient-to-r from-primary to-blue-600 text-white rounded-lg p-8 mb-8">
-                <div class="text-center">
-                    <h2 class="text-3xl font-bold mb-4">HOME K MART에 오신 것을 환영합니다!</h2>
-                    <p class="text-lg mb-6">최고의 상품을 최저가로 만나보세요</p>
-                    <button @click="scrollToProducts" class="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition">
-                        상품 보러가기
+                <div class="col-md-4 text-md-end">
+                    <button class="btn btn-light btn-lg" onclick="showCart()">
+                        <i class="fas fa-shopping-cart me-2"></i>장바구니
+                        <span class="badge bg-danger ms-2" id="cartCount">0</span>
                     </button>
                 </div>
-            </section>
-            
-            <!-- Categories -->
-            <section class="mb-8">
-                <h3 class="text-2xl font-bold mb-4">카테고리</h3>
-                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    <div 
-                        v-for="category in categories" 
-                        :key="category.id"
-                        @click="filterByCategory(category.id)"
-                        class="bg-white p-4 rounded-lg shadow hover:shadow-md cursor-pointer transition text-center"
-                    >
-                        <i :class="category.icon" class="text-2xl text-primary mb-2"></i>
-                        <p class="font-medium">{{ category.name_kr }}</p>
-                    </div>
-                </div>
-            </section>
-            
-            <!-- Products -->
-            <section id="products">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-2xl font-bold">상품 목록</h3>
-                    <select v-model="sortBy" @change="sortProducts" class="px-4 py-2 border rounded-lg">
-                        <option value="name">상품명순</option>
-                        <option value="price_asc">가격 낮은순</option>
-                        <option value="price_desc">가격 높은순</option>
-                    </select>
-                </div>
-                
-                <div v-if="loading" class="text-center py-8">
-                    <i class="fas fa-spinner fa-spin text-2xl text-primary"></i>
-                    <p class="mt-2">상품을 불러오는 중...</p>
-                </div>
-                
-                <div v-else-if="products.length === 0" class="text-center py-8">
-                    <i class="fas fa-box-open text-4xl text-gray-400 mb-4"></i>
-                    <p class="text-gray-500">등록된 상품이 없습니다.</p>
-                </div>
-                
-                <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    <div 
-                        v-for="product in products" 
-                        :key="product.id"
-                        class="bg-white rounded-lg shadow hover:shadow-lg transition cursor-pointer"
-                        @click="viewProduct(product.id)"
-                    >
-                        <img 
-                            :src="product.image || 'https://via.placeholder.com/300x200?text=No+Image'" 
-                            :alt="product.name_kr"
-                            class="w-full h-48 object-cover rounded-t-lg"
-                        >
-                        <div class="p-4">
-                            <h4 class="font-semibold text-lg mb-2 line-clamp-2">{{ product.name_kr }}</h4>
-                            <p class="text-sm text-gray-600 mb-2 line-clamp-1">{{ product.name_en }}</p>
-                            <div class="flex justify-between items-center">
-                                <span class="text-xl font-bold text-primary">
-                                    {{ formatPrice(product.selling_price) }}원
-                                </span>
-                                <button 
-                                    @click.stop="addToCart(product)"
-                                    class="bg-primary text-white px-4 py-2 rounded hover:bg-blue-600 transition text-sm"
-                                >
-                                    <i class="fas fa-cart-plus mr-1"></i>
-                                    담기
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
-        
-        <!-- Footer -->
-        <footer class="bg-gray-800 text-white py-8 mt-16">
-            <div class="container mx-auto px-4 text-center">
-                <h3 class="text-xl font-bold mb-4">HOME K MART</h3>
-                <p class="text-gray-400 mb-4">최고의 쇼핑 경험을 제공하는 온라인 쇼핑몰</p>
-                <div class="flex justify-center space-x-4 text-sm text-gray-400">
-                    <a href="#" class="hover:text-white">이용약관</a>
-                    <a href="#" class="hover:text-white">개인정보처리방침</a>
-                    <a href="#" class="hover:text-white">고객센터</a>
-                </div>
-            </div>
-        </footer>
-        
-        <!-- Cart Sidebar -->
-        <div v-if="showCart" class="fixed inset-0 z-50 overflow-hidden" @click.self="showCart = false">
-            <div class="absolute right-0 top-0 h-full w-80 bg-white shadow-xl p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-bold">장바구니</h3>
-                    <button @click="showCart = false" class="text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                
-                <div v-if="cart.length === 0" class="text-center py-8">
-                    <i class="fas fa-shopping-cart text-4xl text-gray-400 mb-4"></i>
-                    <p class="text-gray-500">장바구니가 비어있습니다.</p>
-                </div>
-                
-                <div v-else>
-                    <div v-for="item in cart" :key="item.id" class="flex items-center space-x-4 mb-4 p-3 bg-gray-50 rounded">
-                        <img :src="item.image || 'https://via.placeholder.com/60'" class="w-15 h-15 object-cover rounded">
-                        <div class="flex-1">
-                            <h4 class="font-medium text-sm">{{ item.name_kr }}</h4>
-                            <p class="text-primary font-bold">{{ formatPrice(item.price) }}원</p>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <button @click="updateQuantity(item.id, item.quantity - 1)" class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">-</button>
-                            <span class="w-8 text-center">{{ item.quantity }}</span>
-                            <button @click="updateQuantity(item.id, item.quantity + 1)" class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">+</button>
-                        </div>
-                    </div>
-                    
-                    <div class="border-t pt-4">
-                        <div class="flex justify-between mb-4">
-                            <span class="font-bold">총 금액:</span>
-                            <span class="text-xl font-bold text-primary">{{ formatPrice(cartTotal) }}원</span>
-                        </div>
-                        <button 
-                            @click="checkout" 
-                            class="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-blue-600 transition"
-                        >
-                            주문하기
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Login Modal -->
-        <div v-if="showLogin" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" @click.self="showLogin = false">
-            <div class="bg-white p-6 rounded-lg w-80">
-                <h3 class="text-xl font-bold mb-4">로그인</h3>
-                <form @submit.prevent="login">
-                    <input 
-                        type="email" 
-                        placeholder="이메일" 
-                        v-model="loginForm.email"
-                        class="w-full p-3 border rounded mb-3"
-                        required
-                    >
-                    <input 
-                        type="password" 
-                        placeholder="비밀번호" 
-                        v-model="loginForm.password"
-                        class="w-full p-3 border rounded mb-4"
-                        required
-                    >
-                    <button type="submit" class="w-full bg-primary text-white py-3 rounded font-semibold">
-                        로그인
-                    </button>
-                </form>
-                <p class="text-center mt-4 text-sm">
-                    계정이 없으신가요? <a href="#" @click="showRegister = true; showLogin = false" class="text-primary">회원가입</a>
-                </p>
-            </div>
-        </div>
-        
-        <!-- Register Modal -->
-        <div v-if="showRegister" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" @click.self="showRegister = false">
-            <div class="bg-white p-6 rounded-lg w-80 max-h-screen overflow-y-auto">
-                <h3 class="text-xl font-bold mb-4">회원가입</h3>
-                <form @submit.prevent="register">
-                    <input 
-                        type="text" 
-                        placeholder="이름" 
-                        v-model="registerForm.name"
-                        class="w-full p-3 border rounded mb-3"
-                        required
-                    >
-                    <input 
-                        type="email" 
-                        placeholder="이메일" 
-                        v-model="registerForm.email"
-                        class="w-full p-3 border rounded mb-3"
-                        required
-                    >
-                    <input 
-                        type="password" 
-                        placeholder="비밀번호 (6자 이상)" 
-                        v-model="registerForm.password"
-                        class="w-full p-3 border rounded mb-3"
-                        required
-                        minlength="6"
-                    >
-                    <input 
-                        type="password" 
-                        placeholder="비밀번호 확인" 
-                        v-model="registerForm.password_confirm"
-                        class="w-full p-3 border rounded mb-3"
-                        required
-                    >
-                    <input 
-                        type="tel" 
-                        placeholder="휴대폰 번호 (선택사항)" 
-                        v-model="registerForm.phone"
-                        class="w-full p-3 border rounded mb-4"
-                    >
-                    <label class="flex items-center mb-4">
-                        <input 
-                            type="checkbox" 
-                            v-model="registerForm.marketing_agree"
-                            class="mr-2"
-                        >
-                        <span class="text-sm">마케팅 정보 수신 동의 (선택)</span>
-                    </label>
-                    <button type="submit" class="w-full bg-primary text-white py-3 rounded font-semibold">
-                        회원가입
-                    </button>
-                </form>
-                <p class="text-center mt-4 text-sm">
-                    이미 계정이 있으신가요? <a href="#" @click="showLogin = true; showRegister = false" class="text-primary">로그인</a>
-                </p>
             </div>
         </div>
     </div>
 
-    <!-- Vue.js App Script -->
-    <script src="js/app.js"></script>
-    
-    <!-- Debug Script -->
+    <!-- 점포 선택기 -->
+    <div class="container">
+        <div class="store-selector">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <label class="form-label mb-2">
+                        <i class="fas fa-map-marker-alt me-2"></i>점포 선택
+                    </label>
+                    <select class="form-select" onchange="changeStore(this.value)">
+                        <?php if ($stores_result): ?>
+                            <?php $stores_result->data_seek(0); ?>
+                            <?php while ($store = $stores_result->fetch_assoc()): ?>
+                                <option value="<?php echo $store['id']; ?>" <?php echo $store['id'] == $selected_store_id ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($store['name']); ?>
+                                    <?php if ($store['address']): ?> - <?php echo htmlspecialchars($store['address']); ?><?php endif; ?>
+                                </option>
+                            <?php endwhile; ?>
+                        <?php endif; ?>
+                    </select>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        점포별 가격이 다를 수 있습니다
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메인 콘텐츠 -->
+    <div class="container">
+        <?php if (!empty($sections)): ?>
+            <?php foreach ($sections as $section): ?>
+                <?php if ($section['product_count'] > 0): ?>
+                    <?php
+                    // 섹션별 상품 조회
+                    $products_query = "
+                        SELECT pd.*, p.name as product_name, p.barcode, p.description as product_description,
+                               b.name as brand_name, c.name as category_name,
+                               i.selling_price, i.cost_price
+                        FROM product_displays pd
+                        JOIN products p ON pd.product_id = p.id
+                        LEFT JOIN brands b ON p.brand_id = b.id
+                        LEFT JOIN categories c ON p.category_id = c.id
+                        LEFT JOIN inventory i ON p.id = i.product_id AND i.store_id = ?
+                        WHERE pd.section_id = ? AND pd.store_id = ? AND pd.is_active = 1
+                              AND (pd.start_date IS NULL OR pd.start_date <= CURDATE())
+                              AND (pd.end_date IS NULL OR pd.end_date >= CURDATE())
+                        ORDER BY pd.display_order ASC
+                        " . ($section['max_products'] ? "LIMIT " . $section['max_products'] : "");
+                    
+                    $products_stmt = $conn->prepare($products_query);
+                    $products_stmt->bind_param("iii", $selected_store_id, $section['id'], $selected_store_id);
+                    $products_stmt->execute();
+                    $products_result = $products_stmt->get_result();
+                    $products = $products_result->fetch_all(MYSQLI_ASSOC);
+                    $products_stmt->close();
+                    ?>
+                    
+                    <section class="mb-5">
+                        <h2 class="section-title">
+                            <?php echo htmlspecialchars($section['name']); ?>
+                            <small class="text-muted ms-2"><?php echo count($products); ?>개 상품</small>
+                        </h2>
+                        
+                        <div class="grid-layout <?php echo $section['custom_css_class']; ?>">
+                            <?php foreach ($products as $product): ?>
+                                <div class="card product-card" onclick="viewProduct(<?php echo $product['product_id']; ?>)">
+                                    <?php if ($product['badge_text']): ?>
+                                        <span class="badge bg-<?php echo $product['badge_color'] ?: 'primary'; ?> badge-custom">
+                                            <?php echo htmlspecialchars($product['badge_text']); ?>
+                                        </span>
+                                    <?php endif; ?>
+                                    
+                                    <?php if ($product['custom_image_url']): ?>
+                                        <img src="<?php echo htmlspecialchars($product['custom_image_url']); ?>" 
+                                             class="card-img-top product-image" alt="상품 이미지">
+                                    <?php else: ?>
+                                        <div class="product-image-placeholder">
+                                            <i class="fas fa-image fa-3x"></i>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <div class="card-body">
+                                        <h6 class="card-title mb-2">
+                                            <?php echo $product['custom_title'] ?: htmlspecialchars($product['product_name']); ?>
+                                        </h6>
+                                        
+                                        <p class="text-muted small mb-2">
+                                            <?php echo htmlspecialchars($product['brand_name'] ?? ''); ?>
+                                        </p>
+                                        
+                                        <?php if ($product['custom_description']): ?>
+                                            <p class="card-text small text-primary mb-2">
+                                                <?php echo htmlspecialchars($product['custom_description']); ?>
+                                            </p>
+                                        <?php endif; ?>
+                                        
+                                        <?php if ($product['selling_price']): ?>
+                                            <div class="price-tag">
+                                                <?php echo number_format($product['selling_price'], 0); ?>원
+                                            </div>
+                                        <?php else: ?>
+                                            <div class="text-muted">
+                                                가격 문의
+                                            </div>
+                                        <?php endif; ?>
+                                        
+                                        <button class="btn btn-primary btn-sm w-100 mt-2" onclick="addToCart(<?php echo $product['product_id']; ?>, event)">
+                                            <i class="fas fa-cart-plus me-2"></i>장바구니 담기
+                                        </button>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        
+                        <?php if (count($products) >= ($section['max_products'] ?? 999)): ?>
+                            <div class="text-center mt-4">
+                                <a href="category.php?section_id=<?php echo $section['id']; ?>&store_id=<?php echo $selected_store_id; ?>" class="btn btn-outline-primary">
+                                    더 많은 상품 보기 <i class="fas fa-arrow-right ms-2"></i>
+                                </a>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <!-- 진열된 상품이 없을 때 -->
+            <div class="text-center py-5">
+                <i class="fas fa-shopping-cart fa-4x text-muted mb-4"></i>
+                <h3 class="text-muted">준비 중입니다</h3>
+                <p class="text-muted">곧 다양한 상품들과 만나실 수 있습니다.</p>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- 푸터 -->
+    <footer class="bg-dark text-white mt-5 py-4">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>HOME K MART</h5>
+                    <p class="mb-0">신선하고 품질 좋은 상품을 합리적인 가격에 제공합니다.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="mb-0">
+                        <i class="fas fa-phone me-2"></i>고객센터: 1588-0000<br>
+                        <small class="text-muted">평일 09:00-18:00, 주말 휴무</small>
+                    </p>
+                </div>
+            </div>
+            <hr class="my-3">
+            <div class="text-center">
+                <small class="text-muted">&copy; 2025 HOME K MART. All rights reserved.</small>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 장바구니 모달 -->
+    <div class="modal fade" id="cartModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">장바구니</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="cartItems">
+                        <div class="text-center py-4">
+                            <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">장바구니가 비어있습니다.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="w-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <strong>총 금액: <span id="totalAmount">0</span>원</strong>
+                        </div>
+                        <button type="button" class="btn btn-primary w-100" onclick="checkout()">
+                            주문하기 <i class="fas fa-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        console.log('Vue 로드 확인:', typeof Vue);
-        console.log('페이지 로드 완료');
+        // 장바구니 데이터 (로컬 스토리지 사용)
+        let cart = JSON.parse(localStorage.getItem('cart') || '[]');
         
-        // 5초 후에 Vue 앱 상태 확인
-        setTimeout(() => {
-            console.log('Vue 앱 확인:', document.getElementById('app'));
-            const vueApp = document.getElementById('app');
-            if (vueApp) {
-                console.log('Vue 앱 내용:', vueApp.innerHTML.substring(0, 200));
-            }
-        }, 5000);
-    </script>
-    
-    <!-- Service Worker for PWA -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('../mobile/sw.js');
-            });
+        function updateCartCount() {
+            document.getElementById('cartCount').textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
         }
+        
+        function changeStore(storeId) {
+            window.location.href = 'index.php?store_id=' + storeId;
+        }
+        
+        function viewProduct(productId) {
+            window.location.href = 'product.php?id=' + productId + '&store_id=<?php echo $selected_store_id; ?>';
+        }
+        
+        function addToCart(productId, event) {
+            event.stopPropagation();
+            
+            // 상품 정보 찾기 (현재 페이지에서)
+            const productCard = event.target.closest('.product-card');
+            const productName = productCard.querySelector('.card-title').textContent;
+            const priceElement = productCard.querySelector('.price-tag');
+            const price = priceElement ? parseFloat(priceElement.textContent.replace(/[^0-9]/g, '')) : 0;
+            
+            const existingItem = cart.find(item => item.productId === productId);
+            
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                cart.push({
+                    productId: productId,
+                    name: productName,
+                    price: price,
+                    quantity: 1,
+                    storeId: <?php echo $selected_store_id; ?>
+                });
+            }
+            
+            localStorage.setItem('cart', JSON.stringify(cart));
+            updateCartCount();
+            
+            // 성공 메시지
+            const toast = document.createElement('div');
+            toast.className = 'toast show position-fixed top-0 end-0 m-3';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                <div class="toast-body bg-success text-white">
+                    <i class="fas fa-check me-2"></i>장바구니에 추가되었습니다.
+                </div>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        function showCart() {
+            updateCartDisplay();
+            new bootstrap.Modal(document.getElementById('cartModal')).show();
+        }
+        
+        function updateCartDisplay() {
+            const cartItems = document.getElementById('cartItems');
+            const totalAmount = document.getElementById('totalAmount');
+            
+            if (cart.length === 0) {
+                cartItems.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">장바구니가 비어있습니다.</p>
+                    </div>
+                `;
+                totalAmount.textContent = '0';
+                return;
+            }
+            
+            let html = '';
+            let total = 0;
+            
+            cart.forEach((item, index) => {
+                const itemTotal = item.price * item.quantity;
+                total += itemTotal;
+                
+                html += `
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-3">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${item.name}</h6>
+                            <small class="text-muted">${item.price.toLocaleString()}원</small>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="updateQuantity(${index}, -1)">-</button>
+                            <span class="mx-3">${item.quantity}</span>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="updateQuantity(${index}, 1)">+</button>
+                            <button class="btn btn-sm btn-outline-danger ms-3" onclick="removeFromCart(${index})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="text-end ms-3">
+                            <strong>${itemTotal.toLocaleString()}원</strong>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            cartItems.innerHTML = html;
+            totalAmount.textContent = total.toLocaleString();
+        }
+        
+        function updateQuantity(index, change) {
+            cart[index].quantity += change;
+            if (cart[index].quantity <= 0) {
+                cart.splice(index, 1);
+            }
+            localStorage.setItem('cart', JSON.stringify(cart));
+            updateCartCount();
+            updateCartDisplay();
+        }
+        
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            localStorage.setItem('cart', JSON.stringify(cart));
+            updateCartCount();
+            updateCartDisplay();
+        }
+        
+        function checkout() {
+            if (cart.length === 0) {
+                alert('장바구니가 비어있습니다.');
+                return;
+            }
+            
+            window.location.href = 'order.php?store_id=<?php echo $selected_store_id; ?>';
+        }
+        
+        // 페이지 로드 시 장바구니 개수 업데이트
+        updateCartCount();
     </script>
 </body>
 </html>
+
+<?php
+$conn->close();
+?>
