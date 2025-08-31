@@ -157,7 +157,7 @@ const App = createApp({
         // 카테고리 로드
         async loadCategories() {
             try {
-                const response = await utils.apiCall('/categories_fake.php');
+                const response = await utils.apiCall('/categories.php');
                 this.categories = response.categories || [];
                 console.log('카테고리 로드 성공:', this.categories);
             } catch (error) {
@@ -172,89 +172,48 @@ const App = createApp({
             }
         },
         
-        // 상품 로드 (임시로 fake 데이터 사용)
+        // 상품 로드 (실제 API 호출)
         async loadProducts(params = {}) {
             this.loading = true;
             
             try {
-                // 임시 fake 데이터
-                await new Promise(resolve => setTimeout(resolve, 500)); // 로딩 시뮬레이션
+                // API 호출 파라미터 구성
+                let url = '/products.php';
+                const queryParams = [];
                 
-                this.products = [
-                    {
-                        id: 1,
-                        name_kr: '스마트폰 갤럭시',
-                        name_en: 'Galaxy Smartphone',
-                        category_name: '전자제품',
-                        selling_price: 899000,
-                        cost_price: 750000,
-                        image: null,
-                        description: '최신 스마트폰으로 뛰어난 성능을 제공합니다',
-                        quantity: 15
-                    },
-                    {
-                        id: 2,
-                        name_kr: '캐주얼 티셔츠',
-                        name_en: 'Casual T-shirt',
-                        category_name: '의류',
-                        selling_price: 29000,
-                        cost_price: 18000,
-                        image: null,
-                        description: '편안하고 스타일리시한 티셔츠입니다',
-                        quantity: 50
-                    },
-                    {
-                        id: 3,
-                        name_kr: '스테인리스 텀블러',
-                        name_en: 'Stainless Tumbler',
-                        category_name: '생활용품',
-                        selling_price: 25000,
-                        cost_price: 15000,
-                        image: null,
-                        description: '보온보냉이 우수한 스테인리스 텀블러입니다',
-                        quantity: 30
-                    },
-                    {
-                        id: 4,
-                        name_kr: '유기농 사과',
-                        name_en: 'Organic Apple',
-                        category_name: '식품',
-                        selling_price: 8000,
-                        cost_price: 5000,
-                        image: null,
-                        description: '당도 높은 유기농 사과입니다',
-                        quantity: 100
-                    },
-                    {
-                        id: 5,
-                        name_kr: '수분크림',
-                        name_en: 'Moisturizing Cream',
-                        category_name: '뷰티',
-                        selling_price: 35000,
-                        cost_price: 22000,
-                        image: null,
-                        description: '피부에 수분과 영양을 공급하는 크림입니다',
-                        quantity: 25
-                    },
-                    {
-                        id: 6,
-                        name_kr: '요가 매트',
-                        name_en: 'Yoga Mat',
-                        category_name: '스포츠',
-                        selling_price: 45000,
-                        cost_price: 30000,
-                        image: null,
-                        description: '미끄럼방지 기능이 있는 요가 매트입니다',
-                        quantity: 20
-                    }
-                ];
+                if (params.search) {
+                    queryParams.push(`search=${encodeURIComponent(params.search)}`);
+                }
+                if (params.category_id) {
+                    queryParams.push(`category_id=${params.category_id}`);
+                }
+                if (this.sortBy) {
+                    queryParams.push(`sort=${this.sortBy}`);
+                }
                 
-                this.currentPage = 1;
-                this.totalPages = 1;
+                if (queryParams.length > 0) {
+                    url += '?' + queryParams.join('&');
+                }
+                
+                const response = await utils.apiCall(url);
+                
+                if (response.success) {
+                    this.products = response.products || [];
+                    this.currentPage = response.current_page || 1;
+                    this.totalPages = response.total_pages || 1;
+                    console.log('상품 로드 성공:', this.products.length + '개 상품');
+                } else {
+                    throw new Error(response.message || '상품 로드 실패');
+                }
+                
             } catch (error) {
                 console.error('상품 로드 실패:', error);
                 utils.showToast('상품을 불러오는데 실패했습니다.', 'error');
+                
+                // 실패 시 빈 배열로 설정
                 this.products = [];
+                this.currentPage = 1;
+                this.totalPages = 1;
             } finally {
                 this.loading = false;
             }
@@ -290,17 +249,23 @@ const App = createApp({
         // 장바구니 관련
         async loadCart() {
             try {
-                const response = await utils.apiCall('/cart');
-                this.cart = response.cart;
+                const response = await utils.apiCall('/cart_standalone.php');
+                if (response.success) {
+                    this.cart = response.cart || [];
+                    console.log('장바구니 로드 성공:', this.cart.length + '개 상품');
+                } else {
+                    throw new Error(response.message || '장바구니 로드 실패');
+                }
             } catch (error) {
                 console.error('장바구니 로드 실패:', error);
-                // 세션 기반이므로 실패해도 계속 진행
+                // 세션 기반이므로 실패해도 빈 배열로 설정
+                this.cart = [];
             }
         },
         
         async addToCart(product) {
             try {
-                await utils.apiCall('/cart/add', {
+                const response = await utils.apiCall('/cart_standalone.php?action=add', {
                     method: 'POST',
                     body: JSON.stringify({
                         product_id: product.id,
@@ -308,8 +273,12 @@ const App = createApp({
                     })
                 });
                 
-                await this.loadCart();
-                utils.showToast('장바구니에 추가되었습니다.', 'success');
+                if (response.success) {
+                    await this.loadCart();
+                    utils.showToast('장바구니에 추가되었습니다.', 'success');
+                } else {
+                    throw new Error(response.message || '장바구니 추가 실패');
+                }
             } catch (error) {
                 console.error('장바구니 추가 실패:', error);
                 utils.showToast('장바구니 추가에 실패했습니다.', 'error');
@@ -317,8 +286,13 @@ const App = createApp({
         },
         
         async updateQuantity(productId, quantity) {
+            if (quantity <= 0) {
+                await this.removeFromCart(productId);
+                return;
+            }
+            
             try {
-                await utils.apiCall('/cart', {
+                const response = await utils.apiCall('/cart_standalone.php', {
                     method: 'PUT',
                     body: JSON.stringify({
                         product_id: productId,
@@ -326,10 +300,35 @@ const App = createApp({
                     })
                 });
                 
-                await this.loadCart();
+                if (response.success) {
+                    await this.loadCart();
+                } else {
+                    throw new Error(response.message || '수량 변경 실패');
+                }
             } catch (error) {
                 console.error('장바구니 업데이트 실패:', error);
                 utils.showToast('수량 변경에 실패했습니다.', 'error');
+            }
+        },
+        
+        async removeFromCart(productId) {
+            try {
+                const response = await utils.apiCall('/cart_standalone.php', {
+                    method: 'DELETE',
+                    body: JSON.stringify({
+                        product_id: productId
+                    })
+                });
+                
+                if (response.success) {
+                    await this.loadCart();
+                    utils.showToast('상품이 제거되었습니다.', 'success');
+                } else {
+                    throw new Error(response.message || '상품 제거 실패');
+                }
+            } catch (error) {
+                console.error('장바구니 제거 실패:', error);
+                utils.showToast('상품 제거에 실패했습니다.', 'error');
             }
         },
         
@@ -356,11 +355,21 @@ const App = createApp({
         },
         
         // 로그인 관련
-        checkLoginStatus() {
-            const user = utils.storage.get('user');
-            if (user && user.token) {
-                this.user = user;
-                this.isLoggedIn = true;
+        async checkLoginStatus() {
+            try {
+                const response = await utils.apiCall('/auth.php?action=check');
+                if (response.success && response.logged_in !== false && response.user) {
+                    this.user = response.user;
+                    this.isLoggedIn = true;
+                    console.log('로그인 상태 확인:', this.user.name + '님');
+                } else {
+                    this.user = null;
+                    this.isLoggedIn = false;
+                }
+            } catch (error) {
+                console.error('로그인 상태 확인 실패:', error);
+                this.user = null;
+                this.isLoggedIn = false;
             }
         },
         
@@ -371,43 +380,106 @@ const App = createApp({
             }
             
             try {
-                // TODO: 실제 로그인 API 호출
-                // const response = await utils.apiCall('/auth/login', {
-                //     method: 'POST',
-                //     body: JSON.stringify(this.loginForm)
-                // });
+                const response = await utils.apiCall('/auth.php?action=login', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email: this.loginForm.email,
+                        password: this.loginForm.password
+                    })
+                });
                 
-                // 임시 로그인 (개발용)
-                const user = {
-                    id: 1,
-                    name: '홍길동',
-                    email: this.loginForm.email,
-                    token: 'temp_token'
-                };
-                
-                this.user = user;
-                this.isLoggedIn = true;
-                this.showLogin = false;
-                
-                utils.storage.set('user', user);
-                utils.showToast('로그인되었습니다.', 'success');
-                
-                // 로그인 후 장바구니 다시 로드
-                await this.loadCart();
+                if (response.success && response.user) {
+                    this.user = response.user;
+                    this.isLoggedIn = true;
+                    this.showLogin = false;
+                    
+                    // 로그인 폼 초기화
+                    this.loginForm.email = '';
+                    this.loginForm.password = '';
+                    
+                    utils.showToast('로그인되었습니다.', 'success');
+                    
+                    // 로그인 후 장바구니 다시 로드
+                    await this.loadCart();
+                } else {
+                    throw new Error(response.message || '로그인 실패');
+                }
                 
             } catch (error) {
                 console.error('로그인 실패:', error);
-                utils.showToast('로그인에 실패했습니다.', 'error');
+                utils.showToast(error.message || '로그인에 실패했습니다.', 'error');
             }
         },
         
-        logout() {
-            this.user = null;
-            this.isLoggedIn = false;
-            this.cart = [];
+        async register() {
+            // 입력 검증
+            if (!this.registerForm.name || !this.registerForm.email || 
+                !this.registerForm.password || !this.registerForm.password_confirm) {
+                utils.showToast('모든 필수 항목을 입력해주세요.', 'error');
+                return;
+            }
             
-            utils.storage.remove('user');
-            utils.showToast('로그아웃되었습니다.');
+            if (this.registerForm.password !== this.registerForm.password_confirm) {
+                utils.showToast('비밀번호가 일치하지 않습니다.', 'error');
+                return;
+            }
+            
+            try {
+                const response = await utils.apiCall('/auth.php?action=register', {
+                    method: 'POST',
+                    body: JSON.stringify(this.registerForm)
+                });
+                
+                if (response.success && response.user) {
+                    this.user = response.user;
+                    this.isLoggedIn = true;
+                    this.showRegister = false;
+                    
+                    // 회원가입 폼 초기화
+                    this.registerForm = {
+                        name: '',
+                        email: '',
+                        password: '',
+                        password_confirm: '',
+                        phone: '',
+                        marketing_agree: false
+                    };
+                    
+                    utils.showToast('회원가입이 완료되었습니다.', 'success');
+                    
+                    // 자동 로그인 후 장바구니 로드
+                    await this.loadCart();
+                } else {
+                    throw new Error(response.message || '회원가입 실패');
+                }
+                
+            } catch (error) {
+                console.error('회원가입 실패:', error);
+                utils.showToast(error.message || '회원가입에 실패했습니다.', 'error');
+            }
+        },
+        
+        async logout() {
+            try {
+                const response = await utils.apiCall('/auth.php?action=logout', {
+                    method: 'POST'
+                });
+                
+                this.user = null;
+                this.isLoggedIn = false;
+                
+                utils.showToast('로그아웃되었습니다.');
+                
+                // 로그아웃 후 장바구니 다시 로드 (세션 기반이므로)
+                await this.loadCart();
+                
+            } catch (error) {
+                console.error('로그아웃 실패:', error);
+                // 실패해도 클라이언트 상태는 초기화
+                this.user = null;
+                this.isLoggedIn = false;
+                utils.showToast('로그아웃되었습니다.');
+            }
         },
         
         // 스크롤 관련
