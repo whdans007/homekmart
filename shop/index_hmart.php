@@ -189,7 +189,7 @@ $sections_stmt->close();
             <?php
             // 섹션별 상품 조회
             $products_query = "
-                SELECT pd.*, p.name as product_name, p.barcode, p.description as product_description,
+                SELECT pd.*, p.name_ko as product_name, p.barcode, p.description as product_description,
                        p.image_url, b.name_ko as brand_name, c.name as category_name,
                        i.selling_price, i.cost_price
                 FROM product_displays pd
@@ -222,9 +222,38 @@ $sections_stmt->close();
                     </p>
                     <?php endif; ?>
                     
-                    <div class="product-grid">
+                    <?php 
+                    // 레이아웃 유형에 따른 컨테이너 클래스 설정
+                    $layout_class = 'product-grid'; // 기본값
+                    $card_class = 'product-card';
+                    
+                    switch($section['layout_type']) {
+                        case 'list':
+                            $layout_class = 'product-list';
+                            $card_class = 'product-card-list';
+                            break;
+                        case 'carousel':
+                            $layout_class = 'product-carousel';
+                            $card_class = 'product-card-carousel';
+                            break;
+                        case 'banner':
+                            $layout_class = 'product-banner';
+                            $card_class = 'product-card-banner';
+                            break;
+                        case 'grid':
+                        default:
+                            $layout_class = 'product-grid';
+                            $card_class = 'product-card';
+                            break;
+                    }
+                    ?>
+                    
+                    <div class="<?php echo $layout_class; ?>" <?php if($section['layout_type'] == 'carousel'): ?>id="carousel-<?php echo $section['id']; ?>"<?php endif; ?>>
                         <?php foreach ($products as $product): ?>
-                        <div class="product-card" data-product-id="<?php echo $product['product_id']; ?>">
+                        <div class="<?php echo $card_class; ?>" data-product-id="<?php echo $product['product_id']; ?>"<?php if($section['layout_type'] == 'banner' && $product['image_url']): ?> style="background-image: url('<?php echo htmlspecialchars($product['image_url']); ?>');"<?php endif; ?>>
+                            
+                            <?php if ($section['layout_type'] != 'banner'): ?>
+                            <!-- 일반 레이아웃의 이미지 영역 -->
                             <div class="product-image">
                                 <?php if ($product['image_url']): ?>
                                 <img src="<?php echo htmlspecialchars($product['image_url']); ?>" 
@@ -238,6 +267,7 @@ $sections_stmt->close();
                                 <div class="discount-badge"><?php echo htmlspecialchars($product['badge_text']); ?></div>
                                 <?php endif; ?>
                             </div>
+                            <?php endif; ?>
                             
                             <div class="product-info">
                                 <?php if ($product['category_name']): ?>
@@ -255,20 +285,35 @@ $sections_stmt->close();
                                 <?php endif; ?>
                                 
                                 <div class="product-price">
+                                    <?php if ($section['layout_type'] == 'list'): ?>
+                                    <!-- 목록형에서는 가격을 더 크게 표시 -->
+                                    <div>
+                                        <span class="price-current" style="font-size: 20px;">
+                                            <?php echo number_format($product['selling_price'] ?? 0); ?>
+                                        </span>
+                                        <?php if ($product['brand_name']): ?>
+                                        <div style="font-size: 13px; color: var(--hmart-gray); margin-top: 2px;">
+                                            브랜드: <?php echo htmlspecialchars($product['brand_name']); ?>
+                                        </div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php else: ?>
+                                    <!-- 기본 가격 표시 -->
                                     <span class="price-current">
-                                        <?php echo number_format($product['selling_price'] ?? 0); ?>원
+                                        <?php echo number_format($product['selling_price'] ?? 0); ?>
                                     </span>
                                     <?php if ($product['brand_name']): ?>
                                     <span style="font-size: 12px; color: var(--hmart-gray);">
                                         <?php echo htmlspecialchars($product['brand_name']); ?>
                                     </span>
                                     <?php endif; ?>
+                                    <?php endif; ?>
                                 </div>
                                 
                                 <button class="add-cart-btn" 
                                         onclick="addToCart(<?php echo $product['product_id']; ?>, '<?php echo htmlspecialchars($product['custom_title'] ?: $product['product_name']); ?>', <?php echo $product['selling_price'] ?? 0; ?>)">
                                     <i class="fas fa-cart-plus" style="margin-right: 8px;"></i>
-                                    장바구니 담기
+                                    <?php echo $section['layout_type'] == 'carousel' ? '담기' : '장바구니 담기'; ?>
                                 </button>
                             </div>
                         </div>
@@ -426,8 +471,66 @@ $sections_stmt->close();
             }
         }
 
+        // 캐러셀 초기화 함수
+        function initializeCarousels() {
+            const carousels = document.querySelectorAll('.product-carousel');
+            carousels.forEach(carousel => {
+                if (carousel.children.length > 0) {
+                    // 터치 이벤트를 위한 변수
+                    let isDown = false;
+                    let startX;
+                    let scrollLeft;
+
+                    // 마우스 이벤트
+                    carousel.addEventListener('mousedown', (e) => {
+                        isDown = true;
+                        startX = e.pageX - carousel.offsetLeft;
+                        scrollLeft = carousel.scrollLeft;
+                        carousel.style.cursor = 'grabbing';
+                    });
+
+                    carousel.addEventListener('mouseleave', () => {
+                        isDown = false;
+                        carousel.style.cursor = 'grab';
+                    });
+
+                    carousel.addEventListener('mouseup', () => {
+                        isDown = false;
+                        carousel.style.cursor = 'grab';
+                    });
+
+                    carousel.addEventListener('mousemove', (e) => {
+                        if (!isDown) return;
+                        e.preventDefault();
+                        const x = e.pageX - carousel.offsetLeft;
+                        const walk = (x - startX) * 2;
+                        carousel.scrollLeft = scrollLeft - walk;
+                    });
+
+                    // 터치 이벤트
+                    carousel.addEventListener('touchstart', (e) => {
+                        startX = e.touches[0].pageX - carousel.offsetLeft;
+                        scrollLeft = carousel.scrollLeft;
+                    });
+
+                    carousel.addEventListener('touchmove', (e) => {
+                        if (!startX) return;
+                        const x = e.touches[0].pageX - carousel.offsetLeft;
+                        const walk = (x - startX) * 2;
+                        carousel.scrollLeft = scrollLeft - walk;
+                    });
+
+                    // 기본 커서 설정
+                    carousel.style.cursor = 'grab';
+                }
+            });
+        }
+
         // Initialize cart badge
         updateCartBadge();
+        
+        // Initialize carousels
+        initializeCarousels();
 
         // Close dropdown when clicking outside
         document.addEventListener('click', function(event) {

@@ -10,7 +10,7 @@ const API_BASE_URL = '/homekmart/shop/api';
 
 // 전역 함수들
 const utils = {
-    // 가격 포맷팅 (한국 원화)
+    // 가격 포맷팅
     formatPrice(price) {
         return new Intl.NumberFormat('ko-KR').format(price);
     },

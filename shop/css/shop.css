@@ -817,3 +817,445 @@ body {
         padding: 0 15px;
     }
 }
+
+/* ===== 레이아웃 유형별 스타일 ===== */
+
+/* 목록형 레이아웃 */
+.product-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 100%;
+}
+
+.product-card-list {
+    background: white;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: flex;
+    transition: all 0.3s ease;
+    border: 1px solid #e0e0e0;
+    min-height: 140px;
+    align-items: stretch;
+}
+
+.product-card-list:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateX(8px);
+    border-color: var(--hmart-red);
+}
+
+.product-card-list .product-image {
+    width: 140px;
+    height: 140px;
+    flex-shrink: 0;
+    background: #f8f8f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.product-card-list .product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-card-list .product-info {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #fafafa 0%, #ffffff 100%);
+}
+
+.product-card-list .product-category {
+    font-size: 12px;
+    color: var(--hmart-red);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+}
+
+.product-card-list .product-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--hmart-dark-gray);
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.product-card-list .product-description {
+    font-size: 14px;
+    color: var(--hmart-gray);
+    margin-bottom: 15px;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.product-card-list .add-cart-btn {
+    width: 160px;
+    align-self: flex-start;
+    padding: 12px 20px;
+    border-radius: 25px;
+    background: linear-gradient(135deg, var(--hmart-red), var(--hmart-red-dark));
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: 0 4px 15px rgba(222, 18, 28, 0.3);
+}
+
+.product-card-list .add-cart-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(222, 18, 28, 0.4);
+}
+
+/* 슬라이드/캐러셀 레이아웃 */
+.product-carousel {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    padding: 15px 5px;
+    scrollbar-width: thin;
+    position: relative;
+}
+
+.product-carousel::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    background: linear-gradient(to right, rgba(255,255,255,0.8), transparent);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.product-carousel::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    background: linear-gradient(to left, rgba(255,255,255,0.8), transparent);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.product-carousel::-webkit-scrollbar {
+    height: 8px;
+}
+
+.product-carousel::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.1);
+    border-radius: 4px;
+    margin: 0 20px;
+}
+
+.product-carousel::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--hmart-red), var(--hmart-red-dark));
+    border-radius: 4px;
+}
+
+.product-carousel::-webkit-scrollbar-thumb:hover {
+    background: var(--hmart-red-dark);
+}
+
+.product-card-carousel {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+    transition: all 0.4s ease;
+    border: 1px solid transparent;
+    min-width: 200px;
+    max-width: 200px;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.product-card-carousel:hover {
+    box-shadow: 0 8px 30px rgba(222, 18, 28, 0.15);
+    transform: translateY(-8px) scale(1.02);
+    border-color: var(--hmart-red);
+}
+
+.product-card-carousel .product-image {
+    height: 140px;
+    position: relative;
+    overflow: hidden;
+}
+
+.product-card-carousel .product-image::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 0%, rgba(222, 18, 28, 0.1) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+}
+
+.product-card-carousel:hover .product-image::before {
+    opacity: 1;
+}
+
+.product-card-carousel .product-info {
+    padding: 15px 12px 12px;
+    text-align: center;
+    background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+}
+
+.product-card-carousel .product-category {
+    font-size: 10px;
+    color: var(--hmart-red);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+}
+
+.product-card-carousel .product-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    line-height: 1.3;
+    height: 35px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.product-card-carousel .product-description {
+    font-size: 11px;
+    color: var(--hmart-gray);
+    margin-bottom: 10px;
+    height: 32px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.product-card-carousel .price-current {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--hmart-red);
+    margin-bottom: 8px;
+    display: block;
+}
+
+.product-card-carousel .add-cart-btn {
+    width: 100%;
+    padding: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--hmart-red), var(--hmart-red-dark));
+    box-shadow: 0 2px 10px rgba(222, 18, 28, 0.3);
+}
+
+.product-card-carousel .add-cart-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(222, 18, 28, 0.4);
+}
+
+/* 배너형 레이아웃 */
+.product-banner {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 25px;
+}
+
+.product-card-banner {
+    position: relative;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 20px;
+    overflow: hidden;
+    min-height: 280px;
+    display: flex;
+    align-items: end;
+    color: white;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+    transition: all 0.5s ease;
+    cursor: pointer;
+    background-color: #333; /* 이미지 로딩 중 대체 색상 */
+}
+
+.product-card-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(0,0,0,0.2) 0%,
+        rgba(0,0,0,0.4) 30%,
+        rgba(0,0,0,0.7) 70%,
+        rgba(0,0,0,0.9) 100%
+    );
+    transition: all 0.3s ease;
+}
+
+.product-card-banner:hover::before {
+    background: linear-gradient(
+        135deg,
+        rgba(222,18,28,0.1) 0%,
+        rgba(222,18,28,0.3) 30%,
+        rgba(0,0,0,0.6) 70%,
+        rgba(0,0,0,0.85) 100%
+    );
+}
+
+.product-card-banner:hover {
+    transform: scale(1.03) translateY(-5px);
+    box-shadow: 0 15px 60px rgba(0,0,0,0.3);
+}
+
+.product-card-banner .product-image {
+    display: none;
+}
+
+.product-card-banner .product-info {
+    position: relative;
+    z-index: 3;
+    background: none;
+    padding: 30px;
+    width: 100%;
+    transform: translateY(10px);
+    transition: transform 0.3s ease;
+}
+
+.product-card-banner:hover .product-info {
+    transform: translateY(0);
+}
+
+.product-card-banner .product-category {
+    color: rgba(255,255,255,0.8);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+}
+
+.product-card-banner .product-name {
+    color: white;
+    font-size: 24px;
+    font-weight: 800;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+    margin-bottom: 12px;
+    line-height: 1.2;
+    text-transform: capitalize;
+}
+
+.product-card-banner .product-description {
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 20px;
+    font-size: 14px;
+    line-height: 1.5;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.product-card-banner .product-price {
+    margin-bottom: 15px;
+}
+
+.product-card-banner .price-current {
+    color: #FFD700;
+    font-size: 28px;
+    font-weight: 900;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+    display: block;
+    margin-bottom: 5px;
+}
+
+.product-card-banner .add-cart-btn {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.85));
+    color: var(--hmart-red);
+    font-weight: 700;
+    border: 2px solid rgba(255,255,255,0.3);
+    width: auto;
+    display: inline-block;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.product-card-banner .add-cart-btn:hover {
+    background: white;
+    border-color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+/* 배너가 여러개인 경우를 위한 그리드 조정 */
+.product-banner.multiple-banners {
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+}
+
+@media (min-width: 1200px) {
+    .product-banner.multiple-banners {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* 모바일 대응 */
+@media (max-width: 768px) {
+    .product-list {
+        gap: 10px;
+    }
+    
+    .product-card-list {
+        flex-direction: column;
+        min-height: auto;
+    }
+    
+    .product-card-list .product-image {
+        width: 100%;
+        height: 150px;
+    }
+    
+    .product-carousel {
+        gap: 10px;
+    }
+    
+    .product-card-carousel {
+        min-width: 180px;
+    }
+    
+    .product-card-banner {
+        min-height: 150px;
+    }
+    
+    .product-card-banner .product-name {
+        font-size: 16px;
+    }
+}
