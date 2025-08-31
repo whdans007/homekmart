@@ -194,71 +194,63 @@ include 'partials/header.php';
     </div>
 
     <!-- 전체 통계 카드 -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 mb-3">
-            <div class="card bg-gradient-primary text-white">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col">
-                            <h5 class="card-title mb-1">전체 상품</h5>
-                            <h2 class="mb-0"><?= number_format($stats['total']['total_products']) ?></h2>
-                            <p class="mb-0 text-light"><small>등록된 모든 상품</small></p>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-box-open fa-2x opacity-75"></i>
-                        </div>
+    <div class="stats-cards-container mb-4">
+        <div class="stats-card">
+            <div class="card bg-gradient-primary text-white h-100 shadow-sm">
+                <div class="card-body text-center p-3">
+                    <div class="mb-2">
+                        <i class="fas fa-box-open fa-2x opacity-75 mb-2"></i>
+                        <h6 class="card-title mb-0 fw-bold">전체 상품</h6>
                     </div>
+                    <h2 class="mb-1 fw-bold"><?= number_format($stats['total']['total_products']) ?></h2>
+                    <p class="mb-0 text-light opacity-90">
+                        <small class="fw-medium">등록된 모든 상품</small>
+                    </p>
                 </div>
             </div>
         </div>
         
-        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 mb-3">
-            <div class="card bg-gradient-success text-white">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col">
-                            <h5 class="card-title mb-1">점포 노출 상품</h5>
-                            <h2 class="mb-0"><?= number_format($stats['total']['store_products']) ?></h2>
-                            <p class="mb-0 text-light"><small>점포에서 판매중인 상품</small></p>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-shopping-cart fa-2x opacity-75"></i>
-                        </div>
+        <div class="stats-card">
+            <div class="card bg-gradient-success text-white h-100 shadow-sm">
+                <div class="card-body text-center p-3">
+                    <div class="mb-2">
+                        <i class="fas fa-shopping-cart fa-2x opacity-75 mb-2"></i>
+                        <h6 class="card-title mb-0 fw-bold">점포 노출 상품</h6>
                     </div>
+                    <h2 class="mb-1 fw-bold"><?= number_format($stats['total']['store_products']) ?></h2>
+                    <p class="mb-0 text-light opacity-90">
+                        <small class="fw-medium">점포에서 판매중인 상품</small>
+                    </p>
                 </div>
             </div>
         </div>
         
-        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 mb-3">
-            <div class="card bg-gradient-warning text-white">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col">
-                            <h5 class="card-title mb-1">추천 상품</h5>
-                            <h2 class="mb-0"><?= number_format($stats['total']['featured_products']) ?></h2>
-                            <p class="mb-0 text-light"><small>메인에 표시되는 상품</small></p>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-star fa-2x opacity-75"></i>
-                        </div>
+        <div class="stats-card">
+            <div class="card bg-gradient-warning text-white h-100 shadow-sm">
+                <div class="card-body text-center p-3">
+                    <div class="mb-2">
+                        <i class="fas fa-star fa-2x opacity-75 mb-2"></i>
+                        <h6 class="card-title mb-0 fw-bold">추천 상품</h6>
                     </div>
+                    <h2 class="mb-1 fw-bold"><?= number_format($stats['total']['featured_products']) ?></h2>
+                    <p class="mb-0 text-light opacity-90">
+                        <small class="fw-medium">메인에 표시되는 상품</small>
+                    </p>
                 </div>
             </div>
         </div>
         
-        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 mb-3">
-            <div class="card bg-gradient-info text-white">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col">
-                            <h5 class="card-title mb-1">활성 점포</h5>
-                            <h2 class="mb-0"><?= number_format($stats['total']['active_stores']) ?></h2>
-                            <p class="mb-0 text-light"><small>운영중인 점포 수</small></p>
-                        </div>
-                        <div class="col-auto">
-                            <i class="fas fa-store fa-2x opacity-75"></i>
-                        </div>
+        <div class="stats-card">
+            <div class="card bg-gradient-info text-white h-100 shadow-sm">
+                <div class="card-body text-center p-3">
+                    <div class="mb-2">
+                        <i class="fas fa-store fa-2x opacity-75 mb-2"></i>
+                        <h6 class="card-title mb-0 fw-bold">활성 점포</h6>
                     </div>
+                    <h2 class="mb-1 fw-bold"><?= number_format($stats['total']['active_stores']) ?></h2>
+                    <p class="mb-0 text-light opacity-90">
+                        <small class="fw-medium">운영중인 점포 수</small>
+                    </p>
                 </div>
             </div>
         </div>
@@ -525,6 +517,105 @@ function refreshDashboard() {
 </script>
 
 <style>
+/* 통계 카드 flexbox 레이아웃 */
+.stats-cards-container {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.stats-card {
+    flex: 1;
+    min-width: 0;
+    width: 25%;
+}
+
+.stats-card .card {
+    transition: all 0.3s ease;
+    border: none;
+    border-radius: 12px;
+    overflow: hidden;
+    height: 100%;
+}
+
+.stats-card .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+}
+
+.stats-card .card .card-body {
+    padding: 1.5rem 1rem;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.stats-card .card h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.stats-card .card h6 {
+    font-size: 0.8rem;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.stats-card .card i {
+    font-size: 2rem;
+}
+
+.stats-card .card .card-body p small {
+    font-size: 0.7rem;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    .stats-cards-container {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .stats-card {
+        width: 100%;
+    }
+}
+
+@media (max-width: 1200px) and (min-width: 769px) {
+    .stats-cards-container {
+        flex-wrap: wrap;
+    }
+    
+    .stats-card {
+        width: 48%;
+        flex: 0 0 48%;
+    }
+}
+
+/* 그라데이션 개선 */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.bg-gradient-success {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    box-shadow: 0 4px 15px rgba(17, 153, 142, 0.3);
+}
+
+.bg-gradient-warning {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+}
+
+.bg-gradient-info {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+}
+
+/* 기존 스타일 유지 */
 .border-left-primary {
     border-left: 4px solid #007bff !important;
 }
@@ -536,22 +627,6 @@ function refreshDashboard() {
 .store-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-}
-
-.bg-gradient-primary {
-    background: linear-gradient(45deg, #007bff, #0056b3);
-}
-
-.bg-gradient-success {
-    background: linear-gradient(45deg, #28a745, #1e7e34);
-}
-
-.bg-gradient-warning {
-    background: linear-gradient(45deg, #ffc107, #e0a800);
-}
-
-.bg-gradient-info {
-    background: linear-gradient(45deg, #17a2b8, #117a8b);
 }
 
 .category-stats {

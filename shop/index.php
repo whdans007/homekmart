@@ -280,6 +280,64 @@ $api_base_url = "/homekmart/shop/api";
                 </p>
             </div>
         </div>
+        
+        <!-- Register Modal -->
+        <div v-if="showRegister" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" @click.self="showRegister = false">
+            <div class="bg-white p-6 rounded-lg w-80 max-h-screen overflow-y-auto">
+                <h3 class="text-xl font-bold mb-4">회원가입</h3>
+                <form @submit.prevent="register">
+                    <input 
+                        type="text" 
+                        placeholder="이름" 
+                        v-model="registerForm.name"
+                        class="w-full p-3 border rounded mb-3"
+                        required
+                    >
+                    <input 
+                        type="email" 
+                        placeholder="이메일" 
+                        v-model="registerForm.email"
+                        class="w-full p-3 border rounded mb-3"
+                        required
+                    >
+                    <input 
+                        type="password" 
+                        placeholder="비밀번호 (6자 이상)" 
+                        v-model="registerForm.password"
+                        class="w-full p-3 border rounded mb-3"
+                        required
+                        minlength="6"
+                    >
+                    <input 
+                        type="password" 
+                        placeholder="비밀번호 확인" 
+                        v-model="registerForm.password_confirm"
+                        class="w-full p-3 border rounded mb-3"
+                        required
+                    >
+                    <input 
+                        type="tel" 
+                        placeholder="휴대폰 번호 (선택사항)" 
+                        v-model="registerForm.phone"
+                        class="w-full p-3 border rounded mb-4"
+                    >
+                    <label class="flex items-center mb-4">
+                        <input 
+                            type="checkbox" 
+                            v-model="registerForm.marketing_agree"
+                            class="mr-2"
+                        >
+                        <span class="text-sm">마케팅 정보 수신 동의 (선택)</span>
+                    </label>
+                    <button type="submit" class="w-full bg-primary text-white py-3 rounded font-semibold">
+                        회원가입
+                    </button>
+                </form>
+                <p class="text-center mt-4 text-sm">
+                    이미 계정이 있으신가요? <a href="#" @click="showLogin = true; showRegister = false" class="text-primary">로그인</a>
+                </p>
+            </div>
+        </div>
     </div>
 
     <!-- Vue.js App Script -->
