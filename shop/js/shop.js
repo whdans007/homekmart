@@ -187,7 +187,7 @@ function renderProducts(products, container) {
             `<div class="discount-badge">-${product.discount_rate}%</div>` : '';
         
         const originalPrice = product.original_price && product.original_price > product.selling_price ?
-            `<span class="price-original">₩${formatPrice(product.original_price)}</span>` : '';
+            `<span class="price-original">${formatPrice(product.original_price)}</span>` : '';
         
         const additionalInfo = [];
         if (product.origin) additionalInfo.push(product.origin);
@@ -206,7 +206,7 @@ function renderProducts(products, container) {
                 ${additionalInfo.length > 0 ? `<div class="text-xs text-gray-500 mb-2">${additionalInfo.join(' | ')}</div>` : ''}
                 <div class="product-price">
                     <div>
-                        <span class="price-current">₩${formatPrice(product.selling_price)}</span>
+                        <span class="price-current">${formatPrice(product.selling_price)}</span>
                         ${originalPrice}
                     </div>
                 </div>
@@ -321,12 +321,12 @@ function toggleCart() {
     }
     
     const cartItems = cart.map(item => 
-        `${item.name} x ${item.quantity} = ₩${formatPrice(item.price * item.quantity)}`
+        `${item.name} x ${item.quantity} = ${formatPrice(item.price * item.quantity)}`
     ).join('\n');
     
     const totalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     
-    alert(`장바구니 내용:\n\n${cartItems}\n\n총 금액: ₩${formatPrice(totalPrice)}`);
+    alert(`장바구니 내용:\n\n${cartItems}\n\n총 금액: ${formatPrice(totalPrice)}`);
 }
 
 // 로그인 관련

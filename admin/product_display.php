@@ -13,6 +13,24 @@ require_permission('admin_access');
 $conn = get_db_connection();
 $page_title = '상품 진열 관리';
 
+// 현재 사용자의 점포 정보 가져오기
+$current_store_id = null;
+if (!empty($_SESSION['user_id'])) {
+    $user_stmt = $conn->prepare("SELECT s.id as store_id FROM users u LEFT JOIN stores s ON u.store_id = s.id WHERE u.id = ?");
+    $user_stmt->bind_param("i", $_SESSION['user_id']);
+    $user_stmt->execute();
+    $user_result = $user_stmt->get_result();
+    if ($user_row = $user_result->fetch_assoc()) {
+        $current_store_id = $user_row['store_id'];
+        
+        // super_admin이고 store_id가 없는 경우 기본 점포 설정
+        if ($_SESSION['role'] === 'super_admin' && empty($current_store_id)) {
+            $current_store_id = 1; // CLARK HILLS
+        }
+    }
+    $user_stmt->close();
+}
+
 // 메시지 처리
 $message = '';
 $message_type = '';
@@ -51,9 +69,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $custom_description = trim($_POST['custom_description']);
         $custom_image_url = trim($_POST['custom_image_url']);
         $badge_text = trim($_POST['badge_text']);
-        $badge_color = $_POST['badge_color'];
-        $start_date = $_POST['start_date'] ?: null;
-        $end_date = $_POST['end_date'] ?: null;
+        $badge_color = ($_POST['badge_color'] !== '') ? $_POST['badge_color'] : NULL;
+        $start_date = $_POST['start_date'] ?: NULL;
+        $end_date = $_POST['end_date'] ?: NULL;
         
         if ($section_id > 0 && $product_id > 0) {
             // 중복 체크
@@ -67,17 +85,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $_SESSION['message'] = '이미 해당 섹션에 진열된 상품입니다.';
                 $_SESSION['message_type'] = 'error';
             } else {
-                $stmt = $conn->prepare("INSERT INTO product_displays (section_id, product_id, store_id, display_order, custom_title, custom_description, custom_image_url, badge_text, badge_color, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("iiiisissss", $section_id, $product_id, $current_store_id, $display_order, $custom_title, $custom_description, $custom_image_url, $badge_text, $badge_color, $start_date, $end_date);
-                
-                if ($stmt->execute()) {
-                    $_SESSION['message'] = '상품이 진열되었습니다.';
-                    $_SESSION['message_type'] = 'success';
-                } else {
-                    $_SESSION['message'] = '상품 진열에 실패했습니다.';
+                // 디버깅을 위한 값 검증
+                if ($current_store_id === null || $current_store_id === '') {
+                    $_SESSION['message'] = '점포 정보가 없습니다. 다시 로그인해주세요.';
                     $_SESSION['message_type'] = 'error';
+                } else {
+                    $stmt = $conn->prepare("INSERT INTO product_displays (section_id, product_id, store_id, display_order, custom_title, custom_description, custom_image_url, badge_text, badge_color, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->bind_param("iiiisssssss", $section_id, $product_id, $current_store_id, $display_order, $custom_title, $custom_description, $custom_image_url, $badge_text, $badge_color, $start_date, $end_date);
+                
+                    if ($stmt->execute()) {
+                        $_SESSION['message'] = '상품이 진열되었습니다.';
+                        $_SESSION['message_type'] = 'success';
+                    } else {
+                        $_SESSION['message'] = '상품 진열에 실패했습니다.';
+                        $_SESSION['message_type'] = 'error';
+                    }
+                    $stmt->close();
                 }
-                $stmt->close();
             }
         }
         header("Location: product_display.php?section_id=$section_id");
@@ -142,8 +166,8 @@ $current_store_id = $_SESSION['store_id'] ?? 1; // 기본값 1
 $displayed_products = [];
 if ($selected_section_id > 0) {
     $products_query = "
-        SELECT pd.*, p.name as product_name, p.barcode, p.description as product_description, 
-               b.name as brand_name, c.name as category_name,
+        SELECT pd.*, p.name_ko as product_name, p.barcode, p.description as product_description, 
+               b.name_ko as brand_name, c.name as category_name,
                i.selling_price, i.cost_price
         FROM product_displays pd
         JOIN products p ON pd.product_id = p.id
@@ -171,11 +195,6 @@ include 'partials/header.php';
             <a href="display_sections.php" class="btn btn-outline-secondary me-2">
                 <i class="fas fa-arrow-left me-2"></i>섹션 관리로
             </a>
-            <?php if ($selected_section): ?>
-                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
-                    <i class="fas fa-plus me-2"></i>상품 추가
-                </button>
-            <?php endif; ?>
         </div>
     </div>
 
@@ -210,7 +229,7 @@ include 'partials/header.php';
                     <div class="text-end">
                         <h6 class="mb-1"><?php echo htmlspecialchars($selected_section['name']); ?></h6>
                         <small class="text-muted">
-                            <?php echo htmlspecialchars($selected_section['description']); ?><br>
+                            <?php echo htmlspecialchars($selected_section['description'] ?: ''); ?><br>
                             최대 상품: <?php echo $selected_section['max_products'] ?: '무제한'; ?> | 
                             레이아웃: <?php echo $selected_section['layout_type']; ?>
                         </small>
@@ -225,15 +244,22 @@ include 'partials/header.php';
         <!-- 진열 상품 목록 -->
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-th me-2"></i><?php echo htmlspecialchars($selected_section['name']); ?> 진열 상품
-                    <span class="badge bg-info ms-2"><?php echo count($displayed_products); ?>개</span>
-                    <?php if ($selected_section['max_products']): ?>
-                        <span class="badge bg-<?php echo count($displayed_products) >= $selected_section['max_products'] ? 'warning' : 'secondary'; ?> ms-1">
-                            / <?php echo $selected_section['max_products']; ?>
-                        </span>
-                    <?php endif; ?>
-                </h5>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-th me-2"></i><?php echo htmlspecialchars($selected_section['name']); ?> 진열 상품
+                        <span class="badge bg-info ms-2"><?php echo count($displayed_products); ?>개</span>
+                        <?php if ($selected_section['max_products']): ?>
+                            <span class="badge bg-<?php echo count($displayed_products) >= $selected_section['max_products'] ? 'warning' : 'secondary'; ?> ms-1">
+                                / <?php echo $selected_section['max_products']; ?>
+                            </span>
+                        <?php endif; ?>
+                    </h5>
+                    <div>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
+                            <i class="fas fa-plus me-1"></i> 상품 추가
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="card-body">
                 <?php if (!empty($displayed_products)): ?>
@@ -241,6 +267,7 @@ include 'partials/header.php';
                         <table class="table table-hover">
                             <thead>
                                 <tr>
+                                    <th width="40"></th>
                                     <th width="60">순서</th>
                                     <th>상품정보</th>
                                     <th>가격</th>
@@ -251,15 +278,18 @@ include 'partials/header.php';
                                     <th width="150">관리</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="sortable-products">
                                 <?php foreach ($displayed_products as $product): ?>
-                                    <tr>
+                                    <tr data-product-id="<?php echo $product['id']; ?>">
+                                        <td class="drag-handle" style="cursor: move; text-align: center;">
+                                            <i class="fas fa-grip-vertical text-muted"></i>
+                                        </td>
                                         <td><?php echo $product['display_order']; ?></td>
                                         <td>
                                             <div class="d-flex align-items-start">
                                                 <div class="flex-shrink-0">
                                                     <?php if ($product['custom_image_url']): ?>
-                                                        <img src="<?php echo htmlspecialchars($product['custom_image_url']); ?>" 
+                                                        <img src="<?php echo htmlspecialchars($product['custom_image_url'] ?? ''); ?>" 
                                                              class="rounded" width="60" height="60" style="object-fit: cover;">
                                                     <?php else: ?>
                                                         <div class="bg-light rounded d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
@@ -272,15 +302,15 @@ include 'partials/header.php';
                                                         <?php echo $product['custom_title'] ?: htmlspecialchars($product['product_name']); ?>
                                                     </h6>
                                                     <small class="text-muted">
-                                                        <?php echo htmlspecialchars($product['brand_name']); ?> |
-                                                        <?php echo htmlspecialchars($product['category_name']); ?>
+                                                        <?php echo htmlspecialchars($product['brand_name'] ?? ''); ?> |
+                                                        <?php echo htmlspecialchars($product['category_name'] ?? ''); ?>
                                                         <?php if ($product['barcode']): ?>
                                                             <br>바코드: <?php echo htmlspecialchars($product['barcode']); ?>
                                                         <?php endif; ?>
                                                     </small>
                                                     <?php if ($product['custom_description']): ?>
                                                         <p class="mb-0 mt-1 small text-primary">
-                                                            <?php echo htmlspecialchars($product['custom_description']); ?>
+                                                            <?php echo htmlspecialchars($product['custom_description'] ?? ''); ?>
                                                         </p>
                                                     <?php endif; ?>
                                                 </div>
@@ -288,9 +318,9 @@ include 'partials/header.php';
                                         </td>
                                         <td>
                                             <?php if ($product['selling_price']): ?>
-                                                <strong><?php echo number_format($product['selling_price'], 2); ?>원</strong>
+                                                <strong><?php echo number_format($product['selling_price'], 2); ?></strong>
                                                 <?php if ($product['cost_price']): ?>
-                                                    <br><small class="text-muted">원가: <?php echo number_format($product['cost_price'], 2); ?>원</small>
+                                                    <br><small class="text-muted">원가: <?php echo number_format($product['cost_price'], 2); ?></small>
                                                 <?php endif; ?>
                                             <?php else: ?>
                                                 <span class="text-muted">미설정</span>
@@ -306,7 +336,7 @@ include 'partials/header.php';
                                         <td>
                                             <?php if ($product['badge_text']): ?>
                                                 <span class="badge bg-<?php echo $product['badge_color'] ?: 'primary'; ?>">
-                                                    <?php echo htmlspecialchars($product['badge_text']); ?>
+                                                    <?php echo htmlspecialchars($product['badge_text'] ?? ''); ?>
                                                 </span>
                                             <?php else: ?>
                                                 <span class="text-muted">없음</span>
@@ -339,7 +369,7 @@ include 'partials/header.php';
                                                 <button type="button" class="btn btn-outline-primary" onclick="editDisplay(<?php echo htmlspecialchars(json_encode($product)); ?>)">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
-                                                <button type="button" class="btn btn-outline-danger" onclick="removeProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['product_name']); ?>')">
+                                                <button type="button" class="btn btn-outline-danger" onclick="removeProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['product_name'] ?? ''); ?>')">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>
@@ -570,6 +600,22 @@ document.getElementById('sectionSelect').addEventListener('change', changeSectio
 
 // 상품 검색 기능
 let searchTimeout;
+
+// 바코드 스캐너 엔터키 방지
+document.getElementById('productSearch')?.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        return false;
+    }
+});
+
+document.getElementById('productSearch')?.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        return false;
+    }
+});
+
 document.getElementById('productSearch')?.addEventListener('input', function() {
     const query = this.value;
     clearTimeout(searchTimeout);
@@ -579,22 +625,26 @@ document.getElementById('productSearch')?.addEventListener('input', function() {
         return;
     }
     
+    // 바코드인 경우 (숫자만 8자리 이상) 즉시 검색
+    const isBarcode = /^\d{8,}$/.test(query);
+    const delay = isBarcode ? 0 : 300;
+    
     searchTimeout = setTimeout(() => {
-        fetch('ajax_search_products.php?q=' + encodeURIComponent(query) + '&store_id=<?php echo $current_store_id; ?>')
+        fetch('ajax_search_products.php?term=' + encodeURIComponent(query) + '&store_id=<?php echo $current_store_id; ?>')
             .then(response => response.json())
             .then(data => {
                 let html = '';
-                if (data.products && data.products.length > 0) {
+                if (data && data.length > 0) {
                     html = '<div class="list-group mt-2">';
-                    data.products.slice(0, 5).forEach(product => {
+                    data.slice(0, 5).forEach(product => {
                         html += `
-                            <a href="#" class="list-group-item list-group-item-action" onclick="selectProduct(${product.id}, '${product.name}', '${product.brand_name || ''}', '${product.barcode || ''}', ${product.selling_price || 0})">
+                            <a href="#" class="list-group-item list-group-item-action" onclick="selectProduct(${product.id}, '${product.name_ko || product.name}', '${product.brand_name || ''}', '${product.barcode || ''}', ${product.selling_price || 0})">
                                 <div class="d-flex justify-content-between">
                                     <div>
-                                        <h6 class="mb-1">${product.name}</h6>
+                                        <h6 class="mb-1">${product.name_ko || product.name}</h6>
                                         <small>${product.brand_name || ''} ${product.barcode ? '| ' + product.barcode : ''}</small>
                                     </div>
-                                    <small class="text-muted">${product.selling_price ? product.selling_price.toFixed(2) + '원' : '가격 미설정'}</small>
+                                    <small class="text-muted">${product.selling_price ? product.selling_price : '가격 미설정'}</small>
                                 </div>
                             </a>
                         `;
@@ -607,8 +657,9 @@ document.getElementById('productSearch')?.addEventListener('input', function() {
             })
             .catch(error => {
                 console.error('검색 오류:', error);
+                document.getElementById('productSearchResults').innerHTML = '<div class="alert alert-danger mt-2">검색 중 오류가 발생했습니다.</div>';
             });
-    }, 300);
+    }, delay);
 });
 
 function selectProduct(id, name, brand, barcode, price) {
@@ -620,7 +671,7 @@ function selectProduct(id, name, brand, barcode, price) {
         <div>
             <h6 class="mb-1">${name}</h6>
             <small class="text-muted">${brand} ${barcode ? '| ' + barcode : ''}</small>
-            <br><small class="text-primary">${price > 0 ? price.toFixed(2) + '원' : '가격 미설정'}</small>
+            <br><small class="text-primary">${price > 0 ? price.toFixed(2) : '가격 미설정'}</small>
         </div>
     `;
     document.getElementById('selectedProduct').style.display = 'block';
@@ -659,9 +710,105 @@ function removeProduct(id, name) {
         form.submit();
     }
 }
+
+// 모달이 열릴 때 자동 포커스 설정
+document.addEventListener('DOMContentLoaded', function() {
+    const addProductModal = document.getElementById('addProductModal');
+    if (addProductModal) {
+        addProductModal.addEventListener('shown.bs.modal', function () {
+            const productSearch = document.getElementById('productSearch');
+            if (productSearch) {
+                productSearch.focus();
+            }
+        });
+    }
+    
+    // SortableJS 초기화 (상품 순서 드래그 앤 드롭)
+    const sortableElement = document.getElementById('sortable-products');
+    if (sortableElement) {
+        new Sortable(sortableElement, {
+            handle: '.drag-handle',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            onEnd: function (evt) {
+                updateProductOrder();
+            }
+        });
+    }
+});
+
+// 상품 순서 업데이트 함수
+function updateProductOrder() {
+    const rows = document.querySelectorAll('#sortable-products tr');
+    const orderData = [];
+    
+    rows.forEach((row, index) => {
+        const productId = row.getAttribute('data-product-id');
+        if (productId) {
+            orderData.push({
+                id: productId,
+                order: index + 1
+            });
+            
+            // 화면의 순서 번호 업데이트
+            const orderCell = row.cells[1]; // 두 번째 셀 (순서)
+            if (orderCell) {
+                orderCell.textContent = index + 1;
+            }
+        }
+    });
+    
+    // AJAX로 서버에 순서 업데이트 전송
+    fetch('ajax_update_product_order.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            section_id: <?php echo $selected_section_id ?: 'null'; ?>,
+            products: orderData
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 성공 시 알림 (선택사항)
+            console.log('상품 순서가 업데이트되었습니다.');
+        } else {
+            console.error('순서 업데이트 실패:', data.message);
+            // 실패 시 페이지 새로고침으로 원상복구
+            location.reload();
+        }
+    })
+    .catch(error => {
+        console.error('순서 업데이트 오류:', error);
+        location.reload();
+    });
+}
 </script>
 
+<!-- SortableJS 라이브러리 -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+<style>
+/* 드래그 앤 드롭 스타일 */
+.sortable-ghost {
+    opacity: 0.4;
+}
+.sortable-chosen {
+    background-color: #f8f9fa;
+}
+.sortable-drag {
+    background-color: #ffffff;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+.drag-handle:hover {
+    background-color: #f8f9fa;
+}
+</style>
+
 <?php
-$conn->close();
 require_once 'partials/footer.php';
 ?>

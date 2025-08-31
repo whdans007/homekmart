@@ -546,10 +546,10 @@ if (!empty($excel_data) && count($excel_data) > 0) {
                         <?php echo htmlspecialchars($row[1] ?? ''); ?>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        <?php echo $row[2] ? number_format((float)$row[2]) . '원' : '-'; ?>
+                        <?php echo $row[2] ? number_format((float)$row[2]) : '-'; ?>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        <?php echo $row[3] ? number_format((float)$row[3]) . '원' : '-'; ?>
+                        <?php echo $row[3] ? number_format((float)$row[3]) : '-'; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -576,8 +576,8 @@ if (!empty($excel_data) && count($excel_data) > 0) {
         <?php foreach (array_slice($price_differences, 0, 10) as $diff): ?>
         <div class="mb-2 text-sm">
             <strong>SKU: <?php echo htmlspecialchars($diff['sku']); ?></strong><br>
-            원가: 엑셀 <?php echo number_format($diff['excel_cost']); ?>원 ↔ DB <?php echo number_format($diff['db_cost']); ?>원<br>
-            판매가: 엑셀 <?php echo number_format($diff['excel_selling']); ?>원 ↔ DB <?php echo number_format($diff['db_selling']); ?>원
+            원가: 엑셀 <?php echo number_format($diff['excel_cost']); ?> ↔ DB <?php echo number_format($diff['db_cost']); ?><br>
+            판매가: 엑셀 <?php echo number_format($diff['excel_selling']); ?> ↔ DB <?php echo number_format($diff['db_selling']); ?>
         </div>
         <?php endforeach; ?>
     </div>
@@ -623,8 +623,8 @@ if (!empty($excel_data) && count($excel_data) > 0) {
                     <span class="font-medium">행 <?php echo $index + 1; ?>:</span>
                     SKU: <?php echo $sku ?: '<span class="text-gray-400">없음</span>'; ?> |
                     상품명: <?php echo $name_en ?: '<span class="text-gray-400">없음</span>'; ?> |
-                    원가: <?php echo $cost_price > 0 ? number_format($cost_price) . '원' : '<span class="text-gray-400">없음</span>'; ?> |
-                    판매가: <?php echo $selling_price > 0 ? number_format($selling_price) . '원' : '<span class="text-gray-400">없음</span>'; ?>
+                    원가: <?php echo $cost_price > 0 ? number_format($cost_price) : '<span class="text-gray-400">없음</span>'; ?> |
+                    판매가: <?php echo $selling_price > 0 ? number_format($selling_price) : '<span class="text-gray-400">없음</span>'; ?>
                 </div>
                 <div class="<?php echo $status_class; ?>">
                     <i class="fas <?php echo $status_icon; ?> mr-1"></i>
