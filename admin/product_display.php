@@ -166,7 +166,7 @@ $current_store_id = $_SESSION['store_id'] ?? 1; // 기본값 1
 $displayed_products = [];
 if ($selected_section_id > 0) {
     $products_query = "
-        SELECT pd.*, p.name_ko as product_name, p.barcode, p.description as product_description, 
+        SELECT pd.*, p.name_ko as product_name, p.name_en as product_name_en, p.barcode, p.description as product_description, 
                b.name_ko as brand_name, c.name as category_name,
                i.selling_price, i.cost_price
         FROM product_displays pd
@@ -299,7 +299,14 @@ include 'partials/header.php';
                                                 </div>
                                                 <div class="flex-grow-1 ms-3">
                                                     <h6 class="mb-1">
-                                                        <?php echo $product['custom_title'] ?: htmlspecialchars($product['product_name']); ?>
+                                                        <?php if ($product['custom_title']): ?>
+                                                            <?php echo htmlspecialchars($product['custom_title']); ?>
+                                                        <?php else: ?>
+                                                            <div><?php echo htmlspecialchars($product['product_name']); ?></div>
+                                                            <?php if (!empty($product['product_name_en'])): ?>
+                                                                <small class="text-muted"><?php echo htmlspecialchars($product['product_name_en']); ?></small>
+                                                            <?php endif; ?>
+                                                        <?php endif; ?>
                                                     </h6>
                                                     <small class="text-muted">
                                                         <?php echo htmlspecialchars($product['brand_name'] ?? ''); ?> |
@@ -369,7 +376,7 @@ include 'partials/header.php';
                                                 <button type="button" class="btn btn-outline-primary" onclick="editDisplay(<?php echo htmlspecialchars(json_encode($product)); ?>)">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
-                                                <button type="button" class="btn btn-outline-danger" onclick="removeProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars($product['product_name'] ?? ''); ?>')">
+                                                <button type="button" class="btn btn-outline-danger" onclick="removeProduct(<?php echo $product['id']; ?>, '<?php echo htmlspecialchars(($product['custom_title'] ?: $product['product_name']) ?? ''); ?>')">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>

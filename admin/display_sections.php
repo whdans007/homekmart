@@ -33,12 +33,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $display_order = (int)$_POST['display_order'];
         $max_products = !empty($_POST['max_products']) ? (int)$_POST['max_products'] : null;
         $layout_type = $_POST['layout_type'];
+        $items_per_slide = isset($_POST['items_per_slide']) ? (int)$_POST['items_per_slide'] : 4; // 기본값 4
         $show_on_main = isset($_POST['show_on_main']) ? 1 : 0;
         $custom_css_class = trim($_POST['custom_css_class']);
         
         if (!empty($name)) {
-            $stmt = $conn->prepare("INSERT INTO display_sections (name, description, section_type, display_order, max_products, layout_type, show_on_main, custom_css_class) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssiisii", $name, $description, $section_type, $display_order, $max_products, $layout_type, $show_on_main, $custom_css_class);
+            $stmt = $conn->prepare("INSERT INTO display_sections (name, description, section_type, display_order, max_products, items_per_slide, layout_type, show_on_main, custom_css_class) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("sssiisiii", $name, $description, $section_type, $display_order, $max_products, $items_per_slide, $layout_type, $show_on_main, $custom_css_class);
             
             if ($stmt->execute()) {
                 $_SESSION['message'] = '진열 섹션이 추가되었습니다.';
@@ -61,13 +62,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $display_order = (int)$_POST['display_order'];
         $max_products = !empty($_POST['max_products']) ? (int)$_POST['max_products'] : null;
         $layout_type = $_POST['layout_type'];
+        $items_per_slide = isset($_POST['items_per_slide']) ? (int)$_POST['items_per_slide'] : 4; // 기본값 4
         $show_on_main = isset($_POST['show_on_main']) ? 1 : 0;
         $is_active = isset($_POST['is_active']) ? 1 : 0;
         $custom_css_class = trim($_POST['custom_css_class']);
         
         if (!empty($name) && $id > 0) {
-            $stmt = $conn->prepare("UPDATE display_sections SET name=?, description=?, section_type=?, display_order=?, max_products=?, layout_type=?, show_on_main=?, is_active=?, custom_css_class=? WHERE id=?");
-            $stmt->bind_param("sssiisissi", $name, $description, $section_type, $display_order, $max_products, $layout_type, $show_on_main, $is_active, $custom_css_class, $id);
+            $stmt = $conn->prepare("UPDATE display_sections SET name=?, description=?, section_type=?, display_order=?, max_products=?, items_per_slide=?, layout_type=?, show_on_main=?, is_active=?, custom_css_class=? WHERE id=?");
+            $stmt->bind_param("sssiiissisi", $name, $description, $section_type, $display_order, $max_products, $items_per_slide, $layout_type, $show_on_main, $is_active, $custom_css_class, $id);
             
             if ($stmt->execute()) {
                 $_SESSION['message'] = '진열 섹션이 수정되었습니다.';
@@ -498,6 +500,24 @@ include 'partials/header.php';
                         </div>
                     </div>
                     
+                    <!-- 슬라이드당 표시 개수 (슬라이드형일 때만 표시) -->
+                    <div class="mb-3" id="items_per_slide_container" style="display: none;">
+                        <label for="items_per_slide" class="form-label">슬라이드당 표시 개수</label>
+                        <select class="form-select" name="items_per_slide">
+                            <option value="1">1개</option>
+                            <option value="2">2개</option>
+                            <option value="3">3개</option>
+                            <option value="4" selected>4개 (기본)</option>
+                            <option value="5">5개</option>
+                            <option value="6">6개</option>
+                            <option value="7">7개</option>
+                            <option value="8">8개</option>
+                            <option value="9">9개</option>
+                            <option value="10">10개</option>
+                        </select>
+                        <div class="form-text">한 슬라이드에 표시할 상품 개수를 선택하세요.</div>
+                    </div>
+                    
                     <div class="mb-3">
                         <label for="custom_css_class" class="form-label">커스텀 CSS 클래스</label>
                         <input type="text" class="form-control" name="custom_css_class" placeholder="예: special-section">
@@ -579,6 +599,24 @@ include 'partials/header.php';
                                 </select>
                             </div>
                         </div>
+                    </div>
+                    
+                    <!-- 슬라이드당 표시 개수 (슬라이드형일 때만 표시) -->
+                    <div class="mb-3" id="edit_items_per_slide_container" style="display: none;">
+                        <label for="edit_items_per_slide" class="form-label">슬라이드당 표시 개수</label>
+                        <select class="form-select" name="items_per_slide" id="edit_items_per_slide">
+                            <option value="1">1개</option>
+                            <option value="2">2개</option>
+                            <option value="3">3개</option>
+                            <option value="4">4개 (기본)</option>
+                            <option value="5">5개</option>
+                            <option value="6">6개</option>
+                            <option value="7">7개</option>
+                            <option value="8">8개</option>
+                            <option value="9">9개</option>
+                            <option value="10">10개</option>
+                        </select>
+                        <div class="form-text">한 슬라이드에 표시할 상품 개수를 선택하세요.</div>
                     </div>
                     
                     <div class="mb-3">
@@ -805,6 +843,16 @@ function editSection(section) {
     document.getElementById('edit_custom_css_class').value = section.custom_css_class || '';
     document.getElementById('edit_show_on_main').checked = section.show_on_main == 1;
     document.getElementById('edit_is_active').checked = section.is_active == 1;
+    
+    // 슬라이드당 아이템 수 설정
+    if (section.items_per_slide) {
+        document.getElementById('edit_items_per_slide').value = section.items_per_slide;
+    } else {
+        document.getElementById('edit_items_per_slide').value = 4; // 기본값
+    }
+    
+    // 슬라이드당 아이템 수 필드 표시/숨김
+    toggleItemsPerSlideField(document.getElementById('edit_layout_type'), 'edit_items_per_slide_container');
     
     new bootstrap.Modal(document.getElementById('editSectionModal')).show();
 }
@@ -1054,6 +1102,35 @@ function updateSectionStats() {
     // 향후 AJAX로 섹션별 통계 업데이트 구현
     console.log('통계 업데이트 준비됨');
 }
+
+// 레이아웃 유형 변경 시 슬라이드당 표시 개수 필드 토글
+function toggleItemsPerSlideField(selectElement, containerId) {
+    const container = document.getElementById(containerId);
+    if (selectElement.value === 'carousel') {
+        container.style.display = 'block';
+    } else {
+        container.style.display = 'none';
+    }
+}
+
+// 페이지 로드 시 이벤트 리스너 추가
+document.addEventListener('DOMContentLoaded', function() {
+    // 추가 모달의 레이아웃 유형 변경 감지
+    const addLayoutSelect = document.querySelector('#addSectionModal select[name="layout_type"]');
+    if (addLayoutSelect) {
+        addLayoutSelect.addEventListener('change', function() {
+            toggleItemsPerSlideField(this, 'items_per_slide_container');
+        });
+    }
+    
+    // 편집 모달의 레이아웃 유형 변경 감지
+    const editLayoutSelect = document.getElementById('edit_layout_type');
+    if (editLayoutSelect) {
+        editLayoutSelect.addEventListener('change', function() {
+            toggleItemsPerSlideField(this, 'edit_items_per_slide_container');
+        });
+    }
+});
 </script>
 
 <?php

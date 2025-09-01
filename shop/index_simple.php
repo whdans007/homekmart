@@ -3,9 +3,18 @@ require_once __DIR__ . '/../config/db_config.php';
 
 $conn = get_db_connection();
 
-// 점포 목록 조회
-$stores_result = $conn->query("SELECT * FROM stores WHERE is_active = 1 ORDER BY name");
-$stores = $stores_result->fetch_all(MYSQLI_ASSOC);
+// 점포 목록 조회 (안전한 처리)
+$stores = [];
+try {
+    $stores_result = $conn->query("SELECT * FROM stores WHERE is_active = 1 ORDER BY name");
+    if ($stores_result) {
+        $stores = $stores_result->fetch_all(MYSQLI_ASSOC);
+    }
+} catch (Exception $e) {
+    error_log("Stores query error: " . $e->getMessage());
+    // 기본 점포 정보 생성
+    $stores = [['id' => 1, 'name' => '기본 점포', 'address' => '']];
+}
 
 // 선택된 점포 ID
 $selected_store_id = $_GET['store_id'] ?? ($stores[0]['id'] ?? 1);
@@ -82,14 +91,20 @@ try {
                     <div class="alert alert-success">✅ 쇼핑몰 시스템이 준비되었습니다!</div>
                     
                     <?php
-                    // 진열 섹션 조회
-                    $sections_query = "SELECT * FROM display_sections WHERE is_active = 1 ORDER BY display_order ASC";
-                    $sections_result = $conn->query($sections_query);
+                    // 진열 섹션 조회 (안전한 처리)
+                    $sections_result = null;
+                    try {
+                        $sections_query = "SELECT * FROM display_sections WHERE is_active = 1 ORDER BY display_order ASC";
+                        $sections_result = $conn->query($sections_query);
+                    } catch (Exception $e) {
+                        error_log("Sections query error: " . $e->getMessage());
+                    }
                     ?>
                     
                     <h6>진열 섹션 목록:</h6>
                     <div class="row">
-                        <?php while ($section = $sections_result->fetch_assoc()): ?>
+                        <?php if ($sections_result): ?>
+                            <?php while ($section = $sections_result->fetch_assoc()): ?>
                             <div class="col-md-6 mb-2">
                                 <div class="card">
                                     <div class="card-body py-2">
@@ -101,7 +116,12 @@ try {
                                     </div>
                                 </div>
                             </div>
-                        <?php endwhile; ?>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <div class="col-12">
+                                <div class="alert alert-info">진열 섹션 정보를 불러올 수 없습니다.</div>
+                            </div>
+                        <?php endif; ?>
                     </div>
                     
                     <div class="mt-3">
