@@ -260,6 +260,16 @@ if (!empty($_SESSION['user_id'])) {
                                     <i class="fas fa-balance-scale mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
                                     점포 비교 분석
                                 </a>
+                                
+                                <a href="layout_builder.php" class="<?php echo ($current_page == 'layout_builder.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-th-large mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
+                                    레이아웃 빌더
+                                </a>
+                                
+                                <a href="quick_layout_setup.php" class="<?php echo ($current_page == 'quick_layout_setup.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-magic mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
+                                    빠른 레이아웃 설정
+                                </a>
                             </div>
                         </div>
                         <?php endif; ?>
@@ -544,6 +554,14 @@ if (!empty($_SESSION['user_id'])) {
                             
                             <a href="shop_store_compare.php" class="<?php echo ($current_page == 'shop_store_compare.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-balance-scale mr-2 text-xs"></i>점포 비교 분석
+                            </a>
+                            
+                            <a href="layout_builder.php" class="<?php echo ($current_page == 'layout_builder.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-th-large mr-2 text-xs"></i>레이아웃 빌더
+                            </a>
+                            
+                            <a href="quick_layout_setup.php" class="<?php echo ($current_page == 'quick_layout_setup.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-magic mr-2 text-xs"></i>빠른 레이아웃 설정
                             </a>
                         </div>
                     </div>
