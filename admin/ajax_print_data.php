@@ -249,14 +249,14 @@ try {
                         </td>
                         <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
                             <?php if ($change['old_cost_price']): ?>
-                                <?php echo number_format($change['old_cost_price']); ?>
+                                <?php echo number_format($change['old_cost_price'], 2); ?>
                             <?php else: ?>
                                 <span style="color: #999;">-</span>
                             <?php endif; ?>
                         </td>
                         <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
                             <?php if ($change['new_cost_price']): ?>
-                                <strong style="color: #28a745;"><?php echo number_format($change['new_cost_price']); ?></strong>
+                                <strong style="color: #28a745;"><?php echo number_format($change['new_cost_price'], 2); ?></strong>
                             <?php else: ?>
                                 <span style="color: #999;">-</span>
                             <?php endif; ?>
