@@ -692,7 +692,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const supplierIdInput = document.getElementById('supplier_id');
         const hasSupplier = supplierIdInput && supplierIdInput.value;
         
-        console.log('검색 필드 상태 업데이트:', hasSupplier ? '활성화' : '비활성화');  // 디버깅용
+        // console.log('검색 필드 상태 업데이트:', hasSupplier ? '활성화' : '비활성화');
         
         if (hasSupplier) {
             searchInput.disabled = false;
@@ -800,7 +800,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const supplierIdInput = document.getElementById('supplier_id');
         const supplierId = supplierIdInput ? supplierIdInput.value : '';
         
-        console.log('검색 시 거래처 ID 확인:', supplierId);  // 디버깅용
+        // console.log('검색 시 거래처 ID 확인:', supplierId);
         
         if (!supplierId) {
             alert(t('js.select_supplier_first'));
@@ -830,18 +830,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             
-            console.log('상품 검색 시작:', searchTerm);  // 디버깅용
+            // console.log('상품 검색 시작:', searchTerm);
             
             fetch(`ajax_search_products.php?term=${encodeURIComponent(searchTerm)}`)
                 .then(response => {
-                    console.log('검색 응답 상태:', response.status);  // 디버깅용
+                    // console.log('검색 응답 상태:', response.status);
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     return response.json();
                 })
                 .then(data => {
-                    console.log('검색 결과:', data);  // 디버깅용
+                    // console.log('검색 결과:', data);
                     
                     if (data.error) {
                         console.error('검색 오류:', data.error);
@@ -1152,7 +1152,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         categoryWarning.classList.remove('hidden');
                     }
                     
-                    console.log(`카테고리 로드 완료: ${data.categories ? data.categories.length : 0}개 카테고리`);
+                    // console.log(`카테고리 로드 완료: ${data.categories ? data.categories.length : 0}개 카테고리`);
                 } else {
                     // 실패 시에도 계속 진행 가능하도록 함
                     categorySelect.innerHTML = '<option value="">카테고리 없음 (선택사항)</option>';
@@ -1566,7 +1566,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (data.success) {
                 // 성공 메시지를 해당 행에 임시 표시
                 showRowMessage(row, data.message, 'success');
-                console.log('상품 박스당 수량 업데이트 성공:', data);
+                // console.log('상품 박스당 수량 업데이트 성공:', data);
             } else {
                 // 오류 메시지 표시
                 showRowMessage(row, data.error || t('js.pieces_per_box_update_failed'), 'error');

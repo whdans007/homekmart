@@ -688,11 +688,11 @@ document.addEventListener('DOMContentLoaded', function() {
             body: 'q=' + encodeURIComponent(query) + '&limit=10'
         })
         .then(response => {
-            console.log('Response status:', response.status);
+            // console.log('Response status:', response.status);
             return response.json();
         })
         .then(data => {
-            console.log('Response data:', data);
+            // console.log('Response data:', data);
             if (data.success && data.products) {
                 displaySearchResults(data.products);
             } else {

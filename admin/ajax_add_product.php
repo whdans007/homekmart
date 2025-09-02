@@ -110,8 +110,7 @@ try {
             ];
         }
         
-        // 디버깅: 컬럼 정보 로그
-        error_log("컬럼 NULL 허용 정보: " . print_r($column_info, true));
+        // error_log("컬럼 NULL 허용 정보: " . print_r($column_info, true));
         
     } catch (PDOException $e) {
         error_log("테이블 구조 확인 오류: " . $e->getMessage());
@@ -259,7 +258,7 @@ try {
     error_log("상품 등록 PDO 오류: " . $e->getMessage());
     error_log("SQL 상태: " . $e->getCode());
     error_log("파일: " . $e->getFile() . ", 라인: " . $e->getLine());
-    error_log("사용된 파라미터: " . print_r($insert_params ?? [], true));
+    // error_log("사용된 파라미터: " . print_r($insert_params ?? [], true));
     error_log("실행된 SQL: " . ($insert_sql ?? 'N/A'));
     
     // 에러 메시지 파싱

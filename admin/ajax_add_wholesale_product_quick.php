@@ -209,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
     } catch (PDOException $e) {
         error_log("Quick wholesale product registration error: " . $e->getMessage());
-        error_log("Error details: " . print_r($e, true));
+        // error_log("Error details: " . print_r($e, true));
         $response['message'] = '데이터베이스 오류가 발생했습니다: ' . $e->getMessage();
     }
 }
