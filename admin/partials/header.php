@@ -226,47 +226,47 @@ if (!empty($_SESSION['user_id'])) {
                                 <h3 class="text-sm font-semibold text-red-800">쇼핑몰 관리</h3>
                             </div>
                             <div class="space-y-1">
-                                <a href="shop_dashboard.php" class="<?php echo ($current_page == 'shop_dashboard.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                <a href="shop_dashboard.php" class="<?php echo ($current_page == 'shop_dashboard.php') ? 'bg-red-300 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-chart-pie mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
                                     통합 대시보드
                                 </a>
                                 
-                                <a href="display_sections.php" class="<?php echo ($current_page == 'display_sections.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                <a href="display_sections.php" class="<?php echo ($current_page == 'display_sections.php') ? 'bg-red-300 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-th-large mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
                                     진열 섹션 관리
                                 </a>
                                 
-                                <a href="product_display.php" class="<?php echo ($current_page == 'product_display.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                <a href="product_display.php" class="<?php echo ($current_page == 'product_display.php') ? 'bg-red-300 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-cubes mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
                                     상품 진열 관리
                                 </a>
                                 
-                                <a href="orders.php" class="<?php echo ($current_page == 'orders.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                <a href="orders.php" class="<?php echo ($current_page == 'orders.php') ? 'bg-red-300 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-shopping-cart mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
                                     주문 관리
                                 </a>
                                 
-                                <a href="store_product_planner.php" class="<?php echo ($current_page == 'store_product_planner.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                <a href="store_product_planner.php" class="<?php echo ($current_page == 'store_product_planner.php') ? 'bg-red-300 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-project-diagram mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
                                     점포별 상품 배치
                                 </a>
                                 
-                                <a href="shop_category_manager.php" class="<?php echo ($current_page == 'shop_category_manager.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                <a href="shop_category_manager.php" class="<?php echo ($current_page == 'shop_category_manager.php') ? 'bg-red-300 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-layer-group mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
                                     카테고리별 관리
                                 </a>
                                 
-                                <a href="shop_store_compare.php" class="<?php echo ($current_page == 'shop_store_compare.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                <a href="shop_store_compare.php" class="<?php echo ($current_page == 'shop_store_compare.php') ? 'bg-red-300 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-balance-scale mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
                                     점포 비교 분석
                                 </a>
                                 
-                                <a href="layout_builder.php" class="<?php echo ($current_page == 'layout_builder.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                <a href="layout_builder.php" class="<?php echo ($current_page == 'layout_builder.php') ? 'bg-red-300 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-th-large mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
                                     레이아웃 빌더
                                 </a>
                                 
-                                <a href="quick_layout_setup.php" class="<?php echo ($current_page == 'quick_layout_setup.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                <a href="quick_layout_setup.php" class="<?php echo ($current_page == 'quick_layout_setup.php') ? 'bg-red-300 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-magic mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
                                     빠른 레이아웃 설정
                                 </a>
@@ -274,33 +274,33 @@ if (!empty($_SESSION['user_id'])) {
                         </div>
                         <?php endif; ?>
 
-                        <!-- 기타정보관리 카드 (보라색) -->
+                        <!-- 기타정보관리 카드 (녹색) -->
                         <?php if (has_permission('supplier_management') || has_permission('brand_management') || has_permission('category_management') || $_SESSION['role'] === 'super_admin'): ?>
-                        <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-2 border border-purple-200 shadow-sm">
+                        <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-2 border border-green-200 shadow-sm">
                             <div class="flex items-center mb-3">
-                                <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center mr-3">
+                                <div class="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center mr-3">
                                     <i class="fas fa-database text-white text-sm"></i>
                                 </div>
-                                <h3 class="text-sm font-semibold text-purple-800"><?php echo t('navigation.other_info_management_section'); ?></h3>
+                                <h3 class="text-sm font-semibold text-green-800"><?php echo t('navigation.other_info_management_section'); ?></h3>
                             </div>
                             <div class="space-y-1">
                                 <?php if (has_permission('supplier_management') || $_SESSION['role'] === 'super_admin'): ?>
-                                <a href="supplier_management.php" class="<?php echo in_array($current_page, ['supplier_management.php', 'add_supplier.php', 'edit_supplier.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200 hover:text-purple-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-truck mr-2 text-purple-500 group-hover:text-purple-600 text-xs"></i>
+                                <a href="supplier_management.php" class="<?php echo in_array($current_page, ['supplier_management.php', 'add_supplier.php', 'edit_supplier.php']) ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200 hover:text-green-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-truck mr-2 text-green-500 group-hover:text-green-600 text-xs"></i>
                                     <?php echo t('navigation.supplier_management'); ?>
                                 </a>
                                 <?php endif; ?>
                                 
                                 <?php if (has_permission('brand_management') || $_SESSION['role'] === 'super_admin'): ?>
-                                <a href="brand_management.php" class="<?php echo in_array($current_page, ['brand_management.php', 'add_brand.php', 'edit_brand.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200 hover:text-purple-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-tags mr-2 text-purple-500 group-hover:text-purple-600 text-xs"></i>
+                                <a href="brand_management.php" class="<?php echo in_array($current_page, ['brand_management.php', 'add_brand.php', 'edit_brand.php']) ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200 hover:text-green-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-tags mr-2 text-green-500 group-hover:text-green-600 text-xs"></i>
                                     <?php echo t('navigation.brand_management'); ?>
                                 </a>
                                 <?php endif; ?>
                                 
                                 <?php if (has_permission('category_management') || $_SESSION['role'] === 'super_admin'): ?>
-                                <a href="category_management.php" class="<?php echo in_array($current_page, ['category_management.php', 'add_category.php', 'edit_category.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200 hover:text-purple-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-sitemap mr-2 text-purple-500 group-hover:text-purple-600 text-xs"></i>
+                                <a href="category_management.php" class="<?php echo in_array($current_page, ['category_management.php', 'add_category.php', 'edit_category.php']) ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200 hover:text-green-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-sitemap mr-2 text-green-500 group-hover:text-green-600 text-xs"></i>
                                     <?php echo t('navigation.category_management'); ?>
                                 </a>
                                 <?php endif; ?>
@@ -520,47 +520,47 @@ if (!empty($_SESSION['user_id'])) {
 
                     <!-- 모바일 쇼핑몰 관리 카드 -->
                     <?php if (has_permission('admin_access') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                    <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-1.5 border border-red-200">
+                    <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-1.5 border border-indigo-200">
                         <div class="flex items-center mb-2">
-                            <div class="w-6 h-6 bg-red-600 rounded flex items-center justify-center mr-2">
+                            <div class="w-6 h-6 bg-indigo-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-shopping-bag text-white text-xs"></i>
                             </div>
-                            <h4 class="text-xs font-semibold text-red-800">쇼핑몰 관리</h4>
+                            <h4 class="text-xs font-semibold text-indigo-800">쇼핑몰 관리</h4>
                         </div>
                         <div class="space-y-1">
-                            <a href="shop_dashboard.php" class="<?php echo ($current_page == 'shop_dashboard.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                            <a href="shop_dashboard.php" class="<?php echo ($current_page == 'shop_dashboard.php') ? 'bg-indigo-200 text-indigo-900' : 'text-indigo-700 hover:bg-indigo-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-chart-pie mr-2 text-xs"></i>통합 대시보드
                             </a>
                             
-                            <a href="display_sections.php" class="<?php echo ($current_page == 'display_sections.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                            <a href="display_sections.php" class="<?php echo ($current_page == 'display_sections.php') ? 'bg-indigo-200 text-indigo-900' : 'text-indigo-700 hover:bg-indigo-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-th-large mr-2 text-xs"></i>진열 섹션 관리
                             </a>
                             
-                            <a href="product_display.php" class="<?php echo ($current_page == 'product_display.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                            <a href="product_display.php" class="<?php echo ($current_page == 'product_display.php') ? 'bg-indigo-200 text-indigo-900' : 'text-indigo-700 hover:bg-indigo-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-cubes mr-2 text-xs"></i>상품 진열 관리
                             </a>
                             
-                            <a href="orders.php" class="<?php echo ($current_page == 'orders.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                            <a href="orders.php" class="<?php echo ($current_page == 'orders.php') ? 'bg-indigo-200 text-indigo-900' : 'text-indigo-700 hover:bg-indigo-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-shopping-cart mr-2 text-xs"></i>주문 관리
                             </a>
                             
-                            <a href="store_product_planner.php" class="<?php echo ($current_page == 'store_product_planner.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                            <a href="store_product_planner.php" class="<?php echo ($current_page == 'store_product_planner.php') ? 'bg-indigo-200 text-indigo-900' : 'text-indigo-700 hover:bg-indigo-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-project-diagram mr-2 text-xs"></i>점포별 상품 배치
                             </a>
                             
-                            <a href="shop_category_manager.php" class="<?php echo ($current_page == 'shop_category_manager.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                            <a href="shop_category_manager.php" class="<?php echo ($current_page == 'shop_category_manager.php') ? 'bg-indigo-200 text-indigo-900' : 'text-indigo-700 hover:bg-indigo-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-layer-group mr-2 text-xs"></i>카테고리별 관리
                             </a>
                             
-                            <a href="shop_store_compare.php" class="<?php echo ($current_page == 'shop_store_compare.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                            <a href="shop_store_compare.php" class="<?php echo ($current_page == 'shop_store_compare.php') ? 'bg-indigo-200 text-indigo-900' : 'text-indigo-700 hover:bg-indigo-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-balance-scale mr-2 text-xs"></i>점포 비교 분석
                             </a>
                             
-                            <a href="layout_builder.php" class="<?php echo ($current_page == 'layout_builder.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                            <a href="layout_builder.php" class="<?php echo ($current_page == 'layout_builder.php') ? 'bg-indigo-200 text-indigo-900' : 'text-indigo-700 hover:bg-indigo-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-th-large mr-2 text-xs"></i>레이아웃 빌더
                             </a>
                             
-                            <a href="quick_layout_setup.php" class="<?php echo ($current_page == 'quick_layout_setup.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                            <a href="quick_layout_setup.php" class="<?php echo ($current_page == 'quick_layout_setup.php') ? 'bg-indigo-200 text-indigo-900' : 'text-indigo-700 hover:bg-indigo-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-magic mr-2 text-xs"></i>빠른 레이아웃 설정
                             </a>
                         </div>
@@ -569,28 +569,28 @@ if (!empty($_SESSION['user_id'])) {
 
                     <!-- 모바일 기타정보관리 카드 -->
                     <?php if (has_permission('supplier_management') || has_permission('brand_management') || has_permission('category_management') || $_SESSION['role'] === 'super_admin'): ?>
-                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-1.5 border border-purple-200">
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-1.5 border border-green-200">
                         <div class="flex items-center mb-2">
-                            <div class="w-6 h-6 bg-purple-600 rounded flex items-center justify-center mr-2">
+                            <div class="w-6 h-6 bg-green-600 rounded flex items-center justify-center mr-2">
                                 <i class="fas fa-database text-white text-xs"></i>
                             </div>
-                            <h4 class="text-xs font-semibold text-purple-800"><?php echo t('navigation.other_info_management_section'); ?></h4>
+                            <h4 class="text-xs font-semibold text-green-800"><?php echo t('navigation.other_info_management_section'); ?></h4>
                         </div>
                         <div class="space-y-1">
                             <?php if (has_permission('supplier_management') || $_SESSION['role'] === 'super_admin'): ?>
-                            <a href="supplier_management.php" class="<?php echo in_array($current_page, ['supplier_management.php', 'add_supplier.php', 'edit_supplier.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200'; ?> block px-2 py-1 rounded text-sm">
+                            <a href="supplier_management.php" class="<?php echo in_array($current_page, ['supplier_management.php', 'add_supplier.php', 'edit_supplier.php']) ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-truck mr-2 text-xs"></i><?php echo t('navigation.supplier_management'); ?>
                             </a>
                             <?php endif; ?>
                             
                             <?php if (has_permission('brand_management') || $_SESSION['role'] === 'super_admin'): ?>
-                            <a href="brand_management.php" class="<?php echo in_array($current_page, ['brand_management.php', 'add_brand.php', 'edit_brand.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200'; ?> block px-2 py-1 rounded text-sm">
+                            <a href="brand_management.php" class="<?php echo in_array($current_page, ['brand_management.php', 'add_brand.php', 'edit_brand.php']) ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-tags mr-2 text-xs"></i><?php echo t('navigation.brand_management'); ?>
                             </a>
                             <?php endif; ?>
                             
                             <?php if (has_permission('category_management') || $_SESSION['role'] === 'super_admin'): ?>
-                            <a href="category_management.php" class="<?php echo in_array($current_page, ['category_management.php', 'add_category.php', 'edit_category.php']) ? 'bg-purple-200 text-purple-900' : 'text-purple-700 hover:bg-purple-200'; ?> block px-2 py-1 rounded text-sm">
+                            <a href="category_management.php" class="<?php echo in_array($current_page, ['category_management.php', 'add_category.php', 'edit_category.php']) ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-sitemap mr-2 text-xs"></i><?php echo t('navigation.category_management'); ?>
                             </a>
                             <?php endif; ?>
