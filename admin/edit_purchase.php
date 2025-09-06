@@ -4,6 +4,80 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+// 상품명 업데이트 처리 - 다른 HTML 출력 전에 처리
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_product_name') {
+    session_start();
+    require_once __DIR__ . '/../config/db_config.php';
+    
+    header('Content-Type: application/json');
+    
+    $purchase_id = $_POST['purchase_id'] ?? $_GET['id'] ?? null;
+    $product_id = (int)$_POST['product_id'];
+    $item_id = (int)$_POST['item_id'];  
+    $new_name = trim($_POST['new_name']);
+    $field_type = $_POST['field_type'] ?? 'ko'; // 'ko' 또는 'en'
+    
+    // 입력 검증
+    if (empty($new_name)) {
+        $error_msg = $field_type === 'en' ? '영문 상품명을 입력해주세요.' : '상품명을 입력해주세요.';
+        echo json_encode(['success' => false, 'error' => $error_msg]);
+        exit;
+    }
+    
+    if (strlen($new_name) > 255) {
+        $error_msg = $field_type === 'en' ? '영문 상품명이 너무 깁니다. (최대 255자)' : '상품명이 너무 깁니다. (최대 255자)';
+        echo json_encode(['success' => false, 'error' => $error_msg]);
+        exit;
+    }
+    
+    try {
+        $conn = get_db_connection();
+        $conn->begin_transaction();
+        
+        // 권한 검증 - 해당 매입 아이템이 존재하고 올바른 매입에 속하는지 확인
+        $auth_stmt = $conn->prepare("
+            SELECT pi.item_id 
+            FROM purchase_items pi 
+            JOIN purchases p ON pi.purchase_id = p.purchase_id
+            WHERE pi.item_id = ? AND p.purchase_id = ?
+        ");
+        $auth_stmt->bind_param("ii", $item_id, $purchase_id);
+        $auth_stmt->execute();
+        $auth_result = $auth_stmt->get_result();
+        $auth_stmt->close();
+        
+        if ($auth_result->num_rows === 0) {
+            throw new Exception('권한이 없습니다.');
+        }
+        
+        // 상품명 업데이트 (한글 또는 영문)
+        $field_name = $field_type === 'en' ? 'name_en' : 'name_ko';
+        $update_stmt = $conn->prepare("UPDATE products SET {$field_name} = ? WHERE id = ?");
+        $update_stmt->bind_param("si", $new_name, $product_id);
+        
+        if ($update_stmt->execute()) {
+            $conn->commit();
+            $update_stmt->close();
+            $conn->close();
+            $success_msg = $field_type === 'en' ? '영문 상품명이 성공적으로 수정되었습니다.' : '상품명이 성공적으로 수정되었습니다.';
+            echo json_encode(['success' => true, 'message' => $success_msg]);
+        } else {
+            $error_msg = $field_type === 'en' ? '영문 상품명 업데이트에 실패했습니다.' : '상품명 업데이트에 실패했습니다.';
+            throw new Exception($error_msg);
+        }
+        
+    } catch (Exception $e) {
+        if (isset($conn)) {
+            $conn->rollback();
+            $conn->close();
+        }
+        if (isset($update_stmt)) $update_stmt->close();
+        error_log("상품명 업데이트 오류: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = t('purchase.edit_purchase_title');
 require_once __DIR__ . '/partials/header.php';
@@ -989,9 +1063,17 @@ tr[id^="row-"] td:first-child:hover {
                                         <?php echo htmlspecialchars($item['sku']); ?>
                                     </td>
                                     <td class="w-48 px-2 py-3">
-                                        <div class="text-sm font-medium text-gray-900" title="<?php echo htmlspecialchars($item['product_name']); ?>"><?php echo htmlspecialchars($item['product_name']); ?></div>
+                                        <div class="product-name-editable text-sm font-medium text-gray-900 hover:bg-gray-100 hover:cursor-pointer rounded px-2 py-1 transition-colors" 
+                                             data-product-id="<?php echo $item['product_id']; ?>"
+                                             data-item-id="<?php echo $item['item_id']; ?>"
+                                             data-original-name="<?php echo htmlspecialchars($item['product_name']); ?>"
+                                             title="클릭하여 상품명 수정"><?php echo htmlspecialchars($item['product_name']); ?></div>
                                         <?php if (!empty($item['product_name_en'])): ?>
-                                        <div class="text-xs text-gray-600 italic" title="<?php echo htmlspecialchars($item['product_name_en']); ?>"><?php echo htmlspecialchars($item['product_name_en']); ?></div>
+                                        <div class="product-name-en-editable text-xs text-gray-600 italic hover:bg-gray-100 hover:cursor-pointer rounded px-2 py-1 transition-colors"
+                                             data-product-id="<?php echo $item['product_id']; ?>"
+                                             data-item-id="<?php echo $item['item_id']; ?>"
+                                             data-original-name="<?php echo htmlspecialchars($item['product_name_en']); ?>"
+                                             title="클릭하여 영문 상품명 수정"><?php echo htmlspecialchars($item['product_name_en']); ?></div>
                                         <?php endif; ?>
                                         <?php if ($item['barcode']): ?>
                                         <div class="text-xs text-gray-500" title="바코드: <?php echo htmlspecialchars($item['barcode']); ?>">바코드: <?php echo htmlspecialchars($item['barcode']); ?></div>
@@ -1782,6 +1864,128 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     console.log('이벤트 리스너 등록 완료');
+    
+    // 상품명 인라인 편집 기능 추가 (한글, 영문)
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('product-name-editable') || e.target.classList.contains('product-name-en-editable')) {
+            const nameDiv = e.target;
+            const currentName = nameDiv.textContent.trim();
+            const productId = nameDiv.dataset.productId;
+            const itemId = nameDiv.dataset.itemId;
+            const isEnglish = nameDiv.classList.contains('product-name-en-editable');
+            
+            // 이미 편집 모드인 경우 무시
+            if (nameDiv.querySelector('input')) {
+                return;
+            }
+            
+            // 입력 필드 생성
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentName;
+            input.className = 'w-full px-2 py-1 border border-indigo-500 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500';
+            
+            // 원래 내용 숨기기
+            nameDiv.innerHTML = '';
+            nameDiv.appendChild(input);
+            nameDiv.classList.add('editing');
+            
+            // 입력 필드에 포커스
+            input.focus();
+            input.select();
+            
+            // 저장 함수
+            function saveName() {
+                const newName = input.value.trim();
+                if (newName === '' || newName === currentName) {
+                    // 변경사항 없음 또는 빈 값
+                    cancelEdit();
+                    return;
+                }
+                
+                // AJAX로 서버에 전송
+                const formData = new FormData();
+                formData.append('action', 'update_product_name');
+                formData.append('product_id', productId);
+                formData.append('item_id', itemId);
+                formData.append('new_name', newName);
+                formData.append('field_type', isEnglish ? 'en' : 'ko');
+                
+                // URL에서 purchase_id 추출
+                const urlParams = new URLSearchParams(window.location.search);
+                const purchaseId = urlParams.get('id');
+                if (purchaseId) {
+                    formData.append('purchase_id', purchaseId);
+                }
+                
+                fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 성공 시 화면 업데이트
+                        nameDiv.textContent = newName;
+                        nameDiv.dataset.originalName = newName;
+                        nameDiv.classList.remove('editing');
+                        
+                        // 성공 피드백
+                        const successMessage = isEnglish ? '영문 상품명이 성공적으로 수정되었습니다.' : '상품명이 성공적으로 수정되었습니다.';
+                        showFeedback(successMessage, 'success');
+                    } else {
+                        // 실패 시 원래 값으로 복원
+                        cancelEdit();
+                        showFeedback(data.error || '상품명 수정에 실패했습니다.', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    cancelEdit();
+                    showFeedback('서버 통신 오류가 발생했습니다.', 'error');
+                });
+            }
+            
+            // 취소 함수
+            function cancelEdit() {
+                nameDiv.textContent = currentName;
+                nameDiv.classList.remove('editing');
+            }
+            
+            // 키보드 이벤트
+            input.addEventListener('keydown', function(e) {
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveName();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelEdit();
+                }
+            });
+            
+            // 포커스 잃을 때 저장
+            input.addEventListener('blur', function() {
+                setTimeout(saveName, 100); // 약간의 지연을 주어 다른 클릭 이벤트 처리
+            });
+        }
+    });
+    
+    // 피드백 메시지 표시 함수
+    function showFeedback(message, type = 'success') {
+        const feedbackDiv = document.createElement('div');
+        feedbackDiv.className = `fixed top-4 right-4 px-4 py-2 rounded shadow-lg z-50 ${type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`;
+        feedbackDiv.textContent = message;
+        
+        document.body.appendChild(feedbackDiv);
+        
+        // 3초 후 자동 제거
+        setTimeout(() => {
+            if (feedbackDiv.parentNode) {
+                feedbackDiv.parentNode.removeChild(feedbackDiv);
+            }
+        }, 3000);
+    }
     
     // 페이지 로드 완료 후 디버깅 정보 출력
     console.log('DOM loaded, checking for buttons...');
