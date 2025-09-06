@@ -54,7 +54,10 @@
       "Read(C:\\Users\\whdan\\.claude\\commands/**)",
       "Bash(\"rm\" \"Z:\\homekmart\\admin\\category_update_simple.php\")",
       "Bash(\"rm\" \"Z:\\homekmart\\admin\\insert_categories.php\")",
-      "Bash(\"rm\" \"Z:\\homekmart\\admin\\debug_categories.php\")"
+      "Bash(\"rm\" \"Z:\\homekmart\\admin\\debug_categories.php\")",
+      "mcp__playwright__browser_take_screenshot",
+      "Bash(find:*)",
+      "Read(//c/Users/whdan/**)"
     ],
     "deny": []
   }

@@ -485,21 +485,19 @@ $conn->close();
                                 <div class="mb-2 p-2 bg-gray-50 border border-gray-200 rounded">
                                     <span id="modal-category-display" class="text-sm text-gray-700">선택된 카테고리 없음</span>
                                 </div>
-                                <!-- 검색 및 신규등록 -->
+                                <!-- 계층형 카테고리 선택 -->
                                 <div class="flex space-x-2">
-                                    <input type="text" id="modal-category-search" 
-                                           class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
-                                           placeholder="카테고리 검색...">
-                                    <button type="button" id="modal-category-new-btn" class="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded">
-                                        신규등록
+                                    <button type="button" id="modal-category-popup-btn" 
+                                            class="flex-1 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition duration-200">
+                                        <i class="fas fa-sitemap mr-2"></i>카테고리 선택 (팝업)
+                                    </button>
+                                    <button type="button" id="modal-category-new-btn" class="px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded transition duration-200">
+                                        <i class="fas fa-plus mr-2"></i>신규등록
                                     </button>
                                 </div>
                                 <input type="hidden" id="modal-category-id" value="">
                                 <input type="hidden" id="modal-category-en" value="">
                                 <input type="hidden" id="modal-category-ko" value="">
-                                <div id="category-search-results" class="absolute z-10 mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-48 overflow-y-auto" style="width: calc(100% - 1rem); left: 1rem;">
-                                    <!-- 검색 결과가 여기 표시됩니다 -->
-                                </div>
                             </td>
                         </tr>
                         <tr class="border-b">
@@ -965,14 +963,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // 카테고리 검색 기능
-    let categorySearchTimeout = null;
-    const categorySearchResults = document.getElementById('category-search-results');
-    const categorySearchInput = document.getElementById('modal-category-search');
+    // 카테고리 검색 기능 (팝업으로 교체됨 - 주석처리)
+    // let categorySearchTimeout = null;
+    // const categorySearchResults = document.getElementById('category-search-results');
+    // const categorySearchInput = document.getElementById('modal-category-search');
     const categoryDisplay = document.getElementById('modal-category-display');
     const categoryNewBtn = document.getElementById('modal-category-new-btn');
     
-    // 카테고리 검색 입력 이벤트
+    // 카테고리 검색 입력 이벤트 (팝업으로 교체됨 - 주석처리)
+    /*
     categorySearchInput.addEventListener('input', function() {
         clearTimeout(categorySearchTimeout);
         const searchTerm = this.value.trim();
@@ -995,12 +994,15 @@ document.addEventListener('DOMContentLoaded', function() {
             searchCategories('');
         }
     });
+    */
     
     // 카테고리 신규등록 버튼 클릭 이벤트
     categoryNewBtn.addEventListener('click', function() {
         showCategoryRegistrationModal();
     });
     
+    // 기존 검색 함수들 (팝업으로 교체됨 - 주석처리)
+    /*
     function searchCategories(query) {
         fetch(`ajax_search_categories.php?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
@@ -1076,6 +1078,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         categorySearchResults.classList.remove('hidden');
     }
+    */
     
     function addNewCategory(name) {
         const formData = new FormData();
@@ -1111,8 +1114,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
                 categoryDisplay.textContent = displayText || '선택된 카테고리 없음';
-                categorySearchInput.value = '';
-                categorySearchResults.classList.add('hidden');
+                // categorySearchInput.value = '';
+                // categorySearchResults.classList.add('hidden');
                 showToast(result.message, result.exists ? 'info' : 'success');
             } else {
                 console.error('Category add failed:', result.message);
@@ -1130,9 +1133,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!e.target.closest('#modal-brand-search') && !e.target.closest('#brand-search-results')) {
             brandSearchResults.classList.add('hidden');
         }
-        if (!e.target.closest('#modal-category-search') && !e.target.closest('#category-search-results')) {
-            categorySearchResults.classList.add('hidden');
-        }
+        // 카테고리 검색 관련 코드 (팝업으로 교체됨 - 주석처리)
+        // if (!e.target.closest('#modal-category-search') && !e.target.closest('#category-search-results')) {
+        //     categorySearchResults.classList.add('hidden');
+        // }
     });
     
     // 전역 함수로 showProductDetails 정의
@@ -2129,7 +2133,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         }
                         categoryDisplay.textContent = displayText || '선택된 카테고리 없음';
-                        categorySearchInput.value = '';
+                        // categorySearchInput.value = '';
                         
                         showToast(result.message, result.exists ? 'info' : 'success');
                     } else {
@@ -2156,5 +2160,253 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<script>
+// 카테고리 팝업 HTML 생성 함수
+function createCategoryPopup() {
+    return `
+        <div id="category-popup-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-50" style="display: none;">
+            <div class="fixed inset-0 flex items-center justify-center p-4">
+                <div class="bg-white rounded-lg shadow-xl overflow-hidden" style="width: 720px; max-height: 90vh;">
+                    <div class="flex justify-between items-center p-2 border-b border-gray-200 bg-blue-50">
+                        <h2 class="text-sm font-semibold text-blue-800">
+                            <i class="fas fa-sitemap mr-1"></i>카테고리 선택
+                        </h2>
+                        <button id="category-popup-close" class="text-gray-400 hover:text-gray-600 text-lg">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="p-1 border-b border-gray-200 bg-blue-50">
+                        <div class="text-xs text-blue-700 text-center">
+                            <span>대분류: 6개 | 소분류: 36개 | 총 42개</span>
+                        </div>
+                    </div>
+                    
+                    <div class="p-2 max-h-[450px] overflow-y-auto">
+                        <div id="category-popup-grid" style="display: flex; gap: 10px;">
+                            ${generateCategoryHTML()}
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// 카테고리 HTML 생성 (데이터베이스에서 가져온 실제 카테고리 사용)
+function generateCategoryHTML() {
+    // 로딩 중 표시
+    return `<div style="text-align: center; padding: 20px;">
+        <i class="fas fa-spinner fa-spin"></i> 카테고리 로딩 중...
+    </div>`;
+}
+
+// 실제 카테고리 데이터를 가져와서 HTML 생성
+function loadAndGenerateCategoryHTML(callback) {
+    fetch('ajax_get_all_categories.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const categories = data.grouped;
+                let html = "<div style=\"flex: 1; padding-right: 5px;\">";
+                
+                // 왼쪽 컬럼: 신선식품, 가공식품, 간식/음료
+                ['신선식품', '가공식품', '간식/음료'].forEach(groupName => {
+                    if (categories[groupName] && categories[groupName].length > 0) {
+                        html += generateCategoryGroup(groupName, {
+                            items: categories[groupName]
+                        });
+                    }
+                });
+                
+                html += "</div><div style=\"flex: 1; padding-left: 5px;\">";
+                
+                // 오른쪽 컬럼: 생활용품, 주방/가정용품, 기타
+                ['생활용품', '주방/가정용품', '기타'].forEach(groupName => {
+                    if (categories[groupName] && categories[groupName].length > 0) {
+                        html += generateCategoryGroup(groupName, {
+                            items: categories[groupName]
+                        });
+                    }
+                });
+                
+                html += "</div>";
+                
+                if (callback) callback(html);
+            } else {
+                console.error('카테고리 로드 실패:', data.message);
+                if (callback) callback(generateFallbackCategories());
+            }
+        })
+        .catch(error => {
+            console.error('카테고리 로드 오류:', error);
+            if (callback) callback(generateFallbackCategories());
+        });
+}
+
+// 폴백 카테고리 (API 실패 시 사용)
+function generateFallbackCategories() {
+    return `<div style="text-align: center; padding: 20px; color: red;">
+        카테고리를 불러올 수 없습니다. 페이지를 새로고침해주세요.
+    </div>`;
+}
+
+function generateCategoryGroup(title, categoryData) {
+    // 제목을 더 짧게 만들기
+    const shortTitle = title.split(' ')[0]; // 한글만 추출
+    
+    let html = `
+        <div style="border: 1px solid #d1d5db; border-radius: 4px; padding: 6px; background-color: #f9fafb; margin-bottom: 6px;">
+            <h3 style="font-weight: 600; margin-bottom: 4px; color: #1e40af; font-size: 12px; padding: 2px 4px; background-color: #dbeafe; border-radius: 2px;">
+                ${shortTitle}
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 1px;">
+    `;
+    
+    categoryData.items.forEach(item => {
+        // 영문명 전체 표시
+        const fullEn = item.name_en || '';
+        html += `
+            <div class="category-item" style="display: flex; align-items: center; padding: 4px 6px; border-radius: 2px; cursor: pointer; border: 1px solid transparent; transition: all 0.1s; font-size: 13px;" 
+                 data-category-id="${item.id}" data-category-name="${item.name}" data-category-name-en="${item.name_en}">
+                <span style="color: #6b7280; margin-right: 3px; font-size: 12px;">▸</span>
+                <span style="color: #111827; font-weight: 500;">${item.name}</span>
+                <span style="color: #000000; margin-left: 6px; font-size: 13px;">(${fullEn})</span>
+            </div>
+        `;
+    });
+    
+    html += "</div></div>";
+    return html;
+}
+
+// 카테고리 팝업 관리 클래스
+class CategoryPopup {
+    constructor() {
+        this.selectedCategory = null;
+        this.onSelectCallback = null;
+        this.isInitialized = false;
+    }
+    
+    init() {
+        if (this.isInitialized) return;
+        
+        document.body.insertAdjacentHTML("beforeend", createCategoryPopup());
+        this.setupEventListeners();
+        this.isInitialized = true;
+        
+        // 실제 카테고리 데이터 로드
+        this.loadCategories();
+    }
+    
+    loadCategories() {
+        const popupGrid = document.getElementById("category-popup-grid");
+        if (!popupGrid) return;
+        
+        loadAndGenerateCategoryHTML(function(html) {
+            popupGrid.innerHTML = html;
+        });
+    }
+    
+    setupEventListeners() {
+        const overlay = document.getElementById("category-popup-overlay");
+        const closeBtn = document.getElementById("category-popup-close");
+        
+        closeBtn.addEventListener("click", () => this.close());
+        
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) this.close();
+        });
+        
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && overlay.style.display !== "none") {
+                this.close();
+            }
+        });
+        
+        // 카테고리 아이템 클릭 이벤트 - 클릭 시 바로 선택 및 닫기
+        document.addEventListener("click", (e) => {
+            if (e.target.closest(".category-item")) {
+                const item = e.target.closest(".category-item");
+                const category = {
+                    id: item.dataset.categoryId,
+                    name: item.dataset.categoryName,
+                    name_en: item.dataset.categoryNameEn
+                };
+                
+                // 바로 선택 처리 및 팝업 닫기
+                if (this.onSelectCallback) {
+                    this.onSelectCallback(category);
+                }
+                this.close();
+            }
+        });
+    }
+    
+    open(onSelectCallback) {
+        this.init();
+        this.onSelectCallback = onSelectCallback;
+        this.selectedCategory = null;
+        
+        document.getElementById("category-popup-overlay").style.display = "block";
+        document.body.style.overflow = "hidden";
+    }
+    
+    close() {
+        document.getElementById("category-popup-overlay").style.display = "none";
+        document.body.style.overflow = "auto";
+    }
+}
+
+// 전역 인스턴스
+window.categoryPopup = new CategoryPopup();
+
+// 팝업 버튼 이벤트 등록
+document.addEventListener("DOMContentLoaded", function() {
+    const popupBtn = document.getElementById("modal-category-popup-btn");
+    if (popupBtn) {
+        popupBtn.addEventListener("click", function() {
+            categoryPopup.open(function(selectedCategory) {
+                // DOM 요소 직접 찾아서 업데이트
+                const categoryIdInput = document.getElementById("modal-category-id");
+                const categoryKoInput = document.getElementById("modal-category-ko");
+                const categoryEnInput = document.getElementById("modal-category-en");
+                
+                if (categoryIdInput) categoryIdInput.value = selectedCategory.id;
+                if (categoryKoInput) categoryKoInput.value = selectedCategory.name;
+                if (categoryEnInput) categoryEnInput.value = selectedCategory.name_en;
+                
+                // 화면 표시 업데이트
+                const categoryDisplay = document.getElementById("modal-category-display");
+                if (categoryDisplay) {
+                    categoryDisplay.textContent = `${selectedCategory.name} (${selectedCategory.name_en})`;
+                }
+                
+                // 성공 메시지
+                if (typeof showToast === "function") {
+                    showToast(`카테고리 "${selectedCategory.name}"가 선택되었습니다.`, "success");
+                }
+            });
+        });
+    }
+});
+</script>
+
+<style>
+.category-item.selected {
+    border: 1px solid #2563eb !important;
+    background-color: #dbeafe !important;
+}
+.category-item:hover {
+    background-color: #bfdbfe !important;
+    border: 1px solid #93c5fd !important;
+}
+.category-item.selected span {
+    color: #1e40af !important;
+    font-weight: 600 !important;
+}
+</style>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
