@@ -51,7 +51,10 @@
       "Bash(where SuperClaude)",
       "Read(C:\\Users\\whdan\\.claude/**)",
       "Read(C:\\Users\\whdan\\.claude\\commands/**)",
-      "Read(C:\\Users\\whdan\\.claude\\commands/**)"
+      "Read(C:\\Users\\whdan\\.claude\\commands/**)",
+      "Bash(\"rm\" \"Z:\\homekmart\\admin\\category_update_simple.php\")",
+      "Bash(\"rm\" \"Z:\\homekmart\\admin\\insert_categories.php\")",
+      "Bash(\"rm\" \"Z:\\homekmart\\admin\\debug_categories.php\")"
     ],
     "deny": []
   }
