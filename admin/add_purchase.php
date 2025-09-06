@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // 새로운 상품들만 처리 (기존 상품 제외)
             $new_items = [];
             foreach ($items as $item) {
-                if (!empty($item['product_id']) && !empty($item['quantity']) && !empty($item['unit_price']) && empty($item['existing_item_id'])) {
+                if (!empty($item['product_id']) && !empty($item['quantity']) && isset($item['unit_price']) && $item['unit_price'] !== '' && empty($item['existing_item_id'])) {
                     $new_items[] = $item;
                     $total_items += 1; // 품목 개수 증가 (수량이 아닌 품목 수)
                     $total_amount += (int)$item['quantity'] * (float)$item['unit_price'];
@@ -134,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt_item = $conn->prepare("INSERT INTO purchase_items (purchase_id, product_id, purchase_type, quantity, unit_price) VALUES (?, ?, ?, ?, ?)");
             
             foreach ($new_items as $item) {
-                if (!empty($item['product_id']) && !empty($item['quantity']) && !empty($item['unit_price'])) {
+                if (!empty($item['product_id']) && !empty($item['quantity']) && isset($item['unit_price']) && $item['unit_price'] !== '') {
                     // 데이터 검증 및 정제
                     $purchase_type = trim($item['purchase_type'] ?? 'box');
                     if (!in_array($purchase_type, ['box', 'piece'])) {
@@ -1309,15 +1309,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 4. 상품 목록에 추가
     function addProductToList(product, quantity = 1, unitPrice = null, purchaseType = 'box', existingItemId = null, isNew = false) {
-        // 중복 상품 확인 (기존 상품이 아닌 경우만)
+        // 중복 상품 확인 (기존 상품이 아닌 경우만) - 경고만 표시하고 등록은 허용
         if (existingItemId === null) {
             const existingRows = itemList.querySelectorAll('.item-row');
             for (let row of existingRows) {
                 const productIdInput = row.querySelector('input[name*="[product_id]"]');
                 if (productIdInput && productIdInput.value == product.id) {
-                    // 중복 상품 발견
-                    alert(`${t('js.product_already_exists')}\n${t('product.name')}: ${product.name_ko}\nSKU: ${product.sku}`);
-                    return; // 추가하지 않고 함수 종료
+                    // 중복 상품 발견 시 확인 대화상자 표시
+                    if (!confirm(`이미 등록된 상품입니다. 계속 추가하시겠습니까?\n\n상품명: ${product.name_ko}\nSKU: ${product.sku}\n\n※ 같은 상품을 다른 단가로 등록할 수 있습니다.`)) {
+                        return; // 사용자가 취소하면 추가하지 않음
+                    }
+                    break; // 확인 후 루프 종료
                 }
             }
         }
@@ -1375,7 +1377,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <span class="text-xs text-gray-500 ml-1">개</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right">
-                <input type="number" name="items[${itemIndex}][unit_price]" class="w-20 px-2 py-1 border border-gray-300 rounded-md text-right text-sm unit-price focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" step="0.01" min="0" value="${finalUnitPrice}" ${isExisting ? 'readonly' : ''}>
+                <input type="number" name="items[${itemIndex}][unit_price]" class="w-20 px-2 py-1 border border-gray-300 rounded-md text-right text-sm unit-price focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" step="0.01" min="0" value="${finalUnitPrice}" placeholder="0원 가능" ${isExisting ? 'readonly' : ''}>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right piece-price text-sm text-gray-500"></td>
             <td class="px-6 py-4 whitespace-nowrap text-right row-total font-semibold text-gray-900">0</td>
@@ -1409,8 +1411,8 @@ document.addEventListener('DOMContentLoaded', function () {
             newRow.querySelector('.unit-price').addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    // 값이 입력되었는지 확인
-                    if (this.value && parseFloat(this.value) > 0) {
+                    // 값이 입력되었는지 확인 (0원 포함)
+                    if (this.value !== '' && this.value !== null && !isNaN(parseFloat(this.value))) {
                         searchInput.focus();
                         searchInput.select(); // 검색창의 기존 텍스트 선택
                     }
