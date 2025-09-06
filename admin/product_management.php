@@ -181,8 +181,11 @@ try {
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
                             <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">SKU</th>
+                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <div><?php echo t('product.name_ko'); ?></div>
+                                <div class="text-xs text-gray-500 normal-case"><?php echo t('product.name_en'); ?></div>
+                            </th>
                             <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('product.brand'); ?></th>
-                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('product.name_ko'); ?></th>
                             <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('product.category'); ?></th>
                             <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('product.pieces_per_box'); ?></th>
                             <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('product.status'); ?></th>
