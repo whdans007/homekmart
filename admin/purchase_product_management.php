@@ -96,6 +96,7 @@ try {
             pr.pieces_per_box,
             b.name_en as brand_name_en,
             b.name_ko as brand_name_ko,
+            c.name as category_name,
             pi.quantity,
             pi.unit_price,
             pi.purchase_type,
@@ -110,6 +111,7 @@ try {
         JOIN purchases p ON pi.purchase_id = p.purchase_id
         JOIN products pr ON pi.product_id = pr.id
         LEFT JOIN brands b ON pr.brand_id = b.id
+        LEFT JOIN categories c ON pr.category_id = c.id
         LEFT JOIN suppliers s ON p.supplier_id = s.id
         WHERE $where_condition 
         $deleted_condition
@@ -292,35 +294,38 @@ $conn->close();
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
                         <?php if ($display_mode === 'recent'): ?>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        <th scope="col" class="px-2 py-2 text-left text-xs font-semibold text-gray-700 uppercase w-12">
                             <?php echo t('purchase.purchase_date'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-12">
+                        <th scope="col" class="px-2 py-2 text-left text-xs font-semibold text-gray-700 uppercase w-20">
                             거래처
                         </th>
                         <?php endif; ?>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-20">
+                        <th scope="col" class="px-2 py-2 text-left text-xs font-semibold text-gray-700 uppercase w-16">
+                            <?php echo t('product.category'); ?>
+                        </th>
+                        <th scope="col" class="px-2 py-2 text-left text-xs font-semibold text-gray-700 uppercase w-16">
                             <?php echo t('product.sku'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-16">
+                        <th scope="col" class="px-2 py-2 text-left text-xs font-semibold text-gray-700 uppercase w-16">
                             <?php echo t('product.brand'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" style="min-width: 300px;">
+                        <th scope="col" class="px-2 py-2 text-left text-xs font-semibold text-gray-700 uppercase" style="min-width: 150px; max-width: 250px;">
                             <?php echo t('product.name'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        <th scope="col" class="px-2 py-2 text-right text-xs font-semibold text-gray-700 uppercase w-12">
+                            <?php echo t('product.box_packaging'); ?>
+                        </th>
+                        <th scope="col" class="px-2 py-2 text-right text-xs font-semibold text-gray-700 uppercase w-12">
                             <?php echo t('purchase.quantity'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        <th scope="col" class="px-2 py-2 text-right text-xs font-semibold text-gray-700 uppercase w-16">
                             <?php echo t('purchase.unit_price'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        <th scope="col" class="px-2 py-2 text-right text-xs font-semibold text-gray-700 uppercase w-16">
                             <?php echo t('purchase_product.piece_price'); ?>
                         </th>
-                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                            <?php echo t('purchase_product.stock_quantity'); ?>
-                        </th>
-                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        <th scope="col" class="px-2 py-2 text-right text-xs font-semibold text-gray-700 uppercase w-20">
                             <?php echo t('purchase.total_amount'); ?>
                         </th>
                     </tr>
@@ -329,18 +334,21 @@ $conn->close();
                     <?php foreach ($purchase_products as $product): ?>
                     <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="showProductDetails(<?php echo $product['product_id']; ?>)">
                         <?php if ($display_mode === 'recent'): ?>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td class="px-2 py-2 whitespace-nowrap text-xs text-gray-900">
                             <div class="text-gray-800"><?php echo date('m.d', strtotime($product['purchase_date'])); ?></div>
                             <div class="text-gray-500 text-xs"><?php echo date('D', strtotime($product['purchase_date'])); ?></div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td class="px-2 py-2 whitespace-nowrap text-xs text-gray-900">
                             <?php echo htmlspecialchars($product['supplier_name'] ?? '-'); ?>
                         </td>
                         <?php endif; ?>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td class="px-2 py-2 whitespace-nowrap text-xs text-gray-900">
+                            <?php echo htmlspecialchars($product['category_name'] ?? '-'); ?>
+                        </td>
+                        <td class="px-2 py-2 whitespace-nowrap text-xs font-medium text-gray-900">
                             <?php echo htmlspecialchars($product['sku']); ?>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td class="px-2 py-2 whitespace-nowrap text-xs text-gray-900">
                             <?php if (!empty($product['brand_name_en']) || !empty($product['brand_name_ko'])): ?>
                                 <span class="font-medium">
                                     <?php echo htmlspecialchars($product['brand_name_en'] ?? ''); ?><?php if (!empty($product['brand_name_en']) && !empty($product['brand_name_ko'])): ?>/<?php endif; ?><?php echo htmlspecialchars($product['brand_name_ko'] ?? ''); ?>
@@ -349,28 +357,27 @@ $conn->close();
                                 <span class="text-gray-400">-</span>
                             <?php endif; ?>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-900">
-                            <div class="text-gray-800"><?php echo htmlspecialchars($product['name_en']); ?></div>
-                            <div class="text-gray-600"><?php echo htmlspecialchars($product['name_ko']); ?></div>
+                        <td class="px-2 py-2 text-xs text-gray-900">
+                            <div class="text-gray-800 truncate" style="max-width: 250px;" title="<?php echo htmlspecialchars($product['name_en'] . ' / ' . $product['name_ko']); ?>">
+                                <?php echo htmlspecialchars($product['name_en']); ?>
+                            </div>
+                            <div class="text-gray-600 truncate" style="max-width: 250px;">
+                                <?php echo htmlspecialchars($product['name_ko']); ?>
+                            </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                        <td class="px-2 py-2 whitespace-nowrap text-xs text-gray-900 text-right">
+                            <?php echo number_format($product['pieces_per_box']); ?>
+                        </td>
+                        <td class="px-2 py-2 whitespace-nowrap text-xs text-gray-900 text-right">
                             <?php echo number_format($product['quantity']); ?>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                        <td class="px-2 py-2 whitespace-nowrap text-xs text-gray-900 text-right">
                             <?php echo number_format($product['unit_price'], 2); ?>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                        <td class="px-2 py-2 whitespace-nowrap text-xs text-gray-900 text-right">
                             <?php echo number_format($product['piece_price'], 2); ?>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                            <?php
-                            $total_pieces = $product['purchase_type'] === 'box' ? 
-                                $product['quantity'] * $product['pieces_per_box'] : 
-                                $product['quantity'];
-                            echo number_format($total_pieces);
-                            ?>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
+                        <td class="px-2 py-2 whitespace-nowrap text-xs text-gray-900 text-right font-medium">
                             <?php echo number_format($product['total_amount'], 2); ?>
                         </td>
                     </tr>
@@ -378,7 +385,7 @@ $conn->close();
                 </tbody>
                 <tfoot class="bg-gray-50">
                     <tr>
-                        <td colspan="<?php echo $display_mode === 'recent' ? '7' : '6'; ?>" class="px-2 py-1 text-right text-xs font-medium text-gray-900">
+                        <td colspan="<?php echo $display_mode === 'recent' ? '8' : '7'; ?>" class="px-2 py-1 text-right text-xs font-medium text-gray-900">
                             <?php echo t('common.total'); ?>:
                         </td>
                         <td class="px-2 py-1 text-right text-xs font-bold text-gray-900">

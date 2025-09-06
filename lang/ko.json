@@ -363,7 +363,7 @@
     "loading_info": "정보를 불러오는 중...",
     "basic_info": "기본 정보",
     "description": "상품 설명",
-    "box_packaging": "박스포장 정보",
+    "box_packaging": "박스포장수량",
     "no_description": "등록된 상품 설명이 없습니다",
     "no_barcode": "등록된 바코드 없음",
     "pieces_per_box_unit": "개/박스",

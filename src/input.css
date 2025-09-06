@@ -79,8 +79,6 @@
   .bg-primary-700,
   .bg-green-600,
   .bg-green-700,
-  .bg-red-600,
-  .bg-red-700,
   .bg-blue-600,
   .bg-blue-700 {
     @apply !text-gray-900 !bg-opacity-20;
@@ -98,10 +96,6 @@
     @apply !bg-green-200;
   }
 
-  .bg-red-600:hover,
-  .bg-red-700:hover {
-    @apply !bg-red-200;
-  }
 
   .bg-blue-600:hover,
   .bg-blue-700:hover {

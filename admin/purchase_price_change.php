@@ -85,7 +85,7 @@ JOIN products pr ON pi.product_id = pr.id
 LEFT JOIN categories c ON pr.category_id = c.id
 LEFT JOIN inventory inv ON pi.product_id = inv.product_id AND inv.store_id = ?
 WHERE pi.purchase_id = ?
-ORDER BY pr.name_ko";
+ORDER BY pi.id";
 
 $items_stmt = $conn->prepare($items_sql);
 $items_stmt->bind_param("is", $current_store_id, $purchase_id);
