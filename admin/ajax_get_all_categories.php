@@ -28,52 +28,62 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // 모든 카테고리 가져오기
-    $sql = "SELECT id, name, name_en FROM categories ORDER BY name";
+    // 하위 카테고리만 가져오기 (parent_id가 NULL이 아닌 것)
+    // 또한 parent_id 정보도 함께 가져와서 그룹 분류에 활용
+    $sql = "SELECT c.id, c.name, c.name_en, c.parent_id, 
+                   p.name as parent_name, p.name_en as parent_name_en 
+            FROM categories c
+            LEFT JOIN categories p ON c.parent_id = p.id
+            WHERE c.parent_id IS NOT NULL
+            ORDER BY c.parent_id, c.name";
     $stmt = $pdo->prepare($sql);
     $stmt->execute();
     $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // 카테고리를 그룹별로 분류
-    $grouped_categories = [
-        "신선식품" => [],
-        "가공식품" => [],
-        "간식/음료" => [],
-        "생활용품" => [],
-        "주방/가정용품" => [],
-        "기타" => []
-    ];
+    // 카테고리를 parent_name 기준으로 그룹별로 분류
+    $grouped_categories = [];
 
-    // 카테고리를 그룹에 할당
+    // 카테고리를 부모 카테고리별로 그룹화
     foreach ($categories as $cat) {
-        $name_lower = mb_strtolower($cat['name'], 'UTF-8');
+        $parent_name = $cat['parent_name'] ?? '기타';
+        $parent_name_en = $cat['parent_name_en'] ?? 'Others';
         
-        if (strpos($name_lower, '과일') !== false || strpos($name_lower, '채소') !== false || 
-            strpos($name_lower, '정육') !== false || strpos($name_lower, '수산') !== false || 
-            strpos($name_lower, '계란') !== false || strpos($name_lower, '유제품') !== false || 
-            strpos($name_lower, '김치') !== false || strpos($name_lower, '베이커리') !== false) {
-            $grouped_categories["신선식품"][] = $cat;
-        } elseif (strpos($name_lower, '쌀') !== false || strpos($name_lower, '라면') !== false || 
-                  strpos($name_lower, '통조림') !== false || strpos($name_lower, '장류') !== false || 
-                  strpos($name_lower, '오일') !== false || strpos($name_lower, '냉동') !== false || 
-                  strpos($name_lower, '냉장') !== false || strpos($name_lower, '간편식') !== false || 
-                  strpos($name_lower, '아이스크림') !== false || strpos($name_lower, '건어물') !== false) {
-            $grouped_categories["가공식품"][] = $cat;
-        } elseif (strpos($name_lower, '과자') !== false || strpos($name_lower, '초콜릿') !== false || 
-                  strpos($name_lower, '커피') !== false || strpos($name_lower, '음료') !== false || 
-                  strpos($name_lower, '주류') !== false) {
-            $grouped_categories["간식/음료"][] = $cat;
-        } elseif (strpos($name_lower, '세제') !== false || strpos($name_lower, '화장지') !== false || 
-                  strpos($name_lower, '구강') !== false || strpos($name_lower, '헤어') !== false || 
-                  strpos($name_lower, '화장품') !== false) {
-            $grouped_categories["생활용품"][] = $cat;
-        } elseif (strpos($name_lower, '주방') !== false || strpos($name_lower, '가정') !== false || 
-                  strpos($name_lower, '청소') !== false) {
-            $grouped_categories["주방/가정용품"][] = $cat;
-        } else {
-            $grouped_categories["기타"][] = $cat;
+        // 그룹 키를 한글명으로 사용하되, 영문명도 저장
+        $group_key = $parent_name;
+        
+        // 그룹이 없으면 생성
+        if (!isset($grouped_categories[$group_key])) {
+            $grouped_categories[$group_key] = [
+                'name_en' => $parent_name_en,
+                'items' => []
+            ];
+        }
+        
+        // 해당 그룹에 카테고리 추가
+        $grouped_categories[$group_key]['items'][] = [
+            'id' => $cat['id'],
+            'name' => $cat['name'],
+            'name_en' => $cat['name_en']
+        ];
+    }
+    
+    // 그룹 순서 정렬 (원하는 순서대로 표시하기 위해)
+    $ordered_groups = [];
+    $preferred_order = ['신선식품', '가공식품', '간식/음료', '생활용품', '주방/가정용품', '기타'];
+    
+    foreach ($preferred_order as $group_name) {
+        if (isset($grouped_categories[$group_name])) {
+            $ordered_groups[$group_name] = $grouped_categories[$group_name];
+            unset($grouped_categories[$group_name]);
         }
     }
+    
+    // 남은 그룹들 추가
+    foreach ($grouped_categories as $group_name => $group_data) {
+        $ordered_groups[$group_name] = $group_data;
+    }
+    
+    $grouped_categories = $ordered_groups;
 
     echo json_encode([
         'success' => true,

@@ -89,3 +89,59 @@
 2025-09-06 03:12:37 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=99, margin_rate=38%, updated_count=9
 2025-09-06 03:12:38 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
 2025-09-06 03:15:17 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-06 04:56:01 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-06 04:57:38 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-06 06:41:40 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-06 06:42:00 - 일괄 가격적용 시작 - product_ids: 13972,23296,23295,21570,5586, store_id: 1, margin_rate: 38%, selling_prices 전달됨: {"13972":"408","23296":"359","23295":"150","21570":"483","5586":"511"}
+2025-09-06 06:42:00 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=100, margin_rate=38%, updated_count=5
+2025-09-06 06:42:01 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-06 06:43:34 - 일괄 가격적용 시작 - product_ids: 13910,13943,6059,13349,13962,13896, store_id: 1, margin_rate: 38%, selling_prices 전달됨: {"13910":"173","13943":"212","6059":"201","13349":"540","13962":"122","13896":"204"}
+2025-09-06 06:43:34 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=100, margin_rate=38%, updated_count=6
+2025-09-06 07:20:57 - 신규 상품 등록 성공 - product_id: 23297, name_ko: , sku: 8804318444103, user_id: 12
+2025-09-06 07:28:35 - 신규 상품 등록 성공 - product_id: 23298, name_ko: , sku: 4962336605556, user_id: 12
+2025-09-06 07:30:16 - 신규 상품 등록 성공 - product_id: 23299, name_ko: , sku: 880909537895, user_id: 12
+2025-09-06 07:33:15 - 신규 상품 등록 성공 - product_id: 23300, name_ko: , sku: 8809870750914, user_id: 12
+2025-09-06 07:35:57 - 신규 상품 등록 성공 - product_id: 23301, name_ko: , sku: 8809022081705, user_id: 12
+2025-09-06 07:57:52 - 신규 상품 등록 성공 - product_id: 23302, name_ko: , sku: 8809105114566, user_id: 12
+2025-09-06 08:00:19 - 신규 상품 등록 성공 - product_id: 23303, name_ko: , sku: 4806028711999, user_id: 12
+2025-09-06 08:00:53 - 신규 상품 등록 성공 - product_id: 23304, name_ko: , sku: 8804103016140, user_id: 12
+2025-09-06 08:01:26 - 신규 상품 등록 성공 - product_id: 23305, name_ko: , sku: 8809432923053, user_id: 12
+2025-09-06 08:01:52 - 신규 상품 등록 성공 - product_id: 23306, name_ko: , sku: 8809432923046, user_id: 12
+2025-09-06 08:27:13 - 신규 상품 등록 성공 - product_id: 23307, name_ko: , sku: 8807191999272, user_id: 12
+2025-09-06 09:03:39 - 신규 상품 등록 성공 - product_id: 23308, name_ko: , sku: SP270003, user_id: 12
+2025-09-06 09:05:58 - 신규 상품 등록 성공 - product_id: 23309, name_ko: , sku: 8809672972958, user_id: 12
+2025-09-06 09:10:09 - 신규 상품 등록 성공 - product_id: 23310, name_ko: , sku: 8809073844342, user_id: 12
+2025-09-06 09:12:38 - 신규 상품 등록 성공 - product_id: 23311, name_ko: , sku: 8801052202198, user_id: 12
+2025-09-06 09:13:40 - 신규 상품 등록 성공 - product_id: 23312, name_ko: , sku: 8801052202051, user_id: 12
+2025-09-06 09:26:04 - 신규 상품 등록 성공 - product_id: 23313, name_ko: , sku: 8801047114239, user_id: 12
+2025-09-06 09:28:20 - 신규 상품 등록 성공 - product_id: 23314, name_ko: , sku: 8809003770239, user_id: 12
+2025-09-06 09:32:55 - 신규 상품 등록 성공 - product_id: 23315, name_ko: , sku: 8801047114222, user_id: 12
+2025-09-06 09:41:13 - 신규 상품 등록 성공 - product_id: 23316, name_ko: , sku: 09062025540, user_id: 12
+2025-09-06 09:42:03 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-06 17:39:42 - 개별 가격적용 시작 - product_id: 23304, store_id: 1, selling_price: 80, cost_price: 55.5
+2025-09-06 17:39:42 - 점포별 가격 적용 시작 - store_id: 1
+2025-09-06 17:39:42 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-09-06 17:39:42 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-09-06 17:40:04 - 개별 가격적용 시작 - product_id: 23304, store_id: 1, selling_price: 80, cost_price: 55.5
+2025-09-06 17:40:04 - 점포별 가격 적용 시작 - store_id: 1
+2025-09-06 17:40:04 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-09-06 17:40:04 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-09-06 17:42:12 - 개별 가격적용 시작 - product_id: 23314, store_id: 1, selling_price: 1061, cost_price: 731.5
+2025-09-06 17:42:12 - 점포별 가격 적용 시작 - store_id: 1
+2025-09-06 17:42:12 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-09-06 17:42:12 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-09-06 19:19:08 - 개별 가격적용 시작 - product_id: 23312, store_id: 1, selling_price: 88, cost_price: 64
+2025-09-06 19:19:08 - 점포별 가격 적용 시작 - store_id: 1
+2025-09-06 19:19:08 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-09-06 19:19:08 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-09-06 19:20:52 - 개별 가격적용 시작 - product_id: 23311, store_id: 1, selling_price: 58, cost_price: 41.8
+2025-09-06 19:20:52 - 점포별 가격 적용 시작 - store_id: 1
+2025-09-06 19:20:52 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-09-06 19:20:52 - 가격변경 이력 저장 - store_id: 1, change_type: both
+2025-09-07 00:59:08 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-07 01:00:13 - 일괄 가격적용 시작 - product_ids: 23313,21637,14223,21638,6505,18983,14169,23315,83,796,23316,23314, store_id: 1, margin_rate: 38%, selling_prices 전달됨: {"23313":"190","21637":"243","14223":"243","21638":"243","6505":"397","18983":"191","14169":"147","23315":"121","83":"131","796":"102","23316":"151","23314":"101"}
+2025-09-07 01:00:13 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=103, margin_rate=38%, updated_count=12
+2025-09-07 01:00:14 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-07 01:01:29 - 일괄 가격적용 시작 - product_ids: 23314,6505,6613,21638,14223,21637,18983,14169,83,796,6399,23316,6456,6544, store_id: 1, margin_rate: 45%, selling_prices 전달됨: {"23314":"107","6505":"417","6613":"221","21638":"255","14223":"255","21637":"255","18983":"200","14169":"155","83":"138","796":"107","6399":"240","23316":"159","6456":"245","6544":"245"}
+2025-09-07 01:01:29 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=103, margin_rate=45%, updated_count=14
+2025-09-07 01:01:31 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
