@@ -2214,10 +2214,8 @@ function loadAndGenerateCategoryHTML(callback) {
                 
                 // 왼쪽 컬럼: 신선식품, 가공식품, 간식/음료
                 ['신선식품', '가공식품', '간식/음료'].forEach(groupName => {
-                    if (categories[groupName] && categories[groupName].length > 0) {
-                        html += generateCategoryGroup(groupName, {
-                            items: categories[groupName]
-                        });
+                    if (categories[groupName]) {
+                        html += generateCategoryGroup(groupName, categories[groupName]);
                     }
                 });
                 
@@ -2225,10 +2223,8 @@ function loadAndGenerateCategoryHTML(callback) {
                 
                 // 오른쪽 컬럼: 생활용품, 주방/가정용품, 기타
                 ['생활용품', '주방/가정용품', '기타'].forEach(groupName => {
-                    if (categories[groupName] && categories[groupName].length > 0) {
-                        html += generateCategoryGroup(groupName, {
-                            items: categories[groupName]
-                        });
+                    if (categories[groupName]) {
+                        html += generateCategoryGroup(groupName, categories[groupName]);
                     }
                 });
                 
@@ -2254,18 +2250,19 @@ function generateFallbackCategories() {
 }
 
 function generateCategoryGroup(title, categoryData) {
-    // 제목을 더 짧게 만들기
-    const shortTitle = title.split(' ')[0]; // 한글만 추출
+    // categoryData가 새로운 구조인지 확인
+    const nameEn = categoryData.name_en || '';
+    const items = categoryData.items || categoryData;
     
     let html = `
         <div style="border: 1px solid #d1d5db; border-radius: 4px; padding: 6px; background-color: #f9fafb; margin-bottom: 6px;">
             <h3 style="font-weight: 600; margin-bottom: 4px; color: #1e40af; font-size: 12px; padding: 2px 4px; background-color: #dbeafe; border-radius: 2px;">
-                ${shortTitle}
+                ${title} ${nameEn ? `<span style="color: #000000; font-weight: normal;">(${nameEn})</span>` : ''}
             </h3>
             <div style="display: flex; flex-direction: column; gap: 1px;">
     `;
     
-    categoryData.items.forEach(item => {
+    items.forEach(item => {
         // 영문명 전체 표시
         const fullEn = item.name_en || '';
         html += `
@@ -2273,7 +2270,7 @@ function generateCategoryGroup(title, categoryData) {
                  data-category-id="${item.id}" data-category-name="${item.name}" data-category-name-en="${item.name_en}">
                 <span style="color: #6b7280; margin-right: 3px; font-size: 12px;">▸</span>
                 <span style="color: #111827; font-weight: 500;">${item.name}</span>
-                <span style="color: #000000; margin-left: 6px; font-size: 13px;">(${fullEn})</span>
+                <span style="color: #000000; margin-left: 4px; font-size: 12px;">(${fullEn})</span>
             </div>
         `;
     });
