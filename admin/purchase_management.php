@@ -4,6 +4,10 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 require_once __DIR__ . '/../lib/lang_helper.php';
+require_once __DIR__ . '/../lib/mobile_detect.php';
+
+// 모바일 기기에서 모바일 메인으로 리다이렉트
+redirect_if_mobile('mobile_main.php', true);
 $page_title = t('purchase.list') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
