@@ -4,6 +4,10 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 require_once __DIR__ . '/../lib/lang_helper.php';
+require_once __DIR__ . '/../lib/mobile_detect.php';
+
+// 모바일 기기에서 모바일 메인으로 리다이렉트
+redirect_if_mobile('mobile_main.php', true);
 $page_title = t('navigation.price_label_lists') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
@@ -238,8 +242,8 @@ th[data-column="actions"] { min-width: 200px !important; }
                 <?php echo t('navigation.price_label_lists'); ?>
             </h3>
             <div class="flex space-x-3">
-                <a href="price_label_project_edit.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
-                    <i class="fas fa-plus mr-2"></i>
+                <a href="price_label_project_edit.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" style="color: white !important;">
+                    <i class="fas fa-plus mr-2" style="color: white !important;"></i>
                     <?php echo t('price_label.create_project'); ?>
                 </a>
             </div>

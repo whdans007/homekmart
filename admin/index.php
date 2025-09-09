@@ -1,5 +1,10 @@
 <?php
 require_once __DIR__ . '/../lib/lang_helper.php';
+require_once __DIR__ . '/../lib/mobile_detect.php';
+
+// 모바일 기기에서 자동 리다이렉트 (태블릿 포함)
+redirect_if_mobile('mobile_main.php', true);
+
 $page_title = t('dashboard.title') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 
