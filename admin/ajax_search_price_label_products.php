@@ -1,16 +1,28 @@
 <?php
+// 모든 에러 출력 차단
+error_reporting(0);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
 require_once __DIR__ . '/../lib/session_helper.php';
 require_once __DIR__ . '/../lib/permission_helper.php';
 require_once __DIR__ . '/../config/db_config.php';
 
+// 출력 버퍼링 시작
+ob_start();
+
 // 세션 및 권한 확인
 ensure_logged_in();
 if (!has_permission('product_management') && !in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])) {
+    ob_clean();
     http_response_code(403);
+    header('Content-Type: application/json');
     echo json_encode(['success' => false, 'message' => '권한이 없습니다.']);
     exit;
 }
 
+// 버퍼 내용 삭제하고 헤더 설정
+ob_clean();
 header('Content-Type: application/json');
 
 $response = ['success' => false, 'products' => [], 'debug' => []];
