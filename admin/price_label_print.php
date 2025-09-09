@@ -16,15 +16,243 @@ if (!has_permission('product_management') && !in_array($_SESSION['role'] ?? '', 
 
 $errors = [];
 $success_message = '';
+$project_data = null;
+$is_editing_project = false;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $cart_items = json_decode($_POST['cart_items'] ?? '[]', true);
+// 프로젝트 ID로 자동 로드 기능
+$project_id = isset($_GET['project_id']) ? (int)$_GET['project_id'] : 0;
+if ($project_id > 0) {
+    $conn_temp = get_db_connection();
+    $current_store_id = $_SESSION['store_id'] ?? 0;
     
-    if (empty($cart_items)) {
-        $errors[] = t('price_label.no_products_selected');
+    // 프로젝트 정보 조회
+    $project_sql = "SELECT p.created_at 
+                    FROM price_label_projects p 
+                    WHERE p.id = ? AND p.store_id = ?";
+    $project_stmt = $conn_temp->prepare($project_sql);
+    $project_stmt->bind_param("ii", $project_id, $current_store_id);
+    $project_stmt->execute();
+    $project_result = $project_stmt->get_result();
+    
+    if ($project_result->num_rows > 0) {
+        $project_info = $project_result->fetch_assoc();
+        
+        // 프로젝트 상품들 조회
+        $items_sql = "SELECT 
+                          pi.product_id,
+                          pi.quantity,
+                          p.sku,
+                          p.name_en,
+                          p.name_ko,
+                          p.pieces_per_box,
+                          COALESCE(i.selling_price, p.selling_price, 0) as selling_price,
+                          COALESCE(i.cost_price, p.cost_price, 0) as cost_price,
+                          COALESCE(i.quantity, 0) as stock
+                      FROM price_label_project_items pi
+                      JOIN products p ON pi.product_id = p.id
+                      LEFT JOIN inventory i ON p.id = i.product_id AND i.store_id = ?
+                      WHERE pi.project_id = ?
+                      ORDER BY p.name_en, p.name_ko";
+        
+        $items_stmt = $conn_temp->prepare($items_sql);
+        $items_stmt->bind_param("ii", $current_store_id, $project_id);
+        $items_stmt->execute();
+        $items_result = $items_stmt->get_result();
+        
+        $project_items = [];
+        while ($item_row = $items_result->fetch_assoc()) {
+            $project_items[] = [
+                'product_id' => (int)$item_row['product_id'],
+                'sku' => $item_row['sku'],
+                'name_en' => $item_row['name_en'],
+                'name_ko' => $item_row['name_ko'],
+                'selling_price' => (float)$item_row['selling_price'],
+                'cost_price' => (float)$item_row['cost_price'],
+                'stock' => (int)$item_row['stock'],
+                'pieces_per_box' => (int)$item_row['pieces_per_box'],
+                'quantity' => (int)$item_row['quantity'],
+            ];
+        }
+        
+        if (!empty($project_items)) {
+            $project_data = [
+                'created_at' => $project_info['created_at'],
+                'items' => $project_items
+            ];
+            $is_editing_project = true;
+        }
     }
     
-    if (empty($errors)) {
+    $conn_temp->close();
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // 모든 오류 표시
+    ini_set('display_errors', 1);
+    error_reporting(E_ALL);
+    
+    error_log("=== POST 요청 시작 ===");
+    error_log("Request Method: " . $_SERVER['REQUEST_METHOD']);
+    error_log("Request URI: " . $_SERVER['REQUEST_URI']);
+    
+    // 프로젝트 저장 처리
+    if (isset($_POST['save_project'])) {
+        error_log("프로젝트 저장 요청 - project_id: " . $project_id);
+        error_log("POST 데이터: " . print_r($_POST, true));
+        
+        $cart_items_raw = $_POST['cart_items'] ?? '[]';
+        error_log("Raw cart_items: " . $cart_items_raw);
+        
+        $cart_items = json_decode($cart_items_raw, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log("JSON 파싱 오류: " . json_last_error_msg());
+            $errors[] = 'JSON 데이터 파싱 오류: ' . json_last_error_msg();
+            $cart_items = [];
+        }
+        error_log("파싱된 cart_items: " . print_r($cart_items, true));
+        
+        if (empty($cart_items)) {
+            $errors[] = t('price_label.add_minimum_products');
+        } else {
+            try {
+                error_log("데이터베이스 연결 시작");
+                $conn = get_db_connection();
+                if (!$conn) {
+                    throw new Exception("데이터베이스 연결 실패");
+                }
+                error_log("데이터베이스 연결 성공");
+                
+                $conn->autocommit(false);
+                error_log("트랜잭션 시작");
+                
+                $current_user_id = $_SESSION['user_id'] ?? 0;
+                $current_store_id = $_SESSION['store_id'] ?? 0;
+                
+                if ($project_id > 0) {
+                    // 기존 프로젝트 업데이트
+                    error_log("기존 프로젝트 업데이트 - project_id: $project_id, store_id: $current_store_id");
+                    
+                    $update_sql = "UPDATE price_label_projects SET updated_at = NOW() WHERE id = ? AND store_id = ?";
+                    $update_stmt = $conn->prepare($update_sql);
+                    $update_stmt->bind_param("ii", $project_id, $current_store_id);
+                    $update_result = $update_stmt->execute();
+                    $affected_rows = $conn->affected_rows;
+                    
+                    error_log("프로젝트 업데이트 결과: success=$update_result, affected_rows=$affected_rows");
+                    
+                    // 기존 아이템들 삭제
+                    $delete_sql = "DELETE FROM price_label_project_items WHERE project_id = ?";
+                    $delete_stmt = $conn->prepare($delete_sql);
+                    $delete_stmt->bind_param("i", $project_id);
+                    $delete_result = $delete_stmt->execute();
+                    $deleted_rows = $conn->affected_rows;
+                    
+                    error_log("아이템 삭제 결과: success=$delete_result, deleted_rows=$deleted_rows");
+                    
+                    $result_project_id = $project_id;
+                } else {
+                    // 새 프로젝트 생성
+                    error_log("새 프로젝트 생성 시작");
+                    
+                    // project_name 컬럼이 있는지 확인하고 있으면 사용, 없으면 제외
+                    $check_columns = $conn->query("SHOW COLUMNS FROM price_label_projects LIKE 'project_name'");
+                    if ($check_columns && $check_columns->num_rows > 0) {
+                        // project_name 컬럼이 있는 경우
+                        $project_name = date('Y-m-d H:i:s') . ' ' . t('price_label.title');
+                        $insert_sql = "INSERT INTO price_label_projects (store_id, created_by, project_name) VALUES (?, ?, ?)";
+                        $insert_stmt = $conn->prepare($insert_sql);
+                        $insert_stmt->bind_param("iis", $current_store_id, $current_user_id, $project_name);
+                    } else {
+                        // project_name 컬럼이 없는 경우
+                        $insert_sql = "INSERT INTO price_label_projects (store_id, created_by) VALUES (?, ?)";
+                        $insert_stmt = $conn->prepare($insert_sql);
+                        $insert_stmt->bind_param("ii", $current_store_id, $current_user_id);
+                    }
+                    
+                    $insert_result = $insert_stmt->execute();
+                    if (!$insert_result) {
+                        error_log("프로젝트 생성 실패: " . $conn->error);
+                        throw new Exception("프로젝트 생성 실패: " . $conn->error);
+                    }
+                    
+                    $result_project_id = $conn->insert_id;
+                    $project_id = $result_project_id;
+                    error_log("새 프로젝트 생성 완료 - ID: $result_project_id");
+                }
+                
+                // 프로젝트 아이템들 저장
+                error_log("아이템 저장 시작 - 총 " . count($cart_items) . "개 아이템");
+                
+                $item_sql = "INSERT INTO price_label_project_items (project_id, product_id, quantity) VALUES (?, ?, ?)";
+                $item_stmt = $conn->prepare($item_sql);
+                
+                foreach ($cart_items as $index => $item) {
+                    error_log("아이템 $index 저장: " . print_r($item, true));
+                    
+                    // bind_param을 위해 변수로 저장
+                    $product_id = (int)$item['product_id'];
+                    $quantity = (int)$item['quantity'];
+                    $item_stmt->bind_param("iii", 
+                        $result_project_id, 
+                        $product_id, 
+                        $quantity
+                    );
+                    $item_result = $item_stmt->execute();
+                    
+                    if (!$item_result) {
+                        error_log("아이템 $index 저장 실패: " . $conn->error);
+                        throw new Exception("아이템 저장 실패: " . $conn->error);
+                    }
+                }
+                
+                $conn->commit();
+                error_log("트랜잭션 커밋 완료");
+                $conn->close();
+                
+                // 저장 완료 후 프로젝트 페이지로 리다이렉트하여 업데이트된 데이터 표시
+                $_SESSION['flash'] = [
+                    'type' => 'success',
+                    'message' => t('price_label.save_project_success')
+                ];
+                
+                error_log("프로젝트 저장 완료 - 리다이렉트: project_id=" . $result_project_id);
+                header("Location: price_label_print.php?project_id=" . $result_project_id);
+                exit;
+                
+            } catch (Exception $e) {
+                error_log("=== 예외 발생 ===");
+                error_log("Exception message: " . $e->getMessage());
+                error_log("Exception trace: " . $e->getTraceAsString());
+                
+                if (isset($conn)) {
+                    $conn->rollback();
+                    error_log("트랜잭션 롤백 완료");
+                    $conn->close();
+                }
+                $errors[] = t('price_label.save_error', ['error' => $e->getMessage()]);
+            } catch (Error $e) {
+                error_log("=== PHP 에러 발생 ===");
+                error_log("Error message: " . $e->getMessage());
+                error_log("Error trace: " . $e->getTraceAsString());
+                
+                if (isset($conn)) {
+                    $conn->rollback();
+                    $conn->close();
+                }
+                $errors[] = t('price_label.php_error', ['error' => $e->getMessage()]);
+            }
+        }
+    }
+    // 가격표 출력 처리
+    else {
+        $cart_items = json_decode($_POST['cart_items'] ?? '[]', true);
+        
+        if (empty($cart_items)) {
+            $errors[] = t('price_label.no_products_selected');
+        }
+    }
+    
+    if (empty($errors) && !isset($_POST['save_project'])) {
         // 세션에 가격표 출력 데이터 저장 (기본 설정 사용)
         $_SESSION['price_label_data'] = [
             'label_size' => 'price_card',
@@ -79,10 +307,29 @@ if (isset($_SESSION['flash'])) {
                 <h1 class="text-xl font-semibold text-gray-900">
                     <i class="fas fa-tags mr-2 text-primary-500"></i>
                     <?php echo t('price_label.title'); ?>
+                    <?php if ($project_data): ?>
+                        <span class="text-purple-600 ml-2">- <?php echo date('Y-m-d H:i', strtotime($project_data['created_at'])); ?></span>
+                    <?php endif; ?>
                 </h1>
                 <p class="mt-1 text-sm text-gray-600">
-                    <?php echo t('price_label.description'); ?>
+                    <?php if ($project_data): ?>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 mr-2">
+                            <?php echo t('price_label.project'); ?>
+                        </span>
+                        <?php echo t('price_label.loaded_project_description'); ?>
+                    <?php else: ?>
+                        <?php echo t('price_label.description'); ?>
+                    <?php endif; ?>
                 </p>
+                <?php if ($project_data): ?>
+                    <div class="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                        <span><i class="fas fa-box mr-1"></i><?php echo str_replace('{count}', count($project_data['items']), t('price_label.products_count')); ?></span>
+                        <span><i class="fas fa-print mr-1"></i><?php echo str_replace('{count}', array_sum(array_column($project_data['items'], 'quantity')), t('price_label.print_sheets_count')); ?></span>
+                        <a href="price_label_lists.php" class="text-purple-600 hover:text-purple-800">
+                            <i class="fas fa-arrow-left mr-1"></i><?php echo t('price_label.back_to_list'); ?>
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
 
             <div class="px-6 py-4">
@@ -114,6 +361,19 @@ if (isset($_SESSION['flash'])) {
                                         <li><?php echo htmlspecialchars($error); ?></li>
                                     <?php endforeach; ?>
                                 </ul>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($success_message)): ?>
+                    <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-check-circle text-green-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-green-700"><?php echo htmlspecialchars($success_message); ?></p>
                             </div>
                         </div>
                     </div>
@@ -173,7 +433,6 @@ if (isset($_SESSION['flash'])) {
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('price_label.product_name'); ?></th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('price_label.selling_price'); ?></th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('price_label.print_quantity'); ?></th>
-                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('common.remarks'); ?></th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('price_label.delete'); ?></th>
                                             </tr>
                                         </thead>
@@ -195,6 +454,13 @@ if (isset($_SESSION['flash'])) {
 
                         <!-- 출력 버튼 -->
                         <div class="mt-8 flex justify-center space-x-3">
+                            <button type="submit" name="save_project" id="save_button"
+                                    class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400 whitespace-nowrap"
+                                    disabled>
+                                <i class="fas fa-save mr-1"></i>
+                                <?php echo t('price_label.save'); ?>
+                            </button>
+                            
                             <button type="submit" id="print_preview_btn" 
                                     class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400 whitespace-nowrap"
                                     disabled>
@@ -202,10 +468,10 @@ if (isset($_SESSION['flash'])) {
                                 <?php echo t('price_label.preview'); ?>
                             </button>
                             
-                            <a href="index.php" 
+                            <a href="price_label_lists.php" 
                                class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                                <i class="fas fa-arrow-left mr-1"></i>
-                                <?php echo t('common.back'); ?>
+                                <i class="fas fa-list mr-1"></i>
+                                <?php echo t('price_label.back_to_lists'); ?>
                             </a>
                         </div>
                     </div>
@@ -267,11 +533,48 @@ const translations = <?php echo get_js_translations([
 document.addEventListener('DOMContentLoaded', function() {
     let cart = [];
     
-    // 폼 제출 방지 (Enter 키 실수 방지)
+    // 프로젝트 데이터 자동 로드
+    <?php if ($project_data): ?>
+    const projectData = <?php echo json_encode($project_data); ?>;
+    console.log('프로젝트 데이터 로드:', projectData);
+    
+    // 프로젝트 상품들을 장바구니에 자동 추가
+    if (projectData && projectData.items) {
+        cart = projectData.items.map(item => ({
+            product_id: item.product_id,
+            sku: item.sku,
+            name_ko: item.name_ko,
+            name_en: item.name_en,
+            selling_price: item.selling_price,
+            cost_price: item.cost_price,
+            quantity: item.quantity,
+            pieces_per_box: item.pieces_per_box,
+            stock: item.stock,
+        }));
+        
+        console.log('장바구니에 로드된 상품:', cart);
+    }
+    <?php endif; ?>
+    
+    // 폼 제출 처리
     const priceLabelForm = document.getElementById('price-label-form');
     priceLabelForm.addEventListener('submit', function(e) {
-        e.preventDefault(); // 실수로 Enter를 눌렀을 때 폼 제출 방지
-        return false;
+        console.log('폼 제출 이벤트 발생');
+        console.log('제출된 버튼:', e.submitter);
+        
+        // 저장 버튼인 경우 폼 제출 허용
+        if (e.submitter && e.submitter.name === 'save_project') {
+            console.log('저장 버튼 클릭 - 폼 제출 허용');
+            // cart_items 데이터를 hidden input에 설정
+            const cartItemsInput = document.getElementById('cart_items_input');
+            cartItemsInput.value = JSON.stringify(cart);
+            console.log('cart_items_input에 설정된 데이터:', cartItemsInput.value);
+            return true; // 폼 제출 허용
+        } else {
+            console.log('미리보기 버튼 클릭 - 폼 제출 방지');
+            e.preventDefault(); // 미리보기는 기존 처리 방식 사용
+            return false;
+        }
     });
     
     const productSearch = document.getElementById('product_search');
@@ -577,7 +880,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 quantity: 1, // 기본 출력매수는 1개
                 pieces_per_box: product.pieces_per_box || 1,
                 stock: product.stock || 0,
-                remarks: '' // 상품별 비고란 추가
             };
             cart.push(newItem);
             console.log('새 상품 장바구니에 추가:', newItem);
@@ -615,7 +917,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 quantity: 1, // 기본 출력매수는 1개
                 pieces_per_box: piecesPerBox,
                 stock: stock,
-                remarks: '' // 상품별 비고란 추가
             });
         }
         
@@ -654,7 +955,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- 판매가 -->
                         <td class="px-2 py-3 text-center">
                             <div class="text-sm font-medium text-gray-700">
-                                ${Number(item.selling_price).toLocaleString()}원
+                                ${Number(item.selling_price).toLocaleString()}
                             </div>
                         </td>
                         
@@ -673,15 +974,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </td>
                         
-                        <!-- 비고 -->
-                        <td class="px-2 py-3">
-                            <input type="text" 
-                                   class="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
-                                   placeholder="비고"
-                                   value="${item.remarks || ''}"
-                                   onchange="updateRemarks(${index}, this.value)"
-                                   maxlength="100">
-                        </td>
                         
                         <!-- 삭제버튼 -->
                         <td class="px-2 py-3 text-center">
@@ -697,7 +989,7 @@ document.addEventListener('DOMContentLoaded', function() {
             cartList.innerHTML = html;
             
             const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
-            cartTotal.textContent = totalQuantity + ' 매';
+            cartTotal.textContent = totalQuantity + ' <?php echo t("price_label.sheets_unit"); ?>';
         }
         
         cartItemsInput.value = JSON.stringify(cart);
@@ -730,6 +1022,19 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('cart.length === 0?', cart.length === 0);
         } else {
             console.error('printPreviewBtn 요소를 찾을 수 없습니다!');
+        }
+        
+        // 저장 버튼도 업데이트
+        const saveButton = document.getElementById('save_button');
+        if (saveButton) {
+            const isDisabled = cart.length === 0;
+            saveButton.disabled = isDisabled;
+            
+            if (isDisabled) {
+                saveButton.className = saveButton.className.replace('bg-purple-600', 'bg-gray-400').replace('hover:bg-purple-700', 'hover:bg-gray-400');
+            } else {
+                saveButton.className = saveButton.className.replace('bg-gray-400', 'bg-purple-600').replace('hover:bg-gray-400', 'hover:bg-purple-700');
+            }
         }
     }
     
@@ -839,7 +1144,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 quantity: 1, // 기본 출력매수는 1개
                 pieces_per_box: piecesPerBox,
                 stock: stock,
-                remarks: '' // 상품별 비고란 추가
             });
         }
         
@@ -864,10 +1168,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCart();
     };
     
-    window.updateRemarks = function(index, value) {
-        cart[index].remarks = value;
-        cartItemsInput.value = JSON.stringify(cart);
-    };
     
     // 프라이스카드 모달 열기
     window.openPriceCardModal = function() {
@@ -1290,6 +1590,14 @@ document.addEventListener('DOMContentLoaded', function() {
             closePriceCardModal();
         }
     });
+    
+    // 프로젝트 데이터가 로드된 경우 장바구니 즉시 업데이트
+    <?php if ($project_data): ?>
+    setTimeout(() => {
+        updateCart();
+        showNotification('<?php echo str_replace("{date}", date("Y-m-d H:i", strtotime($project_data["created_at"])), t("price_label.project_loaded")); ?>', 'success');
+    }, 100);
+    <?php endif; ?>
 });
 </script>
 
