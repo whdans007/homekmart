@@ -4,6 +4,108 @@ $page_title = t('purchase_product.management') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
+// 일괄 업데이트 처리
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['bulk_action']) && isset($_POST['selected_products'])) {
+        $bulk_action = $_POST['bulk_action'];
+        $selected_products = $_POST['selected_products'];
+        
+        if (!is_array($selected_products) || empty($selected_products)) {
+            $_SESSION['flash'] = ['type' => 'error', 'message' => '선택된 상품이 없습니다.'];
+        } else {
+            $conn = get_db_connection();
+            
+            try {
+                $conn->autocommit(false);
+                $updated_count = 0;
+                
+                if ($bulk_action === 'update_category' && isset($_POST['category_id'])) {
+                    $category_id = intval($_POST['category_id']);
+                    
+                    // 카테고리 존재 여부 확인
+                    $category_check = $conn->prepare("SELECT name FROM categories WHERE id = ?");
+                    $category_check->bind_param("i", $category_id);
+                    $category_check->execute();
+                    $category_result = $category_check->get_result();
+                    
+                    if ($category_result->num_rows > 0) {
+                        $category_data = $category_result->fetch_assoc();
+                        
+                        // 선택된 상품들의 카테고리 업데이트
+                        $placeholders = str_repeat('?,', count($selected_products) - 1) . '?';
+                        $update_sql = "UPDATE products SET category_id = ? WHERE id IN ($placeholders)";
+                        $update_stmt = $conn->prepare($update_sql);
+                        
+                        $types = 'i' . str_repeat('i', count($selected_products));
+                        $params = array_merge([$category_id], array_map('intval', $selected_products));
+                        $update_stmt->bind_param($types, ...$params);
+                        $update_stmt->execute();
+                        
+                        $updated_count = $update_stmt->affected_rows;
+                        $update_stmt->close();
+                        
+                        $_SESSION['flash'] = [
+                            'type' => 'success', 
+                            'message' => "{$updated_count}개 상품의 카테고리가 '{$category_data['name']}'로 변경되었습니다."
+                        ];
+                    } else {
+                        $_SESSION['flash'] = ['type' => 'error', 'message' => '존재하지 않는 카테고리입니다.'];
+                    }
+                    $category_check->close();
+                    
+                } elseif ($bulk_action === 'update_brand' && isset($_POST['brand_id'])) {
+                    $brand_id = intval($_POST['brand_id']);
+                    
+                    // 브랜드 존재 여부 확인
+                    $brand_check = $conn->prepare("SELECT name_en, name_ko FROM brands WHERE id = ?");
+                    $brand_check->bind_param("i", $brand_id);
+                    $brand_check->execute();
+                    $brand_result = $brand_check->get_result();
+                    
+                    if ($brand_result->num_rows > 0) {
+                        $brand_data = $brand_result->fetch_assoc();
+                        $brand_name = $brand_data['name_ko'] ?: $brand_data['name_en'];
+                        
+                        // 선택된 상품들의 브랜드 업데이트
+                        $placeholders = str_repeat('?,', count($selected_products) - 1) . '?';
+                        $update_sql = "UPDATE products SET brand_id = ? WHERE id IN ($placeholders)";
+                        $update_stmt = $conn->prepare($update_sql);
+                        
+                        $types = 'i' . str_repeat('i', count($selected_products));
+                        $params = array_merge([$brand_id], array_map('intval', $selected_products));
+                        $update_stmt->bind_param($types, ...$params);
+                        $update_stmt->execute();
+                        
+                        $updated_count = $update_stmt->affected_rows;
+                        $update_stmt->close();
+                        
+                        $_SESSION['flash'] = [
+                            'type' => 'success', 
+                            'message' => "{$updated_count}개 상품의 브랜드가 '{$brand_name}'로 변경되었습니다."
+                        ];
+                    } else {
+                        $_SESSION['flash'] = ['type' => 'error', 'message' => '존재하지 않는 브랜드입니다.'];
+                    }
+                    $brand_check->close();
+                }
+                
+                $conn->commit();
+                
+            } catch (Exception $e) {
+                $conn->rollback();
+                $_SESSION['flash'] = ['type' => 'error', 'message' => '일괄 업데이트 중 오류가 발생했습니다: ' . $e->getMessage()];
+            }
+            
+            $conn->autocommit(true);
+            $conn->close();
+            
+            // 페이지 새로고침으로 결과 표시
+            header('Location: ' . $_SERVER['REQUEST_URI']);
+            exit;
+        }
+    }
+}
+
 // 매입관리 권한 확인
 if (!has_permission('purchase_management')) {
     $_SESSION['flash'] = [
@@ -15,6 +117,20 @@ if (!has_permission('purchase_management')) {
 }
 
 $conn = get_db_connection();
+
+// 브랜드 목록 미리 로드
+$brands_list = [];
+try {
+    $brands_sql = "SELECT id, name_en, name_ko FROM brands ORDER BY name_ko, name_en LIMIT 100";
+    $brands_result = $conn->query($brands_sql);
+    if ($brands_result) {
+        while ($brand_row = $brands_result->fetch_assoc()) {
+            $brands_list[] = $brand_row;
+        }
+    }
+} catch (Exception $e) {
+    error_log("Brands load error: " . $e->getMessage());
+}
 
 // 날짜 변수 - 기본적으로 최근 7일간의 데이터 표시
 $display_mode = $_GET['mode'] ?? 'recent'; // 'recent' 또는 'date'
@@ -276,11 +392,45 @@ $conn->close();
 
     <!-- 상품 목록 테이블 -->
     <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
-        <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
-            <h3 class="text-lg leading-6 font-semibold text-gray-900">
-                <?php echo t('purchase_product.product_list'); ?>
-                <span class="text-sm font-normal text-gray-500 ml-2">(<?php echo count($purchase_products); ?><?php echo t('common.items'); ?>)</span>
-            </h3>
+        <div class="px-6 py-4 border-b border-gray-200 bg-white">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg leading-6 font-semibold text-gray-900">
+                    <?php echo t('purchase_product.product_list'); ?>
+                    <span class="text-sm font-normal text-gray-500 ml-2">(<?php echo count($purchase_products); ?><?php echo t('common.items'); ?>)</span>
+                </h3>
+            </div>
+            
+            <!-- 일괄 작업 영역 -->
+            <div id="bulk-actions" class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-3">
+                <form id="bulk-update-form" method="POST" action="">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-sm font-medium text-blue-900">
+                                <span id="selected-count">0</span>개 상품 선택됨
+                            </span>
+                            <button type="button" id="clear-selection" class="text-xs text-blue-600 hover:text-blue-800 underline">
+                                선택 해제
+                            </button>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button type="button" id="bulk-category-btn" class="inline-flex items-center px-3 py-2 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+                                <i class="fas fa-sitemap mr-1"></i>
+                                카테고리 일괄등록
+                            </button>
+                            <button type="button" id="bulk-brand-btn" class="inline-flex items-center px-3 py-2 border border-transparent text-xs font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+                                <i class="fas fa-tags mr-1"></i>
+                                브랜드 일괄등록
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 히든 필드들 -->
+                    <input type="hidden" name="bulk_action" id="bulk_action" value="">
+                    <input type="hidden" name="category_id" id="hidden_category_id" value="">
+                    <input type="hidden" name="brand_id" id="hidden_brand_id" value="">
+                    <div id="selected-products-container"></div>
+                </form>
+            </div>
         </div>
         
         <?php if (empty($purchase_products)): ?>
@@ -293,6 +443,9 @@ $conn->close();
             <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
+                        <th scope="col" class="px-2 py-2 text-center w-12">
+                            <input type="checkbox" id="select-all" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                        </th>
                         <?php if ($display_mode === 'recent'): ?>
                         <th scope="col" class="px-2 py-2 text-left text-xs font-semibold text-gray-700 uppercase w-12">
                             <?php echo t('purchase.purchase_date'); ?>
@@ -332,7 +485,10 @@ $conn->close();
                 </thead>
                 <tbody class="bg-white">
                     <?php foreach ($purchase_products as $product): ?>
-                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="showProductDetails(<?php echo $product['product_id']; ?>)">
+                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150" data-product-id="<?php echo $product['product_id']; ?>">
+                        <td class="px-2 py-2 text-center">
+                            <input type="checkbox" class="product-checkbox rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" value="<?php echo $product['product_id']; ?>">
+                        </td>
                         <?php if ($display_mode === 'recent'): ?>
                         <td class="px-2 py-2 whitespace-nowrap text-xs text-gray-900">
                             <div class="text-gray-800"><?php echo date('m.d', strtotime($product['purchase_date'])); ?></div>
@@ -357,7 +513,7 @@ $conn->close();
                                 <span class="text-gray-400">-</span>
                             <?php endif; ?>
                         </td>
-                        <td class="px-2 py-2 text-xs text-gray-900">
+                        <td class="px-2 py-2 text-xs text-gray-900 cursor-pointer" onclick="showProductDetails(<?php echo $product['product_id']; ?>)">
                             <div class="text-gray-800 truncate" style="max-width: 250px;" title="<?php echo htmlspecialchars($product['name_en'] . ' / ' . $product['name_ko']); ?>">
                                 <?php echo htmlspecialchars($product['name_en']); ?>
                             </div>
@@ -385,7 +541,7 @@ $conn->close();
                 </tbody>
                 <tfoot class="bg-gray-50">
                     <tr>
-                        <td colspan="<?php echo $display_mode === 'recent' ? '8' : '7'; ?>" class="px-2 py-1 text-right text-xs font-medium text-gray-900">
+                        <td colspan="<?php echo $display_mode === 'recent' ? '9' : '8'; ?>" class="px-2 py-1 text-right text-xs font-medium text-gray-900">
                             <?php echo t('common.total'); ?>:
                         </td>
                         <td class="px-2 py-1 text-right text-xs font-bold text-gray-900">
@@ -2388,6 +2544,438 @@ document.addEventListener("DOMContentLoaded", function() {
             });
         });
     }
+});
+
+// =============================================================================
+// 체크박스 및 일괄 작업 기능
+// =============================================================================
+
+let selectedProductIds = [];
+let bulkCategoryPopup;
+let bulkBrandSearchModal;
+
+// 체크박스 관리
+function initBulkActionCheckboxes() {
+    const selectAllCheckbox = document.getElementById('select-all');
+    const productCheckboxes = document.querySelectorAll('.product-checkbox');
+    const bulkActionsDiv = document.getElementById('bulk-actions');
+    const selectedCountSpan = document.getElementById('selected-count');
+    const clearSelectionBtn = document.getElementById('clear-selection');
+
+    // 전체 선택 체크박스 이벤트
+    selectAllCheckbox.addEventListener('change', function() {
+        const isChecked = this.checked;
+        productCheckboxes.forEach(checkbox => {
+            checkbox.checked = isChecked;
+            
+            // 각 행에 시각적 피드백 적용
+            const row = checkbox.closest('tr');
+            if (row) {
+                if (isChecked) {
+                    row.classList.add('bg-blue-50', 'border-blue-200');
+                } else {
+                    row.classList.remove('bg-blue-50', 'border-blue-200');
+                }
+            }
+        });
+        updateSelectedProducts();
+    });
+
+    // 개별 체크박스 이벤트
+    productCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateSelectedProducts();
+            
+            // 전체 선택 체크박스 상태 업데이트
+            const checkedCount = document.querySelectorAll('.product-checkbox:checked').length;
+            const totalCount = productCheckboxes.length;
+            
+            selectAllCheckbox.checked = checkedCount === totalCount;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < totalCount;
+            
+            // 해당 행에 시각적 피드백 추가
+            const row = this.closest('tr');
+            if (row) {
+                if (this.checked) {
+                    row.classList.add('bg-blue-50', 'border-blue-200');
+                } else {
+                    row.classList.remove('bg-blue-50', 'border-blue-200');
+                }
+            }
+        });
+    });
+
+    // 선택 해제 버튼 이벤트
+    clearSelectionBtn.addEventListener('click', function() {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+        productCheckboxes.forEach(checkbox => {
+            checkbox.checked = false;
+            
+            // 각 행에서 시각적 피드백 제거
+            const row = checkbox.closest('tr');
+            if (row) {
+                row.classList.remove('bg-blue-50', 'border-blue-200');
+            }
+        });
+        updateSelectedProducts();
+    });
+
+    // 선택된 상품 업데이트 함수
+    function updateSelectedProducts() {
+        const checkedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
+        selectedProductIds = Array.from(checkedCheckboxes).map(cb => parseInt(cb.value));
+        
+        selectedCountSpan.textContent = selectedProductIds.length;
+        
+        // 버튼 활성화/비활성화
+        const bulkCategoryBtn = document.getElementById('bulk-category-btn');
+        const bulkBrandBtn = document.getElementById('bulk-brand-btn');
+        
+        if (selectedProductIds.length > 0) {
+            bulkCategoryBtn.disabled = false;
+            bulkBrandBtn.disabled = false;
+        } else {
+            bulkCategoryBtn.disabled = true;
+            bulkBrandBtn.disabled = true;
+        }
+        
+        // 선택된 상품 ID를 히든 필드로 업데이트
+        updateSelectedProductsForm();
+    }
+    
+    // 선택된 상품들을 폼의 히든 필드로 업데이트
+    function updateSelectedProductsForm() {
+        const container = document.getElementById('selected-products-container');
+        container.innerHTML = '';
+        
+        selectedProductIds.forEach(productId => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_products[]';
+            input.value = productId;
+            container.appendChild(input);
+        });
+    }
+}
+
+// 일괄 카테고리 변경
+function initBulkCategoryUpdate() {
+    const bulkCategoryBtn = document.getElementById('bulk-category-btn');
+    
+    bulkCategoryBtn.addEventListener('click', function() {
+        if (selectedProductIds.length === 0) {
+            alert('선택된 상품이 없습니다.');
+            return;
+        }
+        
+        // 기존 카테고리 팝업 활용
+        if (typeof categoryPopup !== 'undefined' && categoryPopup.open) {
+            categoryPopup.open(function(selectedCategory) {
+                // 폼에 카테고리 정보 설정하고 제출
+                document.getElementById('bulk_action').value = 'update_category';
+                document.getElementById('hidden_category_id').value = selectedCategory.id;
+                
+                // 확인 메시지
+                const categoryName = selectedCategory.name || selectedCategory.name_en;
+                if (confirm(`선택된 ${selectedProductIds.length}개 상품의 카테고리를 '${categoryName}'로 변경하시겠습니까?`)) {
+                    document.getElementById('bulk-update-form').submit();
+                }
+            });
+            
+            // 백업 클릭 핸들러
+            setTimeout(() => {
+                const categoryItems = document.querySelectorAll('.category-item');
+                categoryItems.forEach(item => {
+                    item.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const category = {
+                            id: this.dataset.categoryId,
+                            name: this.dataset.categoryName,
+                            name_en: this.dataset.categoryNameEn
+                        };
+                        
+                        categoryPopup.close();
+                        
+                        // 폼 제출
+                        document.getElementById('bulk_action').value = 'update_category';
+                        document.getElementById('hidden_category_id').value = category.id;
+                        
+                        const categoryName = category.name || category.name_en;
+                        if (confirm(`선택된 ${selectedProductIds.length}개 상품의 카테고리를 '${categoryName}'로 변경하시겠습니까?`)) {
+                            document.getElementById('bulk-update-form').submit();
+                        }
+                    }, { once: true });
+                });
+            }, 500);
+        } else {
+            alert('카테고리 선택 기능을 사용할 수 없습니다.');
+        }
+    });
+}
+
+// 일괄 브랜드 변경
+function initBulkBrandUpdate() {
+    const bulkBrandBtn = document.getElementById('bulk-brand-btn');
+    
+    bulkBrandBtn.addEventListener('click', function() {
+        if (selectedProductIds.length === 0) {
+            alert('선택된 상품이 없습니다.');
+            return;
+        }
+        
+        // 브랜드 선택 모달 표시
+        showSimpleBrandSelectionModal();
+    });
+}
+
+
+// PHP에서 로드된 브랜드 목록
+const brandsList = <?php echo json_encode($brands_list); ?>;
+
+// 간단한 브랜드 선택 모달 표시
+function showSimpleBrandSelectionModal() {
+    const modalHtml = `
+        <div id="bulk-brand-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                        <i class="fas fa-tags mr-2"></i>브랜드 일괄 선택
+                        <span class="text-sm font-normal text-gray-500 ml-2">(${selectedProductIds.length}개 상품)</span>
+                    </h3>
+                    
+                    <!-- 브랜드 검색 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">브랜드 검색</label>
+                        <input type="text" id="bulk-brand-search" placeholder="브랜드명을 입력하세요..." 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <div id="bulk-brand-search-results" class="hidden mt-2 max-h-48 overflow-y-auto border border-gray-200 rounded-md bg-white shadow-sm">
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">최소 1글자 이상 입력하면 검색 결과가 나타납니다.</div>
+                    </div>
+                    
+                    <!-- 선택된 브랜드 표시 -->
+                    <div class="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">선택된 브랜드</label>
+                        <div id="bulk-selected-brand" class="text-sm text-gray-600">선택된 브랜드 없음</div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-2">
+                        <button id="bulk-brand-cancel" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">취소</button>
+                        <button id="bulk-brand-apply" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-300" disabled>적용</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    const modal = document.getElementById('bulk-brand-modal');
+    const searchInput = document.getElementById('bulk-brand-search');
+    const searchResults = document.getElementById('bulk-brand-search-results');
+    const selectedBrandDiv = document.getElementById('bulk-selected-brand');
+    const cancelBtn = document.getElementById('bulk-brand-cancel');
+    const applyBtn = document.getElementById('bulk-brand-apply');
+    
+    let selectedBrand = null;
+    let searchTimeout = null;
+    
+    // 검색 기능
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const searchTerm = this.value.trim();
+        
+        searchTimeout = setTimeout(() => {
+            if (searchTerm.length >= 1) {  // 최소 1글자 이상
+                searchBrands(searchTerm);
+            } else {
+                searchResults.classList.add('hidden');
+            }
+        }, 300);
+    });
+    
+    function searchBrands(searchTerm) {
+        // PHP에서 로드된 브랜드 목록에서 검색
+        const filteredBrands = brandsList.filter(brand => {
+            const searchLower = searchTerm.toLowerCase();
+            const nameKo = (brand.name_ko || '').toLowerCase();
+            const nameEn = (brand.name_en || '').toLowerCase();
+            return nameKo.includes(searchLower) || nameEn.includes(searchLower);
+        });
+        
+        displayBrandSearchResults(filteredBrands);
+    }
+    
+    function displayBrandSearchResults(brands) {
+        searchResults.innerHTML = '';
+        
+        if (brands.length > 0) {
+            brands.forEach(brand => {
+                const div = document.createElement('div');
+                div.className = 'px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm border-b border-gray-100 last:border-b-0';
+                
+                let displayText = '';
+                if (brand.name_en) displayText = brand.name_en;
+                if (brand.name_ko) {
+                    displayText += displayText ? ` / ${brand.name_ko}` : brand.name_ko;
+                }
+                
+                div.textContent = displayText;
+                div.onclick = function() {
+                    selectedBrand = brand;
+                    selectedBrandDiv.innerHTML = `<i class="fas fa-tags mr-2 text-purple-600"></i>${displayText}`;
+                    searchInput.value = '';
+                    searchResults.classList.add('hidden');
+                    applyBtn.disabled = false;
+                };
+                searchResults.appendChild(div);
+            });
+        } else {
+            const noResultDiv = document.createElement('div');
+            noResultDiv.className = 'px-3 py-2 text-sm text-gray-500 text-center';
+            noResultDiv.textContent = '검색 결과가 없습니다.';
+            searchResults.appendChild(noResultDiv);
+        }
+        
+        searchResults.classList.remove('hidden');
+    }
+    
+    // 취소 버튼
+    cancelBtn.onclick = function() {
+        modal.remove();
+    };
+    
+    // 적용 버튼
+    applyBtn.onclick = function() {
+        if (selectedBrand) {
+            // 확인 메시지
+            const brandName = selectedBrand.name_ko || selectedBrand.name_en;
+            if (confirm(`선택된 ${selectedProductIds.length}개 상품의 브랜드를 '${brandName}'로 변경하시겠습니까?`)) {
+                // 폼에 브랜드 정보 설정하고 제출
+                document.getElementById('bulk_action').value = 'update_brand';
+                document.getElementById('hidden_brand_id').value = selectedBrand.id;
+                
+                // 선택된 상품 ID들을 폼에 추가
+                selectedProductIds.forEach(id => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'selected_products[]';
+                    input.value = id;
+                    document.getElementById('bulk-update-form').appendChild(input);
+                });
+                
+                document.getElementById('bulk-update-form').submit();
+            }
+        }
+    };
+    
+    // ESC 키로 닫기
+    document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    });
+    
+    // 배경 클릭으로 닫기
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+    
+    // 검색 입력란에 포커스
+    searchInput.focus();
+}
+
+// 테이블의 카테고리 표시 업데이트
+function updateTableCategories(productIds, category) {
+    productIds.forEach(productId => {
+        const row = document.querySelector(`tr[data-product-id="${productId}"]`);
+        if (row) {
+            <?php if ($display_mode === 'recent'): ?>
+            const categoryCell = row.children[3]; // 체크박스, 날짜, 거래처 다음
+            <?php else: ?>
+            const categoryCell = row.children[2]; // 체크박스, 카테고리
+            <?php endif; ?>
+            if (categoryCell) {
+                categoryCell.textContent = category.name || '-';
+            }
+        }
+    });
+}
+
+// 테이블의 브랜드 표시 업데이트
+function updateTableBrands(productIds, brand) {
+    productIds.forEach(productId => {
+        const row = document.querySelector(`tr[data-product-id="${productId}"]`);
+        if (row) {
+            <?php if ($display_mode === 'recent'): ?>
+            const brandCell = row.children[5]; // 체크박스, 날짜, 거래처, 카테고리, SKU 다음
+            <?php else: ?>
+            const brandCell = row.children[4]; // 체크박스, 카테고리, SKU, 브랜드
+            <?php endif; ?>
+            if (brandCell) {
+                let displayText = '';
+                if (brand.name_en || brand.name_ko) {
+                    if (brand.name_en) displayText = brand.name_en;
+                    if (brand.name_ko) {
+                        displayText += displayText ? ` / ${brand.name_ko}` : brand.name_ko;
+                    }
+                    brandCell.innerHTML = `<span class="font-medium">${displayText}</span>`;
+                } else {
+                    brandCell.innerHTML = '<span class="text-gray-400">-</span>';
+                }
+            }
+        }
+    });
+}
+
+// 테이블 행 클릭으로 체크박스 선택
+function initRowClickSelection() {
+    const tableRows = document.querySelectorAll('tbody tr[data-product-id]');
+    
+    tableRows.forEach(row => {
+        row.addEventListener('click', function(e) {
+            // 이미 체크박스나 버튼, 링크를 클릭한 경우는 무시
+            if (e.target.type === 'checkbox' || 
+                e.target.tagName === 'BUTTON' || 
+                e.target.tagName === 'A' || 
+                e.target.closest('button') || 
+                e.target.closest('a')) {
+                return;
+            }
+            
+            // 해당 행의 체크박스 찾기
+            const checkbox = this.querySelector('.product-checkbox');
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+                
+                // 체크박스 변경 이벤트 수동 트리거
+                const changeEvent = new Event('change', { bubbles: true });
+                checkbox.dispatchEvent(changeEvent);
+                
+                // 시각적 피드백
+                if (checkbox.checked) {
+                    this.classList.add('bg-blue-50', 'border-blue-200');
+                } else {
+                    this.classList.remove('bg-blue-50', 'border-blue-200');
+                }
+            }
+        });
+        
+        // 마우스 오버 시 커서 변경
+        row.style.cursor = 'pointer';
+    });
+}
+
+// 초기화
+document.addEventListener('DOMContentLoaded', function() {
+    initBulkActionCheckboxes();
+    initBulkCategoryUpdate();
+    initBulkBrandUpdate();
+    initRowClickSelection();
 });
 </script>
 
