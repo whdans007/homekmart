@@ -131,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // 매입 상세 데이터 저장 및 재고 업데이트
-            $stmt_item = $conn->prepare("INSERT INTO purchase_items (purchase_id, product_id, purchase_type, quantity, unit_price) VALUES (?, ?, ?, ?, ?)");
+            $stmt_item = $conn->prepare("INSERT INTO purchase_items (purchase_id, product_id, purchase_type, quantity, unit_price, vat_included, original_unit_price, vat_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             
             foreach ($new_items as $item) {
                 if (!empty($item['product_id']) && !empty($item['quantity']) && isset($item['unit_price']) && $item['unit_price'] !== '') {
@@ -141,8 +141,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $purchase_type = 'box'; // 기본값으로 설정
                     }
                     
-                    // 1. 매입 상세 데이터 저장
-                    $stmt_item->bind_param("iisis", $purchase_id, $item['product_id'], $purchase_type, $item['quantity'], $item['unit_price']);
+                    // 상품의 VAT 적용 여부 확인
+                    $product_vat_stmt = $conn->prepare("SELECT is_vat_applicable FROM products WHERE id = ?");
+                    $product_vat_stmt->bind_param("i", $item['product_id']);
+                    $product_vat_stmt->execute();
+                    $product_vat_result = $product_vat_stmt->get_result();
+                    $is_vat_applicable = 1; // 기본값: VAT 적용 상품
+                    if ($product_vat_row = $product_vat_result->fetch_assoc()) {
+                        $is_vat_applicable = (int)$product_vat_row['is_vat_applicable'];
+                    }
+                    
+                    // VAT 처리 로직
+                    $vat_included = isset($item['vat_included']) ? (int)$item['vat_included'] : 1; // 기본값: VAT 포함
+                    $original_price = (float)$item['unit_price']; // 사용자 입력 원본 가격
+                    $vat_rate = 0.12; // VAT 12%
+                    
+                    if ($vat_included == 1) {
+                        // VAT 포함으로 선택한 경우
+                        $final_unit_price = $original_price; // 입력값 그대로
+                        if ($is_vat_applicable == 1) {
+                            // VAT 적용 상품: VAT 금액 계산
+                            $vat_amount = $original_price - ($original_price / 1.12);
+                        } else {
+                            // VAT 비적용 상품: VAT 금액 0
+                            $vat_amount = 0;
+                        }
+                    } else {
+                        // VAT 미포함으로 선택한 경우
+                        if ($is_vat_applicable == 0) {
+                            // VAT 비적용 상품: 원가 그대로 저장, VAT 구분은 "포함"으로 변경
+                            $final_unit_price = $original_price;
+                            $vat_amount = 0;
+                            $vat_included = 1; // VAT 구분을 "포함"으로 변경
+                        } else {
+                            // VAT 적용 상품: 원가에 12% 추가하여 저장, VAT 구분은 "포함"으로 변경
+                            $final_unit_price = $original_price * 1.12; // VAT 추가된 가격
+                            $vat_amount = $original_price * $vat_rate;
+                            $vat_included = 1; // VAT 구분을 "포함"으로 변경
+                        }
+                    }
+                    
+                    // 1. 매입 상세 데이터 저장 (VAT 관련 필드 포함)
+                    $stmt_item->bind_param("iisididd", $purchase_id, $item['product_id'], $purchase_type, $item['quantity'], $final_unit_price, $vat_included, $original_price, $vat_amount);
                     if (!$stmt_item->execute()) {
                         throw new Exception(str_replace(['{error}', '{type}'], [$stmt_item->error, $purchase_type], t('purchase.item_save_failed')));
                     }
@@ -167,17 +207,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $inv_result = $inv_check_stmt->get_result();
                         
                         if ($inv_row = $inv_result->fetch_assoc()) {
-                            // 기존 재고 업데이트
+                            // 기존 재고 업데이트 (VAT 포함 가격으로 cost_price도 함께 업데이트)
                             $new_quantity = $inv_row['quantity'] + $actual_quantity;
-                            $inv_update_stmt = $conn->prepare("UPDATE inventory SET quantity = ? WHERE id = ?");
-                            $inv_update_stmt->bind_param("ii", $new_quantity, $inv_row['id']);
+                            $inv_update_stmt = $conn->prepare("UPDATE inventory SET quantity = ?, cost_price = ? WHERE id = ?");
+                            $inv_update_stmt->bind_param("idi", $new_quantity, $final_unit_price, $inv_row['id']);
                             $inv_update_stmt->execute();
                             $inv_update_stmt->close();
                             $inventory_id = $inv_row['id'];
                         } else {
-                            // 새로운 재고 레코드 생성
-                            $inv_insert_stmt = $conn->prepare("INSERT INTO inventory (product_id, store_id, quantity) VALUES (?, ?, ?)");
-                            $inv_insert_stmt->bind_param("iii", $item['product_id'], $user_store_id, $actual_quantity);
+                            // 새로운 재고 레코드 생성 (VAT 포함 가격으로 cost_price 설정)
+                            $inv_insert_stmt = $conn->prepare("INSERT INTO inventory (product_id, store_id, quantity, cost_price) VALUES (?, ?, ?, ?)");
+                            $inv_insert_stmt->bind_param("iiid", $item['product_id'], $user_store_id, $actual_quantity, $final_unit_price);
                             $inv_insert_stmt->execute();
                             $inventory_id = $inv_insert_stmt->insert_id;
                             $inv_insert_stmt->close();
@@ -335,6 +375,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
                 <p class="mt-1 text-xs text-gray-500"><?php echo t('purchase.select_supplier_first'); ?></p>
             </div>
+            
+            <!-- VAT 설정 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">VAT 적용</label>
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-4">
+                        <label class="flex items-center">
+                            <input type="radio" name="default_vat_included" value="1" checked class="mr-2 text-indigo-600"> 
+                            VAT 포함
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="default_vat_included" value="0" class="mr-2 text-indigo-600"> 
+                            VAT 미포함
+                        </label>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        VAT 미포함 선택시 입력 단가에 자동으로 12% 추가하여 원가에 저장됩니다.
+                    </div>
+                    <!-- 가격 정보 실시간 표시 -->
+                    <div id="vat-calculation-display" class="p-2 bg-gray-50 rounded text-sm hidden">
+                        <div class="grid grid-cols-3 gap-4 text-xs">
+                            <div>입력 단가: ₩<span id="global-input-price">0</span></div>
+                            <div>저장될 원가: ₩<span id="global-final-price">0</span></div>
+                            <div class="text-blue-600">VAT 금액: ₩<span id="global-vat-amount">0</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <div>
                 <label for="purchase_date" class="block text-sm font-medium text-gray-700"><?php echo t('purchase.purchase_date'); ?></label>
                 <input type="date" id="purchase_date" name="purchase_date" 
@@ -1378,6 +1447,8 @@ document.addEventListener('DOMContentLoaded', function () {
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right">
                 <input type="number" name="items[${itemIndex}][unit_price]" class="w-20 px-2 py-1 border border-gray-300 rounded-md text-right text-sm unit-price focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" step="0.01" min="0" value="${finalUnitPrice}" placeholder="0원 가능" ${isExisting ? 'readonly' : ''}>
+                <!-- VAT 관련 hidden 필드 -->
+                <input type="hidden" name="items[${itemIndex}][vat_included]" class="vat-included-field" value="1">
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right piece-price text-sm text-gray-500"></td>
             <td class="px-6 py-4 whitespace-nowrap text-right row-total font-semibold text-gray-900">0</td>
@@ -1745,6 +1816,76 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('modal_supplier_name').focus();
         }, 100);
     }
+
+    // VAT 계산 함수
+    function updateVATCalculation() {
+        const vatIncluded = document.querySelector('input[name="default_vat_included"]:checked').value === '1';
+        const vatDisplay = document.getElementById('vat-calculation-display');
+        
+        // 모든 상품의 VAT 설정 업데이트
+        document.querySelectorAll('.vat-included-field').forEach(field => {
+            field.value = vatIncluded ? '1' : '0';
+        });
+        
+        // 단가가 입력된 경우에만 계산 표시
+        const unitPriceInputs = document.querySelectorAll('.unit-price');
+        let hasPrice = false;
+        let samplePrice = 0;
+        
+        unitPriceInputs.forEach(input => {
+            const price = parseFloat(input.value) || 0;
+            if (price > 0) {
+                hasPrice = true;
+                samplePrice = price;
+                return;
+            }
+        });
+        
+        if (hasPrice) {
+            const vatRate = 0.12; // 12%
+            let finalPrice, vatAmount;
+            
+            if (vatIncluded) {
+                // VAT 포함: 입력값 그대로 저장
+                finalPrice = samplePrice;
+                vatAmount = samplePrice - (samplePrice / 1.12);
+            } else {
+                // VAT 미포함: VAT 추가하여 저장
+                finalPrice = samplePrice * 1.12;
+                vatAmount = samplePrice * vatRate;
+            }
+            
+            // UI 업데이트
+            document.getElementById('global-input-price').textContent = samplePrice.toLocaleString();
+            document.getElementById('global-final-price').textContent = finalPrice.toLocaleString();
+            document.getElementById('global-vat-amount').textContent = vatAmount.toLocaleString();
+            vatDisplay.classList.remove('hidden');
+        } else {
+            vatDisplay.classList.add('hidden');
+        }
+        
+        // 모든 행의 총액 재계산
+        document.querySelectorAll('.item-row').forEach(row => {
+            updateRowTotal(row);
+        });
+    }
+    
+    // VAT 설정 변경 이벤트 리스너
+    document.addEventListener('change', function(e) {
+        if (e.target.name === 'default_vat_included') {
+            updateVATCalculation();
+        }
+    });
+    
+    // 단가 입력시 VAT 계산 표시 업데이트
+    document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('unit-price')) {
+            updateVATCalculation();
+        }
+    });
+    
+    // 초기 VAT 설정
+    updateVATCalculation();
 });
 </script>
 

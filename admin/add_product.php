@@ -105,7 +105,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (empty($errors)) {
         try {
-            $sql = "INSERT INTO products (sku, name_ko, name_en, description, category_id, brand_id, image_url, is_active, pieces_per_box, last_modified_by_user_id) VALUES (:sku, :name_ko, :name_en, :description, :category_id, :brand_id, :image_url, :is_active, :pieces_per_box, :user_id)";
+            $sql = "INSERT INTO products (sku, name_ko, name_en, description, category_id, brand_id, image_url, is_active, pieces_per_box, is_vat_applicable, last_modified_by_user_id) VALUES (:sku, :name_ko, :name_en, :description, :category_id, :brand_id, :image_url, :is_active, :pieces_per_box, :is_vat_applicable, :user_id)";
             $stmt = $pdo->prepare($sql);
 
             $params = [
@@ -118,6 +118,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 ':image_url' => $product['image_url'] ?: null,
                 ':is_active' => $product['is_active'],
                 ':pieces_per_box' => $product['pieces_per_box'] ?: 1,
+                ':is_vat_applicable' => isset($_POST['is_vat_applicable']) ? (int)$_POST['is_vat_applicable'] : 1,
                 ':user_id' => $_SESSION['user_id']
             ];
 
@@ -331,6 +332,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                         <?php echo t('product.inactive'); ?>
                                     </label>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VAT 적용 여부 섹션 -->
+                    <div>
+                        <div class="flex items-center mb-4">
+                            <div class="bg-orange-100 rounded-full p-2 mr-3">
+                                <i class="fas fa-receipt text-orange-600 text-sm"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900">VAT 적용 여부</h3>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex items-center space-x-6">
+                                <div class="flex items-center">
+                                    <input id="is_vat_applicable_true" name="is_vat_applicable" type="radio" value="1" <?php echo (isset($product['is_vat_applicable']) && $product['is_vat_applicable'] == 1) ? 'checked' : 'checked'; ?> class="h-4 w-4 border-gray-300 text-orange-600 focus:ring-orange-500">
+                                    <label for="is_vat_applicable_true" class="ml-3 flex items-center text-sm font-medium text-gray-900">
+                                        <span class="w-2 h-2 bg-orange-400 rounded-full mr-2"></span>
+                                        VAT 적용 상품 (일반상품)
+                                    </label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input id="is_vat_applicable_false" name="is_vat_applicable" type="radio" value="0" <?php echo (isset($product['is_vat_applicable']) && $product['is_vat_applicable'] == 0) ? 'checked' : ''; ?> class="h-4 w-4 border-gray-300 text-gray-600 focus:ring-gray-500">
+                                    <label for="is_vat_applicable_false" class="ml-3 flex items-center text-sm font-medium text-gray-900">
+                                        <span class="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                                        VAT 비적용 상품 (쌀, 미곡류 등)
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="mt-3 text-xs text-gray-500">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                VAT 비적용 상품은 매입 시 VAT 포함/미포함 선택과 관계없이 원가에 VAT가 적용되지 않습니다.
                             </div>
                         </div>
                     </div>
