@@ -37,7 +37,7 @@ if ($project_id > 0) {
     if ($project_result->num_rows > 0) {
         $project_info = $project_result->fetch_assoc();
         
-        // 프로젝트 상품들 조회
+        // 프로젝트 상품들 조회 - 항상 현재 점포의 최신 가격을 가져옴
         $items_sql = "SELECT 
                           pi.product_id,
                           pi.quantity,
@@ -87,72 +87,49 @@ if ($project_id > 0) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // 모든 오류 표시
-    ini_set('display_errors', 1);
-    error_reporting(E_ALL);
-    
-    error_log("=== POST 요청 시작 ===");
-    error_log("Request Method: " . $_SERVER['REQUEST_METHOD']);
-    error_log("Request URI: " . $_SERVER['REQUEST_URI']);
     
     // 프로젝트 저장 처리
     if (isset($_POST['save_project'])) {
-        error_log("프로젝트 저장 요청 - project_id: " . $project_id);
-        error_log("POST 데이터: " . print_r($_POST, true));
         
         $cart_items_raw = $_POST['cart_items'] ?? '[]';
-        error_log("Raw cart_items: " . $cart_items_raw);
         
         $cart_items = json_decode($cart_items_raw, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log("JSON 파싱 오류: " . json_last_error_msg());
             $errors[] = 'JSON 데이터 파싱 오류: ' . json_last_error_msg();
             $cart_items = [];
         }
-        error_log("파싱된 cart_items: " . print_r($cart_items, true));
         
         if (empty($cart_items)) {
             $errors[] = t('price_label.add_minimum_products');
         } else {
             try {
-                error_log("데이터베이스 연결 시작");
                 $conn = get_db_connection();
                 if (!$conn) {
                     throw new Exception("데이터베이스 연결 실패");
                 }
-                error_log("데이터베이스 연결 성공");
                 
                 $conn->autocommit(false);
-                error_log("트랜잭션 시작");
                 
                 $current_user_id = $_SESSION['user_id'] ?? 0;
                 $current_store_id = $_SESSION['store_id'] ?? 0;
                 
                 if ($project_id > 0) {
                     // 기존 프로젝트 업데이트
-                    error_log("기존 프로젝트 업데이트 - project_id: $project_id, store_id: $current_store_id");
                     
                     $update_sql = "UPDATE price_label_projects SET updated_at = NOW() WHERE id = ? AND store_id = ?";
                     $update_stmt = $conn->prepare($update_sql);
                     $update_stmt->bind_param("ii", $project_id, $current_store_id);
                     $update_result = $update_stmt->execute();
-                    $affected_rows = $conn->affected_rows;
-                    
-                    error_log("프로젝트 업데이트 결과: success=$update_result, affected_rows=$affected_rows");
                     
                     // 기존 아이템들 삭제
                     $delete_sql = "DELETE FROM price_label_project_items WHERE project_id = ?";
                     $delete_stmt = $conn->prepare($delete_sql);
                     $delete_stmt->bind_param("i", $project_id);
                     $delete_result = $delete_stmt->execute();
-                    $deleted_rows = $conn->affected_rows;
-                    
-                    error_log("아이템 삭제 결과: success=$delete_result, deleted_rows=$deleted_rows");
                     
                     $result_project_id = $project_id;
                 } else {
                     // 새 프로젝트 생성
-                    error_log("새 프로젝트 생성 시작");
                     
                     // project_name 컬럼이 있는지 확인하고 있으면 사용, 없으면 제외
                     $check_columns = $conn->query("SHOW COLUMNS FROM price_label_projects LIKE 'project_name'");
@@ -171,23 +148,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     $insert_result = $insert_stmt->execute();
                     if (!$insert_result) {
-                        error_log("프로젝트 생성 실패: " . $conn->error);
                         throw new Exception("프로젝트 생성 실패: " . $conn->error);
                     }
                     
                     $result_project_id = $conn->insert_id;
                     $project_id = $result_project_id;
-                    error_log("새 프로젝트 생성 완료 - ID: $result_project_id");
                 }
                 
                 // 프로젝트 아이템들 저장
-                error_log("아이템 저장 시작 - 총 " . count($cart_items) . "개 아이템");
                 
                 $item_sql = "INSERT INTO price_label_project_items (project_id, product_id, quantity) VALUES (?, ?, ?)";
                 $item_stmt = $conn->prepare($item_sql);
                 
                 foreach ($cart_items as $index => $item) {
-                    error_log("아이템 $index 저장: " . print_r($item, true));
                     
                     // bind_param을 위해 변수로 저장
                     $product_id = (int)$item['product_id'];
@@ -200,13 +173,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $item_result = $item_stmt->execute();
                     
                     if (!$item_result) {
-                        error_log("아이템 $index 저장 실패: " . $conn->error);
                         throw new Exception("아이템 저장 실패: " . $conn->error);
                     }
                 }
                 
                 $conn->commit();
-                error_log("트랜잭션 커밋 완료");
                 $conn->close();
                 
                 // 저장 완료 후 프로젝트 페이지로 리다이렉트하여 업데이트된 데이터 표시
@@ -214,26 +185,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'type' => 'success',
                     'message' => t('price_label.save_project_success')
                 ];
-                
-                error_log("프로젝트 저장 완료 - 리다이렉트: project_id=" . $result_project_id);
                 header("Location: price_label_print.php?project_id=" . $result_project_id);
                 exit;
                 
             } catch (Exception $e) {
-                error_log("=== 예외 발생 ===");
-                error_log("Exception message: " . $e->getMessage());
-                error_log("Exception trace: " . $e->getTraceAsString());
+                error_log("Price label project save error: " . $e->getMessage());
                 
                 if (isset($conn)) {
                     $conn->rollback();
-                    error_log("트랜잭션 롤백 완료");
                     $conn->close();
                 }
                 $errors[] = t('price_label.save_error', ['error' => $e->getMessage()]);
             } catch (Error $e) {
-                error_log("=== PHP 에러 발생 ===");
-                error_log("Error message: " . $e->getMessage());
-                error_log("Error trace: " . $e->getTraceAsString());
+                error_log("Price label project PHP error: " . $e->getMessage());
                 
                 if (isset($conn)) {
                     $conn->rollback();
@@ -316,7 +280,7 @@ if (isset($_SESSION['flash'])) {
                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 mr-2">
                             <?php echo t('price_label.project'); ?>
                         </span>
-                        <?php echo t('price_label.loaded_project_description'); ?>
+                        저장된 프로젝트를 불러왔습니다. 가격은 현재 점포의 최신 가격으로 자동 업데이트됩니다.
                     <?php else: ?>
                         <?php echo t('price_label.description'); ?>
                     <?php endif; ?>
@@ -431,7 +395,7 @@ if (isset($_SESSION['flash'])) {
                                             <tr>
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('price_label.sku'); ?></th>
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('price_label.product_name'); ?></th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('price_label.selling_price'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('price_label.selling_price'); ?> <span class="text-green-600">(현재)</span></th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('price_label.print_quantity'); ?></th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('price_label.delete'); ?></th>
                                             </tr>
@@ -536,42 +500,33 @@ document.addEventListener('DOMContentLoaded', function() {
     // 프로젝트 데이터 자동 로드
     <?php if ($project_data): ?>
     const projectData = <?php echo json_encode($project_data); ?>;
-    console.log('프로젝트 데이터 로드:', projectData);
     
-    // 프로젝트 상품들을 장바구니에 자동 추가
+    // 프로젝트 상품들을 장바구니에 자동 추가 - 최신 가격 정보가 이미 적용됨
     if (projectData && projectData.items) {
         cart = projectData.items.map(item => ({
             product_id: item.product_id,
             sku: item.sku,
             name_ko: item.name_ko,
             name_en: item.name_en,
-            selling_price: item.selling_price,
-            cost_price: item.cost_price,
+            selling_price: parseFloat(item.selling_price), // 최신 점포 가격
+            cost_price: parseFloat(item.cost_price), // 최신 점포 원가
             quantity: item.quantity,
             pieces_per_box: item.pieces_per_box,
             stock: item.stock,
         }));
-        
-        console.log('장바구니에 로드된 상품:', cart);
     }
     <?php endif; ?>
     
     // 폼 제출 처리
     const priceLabelForm = document.getElementById('price-label-form');
     priceLabelForm.addEventListener('submit', function(e) {
-        console.log('폼 제출 이벤트 발생');
-        console.log('제출된 버튼:', e.submitter);
-        
         // 저장 버튼인 경우 폼 제출 허용
         if (e.submitter && e.submitter.name === 'save_project') {
-            console.log('저장 버튼 클릭 - 폼 제출 허용');
             // cart_items 데이터를 hidden input에 설정
             const cartItemsInput = document.getElementById('cart_items_input');
             cartItemsInput.value = JSON.stringify(cart);
-            console.log('cart_items_input에 설정된 데이터:', cartItemsInput.value);
             return true; // 폼 제출 허용
         } else {
-            console.log('미리보기 버튼 클릭 - 폼 제출 방지');
             e.preventDefault(); // 미리보기는 기존 처리 방식 사용
             return false;
         }
@@ -587,15 +542,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const cartItemsInput = document.getElementById('cart_items_input');
     const printPreviewBtn = document.getElementById('print_preview_btn');
     
-    console.log('DOM 요소들 초기화 완료:');
-    console.log('- printPreviewBtn:', printPreviewBtn);
-    console.log('- cartItemsInput:', cartItemsInput);
-    console.log('- printPreviewBtn이 null인가?', printPreviewBtn === null);
-    
     // 미리보기 버튼 클릭 이벤트
     printPreviewBtn.addEventListener('click', function(e) {
         e.preventDefault();
-        console.log('미리보기 버튼 클릭됨, cart:', cart);
         
         if (cart.length === 0) {
             showNotification('<?php echo t("price_label.no_products_selected"); ?>', 'error');
@@ -786,7 +735,6 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('searchAndAutoAdd 응답:', data);
             if (data.success && data.products && data.products.length > 0) {
                 // 첫 번째 상품을 자동으로 장바구니에 추가
                 const product = data.products[0];
@@ -805,7 +753,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     productSearch.focus();
                 }, 100);
             } else {
-                console.log('검색 결과 없음 또는 실패:', data);
                 // 검색 결과가 없을 때 일반 검색 표시
                 displayProductResults([]);
                 showNotification(translations['price_label.no_results'] || '<?php echo t("price_label.no_results"); ?>', 'error');
@@ -859,16 +806,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function addProductToCart(product) {
-        console.log('addProductToCart 호출됨:', product);
-        const sellingPrice = product.current_selling_price || product.selling_price;
-        const costPrice = product.current_cost_price || product.cost_price || 0;
+        const sellingPrice = parseFloat(product.current_selling_price || product.selling_price);
+        const costPrice = parseFloat(product.current_cost_price || product.cost_price || 0);
         
         // 이미 장바구니에 있는지 확인
         const existingIndex = cart.findIndex(item => item.product_id == product.id);
         
         if (existingIndex >= 0) {
             cart[existingIndex].quantity += 1; // 출력매수 1개씩 증가
-            console.log('기존 상품 수량 증가:', cart[existingIndex]);
         } else {
             const newItem = {
                 product_id: product.id,
@@ -882,13 +827,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 stock: product.stock || 0,
             };
             cart.push(newItem);
-            console.log('새 상품 장바구니에 추가:', newItem);
         }
         
-        console.log('장바구니 업데이트 전 cart 길이:', cart.length);
-        console.log('장바구니 업데이트 전 cart 내용:', cart);
         updateCart();
-        console.log('장바구니 업데이트 후 cart 길이:', cart.length);
     }
 
     function addToCart(item) {
@@ -926,15 +867,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateCart() {
-        console.log('updateCart 시작 - cart 길이:', cart.length);
         if (cart.length === 0) {
             cartEmpty.classList.remove('hidden');
             cartItems.classList.add('hidden');
-            console.log('빈 장바구니 화면 표시');
         } else {
             cartEmpty.classList.add('hidden');
             cartItems.classList.remove('hidden');
-            console.log('장바구니 항목 표시');
             
             let html = '';
             cart.forEach(function(item, index) {
@@ -993,19 +931,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         cartItemsInput.value = JSON.stringify(cart);
-        console.log('cartItemsInput에 데이터 설정 완료, updatePrintButton 호출 예정');
         updatePrintButton();
-        console.log('updatePrintButton 호출 완료');
     }
     
     function updatePrintButton() {
-        console.log('updatePrintButton 호출됨, cart.length:', cart.length);
-        console.log('printPreviewBtn 요소:', printPreviewBtn);
-        console.log('printPreviewBtn이 null인가?', printPreviewBtn === null);
-        
         if (printPreviewBtn) {
-            console.log('버튼 업데이트 전 disabled 상태:', printPreviewBtn.disabled);
-            console.log('버튼 업데이트 전 className:', printPreviewBtn.className);
             
             const isDisabled = cart.length === 0;
             printPreviewBtn.disabled = isDisabled;
@@ -1016,12 +946,6 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 printPreviewBtn.className = printPreviewBtn.className.replace('bg-gray-400', 'bg-blue-500').replace('hover:bg-gray-400', 'hover:bg-blue-600');
             }
-            
-            console.log('버튼 업데이트 후 disabled 상태:', printPreviewBtn.disabled);
-            console.log('버튼 업데이트 후 className:', printPreviewBtn.className);
-            console.log('cart.length === 0?', cart.length === 0);
-        } else {
-            console.error('printPreviewBtn 요소를 찾을 수 없습니다!');
         }
         
         // 저장 버튼도 업데이트
@@ -1064,7 +988,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error(translations.error_products, error);
             productList.innerHTML = '<div class="text-center py-4 text-red-500">' + (translations['price_label.product_load_error'] || '<?php echo t("price_label.product_load_error"); ?>') + '</div>';
         });
     }
@@ -1344,7 +1267,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
                 } catch (e) {
-                    console.error('바코드 생성 실패:', sku, e);
                     // 실패 시 CODE128로 재시도
                     try {
                         JsBarcode(element, sku, {
@@ -1595,7 +1517,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <?php if ($project_data): ?>
     setTimeout(() => {
         updateCart();
-        showNotification('<?php echo str_replace("{date}", date("Y-m-d H:i", strtotime($project_data["created_at"])), t("price_label.project_loaded")); ?>', 'success');
+        showNotification('프로젝트 로드 완료 - 현재 점포의 최신 가격이 적용되었습니다 (<?php echo date("Y-m-d H:i", strtotime($project_data["created_at"])); ?>)', 'success');
     }, 100);
     <?php endif; ?>
 });

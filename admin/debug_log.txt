@@ -145,3 +145,8 @@
 2025-09-07 01:01:29 - 일괄 가격적용 시작 - product_ids: 23314,6505,6613,21638,14223,21637,18983,14169,83,796,6399,23316,6456,6544, store_id: 1, margin_rate: 45%, selling_prices 전달됨: {"23314":"107","6505":"417","6613":"221","21638":"255","14223":"255","21637":"255","18983":"200","14169":"155","83":"138","796":"107","6399":"240","23316":"159","6456":"245","6544":"245"}
 2025-09-07 01:01:29 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=103, margin_rate=45%, updated_count=14
 2025-09-07 01:01:31 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-09 17:27:15 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-09 17:27:34 - 일괄 가격적용 시작 - product_ids: 3094, store_id: 1, margin_rate: 45%, selling_prices 전달됨: {"3094":"145"}
+2025-09-09 17:27:34 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=54, margin_rate=45%, updated_count=1
+2025-09-09 17:27:36 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-12 13:16:02 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
