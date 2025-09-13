@@ -218,93 +218,110 @@ if (isset($_SESSION['flash'])) {
         padding: 1rem;
         box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
     }
+    
+    /* 모바일에서 출력매수와 비고 컬럼 숨기기 */
+    th[data-column="quantity"], td[data-column="quantity"],
+    th[data-column="remarks"], td[data-column="remarks"] {
+        display: none !important;
+    }
+    
+    /* 모바일에서 상품 검색 결과 드롭다운 숨기기 */
+    #product_search_results {
+        display: none !important;
+    }
+    
+    /* 모바일에서 SKU와 상품명 컬럼 병합 */
+    th[data-column="sku"] {
+        display: none !important;
+    }
+    
+    td[data-column="sku"] {
+        display: none !important;
+    }
+    
+    td[data-column="name"] {
+        padding: 0.75rem 0.5rem !important;
+    }
 }
 </style>
 
-<div class="container mx-auto px-2 sm:px-3 md:px-4 py-8">
-    <div class="w-full mx-auto">
-        <div class="mb-6">
-            <nav class="flex" aria-label="Breadcrumb">
-                <ol class="flex items-center space-x-2">
-                    <li>
-                        <a href="index.php" class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-home mr-1"></i>
-                            <?php echo t('common.dashboard'); ?>
-                        </a>
-                    </li>
-                    <li>
-                        <div class="flex items-center">
-                            <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
-                            <a href="price_label_lists.php" class="text-gray-400 hover:text-gray-600"><?php echo t('navigation.price_label_lists'); ?></a>
-                        </div>
-                    </li>
-                    <li>
-                        <div class="flex items-center">
-                            <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
-                            <span class="text-gray-600"><?php echo $project ? t('price_label.project_edit') : t('price_label.new_project_short'); ?></span>
-                        </div>
-                    </li>
-                </ol>
-            </nav>
-        </div>
+<div class="w-full px-2 sm:px-3 md:px-4 py-1 md:py-2">
+    <div class="mb-2 hidden md:block">
+        <nav class="flex" aria-label="Breadcrumb">
+            <ol class="flex items-center space-x-2">
+                <li>
+                    <a href="index.php" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-home mr-1"></i>
+                        <?php echo t('common.dashboard'); ?>
+                    </a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                        <a href="price_label_lists.php" class="text-gray-400 hover:text-gray-600"><?php echo t('navigation.price_label_lists'); ?></a>
+                    </div>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                        <span class="text-gray-600"><?php echo $project ? t('price_label.project_edit') : t('price_label.new_project_short'); ?></span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+    </div>
 
-        <div class="bg-white shadow-sm rounded-lg border">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h1 class="text-xl font-semibold text-gray-900">
-                    <i class="fas fa-tags mr-2 text-purple-500"></i>
-                    <?php echo $project ? t('price_label.edit_project') : t('price_label.new_project'); ?>
-                </h1>
-                <p class="mt-1 text-sm text-gray-600">
-                    <?php echo $project ? t('price_label.edit_existing_project') : t('price_label.create_new_project'); ?>
-                </p>
+    <?php if (isset($flash)): ?>
+        <div class="mb-4 p-4 rounded-md <?php echo $flash['type'] === 'error' ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'; ?>">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas <?php echo $flash['type'] === 'error' ? 'fa-exclamation-triangle text-red-400' : 'fa-check-circle text-green-400'; ?>"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm <?php echo $flash['type'] === 'error' ? 'text-red-700' : 'text-green-700'; ?>">
+                        <?php echo htmlspecialchars($flash['message']); ?>
+                    </p>
+                </div>
             </div>
+        </div>
+    <?php endif; ?>
 
-            <div class="px-6 py-4">
-                <?php if (isset($flash)): ?>
-                    <div class="mb-6 p-4 rounded-md <?php echo $flash['type'] === 'error' ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'; ?>">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <i class="fas <?php echo $flash['type'] === 'error' ? 'fa-exclamation-triangle text-red-400' : 'fa-check-circle text-green-400'; ?>"></i>
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm <?php echo $flash['type'] === 'error' ? 'text-red-700' : 'text-green-700'; ?>">
-                                    <?php echo htmlspecialchars($flash['message']); ?>
-                                </p>
-                            </div>
+    <?php if (!empty($errors)): ?>
+        <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+            <?php foreach ($errors as $error): ?>
+                <div class="flex mb-2">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-red-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-red-700"><?php echo htmlspecialchars($error); ?></p>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
+
+
+                    <!-- 테이블 헤더 -->
+                    <div class="px-6 py-4 border-b border-gray-200 bg-white">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-lg leading-6 font-semibold text-gray-900">
+                                <i class="fas fa-tags mr-2 text-purple-500"></i>
+                                <?php echo t('price_label.selected_products_list'); ?>
+                            </h3>
                         </div>
-                    </div>
-                <?php endif; ?>
-
-                <?php if (!empty($errors)): ?>
-                    <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
-                        <?php foreach ($errors as $error): ?>
-                            <div class="flex mb-2">
-                                <div class="flex-shrink-0">
-                                    <i class="fas fa-exclamation-triangle text-red-400"></i>
-                                </div>
-                                <div class="ml-3">
-                                    <p class="text-sm text-red-700"><?php echo htmlspecialchars($error); ?></p>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-
-
-                <!-- 상품 검색 및 추가 -->
-                <div class="space-y-6">
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="text-lg font-medium text-gray-900 mb-4"><?php echo t('price_label.search_products_add'); ?></h3>
-                        
-                        <div class="flex gap-2">
+                        <div class="flex space-x-3">
+                            <!-- 상품 검색 입력창 -->
                             <div class="relative flex-1">
                                 <div class="flex">
                                     <input type="text" id="product_search" 
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                                           class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
                                            placeholder="<?php echo t('price_label.search_barcode_placeholder'); ?>"
                                            autocomplete="off">
-                                    <div class="px-3 py-2 bg-green-50 border border-l-0 border-gray-300 rounded-r-md flex items-center">
-                                        <i class="fas fa-barcode text-green-600" title="<?php echo t('price_label.barcode_scan_ready'); ?>"></i>
+                                    <div class="px-2 py-2 bg-green-50 border border-l-0 border-gray-300 rounded-r-md flex items-center">
+                                        <i class="fas fa-barcode text-green-600 text-sm" title="<?php echo t('price_label.barcode_scan_ready'); ?>"></i>
                                     </div>
                                 </div>
                                 <div id="product_search_results" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto hidden">
@@ -312,78 +329,64 @@ if (isset($_SESSION['flash'])) {
                                 </div>
                             </div>
                             <button type="button" id="product_search_btn" 
-                                    class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 whitespace-nowrap">
+                                    class="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                                 <i class="fas fa-search mr-1"></i>
                                 <?php echo t('common.search'); ?>
                             </button>
                         </div>
                     </div>
-                </div>
-
-                <!-- 선택된 상품 목록 -->
-                <div class="mt-8">
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="text-lg font-medium text-gray-900 mb-4">
-                            <i class="fas fa-list mr-2 text-purple-500"></i>
-                            <?php echo t('price_label.selected_products_list'); ?>
-                        </h3>
+                    
+                    <div id="cart_empty" class="px-6 py-12 text-center text-gray-500 border border-gray-100">
+                        <i class="fas fa-tags text-4xl mb-4"></i>
+                        <p><?php echo t('price_label.no_selected_products'); ?></p>
+                        <p class="text-sm"><?php echo t('price_label.add_products_instruction'); ?></p>
+                    </div>
+                    
+                    <div id="cart_items" class="hidden">
+                        <table class="min-w-full table-compact" id="cartTable">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100" data-column="sku"><?php echo t('price_label.sku'); ?></th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100" data-column="name"><?php echo t('price_label.product_name_header'); ?></th>
+                                    <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100" data-column="price"><?php echo t('price_label.selling_price_header'); ?></th>
+                                    <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100" data-column="quantity"><?php echo t('price_label.print_quantity_header'); ?></th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100" data-column="remarks"><?php echo t('price_label.remarks_header'); ?></th>
+                                    <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100" data-column="actions"><?php echo t('price_label.actions'); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white" id="cart_list">
+                                <!-- Cart items will be added here -->
+                            </tbody>
+                        </table>
                         
-                        <div id="cart_empty" class="text-center text-gray-500 py-8">
-                            <i class="fas fa-tags text-4xl mb-4"></i>
-                            <p><?php echo t('price_label.no_selected_products'); ?></p>
-                            <p class="text-sm"><?php echo t('price_label.add_products_instruction'); ?></p>
-                        </div>
-                        
-                        <div id="cart_items" class="hidden">
-                            <!-- 테이블 형태 상품 목록 -->
-                            <div class="border rounded-md overflow-hidden cart-table-wrapper">
-                                <table class="w-full cart-table table-compact" id="cartTable">
-                                    <thead class="bg-gray-100">
-                                        <tr>
-                                            <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('price_label.sku'); ?></th>
-                                            <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('price_label.product_name_header'); ?></th>
-                                            <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('price_label.selling_price_header'); ?></th>
-                                            <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('price_label.print_quantity_header'); ?></th>
-                                            <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('price_label.remarks_header'); ?></th>
-                                            <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('price_label.delete'); ?></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="cart_list">
-                                        <!-- Cart items will be added here -->
-                                    </tbody>
-                                </table>
+                        <!-- 총 출력매수 (테이블 푸터 스타일) -->
+                        <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between w-full">
+                            <div class="text-sm font-medium text-gray-700">
+                                <?php echo t('price_label.total_print_quantity'); ?>
                             </div>
-                            
-                            <!-- 총 출력매수 -->
-                            <div class="mt-4 pt-3 border-t border-gray-300">
-                                <div class="flex justify-between text-lg font-medium">
-                                    <span><?php echo t('price_label.total_print_quantity'); ?></span>
-                                    <span id="cart_total">0 <?php echo t('price_label.sheets_unit'); ?></span>
-                                </div>
+                            <div class="text-sm font-semibold text-gray-900" id="cart_total">
+                                0 <?php echo t('price_label.sheets_unit'); ?>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 저장 버튼 -->
-                    <div class="mt-8 flex justify-center space-x-3">
-                        <form method="POST" id="saveForm" class="inline">
-                            <input type="hidden" name="items_data" id="itemsDataInput">
-                            <button type="submit" name="save_project" id="save_project_btn" 
-                                    class="px-6 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400 font-semibold"
-                                    disabled>
-                                <i class="fas fa-save mr-2"></i>
-                                <?php echo $project ? t('price_label.project_update') : t('price_label.project_save'); ?>
-                            </button>
-                        </form>
-                        
-                        <a href="price_label_lists.php" 
-                           class="inline-flex items-center px-6 py-3 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                            <i class="fas fa-arrow-left mr-2"></i>
-                            <?php echo t('price_label.back_to_lists'); ?>
-                        </a>
-                    </div>
-                </div>
-            </div>
+        <!-- 저장 버튼 -->
+        <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-center space-x-3">
+            <form method="POST" id="saveForm" class="inline">
+                <input type="hidden" name="items_data" id="itemsDataInput">
+                <button type="submit" name="save_project" id="save_project_btn" 
+                        class="px-6 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400 font-semibold"
+                        disabled>
+                    <i class="fas fa-save mr-2"></i>
+                    <?php echo $project ? t('price_label.project_update') : t('price_label.project_save'); ?>
+                </button>
+            </form>
+            
+            <a href="price_label_lists.php?force_desktop=1" 
+               class="inline-flex items-center px-6 py-3 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                <i class="fas fa-arrow-left mr-2"></i>
+                <?php echo t('price_label.back_to_lists'); ?>
+            </a>
         </div>
     </div>
 </div>
@@ -608,10 +611,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const product = data.products[0];
                     addProductToCart(product);
                     productSearch.value = '';
-                    showNotification(`${product.name_ko || product.name_en} ${translations['price_label.product_added'] || '<?php echo t("price_label.product_added"); ?>'}`, 'success');
-                    setTimeout(() => {
-                        productSearchResults.classList.add('hidden');
-                    }, 1000);
+                    productSearchResults.classList.add('hidden');
                 } else {
                     displayProductResults(data.products);
                 }
@@ -654,9 +654,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (product.exact_match || isBarcodePattern) {
                     addProductToCart(product);
                     productSearch.value = '';
-                    const productName = product.name_ko || product.name_en || 'Unknown';
-                    const message = (translations['price_label.product_added_success'] || '<?php echo t("price_label.product_added_success"); ?>').replace('{product}', productName);
-                    showNotification(message, 'success');
                     productSearchResults.classList.add('hidden');
                     setTimeout(() => {
                         productSearch.focus();
@@ -790,20 +787,21 @@ document.addEventListener('DOMContentLoaded', function() {
             cart.forEach(function(item, index) {
                 html += `
                     <tr class="border-b hover:bg-gray-50">
-                        <td class="px-2 py-3 text-xs font-mono text-gray-700 font-medium">${item.sku}</td>
-                        <td class="px-2 py-3">
+                        <td class="px-2 py-3 text-xs font-mono text-gray-700 font-medium" data-column="sku">${item.sku}</td>
+                        <td class="px-2 py-3" data-column="name">
+                            <div class="text-xs font-mono text-gray-500 mb-1 md:hidden">${item.sku}</div>
                             <div class="text-sm font-medium text-gray-900" title="${item.name_en || '-'}">${item.name_en || '-'}</div>
                             ${item.name_ko && item.name_ko !== item.name_en ? 
                                 `<div class="text-sm text-gray-600 mt-1" title="${item.name_ko}">${item.name_ko}</div>` : 
                                 ''
                             }
                         </td>
-                        <td class="px-2 py-3 text-center">
+                        <td class="px-2 py-3 text-center" data-column="price">
                             <div class="text-sm font-medium text-gray-700">
                                 ${Number(item.selling_price).toLocaleString()}
                             </div>
                         </td>
-                        <td class="px-2 py-3 text-center">
+                        <td class="px-2 py-3 text-center" data-column="quantity">
                             <div class="flex items-center justify-center space-x-1">
                                 <button type="button" onclick="updateQuantity(${index}, -1)" 
                                         class="w-6 h-6 text-xs bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center">
@@ -816,7 +814,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </button>
                             </div>
                         </td>
-                        <td class="px-2 py-3">
+                        <td class="px-2 py-3" data-column="remarks">
                             <input type="text" 
                                    class="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500" 
                                    placeholder="<?php echo t('price_label.remarks'); ?>"
@@ -824,7 +822,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                    onchange="updateRemarks(${index}, this.value)"
                                    maxlength="100">
                         </td>
-                        <td class="px-2 py-3 text-center">
+                        <td class="px-2 py-3 text-center" data-column="actions">
                             <button type="button" onclick="removeFromCart(${index})" 
                                     class="text-red-400 hover:text-red-600 w-6 h-6 rounded hover:bg-red-50 flex items-center justify-center">
                                 <i class="fas fa-times text-xs"></i>

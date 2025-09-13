@@ -346,10 +346,11 @@ if (!empty($_SESSION['user_id'])) {
             <div class="relative z-10 flex-shrink-0 flex h-16 bg-white shadow">
                 <div class="flex-1 px-4 flex justify-between">
                     <div class="flex-1 flex items-center">
-                        <!-- Mobile menu button -->
-                        <button type="button" class="md:hidden px-4 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500" id="mobile-menu-button">
-                            <i class="fas fa-bars"></i>
-                        </button>
+                        <!-- Home button for mobile -->
+                        <a href="index.php" class="md:hidden inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                            <i class="fas fa-home mr-2"></i>
+                            <?php echo t('common.home'); ?>
+                        </a>
                     </div>
                     <div class="ml-4 flex items-center md:ml-6">
                         <div class="flex items-center space-x-4">
@@ -371,10 +372,6 @@ if (!empty($_SESSION['user_id'])) {
                                     <span class="font-medium"><?php echo htmlspecialchars($current_store_name); ?></span>
                                 </div>
                             </div>
-                            <a href="logout.php" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200">
-                                <i class="fas fa-sign-out-alt mr-2"></i>
-                                <?php echo t('auth.logout'); ?>
-                            </a>
                         </div>
                     </div>
                 </div>
@@ -665,24 +662,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Mobile menu toggle
-    const mobileMenuButton = document.getElementById('mobile-menu-button');
-    const mobileMenu = document.getElementById('mobile-menu');
-    
-    if (mobileMenuButton && mobileMenu) {
-        mobileMenuButton.addEventListener('click', function() {
-            mobileMenu.classList.toggle('hidden');
-        });
-        
-        // Close mobile menu when clicking outside
-        document.addEventListener('click', function(event) {
-            const isClickInsideMenu = mobileMenu.contains(event.target);
-            const isClickOnButton = mobileMenuButton.contains(event.target);
-            
-            if (!isClickInsideMenu && !isClickOnButton && !mobileMenu.classList.contains('hidden')) {
-                mobileMenu.classList.add('hidden');
-            }
-        });
-    }
+    // Mobile menu toggle removed
 });
 </script>
