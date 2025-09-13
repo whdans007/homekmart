@@ -2,7 +2,10 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "Read(//c//**)"
+      "Read(//c//**)",
+      "Bash(npm run build:css:*)",
+      "mcp__sequential__sequentialthinking",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
