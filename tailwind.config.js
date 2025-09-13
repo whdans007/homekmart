@@ -7,6 +7,9 @@ module.exports = {
     "./lib/**/*.php",
     "./lib/**/*.html",
     "./lib/**/*.js",
+    "./admin/**/*.php",
+    "./admin/**/*.html",
+    "./admin/**/*.js",
   ],
   theme: {
     extend: {
@@ -170,5 +173,9 @@ module.exports = {
     'print:block',
     'print:text-black',
     'print:bg-white',
+    // 반응형 테이블 관련 클래스들
+    'md:table-cell',
+    'md:hidden',
+    'table-cell',
   ],
 }
