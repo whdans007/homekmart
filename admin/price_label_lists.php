@@ -6,8 +6,10 @@ error_reporting(E_ALL);
 require_once __DIR__ . '/../lib/lang_helper.php';
 require_once __DIR__ . '/../lib/mobile_detect.php';
 
-// 모바일 기기에서 모바일 메인으로 리다이렉트
-redirect_if_mobile('mobile_main.php', true);
+// 모바일 기기에서 모바일 메인으로 리다이렉트 (force_desktop 파라미터가 있으면 제외)
+if (!isset($_GET['force_desktop'])) {
+    redirect_if_mobile('mobile_main.php', true);
+}
 $page_title = t('navigation.price_label_lists') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
@@ -212,10 +214,18 @@ th[data-column="actions"] { min-width: 200px !important; }
     background-color: #f3f4f6 !important;
 }
 
+/* 모바일에서 번호와 생성일시 컬럼 숨기기 */
+@media (max-width: 767px) {
+    th[data-column="number"], td[data-column="number"],
+    th[data-column="created_at"], td[data-column="created_at"] {
+        display: none !important;
+    }
+}
+
 </style>
 
-<div class="w-full px-2 sm:px-3 md:px-4 py-8">
-    <div class="mb-6">
+<div class="w-full px-2 sm:px-3 md:px-4 py-2 md:py-8">
+    <div class="mb-6 hidden md:block">
         <nav class="flex" aria-label="Breadcrumb">
             <ol class="flex items-center space-x-2">
                 <li>
