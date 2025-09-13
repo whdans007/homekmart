@@ -8,7 +8,9 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build:css": "postcss src/input.css -o public/css/style.css --config tailwind.config.js",
+    "build:css": "postcss src/input.css -o public/css/style.css --config tailwind.config.js && postcss src/input.css -o admin/css/style.css --config tailwind.config.js",
+    "build:css:public": "postcss src/input.css -o public/css/style.css --config tailwind.config.js",
+    "build:css:admin": "postcss src/input.css -o admin/css/style.css --config tailwind.config.js",
     "watch:css": "postcss src/input.css -o public/css/style.css --watch --config tailwind.config.js"
   },
   "keywords": [],

@@ -174,6 +174,9 @@ module.exports = {
     'print:text-black',
     'print:bg-white',
     // 반응형 테이블 관련 클래스들
+    'sm:table-cell',
+    'sm:hidden',
+    'sm:block',
     'md:table-cell',
     'md:hidden',
     'table-cell',

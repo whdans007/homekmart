@@ -2129,6 +2129,9 @@ button[class*="text-white"],
 .pb-5 {
   padding-bottom: 1.25rem;
 }
+.pb-6 {
+  padding-bottom: 1.5rem;
+}
 .pl-1 {
   padding-left: 0.25rem;
 }
@@ -3354,12 +3357,20 @@ button[class*="text-white"],
     margin-top: 0px;
   }
 
+  .sm\:block {
+    display: block;
+  }
+
   .sm\:inline {
     display: inline;
   }
 
   .sm\:flex {
     display: flex;
+  }
+
+  .sm\:table-cell {
+    display: table-cell;
   }
 
   .sm\:hidden {
