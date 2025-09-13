@@ -5,7 +5,16 @@
       "Read(//c//**)",
       "Bash(npm run build:css:*)",
       "mcp__sequential__sequentialthinking",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_close",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l admin/add_purchase.php)"
     ],
     "deny": [],
     "ask": []

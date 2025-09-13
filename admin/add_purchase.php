@@ -198,7 +198,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $actual_quantity = (int)$item['quantity'] * $pieces_per_box;
                     }
                     
-                    // 3. inventory 테이블 업데이트 (사용자 점포에만 적용)
+                    // 3. inventory 테이블 업데이트 (사용자 점포에만 적용) - 비활성화
+                    // 구매 시 inventory 자동 업데이트를 하지 않도록 주석 처리
+                    /*
                     if ($user_store_id) {
                         // 기존 재고 레코드 확인
                         $inv_check_stmt = $conn->prepare("SELECT id, quantity FROM inventory WHERE product_id = ? AND store_id = ?");
@@ -235,6 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                         $transaction_stmt->close();
                     }
+                    */
                 }
             }
             $stmt_item->close();
@@ -273,24 +276,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 
 <!-- Page header -->
-<div class="mb-8 sm:flex sm:items-center sm:justify-between">
+<div class="flex items-center justify-between">
+    <h1 class="text-lg font-bold text-gray-900"><?php echo $is_edit_mode ? t('purchase.edit_add_items') : t('purchase.new_purchase'); ?></h1>
     <div>
-        <h1 class="text-3xl font-bold text-gray-900"><?php echo $is_edit_mode ? t('purchase.edit_add_items') : t('purchase.new_purchase'); ?></h1>
-        <p class="mt-2 text-sm text-gray-700">
-            <?php if ($is_edit_mode): ?>
-                <?php echo t('purchase.add_items_desc'); ?>
-            <?php else: ?>
-                <?php echo t('purchase.search_add_items'); ?>
-            <?php endif; ?>
-        </p>
-        <?php if ($is_edit_mode && $existing_purchase): ?>
-            <div class="mt-3 flex items-center space-x-4 text-sm text-gray-600">
-                <span><strong><?php echo t('purchase.supplier'); ?>:</strong> <?php echo htmlspecialchars($existing_purchase['supplier_name']); ?></span>
-                <span><strong><?php echo t('purchase.purchase_date'); ?>:</strong> <?php echo htmlspecialchars($existing_purchase['purchase_date']); ?></span>
-            </div>
-        <?php endif; ?>
-    </div>
-    <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
         <?php if ($is_edit_mode): ?>
             <a href="edit_purchase.php?id=<?php echo $edit_purchase_id; ?>" class="btn">
                 <i class="fas fa-arrow-left mr-2"></i>
@@ -299,10 +287,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php else: ?>
             <a href="purchase_management.php" class="btn">
                 <i class="fas fa-arrow-left mr-2"></i>
-                <?php echo t('purchase.back_to_management'); ?>
+                이전화면
             </a>
         <?php endif; ?>
     </div>
+</div>
+<?php if ($is_edit_mode && $existing_purchase): ?>
+    <div class="flex justify-center items-center space-x-4 text-sm text-gray-600">
+        <span><strong><?php echo t('purchase.supplier'); ?>:</strong> <?php echo htmlspecialchars($existing_purchase['supplier_name']); ?></span>
+        <span><strong><?php echo t('purchase.purchase_date'); ?>:</strong> <?php echo htmlspecialchars($existing_purchase['purchase_date']); ?></span>
+    </div>
+<?php endif; ?>
 </div>
 
 <?php if ($message): ?>
@@ -324,18 +319,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="hidden" name="edit_purchase_id" value="<?php echo $edit_purchase_id; ?>">
         <?php endif; ?>
 
-        <!-- 0. 점포 정보 표시 -->
-        <div class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-store text-blue-500"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm font-medium text-blue-800"><?php echo t('purchase.purchase_store'); ?></p>
-                    <p class="text-base font-semibold text-blue-900"><?php echo htmlspecialchars($store_name); ?></p>
-                </div>
-            </div>
-        </div>
 
         <!-- 1 & 2: 거래처 및 날짜 선택 -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 border-b border-gray-200 pb-6">
@@ -438,18 +421,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.product_name'); ?></th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.purchase_type'); ?></th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.quantity'); ?></th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.pieces_per_box'); ?></th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit_price'); ?></th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.piece_price'); ?></th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total'); ?></th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.delete'); ?></th>
+                            <th class="hidden sm:table-cell px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.purchase_type'); ?></th>
+                            <th class="hidden sm:table-cell px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.quantity'); ?></th>
+                            <th class="hidden sm:table-cell px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.pieces_per_box'); ?></th>
+                            <th class="hidden sm:table-cell px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit_price'); ?></th>
+                            <th class="hidden sm:table-cell px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.piece_price'); ?></th>
+                            <th class="hidden sm:table-cell px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total'); ?></th>
+                            <th class="hidden sm:table-cell px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.delete'); ?></th>
                         </tr>
                     </thead>
                     <tbody id="item-list" class="bg-white divide-y divide-gray-200">
                         <tr id="empty-row">
-                            <td colspan="9" class="px-6 py-12 text-center text-gray-500">
+                            <td colspan="2" class="px-6 py-12 text-center text-gray-500 sm:hidden">
+                                <i class="fas fa-box-open text-4xl text-gray-300 mb-4"></i>
+                                <p class="text-sm"><?php echo t('purchase.search_add_products'); ?></p>
+                            </td>
+                            <td colspan="9" class="hidden sm:table-cell px-6 py-12 text-center text-gray-500">
                                 <i class="fas fa-box-open text-4xl text-gray-300 mb-4"></i>
                                 <p class="text-sm"><?php echo t('purchase.search_add_products'); ?></p>
                             </td>
@@ -1419,7 +1406,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="text-sm font-medium text-gray-900">${product.name_ko}</div>
                 <div class="text-xs text-gray-500">${product.name_en || ''}</div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-center">
+            <td class="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-center">
                 <div class="flex items-center justify-center space-x-3">
                     <label class="inline-flex items-center">
                         <input type="radio" name="items[${itemIndex}][purchase_type]" value="box" 
@@ -1438,21 +1425,21 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
                 ${isExisting ? `<input type="hidden" name="items[${itemIndex}][purchase_type]" value="${purchaseType}">` : ''}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right">
+            <td class="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-right">
                 <input type="number" name="items[${itemIndex}][quantity]" class="w-16 px-2 py-1 border border-gray-300 rounded-md text-right text-sm quantity focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" min="1" value="${quantity}" ${isExisting ? 'readonly' : ''}>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right">
+            <td class="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-right">
                 <input type="number" name="items[${itemIndex}][pieces_per_box]" class="w-16 px-2 py-1 border border-gray-300 rounded-md text-right text-sm pieces-per-box focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" min="1" value="${product.pieces_per_box || 1}" ${isExisting ? 'readonly' : ''}>
                 <span class="text-xs text-gray-500 ml-1">개</span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right">
+            <td class="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-right">
                 <input type="number" name="items[${itemIndex}][unit_price]" class="w-20 px-2 py-1 border border-gray-300 rounded-md text-right text-sm unit-price focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" step="0.01" min="0" value="${finalUnitPrice}" placeholder="0원 가능" ${isExisting ? 'readonly' : ''}>
                 <!-- VAT 관련 hidden 필드 -->
                 <input type="hidden" name="items[${itemIndex}][vat_included]" class="vat-included-field" value="1">
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right piece-price text-sm text-gray-500"></td>
-            <td class="px-6 py-4 whitespace-nowrap text-right row-total font-semibold text-gray-900">0</td>
-            <td class="px-6 py-4 whitespace-nowrap text-center">
+            <td class="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-right piece-price text-sm text-gray-500"></td>
+            <td class="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-right row-total font-semibold text-gray-900">0</td>
+            <td class="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-center">
                 ${isExisting ? '<span class="text-gray-400 text-xs">수정 불가</span>' : '<button type="button" class="text-red-600 hover:text-red-800 remove-row"><i class="fas fa-trash-alt"></i></button>'}
             </td>
         `;
