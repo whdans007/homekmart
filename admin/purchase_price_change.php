@@ -229,9 +229,9 @@ $items_result = $items_stmt->get_result();
                                 $new_selling_price = ceil($item['purchase_unit_price_per_piece'] * (1 + ($margin_rate / 100)));
                             }
                         ?>
-                            <tr class="hover:bg-gray-50 cursor-pointer item-row" data-product-id="<?php echo $item['product_id']; ?>" data-price-change-type="<?php echo $price_change_type; ?>">
+                            <tr class="hover:bg-gray-50 cursor-pointer item-row" data-product-id="<?php echo $item['product_id']; ?>" data-item-id="<?php echo $item['item_id']; ?>" data-price-change-type="<?php echo $price_change_type; ?>">
                                 <td class="px-3 py-4 text-center border border-gray-300 print:hidden">
-                                    <input type="checkbox" class="item-checkbox h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" data-product-id="<?php echo $item['product_id']; ?>">
+                                    <input type="checkbox" class="item-checkbox h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" data-product-id="<?php echo $item['product_id']; ?>" data-item-id="<?php echo $item['item_id']; ?>">
                                 </td>
                                 <td class="px-3 py-4 border border-gray-300">
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($item['product_name_ko']); ?></div>
@@ -283,6 +283,7 @@ $items_result = $items_stmt->get_result();
                                                step="0.1" 
                                                min="0"
                                                data-product-id="<?php echo $item['product_id']; ?>"
+                                               data-item-id="<?php echo $item['item_id']; ?>"
                                                data-cost-price="<?php echo $item['purchase_unit_price_per_piece']; ?>"
                                                data-original-margin="<?php echo number_format($current_margin_rate, 1); ?>">
                                         <span class="text-sm text-gray-500">%</span>
@@ -295,12 +296,14 @@ $items_result = $items_stmt->get_result();
                                     <input type="number" 
                                            class="expected-price w-24 text-right text-sm font-mono font-semibold text-green-600 border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500" 
                                            data-product-id="<?php echo $item['product_id']; ?>"
+                                           data-item-id="<?php echo $item['item_id']; ?>"
                                            data-original-price="<?php echo $new_selling_price; ?>"
                                            value="<?php echo $new_selling_price; ?>"
                                            min="0"
                                            step="1">
                                     <div class="price-difference text-xs text-gray-500" 
                                          data-product-id="<?php echo $item['product_id']; ?>"
+                                         data-item-id="<?php echo $item['item_id']; ?>"
                                          data-current-price="<?php echo $item['current_selling_price']; ?>">
                                         <?php echo t('purchase.difference'); ?>: <?php echo number_format($new_selling_price - $item['current_selling_price']); ?>
                                     </div>
@@ -347,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const checkboxes = document.querySelectorAll('.item-checkbox');
         checkboxes.forEach(checkbox => {
             checkbox.checked = this.checked;
-            updateItemSelection(checkbox.dataset.productId, this.checked);
+            updateItemSelection(checkbox.dataset.itemId, this.checked);
         });
         updateSelectedUI();
     });
@@ -355,7 +358,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 개별 체크박스 이벤트
     document.querySelectorAll('.item-checkbox').forEach(checkbox => {
         checkbox.addEventListener('change', function() {
-            updateItemSelection(this.dataset.productId, this.checked);
+            updateItemSelection(this.dataset.itemId, this.checked);
             updateSelectedUI();
             updateSelectAllState();
         });
@@ -376,22 +379,22 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const checkbox = this.querySelector('.item-checkbox');
             checkbox.checked = !checkbox.checked;
-            updateItemSelection(checkbox.dataset.productId, checkbox.checked);
+            updateItemSelection(checkbox.dataset.itemId, checkbox.checked);
             updateSelectedUI();
             updateSelectAllState();
         });
     });
     
     // 선택 상태 업데이트
-    function updateItemSelection(productId, isSelected) {
+    function updateItemSelection(itemId, isSelected) {
         if (isSelected) {
-            selectedItems.add(productId);
+            selectedItems.add(itemId);
         } else {
-            selectedItems.delete(productId);
+            selectedItems.delete(itemId);
         }
         
         // 행의 시각적 표시 업데이트
-        const row = document.querySelector(`.item-row[data-product-id="${productId}"]`);
+        const row = document.querySelector(`.item-row[data-item-id="${itemId}"]`);
         if (row) {
             if (isSelected) {
                 row.classList.add('bg-blue-50', 'border-l-4', 'border-blue-500');
@@ -499,8 +502,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     
     // 예상판매가 업데이트 함수
-    function updateExpectedPrice(productId, marginRate) {
-        const marginInput = document.querySelector(`.margin-input[data-product-id="${productId}"]`);
+    function updateExpectedPrice(itemId, marginRate) {
+        const marginInput = document.querySelector(`.margin-input[data-item-id="${itemId}"]`);
         if (!marginInput) return;
         
         const costPrice = parseFloat(marginInput.dataset.costPrice);
@@ -509,11 +512,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const newSellingPrice = Math.ceil(costPrice * (1 + (marginRate / 100)));
         
         // 예상판매가 업데이트
-        const expectedPriceInput = document.querySelector(`.expected-price[data-product-id="${productId}"]`);
+        const expectedPriceInput = document.querySelector(`.expected-price[data-item-id="${itemId}"]`);
         
         if (expectedPriceInput) {
             expectedPriceInput.value = newSellingPrice;
-            updatePriceDifference(productId);
+            updatePriceDifference(itemId);
             
             // 마진율이 변경되었는지 표시
             const originalMargin = parseFloat(marginInput.dataset.originalMargin);
@@ -526,9 +529,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // 가격 차이 업데이트 함수
-    function updatePriceDifference(productId) {
-        const expectedPriceInput = document.querySelector(`.expected-price[data-product-id="${productId}"]`);
-        const priceDifferenceDiv = document.querySelector(`.price-difference[data-product-id="${productId}"]`);
+    function updatePriceDifference(itemId) {
+        const expectedPriceInput = document.querySelector(`.expected-price[data-item-id="${itemId}"]`);
+        const priceDifferenceDiv = document.querySelector(`.price-difference[data-item-id="${itemId}"]`);
         
         if (expectedPriceInput && priceDifferenceDiv) {
             const expectedPrice = parseFloat(expectedPriceInput.value) || 0;
@@ -539,20 +542,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // 판매가 기준으로 마진율 역계산 함수
+    function updateMarginFromSellingPrice(itemId) {
+        const expectedPriceInput = document.querySelector(`.expected-price[data-item-id="${itemId}"]`);
+        const marginInput = document.querySelector(`.margin-input[data-item-id="${itemId}"]`);
+        
+        if (expectedPriceInput && marginInput) {
+            const sellingPrice = parseFloat(expectedPriceInput.value) || 0;
+            const costPrice = parseFloat(marginInput.dataset.costPrice) || 0;
+            
+            if (costPrice > 0 && sellingPrice > 0) {
+                // 마진율 계산: ((판매가 - 원가) / 원가) * 100
+                const marginRate = ((sellingPrice - costPrice) / costPrice) * 100;
+                
+                // 마진율 필드 업데이트 (소수점 첫째 자리까지)
+                marginInput.value = marginRate.toFixed(1);
+                
+                // 마진율이 변경되었는지 표시
+                const originalMargin = parseFloat(marginInput.dataset.originalMargin);
+                if (Math.abs(marginRate - originalMargin) > 0.1) {
+                    marginInput.classList.add('border-yellow-500', 'bg-yellow-50');
+                } else {
+                    marginInput.classList.remove('border-yellow-500', 'bg-yellow-50');
+                }
+            } else if (sellingPrice === 0) {
+                // 판매가가 0이면 마진율도 0으로 설정
+                marginInput.value = '0.0';
+                marginInput.classList.remove('border-yellow-500', 'bg-yellow-50');
+            }
+        }
+    }
+    
     // 선택상품 일괄 마진율 실시간 적용 함수 (UI만 업데이트, DB 저장 없음)
     function applyBulkMarginRateRealtime(marginRate) {
         let updatedCount = 0;
         
         // 선택된 각 상품에 대해 마진율 업데이트
-        selectedItems.forEach(productId => {
-            const marginInput = document.querySelector(`.margin-input[data-product-id="${productId}"]`);
+        selectedItems.forEach(itemId => {
+            const marginInput = document.querySelector(`.margin-input[data-item-id="${itemId}"]`);
             
             if (marginInput) {
                 // 마진율 입력 필드 업데이트
                 marginInput.value = marginRate.toFixed(1);
                 
                 // 예상판매가 실시간 계산 및 표시
-                updateExpectedPrice(productId, marginRate);
+                updateExpectedPrice(itemId, marginRate);
                 
                 updatedCount++;
             }
@@ -577,9 +611,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const originalText = saveBtn.innerHTML;
         saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i><?php echo addslashes(t('purchase.js_saving_to_database')); ?>...';
         
-        // 선택된 상품 ID 배열 생성
-        const productIds = Array.from(selectedItems);
-        console.log('전송할 상품 ID들:', productIds);
+        // 선택된 아이템 ID 배열 생성
+        const itemIds = Array.from(selectedItems);
+        console.log('전송할 아이템 ID들:', itemIds);
         
         // AJAX 요청 데이터 준비
         const formData = new FormData();
@@ -592,23 +626,28 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('- margin_rate:', marginRate);
         console.log('- store_id:', currentStoreId || '');
         
-        // 상품 ID와 예상 판매가를 함께 전송
-        productIds.forEach(productId => {
-            formData.append('product_ids[]', productId);
+        // 각 아이템의 정보를 수집해서 전송 (배열 순서 의존성 제거)
+        itemIds.forEach(itemId => {
+            // 해당 아이템의 product_id 가져오기
+            const marginInput = document.querySelector(`.margin-input[data-item-id="${itemId}"]`);
+            const expectedPriceInput = document.querySelector(`.expected-price[data-item-id="${itemId}"]`);
             
-            // 각 상품의 예상 판매가 가져오기
-            const expectedPriceInput = document.querySelector(`.expected-price[data-product-id="${productId}"]`);
-            if (expectedPriceInput) {
+            if (marginInput && expectedPriceInput) {
+                const productId = marginInput.dataset.productId;
                 const newSellingPrice = expectedPriceInput.value;
-                formData.append(`selling_prices[${productId}]`, newSellingPrice);
-                console.log(`상품 ${productId}의 예상 판매가: ${newSellingPrice}`);
+                
+                // item_id별 직접 매핑 방식으로 데이터 전송
+                formData.append('item_ids[]', itemId);
+                formData.append(`product_id_${itemId}`, productId);
+                formData.append(`selling_price_${itemId}`, newSellingPrice);
+                console.log(`아이템 ${itemId} (상품 ${productId})의 예상 판매가: ${newSellingPrice}`);
             }
         });
         
         console.log('AJAX 요청 전송 시작');
         
-        // 서버로 AJAX 요청 전송
-        fetch('ajax_bulk_apply_margin.php', {
+        // 서버로 AJAX 요청 전송 (직접 SQL 실행 버전)
+        fetch('ajax_bulk_apply_margin_direct.php', {
             method: 'POST',
             body: formData
         })
@@ -677,7 +716,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // 모든 체크박스 해제
         document.querySelectorAll('.item-checkbox').forEach(checkbox => {
             checkbox.checked = false;
-            updateItemSelection(checkbox.dataset.productId, false);
+            updateItemSelection(checkbox.dataset.itemId, false);
         });
         
         // 전체 선택 체크박스도 해제
@@ -764,7 +803,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const checkbox = row.querySelector('.item-checkbox');
             if (checkbox) {
                 checkbox.checked = true;
-                updateItemSelection(checkbox.dataset.productId, true);
+                updateItemSelection(checkbox.dataset.itemId, true);
             }
         });
         
@@ -805,19 +844,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // 마진율 입력 필드 이벤트 (실시간 예상판매가 업데이트)
     document.querySelectorAll('.margin-input').forEach(input => {
         input.addEventListener('input', function() {
-            const productId = this.dataset.productId;
+            const itemId = this.dataset.itemId;
             const marginRate = parseFloat(this.value) || 0;
             
             // 예상판매가 업데이트 함수 호출
-            updateExpectedPrice(productId, marginRate);
+            updateExpectedPrice(itemId, marginRate);
         });
     });
     
-    // 예상판매가 input 필드 이벤트 (수기 입력 시 차이 계산 업데이트)
+    // 예상판매가 input 필드 이벤트 (수기 입력 시 차이 계산 및 마진율 역계산 업데이트)
     document.querySelectorAll('.expected-price').forEach(input => {
         input.addEventListener('input', function() {
-            const productId = this.dataset.productId;
-            updatePriceDifference(productId);
+            const itemId = this.dataset.itemId;
+            updatePriceDifference(itemId);
+            updateMarginFromSellingPrice(itemId);
         });
     });
     

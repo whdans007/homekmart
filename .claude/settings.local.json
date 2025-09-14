@@ -14,7 +14,9 @@
       "mcp__playwright__browser_evaluate",
       "mcp__playwright__browser_wait_for",
       "mcp__playwright__browser_close",
-      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l admin/add_purchase.php)"
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l admin/add_purchase.php)",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l admin/purchase_price_change.php)",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l admin/ajax_bulk_apply_margin.php)"
     ],
     "deny": [],
     "ask": []

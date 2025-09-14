@@ -372,6 +372,20 @@ if (!empty($_SESSION['user_id'])) {
                                     <span class="font-medium"><?php echo htmlspecialchars($current_store_name); ?></span>
                                 </div>
                             </div>
+
+                            <!-- 로그아웃 버튼 (데스크탑만 표시) -->
+                            <a href="logout.php" class="inline-flex items-center px-3 py-1.5 text-sm font-medium bg-red-600 rounded-md transition-colors duration-200 ml-2" style="color: white !important; display: none;">
+                                <i class="fas fa-sign-out-alt mr-1.5" style="color: white !important;"></i>
+                                <span style="color: white !important;">로그아웃</span>
+                            </a>
+
+                            <style>
+                            @media (min-width: 768px) {
+                                a[href="logout.php"] {
+                                    display: inline-flex !important;
+                                }
+                            }
+                            </style>
                         </div>
                     </div>
                 </div>
