@@ -36,17 +36,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 // 필수 파라미터 검증
 $purchase_id = $_POST['purchase_id'] ?? '';
-$product_ids = $_POST['product_ids'] ?? [];
+$item_ids = $_POST['item_ids'] ?? [];
 $margin_rate = $_POST['margin_rate'] ?? '';
 $store_id = $_POST['store_id'] ?? '';
-$selling_prices = $_POST['selling_prices'] ?? [];
 
 if (empty($purchase_id)) {
     echo json_encode(['success' => false, 'message' => '매입 ID가 필요합니다.']);
     exit;
 }
 
-if (empty($product_ids) || !is_array($product_ids)) {
+if (empty($item_ids) || !is_array($item_ids)) {
     echo json_encode(['success' => false, 'message' => '선택된 상품이 없습니다.']);
     exit;
 }
@@ -130,13 +129,9 @@ function savePriceChangeHistory($pdo, $data) {
 
 try {
     // 디버깅 로그
-    $debug_msg = date('Y-m-d H:i:s') . " - 일괄 가격적용 시작 - product_ids: " . implode(',', $product_ids) . ", store_id: " . ($store_id ?? 'null') . ", margin_rate: " . $margin_rate . "%";
-    if (!empty($selling_prices)) {
-        $debug_msg .= ", selling_prices 전달됨: " . json_encode($selling_prices);
-    }
-    $debug_msg .= "\n";
+    $debug_msg = date('Y-m-d H:i:s') . " - 일괄 가격적용 시작 - item_ids: " . implode(',', $item_ids) . ", store_id: " . ($store_id ?? 'null') . ", margin_rate: " . $margin_rate . "%\n";
     file_put_contents(__DIR__ . '/debug_log.txt', $debug_msg, FILE_APPEND | LOCK_EX);
-    error_log("일괄 가격적용 시작 - product count: " . count($product_ids) . ", store_id: " . ($store_id ?? 'null') . ", margin_rate: " . $margin_rate . "%");
+    error_log("일괄 가격적용 시작 - item count: " . count($item_ids) . ", store_id: " . ($store_id ?? 'null') . ", margin_rate: " . $margin_rate . "%");
     
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
@@ -176,13 +171,20 @@ try {
         }
     }
     
-    // 각 상품에 대해 처리
-    foreach ($product_ids as $product_id) {
-        if (!is_numeric($product_id)) {
+    // 각 아이템에 대해 처리 (배열 순서 의존성 제거)
+    foreach ($item_ids as $item_id) {
+        if (!is_numeric($item_id)) {
             continue;
         }
         
-        // 매입 상품 정보와 현재 가격 조회
+        // 해당 아이템의 product_id를 직접 가져오기
+        $product_id = $_POST["product_id_{$item_id}"] ?? null;
+        if (!$product_id || !is_numeric($product_id)) {
+            error_log("Item {$item_id}의 product_id를 찾을 수 없습니다");
+            continue;
+        }
+        
+        // 매입 상품 정보와 현재 가격 조회 (item_id로 정확한 행 조회)
         $query = "SELECT 
             pi.product_id,
             pi.unit_price as purchase_unit_price,
@@ -194,10 +196,10 @@ try {
         FROM purchase_items pi
         JOIN products pr ON pi.product_id = pr.id
         LEFT JOIN inventory inv ON pi.product_id = inv.product_id AND inv.store_id = ?
-        WHERE pi.purchase_id = ? AND pi.product_id = ?";
+        WHERE pi.purchase_id = ? AND pi.item_id = ?";
         
         $stmt = $pdo->prepare($query);
-        $stmt->execute([$store_id, $purchase_id, $product_id]);
+        $stmt->execute([$store_id, $purchase_id, $item_id]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$result) {
@@ -213,9 +215,10 @@ try {
         // 새로운 판매가 설정 (JavaScript에서 전송된 값 사용, 없으면 마진율로 계산)
         $new_cost_price = $purchase_unit_price_per_piece;
         
-        // JavaScript에서 전송된 판매가가 있으면 사용, 없으면 마진율로 계산
-        if (isset($selling_prices[$product_id]) && is_numeric($selling_prices[$product_id])) {
-            $new_selling_price = intval($selling_prices[$product_id]);
+        // JavaScript에서 전송된 판매가를 직접 가져오기
+        $selling_price_from_js = $_POST["selling_price_{$item_id}"] ?? null;
+        if ($selling_price_from_js && is_numeric($selling_price_from_js)) {
+            $new_selling_price = intval($selling_price_from_js);
         } else {
             // Math.ceil과 동일한 결과를 위해 ceil 사용
             $new_selling_price = ceil($new_cost_price * (1 + ($margin_rate / 100)));
@@ -287,6 +290,7 @@ try {
         
         $updated_count++;
         $updated_products[] = [
+            'item_id' => $item_id,
             'product_id' => $product_id,
             'product_name' => $result['name_ko'],
             'old_cost_price' => $old_cost_price,
@@ -294,7 +298,7 @@ try {
             'old_selling_price' => $old_selling_price,
             'new_selling_price' => $new_selling_price,
             'margin_rate' => $new_margin_rate,
-            'used_js_price' => isset($selling_prices[$product_id])
+            'used_js_price' => isset($_POST["selling_price_{$item_id}"])
         ];
     }
     

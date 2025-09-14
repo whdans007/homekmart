@@ -153,3 +153,18 @@
 2025-09-13 18:08:07 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
 2025-09-13 18:08:54 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
 2025-09-13 18:18:17 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-13 18:23:53 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-13 18:55:44 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-13 18:56:13 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-13 19:00:26 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-13 19:00:56 - 일괄 가격적용 시작 - product_ids: 250,249, store_id: 1, margin_rate: 38%
+2025-09-13 19:00:56 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=36, margin_rate=38%, updated_count=0
+2025-09-13 19:00:58 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-13 19:14:48 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-13 19:14:54 - 일괄 가격적용 시작 - product_ids: 13696, item_ids: 543, store_id: 1, margin_rate: 38%, selling_prices 전달됨: {"13696":"690"}
+2025-09-13 19:14:54 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=64, margin_rate=38%, updated_count=1
+2025-09-13 19:14:56 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-13 19:25:24 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
+2025-09-13 19:25:50 - 일괄 가격적용 시작 - product_ids: 4535, item_ids: 277, store_id: 1, margin_rate: 38%, selling_prices 전달됨: {"277":"197"}
+2025-09-13 19:25:50 - 일괄 마진율 적용 완료: user_id=1, store_id=1, purchase_id=39, margin_rate=38%, updated_count=1
+2025-09-13 19:25:51 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: CLARK HILLS (클락힐스), role: super_admin
