@@ -37,16 +37,16 @@ if ($project_id > 0) {
     if ($project_result->num_rows > 0) {
         $project_info = $project_result->fetch_assoc();
         
-        // 프로젝트 상품들 조회 - 항상 현재 점포의 최신 가격을 가져옴
-        $items_sql = "SELECT 
+        // 프로젝트 상품들 조회 - 저장된 가격을 우선 사용, 없으면 현재 점포의 최신 가격을 가져옴
+        $items_sql = "SELECT
                           pi.product_id,
                           pi.quantity,
                           p.sku,
                           p.name_en,
                           p.name_ko,
                           p.pieces_per_box,
-                          COALESCE(i.selling_price, p.selling_price, 0) as selling_price,
-                          COALESCE(i.cost_price, p.cost_price, 0) as cost_price,
+                          COALESCE(pi.selling_price, i.selling_price, p.selling_price, 0) as selling_price,
+                          COALESCE(pi.cost_price, i.cost_price, p.cost_price, 0) as cost_price,
                           COALESCE(i.quantity, 0) as stock
                       FROM price_label_project_items pi
                       JOIN products p ON pi.product_id = p.id
@@ -157,21 +157,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // 프로젝트 아이템들 저장
                 
-                $item_sql = "INSERT INTO price_label_project_items (project_id, product_id, quantity) VALUES (?, ?, ?)";
+                $item_sql = "INSERT INTO price_label_project_items (project_id, product_id, quantity, selling_price, cost_price) VALUES (?, ?, ?, ?, ?)";
                 $item_stmt = $conn->prepare($item_sql);
-                
+
                 foreach ($cart_items as $index => $item) {
-                    
+
                     // bind_param을 위해 변수로 저장
                     $product_id = (int)$item['product_id'];
                     $quantity = (int)$item['quantity'];
-                    $item_stmt->bind_param("iii", 
-                        $result_project_id, 
-                        $product_id, 
-                        $quantity
+                    $selling_price = isset($item['selling_price']) ? (float)$item['selling_price'] : null;
+                    $cost_price = isset($item['cost_price']) ? (float)$item['cost_price'] : null;
+
+                    $item_stmt->bind_param("iiidd",
+                        $result_project_id,
+                        $product_id,
+                        $quantity,
+                        $selling_price,
+                        $cost_price
                     );
                     $item_result = $item_stmt->execute();
-                    
+
                     if (!$item_result) {
                         throw new Exception("아이템 저장 실패: " . $conn->error);
                     }
