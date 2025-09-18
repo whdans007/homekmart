@@ -42,6 +42,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_project'])) {
             
             $current_user_id = $_SESSION['user_id'] ?? 0;
             $current_store_id = $_SESSION['store_id'] ?? 0;
+
+            // store_id가 0이면 users 테이블에서 가져오기
+            if (empty($current_store_id) && !empty($current_user_id)) {
+                $user_sql = "SELECT store_id FROM users WHERE id = ?";
+                $user_stmt = $conn->prepare($user_sql);
+                $user_stmt->bind_param("i", $current_user_id);
+                $user_stmt->execute();
+                $user_result = $user_stmt->get_result();
+                if ($user_row = $user_result->fetch_assoc()) {
+                    $current_store_id = $user_row['store_id'];
+                }
+                $user_stmt->close();
+            }
             
             if ($project_id > 0) {
                 // 기존 프로젝트 업데이트

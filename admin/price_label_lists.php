@@ -34,11 +34,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_project'])) {
             $conn->autocommit(false);
             
             $current_store_id = $_SESSION['store_id'] ?? 0;
-            
-            // 프로젝트 소유권 확인
-            $check_sql = "SELECT id, created_at FROM price_label_projects WHERE id = ? AND store_id = ?";
+
+            // store_id가 0이면 users 테이블에서 가져오기
+            if (empty($current_store_id) && !empty($_SESSION['user_id'])) {
+                $user_sql = "SELECT store_id FROM users WHERE id = ?";
+                $user_stmt = $conn->prepare($user_sql);
+                $user_stmt->bind_param("i", $_SESSION['user_id']);
+                $user_stmt->execute();
+                $user_result = $user_stmt->get_result();
+                if ($user_row = $user_result->fetch_assoc()) {
+                    $current_store_id = $user_row['store_id'];
+                }
+                $user_stmt->close();
+            }
+
+            // 프로젝트 소유권 확인 (점포 제한 완화)
+            $check_sql = "SELECT id, created_at FROM price_label_projects WHERE id = ? AND (store_id = ? OR ? = 0 OR store_id = 0)";
             $check_stmt = $conn->prepare($check_sql);
-            $check_stmt->bind_param("ii", $project_id, $current_store_id);
+            $check_stmt->bind_param("iii", $project_id, $current_store_id, $current_store_id);
             $check_stmt->execute();
             $check_result = $check_stmt->get_result();
             
@@ -54,10 +67,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_project'])) {
             $delete_items_stmt->bind_param("i", $project_id);
             $delete_items_stmt->execute();
             
-            // 프로젝트 삭제
-            $delete_project_sql = "DELETE FROM price_label_projects WHERE id = ? AND store_id = ?";
+            // 프로젝트 삭제 (점포 제한 완화)
+            $delete_project_sql = "DELETE FROM price_label_projects WHERE id = ? AND (store_id = ? OR ? = 0 OR store_id = 0)";
             $delete_project_stmt = $conn->prepare($delete_project_sql);
-            $delete_project_stmt->bind_param("ii", $project_id, $current_store_id);
+            $delete_project_stmt->bind_param("iii", $project_id, $current_store_id, $current_store_id);
             $delete_project_stmt->execute();
             
             $conn->commit();
@@ -98,10 +111,23 @@ $offset = ($current_page - 1) * $items_per_page;
 // 현재 점포 ID 가져오기
 $current_store_id = $_SESSION['store_id'] ?? 0;
 
-// 검색 조건 구성
-$where_conditions = ["p.store_id = ?"];
-$params = [$current_store_id];
-$param_types = 'i';
+// store_id가 0이면 users 테이블에서 가져오기
+if (empty($current_store_id) && !empty($_SESSION['user_id'])) {
+    $user_sql = "SELECT store_id FROM users WHERE id = ?";
+    $user_stmt = $conn->prepare($user_sql);
+    $user_stmt->bind_param("i", $_SESSION['user_id']);
+    $user_stmt->execute();
+    $user_result = $user_stmt->get_result();
+    if ($user_row = $user_result->fetch_assoc()) {
+        $current_store_id = $user_row['store_id'];
+    }
+    $user_stmt->close();
+}
+
+// 검색 조건 구성 (점포 제한 완화)
+$where_conditions = ["(p.store_id = ? OR ? = 0 OR p.store_id = 0)"];
+$params = [$current_store_id, $current_store_id];
+$param_types = 'ii';
 
 $where_clause = ' WHERE ' . implode(' AND ', $where_conditions);
 
@@ -146,7 +172,7 @@ $sql = "SELECT
 FROM price_label_projects p
 LEFT JOIN users u ON p.created_by = u.id
 {$where_clause}
-ORDER BY p.updated_at DESC, p.id DESC
+ORDER BY p.id DESC
 LIMIT {$items_per_page} OFFSET {$offset}";
 
 $stmt = $conn->prepare($sql);
