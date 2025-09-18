@@ -26,19 +26,18 @@ if ($project_id > 0) {
     $current_store_id = $_SESSION['store_id'] ?? 0;
     
     // 프로젝트 정보 조회
-    $project_sql = "SELECT p.created_at, p.store_id
-                    FROM price_label_projects p
-                    WHERE p.id = ? AND (p.store_id = ? OR ? = 0 OR p.store_id = 0)";
+    $project_sql = "SELECT p.created_at 
+                    FROM price_label_projects p 
+                    WHERE p.id = ? AND p.store_id = ?";
     $project_stmt = $conn_temp->prepare($project_sql);
-    $project_stmt->bind_param("iii", $project_id, $current_store_id, $current_store_id);
+    $project_stmt->bind_param("ii", $project_id, $current_store_id);
     $project_stmt->execute();
     $project_result = $project_stmt->get_result();
     
     if ($project_result->num_rows > 0) {
         $project_info = $project_result->fetch_assoc();
-        $project_store_id = $project_info['store_id'] ?: $current_store_id; // store_id가 0이면 현재 사용자 점포 사용
-
-        // 프로젝트 상품들 조회 - 프로젝트 원래 점포의 가격을 가져옴
+        
+        // 프로젝트 상품들 조회 - 현재 점포의 최신 가격을 가져옴
         $items_sql = "SELECT
                           pi.product_id,
                           pi.quantity,
@@ -56,7 +55,7 @@ if ($project_id > 0) {
                       ORDER BY p.name_en, p.name_ko";
         
         $items_stmt = $conn_temp->prepare($items_sql);
-        $items_stmt->bind_param("ii", $project_store_id, $project_id);
+        $items_stmt->bind_param("ii", $current_store_id, $project_id);
         $items_stmt->execute();
         $items_result = $items_stmt->get_result();
         
@@ -78,7 +77,6 @@ if ($project_id > 0) {
         if (!empty($project_items)) {
             $project_data = [
                 'created_at' => $project_info['created_at'],
-                'store_id' => $project_store_id,
                 'items' => $project_items
             ];
             $is_editing_project = true;
@@ -114,19 +112,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $current_user_id = $_SESSION['user_id'] ?? 0;
                 $current_store_id = $_SESSION['store_id'] ?? 0;
-
-                // store_id가 0이면 users 테이블에서 가져오기
-                if (empty($current_store_id) && !empty($current_user_id)) {
-                    $user_sql = "SELECT store_id FROM users WHERE id = ?";
-                    $user_stmt = $conn->prepare($user_sql);
-                    $user_stmt->bind_param("i", $current_user_id);
-                    $user_stmt->execute();
-                    $user_result = $user_stmt->get_result();
-                    if ($user_row = $user_result->fetch_assoc()) {
-                        $current_store_id = $user_row['store_id'];
-                    }
-                    $user_stmt->close();
-                }
                 
                 if ($project_id > 0) {
                     // 기존 프로젝트 업데이트
