@@ -72,7 +72,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $conn->close();
         }
         if (isset($update_stmt)) $update_stmt->close();
-        error_log("상품명 업데이트 오류: " . $e->getMessage());
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
     exit;
@@ -115,7 +114,6 @@ try {
         $conn->query("UPDATE purchase_items SET discounted_total = (quantity * unit_price) WHERE discounted_total IS NULL");
     }
 } catch (Exception $e) {
-    error_log("할인 컬럼 추가 오류: " . $e->getMessage());
 }
 
 // 전체 매입 내역 삭제 처리 (Soft Delete)
@@ -144,7 +142,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             
             // 디버깅: 아이템 수 로그
             $total_items = $items_result->num_rows;
-            error_log("Processing purchase deletion for purchase_id: {$purchase_id}, total items: {$total_items}");
             
             $item_count = 0;
             while ($item = $items_result->fetch_assoc()) {
@@ -187,16 +184,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                 $trans_stmt->execute();
                                 $trans_stmt->close();
                             } catch (Exception $log_error) {
-                                error_log("Transaction log failed for item {$item_count}: " . $log_error->getMessage());
                                 // 로그 실패는 전체 트랜잭션을 중단하지 않음
                             }
                         } else {
-                            error_log("Inventory record not found for product_id: {$item['product_id']}, store_id: {$user_info['store_id']}");
                             // 재고 레코드가 없어도 매입 삭제는 계속 진행
                         }
                     }
                 } catch (Exception $item_error) {
-                    error_log("Error processing item {$item_count}: " . $item_error->getMessage());
                     throw new Exception("아이템 #{$item_count} 처리 중 오류: " . $item_error->getMessage());
                 }
             }
@@ -248,7 +242,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } catch (Exception $e) {
         $conn->rollback();
         $error_msg = $e->getMessage();
-        error_log("Purchase deletion failed: " . $error_msg . " for purchase_id: " . $purchase_id);
         
         // 사용자에게 더 자세한 오류 정보 제공
         if (strpos($error_msg, '아이템') !== false) {
@@ -333,7 +326,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                 }
                                 $inv_id_stmt->close();
                             } catch (Exception $log_error) {
-                                error_log("Transaction log failed: " . $log_error->getMessage());
                             }
                         }
                     }
@@ -394,7 +386,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'delete_item' && isset($_POST['item_id'])) {
         $item_id = (int)$_POST['item_id'];
-        error_log("Processing delete_item for item_id: {$item_id}, purchase_id: {$purchase_id}");
         
         try {
             $conn->begin_transaction();
@@ -446,7 +437,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $inv_id_stmt->close();
                     } catch (Exception $log_error) {
                         // 로그 기록 실패는 무시하고 계속 진행
-                        error_log("Transaction log failed: " . $log_error->getMessage());
                     }
                 }
                 
@@ -529,7 +519,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } catch (Exception $e) {
             $conn->rollback();
             $error_msg = $e->getMessage();
-            error_log("Delete item failed: {$error_msg} for item_id: {$item_id}, purchase_id: {$purchase_id}");
             $message = t('purchase.js_delete_error') . ': ' . $error_msg;
             $message_type = 'error';
         }
@@ -602,8 +591,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             $inv_id_stmt->close();
                         } catch (Exception $log_error) {
                             // 로그 기록 실패는 무시하고 계속 진행
-                            error_log("Transaction log failed: " . $log_error->getMessage());
-                        }
+                            }
                     }
                 }
                 
@@ -1000,7 +988,6 @@ $stmt = $conn->prepare("
         pr.name_ko as product_name,
         pr.name_en as product_name_en,
         pr.sku,
-        pr.barcode,
         pr.pieces_per_box,
         CASE 
             WHEN pi.purchase_type = 'box' THEN pi.quantity * COALESCE(pr.pieces_per_box, 1)
@@ -1225,9 +1212,6 @@ tr[id^="row-"] td:first-child:hover {
                                              data-item-id="<?php echo $item['item_id']; ?>"
                                              data-original-name="<?php echo htmlspecialchars($item['product_name_en']); ?>"
                                              title="클릭하여 영문 상품명 수정"><?php echo htmlspecialchars($item['product_name_en']); ?></div>
-                                        <?php endif; ?>
-                                        <?php if ($item['barcode']): ?>
-                                        <div class="text-xs text-gray-500" title="바코드: <?php echo htmlspecialchars($item['barcode']); ?>">바코드: <?php echo htmlspecialchars($item['barcode']); ?></div>
                                         <?php endif; ?>
                                     </td>
                                     <td class="w-20 px-1 py-3 text-center">
@@ -1457,7 +1441,6 @@ const lang = {
 };
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('페이지 로드 완료');
     
     // 변경사항 추적 객체
     const changedItems = new Map();
@@ -1495,7 +1478,6 @@ document.addEventListener('DOMContentLoaded', function() {
             saveButton.disabled = false;
         }
         
-        console.log('변경사항 추적:', itemId, changedItems.get(itemId));
     }
     
     // 모든 변경사항 저장 함수
@@ -1680,12 +1662,10 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const deleteBtn = e.target.closest('.delete-btn');
             const itemId = deleteBtn.dataset.itemId;
-            console.log('삭제 버튼 클릭 (이벤트 위임):', itemId);
             
             // 현재 매입 상품 개수 확인
             const itemRows = document.querySelectorAll('tr[id^="row-"]');
             const currentItemCount = itemRows.length;
-            console.log('현재 상품 개수:', currentItemCount);
             
             let confirmMessage = '';
             if (currentItemCount <= 1) {
@@ -1697,7 +1677,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             if (confirm(confirmMessage)) {
-                console.log('삭제 폼 제출 준비');
                 
                 // 기존 폼이 있다면 제거
                 const existingForm = document.getElementById('delete-form');
@@ -1714,7 +1693,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="hidden" name="item_id" value="${itemId}">
                 `;
                 document.body.appendChild(form);
-                console.log('삭제 폼 제출');
                 form.submit();
             }
         }
@@ -1722,15 +1700,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 전체 매입 내역 삭제 버튼 클릭 시 (버튼이 존재할 때만)
     const deletePurchaseBtn = document.getElementById('delete-purchase-btn');
-    console.log('Delete button found:', deletePurchaseBtn);
     if (deletePurchaseBtn) {
-        console.log('Adding click listener to delete button');
         deletePurchaseBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            console.log('전체 매입 삭제 버튼 클릭');
         
         if (confirm(lang.js_confirm_delete_purchase)) {
-            console.log('전체 매입 삭제 확인됨');
             
             // 기존 폼이 있다면 제거
             const existingForm = document.getElementById('delete-purchase-form');
@@ -1746,14 +1720,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 <input type="hidden" name="action" value="delete_purchase">
             `;
             document.body.appendChild(form);
-            console.log('전체 매입 삭제 폼 제출');
             form.submit();
         }
         });
     }
     
     
-    console.log('이벤트 리스너 등록 완료');
     
     // 체크박스 기능
     const selectAllCheckbox = document.getElementById('select-all');
@@ -2109,7 +2081,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateRowSelection(row);
     });
     
-    console.log('이벤트 리스너 등록 완료');
     
     // 상품명 인라인 편집 기능 추가 (한글, 영문)
     document.addEventListener('click', function(e) {
@@ -2234,9 +2205,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // 페이지 로드 완료 후 디버깅 정보 출력
-    console.log('DOM loaded, checking for buttons...');
-    console.log('All delete buttons:', document.querySelectorAll('.delete-btn'));
-    console.log('Purchase delete button:', document.getElementById('delete-purchase-btn'));
 });
 </script>
 

@@ -17,8 +17,8 @@ try {
     $offset = max(0, (int)($_GET['offset'] ?? 0));
     
     $sql = "
-        SELECT 
-            p.id, p.name, p.description, p.barcode,
+        SELECT
+            p.id, p.name, p.description,
             c.name as category_name,
             b.name_ko as brand_name,
             COALESCE(MIN(i.selling_price), 0) as min_price,
@@ -29,7 +29,7 @@ try {
         LEFT JOIN brands b ON p.brand_id = b.id
         LEFT JOIN inventory i ON p.id = i.product_id
         WHERE (p.deleted_at IS NULL OR p.deleted_at = '0000-00-00 00:00:00')
-        GROUP BY p.id, p.name, p.description, p.barcode, c.name, b.name_ko
+        GROUP BY p.id, p.name, p.description, c.name, b.name_ko
         HAVING total_stock > 0
         ORDER BY p.name ASC
         LIMIT $limit OFFSET $offset

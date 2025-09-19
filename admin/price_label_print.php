@@ -46,8 +46,8 @@ if ($project_id > 0) {
                           p.name_en,
                           p.name_ko,
                           p.pieces_per_box,
-                          COALESCE(i.selling_price, p.selling_price, 0) as selling_price,
-                          COALESCE(i.cost_price, p.cost_price, 0) as cost_price,
+                          COALESCE(i.selling_price, 0) as selling_price,
+                          COALESCE(i.cost_price, 0) as cost_price,
                           COALESCE(i.quantity, 0) as stock
                       FROM price_label_project_items pi
                       JOIN products p ON pi.product_id = p.id

@@ -45,7 +45,6 @@ try {
     
     // 테이블 존재 여부 확인
     $brands_exists = $pdo->query("SHOW TABLES LIKE 'brands'")->fetch();
-    $barcode_exists = $pdo->query("SHOW COLUMNS FROM products LIKE 'barcode'")->fetch();
     $is_active_exists = $pdo->query("SHOW COLUMNS FROM products LIKE 'is_active'")->fetch();
     $pieces_per_box_exists = $pdo->query("SHOW COLUMNS FROM products LIKE 'pieces_per_box'")->fetch();
     
@@ -79,11 +78,6 @@ try {
         $search_conditions[] = "p.name_en LIKE ?";
         $params[] = $search_term;
         
-        // barcode 컬럼이 있는 경우만 추가
-        if ($barcode_exists) {
-            $search_conditions[] = "p.barcode LIKE ?";
-            $params[] = $search_term;
-        }
         
         $conditions[] = "(" . implode(" OR ", $search_conditions) . ")";
     }
@@ -103,17 +97,13 @@ try {
     // pieces_per_box 컬럼 처리
     $pieces_per_box_select = $pieces_per_box_exists ? "COALESCE(p.pieces_per_box, 1)" : "1";
     
-    // barcode 컬럼 처리
-    $barcode_select = $barcode_exists ? "COALESCE(p.barcode, '')" : "''";
-    
     // SQL 쿼리 구성
     $sql = "
-        SELECT 
+        SELECT
             p.id,
             p.sku,
             COALESCE(p.name_ko, '') as name_ko,
             COALESCE(p.name_en, '') as name_en,
-            {$barcode_select} as barcode,
             {$pieces_per_box_select} as pieces_per_box,
             {$brand_select},
             i.cost_price,
@@ -150,7 +140,6 @@ try {
             'sku' => $product['sku'],
             'name_ko' => $product['name_ko'],
             'name_en' => $product['name_en'],
-            'barcode' => $product['barcode'],
             'brand_name' => $product['brand_name'],
             'cost_price' => number_format($cost_price, 2, '.', ''),
             'available_quantity' => $available_quantity,
@@ -166,7 +155,6 @@ try {
         'from_store_id' => $from_store_id,
         'debug_info' => [
             'brands_exists' => (bool)$brands_exists,
-            'barcode_exists' => (bool)$barcode_exists,
             'is_active_exists' => (bool)$is_active_exists,
             'pieces_per_box_exists' => (bool)$pieces_per_box_exists,
             'total_before_limit' => count($all_products),
@@ -177,7 +165,6 @@ try {
     ]);
     
 } catch (PDOException $e) {
-    error_log("Transfer product search error: " . $e->getMessage());
     echo json_encode([
         'success' => false, 
         'message' => '상품 검색 중 오류가 발생했습니다.',
@@ -186,7 +173,6 @@ try {
         'error_type' => 'database_error'
     ]);
 } catch (Exception $e) {
-    error_log("Transfer product search general error: " . $e->getMessage());
     echo json_encode([
         'success' => false, 
         'message' => '일반 오류가 발생했습니다.',

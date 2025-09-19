@@ -1,7 +1,4 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
 
 require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = t('price_label.edit_project') . ' - ' . t('company.name');
@@ -26,15 +23,10 @@ $project_items = [];
 
 // POST 요청 처리 (프로젝트 저장)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_project'])) {
-    // 디버깅용 로그
-    error_log("POST data: " . print_r($_POST, true));
-    
     $items_data = isset($_POST['items_data']) ? json_decode($_POST['items_data'], true) : [];
-    error_log("Decoded items_data: " . print_r($items_data, true));
-    
+
     if (empty($items_data)) {
         $errors[] = t('price_label.min_one_product');
-        error_log("Error: No items data provided");
     } else {
         try {
             $conn = get_db_connection();
@@ -147,8 +139,8 @@ if ($project_id > 0) {
                       p.name_en,
                       p.name_ko,
                       p.pieces_per_box,
-                      COALESCE(i.selling_price, p.selling_price, 0) as selling_price,
-                      COALESCE(i.cost_price, p.cost_price, 0) as cost_price,
+                      COALESCE(i.selling_price, 0) as selling_price,
+                      COALESCE(i.cost_price, 0) as cost_price,
                       COALESCE(i.quantity, 0) as stock,
                       COALESCE(b.name_ko, b.name_en, '') as brand_name,
                       COALESCE(c.name, '') as category_name

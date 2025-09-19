@@ -99,7 +99,6 @@ try {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    error_log('POST request received: ' . json_encode($_POST));
     
     $action = $_POST['action'] ?? 'save';
     $from_store_id = (int)($_POST['from_store_id'] ?? 0);
@@ -109,7 +108,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $is_edit = isset($_POST['edit_transfer_id']) && is_numeric($_POST['edit_transfer_id']);
     $edit_transfer_id_post = $is_edit ? (int)$_POST['edit_transfer_id'] : 0;
     
-    error_log("Processing action: {$action}, Edit mode: " . ($is_edit ? 'Yes' : 'No') . ", Transfer ID: {$edit_transfer_id_post}");
     
     if (empty($from_store_id)) {
         $errors[] = t('store_transfer.select_from_store');
@@ -129,7 +127,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // 삭제 액션 처리
     if ($action === 'delete' && $is_edit && $edit_transfer_id_post > 0) {
-        error_log("Delete action started - Transfer ID: {$edit_transfer_id_post}, User: {$_SESSION['user_id']}, Role: {$_SESSION['role']}");
         
         try {
             $pdo->beginTransaction();
@@ -139,13 +136,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($_SESSION['role'] !== 'super_admin') {
                 $check_sql .= " AND from_store_id = " . (int)$current_store_id;
             }
-            error_log("Permission check SQL: {$check_sql}");
             
             $check_stmt = $pdo->prepare($check_sql);
             $check_stmt->execute([$edit_transfer_id_post]);
             $transfer_info = $check_stmt->fetch(PDO::FETCH_ASSOC);
             
-            error_log("Transfer info: " . json_encode($transfer_info));
             
             if (!$transfer_info) {
                 throw new Exception(t('store_transfer.error_edit_not_found'));
@@ -155,58 +150,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $delete_to_store_id = $transfer_info['to_store_id'];
             $current_status = $transfer_info['status'];
             
-            error_log("Delete target - From Store: {$delete_from_store_id}, To Store: {$delete_to_store_id}, Status: {$current_status}");
             
             // confirmed 상태인 경우 재고 원복
             if ($current_status === 'confirmed') {
-                error_log("Starting inventory restoration for confirmed transfer");
                 
                 $old_items_stmt = $pdo->prepare("SELECT product_id, quantity FROM store_transfer_items WHERE transfer_id = ?");
                 $old_items_stmt->execute([$edit_transfer_id_post]);
                 $old_items = $old_items_stmt->fetchAll(PDO::FETCH_ASSOC);
                 
-                error_log("Number of items to restore: " . count($old_items));
                 
                 foreach ($old_items as $old_item) {
-                    error_log("Inventory restoration - Product: {$old_item['product_id']}, Quantity: {$old_item['quantity']}");
                     
                     // 출발지에 재고 복원
                     $restore_from = $pdo->prepare("UPDATE inventory SET quantity = quantity + ? WHERE product_id = ? AND store_id = ?");
                     $restore_from->execute([$old_item['quantity'], $old_item['product_id'], $delete_from_store_id]);
-                    error_log("Source store inventory restoration completed");
                     
                     // 목적지에서 재고 차감
                     $reduce_to = $pdo->prepare("UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?");
                     $reduce_to->execute([$old_item['quantity'], $old_item['product_id'], $delete_to_store_id]);
-                    error_log("Destination store inventory reduction completed");
                 }
             }
             
             // 관련 데이터 삭제
-            error_log("Starting transfer items deletion");
             $delete_items_stmt = $pdo->prepare("DELETE FROM store_transfer_items WHERE transfer_id = ?");
             $delete_items_stmt->execute([$edit_transfer_id_post]);
             
-            error_log("Starting transfer record deletion");
             $delete_transfer_stmt = $pdo->prepare("DELETE FROM store_transfers WHERE id = ?");
             $delete_transfer_stmt->execute([$edit_transfer_id_post]);
             
             $pdo->commit();
-            error_log("Delete transaction commit completed");
             
             $_SESSION['flash'] = [
                 'type' => 'success',
                 'message' => t('store_transfer.deleted_successfully')
             ];
             
-            error_log("Delete completed - Executing redirect");
             header('Location: store_transfers_list.php');
             exit;
             
         } catch (Exception $e) {
             $pdo->rollback();
-            error_log("Delete error occurred: " . $e->getMessage());
-            error_log("Delete error stack: " . $e->getTraceAsString());
             $errors[] = t('store_transfer.delete_error') . $e->getMessage();
         }
     }
@@ -886,7 +869,6 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Search API Response:', data);
             
             if (data.success && data.products) {
                 displayProductResults(data.products);
@@ -951,7 +933,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // 상품 선택 이벤트 - 매입 이력 조회 후 추가
         document.querySelectorAll('.product-item').forEach(function(item) {
             item.addEventListener('click', function() {
-                console.log('상품 클릭됨:', this);
                 try {
                     window.showPurchaseHistoryBeforeAdd(this);
                 } catch (error) {
@@ -1184,7 +1165,6 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Modal Product List API Response:', data);
             
             if (data.success && data.products) {
                 displayModalProductList(data.products);
@@ -1309,7 +1289,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to check purchase history before adding product
     window.showPurchaseHistoryBeforeAdd = function(item) {
-        console.log('showPurchaseHistoryBeforeAdd called', item);
         
         // 변수들을 try-catch 밖에서 선언
         let productId, sku, nameKo, nameEn, costPrice, availableQuantity, minQuantity, piecesPerBox, fromStoreId;
@@ -1325,13 +1304,8 @@ document.addEventListener('DOMContentLoaded', function() {
             minQuantity = parseInt(item.dataset.minQuantity || 1);
             piecesPerBox = parseInt(item.dataset.piecesPerBox || 1);
             
-            console.log('상품 데이터 추출 완료:', {
-                productId, sku, nameKo, nameEn, costPrice, 
-                availableQuantity, minQuantity, piecesPerBox
-            });
             
             fromStoreId = window.getFromStoreId();
-            console.log('출발 점포 ID:', fromStoreId);
             
             if (!fromStoreId) {
                 alert(translations.select_from_store);
@@ -1377,7 +1351,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 매입 이력 조회 모달 관련 함수들
     function showPurchaseHistoryForNewProduct(productId, productName, productSku, fromStoreId) {
-        console.log('새 상품 매입 이력 조회:', { productId, productName, productSku, fromStoreId });
         
         // 상품 정보 설정 (전역 변수 사용)
         currentSelectedProduct = { productId, productName, productSku, fromStoreId, isNewProduct: true };
@@ -1396,7 +1369,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     window.showPurchaseHistoryModal = function(productId, productName, productSku, fromStoreId) {
-        console.log('매입 이력 모달 표시:', { productId, productName, productSku, fromStoreId });
         
         // 상품 정보 설정 (전역 변수 사용)
         currentSelectedProduct = { productId, productName, productSku, fromStoreId };
@@ -1436,7 +1408,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     displayPurchaseHistory(recentHistory);
                 } else {
                     purchaseHistoryEmpty.classList.remove('hidden');
-                    console.log('매입 이력 없음:', data.message || '데이터 없음');
                 }
             })
             .catch(error => {
@@ -1527,7 +1498,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // 임시 상품 정보 정리
         window.pendingProductToAdd = null;
         
-        console.log('선택된 매입가로 상품 추가됨:', selectedPrice);
     }
 
     function applyBoxCostToProduct(productId, boxCost) {
@@ -1537,7 +1507,6 @@ document.addEventListener('DOMContentLoaded', function() {
             window.cart[cartIndex].unit_cost_price = boxCost;
             window.cart[cartIndex].total_price = window.cart[cartIndex].quantity * boxCost;
             window.updateCart();
-            console.log('박스원가 업데이트됨:', boxCost);
         }
     }
 
@@ -1582,7 +1551,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const defaultPrice = window.pendingProductToAdd.costPrice;
             addToCartWithSelectedPrice(defaultPrice);
             window.purchaseHistoryModal.classList.add('hidden');
-            console.log('기본 원가로 상품 추가됨:', defaultPrice);
         }
     });
 
@@ -1605,10 +1573,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Store transfer deletion function
 window.deleteTransfer = function() {
-    console.log('deleteTransfer function called');
     
     if (!confirm(translations.confirm_delete_transfer)) {
-        console.log('User cancelled deletion');
         return;
     }
     
@@ -1617,14 +1583,12 @@ window.deleteTransfer = function() {
     if (deleteBtn) {
         deleteBtn.disabled = true;
         deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + translations.deleting;
-        console.log('Delete button disabled');
     }
     
     // 수정 중인 transfer_id 가져오기
     const editTransferIdInput = document.querySelector('input[name="edit_transfer_id"]');
     const transferId = editTransferIdInput ? editTransferIdInput.value : '';
     
-    console.log('Transfer ID:', transferId);
     
     if (!transferId) {
         alert('Store transfer ID to delete not found.');
@@ -1654,10 +1618,6 @@ window.deleteTransfer = function() {
     idInput.value = transferId;
     form.appendChild(idInput);
     
-    console.log('Form data:', {
-        action: 'delete',
-        edit_transfer_id: transferId
-    });
     
     document.body.appendChild(form);
     form.submit();
@@ -1669,14 +1629,12 @@ function updateToStoreOptions() {
     const toStoreSelect = document.getElementById('to_store_id');
     
     if (!fromStoreSelect || !toStoreSelect) {
-        console.log('Store selection elements not found');
         return;
     }
     
     const selectedFromStoreId = fromStoreSelect.value;
     const currentToStoreValue = toStoreSelect.value; // Save current destination store value
     
-    console.log('Source store ID:', selectedFromStoreId);
     
     // Hide destination store options that match source store
     Array.from(toStoreSelect.options).forEach(function(option) {
@@ -1705,7 +1663,6 @@ function updateToStoreOptions() {
         toStoreSelect.value = currentToStoreValue;
     }
     
-    console.log('Destination store options update completed');
 }
 
 

@@ -35,8 +35,7 @@ if (!empty($_SESSION['user_id'])) {
         $user_stmt->close();
         $conn->close();
     } catch (Exception $e) {
-        error_log("Store info error: " . $e->getMessage());
-    }
+        }
 }
 
 // 검색 및 페이징 변수
@@ -67,8 +66,8 @@ try {
 
     // 상품 목록 가져오기
     $sql = "
-        SELECT 
-            p.id, p.sku, p.name_ko, p.name_en, p.is_active, p.pieces_per_box, p.barcode,
+        SELECT
+            p.id, p.sku, p.name_ko, p.name_en, p.is_active, p.pieces_per_box,
             c.name as category_name, b.name_ko as brand_name, b.name_en as brand_name_en
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
@@ -201,9 +200,6 @@ try {
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($product['name_ko']); ?></div>
                                     <div class="text-xs text-gray-500"><?php echo htmlspecialchars($product['name_en']); ?></div>
-                                    <?php if ($product['barcode']): ?>
-                                        <div class="text-xs text-gray-400"><?php echo t('product.barcode'); ?>: <?php echo htmlspecialchars($product['barcode']); ?></div>
-                                    <?php endif; ?>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($product['brand_name'] ?? 'N/A'); ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($product['category_name'] ?? 'N/A'); ?></td>
@@ -365,10 +361,6 @@ try {
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50">SKU</td>
                             <td class="px-4 py-2 font-mono" id="modal-sku"></td>
-                        </tr>
-                        <tr class="border-b">
-                            <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.barcode'); ?></td>
-                            <td class="px-4 py-2 font-mono" id="modal-barcode"></td>
                         </tr>
                         <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.brand'); ?></td>
@@ -556,7 +548,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const translations = {
         productDetails: <?php echo json_encode(t('product.js_product_details_title')); ?>,
         noDescription: <?php echo json_encode(t('product.js_no_description')); ?>,
-        noBarcode: <?php echo json_encode(t('product.js_no_barcode')); ?>,
         piecesPerBox: <?php echo json_encode(t('product.js_pieces_per_box')); ?>,
         activeStatus: <?php echo json_encode(t('product.js_active_status')); ?>,
         inactiveStatus: <?php echo json_encode(t('product.js_inactive_status')); ?>,
@@ -595,7 +586,6 @@ document.addEventListener('DOMContentLoaded', function() {
         nameEn: document.getElementById('modal-name-en'),
         nameKo: document.getElementById('modal-name-ko'),
         sku: document.getElementById('modal-sku'),
-        barcode: document.getElementById('modal-barcode'),
         description: document.getElementById('modal-description'),
         brand: document.getElementById('modal-brand'),
         category: document.getElementById('modal-category'),
@@ -650,8 +640,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         modalContent.brand.textContent = product.brand_name_ko || 'N/A';
                         modalContent.category.textContent = product.category_name || 'N/A';
                         
-                        // Barcode and Box packaging information
-                        modalContent.barcode.textContent = product.barcode || translations.noBarcode;
+                        // Box packaging information
                         const piecesPerBox = parseInt(product.pieces_per_box) || 1;
                         modalContent.boxInfo.innerHTML = `<span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">${piecesPerBox}${translations.piecesPerBox}</span>`;
                         

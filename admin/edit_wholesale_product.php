@@ -46,12 +46,13 @@ try {
                 SELECT wp.*, 
                        wp.wholesale_name_ko, wp.wholesale_name_en, wp.wholesale_skus, wp.wholesale_description,
                        COALESCE(wp.sale_unit, 'box') as sale_unit,
-                       COALESCE(wp.cost_price, p.cost_price, 0) as cost_price,
+                       COALESCE(i.cost_price, 0) as cost_price,
                        COALESCE(wp.margin_rate, 15.00) as margin_rate,
-                       p.sku, p.name_ko, p.name_en, p.selling_price, s.name as store_name
+                       p.sku, p.name_ko, p.name_en, i.selling_price, s.name as store_name
                 FROM wholesale_products wp
                 LEFT JOIN products p ON wp.product_id = p.id
                 LEFT JOIN stores s ON wp.store_id = s.id
+                LEFT JOIN inventory i ON wp.product_id = i.product_id AND wp.store_id = i.store_id
                 WHERE wp.id = ? AND wp.is_active = 1
             ");
         } else {
@@ -59,12 +60,13 @@ try {
                 SELECT wp.*, 
                        NULL as wholesale_name_ko, NULL as wholesale_name_en, NULL as wholesale_skus, NULL as wholesale_description,
                        'box' as sale_unit,
-                       COALESCE(wp.cost_price, p.cost_price, 0) as cost_price,
+                       COALESCE(i.cost_price, 0) as cost_price,
                        COALESCE(wp.margin_rate, 15.00) as margin_rate,
-                       p.sku, p.name_ko, p.name_en, p.selling_price, s.name as store_name
+                       p.sku, p.name_ko, p.name_en, i.selling_price, s.name as store_name
                 FROM wholesale_products wp
                 LEFT JOIN products p ON wp.product_id = p.id
                 LEFT JOIN stores s ON wp.store_id = s.id
+                LEFT JOIN inventory i ON wp.product_id = i.product_id AND wp.store_id = i.store_id
                 WHERE wp.id = ? AND wp.is_active = 1
             ");
         }
@@ -74,12 +76,13 @@ try {
             SELECT wp.*, 
                    NULL as wholesale_name_ko, NULL as wholesale_name_en, NULL as wholesale_skus, NULL as wholesale_description,
                    'box' as sale_unit,
-                   COALESCE(wp.cost_price, p.cost_price, 0) as cost_price,
+                   COALESCE(i.cost_price, 0) as cost_price,
                    COALESCE(wp.margin_rate, 15.00) as margin_rate,
-                   p.sku, p.name_ko, p.name_en, p.selling_price, s.name as store_name
+                   p.sku, p.name_ko, p.name_en, i.selling_price, s.name as store_name
             FROM wholesale_products wp
             LEFT JOIN products p ON wp.product_id = p.id
             LEFT JOIN stores s ON wp.store_id = s.id
+            LEFT JOIN inventory i ON wp.product_id = i.product_id AND wp.store_id = i.store_id
             WHERE wp.id = ? AND wp.is_active = 1
         ");
     }
@@ -127,7 +130,6 @@ try {
                     pr.sku,
                     pr.name_ko,
                     pr.name_en,
-                    pr.barcode,
                     COALESCE(pr.pieces_per_box, 1) as pieces_per_box,
                     CASE 
                         WHEN pi.purchase_type = 'box' THEN pi.unit_price
@@ -156,7 +158,6 @@ try {
                 $item['received_date_formatted'] = date('Y-m-d', strtotime($item['received_date']));
             }
         } catch (PDOException $e) {
-            error_log("Purchase history query error: " . $e->getMessage());
             $receiving_history = [];
         }
     }
@@ -217,7 +218,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 'message' => '등록취소 중 오류가 발생했습니다: ' . $e->getMessage()
             ];
             
-            error_log("Wholesale product cancel error: " . $e->getMessage());
         }
         
         // 오류가 있었다면 현재 페이지로 리다이렉트
@@ -697,7 +697,7 @@ if (isset($_SESSION['flash'])) {
                             <table id="receiving-history-table" class="min-w-full text-sm border border-blue-200 rounded-md">
                                 <thead class="bg-blue-100">
                                     <tr>
-                                        <th class="px-3 py-2 text-left font-semibold text-blue-700">바코드</th>
+                                        <th class="px-3 py-2 text-left font-semibold text-blue-700">SKU</th>
                                         <th class="px-3 py-2 text-left font-semibold text-blue-700">상품명</th>
                                         <th class="px-3 py-2 text-left font-semibold text-blue-700">공급처</th>
                                         <th class="px-3 py-2 text-left font-semibold text-blue-700">입고일</th>
@@ -709,7 +709,7 @@ if (isset($_SESSION['flash'])) {
                                 <tbody class="bg-white divide-y divide-blue-200">
                                     <?php foreach ($receiving_history as $index => $item): ?>
                                     <tr class="border-b hover:bg-blue-50 cursor-pointer receiving-row" data-index="<?php echo $index; ?>">
-                                        <td class="px-3 py-2 font-mono text-xs"><?php echo htmlspecialchars($item['barcode'] ?: $item['sku']); ?></td>
+                                        <td class="px-3 py-2 font-mono text-xs"><?php echo htmlspecialchars($item['sku']); ?></td>
                                         <td class="px-3 py-2">
                                             <div class="font-medium text-gray-900"><?php echo htmlspecialchars($item['name_en'] ?: $item['name_ko']); ?></div>
                                             <?php if ($item['name_en'] && $item['name_ko'] && $item['name_en'] !== $item['name_ko']): ?>
