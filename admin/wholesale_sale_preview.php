@@ -191,8 +191,8 @@ if (isset($_SESSION['flash'])) {
 }
 ?>
 
-<div class="container mx-auto px-2 sm:px-3 md:px-4 py-8">
-    <div class="w-full">
+<div class="px-2 sm:px-3 md:px-4 py-4">
+    <div class="w-full max-w-none">
         <!-- 헤더 영역 -->
         <div class="mb-6">
             <nav class="flex" aria-label="Breadcrumb">
@@ -273,17 +273,17 @@ if (isset($_SESSION['flash'])) {
             </div>
 
             <!-- 거래명세서 -->
-            <div id="invoice-content" class="bg-white shadow-sm rounded-lg border p-8 print:shadow-none print:border-none">
+            <div id="invoice-content" class="bg-white shadow-sm rounded-lg border p-4 print:shadow-none print:border-none">
                 <!-- 제목 -->
-                <div class="text-center mb-8">
-                    <h1 class="text-2xl font-bold text-gray-900 mb-2">Wholesale Sales Transaction Statement</h1>
+                <div class="text-left mb-6">
+                    <h1 class="text-xl font-bold text-gray-900 mb-1">Wholesale Sales Transaction Statement</h1>
                     <div class="text-sm text-gray-600">
                         <div><?php echo htmlspecialchars($sale['store_name'] ?? 'Main Store'); ?></div>
                     </div>
                 </div>
 
                 <!-- 거래처 및 날짜 정보 테이블 -->
-                <div class="mb-8">
+                <div class="mb-6">
                     <table class="info-table w-full border border-gray-200 mb-4">
                         <tbody>
                             <tr>
@@ -309,26 +309,26 @@ if (isset($_SESSION['flash'])) {
                 </div>
 
                 <!-- 상품 목록 테이블 -->
-                <div class="mb-8">
+                <div class="mb-6">
                     <table class="product-table min-w-full border border-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">SKU</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Product Name</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Pcs/Box</th>
-                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Sale Unit</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Qty</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Unit Price</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Total</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Remarks</th>
+                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">SKU</th>
+                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Product Name</th>
+                                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Pcs/Box</th>
+                                <th class="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Sale Unit</th>
+                                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Qty</th>
+                                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Unit Price</th>
+                                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Total</th>
+                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Remarks</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <?php if (!empty($items)): ?>
                                 <?php foreach ($items as $item): ?>
                                     <tr>
-                                        <td class="px-4 py-3 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($item['sku']); ?></td>
-                                        <td class="px-4 py-3 text-sm text-gray-900 border-b border-gray-200">
+                                        <td class="px-2 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($item['sku']); ?></td>
+                                        <td class="px-2 py-2 text-sm text-gray-900 border-b border-gray-200">
                                             <?php 
                                             // 디버깅용 - 실제 데이터 확인
                                             echo "<!-- DEBUG: name_en=[".htmlspecialchars($item['name_en'])."] name_ko=[".htmlspecialchars($item['name_ko'])."] -->";
@@ -343,8 +343,8 @@ if (isset($_SESSION['flash'])) {
                                                 <div class="text-sm text-gray-500">-</div>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['pieces_per_box']); ?></td>
-                                        <td class="px-4 py-3 text-sm text-center border-b border-gray-200">
+                                        <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['pieces_per_box']); ?></td>
+                                        <td class="px-2 py-2 text-sm text-center border-b border-gray-200">
                                             <?php if (isset($item['sale_unit']) && $item['sale_unit'] === 'piece'): ?>
                                                 <span class="inline-flex items-center text-orange-600">
                                                     <i class="fas fa-cube mr-1"></i>
@@ -357,18 +357,18 @@ if (isset($_SESSION['flash'])) {
                                                 </span>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['quantity']); ?></td>
-                                        <td class="px-4 py-3 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['unit_price']); ?></td>
-                                        <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium border-b border-gray-200"><?php echo number_format($item['total_price']); ?></td>
-                                        <td class="px-4 py-3 text-sm text-gray-600 border-b border-gray-200"><?php echo htmlspecialchars($item['remarks'] ?: '-'); ?></td>
+                                        <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['quantity']); ?></td>
+                                        <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['unit_price']); ?></td>
+                                        <td class="px-2 py-2 text-sm text-gray-900 text-right font-medium border-b border-gray-200"><?php echo number_format($item['total_price']); ?></td>
+                                        <td class="px-2 py-2 text-sm text-gray-600 border-b border-gray-200"><?php echo htmlspecialchars($item['remarks'] ?: '-'); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </tbody>
                         <tfoot class="bg-gray-50">
                             <tr>
-                                <td colspan="7" class="px-4 py-3 text-right text-sm font-medium text-gray-900 border-t border-gray-200">Grand Total:</td>
-                                <td class="px-4 py-3 text-right text-lg font-bold text-gray-900 border-t border-gray-200"><?php echo number_format($sale['final_amount']); ?></td>
+                                <td colspan="7" class="px-2 py-2 text-right text-sm font-medium text-gray-900 border-t border-gray-200">Grand Total:</td>
+                                <td class="px-2 py-2 text-right text-lg font-bold text-gray-900 border-t border-gray-200"><?php echo number_format($sale['final_amount']); ?></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -385,7 +385,7 @@ if (isset($_SESSION['flash'])) {
                 <?php endif; ?>
 
                 <!-- 담당자 및 서명란 -->
-                <div class="mb-8 flex justify-end">
+                <div class="mb-6 flex justify-end">
                     <div class="w-full max-w-lg">
                         <table class="payment-table w-full border border-gray-300">
                             <thead>

@@ -12,10 +12,10 @@ header('Content-Type: application/json; charset=utf-8');
 // 세션 시작
 session_start();
 
-// 필요한 파일들만 include
-require_once '../config/db_config.php';
-require_once '../lib/session_helper.php';
-require_once '../lib/permission_helper.php';
+// 필요한 파일들만 include (header.php 제외)
+require_once __DIR__ . '/../config/db_config.php';
+require_once __DIR__ . '/../lib/session_helper.php';
+require_once __DIR__ . '/../lib/permission_helper.php';
 
 // 버퍼 내용 정리 (혹시 있을 수 있는 출력 제거)
 ob_clean();

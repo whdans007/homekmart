@@ -28,7 +28,7 @@ try {
             $sql = "
                 SELECT 
                     c.id, c.product_id, c.quantity, c.store_id,
-                    p.name as product_name, p.description, p.image_url, p.barcode,
+                    p.name as product_name, p.description, p.image_url,
                     i.selling_price, i.quantity as stock,
                     cat.name as category_name,
                     b.name_ko as brand_name,

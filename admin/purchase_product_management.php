@@ -129,7 +129,6 @@ try {
         }
     }
 } catch (Exception $e) {
-    error_log("Brands load error: " . $e->getMessage());
 }
 
 // 날짜 변수 - 기본적으로 최근 7일간의 데이터 표시
@@ -174,7 +173,6 @@ if (!empty($_SESSION['user_id'])) {
         }
         $user_stmt->close();
     } catch (Exception $e) {
-        error_log("Store info error: " . $e->getMessage());
     }
 }
 
@@ -286,7 +284,6 @@ try {
     
     $stmt->close();
 } catch (Exception $e) {
-    error_log("Purchase products query error: " . $e->getMessage());
 }
 
 $conn->close();
@@ -605,12 +602,6 @@ $conn->close();
                             </td>
                         </tr>
                         <tr class="border-b">
-                            <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.barcode'); ?></td>
-                            <td class="px-4 py-2">
-                                <input type="text" id="modal-barcode" class="w-full px-2 py-1 text-sm font-mono border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500">
-                            </td>
-                        </tr>
-                        <tr class="border-b">
                             <td class="px-4 py-2 font-semibold bg-gray-50"><?php echo t('product.brand'); ?></td>
                             <td class="px-4 py-2">
                                 <!-- 선택된 브랜드 표시 -->
@@ -853,7 +844,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const translations = {
         productDetails: <?php echo json_encode(t('product.js_product_details_title')); ?>,
         noDescription: <?php echo json_encode(t('product.js_no_description')); ?>,
-        noBarcode: <?php echo json_encode(t('product.js_no_barcode')); ?>,
         piecesPerBox: <?php echo json_encode(t('product.js_pieces_per_box')); ?>,
         activeStatus: <?php echo json_encode(t('product.js_active_status')); ?>,
         inactiveStatus: <?php echo json_encode(t('product.js_inactive_status')); ?>,
@@ -900,7 +890,6 @@ document.addEventListener('DOMContentLoaded', function() {
         nameEn: document.getElementById('modal-name-en'),
         nameKo: document.getElementById('modal-name-ko'),
         sku: document.getElementById('modal-sku'),
-        barcode: document.getElementById('modal-barcode'),
         description: document.getElementById('modal-description'),
         brandEn: document.getElementById('modal-brand-en'),
         brandKo: document.getElementById('modal-brand-ko'),
@@ -1086,7 +1075,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(result => {
-            console.log('Brand add result:', result);
             if (result.success) {
                 modalContent.brandEn.value = result.data.name_en || '';
                 modalContent.brandKo.value = result.data.name_ko || result.data.name || '';
@@ -1251,7 +1239,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(result => {
-            console.log('Category add result:', result);
             if (result.success) {
                 modalContent.categoryEn.value = result.data.name_en || '';
                 modalContent.categoryKo.value = result.data.name_ko || result.data.name || '';
@@ -1312,7 +1299,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         name_en: product.name_en || '',
                         name_ko: product.name_ko || '',
                         sku: product.sku || '',
-                        barcode: product.barcode || '',
                         brand_id: product.brand_id || '',
                         category_id: product.category_id || '',
                         pieces_per_box: product.pieces_per_box || 1,
@@ -1325,7 +1311,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     modalContent.nameEn.value = product.name_en || '';
                     modalContent.nameKo.value = product.name_ko || '';
                     modalContent.sku.value = product.sku || '';
-                    modalContent.barcode.value = product.barcode || '';
                     
                     // 브랜드 설정
                     modalContent.brandEn.value = product.brand_name_en || '';
@@ -1370,7 +1355,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     modalContent.statusSelect.value = product.is_active !== undefined ? product.is_active : 1;
                     
                     // Inventory and Pricing by Store
-                    console.log('Product inventory data:', product.inventory);
                     modalContent.inventoryWrapper.innerHTML = '';
                     if (product.inventory && product.inventory.length > 0) {
                         const inventoryTable = document.createElement('table');
@@ -1388,7 +1372,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         `;
                         const tbody = inventoryTable.querySelector('tbody');
                         product.inventory.forEach(inv => {
-                            console.log('Processing inventory item:', inv);
                             const storeCostPrice = inv.cost_price ? `${parseFloat(inv.cost_price).toLocaleString()}` : '-';
                             const storeSellingPrice = inv.selling_price ? `${parseFloat(inv.selling_price).toLocaleString()}` : '-';
                             
@@ -1399,7 +1382,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                 marginRate = `${margin.toFixed(1)}%`;
                             }
                             
-                            console.log('Formatted prices - Cost:', storeCostPrice, 'Margin:', marginRate, 'Selling:', storeSellingPrice);
                             const row = document.createElement('tr');
                             row.className = 'border-b';
                             row.innerHTML = `
@@ -1797,7 +1779,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                 `;
                                 const tbody = inventoryTable.querySelector('tbody');
                                 product.inventory.forEach(inv => {
-                                    console.log('Refresh - Processing inventory item:', inv);
                                     const storeCostPrice = inv.cost_price ? `${parseFloat(inv.cost_price).toLocaleString()}` : '-';
                                     const storeSellingPrice = inv.selling_price ? `${parseFloat(inv.selling_price).toLocaleString()}` : '-';
                                     
@@ -1808,7 +1789,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                         marginRate = `${margin.toFixed(1)}%`;
                                     }
                                     
-                                    console.log('Refresh - Formatted prices - Cost:', storeCostPrice, 'Margin:', marginRate, 'Selling:', storeSellingPrice);
                                     const row = document.createElement('tr');
                                     row.className = 'border-b';
                                     row.innerHTML = `
@@ -1920,14 +1900,12 @@ document.addEventListener('DOMContentLoaded', function() {
             body: formData
         })
         .then(response => {
-            console.log('Response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(result => {
-            console.log('Save result:', result);
             if (result.success) {
                 showToast(result.message, 'success');
                 marginPresets = result.data;
@@ -1953,7 +1931,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return (
             modalContent.nameEn.value !== originalProductData.name_en ||
             modalContent.nameKo.value !== originalProductData.name_ko ||
-            modalContent.barcode.value !== originalProductData.barcode ||
             modalContent.brandId.value !== String(originalProductData.brand_id || '') ||
             modalContent.categoryId.value !== String(originalProductData.category_id || '') ||
             modalContent.piecesPerBox.value !== String(originalProductData.pieces_per_box) ||
@@ -1964,7 +1941,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 입력 필드 변경 감지
     const watchFields = [
-        modalContent.nameEn, modalContent.nameKo, modalContent.barcode,
+        modalContent.nameEn, modalContent.nameKo,
         modalContent.brandKo, modalContent.brandEn, modalContent.categoryKo, modalContent.categoryEn,
         modalContent.piecesPerBox, modalContent.description, modalContent.statusSelect
     ];
@@ -2018,7 +1995,6 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('product_id', currentProductId);
         formData.append('name_en', modalContent.nameEn.value.trim());
         formData.append('name_ko', modalContent.nameKo.value.trim());
-        formData.append('barcode', modalContent.barcode.value.trim());
         formData.append('brand_id', modalContent.brandId.value);
         formData.append('category_id', modalContent.categoryId.value);
         formData.append('pieces_per_box', modalContent.piecesPerBox.value);
@@ -2039,7 +2015,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     name_en: modalContent.nameEn.value,
                     name_ko: modalContent.nameKo.value,
                     sku: modalContent.sku.value,
-                    barcode: modalContent.barcode.value,
                     brand_id: modalContent.brandId.value,
                     category_id: modalContent.categoryId.value,
                     pieces_per_box: modalContent.piecesPerBox.value,

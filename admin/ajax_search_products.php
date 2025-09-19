@@ -90,7 +90,7 @@ try {
     // 점포별 원가/박스단가를 포함한 쿼리 구성
     if (($has_cost_price_column || $has_box_price_column) && $user_store_id) {
         // 점포별 원가/박스단가가 있는 경우
-        $select_fields = "p.id, p.sku, p.name_ko, p.name_en, p.barcode, p.pieces_per_box, b.name_ko as brand_name";
+        $select_fields = "p.id, p.sku, p.name_ko, p.name_en, p.pieces_per_box, b.name_ko as brand_name";
         
         if ($has_cost_price_column) {
             $select_fields .= ", COALESCE(i.cost_price, p.cost_price) as cost_price";
@@ -110,12 +110,12 @@ try {
                       LEFT JOIN brands b ON p.brand_id = b.id";
     } else {
         // 기본 상품 테이블의 원가 사용
-        $base_select = "SELECT p.id, p.sku, p.name_ko, p.name_en, p.barcode, p.cost_price, p.selling_price, p.pieces_per_box, b.name_ko as brand_name";
+        $base_select = "SELECT p.id, p.sku, p.name_ko, p.name_en, p.cost_price, p.selling_price, p.pieces_per_box, b.name_ko as brand_name";
         $base_from = "FROM products p LEFT JOIN brands b ON p.brand_id = b.id";
     }
     
-    // 바코드 검색을 우선으로 처리
-    $sql = $base_select . " " . $base_from . " WHERE p.barcode = ? LIMIT 1";
+    // SKU 검색을 우선으로 처리
+    $sql = $base_select . " " . $base_from . " WHERE p.sku = ? LIMIT 1";
     $stmt = $conn->prepare($sql);
     
     if (($has_cost_price_column || $has_box_price_column) && $user_store_id) {

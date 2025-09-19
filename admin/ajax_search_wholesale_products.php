@@ -91,15 +91,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
                             wp.wholesale_skus,
                             wp.wholesale_price,
+                            COALESCE(wp.wholesale_price_piece, 0) as wholesale_price_piece,
                             COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
                             wp.wholesale_description,
                             'registered' as status,
-                            p.cost_price,
-                            p.selling_price,
+                            i.cost_price,
+                            i.selling_price,
                             p.pieces_per_box as product_pieces_per_box,
                             1 as sort_priority
                         FROM wholesale_products wp
-                        INNER JOIN products p ON p.id = wp.product_id 
+                        INNER JOIN products p ON p.id = wp.product_id
+                        LEFT JOIN inventory i ON wp.product_id = i.product_id AND wp.store_id = i.store_id 
                         WHERE wp.is_active = 1 
                             AND p.is_active = 1 
                             " . ($store_id ? "AND wp.store_id = ?" : "") . "
@@ -121,14 +123,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             p.name_en as display_name_en,
                             NULL as wholesale_skus,
                             NULL as wholesale_price,
+                            NULL as wholesale_price_piece,
                             p.pieces_per_box as min_quantity,
                             NULL as wholesale_description,
                             'unregistered' as status,
-                            p.cost_price,
-                            p.selling_price,
+                            i.cost_price,
+                            i.selling_price,
                             p.pieces_per_box as product_pieces_per_box,
                             2 as sort_priority
                         FROM products p
+                        LEFT JOIN inventory i ON p.id = i.product_id" . ($store_id ? " AND i.store_id = ?" : "") . "
                         WHERE p.is_active = 1 
                             AND (p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ?)
                             AND NOT EXISTS (
@@ -158,6 +162,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $params = array_merge($params, [
                     $search_query, $search_query, $search_query, // 등록된 도매상품 검색 - 기본 상품
                     $search_query, $search_query, $search_query, // 등록된 도매상품 검색 - 도매 상품
+                ]);
+                if ($store_id) {
+                    $params[] = $store_id; // 미등록 상품 inventory JOIN store_id
+                }
+                $params = array_merge($params, [
                     $search_query, $search_query, $search_query, // 미등록 일반상품 검색
                 ]);
                 if ($store_id) {
@@ -254,7 +263,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
     } catch (PDOException $e) {
-        error_log("Wholesale product search error: " . $e->getMessage());
         $response['message'] = '검색 중 오류가 발생했습니다.';
     }
 }

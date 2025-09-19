@@ -70,13 +70,14 @@ try {
                 SELECT 
                     wp.id, wp.wholesale_price, wp.min_quantity, wp.created_at,
                     wp.wholesale_name_ko, wp.wholesale_name_en, wp.wholesale_skus, wp.wholesale_description,
-                    COALESCE(wp.cost_price, p.cost_price, 0) as cost_price,
+                    COALESCE(i.cost_price, 0) as cost_price,
                     COALESCE(wp.margin_rate, 15.00) as margin_rate,
-                    p.id as product_id, p.sku, p.name_ko, p.name_en, p.barcode, p.pieces_per_box,
+                    p.id as product_id, p.sku, p.name_ko, p.name_en, p.pieces_per_box,
                     s.name as store_name
                 FROM wholesale_products wp
                 LEFT JOIN products p ON wp.product_id = p.id
                 LEFT JOIN stores s ON wp.store_id = s.id
+                LEFT JOIN inventory i ON wp.product_id = i.product_id AND wp.store_id = i.store_id
                 " . $where_clause . "
                 ORDER BY wp.created_at DESC
                 LIMIT ? OFFSET ?
@@ -86,13 +87,14 @@ try {
                 SELECT 
                     wp.id, wp.wholesale_price, wp.min_quantity, wp.created_at,
                     NULL as wholesale_name_ko, NULL as wholesale_name_en, NULL as wholesale_skus, NULL as wholesale_description,
-                    COALESCE(wp.cost_price, p.cost_price, 0) as cost_price,
+                    COALESCE(i.cost_price, 0) as cost_price,
                     COALESCE(wp.margin_rate, 15.00) as margin_rate,
-                    p.id as product_id, p.sku, p.name_ko, p.name_en, p.barcode, p.pieces_per_box,
+                    p.id as product_id, p.sku, p.name_ko, p.name_en, p.pieces_per_box,
                     s.name as store_name
                 FROM wholesale_products wp
                 LEFT JOIN products p ON wp.product_id = p.id
                 LEFT JOIN stores s ON wp.store_id = s.id
+                LEFT JOIN inventory i ON wp.product_id = i.product_id AND wp.store_id = i.store_id
                 " . $where_clause . "
                 ORDER BY wp.created_at DESC
                 LIMIT ? OFFSET ?
@@ -104,13 +106,14 @@ try {
             SELECT 
                 wp.id, wp.wholesale_price, wp.min_quantity, wp.created_at,
                 NULL as wholesale_name_ko, NULL as wholesale_name_en, NULL as wholesale_skus, NULL as wholesale_description,
-                COALESCE(wp.cost_price, p.cost_price, 0) as cost_price,
+                COALESCE(i.cost_price, 0) as cost_price,
                 COALESCE(wp.margin_rate, 15.00) as margin_rate,
-                p.id as product_id, p.sku, p.name_ko, p.name_en, p.barcode, p.pieces_per_box,
+                p.id as product_id, p.sku, p.name_ko, p.name_en, p.pieces_per_box,
                 s.name as store_name
             FROM wholesale_products wp
             LEFT JOIN products p ON wp.product_id = p.id
             LEFT JOIN stores s ON wp.store_id = s.id
+            LEFT JOIN inventory i ON wp.product_id = i.product_id AND wp.store_id = i.store_id
             " . $where_clause . "
             ORDER BY wp.created_at DESC
             LIMIT ? OFFSET ?

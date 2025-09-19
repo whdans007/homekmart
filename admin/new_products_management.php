@@ -35,8 +35,7 @@ if (!empty($_SESSION['user_id'])) {
         $user_stmt->close();
         $conn->close();
     } catch (Exception $e) {
-        error_log("Store info error: " . $e->getMessage());
-    }
+        }
 }
 
 // 검색 및 페이징 변수
@@ -69,8 +68,8 @@ try {
 
     // 신상품 목록 가져오기
     $sql = "
-        SELECT 
-            p.id, p.sku, p.name_ko, p.name_en, p.is_active, p.pieces_per_box, p.barcode, p.created_at,
+        SELECT
+            p.id, p.sku, p.name_ko, p.name_en, p.is_active, p.pieces_per_box, p.created_at,
             c.name as category_name, b.name_ko as brand_name, b.name_en as brand_name_en
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
@@ -223,11 +222,6 @@ try {
                                 <?php if (empty($product['name_en']) && empty($product['name_ko'])): ?>
                                 <div class="text-gray-400">-</div>
                                 <?php endif; ?>
-                                <?php if (!empty($product['barcode'])): ?>
-                                <div class="text-xs text-gray-500 font-mono mt-1">
-                                    <?php echo htmlspecialchars($product['barcode']); ?>
-                                </div>
-                                <?php endif; ?>
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
@@ -362,10 +356,6 @@ try {
                                 <td class="py-1.5 font-mono text-xs" id="modal-sku"></td>
                             </tr>
                             <tr class="border-b border-gray-200 last:border-b-0">
-                                <td class="py-1.5 font-medium text-gray-600"><?php echo t('product.barcode'); ?>:</td>
-                                <td class="py-1.5 font-mono text-xs" id="modal-barcode"></td>
-                            </tr>
-                            <tr class="border-b border-gray-200 last:border-b-0">
                                 <td class="py-1.5 font-medium text-gray-600"><?php echo t('product.brand'); ?>:</td>
                                 <td class="py-1.5" id="modal-brand"></td>
                             </tr>
@@ -416,7 +406,6 @@ document.addEventListener('DOMContentLoaded', function() {
         nameEn: document.getElementById('modal-name-en'),
         nameKo: document.getElementById('modal-name-ko'),
         sku: document.getElementById('modal-sku'),
-        barcode: document.getElementById('modal-barcode'),
         description: document.getElementById('modal-description'),
         brand: document.getElementById('modal-brand'),
         category: document.getElementById('modal-category'),
@@ -476,7 +465,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function loadProductDetails(productId) {
-        console.log('Loading product details for ID:', productId); // 디버깅
         
         fetch('ajax_get_product_details.php', {
             method: 'POST',
@@ -486,14 +474,12 @@ document.addEventListener('DOMContentLoaded', function() {
             body: `product_id=${encodeURIComponent(productId)}`
         })
         .then(response => {
-            console.log('Response status:', response.status); // 디버깅
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            console.log('Response data:', data); // 디버깅
             if (data.success) {
                 const product = data.product;
                 
@@ -505,7 +491,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 modalContent.description.textContent = product.description || '<?php echo t("product.js_no_description"); ?>';
                 modalContent.brand.textContent = product.brand_name_ko || 'N/A';
                 modalContent.category.textContent = product.category_name || 'N/A';
-                modalContent.barcode.textContent = product.barcode || '<?php echo t("product.js_no_barcode"); ?>';
                 
                 const piecesPerBox = product.pieces_per_box || 1;
                 modalContent.boxInfo.innerHTML = `<span class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">${piecesPerBox}<?php echo t('product.js_pieces_per_box'); ?></span>`;

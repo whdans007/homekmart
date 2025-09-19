@@ -88,20 +88,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             p.sku,
             p.name_ko,
             p.name_en,
-            p.barcode,
             p.pieces_per_box,
             b.name_ko as brand_name,
             COALESCE(i.quantity, 0) as stock";
         
         // 점포별 원가가 있는 경우
         if ($has_cost_price_column) {
-            $select_fields .= ", COALESCE(i.cost_price, p.cost_price) as cost_price";
+            $select_fields .= ", COALESCE(i.cost_price, 0) as cost_price";
         } else {
-            $select_fields .= ", p.cost_price";
+            $select_fields .= ", 0 as cost_price";
         }
-        
+
         // 점포별 판매가
-        $select_fields .= ", COALESCE(i.selling_price, p.selling_price) as selling_price";
+        $select_fields .= ", COALESCE(i.selling_price, 0) as selling_price";
         
         // 점포별 박스가격이 있는 경우
         if ($has_box_price_column) {
@@ -115,12 +114,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             LEFT JOIN inventory i ON p.id = i.product_id" . ($current_store_id ? " AND i.store_id = ?" : "")."
             LEFT JOIN brands b ON p.brand_id = b.id";
         
-        // 바코드 우선 검색
-        $exact_barcode_sql = "SELECT " . $select_fields . " " . $from_clause . "
-            WHERE p.is_active = 1 AND p.barcode = ?
+        // SKU 우선 검색
+        $exact_sku_sql = "SELECT " . $select_fields . " " . $from_clause . "
+            WHERE p.is_active = 1 AND p.sku = ?
             LIMIT 1";
         
-        $stmt = $conn->prepare($exact_barcode_sql);
+        $stmt = $conn->prepare($exact_sku_sql);
         if ($current_store_id) {
             $stmt->bind_param("is", $current_store_id, $query);
         } else {
@@ -128,11 +127,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         $stmt->execute();
-        $barcode_result = $stmt->get_result();
-        
-        if ($barcode_result->num_rows > 0) {
-            // 바코드로 정확히 일치하는 상품이 있음
-            $products = [$barcode_result->fetch_assoc()];
+        $sku_result = $stmt->get_result();
+
+        if ($sku_result->num_rows > 0) {
+            // SKU로 정확히 일치하는 상품이 있음
+            $products = [$sku_result->fetch_assoc()];
             $products[0]['exact_match'] = true;
         } else {
             // 상품명이나 SKU로 검색
