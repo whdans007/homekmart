@@ -62,21 +62,19 @@ $debug_msg = date('Y-m-d H:i:s') . " - 가격변동 페이지 로드 - user_id: 
 file_put_contents(__DIR__ . '/debug_log.txt', $debug_msg, FILE_APPEND | LOCK_EX);
 
 // 매입 상품과 현재 점포 정보를 비교 조회
-$items_sql = "SELECT 
-    pi.*, 
+$items_sql = "SELECT
+    pi.*,
     pr.name_ko as product_name_ko,
     pr.name_en as product_name_en,
     pr.sku,
-    pr.cost_price as product_cost_price,
-    pr.selling_price as product_selling_price,
     pr.pieces_per_box,
     c.name as category_name,
-    COALESCE(inv.cost_price, pr.cost_price) as current_cost_price,
-    COALESCE(inv.selling_price, pr.selling_price) as current_selling_price,
+    COALESCE(inv.cost_price, 0) as current_cost_price,
+    COALESCE(inv.selling_price, 0) as current_selling_price,
     inv.quantity as store_quantity,
     -- 매입 단가를 낱개 기준으로 환산
-    CASE 
-        WHEN pi.purchase_type = 'box' AND pr.pieces_per_box > 0 
+    CASE
+        WHEN pi.purchase_type = 'box' AND pr.pieces_per_box > 0
         THEN pi.unit_price / pr.pieces_per_box
         ELSE pi.unit_price
     END as purchase_unit_price_per_piece
@@ -676,13 +674,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('성공 응답 처리');
                 
                 // 업데이트된 상품 정보 확인
-                if (data.updated_products) {
-                    console.log('업데이트된 상품 정보:', data.updated_products);
-                    data.updated_products.forEach(product => {
-                        console.log(`상품 ${product.product_id} (${product.product_name}): 
-                            기존 판매가: ${product.old_selling_price}, 
-                            새 판매가: ${product.new_selling_price},
-                            JS 가격 사용: ${product.used_js_price ? '예' : '아니오'}`);
+                if (data.updated_items) {
+                    console.log('업데이트된 상품 정보:', data.updated_items);
+                    data.updated_items.forEach(item => {
+                        console.log(`상품 ${item.product_id} (${item.product_name}):
+                            원가: ${item.old_cost_price} → ${item.new_cost_price},
+                            판매가: ${item.old_selling_price} → ${item.new_selling_price},
+                            마진율: ${item.old_margin_rate}% → ${item.new_margin_rate}%,
+                            이력저장: ${item.history_saved ? '성공' : '실패'}`);
                     });
                 }
                 

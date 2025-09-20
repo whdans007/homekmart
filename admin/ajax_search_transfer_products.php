@@ -33,6 +33,7 @@ $limit = min((int)($_POST['limit'] ?? 20), 100);
 $show_all = isset($_POST['show_all']) && $_POST['show_all'] == '1';
 $from_store_id = (int)($_POST['from_store_id'] ?? 0);
 
+
 if (!$from_store_id) {
     echo json_encode(['success' => false, 'message' => '출발 점포를 선택해주세요.']);
     exit;
@@ -55,9 +56,6 @@ try {
     // 출발 점포에 재고가 있는 상품만
     $conditions[] = "i.store_id = ?";
     $params[] = $from_store_id;
-    
-    $conditions[] = "i.quantity > 0";
-    $conditions[] = "i.cost_price > 0";
     
     // 활성 상품만 조회 (컬럼이 존재하는 경우)
     if ($is_active_exists) {
@@ -116,11 +114,13 @@ try {
         ORDER BY p.id
     ";
     
+
     // LIMIT을 별도로 처리하여 SQL 구문 오류 방지
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $all_products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
+
+
     // PHP에서 LIMIT 처리
     $products = array_slice($all_products, 0, $limit);
     
@@ -129,11 +129,6 @@ try {
     foreach ($products as $product) {
         $cost_price = (float)$product['cost_price'];
         $available_quantity = (int)$product['available_quantity'];
-        
-        // 원가가 0이거나 재고가 없는 상품은 제외
-        if ($cost_price <= 0 || $available_quantity <= 0) {
-            continue;
-        }
         
         $result_products[] = [
             'id' => $product['id'],
@@ -153,15 +148,6 @@ try {
         'products' => $result_products,
         'total_found' => count($result_products),
         'from_store_id' => $from_store_id,
-        'debug_info' => [
-            'brands_exists' => (bool)$brands_exists,
-            'is_active_exists' => (bool)$is_active_exists,
-            'pieces_per_box_exists' => (bool)$pieces_per_box_exists,
-            'total_before_limit' => count($all_products),
-            'applied_limit' => $limit,
-            'search_query' => $query,
-            'show_all' => $show_all
-        ]
     ]);
     
 } catch (PDOException $e) {
