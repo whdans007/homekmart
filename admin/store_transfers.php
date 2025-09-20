@@ -1153,8 +1153,37 @@ document.addEventListener('DOMContentLoaded', function() {
     // 박스포장수량 수정
     window.updatePiecesPerBox = function(index, value) {
         const newPiecesPerBox = parseInt(value) || 1;
+        const productId = cart[index].product_id;
+
+        // 먼저 장바구니 업데이트
         cart[index].pieces_per_box = newPiecesPerBox;
         cartItemsInput.value = JSON.stringify(cart);
+        updateCart();
+
+        // 서버에 상품 정보 업데이트 요청
+        fetch('ajax_update_pieces_per_box.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'product_id=' + encodeURIComponent(productId) + '&pieces_per_box=' + encodeURIComponent(newPiecesPerBox)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('박스포장수량 업데이트 성공:', data.message);
+                // 성공적으로 업데이트된 경우 알림 표시 (선택사항)
+                // searchStatus.textContent = data.message;
+                // searchStatus.className = 'mt-2 text-sm text-green-600';
+            } else {
+                console.error('박스포장수량 업데이트 실패:', data.error);
+                alert('박스포장수량 업데이트 실패: ' + (data.error || '알 수 없는 오류'));
+            }
+        })
+        .catch(error => {
+            console.error('박스포장수량 업데이트 오류:', error);
+            alert('박스포장수량 업데이트 중 네트워크 오류가 발생했습니다.');
+        });
     };
     
     // 박스원가 수정

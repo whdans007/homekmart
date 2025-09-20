@@ -19,10 +19,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-// JSON 데이터 파싱
+// JSON 데이터 또는 POST 데이터 파싱
 $input = json_decode(file_get_contents('php://input'), true);
+
+// JSON이 없으면 POST 데이터 사용
 if (!$input) {
-    echo json_encode(['success' => false, 'error' => '잘못된 JSON 데이터입니다.']);
+    $input = $_POST;
+}
+
+if (empty($input)) {
+    echo json_encode(['success' => false, 'error' => 'POST 데이터가 없습니다.']);
     exit;
 }
 

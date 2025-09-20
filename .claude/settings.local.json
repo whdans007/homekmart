@@ -20,7 +20,9 @@
       "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l admin/price_label_print.php)",
       "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l Z:homekmartadminprice_label_print.php)",
       "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l \"Z:\\homekmart\\admin\\price_label_print.php\")",
-      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l \"Z:\\homekmart\\admin\\price_label_project_edit.php\")"
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l \"Z:\\homekmart\\admin\\price_label_project_edit.php\")",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l \"Z:\\homekmart\\admin\\store_transfer_preview.php\")",
+      "Bash(php -l:*)"
     ],
     "deny": [],
     "ask": []
