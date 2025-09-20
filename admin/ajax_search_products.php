@@ -89,28 +89,26 @@ try {
     
     // 점포별 원가/박스단가를 포함한 쿼리 구성
     if (($has_cost_price_column || $has_box_price_column) && $user_store_id) {
-        // 점포별 원가/박스단가가 있는 경우
+        // 점포별 원가/박스단가가 있는 경우 - inventory 테이블 데이터만 사용
         $select_fields = "p.id, p.sku, p.name_ko, p.name_en, p.pieces_per_box, b.name_ko as brand_name";
-        
+
         if ($has_cost_price_column) {
-            $select_fields .= ", COALESCE(i.cost_price, p.cost_price) as cost_price";
-        } else {
-            $select_fields .= ", p.cost_price";
+            $select_fields .= ", i.cost_price";
         }
-        
-        $select_fields .= ", COALESCE(i.selling_price, p.selling_price) as selling_price";
-        
+
+        $select_fields .= ", i.selling_price";
+
         if ($has_box_price_column) {
             $select_fields .= ", i.box_price";
         }
-        
+
         $base_select = "SELECT " . $select_fields;
-        $base_from = "FROM products p 
+        $base_from = "FROM products p
                       LEFT JOIN inventory i ON p.id = i.product_id AND i.store_id = ?
                       LEFT JOIN brands b ON p.brand_id = b.id";
     } else {
-        // 기본 상품 테이블의 원가 사용
-        $base_select = "SELECT p.id, p.sku, p.name_ko, p.name_en, p.cost_price, p.selling_price, p.pieces_per_box, b.name_ko as brand_name";
+        // inventory 테이블이 없는 경우 기본값 사용
+        $base_select = "SELECT p.id, p.sku, p.name_ko, p.name_en, NULL as cost_price, NULL as selling_price, p.pieces_per_box, b.name_ko as brand_name";
         $base_from = "FROM products p LEFT JOIN brands b ON p.brand_id = b.id";
     }
     
