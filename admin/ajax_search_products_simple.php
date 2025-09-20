@@ -24,6 +24,7 @@ try {
     // 디버깅 로그
     error_log("Search query: '$query', limit: $limit");
     error_log("POST data: " . print_r($_POST, true));
+    error_log("Current store ID: " . ($_SESSION['store_id'] ?? 'not_set'));
     
     if (strlen($query) < 2) {
         echo json_encode(['success' => false, 'products' => [], 'message' => '검색어가 너무 짧습니다']);
@@ -36,25 +37,28 @@ try {
     
     $search_query = "%{$query}%";
     
-    // 간단한 상품 검색
+    // 간단한 상품 검색 - inventory 테이블과 조인하여 현재 점포의 가격 정보 포함
+    $current_store_id = $_SESSION['store_id'] ?? 1; // 현재 점포 ID
+
     $sql = "
-        SELECT 
+        SELECT
             p.id,
             p.sku,
             p.name_ko,
             p.name_en,
-            p.selling_price,
-            p.cost_price,
-            p.pieces_per_box
+            COALESCE(p.pieces_per_box, 1) as pieces_per_box,
+            COALESCE(i.selling_price, 0) as selling_price,
+            COALESCE(i.cost_price, 0) as cost_price
         FROM products p
-        WHERE p.is_active = 1 
+        LEFT JOIN inventory i ON p.id = i.product_id AND i.store_id = ?
+        WHERE p.is_active = 1
         AND (p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ?)
-        ORDER BY 
-            CASE 
-                WHEN p.sku LIKE ? THEN 1 
-                WHEN p.name_en LIKE ? THEN 2 
-                WHEN p.name_ko LIKE ? THEN 3 
-                ELSE 4 
+        ORDER BY
+            CASE
+                WHEN p.sku LIKE ? THEN 1
+                WHEN p.name_en LIKE ? THEN 2
+                WHEN p.name_ko LIKE ? THEN 3
+                ELSE 4
             END,
             p.name_en ASC, p.name_ko ASC
         LIMIT " . (int)$limit . "
@@ -62,6 +66,7 @@ try {
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
+        $current_store_id,                           // JOIN 조건
         $search_query, $search_query, $search_query, // WHERE 조건
         $search_query, $search_query, $search_query  // ORDER BY 조건
     ]);

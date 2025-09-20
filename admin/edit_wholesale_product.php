@@ -43,10 +43,10 @@ try {
         
         if ($has_new_columns) {
             $stmt = $pdo->prepare("
-                SELECT wp.*, 
+                SELECT wp.*,
                        wp.wholesale_name_ko, wp.wholesale_name_en, wp.wholesale_skus, wp.wholesale_description,
                        COALESCE(wp.sale_unit, 'box') as sale_unit,
-                       COALESCE(i.cost_price, 0) as cost_price,
+                       COALESCE(wp.cost_price, i.cost_price, 0) as cost_price,
                        COALESCE(wp.margin_rate, 15.00) as margin_rate,
                        p.sku, p.name_ko, p.name_en, i.selling_price, s.name as store_name
                 FROM wholesale_products wp
@@ -57,10 +57,10 @@ try {
             ");
         } else {
             $stmt = $pdo->prepare("
-                SELECT wp.*, 
+                SELECT wp.*,
                        NULL as wholesale_name_ko, NULL as wholesale_name_en, NULL as wholesale_skus, NULL as wholesale_description,
                        'box' as sale_unit,
-                       COALESCE(i.cost_price, 0) as cost_price,
+                       COALESCE(wp.cost_price, i.cost_price, 0) as cost_price,
                        COALESCE(wp.margin_rate, 15.00) as margin_rate,
                        p.sku, p.name_ko, p.name_en, i.selling_price, s.name as store_name
                 FROM wholesale_products wp
@@ -76,7 +76,7 @@ try {
             SELECT wp.*, 
                    NULL as wholesale_name_ko, NULL as wholesale_name_en, NULL as wholesale_skus, NULL as wholesale_description,
                    'box' as sale_unit,
-                   COALESCE(i.cost_price, 0) as cost_price,
+                   COALESCE(wp.cost_price, i.cost_price, 0) as cost_price,
                    COALESCE(wp.margin_rate, 15.00) as margin_rate,
                    p.sku, p.name_ko, p.name_en, i.selling_price, s.name as store_name
             FROM wholesale_products wp
@@ -120,7 +120,7 @@ try {
     if ($wholesale_product) {
         try {
             $history_stmt = $pdo->prepare("
-                SELECT 
+                SELECT
                     pi.item_id,
                     pi.unit_price,
                     pi.quantity,
@@ -131,12 +131,12 @@ try {
                     pr.name_ko,
                     pr.name_en,
                     COALESCE(pr.pieces_per_box, 1) as pieces_per_box,
-                    CASE 
+                    CASE
                         WHEN pi.purchase_type = 'box' THEN pi.unit_price
                         WHEN pi.purchase_type = 'piece' THEN ROUND(pi.unit_price * COALESCE(pr.pieces_per_box, 1))
                         ELSE pi.unit_price
                     END as box_receiving_price,
-                    CASE 
+                    CASE
                         WHEN pi.purchase_type = 'piece' THEN pi.unit_price
                         WHEN pi.purchase_type = 'box' THEN ROUND(pi.unit_price / COALESCE(pr.pieces_per_box, 1), 2)
                         ELSE pi.unit_price
@@ -149,16 +149,26 @@ try {
                 ORDER BY p.purchase_date DESC, p.purchase_id DESC
                 LIMIT 3
             ");
-            
+
             $history_stmt->execute([$wholesale_product['product_id']]);
             $receiving_history = $history_stmt->fetchAll(PDO::FETCH_ASSOC);
-            
+
+            // 디버깅: 입고 데이터 로그 출력
+            if (!empty($receiving_history)) {
+                error_log("=== 입고내역 디버깅 (Product ID: {$wholesale_product['product_id']}) ===");
+                foreach ($receiving_history as $index => $item) {
+                    error_log("항목 $index: purchase_type={$item['purchase_type']}, unit_price={$item['unit_price']}, pieces_per_box={$item['pieces_per_box']}");
+                    error_log("  -> box_receiving_price={$item['box_receiving_price']}, piece_receiving_price={$item['piece_receiving_price']}");
+                }
+            }
+
             // 날짜 포맷팅
             foreach ($receiving_history as &$item) {
                 $item['received_date_formatted'] = date('Y-m-d', strtotime($item['received_date']));
             }
         } catch (PDOException $e) {
             $receiving_history = [];
+            error_log("입고내역 조회 오류: " . $e->getMessage());
         }
     }
     
@@ -238,6 +248,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $wholesale_price_piece = trim($_POST['wholesale_price_piece'] ?? '0');
     $sale_unit = trim($_POST['sale_unit'] ?? 'box');
     $store_id = $_SESSION['role'] === 'super_admin' ? (int)($_POST['store_id'] ?? 0) : $wholesale_product['store_id'];
+
+    // 디버깅: POST로 받은 값들 로그 출력
+    error_log("=== POST 데이터 디버깅 (Wholesale Product ID: $wholesale_product_id) ===");
+    error_log("cost_price (박스원가): '$cost_price'");
+    error_log("cost_price_piece (낱개원가): '$cost_price_piece'");
+    error_log("wholesale_price (박스판매가): '$wholesale_price'");
+    error_log("wholesale_price_piece (낱개판매가): '$wholesale_price_piece'");
+    error_log("margin_rate: '$margin_rate'");
+
+    // 디버깅: 브라우저에서 확인할 수 있도록 세션에 저장
+    $_SESSION['debug_post_data'] = [
+        'cost_price' => $cost_price,
+        'cost_price_piece' => $cost_price_piece,
+        'wholesale_price' => $wholesale_price,
+        'wholesale_price_piece' => $wholesale_price_piece,
+        'margin_rate' => $margin_rate,
+        'timestamp' => date('Y-m-d H:i:s')
+    ];
     
     // 도매 상품명 검증 (한국어 또는 영어 중 최소 하나는 필수)
     if (empty($wholesale_name_ko) && empty($wholesale_name_en)) {
@@ -325,11 +353,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             WHERE id = ?
                         ");
                         
+                        // 디버깅: DB에 저장될 값들 로그 출력
+                        error_log("=== DB 저장 데이터 디버깅 (모든 컬럼 있는 경우) ===");
+                        error_log("실제 저장될 값들:");
+                        error_log("  store_id: $store_id");
+                        error_log("  cost_price (5번째): $cost_price");
+                        error_log("  cost_price_piece (6번째): $cost_price_piece");
+                        error_log("  margin_rate (7번째): $margin_rate");
+                        error_log("  wholesale_price (8번째): $wholesale_price");
+                        error_log("  wholesale_price_piece (9번째): $wholesale_price_piece");
+                        error_log("  sale_unit (10번째): $sale_unit");
+
                         $update_success = $stmt->execute([
-                            $store_id, 
-                            $wholesale_name_ko ?: null, 
-                            $wholesale_name_en ?: null, 
-                            $wholesale_skus_json, 
+                            $store_id,
+                            $wholesale_name_ko ?: null,
+                            $wholesale_name_en ?: null,
+                            $wholesale_skus_json,
                             $cost_price,
                             $cost_price_piece,
                             $margin_rate,
@@ -356,11 +395,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             WHERE id = ?
                         ");
                         
+                        // 디버깅: DB에 저장될 값들 로그 출력 (cost_price_piece 있는 경우)
+                        error_log("=== DB 저장 데이터 디버깅 (cost_price_piece 포함) ===");
+                        error_log("실제 저장될 값들:");
+                        error_log("  store_id: $store_id");
+                        error_log("  cost_price (5번째): $cost_price");
+                        error_log("  cost_price_piece (6번째): $cost_price_piece");
+                        error_log("  margin_rate (7번째): $margin_rate");
+                        error_log("  wholesale_price (8번째): $wholesale_price");
+                        error_log("  wholesale_price_piece (9번째): $wholesale_price_piece");
+
                         $update_success = $stmt->execute([
-                            $store_id, 
-                            $wholesale_name_ko ?: null, 
-                            $wholesale_name_en ?: null, 
-                            $wholesale_skus_json, 
+                            $store_id,
+                            $wholesale_name_ko ?: null,
+                            $wholesale_name_en ?: null,
+                            $wholesale_skus_json,
                             $cost_price,
                             $cost_price_piece,
                             $margin_rate,
@@ -432,6 +481,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 if ($update_success) {
+                    // 디버깅: 저장 후 실제 DB 값 확인
+                    try {
+                        $verify_stmt = $pdo->prepare("SELECT cost_price, cost_price_piece, wholesale_price, wholesale_price_piece FROM wholesale_products WHERE id = ?");
+                        $verify_stmt->execute([$wholesale_product_id]);
+                        $saved_data = $verify_stmt->fetch(PDO::FETCH_ASSOC);
+
+                        if ($saved_data) {
+                            error_log("=== 저장 후 DB 확인 ===");
+                            error_log("DB에 실제 저장된 값:");
+                            error_log("  cost_price: {$saved_data['cost_price']}");
+                            error_log("  cost_price_piece: {$saved_data['cost_price_piece']}");
+                            error_log("  wholesale_price: {$saved_data['wholesale_price']}");
+                            error_log("  wholesale_price_piece: {$saved_data['wholesale_price_piece']}");
+
+                            // 디버깅: 브라우저에서 확인할 수 있도록 세션에 저장
+                            $_SESSION['debug_saved_data'] = [
+                                'cost_price' => $saved_data['cost_price'],
+                                'cost_price_piece' => $saved_data['cost_price_piece'],
+                                'wholesale_price' => $saved_data['wholesale_price'],
+                                'wholesale_price_piece' => $saved_data['wholesale_price_piece'],
+                                'timestamp' => date('Y-m-d H:i:s')
+                            ];
+                        }
+                    } catch (PDOException $e) {
+                        error_log("저장 후 확인 쿼리 오류: " . $e->getMessage());
+                    }
+
                     $_SESSION['flash'] = [
                         'type' => 'success',
                         'message' => t('wholesale.product_updated_success')
@@ -515,6 +591,38 @@ if (isset($_SESSION['flash'])) {
                                         <li><?php echo htmlspecialchars($error); ?></li>
                                     <?php endforeach; ?>
                                 </ul>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <!-- 디버깅 정보 표시 -->
+                <?php if (isset($_SESSION['debug_post_data']) || isset($_SESSION['debug_saved_data'])): ?>
+                    <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-bug text-yellow-600"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-yellow-800">디버깅 정보</h3>
+
+                                <?php if (isset($_SESSION['debug_post_data'])): ?>
+                                    <div class="mt-2">
+                                        <h4 class="text-xs font-medium text-yellow-700">POST로 받은 데이터:</h4>
+                                        <pre class="text-xs text-yellow-700 mt-1 bg-yellow-100 p-2 rounded"><?php echo htmlspecialchars(json_encode($_SESSION['debug_post_data'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre>
+                                    </div>
+                                <?php endif; ?>
+
+                                <?php if (isset($_SESSION['debug_saved_data'])): ?>
+                                    <div class="mt-2">
+                                        <h4 class="text-xs font-medium text-yellow-700">DB에 실제 저장된 데이터:</h4>
+                                        <pre class="text-xs text-yellow-700 mt-1 bg-yellow-100 p-2 rounded"><?php echo htmlspecialchars(json_encode($_SESSION['debug_saved_data'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre>
+                                    </div>
+                                <?php endif; ?>
+
+                                <button type="button" onclick="clearDebugInfo()" class="mt-2 text-xs text-yellow-600 hover:text-yellow-800 underline">
+                                    디버깅 정보 지우기
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1085,7 +1193,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const supplier = this.dataset.supplier;
             const date = this.dataset.date;
             const index = this.dataset.index;
-            
+
+            // 디버깅: 선택된 값들 콘솔 출력
+            console.log('=== 입고내역 선택 디버깅 ===');
+            console.log('선택된 데이터셋:', {
+                boxPrice: this.dataset.boxPrice,
+                piecePrice: this.dataset.piecePrice,
+                productName: productName,
+                supplier: supplier,
+                date: date
+            });
+            console.log('파싱된 값:', {
+                boxPrice: boxPrice,
+                piecePrice: piecePrice
+            });
+
             // 선택된 데이터 저장
             selectedReceivingData = {
                 boxPrice: boxPrice,
@@ -1095,12 +1217,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 date: date,
                 index: index
             };
-            
+
             // 박스 원가를 기본으로 설정 (도매는 주로 박스 단위)
             costPriceInput.value = boxPrice.toFixed(2);
-            
+
             // 낱개 원가도 함께 설정
             costPricePieceInput.value = piecePrice.toFixed(2);
+
+            // 디버깅: 실제 입력 필드에 설정된 값 확인
+            console.log('입력 필드에 설정된 값:', {
+                costPrice: costPriceInput.value,
+                costPricePiece: costPricePieceInput.value,
+                costPriceFieldName: costPriceInput.name,
+                costPricePieceFieldName: costPricePieceInput.name
+            });
             
             // 수동 설정 플래그 활성화
             isManualPiecePrice = true;
@@ -1489,6 +1619,26 @@ document.addEventListener('DOMContentLoaded', function() {
     // 페이지 로드 시 초기화 실행
     initializePage();
 });
+
+// 디버깅 정보 지우기 함수
+function clearDebugInfo() {
+    fetch('ajax_clear_debug_session.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        location.reload();
+    });
+}
 </script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
