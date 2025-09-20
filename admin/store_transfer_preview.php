@@ -86,8 +86,8 @@ if (isset($_SESSION['flash'])) {
 }
 ?>
 
-<div class="container px-4 sm:px-6 lg:px-8 py-8">
-    <div class="max-w-none">
+<div class="w-full px-4 sm:px-6 lg:px-8 py-8">
+    <div class="w-full">
         <!-- 헤더 영역 -->
         <div class="mb-6">
             <nav class="flex" aria-label="Breadcrumb">
@@ -333,124 +333,118 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (printBtn) {
         printBtn.addEventListener('click', function() {
-            // 프린터 전용 CSS 적용
-            const printStyles = `
-                <style media="print">
-                    @page {
-                        margin: 0.3in;
-                        size: A4;
-                    }
-                    
-                    body * {
-                        visibility: hidden;
-                    }
-                    
-                    #transfer-receipt,
-                    #transfer-receipt * {
-                        visibility: visible;
-                    }
-                    
-                    #transfer-receipt {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100% !important;
-                        box-shadow: none !important;
-                        border: none !important;
-                    }
-                    
-                    .no-print {
-                        display: none !important;
-                    }
-                    
-                    table {
-                        font-size: 13px !important;
-                    }
-                    
-                    .text-xl {
-                        font-size: 18px !important;
-                    }
-                    
-                    .text-lg {
-                        font-size: 16px !important;
-                    }
-                    
-                    .text-sm {
-                        font-size: 11px !important;
-                    }
-                    
-                    .text-xs {
-                        font-size: 10px !important;
-                    }
-                    
-                    .px-6 {
-                        padding-left: 0.5rem !important;
-                        padding-right: 0.5rem !important;
-                    }
-                    
-                    .py-4 {
-                        padding-top: 0.25rem !important;
-                        padding-bottom: 0.25rem !important;
-                    }
-                    
-                    * {
-                        color: #000 !important;
-                    }
-                    
-                    .px-6 table.border-0 {
-                        border: none !important;
-                    }
-                    
-                    .px-6 table.border-0 td {
-                        border: none !important;
-                    }
-                    
-                    .px-6 table.border-0 tr {
-                        border: none !important;
-                    }
-                    
-                    /* 서명란 테이블 스타일 */
-                    .signature-table {
-                        font-size: 9px !important;
-                        margin-bottom: 8px !important;
-                        width: 100% !important;
-                        max-width: 300px !important;
-                        float: right !important;
-                        table-layout: fixed !important;
-                    }
-                    
-                    .signature-table th {
-                        background: #f8f9fa !important;
-                        font-size: 8px !important;
-                        padding: 2px 3px !important;
-                        font-weight: 600 !important;
-                        text-align: center !important;
-                        width: 50% !important;
-                    }
-                    
-                    .signature-table td {
-                        font-size: 8px !important;
-                        padding: 2px 3px !important;
-                        text-align: center !important;
-                        height: 35px !important;
-                        width: 50% !important;
-                    }
-                </style>
-            `;
-            
-            // 스타일을 head에 추가
-            document.head.insertAdjacentHTML('beforeend', printStyles);
-            
-            // 프린트 실행
-            window.print();
-            
-            // 프린트 완료 후 스타일 제거 (선택사항)
-            setTimeout(function() {
-                const styleElement = document.head.querySelector('style[media="print"]');
-                if (styleElement) {
-                    styleElement.remove();
-                }
-            }, 1000);
+            // 인쇄 내용 가져오기
+            const printContent = document.getElementById('transfer-receipt').innerHTML;
+
+            // 새 창에서 인쇄
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Store Transfer Receipt - ${new Date().toLocaleDateString()}</title>
+                    <style>
+                        @page {
+                            margin: 0.3in;
+                            size: A4;
+                        }
+
+                        body {
+                            font-family: Arial, sans-serif;
+                            margin: 0;
+                            padding: 20px;
+                            line-height: 1.4;
+                        }
+
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-top: 20px;
+                        }
+
+                        th, td {
+                            border: 1px solid #000;
+                            padding: 8px;
+                            text-align: left;
+                            font-size: 12px;
+                        }
+
+                        th {
+                            background-color: #f5f5f5;
+                            font-weight: bold;
+                        }
+
+                        .text-center { text-align: center; }
+                        .text-right { text-align: right; }
+                        .font-bold { font-weight: bold; }
+                        .text-lg { font-size: 16px; }
+                        .text-xl { font-size: 18px; }
+                        .text-sm { font-size: 11px; }
+                        .text-xs { font-size: 10px; }
+
+                        .bg-gray-50 {
+                            background-color: #f9f9f9 !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+
+                        .signature-table {
+                            font-size: 9px !important;
+                            margin-bottom: 8px !important;
+                            width: 100% !important;
+                            max-width: 300px !important;
+                            float: right !important;
+                            table-layout: fixed !important;
+                        }
+
+                        .signature-table th {
+                            background: #f8f9fa !important;
+                            font-size: 8px !important;
+                            padding: 2px 3px !important;
+                            font-weight: 600 !important;
+                            text-align: center !important;
+                            width: 50% !important;
+                        }
+
+                        .signature-table td {
+                            font-size: 8px !important;
+                            padding: 2px 3px !important;
+                            text-align: center !important;
+                            height: 35px !important;
+                            width: 50% !important;
+                        }
+
+                        .no-print {
+                            display: none !important;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div id="transfer-receipt">
+                        ${printContent}
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+
+            // 문서 로드 후 인쇄 실행
+            printWindow.onload = function() {
+                setTimeout(() => {
+                    printWindow.print();
+
+                    // 인쇄 후 창 닫기
+                    printWindow.onafterprint = function() {
+                        printWindow.close();
+                    };
+
+                    // 크롬/엣지의 경우 대체 방법 (afterprint 이벤트가 작동하지 않을 경우)
+                    setTimeout(() => {
+                        printWindow.close();
+                    }, 1000);
+                }, 100);
+            };
         });
     }
 });
@@ -471,6 +465,10 @@ document.addEventListener('DOMContentLoaded', function() {
     #transfer-receipt {
         box-shadow: none;
         border: 1px solid #000;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
     }
     
     table {
@@ -534,26 +532,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /* 화면용 추가 스타일 */
 #transfer-receipt {
-    max-width: 280mm;
+    width: 100%;
     margin: 0;
+    box-sizing: border-box;
 }
 
 @media (max-width: 768px) {
     #transfer-receipt {
+        width: 100%;
         margin: 0;
     }
-    
+
     .grid-cols-1.md\\:grid-cols-2 {
         grid-template-columns: 1fr;
     }
-    
+
     table {
         font-size: 12px;
+        width: 100%;
     }
-    
+
     .px-6 {
-        padding-left: 1rem;
-        padding-right: 1rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    .overflow-x-auto {
+        overflow-x: auto;
     }
 }
 </style>
