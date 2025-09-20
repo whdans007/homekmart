@@ -655,18 +655,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             foreach ($selected_items as $item_id) {
                 $item_id = (int)$item_id;
                 
-                // 기존 아이템 정보 및 상품 정보 조회
+                // 기존 아이템 정보 및 상품 정보 조회 (할인율 포함)
                 $item_stmt = $conn->prepare("
-                    SELECT pi.*, pr.is_vat_applicable 
-                    FROM purchase_items pi 
-                    JOIN products pr ON pi.product_id = pr.id 
+                    SELECT pi.*, pr.is_vat_applicable
+                    FROM purchase_items pi
+                    JOIN products pr ON pi.product_id = pr.id
                     WHERE pi.item_id = ? AND pi.purchase_id = ?
                 ");
                 $item_stmt->bind_param("ii", $item_id, $purchase_id);
                 $item_stmt->execute();
                 $item_info = $item_stmt->get_result()->fetch_assoc();
                 $item_stmt->close();
-                
+
                 if ($item_info) {
                     // VAT 적용 상품인지 확인
                     if ($item_info['is_vat_applicable'] == 1) {
@@ -674,17 +674,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         $current_price = (float)$item_info['unit_price'];
                         $new_price = $current_price * 1.12; // 12% VAT 추가
                         $vat_amount = $current_price * 0.12;
-                        
-                        // 매입 항목 업데이트
+
+                        // 할인율 확인
+                        $discount_rate = (float)($item_info['discount_rate'] ?? 0);
+                        $quantity = (float)$item_info['quantity'];
+
+                        // 새로운 discounted_total 계산 (할인율이 있는 경우)
+                        $new_discounted_total = null;
+                        if ($discount_rate > 0) {
+                            $new_total = $quantity * $new_price;
+                            $discount_amount = $new_total * ($discount_rate / 100);
+                            $new_discounted_total = $new_total - $discount_amount;
+                        }
+
+                        // 매입 항목 업데이트 (discounted_total 포함)
                         $update_stmt = $conn->prepare("
-                            UPDATE purchase_items 
-                            SET unit_price = ?, 
-                                original_unit_price = ?, 
-                                vat_amount = ?, 
-                                vat_included = 1 
+                            UPDATE purchase_items
+                            SET unit_price = ?,
+                                original_unit_price = ?,
+                                vat_amount = ?,
+                                vat_included = 1,
+                                discounted_total = CASE
+                                    WHEN discount_rate > 0 THEN ?
+                                    ELSE NULL
+                                END
                             WHERE item_id = ?
                         ");
-                        $update_stmt->bind_param("dddi", $new_price, $current_price, $vat_amount, $item_id);
+                        $update_stmt->bind_param("ddddi", $new_price, $current_price, $vat_amount, $new_discounted_total, $item_id);
                         $update_stmt->execute();
                         $update_stmt->close();
                         

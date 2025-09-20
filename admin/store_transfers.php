@@ -690,9 +690,21 @@ const translations = {
 
 document.addEventListener('DOMContentLoaded', function() {
     let cart = [];
-    
+
+    // 초기 디버깅 정보
+    console.log('store_transfers.php DOM 로드 완료');
+    console.log('현재 사용자 역할:', userRole);
+
     const productSearch = document.getElementById('product_search');
     const productSearchResults = document.getElementById('product_search_results');
+
+    // from_store_id 요소 확인
+    const fromStoreElement = document.getElementById('from_store_id');
+    if (fromStoreElement) {
+        console.log('from_store_id 요소 발견, 현재 값:', fromStoreElement.value);
+    } else {
+        console.error('from_store_id 요소를 찾을 수 없습니다!');
+    }
     
     const cartEmpty = document.getElementById('cart_empty');
     const cartItems = document.getElementById('cart_items');
@@ -811,7 +823,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function getFromStoreId() {
         const fromStoreSelect = document.getElementById('from_store_id');
-        return fromStoreSelect ? fromStoreSelect.value : '';
+        if (!fromStoreSelect) {
+            console.error('from_store_id 요소를 찾을 수 없습니다.');
+            return '';
+        }
+        const value = fromStoreSelect.value;
+        console.log('getFromStoreId(): ' + value);
+        return value;
     }
     
     // Make getFromStoreId globally accessible
@@ -849,34 +867,63 @@ document.addEventListener('DOMContentLoaded', function() {
     window.updateProductSearch = updateProductSearch;
     
     function searchProducts(query) {
+        console.log('searchProducts() 호출됨 - query:', query);
+
         const fromStoreId = getFromStoreId();
-        
+        console.log('searchProducts() - fromStoreId:', fromStoreId);
+
         if (!fromStoreId) {
+            console.warn('출발 점포가 선택되지 않았습니다.');
             searchStatus.textContent = translations.select_from_store;
             searchStatus.className = 'mt-2 text-sm text-red-600';
             return;
         }
-        
+
         searchStatus.textContent = translations.loading;
         searchStatus.className = 'mt-2 text-sm text-gray-600';
-        
+
+        const requestBody = 'q=' + encodeURIComponent(query) + '&from_store_id=' + encodeURIComponent(fromStoreId) + '&limit=10';
+        console.log('searchProducts() - 요청 데이터:', requestBody);
+
         fetch('ajax_search_transfer_products.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'q=' + encodeURIComponent(query) + '&from_store_id=' + encodeURIComponent(fromStoreId) + '&limit=10'
+            body: requestBody
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('searchProducts() - 응답 상태:', response.status);
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status + ' - ' + response.statusText);
+            }
+            return response.text();
+        })
+        .then(responseText => {
+            console.log('searchProducts() - 응답 텍스트:', responseText);
+            try {
+                return JSON.parse(responseText);
+            } catch (e) {
+                console.error('JSON 파싱 오류:', e);
+                console.log('원본 응답:', responseText);
+                throw new Error('서버 응답을 파싱할 수 없습니다: ' + responseText.substring(0, 100));
+            }
+        })
         .then(data => {
-            
+            console.log('searchProducts() - 파싱된 데이터:', data);
+
             if (data.success && data.products) {
                 displayProductResults(data.products);
                 searchStatus.textContent = data.products.length + ' products found';
                 searchStatus.className = 'mt-2 text-sm text-green-600';
             } else {
                 let errorMessage = data.message || translations.no_results;
-                
+
+                // 디버그 정보 표시
+                if (data.debug_info) {
+                    console.log('디버그 정보:', data.debug_info);
+                }
+
                 // 권한 오류인 경우 특별 처리
                 if (data.error_type === 'permission_denied') {
                     errorMessage = translations.login_required;
@@ -890,16 +937,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     searchStatus.className = 'mt-2 text-sm text-orange-600';
                 }
-                
+
                 productSearchResults.innerHTML = '<div class="p-3 text-sm text-gray-500">' + errorMessage + '</div>';
                 productSearchResults.classList.remove('hidden');
                 searchStatus.textContent = errorMessage;
             }
         })
         .catch(error => {
-            console.error('Network Error:', error);
-            searchStatus.textContent = translations.network_error;
+            console.error('searchProducts() 오류:', error);
+            const errorMessage = error.message || translations.network_error;
+            searchStatus.textContent = errorMessage;
             searchStatus.className = 'mt-2 text-sm text-red-600';
+
+            productSearchResults.innerHTML = '<div class="p-3 text-sm text-red-500">오류: ' + errorMessage + '</div>';
+            productSearchResults.classList.remove('hidden');
         });
     }
     
