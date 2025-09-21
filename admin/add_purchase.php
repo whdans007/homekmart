@@ -54,9 +54,9 @@ if ($edit_purchase_id) {
     if ($existing_purchase) {
         // 기존 매입 상품들 조회
         $items_stmt = $conn->prepare("
-            SELECT pi.*, pr.name_ko as product_name, pr.name_en as product_name_en, pr.sku, pr.barcode, pr.pieces_per_box
-            FROM purchase_items pi 
-            JOIN products pr ON pi.product_id = pr.id 
+            SELECT pi.*, pr.name_ko as product_name, pr.name_en as product_name_en, pr.sku, pr.pieces_per_box
+            FROM purchase_items pi
+            JOIN products pr ON pi.product_id = pr.id
             WHERE pi.purchase_id = ?
         ");
         $items_stmt->bind_param("i", $edit_purchase_id);
