@@ -182,7 +182,11 @@ try {
                     <p class="text-sm text-gray-500" id="selectedCount" style="display:none;">
                         <?php echo t('price_change.selected_items'); ?>: <span class="font-semibold">0</span><?php echo t('common.items'); ?>
                     </p>
-                    <button id="printPriceCardsBtn" onclick="openPriceCardModal()" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    <button id="deleteSelectedBtn" onclick="confirmDeleteSelected()" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        <i class="fas fa-trash mr-2"></i>
+                        선택 삭제
+                    </button>
+                    <button id="printPriceCardsBtn" onclick="openPriceCardModal()" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
                         <i class="fas fa-tags mr-2"></i>
                         <?php echo t('price_change.print_price_cards'); ?>
                     </button>
@@ -427,6 +431,34 @@ try {
     </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                <i class="fas fa-trash text-red-600 text-xl"></i>
+            </div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4">선택된 항목 삭제</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-500">
+                    선택된 <span id="deleteCount" class="font-semibold">0</span>개 항목을 삭제하시겠습니까?<br>
+                    <span class="text-red-600 font-medium">이 작업은 되돌릴 수 없습니다.</span>
+                </p>
+            </div>
+            <div class="items-center px-4 py-3">
+                <button id="confirmDeleteBtn" onclick="executeDelete()"
+                        class="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md w-24 mr-3 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    삭제
+                </button>
+                <button onclick="closeDeleteModal()"
+                        class="px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md w-24 hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                    취소
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php 
 // JavaScript에서 사용할 번역 키들
 $js_keys = [
@@ -500,9 +532,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // 초기 버튼 상태 설정
     const printSelectedBtn = document.getElementById('printSelectedBtn');
     const printPriceCardsBtn = document.getElementById('printPriceCardsBtn');
-    
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+
     if (printSelectedBtn) printSelectedBtn.disabled = true;
     if (printPriceCardsBtn) printPriceCardsBtn.disabled = true;
+    if (deleteSelectedBtn) deleteSelectedBtn.disabled = true;
     
     // 바코드 생성
     generateBarcodes();
@@ -566,7 +600,8 @@ function updateSelectedCount() {
     const countElement = document.getElementById('selectedCount');
     const printSelectedBtn = document.getElementById('printSelectedBtn');
     const printPriceCardsBtn = document.getElementById('printPriceCardsBtn');
-    
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+
     if (selectedIds.length > 0) {
         if (countElement) {
             countElement.style.display = 'block';
@@ -575,11 +610,92 @@ function updateSelectedCount() {
         }
         if (printSelectedBtn) printSelectedBtn.disabled = false;
         if (printPriceCardsBtn) printPriceCardsBtn.disabled = false;
+        if (deleteSelectedBtn) deleteSelectedBtn.disabled = false;
     } else {
         if (countElement) countElement.style.display = 'none';
         if (printSelectedBtn) printSelectedBtn.disabled = true;
         if (printPriceCardsBtn) printPriceCardsBtn.disabled = true;
+        if (deleteSelectedBtn) deleteSelectedBtn.disabled = true;
     }
+}
+
+// 삭제 확인 모달 열기
+function confirmDeleteSelected() {
+    if (selectedIds.length === 0) {
+        alert('삭제할 항목을 선택해주세요.');
+        return;
+    }
+
+    document.getElementById('deleteCount').textContent = selectedIds.length;
+    document.getElementById('deleteModal').classList.remove('hidden');
+}
+
+// 삭제 확인 모달 닫기
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+}
+
+// 실제 삭제 실행
+function executeDelete() {
+    if (selectedIds.length === 0) {
+        alert('삭제할 항목이 없습니다.');
+        return;
+    }
+
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+    // 버튼 비활성화 및 로딩 표시
+    confirmDeleteBtn.disabled = true;
+    confirmDeleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>삭제 중...';
+
+    fetch('ajax_delete_price_history.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            ids: selectedIds
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 성공 시 선택된 행들을 DOM에서 제거
+            selectedIds.forEach(id => {
+                const row = document.querySelector(`tr[data-id="${id}"]`);
+                if (row) {
+                    row.remove();
+                }
+            });
+
+            // 선택 초기화
+            selectedIds = [];
+            updateSelectedCount();
+
+            // 전체 선택 체크박스 해제
+            const selectAll = document.getElementById('selectAll');
+            if (selectAll) selectAll.checked = false;
+
+            // 모달 닫기
+            closeDeleteModal();
+
+            // 성공 메시지 표시 제거
+
+            // 페이지 새로고침 (총 개수 업데이트를 위해)
+            window.location.reload();
+        } else {
+            alert('삭제 중 오류가 발생했습니다: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        alert('삭제 요청 중 네트워크 오류가 발생했습니다.');
+    })
+    .finally(() => {
+        // 버튼 상태 복구
+        confirmDeleteBtn.disabled = false;
+        confirmDeleteBtn.innerHTML = '삭제';
+    });
 }
 
 function openPrintModal() {
@@ -1173,6 +1289,12 @@ document.getElementById('printModal').addEventListener('click', function(e) {
 document.getElementById('priceCardModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closePriceCardModal();
+    }
+});
+
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDeleteModal();
     }
 });
 </script>

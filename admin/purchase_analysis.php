@@ -72,7 +72,7 @@ if (count($where_conditions) > 1) {
     }
 }
 
-$query .= " ORDER BY pr.sku, s.name";
+$query .= " ORDER BY p.purchase_date DESC, pr.sku";
 
 $stmt = $conn->prepare($query);
 if (!empty($params)) {
@@ -122,6 +122,16 @@ foreach ($temp_data as $product_key => $suppliers) {
         $products_data[$product_key]['prices'][] = number_format($supplier_data['unit_price'], 2);
     }
 }
+
+// 각 상품의 최신 매입일자를 기준으로 정렬
+uasort($products_data, function($a, $b) {
+    // 각 상품의 가장 최근 매입일자 찾기
+    $latest_date_a = max($a['dates']);
+    $latest_date_b = max($b['dates']);
+
+    // 최신 날짜부터 정렬 (내림차순)
+    return strtotime($latest_date_b) - strtotime($latest_date_a);
+});
 
 // 페이지네이션을 위한 총 상품 수
 $total_products = count($products_data);
