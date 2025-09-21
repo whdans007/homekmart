@@ -1,7 +1,4 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
 
 require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = '매입분석 - ' . t('company.name');
@@ -48,11 +45,13 @@ if (!empty($search_product)) {
 
 $where_clause = implode(' AND ', $where_conditions);
 
-// 각 상품-거래처별 최신 매입정보 조회 (더 간단한 방식)
+// 각 상품-거래처별 최신 매입정보 조회 (상품정보 포함)
 $query = "
     SELECT
         pr.sku AS sku,
-        pr.name_ko AS product_name,
+        pr.name_ko AS product_name_ko,
+        pr.name_en AS product_name_en,
+        pr.pieces_per_box,
         s.name AS supplier_name,
         pi.unit_price,
         p.purchase_date
@@ -95,7 +94,9 @@ while ($row = $result->fetch_assoc()) {
         $row['purchase_date'] > $temp_data[$product_key][$supplier_key]['purchase_date']) {
         $temp_data[$product_key][$supplier_key] = [
             'sku' => $row['sku'],
-            'product_name' => $row['product_name'],
+            'product_name_ko' => $row['product_name_ko'],
+            'product_name_en' => $row['product_name_en'],
+            'pieces_per_box' => $row['pieces_per_box'],
             'supplier_name' => $row['supplier_name'],
             'unit_price' => $row['unit_price'],
             'purchase_date' => $row['purchase_date']
@@ -108,7 +109,9 @@ $products_data = [];
 foreach ($temp_data as $product_key => $suppliers) {
     $products_data[$product_key] = [
         'sku' => '',
-        'product_name' => '',
+        'product_name_ko' => '',
+        'product_name_en' => '',
+        'pieces_per_box' => '',
         'suppliers' => [],
         'dates' => [],
         'prices' => []
@@ -116,7 +119,9 @@ foreach ($temp_data as $product_key => $suppliers) {
 
     foreach ($suppliers as $supplier_data) {
         $products_data[$product_key]['sku'] = $supplier_data['sku'];
-        $products_data[$product_key]['product_name'] = $supplier_data['product_name'];
+        $products_data[$product_key]['product_name_ko'] = $supplier_data['product_name_ko'];
+        $products_data[$product_key]['product_name_en'] = $supplier_data['product_name_en'];
+        $products_data[$product_key]['pieces_per_box'] = $supplier_data['pieces_per_box'];
         $products_data[$product_key]['suppliers'][] = $supplier_data['supplier_name'];
         $products_data[$product_key]['dates'][] = $supplier_data['purchase_date'];
         $products_data[$product_key]['prices'][] = number_format($supplier_data['unit_price'], 2);
@@ -203,7 +208,7 @@ $conn->close();
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품명</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품정보</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">입고내역</th>
                         </tr>
                     </thead>
@@ -223,9 +228,31 @@ $conn->close();
                                 <?php echo htmlspecialchars($product['sku']); ?>
                             </td>
 
-                            <!-- 상품명 -->
+                            <!-- 상품정보 -->
                             <td class="px-6 py-4 text-sm text-gray-900 align-top border-r border-gray-200">
-                                <?php echo htmlspecialchars($product['product_name']); ?>
+                                <div class="space-y-2">
+                                    <!-- 한글 상품명 -->
+                                    <div class="flex items-center">
+                                        <span class="text-xs font-bold text-blue-600 mr-2 min-w-0 w-8">KOR</span>
+                                        <span class="font-medium text-gray-900"><?php echo htmlspecialchars($product['product_name_ko']); ?></span>
+                                    </div>
+
+                                    <!-- 영문 상품명 -->
+                                    <?php if (!empty($product['product_name_en'])): ?>
+                                    <div class="flex items-center">
+                                        <span class="text-xs font-bold text-green-600 mr-2 min-w-0 w-8">ENG</span>
+                                        <span class="text-sm text-gray-600 italic"><?php echo htmlspecialchars($product['product_name_en']); ?></span>
+                                    </div>
+                                    <?php endif; ?>
+
+                                    <!-- 박스 포장갯수 -->
+                                    <div class="flex items-center">
+                                        <span class="text-xs font-bold text-purple-600 mr-2 min-w-0 w-8">BOX</span>
+                                        <span class="text-sm text-gray-700">
+                                            <?php echo number_format($product['pieces_per_box'] ?? 1); ?>개
+                                        </span>
+                                    </div>
+                                </div>
                             </td>
 
                             <!-- 입고내역 - 업체별 카드 형식 -->
