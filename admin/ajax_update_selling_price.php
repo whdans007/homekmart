@@ -37,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $product_id = $_POST['product_id'] ?? 0;
 $selling_price = $_POST['selling_price'] ?? 0;
 $cost_price = $_POST['cost_price'] ?? null;
+$box_price = $_POST['box_price'] ?? null;
 $store_id = $_POST['store_id'] ?? null;
 $purchase_id = $_POST['purchase_id'] ?? null;
 $margin_rate = $_POST['margin_rate'] ?? null;
@@ -57,6 +58,12 @@ if (!is_numeric($selling_price) || $selling_price <= 0) {
 if ($cost_price !== null && (!is_numeric($cost_price) || $cost_price < 0)) {
     ob_clean();
     echo json_encode(['success' => false, 'message' => '올바른 원가를 입력해주세요.']);
+    exit;
+}
+
+if ($box_price !== null && (!is_numeric($box_price) || $box_price < 0)) {
+    ob_clean();
+    echo json_encode(['success' => false, 'message' => '올바른 박스원가를 입력해주세요.']);
     exit;
 }
 
@@ -173,7 +180,7 @@ try {
             $cost_column_check = $pdo->prepare("SHOW COLUMNS FROM inventory LIKE 'cost_price'");
             $cost_column_check->execute();
             $has_cost_price_column = $cost_column_check->fetch();
-            
+
             // cost_price 컬럼이 없으면 추가
             if (!$has_cost_price_column) {
                 try {
@@ -186,14 +193,33 @@ try {
                     $has_cost_price_column = false;
                 }
             }
+
+            // inventory 테이블에 box_price 컬럼이 있는지 확인
+            $box_column_check = $pdo->prepare("SHOW COLUMNS FROM inventory LIKE 'box_price'");
+            $box_column_check->execute();
+            $has_box_price_column = $box_column_check->fetch();
+
+            // box_price 컬럼이 없으면 추가
+            if (!$has_box_price_column) {
+                try {
+                    $add_column = $pdo->prepare("ALTER TABLE inventory ADD COLUMN box_price DECIMAL(10,2) DEFAULT NULL AFTER cost_price");
+                    $add_column->execute();
+                    $has_box_price_column = true;
+                    error_log("Added box_price column to inventory table");
+                } catch (PDOException $e) {
+                    error_log("Failed to add box_price column: " . $e->getMessage());
+                    $has_box_price_column = false;
+                }
+            }
             
             // 기존 가격 정보 조회
-            $old_prices_stmt = $pdo->prepare("SELECT cost_price, selling_price FROM inventory WHERE product_id = ? AND store_id = ?");
+            $old_prices_stmt = $pdo->prepare("SELECT cost_price, selling_price, box_price FROM inventory WHERE product_id = ? AND store_id = ?");
             $old_prices_stmt->execute([$product_id, $store_id]);
             $old_prices = $old_prices_stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             $old_cost_price = $old_prices['cost_price'] ?? null;
             $old_selling_price = $old_prices['selling_price'] ?? null;
+            $old_box_price = $old_prices['box_price'] ?? null;
             
             // 마진율 계산
             $old_margin_rate = null;
@@ -208,23 +234,40 @@ try {
             }
             
             if ($has_cost_price_column && $cost_price !== null) {
-                error_log("inventory 테이블에 원가와 판매가 모두 업데이트");
-                // 원가와 판매가 모두 업데이트
-                $stmt = $pdo->prepare("
-                    UPDATE inventory 
-                    SET selling_price = ?, cost_price = ?, updated_at = NOW()
-                    WHERE product_id = ? AND store_id = ?
-                ");
-                $stmt->execute([$selling_price, $cost_price, $product_id, $store_id]);
-                
+                error_log("inventory 테이블에 원가와 판매가 업데이트, 박스원가: " . ($box_price ?? 'null'));
+                // 원가, 판매가, 박스원가 업데이트
+                if ($has_box_price_column && $box_price !== null) {
+                    $stmt = $pdo->prepare("
+                        UPDATE inventory
+                        SET selling_price = ?, cost_price = ?, box_price = ?, updated_at = NOW()
+                        WHERE product_id = ? AND store_id = ?
+                    ");
+                    $stmt->execute([$selling_price, $cost_price, $box_price, $product_id, $store_id]);
+                } else {
+                    $stmt = $pdo->prepare("
+                        UPDATE inventory
+                        SET selling_price = ?, cost_price = ?, updated_at = NOW()
+                        WHERE product_id = ? AND store_id = ?
+                    ");
+                    $stmt->execute([$selling_price, $cost_price, $product_id, $store_id]);
+                }
+
                 if ($stmt->rowCount() == 0) {
                     error_log("inventory 레코드가 없어서 새로 생성");
                     // 재고 레코드가 없으면 생성
-                    $stmt = $pdo->prepare("
-                        INSERT INTO inventory (product_id, store_id, quantity, selling_price, cost_price, created_at, updated_at)
-                        VALUES (?, ?, 0, ?, ?, NOW(), NOW())
-                    ");
-                    $stmt->execute([$product_id, $store_id, $selling_price, $cost_price]);
+                    if ($has_box_price_column && $box_price !== null) {
+                        $stmt = $pdo->prepare("
+                            INSERT INTO inventory (product_id, store_id, quantity, selling_price, cost_price, box_price, created_at, updated_at)
+                            VALUES (?, ?, 0, ?, ?, ?, NOW(), NOW())
+                        ");
+                        $stmt->execute([$product_id, $store_id, $selling_price, $cost_price, $box_price]);
+                    } else {
+                        $stmt = $pdo->prepare("
+                            INSERT INTO inventory (product_id, store_id, quantity, selling_price, cost_price, created_at, updated_at)
+                            VALUES (?, ?, 0, ?, ?, NOW(), NOW())
+                        ");
+                        $stmt->execute([$product_id, $store_id, $selling_price, $cost_price]);
+                    }
                 } else {
                     error_log("inventory 레코드 업데이트 완료 - 영향받은 행 수: " . $stmt->rowCount());
                 }
@@ -238,25 +281,42 @@ try {
                 }
                 
             } else {
-                error_log("inventory 테이블에 판매가만 업데이트");
-                // 판매가만 업데이트
-                $stmt = $pdo->prepare("
-                    UPDATE inventory 
-                    SET selling_price = ?, updated_at = NOW()
-                    WHERE product_id = ? AND store_id = ?
-                ");
-                $stmt->execute([$selling_price, $product_id, $store_id]);
-                
-                if ($stmt->rowCount() == 0) {
-                    error_log("inventory 레코드가 없어서 새로 생성 (판매가만)");
-                    // 재고 레코드가 없으면 생성
+                error_log("inventory 테이블에 판매가 업데이트, 박스원가: " . ($box_price ?? 'null'));
+                // 판매가 및 박스원가 업데이트
+                if ($has_box_price_column && $box_price !== null) {
                     $stmt = $pdo->prepare("
-                        INSERT INTO inventory (product_id, store_id, quantity, selling_price, created_at, updated_at)
-                        VALUES (?, ?, 0, ?, NOW(), NOW())
+                        UPDATE inventory
+                        SET selling_price = ?, box_price = ?, updated_at = NOW()
+                        WHERE product_id = ? AND store_id = ?
                     ");
-                    $stmt->execute([$product_id, $store_id, $selling_price]);
+                    $stmt->execute([$selling_price, $box_price, $product_id, $store_id]);
                 } else {
-                    error_log("inventory 레코드 업데이트 완료 (판매가만) - 영향받은 행 수: " . $stmt->rowCount());
+                    $stmt = $pdo->prepare("
+                        UPDATE inventory
+                        SET selling_price = ?, updated_at = NOW()
+                        WHERE product_id = ? AND store_id = ?
+                    ");
+                    $stmt->execute([$selling_price, $product_id, $store_id]);
+                }
+
+                if ($stmt->rowCount() == 0) {
+                    error_log("inventory 레코드가 없어서 새로 생성 (판매가/박스원가)");
+                    // 재고 레코드가 없으면 생성
+                    if ($has_box_price_column && $box_price !== null) {
+                        $stmt = $pdo->prepare("
+                            INSERT INTO inventory (product_id, store_id, quantity, selling_price, box_price, created_at, updated_at)
+                            VALUES (?, ?, 0, ?, ?, NOW(), NOW())
+                        ");
+                        $stmt->execute([$product_id, $store_id, $selling_price, $box_price]);
+                    } else {
+                        $stmt = $pdo->prepare("
+                            INSERT INTO inventory (product_id, store_id, quantity, selling_price, created_at, updated_at)
+                            VALUES (?, ?, 0, ?, NOW(), NOW())
+                        ");
+                        $stmt->execute([$product_id, $store_id, $selling_price]);
+                    }
+                } else {
+                    error_log("inventory 레코드 업데이트 완료 (판매가/박스원가) - 영향받은 행 수: " . $stmt->rowCount());
                 }
                 
                 // 가격변경 이력 저장
@@ -289,12 +349,18 @@ try {
             error_log("가격변경 이력 저장 - store_id: " . ($store_id ?? 'null') . ", change_type: " . $change_type);
             savePriceChangeHistory($pdo, $history_data);
             
+            $message_parts = [];
+            if ($cost_price !== null) $message_parts[] = '원가';
+            $message_parts[] = '판매가';
+            if ($box_price !== null) $message_parts[] = '박스원가';
+
             ob_clean();
             echo json_encode([
-                'success' => true, 
-                'message' => '지점별 ' . ($cost_price !== null ? '원가와 판매가가' : '판매가가') . ' 성공적으로 설정되었습니다.',
+                'success' => true,
+                'message' => '지점별 ' . implode('와 ', $message_parts) . '가 성공적으로 설정되었습니다.',
                 'selling_price' => number_format($selling_price, 0),
-                'cost_price' => $cost_price !== null ? number_format($cost_price, 0) : null
+                'cost_price' => $cost_price !== null ? number_format($cost_price, 0) : null,
+                'box_price' => $box_price !== null ? number_format($box_price, 0) : null
             ]);
         } else {
             // inventory 테이블에 selling_price 컬럼 추가 실패한 경우 오류 반환
