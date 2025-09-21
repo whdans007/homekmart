@@ -143,6 +143,11 @@ if (!empty($_SESSION['user_id'])) {
                                     <i class="fas fa-chart-line mr-2 text-green-500 group-hover:text-green-600 text-xs"></i>
                                     <?php echo t('navigation.price_change_history'); ?>
                                 </a>
+
+                                <a href="purchase_analysis.php" class="<?php echo ($current_page == 'purchase_analysis.php') ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200 hover:text-green-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-chart-bar mr-2 text-green-500 group-hover:text-green-600 text-xs"></i>
+                                    매입분석
+                                </a>
                             </div>
                         </div>
                         <?php endif; ?>
@@ -457,6 +462,10 @@ if (!empty($_SESSION['user_id'])) {
                             
                             <a href="price_change_history.php" class="<?php echo ($current_page == 'price_change_history.php') ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-chart-line mr-2 text-xs"></i><?php echo t('navigation.price_change_history'); ?>
+                            </a>
+
+                            <a href="purchase_analysis.php" class="<?php echo ($current_page == 'purchase_analysis.php') ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-chart-bar mr-2 text-xs"></i>매입분석
                             </a>
                         </div>
                     </div>
