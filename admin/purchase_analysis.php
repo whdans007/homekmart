@@ -54,6 +54,7 @@ $query = "
         pr.pieces_per_box,
         s.name AS supplier_name,
         pi.unit_price,
+        pi.purchase_type,
         p.purchase_date
     FROM purchase_items pi
     JOIN purchases p ON pi.purchase_id = p.purchase_id
@@ -99,6 +100,7 @@ while ($row = $result->fetch_assoc()) {
             'pieces_per_box' => $row['pieces_per_box'],
             'supplier_name' => $row['supplier_name'],
             'unit_price' => $row['unit_price'],
+            'purchase_type' => $row['purchase_type'],
             'purchase_date' => $row['purchase_date']
         ];
     }
@@ -114,7 +116,8 @@ foreach ($temp_data as $product_key => $suppliers) {
         'pieces_per_box' => '',
         'suppliers' => [],
         'dates' => [],
-        'prices' => []
+        'prices' => [],
+        'purchase_types' => []
     ];
 
     foreach ($suppliers as $supplier_data) {
@@ -125,6 +128,7 @@ foreach ($temp_data as $product_key => $suppliers) {
         $products_data[$product_key]['suppliers'][] = $supplier_data['supplier_name'];
         $products_data[$product_key]['dates'][] = $supplier_data['purchase_date'];
         $products_data[$product_key]['prices'][] = number_format($supplier_data['unit_price'], 2);
+        $products_data[$product_key]['purchase_types'][] = $supplier_data['purchase_type'];
     }
 }
 
@@ -150,11 +154,6 @@ $conn->close();
 
 <div class="min-h-screen bg-gray-50 py-6">
     <div class="w-full px-4 sm:px-6 lg:px-8">
-        <!-- 페이지 헤더 -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">매입분석</h1>
-            <p class="mt-2 text-sm text-gray-600">상품별 거래처 단가 비교 분석</p>
-        </div>
 
         <!-- 검색 폼 -->
         <div class="bg-white shadow rounded-lg mb-6">
@@ -162,7 +161,7 @@ $conn->close();
                 <form method="GET" class="flex flex-wrap items-center gap-6">
                     <!-- SKU 입력 -->
                     <div class="flex items-center gap-3">
-                        <label for="search_sku" class="text-base font-medium text-gray-700 whitespace-nowrap">SKU:</label>
+                        <label for="search_sku" class="text-xl font-medium text-gray-700 whitespace-nowrap"><span class="font-bold">매입분석</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SKU:</label>
                         <input type="text" name="search_sku" id="search_sku"
                                value="<?php echo htmlspecialchars($search_sku); ?>"
                                placeholder="SKU 입력"
@@ -207,9 +206,9 @@ $conn->close();
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품정보</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">입고내역</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상품정보</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">입고내역</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -224,13 +223,13 @@ $conn->close();
                         <?php foreach ($products_data as $product): ?>
                         <tr class="border-b border-gray-200">
                             <!-- SKU -->
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 align-top border-r border-gray-200">
+                            <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 align-top border-r border-gray-200">
                                 <?php echo htmlspecialchars($product['sku']); ?>
                             </td>
 
                             <!-- 상품정보 -->
-                            <td class="px-6 py-4 text-sm text-gray-900 align-top border-r border-gray-200">
-                                <div class="space-y-2">
+                            <td class="px-4 py-2 text-sm text-gray-900 align-top border-r border-gray-200">
+                                <div class="space-y-1">
                                     <!-- 한글 상품명 -->
                                     <div class="flex items-center">
                                         <span class="text-xs font-bold text-blue-600 mr-2 min-w-0 w-8">KOR</span>
@@ -256,12 +255,12 @@ $conn->close();
                             </td>
 
                             <!-- 입고내역 - 업체별 카드 형식 -->
-                            <td class="px-6 py-4">
-                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <td class="px-4 py-2">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                                     <?php for ($i = 0; $i < count($product['suppliers']); $i++): ?>
-                                    <div class="bg-gray-50 rounded-lg border border-gray-200 p-3 hover:bg-gray-100 transition-colors duration-150">
+                                    <div class="bg-gray-50 rounded-lg border border-gray-200 p-2 hover:bg-gray-100 transition-colors duration-150">
                                         <!-- 거래처명 -->
-                                        <div class="flex items-center mb-2">
+                                        <div class="flex items-center mb-1">
                                             <i class="fas fa-building text-blue-500 mr-2 text-xs"></i>
                                             <span class="font-semibold text-gray-900 text-sm truncate" title="<?php echo htmlspecialchars($product['suppliers'][$i]); ?>">
                                                 <?php echo htmlspecialchars($product['suppliers'][$i]); ?>
@@ -269,7 +268,7 @@ $conn->close();
                                         </div>
 
                                         <!-- 매입일자 -->
-                                        <div class="flex items-center mb-2">
+                                        <div class="flex items-center mb-1">
                                             <i class="fas fa-calendar-alt text-green-500 mr-2 text-xs"></i>
                                             <span class="text-xs text-gray-600">
                                                 <?php echo htmlspecialchars($product['dates'][$i]); ?>
@@ -278,9 +277,18 @@ $conn->close();
 
                                         <!-- 단가 -->
                                         <div class="flex items-center justify-between">
-                                            <span class="text-xs text-gray-500">단가:</span>
+                                            <span class="text-xs text-gray-500">
+                                                낱개단가: <?php
+                                                    if ($product['purchase_types'][$i] === 'piece') {
+                                                        echo $product['prices'][$i];
+                                                    } else {
+                                                        $piece_price = floatval(str_replace(',', '', $product['prices'][$i])) / $product['pieces_per_box'];
+                                                        echo number_format($piece_price, 2);
+                                                    }
+                                                ?>
+                                            </span>
                                             <span class="font-bold text-blue-600 text-sm">
-                                                ₩<?php echo $product['prices'][$i]; ?>
+                                                매입가: <?php echo $product['prices'][$i]; ?>
                                             </span>
                                         </div>
                                     </div>
@@ -297,58 +305,62 @@ $conn->close();
 
         <!-- 페이지네이션 -->
         <?php if ($total_pages > 1): ?>
-        <div class="mt-6 flex items-center justify-between">
-            <div class="flex-1 flex justify-between sm:hidden">
-                <?php if ($current_page > 1): ?>
-                    <a href="?page=<?php echo $current_page - 1; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?>"
-                       class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                        이전
-                    </a>
-                <?php endif; ?>
-                <?php if ($current_page < $total_pages): ?>
-                    <a href="?page=<?php echo $current_page + 1; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?>"
-                       class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                        다음
-                    </a>
-                <?php endif; ?>
+        <div class="mt-6">
+            <!-- 상단 정보 -->
+            <div class="text-center mb-4">
+                <p class="text-sm text-gray-700">
+                    전체 <span class="font-medium"><?php echo $total_products; ?></span>개 중
+                    <span class="font-medium"><?php echo $offset + 1; ?></span>-<span class="font-medium"><?php echo min($offset + $items_per_page, $total_products); ?></span> 표시
+                </p>
             </div>
 
-            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                    <p class="text-sm text-gray-700">
-                        전체 <span class="font-medium"><?php echo $total_products; ?></span>개 중
-                        <span class="font-medium"><?php echo $offset + 1; ?></span>-<span class="font-medium"><?php echo min($offset + $items_per_page, $total_products); ?></span> 표시
-                    </p>
-                </div>
-                <div>
-                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <?php if ($current_page > 1): ?>
-                            <a href="?page=<?php echo $current_page - 1; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?>"
-                               class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                <i class="fas fa-chevron-left"></i>
-                            </a>
-                        <?php endif; ?>
+            <!-- 페이지네이션 바 (가운데 정렬) -->
+            <div class="flex justify-center">
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <?php
+                    // 현재 페이지가 속한 10페이지 그룹 계산
+                    $current_group = ceil($current_page / 10);
+                    $group_start = ($current_group - 1) * 10 + 1;
+                    $group_end = min($current_group * 10, $total_pages);
 
-                        <?php
-                        $start = max(1, $current_page - 2);
-                        $end = min($total_pages, $current_page + 2);
+                    // 이전 그룹이 있으면 이전 버튼 표시
+                    if ($group_start > 1): ?>
+                        <a href="?page=<?php echo $group_start - 1; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?>"
+                           class="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="fas fa-chevron-left mr-2"></i>이전
+                        </a>
+                    <?php endif; ?>
 
-                        for ($i = $start; $i <= $end; $i++):
-                        ?>
-                            <a href="?page=<?php echo $i; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?>"
-                               class="<?php echo $i == $current_page ? 'bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'; ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium">
-                                <?php echo $i; ?>
-                            </a>
-                        <?php endfor; ?>
+                    <?php
+                    // 현재 그룹의 페이지들 표시 (1-10, 11-20, ...)
+                    for ($i = $group_start; $i <= $group_end; $i++):
+                    ?>
+                        <a href="?page=<?php echo $i; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?>"
+                           class="<?php echo $i == $current_page ? 'bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'; ?>
+                                  relative inline-flex items-center px-4 py-2 border text-sm font-medium
+                                  <?php echo ($i == $group_start && $group_start == 1) ? 'rounded-l-md' : ''; ?>
+                                  <?php echo ($i == $group_end && $group_end == $total_pages) ? 'rounded-r-md' : ''; ?>">
+                            <?php echo $i; ?>
+                        </a>
+                    <?php endfor; ?>
 
-                        <?php if ($current_page < $total_pages): ?>
-                            <a href="?page=<?php echo $current_page + 1; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?>"
-                               class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                <i class="fas fa-chevron-right"></i>
-                            </a>
-                        <?php endif; ?>
-                    </nav>
-                </div>
+                    <?php
+                    // 다음 그룹이 있으면 다음 버튼 표시
+                    if ($group_end < $total_pages): ?>
+                        <a href="?page=<?php echo $group_end + 1; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?>"
+                           class="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            다음<i class="fas fa-chevron-right ml-2"></i>
+                        </a>
+                    <?php endif; ?>
+                </nav>
+            </div>
+
+            <!-- 하단 그룹 정보 -->
+            <div class="text-center mt-3">
+                <p class="text-xs text-gray-500">
+                    <?php echo $group_start; ?>-<?php echo $group_end; ?> 페이지
+                    (전체 <?php echo $total_pages; ?>페이지)
+                </p>
             </div>
         </div>
         <?php endif; ?>
