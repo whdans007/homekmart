@@ -1385,10 +1385,12 @@ document.addEventListener('DOMContentLoaded', function () {
         newRow.dataset.piecesPerBox = product.pieces_per_box || 1;
         newRow.dataset.productId = product.id; // 중복 검사를 위한 product_id 저장
         
-        // 단가는 0 또는 비워둔 상태로 시작
+        // 단가 설정: unitPrice가 있으면 사용, 없으면 박스단가(box_price) 사용, 그것도 없으면 0
         let finalUnitPrice;
         if (unitPrice !== null) {
             finalUnitPrice = unitPrice;
+        } else if (product.box_price && product.box_price > 0) {
+            finalUnitPrice = product.box_price; // 점포에 설정된 박스단가 사용
         } else {
             finalUnitPrice = 0; // 기본값을 0으로 설정
         }

@@ -1,8 +1,4 @@
 <?php
-// 오류 로깅 활성화
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
 
 // 상품명 업데이트 처리 - 다른 HTML 출력 전에 처리
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_product_name') {
@@ -975,11 +971,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 $check_deleted_at_column = $conn->query("SHOW COLUMNS FROM purchases LIKE 'deleted_at'");
 $has_deleted_at = $check_deleted_at_column->num_rows > 0;
 
-// Fetch purchase details (삭제되지 않은 매입만 + 점포 정보)
+// Fetch purchase details (삭제되지 않은 매입만 + 점포 정보 + 확정 정보)
 if ($has_deleted_at) {
-    $stmt = $conn->prepare("SELECT p.*, s.name as supplier_name FROM purchases p JOIN suppliers s ON p.supplier_id = s.id WHERE p.purchase_id = ? AND p.deleted_at IS NULL");
+    $stmt = $conn->prepare("SELECT p.*, s.name as supplier_name, COALESCE(p.is_confirmed, 0) as is_confirmed, p.confirmed_at, p.confirmed_by_user_id FROM purchases p JOIN suppliers s ON p.supplier_id = s.id WHERE p.purchase_id = ? AND p.deleted_at IS NULL");
 } else {
-    $stmt = $conn->prepare("SELECT p.*, s.name as supplier_name FROM purchases p JOIN suppliers s ON p.supplier_id = s.id WHERE p.purchase_id = ?");
+    $stmt = $conn->prepare("SELECT p.*, s.name as supplier_name, COALESCE(p.is_confirmed, 0) as is_confirmed, p.confirmed_at, p.confirmed_by_user_id FROM purchases p JOIN suppliers s ON p.supplier_id = s.id WHERE p.purchase_id = ?");
 }
 $stmt->bind_param("i", $purchase_id);
 $stmt->execute();
@@ -1079,32 +1075,6 @@ tr[id^="row-"] td:first-child:hover {
 }
 </style>
 
-<!-- Page header -->
-<div class="mb-8 sm:flex sm:items-center sm:justify-between">
-    <div>
-        <h1 class="text-3xl font-bold text-gray-900">매입 내역 상세보기</h1>
-        <p class="mt-2 text-sm text-gray-700">거래번호: <span class="font-semibold"><?php echo htmlspecialchars($purchase_id); ?></span></p>
-    </div>
-    <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-        <div class="flex space-x-3">
-            <?php if ($has_deleted_at): ?>
-            <button type="button" id="delete-purchase-btn" class="inline-flex items-center justify-center rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 shadow-sm hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
-                <i class="fas fa-trash-alt mr-2"></i>
-                <?php echo t('common.delete'); ?>
-            </button>
-            <?php else: ?>
-            <a href="setup_soft_delete_purchases.php" class="inline-flex items-center justify-center rounded-md border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700 shadow-sm hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2">
-                <i class="fas fa-database mr-2"></i>
-                Soft Delete 설정 필요
-            </a>
-            <?php endif; ?>
-            <a href="purchase_management.php" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                <i class="fas fa-arrow-left mr-2"></i>
-                매입 관리로 돌아가기
-            </a>
-        </div>
-    </div>
-</div>
 
 <?php if ($message): ?>
     <div class="mb-6 rounded-md <?php echo $message_type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'; ?> p-4 border">
@@ -1121,12 +1091,58 @@ tr[id^="row-"] td:first-child:hover {
 
 <div class="bg-white shadow rounded-lg">
     <div class="px-6 py-4 border-b border-gray-200">
-        <h2 class="text-lg font-medium text-gray-900">매입 기본 정보</h2>
+        <div class="flex justify-between items-center">
+            <h2 class="text-lg font-medium text-gray-900">매입 상세내역</h2>
+            <div class="flex space-x-3">
+                <?php if ($has_deleted_at): ?>
+                <button type="button" id="delete-purchase-btn" class="inline-flex items-center justify-center rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 shadow-sm hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                    <i class="fas fa-trash-alt mr-2"></i>
+                    <?php echo t('common.delete'); ?>
+                </button>
+                <?php else: ?>
+                <a href="setup_soft_delete_purchases.php" class="inline-flex items-center justify-center rounded-md border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700 shadow-sm hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2">
+                    <i class="fas fa-database mr-2"></i>
+                    Soft Delete 설정 필요
+                </a>
+                <?php endif; ?>
+
+                <!-- 매입 확정/취소 버튼 -->
+                <?php if (isset($purchase['is_confirmed']) && $purchase['is_confirmed']): ?>
+                    <!-- 확정된 매입 - 슈퍼관리자만 취소 가능 -->
+                    <?php if ($_SESSION['role'] === 'super_admin'): ?>
+                    <button type="button" id="cancel-confirm-btn" data-purchase-id="<?php echo htmlspecialchars($purchase_id); ?>" class="inline-flex items-center justify-center rounded-md border border-orange-300 bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700 shadow-sm hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
+                        <i class="fas fa-undo mr-2"></i>
+                        확정 취소
+                    </button>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <!-- 미확정 매입 - 확정 버튼 -->
+                    <button type="button" id="confirm-purchase-btn" data-purchase-id="<?php echo htmlspecialchars($purchase_id); ?>" class="inline-flex items-center justify-center rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 shadow-sm hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                        <i class="fas fa-check mr-2"></i>
+                        매입 확정
+                    </button>
+                <?php endif; ?>
+
+                <a href="purchase_management.php" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    매입 관리로 돌아가기
+                </a>
+            </div>
+        </div>
     </div>
     <div class="p-6">
         <!-- 매입 기본 정보 -->
         <div class="bg-gray-50 rounded-lg p-4 mb-8">
             <div class="flex flex-wrap items-center justify-between gap-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-hashtag text-purple-500 mr-2"></i>
+                    </div>
+                    <div>
+                        <span class="text-sm font-medium text-gray-600">거래번호:</span>
+                        <span class="text-base font-semibold text-gray-900 ml-2"><?php echo htmlspecialchars($purchase_id); ?></span>
+                    </div>
+                </div>
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <i class="fas fa-building text-blue-500 mr-2"></i>
@@ -1160,8 +1176,28 @@ tr[id^="row-"] td:first-child:hover {
         <!-- 매입 상품 목록 -->
         <div class="mb-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-medium text-gray-900"><?php echo t('purchase.purchase_items'); ?></h3>
-                <button type="button" id="save-all-changes" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                <div class="flex items-center space-x-3">
+                    <h3 class="text-lg font-medium text-gray-900"><?php echo t('purchase.purchase_items'); ?></h3>
+                    <?php if (isset($purchase['is_confirmed']) && $purchase['is_confirmed']): ?>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <i class="fas fa-check-circle mr-1"></i>
+                            매입확정
+                        </span>
+                        <?php if ($purchase['confirmed_at']): ?>
+                            <span class="text-xs text-gray-500">확정일시: <?php echo date('Y-m-d H:i', strtotime($purchase['confirmed_at'])); ?></span>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <i class="fas fa-clock mr-1"></i>
+                            미확정
+                        </span>
+                    <?php endif; ?>
+                </div>
+                <button type="button" id="save-all-changes"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white
+                               <?php echo ($purchase['is_confirmed'] ?? false) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'; ?>
+                               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                        <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
                     <i class="fas fa-save mr-2"></i>
                     <?php echo t('purchase.save_changes'); ?>
                 </button>
@@ -1171,7 +1207,7 @@ tr[id^="row-"] td:first-child:hover {
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="w-8 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                <input type="checkbox" id="select-all" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <input type="checkbox" id="select-all" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
                             </th>
                             <th class="w-20 px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
                             <th class="w-48 px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.product_name'); ?></th>
@@ -1211,69 +1247,80 @@ tr[id^="row-"] td:first-child:hover {
                         ?>
                                 <tr class="hover:bg-gray-50 transition-colors duration-150" id="row-<?php echo $item['item_id']; ?>">
                                     <td class="w-8 px-1 py-3 text-center">
-                                        <input type="checkbox" class="item-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" value="<?php echo $item['item_id']; ?>">
+                                        <input type="checkbox" class="item-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" value="<?php echo $item['item_id']; ?>" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
                                     </td>
                                     <td class="w-20 px-1 py-3 text-xs font-medium text-gray-900" title="<?php echo htmlspecialchars($item['sku']); ?>">
                                         <?php echo htmlspecialchars($item['sku']); ?>
                                     </td>
                                     <td class="w-48 px-2 py-3">
-                                        <div class="product-name-editable text-sm font-medium text-gray-900 hover:bg-gray-100 hover:cursor-pointer rounded px-2 py-1 transition-colors" 
-                                             data-product-id="<?php echo $item['product_id']; ?>"
-                                             data-item-id="<?php echo $item['item_id']; ?>"
-                                             data-original-name="<?php echo htmlspecialchars($item['product_name']); ?>"
-                                             title="클릭하여 상품명 수정"><?php echo htmlspecialchars($item['product_name']); ?></div>
+                                        <div class="flex items-center mb-1">
+                                            <span class="text-xs font-bold text-blue-600 mr-2 min-w-0 w-8">KOR</span>
+                                            <div class="product-name-editable flex-1 text-sm font-medium text-gray-900 hover:bg-gray-100 hover:cursor-pointer rounded px-2 py-1 transition-colors"
+                                                 data-product-id="<?php echo $item['product_id']; ?>"
+                                                 data-item-id="<?php echo $item['item_id']; ?>"
+                                                 data-original-name="<?php echo htmlspecialchars($item['product_name']); ?>"
+                                                 title="클릭하여 상품명 수정"><?php echo htmlspecialchars($item['product_name']); ?></div>
+                                        </div>
                                         <?php if (!empty($item['product_name_en'])): ?>
-                                        <div class="product-name-en-editable text-xs text-gray-600 italic hover:bg-gray-100 hover:cursor-pointer rounded px-2 py-1 transition-colors"
-                                             data-product-id="<?php echo $item['product_id']; ?>"
-                                             data-item-id="<?php echo $item['item_id']; ?>"
-                                             data-original-name="<?php echo htmlspecialchars($item['product_name_en']); ?>"
-                                             title="클릭하여 영문 상품명 수정"><?php echo htmlspecialchars($item['product_name_en']); ?></div>
+                                        <div class="flex items-center">
+                                            <span class="text-xs font-bold text-green-600 mr-2 min-w-0 w-8">ENG</span>
+                                            <div class="product-name-en-editable flex-1 text-xs text-gray-600 italic hover:bg-gray-100 hover:cursor-pointer rounded px-2 py-1 transition-colors"
+                                                 data-product-id="<?php echo $item['product_id']; ?>"
+                                                 data-item-id="<?php echo $item['item_id']; ?>"
+                                                 data-original-name="<?php echo htmlspecialchars($item['product_name_en']); ?>"
+                                                 title="클릭하여 영문 상품명 수정"><?php echo htmlspecialchars($item['product_name_en']); ?></div>
+                                        </div>
                                         <?php endif; ?>
                                     </td>
                                     <td class="w-20 px-1 py-3 text-center">
                                         <div class="flex items-center justify-center space-x-1">
                                             <label class="inline-flex items-center text-xs">
-                                                <input type="radio" name="purchase_type_<?php echo $item['item_id']; ?>" 
-                                                       class="type-input text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-1" 
-                                                       value="box" 
+                                                <input type="radio" name="purchase_type_<?php echo $item['item_id']; ?>"
+                                                       class="type-input text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-1"
+                                                       value="box"
                                                        data-item-id="<?php echo $item['item_id']; ?>"
-                                                       <?php echo $item['purchase_type'] === 'box' ? 'checked' : ''; ?>>
+                                                       <?php echo $item['purchase_type'] === 'box' ? 'checked' : ''; ?>
+                                                       <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
                                                 <span class="text-gray-700"><?php echo t('purchase.box'); ?></span>
                                             </label>
                                             <label class="inline-flex items-center text-xs">
-                                                <input type="radio" name="purchase_type_<?php echo $item['item_id']; ?>" 
-                                                       class="type-input text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-1" 
-                                                       value="piece" 
+                                                <input type="radio" name="purchase_type_<?php echo $item['item_id']; ?>"
+                                                       class="type-input text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-1"
+                                                       value="piece"
                                                        data-item-id="<?php echo $item['item_id']; ?>"
-                                                       <?php echo $item['purchase_type'] === 'piece' ? 'checked' : ''; ?>>
+                                                       <?php echo $item['purchase_type'] === 'piece' ? 'checked' : ''; ?>
+                                                       <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
                                                 <span class="text-gray-700"><?php echo t('purchase.piece'); ?></span>
                                             </label>
                                         </div>
                                     </td>
                                     <td class="w-12 px-1 py-3 text-sm text-gray-900 text-right">
-                                        <input type="number" 
-                                               class="quantity-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-xs hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
-                                               value="<?php echo $item['quantity']; ?>" 
+                                        <input type="number"
+                                               class="quantity-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-xs hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                               value="<?php echo $item['quantity']; ?>"
                                                data-item-id="<?php echo $item['item_id']; ?>"
                                                data-original-value="<?php echo $item['quantity']; ?>"
-                                               min="1">
+                                               min="1"
+                                               <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : ''; ?>>
                                     </td>
                                     <td class="w-12 px-1 py-3 text-sm text-gray-500 text-right">
-                                        <input type="number" 
-                                               class="pieces-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-xs hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
-                                               value="<?php echo $item['pieces_per_box'] ?? 1; ?>" 
+                                        <input type="number"
+                                               class="pieces-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-xs hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                               value="<?php echo $item['pieces_per_box'] ?? 1; ?>"
                                                data-item-id="<?php echo $item['item_id']; ?>"
                                                data-original-value="<?php echo $item['pieces_per_box'] ?? 1; ?>"
-                                               min="1">
+                                               min="1"
+                                               <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : ''; ?>>
                                     </td>
                                     <td class="w-16 px-1 py-3 text-sm text-gray-900 text-right">
-                                        <input type="number" 
-                                               class="price-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-xs hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" 
-                                               value="<?php echo $item['unit_price']; ?>" 
+                                        <input type="number"
+                                               class="price-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-xs hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                               value="<?php echo $item['unit_price']; ?>"
                                                data-item-id="<?php echo $item['item_id']; ?>"
                                                data-original-value="<?php echo $item['unit_price']; ?>"
-                                               min="0" 
-                                               step="0.01">
+                                               min="0"
+                                               step="0.01"
+                                               <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : ''; ?>>
                                         <?php 
                                         // VAT 미포함 금액 계산
                                         $vat_excluded_price = $item['unit_price'] / 1.12;
@@ -1309,11 +1356,11 @@ tr[id^="row-"] td:first-child:hover {
                                     </td>
                                     <td class="w-16 px-1 py-3 text-xs text-gray-900 text-right font-bold"><?php echo number_format($item_total, 2); ?></td>
                                     <td class="w-10 px-1 py-3 text-center">
-                                        <input type="number" class="discount-rate w-9 px-0 py-1 border border-gray-300 rounded-md text-center text-xs focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo number_format($item['discount_rate'], 1); ?>" min="0" max="100" step="0.1" placeholder="0">
+                                        <input type="number" class="discount-rate w-9 px-0 py-1 border border-gray-300 rounded-md text-center text-xs focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo number_format($item['discount_rate'], 1); ?>" min="0" max="100" step="0.1" placeholder="0" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : ''; ?>>
                                     </td>
                                     <td class="w-16 px-1 py-3 text-xs text-gray-900 text-right font-bold discounted-total"><?php echo number_format($item['discounted_total'], 2); ?></td>
                                     <td class="w-10 px-1 py-3 text-center">
-                                        <button type="button" class="delete-btn inline-flex items-center justify-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 transition-colors duration-200" data-item-id="<?php echo $item['item_id']; ?>">
+                                        <button type="button" class="delete-btn inline-flex items-center justify-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 transition-colors duration-200" data-item-id="<?php echo $item['item_id']; ?>" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''; ?>>
                                             <i class="fas fa-trash-alt text-xs"></i>
                                         </button>
                                     </td>
@@ -1329,10 +1376,10 @@ tr[id^="row-"] td:first-child:hover {
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
                     <label class="text-sm font-medium text-gray-700"><?php echo t('purchase.bulk_discount'); ?>:</label>
-                    <input type="number" id="bulk-discount-rate" class="w-20 px-3 py-2 border border-gray-300 rounded-md text-center focus:border-indigo-500 focus:ring-indigo-500" min="0" max="100" step="0.1" placeholder="0">
+                    <input type="number" id="bulk-discount-rate" class="w-20 px-3 py-2 border border-gray-300 rounded-md text-center focus:border-indigo-500 focus:ring-indigo-500" min="0" max="100" step="0.1" placeholder="0" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
                     <span class="text-sm text-gray-600">%</span>
                 </div>
-                <button type="button" id="apply-bulk-discount" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <button type="button" id="apply-bulk-discount" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled <?php echo ($purchase['is_confirmed'] ?? false) ? 'data-confirmed="true"' : ''; ?>>
                     <i class="fas fa-percent mr-2"></i>
                     <?php echo t('purchase.apply_bulk_discount'); ?>
                 </button>
@@ -1347,7 +1394,7 @@ tr[id^="row-"] td:first-child:hover {
                     <label class="text-sm font-medium text-gray-700">VAT 일괄 적용:</label>
                     <span class="text-sm text-gray-600">선택된 VAT 적용 상품의 단가에 12%를 추가합니다</span>
                 </div>
-                <button type="button" id="apply-bulk-vat" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <button type="button" id="apply-bulk-vat" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled <?php echo ($purchase['is_confirmed'] ?? false) ? 'data-confirmed="true"' : ''; ?>>
                     <i class="fas fa-plus-circle mr-2"></i>
                     선택 항목 VAT 포함하기
                 </button>
@@ -1740,9 +1787,75 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         });
     }
-    
-    
-    
+
+    // 매입 확정/취소 버튼 이벤트 처리
+    const confirmPurchaseBtn = document.getElementById('confirm-purchase-btn');
+    const cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
+
+    if (confirmPurchaseBtn) {
+        confirmPurchaseBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            if (confirm('매입을 확정하시겠습니까?\n\n확정 후에는 수정이 불가능하며, 각 상품의 박스단가가 업데이트됩니다.')) {
+                const purchaseId = this.dataset.purchaseId;
+                handlePurchaseConfirmation(purchaseId, 'confirm');
+            }
+        });
+    }
+
+    if (cancelConfirmBtn) {
+        cancelConfirmBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            if (confirm('매입 확정을 취소하시겠습니까?\n\n확정을 취소하면 다시 수정이 가능합니다.')) {
+                const purchaseId = this.dataset.purchaseId;
+                handlePurchaseConfirmation(purchaseId, 'cancel');
+            }
+        });
+    }
+
+    // 매입 확정/취소 처리 함수
+    function handlePurchaseConfirmation(purchaseId, action) {
+        const button = action === 'confirm' ? confirmPurchaseBtn : cancelConfirmBtn;
+        const originalText = button.innerHTML;
+
+        // 버튼 비활성화 및 로딩 상태 표시
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + (action === 'confirm' ? '확정 중...' : '취소 중...');
+
+        // AJAX 요청
+        fetch('ajax_confirm_purchase.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'purchase_id=' + encodeURIComponent(purchaseId) + '&action=' + encodeURIComponent(action)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 성공 시 페이지 새로고침
+                alert(data.message);
+                window.location.reload();
+            } else {
+                // 실패 시 오류 메시지 표시
+                alert('오류: ' + data.message);
+
+                // 버튼 복원
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('네트워크 오류:', error);
+            alert('네트워크 오류가 발생했습니다. 다시 시도해주세요.');
+
+            // 버튼 복원
+            button.disabled = false;
+            button.innerHTML = originalText;
+        });
+    }
+
     // 체크박스 기능
     const selectAllCheckbox = document.getElementById('select-all');
     const itemCheckboxes = document.querySelectorAll('.item-checkbox');

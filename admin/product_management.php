@@ -443,6 +443,18 @@ try {
                         <label class="block text-sm font-medium text-blue-700 mb-1">선택된 원가</label>
                         <div id="selected-cost-display" class="text-lg font-bold text-blue-900">₩ 0</div>
                     </div>
+
+                    <!-- 박스원가 설정 -->
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-blue-700 mb-1">박스원가 설정</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="number" id="new-box-price"
+                                   class="flex-1 px-3 py-2 border border-blue-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="박스원가 입력" step="0.01" min="0">
+                            <span class="text-sm text-gray-600">원</span>
+                        </div>
+                        <p class="mt-1 text-xs text-blue-600">매입 시 기본 단가로 사용됩니다.</p>
+                    </div>
                     
                     <!-- 마진율 선택 -->
                     <div class="mb-3">
@@ -630,7 +642,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(result => {
                     if (result.success) {
                         const product = result.data;
-                        
+
+                        // 현재 상품 데이터를 전역 변수에 저장 (판매가 설정에서 사용)
+                        window.currentProductData = product;
+
                         // Populate modal with new resume style
                         modalContent.name.textContent = translations.productDetails; // 제목 고정
                         modalContent.nameEn.textContent = product.name_en || ' ';
@@ -654,6 +669,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-4 py-2 font-semibold">${translations.store}</th>
+                                        <th class="px-4 py-2 font-semibold text-right">박스원가</th>
                                         <th class="px-4 py-2 font-semibold text-right"><?php echo t('product.cost_price'); ?></th>
                                         <th class="px-4 py-2 font-semibold text-right"><?php echo t('product.margin_rate'); ?>(%)</th>
                                         <th class="px-4 py-2 font-semibold text-right"><?php echo t('product.selling_price'); ?></th>
@@ -664,21 +680,23 @@ document.addEventListener('DOMContentLoaded', function() {
                             const tbody = inventoryTable.querySelector('tbody');
                             product.inventory.forEach(inv => {
                                 console.log('Processing inventory item:', inv);
+                                const storeBoxPrice = inv.box_price ? `${parseFloat(inv.box_price).toLocaleString()}` : '-';
                                 const storeCostPrice = inv.cost_price ? `${parseFloat(inv.cost_price).toLocaleString()}` : '-';
                                 const storeSellingPrice = inv.selling_price ? `${parseFloat(inv.selling_price).toLocaleString()}` : '-';
-                                
+
                                 // 마진율 계산
                                 let marginRate = '-';
                                 if (inv.cost_price && inv.selling_price && parseFloat(inv.cost_price) > 0) {
                                     const margin = ((parseFloat(inv.selling_price) - parseFloat(inv.cost_price)) / parseFloat(inv.cost_price)) * 100;
                                     marginRate = `${margin.toFixed(1)}%`;
                                 }
-                                
-                                console.log('Formatted prices - Cost:', storeCostPrice, 'Margin:', marginRate, 'Selling:', storeSellingPrice);
+
+                                console.log('Formatted prices - Box:', storeBoxPrice, 'Cost:', storeCostPrice, 'Margin:', marginRate, 'Selling:', storeSellingPrice);
                                 const row = document.createElement('tr');
                                 row.className = 'border-b';
                                 row.innerHTML = `
                                     <td class="px-4 py-2">${inv.store_name}</td>
+                                    <td class="px-4 py-2 text-right font-semibold text-purple-700">${storeBoxPrice}</td>
                                     <td class="px-4 py-2 text-right font-semibold text-green-700">${storeCostPrice}</td>
                                     <td class="px-4 py-2 text-right font-semibold text-orange-600">${marginRate}</td>
                                     <td class="px-4 py-2 text-right font-semibold text-blue-700">${storeSellingPrice}</td>
@@ -904,9 +922,22 @@ document.addEventListener('DOMContentLoaded', function() {
         const pricingSection = document.getElementById('modal-pricing-section');
         const costDisplay = document.getElementById('selected-cost-display');
         const sellingPriceInput = document.getElementById('new-selling-price');
+        const boxPriceInput = document.getElementById('new-box-price');
         const recommendedMarginRate = document.getElementById('recommended-margin-rate');
-        
+
         costDisplay.textContent = purchaseData.unit_cost_per_piece_formatted;
+
+        // 현재 상품의 박스원가를 박스원가 입력 필드에 설정
+        // purchaseData에서 현재 점포의 박스원가 찾기
+        const currentStoreInventory = window.currentProductData?.inventory?.find(inv =>
+            inv.store_id == currentStoreId || inv.store_name === purchaseData.store_name
+        );
+        if (currentStoreInventory && currentStoreInventory.box_price) {
+            boxPriceInput.value = parseFloat(currentStoreInventory.box_price);
+        } else {
+            // 기본값으로 매입 단가 설정
+            boxPriceInput.value = parseFloat(purchaseData.unit_cost_per_piece) || '';
+        }
         
         // 권장 마진율 표시 (마진 관리 시스템에서 받은 데이터 사용)
         if (purchaseData.margin_rate) {
@@ -1013,6 +1044,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         const sellingPrice = parseFloat(document.getElementById('new-selling-price').value);
+        const boxPrice = parseFloat(document.getElementById('new-box-price').value);
+
         if (!sellingPrice || sellingPrice <= 0) {
             showToast(translations.enterValidPrice, 'error');
             return;
@@ -1026,12 +1059,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
         }
-        
+
         // 판매가 업데이트 API 호출
         const formData = new FormData();
         formData.append('product_id', currentProductId);
         formData.append('selling_price', sellingPrice);
         formData.append('cost_price', costPrice); // 선택된 원가 추가
+
+        // 박스원가가 입력된 경우 추가
+        if (boxPrice && boxPrice > 0) {
+            formData.append('box_price', boxPrice);
+        }
+
         if (currentStoreId) {
             formData.append('store_id', currentStoreId);
         }
@@ -1067,6 +1106,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <tr>
                                             <th class="px-3 py-2 font-semibold">${translations.store}</th>
                                             <th class="px-3 py-2 font-semibold text-right">${translations.inventory}</th>
+                                            <th class="px-3 py-2 font-semibold text-right">박스원가</th>
                                             <th class="px-3 py-2 font-semibold text-right"><?php echo t('product.cost_price'); ?></th>
                                             <th class="px-3 py-2 font-semibold text-right"><?php echo t('product.margin_rate'); ?>(%)</th>
                                             <th class="px-3 py-2 font-semibold text-right"><?php echo t('product.selling_price'); ?></th>
@@ -1077,22 +1117,24 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const tbody = inventoryTable.querySelector('tbody');
                                 product.inventory.forEach(inv => {
                                     console.log('Refresh - Processing inventory item:', inv);
+                                    const storeBoxPrice = inv.box_price ? `${parseFloat(inv.box_price).toLocaleString()}` : '-';
                                     const storeCostPrice = inv.cost_price ? `${parseFloat(inv.cost_price).toLocaleString()}` : '-';
                                     const storeSellingPrice = inv.selling_price ? `${parseFloat(inv.selling_price).toLocaleString()}` : '-';
-                                    
+
                                     // 마진율 계산
                                     let marginRate = '-';
                                     if (inv.cost_price && inv.selling_price && parseFloat(inv.cost_price) > 0) {
                                         const margin = ((parseFloat(inv.selling_price) - parseFloat(inv.cost_price)) / parseFloat(inv.cost_price)) * 100;
                                         marginRate = `${margin.toFixed(1)}%`;
                                     }
-                                    
-                                    console.log('Refresh - Formatted prices - Cost:', storeCostPrice, 'Margin:', marginRate, 'Selling:', storeSellingPrice);
+
+                                    console.log('Refresh - Formatted prices - Box:', storeBoxPrice, 'Cost:', storeCostPrice, 'Margin:', marginRate, 'Selling:', storeSellingPrice);
                                     const row = document.createElement('tr');
                                     row.className = 'border-b';
                                     row.innerHTML = `
                                         <td class="px-3 py-2">${inv.store_name}</td>
                                         <td class="px-3 py-2 text-right">${parseInt(inv.quantity)}개</td>
+                                        <td class="px-3 py-2 text-right font-semibold text-purple-700">${storeBoxPrice}</td>
                                         <td class="px-3 py-2 text-right font-semibold text-green-700">${storeCostPrice}</td>
                                         <td class="px-3 py-2 text-right font-semibold text-orange-600">${marginRate}</td>
                                         <td class="px-3 py-2 text-right font-semibold text-blue-700">${storeSellingPrice}</td>
@@ -1147,6 +1189,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         document.getElementById('custom-margin-input').value = '';
         document.getElementById('new-selling-price').value = '';
+        document.getElementById('new-box-price').value = '';
     });
     
     // 페이지 로드 시 마진율 프리셋 로드
