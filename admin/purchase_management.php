@@ -356,19 +356,6 @@ th[data-column="actions"] { min-width: 150px !important; }
 <div class="w-full px-2 sm:px-3 md:px-4 py-8">
 
 
-    <!-- 컬럼 토글 컨트롤 (데스크톱만) -->
-    <div class="hidden md:block w-full bg-white shadow rounded-lg mb-4 p-4">
-        <div class="w-full flex flex-wrap items-center gap-2">
-            <span class="text-sm font-medium text-gray-700 mr-3"><?php echo t('common.show_columns'); ?>:</span>
-            <button class="column-toggle-btn active" data-column="number"><?php echo t('purchase.number'); ?></button>
-            <button class="column-toggle-btn active" data-column="datetime"><?php echo t('purchase.date_time'); ?></button>
-            <button class="column-toggle-btn active" data-column="supplier"><?php echo t('purchase.supplier'); ?></button>
-            <button class="column-toggle-btn tablet-hidden" data-column="total_items"><?php echo t('purchase.total_items'); ?></button>
-            <button class="column-toggle-btn tablet-hidden" data-column="total_pieces"><?php echo t('purchase.total_pieces'); ?></button>
-            <button class="column-toggle-btn active" data-column="amount"><?php echo t('purchase.purchase_amount'); ?></button>
-            <button class="column-toggle-btn active" data-column="actions"><?php echo t('common.actions'); ?></button>
-        </div>
-    </div>
 
     <!-- 모바일 카드 뷰 (임시 비활성화) -->
     <div class="hidden">
@@ -532,77 +519,53 @@ th[data-column="actions"] { min-width: 150px !important; }
         
         <!-- 페이지네이션 -->
         <?php if ($total_pages > 1): ?>
-        <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between w-full">
-            <div class="w-full flex items-center justify-between">
-                <div class="text-sm text-gray-700">
-                    <?php 
-                    $start_item = ($current_page - 1) * $items_per_page + 1;
-                    $end_item = min($current_page * $items_per_page, $total_count);
-                    echo sprintf(
-                        t('purchase.showing_results'),
-                        number_format($start_item),
-                        number_format($end_item),
-                        number_format($total_count)
-                    );
-                    ?>
-                </div>
-                
-                <div class="flex items-center space-x-2">
-                    <!-- 이전 페이지 -->
-                    <?php if ($current_page > 1): ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $current_page - 1])); ?>" 
-                           class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500">
-                            <i class="fas fa-chevron-left mr-1"></i>
-                            <?php echo t('common.previous'); ?>
-                        </a>
-                    <?php endif; ?>
-                    
-                    <!-- 페이지 번호 -->
+        <div class="bg-white px-4 py-3 flex items-center justify-center border-t border-gray-200 sm:px-6">
+            <div class="flex-1 flex justify-center">
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                     <?php
-                    $start_page = max(1, $current_page - 2);
-                    $end_page = min($total_pages, $current_page + 2);
-                    
-                    // 첫 페이지
-                    if ($start_page > 1): ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => 1])); ?>" 
-                           class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-md hover:bg-gray-50">1</a>
-                        <?php if ($start_page > 2): ?>
-                            <span class="px-2 py-2 text-sm text-gray-500">...</span>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                    
-                    <!-- 현재 페이지 주변 -->
-                    <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
-                        <?php if ($i == $current_page): ?>
-                            <span class="px-3 py-2 text-sm font-medium text-white bg-primary-600 border border-primary-600 rounded-md">
-                                <?php echo $i; ?>
-                            </span>
-                        <?php else: ?>
-                            <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>" 
-                               class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-md hover:bg-gray-50">
-                                <?php echo $i; ?>
-                            </a>
-                        <?php endif; ?>
-                    <?php endfor; ?>
-                    
-                    <!-- 마지막 페이지 -->
-                    <?php if ($end_page < $total_pages): ?>
-                        <?php if ($end_page < $total_pages - 1): ?>
-                            <span class="px-2 py-2 text-sm text-gray-500">...</span>
-                        <?php endif; ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $total_pages])); ?>" 
-                           class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-md hover:bg-gray-50"><?php echo $total_pages; ?></a>
-                    <?php endif; ?>
-                    
-                    <!-- 다음 페이지 -->
-                    <?php if ($current_page < $total_pages): ?>
-                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $current_page + 1])); ?>" 
-                           class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-100 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500">
-                            <?php echo t('common.next'); ?>
-                            <i class="fas fa-chevron-right ml-1"></i>
+                    // 현재 페이지가 속한 10페이지 그룹 계산
+                    $current_group = ceil($current_page / 10);
+                    $group_start = ($current_group - 1) * 10 + 1;
+                    $group_end = min($current_group * 10, $total_pages);
+
+                    // 이전 그룹이 있으면 이전 버튼 표시
+                    if ($group_start > 1): ?>
+                        <a href="?page=<?php echo $group_start - 1; ?>"
+                           class="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="fas fa-chevron-left mr-2"></i>이전
                         </a>
                     <?php endif; ?>
-                </div>
+
+                    <?php
+                    // 현재 그룹의 페이지들 표시 (1-10, 11-20, ...)
+                    for ($i = $group_start; $i <= $group_end; $i++):
+                    ?>
+                        <a href="?page=<?php echo $i; ?>"
+                           class="<?php echo $i == $current_page ? 'bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'; ?>
+                                  relative inline-flex items-center px-4 py-2 border text-sm font-medium
+                                  <?php echo ($i == $group_start && $group_start == 1) ? 'rounded-l-md' : ''; ?>
+                                  <?php echo ($i == $group_end && $group_end == $total_pages) ? 'rounded-r-md' : ''; ?>">
+                            <?php echo $i; ?>
+                        </a>
+                    <?php endfor; ?>
+
+                    <?php
+                    // 다음 그룹이 있으면 다음 버튼 표시
+                    if ($group_end < $total_pages): ?>
+                        <a href="?page=<?php echo $group_end + 1; ?>"
+                           class="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            다음<i class="fas fa-chevron-right ml-2"></i>
+                        </a>
+                    <?php endif; ?>
+                </nav>
+            </div>
+
+            <!-- 하단 그룹 정보 -->
+            <div class="text-center mt-3">
+                <span class="text-sm text-gray-700">
+                    페이지 <?php echo $current_page; ?> / <?php echo $total_pages; ?>
+                    (총 <?php echo number_format($total_count); ?>개 항목)
+                </span>
             </div>
         </div>
         <?php endif; ?>
