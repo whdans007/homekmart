@@ -495,22 +495,26 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     let searchTimeout;
-    
+    let lastSearchTime = 0;
+    let isProcessingBarcode = false;
+
     // 상품 검색 (바코드 스캐너 최적화)
     productSearch.addEventListener('input', function() {
         const query = this.value.trim();
         clearTimeout(searchTimeout);
-        
+
         if (query.length < 1) {
             productSearchResults.classList.add('hidden');
             return;
         }
-        
+
         // 바코드로 보이는 패턴인지 확인 (숫자만으로 구성되고 8자 이상)
         const isBarcodePattern = /^\d{8,}$/.test(query);
-        
+
         if (isBarcodePattern && query.length >= 10) {
-            // 바코드 패턴이고 10자 이상이면 즉시 검색
+            // 바코드 패턴이고 10자 이상이면 즉시 검색하고 처리 플래그 설정
+            isProcessingBarcode = true;
+            lastSearchTime = Date.now();
             searchProducts(query);
         } else if (isBarcodePattern) {
             // 짧은 바코드는 약간의 지연 후 검색
@@ -526,11 +530,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Enter 키 이벤트 처리
+    // Enter 키 이벤트 처리 (바코드 스캐너 중복 방지)
     productSearch.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             const query = this.value.trim();
+            const currentTime = Date.now();
+
+            // 최근 500ms 이내에 바코드 처리가 있었다면 Enter 무시
+            if (isProcessingBarcode && (currentTime - lastSearchTime) < 500) {
+                console.log('Barcode already processed, ignoring Enter key');
+                return;
+            }
+
             if (query.length > 0) {
                 searchAndAutoAdd(query);
             }
@@ -624,9 +636,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 productSearchResults.innerHTML = '<div class="p-3 text-sm text-gray-500">' + (translations['price_label.no_results'] || '<?php echo t("price_label.no_results"); ?>') + '</div>';
                 productSearchResults.classList.remove('hidden');
             }
+            // 바코드 처리 플래그 리셋 (500ms 후)
+            setTimeout(() => {
+                isProcessingBarcode = false;
+            }, 500);
         })
         .catch(error => {
             console.error('Error:', error);
+            // 에러 시에도 플래그 리셋
+            setTimeout(() => {
+                isProcessingBarcode = false;
+            }, 500);
         });
     }
 
