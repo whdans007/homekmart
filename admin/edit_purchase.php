@@ -2059,7 +2059,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 할인율 변경 시
         if (e.target.classList.contains('discount-rate')) {
-            updateDiscountedTotal(row);
+            calculateRowTotal(row);
             trackChange(itemId);
             updatePageTotal(); // 전체 합계 업데이트
         }
@@ -2110,16 +2110,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // UI 업데이트
         // 개당 가격 (8번째 셀)
-        row.cells[7].textContent = new Intl.NumberFormat('ko-KR', {
+        row.cells[8].textContent = new Intl.NumberFormat('ko-KR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }).format(piecePrice);
         
         // 총 개수 (9번째 셀)
-        row.cells[8].innerHTML = `<span class="text-blue-600">${new Intl.NumberFormat('ko-KR').format(totalPieces)}</span>`;
+        row.cells[9].innerHTML = `<span class="text-blue-600">${new Intl.NumberFormat('ko-KR').format(totalPieces)}</span>`;
         
         // 합계 (10번째 셀)
-        row.cells[9].textContent = new Intl.NumberFormat('ko-KR', {
+        row.cells[10].textContent = new Intl.NumberFormat('ko-KR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }).format(total);
@@ -2157,11 +2157,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         document.querySelectorAll('tr[id^="row-"]').forEach(row => {
             // 합계 (10번째 셀)
-            const total = parseFloat(row.cells[9].textContent.replace(/,/g, '')) || 0;
+            const total = parseFloat(row.cells[10].textContent.replace(/,/g, '')) || 0;
             totalAmount += total;
             
             // 총 개수 (9번째 셀)
-            const pieces = parseFloat(row.cells[8].textContent.replace(/,/g, '')) || 0;
+            const pieces = parseFloat(row.cells[9].textContent.replace(/,/g, '')) || 0;
             totalPieces += pieces;
             
             // 할인 후 합계
