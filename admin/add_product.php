@@ -81,6 +81,14 @@ try {
     $errors[] = str_replace('{error}', $e->getMessage(), t('product.database_connection_failed'));
 }
 
+// GET 파라미터로 전달된 sku를 초기값으로 채움 (페이지 최초 진입 시)
+if ($_SERVER["REQUEST_METHOD"] !== "POST" && isset($_GET['sku'])) {
+    $sku_prefill = trim($_GET['sku']);
+    if ($sku_prefill !== '') {
+        $product['sku'] = $sku_prefill;
+    }
+}
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // 데이터 받아오기
     foreach ($product as $key => $value) {
