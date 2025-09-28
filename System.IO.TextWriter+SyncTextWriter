@@ -1,27 +1,9 @@
-        }
-        
-        // 총 개수 계산
-        let totalPieces = quantity;
-        if (purchaseType === 'box') {
-            totalPieces = quantity * piecesPerBox;
-        }
-        
-        // 합계 계산
-        const total = quantity * unitPrice;
-        
-        // 할인 후 합계 계산
-        const discountedTotal = total * (1 - discountRate / 100);
-        
-        // UI 업데이트
-        // 개당 가격 (8번째 셀)
-        row.cells[7].textContent = new Intl.NumberFormat('ko-KR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(piecePrice);
-        
-        // 총 개수 (9번째 셀)
-        row.cells[8].innerHTML = `<span class="text-blue-600">${new Intl.NumberFormat('ko-KR').format(totalPieces)}</span>`;
-        
-        // 합계 (10번째 셀)
-        row.cells[9].textContent = new Intl.NumberFormat('ko-KR', {
-            minimumFractionDigits: 2,
+                        $product_id = $insert_stmt->insert_id;
+                        $insert_stmt->close();
+                        
+                        $processed_items[] = "행 " . ($index + 1) . ": SKU {$sku} 신규 상품 생성 (ID: {$product_id})";
+                    }
+                    $check_stmt->close();
+                    
+                    // 2. 점포별 가격 정보 저장/업데이트 (inventory 테이블)
+                    if ($product_id) {
