@@ -114,6 +114,10 @@ if (!empty($_SESSION['user_id'])) {
                                     <i class="fas fa-list-ul mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
                                     <?php echo t('navigation.price_label_lists'); ?>
                                 </a>
+                                <a href="barcode_generate.php" class="<?php echo ($current_page == 'barcode_generate.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-barcode mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
+                                    바코드생성
+                                </a>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -436,6 +440,9 @@ if (!empty($_SESSION['user_id'])) {
                             <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
                             <a href="price_label_lists.php" class="<?php echo in_array($current_page, ['price_label_lists.php', 'price_label_project_edit.php']) ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-list-ul mr-2 text-xs"></i><?php echo t('navigation.price_label_lists'); ?>
+                            </a>
+                            <a href="barcode_generate.php" class="<?php echo ($current_page == 'barcode_generate.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-barcode mr-2 text-xs"></i>바코드생성
                             </a>
                             <?php endif; ?>
                         </div>
