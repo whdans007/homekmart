@@ -23,7 +23,12 @@
       "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l \"Z:\\homekmart\\admin\\price_label_project_edit.php\")",
       "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l \"Z:\\homekmart\\admin\\store_transfer_preview.php\")",
       "Bash(php -l:*)",
-      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l \"admin/purchase_analysis.php\")"
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l \"admin/purchase_analysis.php\")",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l admin/customer_management.php)",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l admin/edit_customer.php)",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l admin/ajax_search_customers.php)",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l \"z:\\homekmart\\admin\\delivery_order_management.php\")",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" -l \"z:\\homekmart\\admin\\delivery_order_detail.php\")"
     ],
     "deny": [],
     "ask": []

@@ -251,7 +251,7 @@ CREATE TABLE IF NOT EXISTS delivery_settings (
 -- ===================================================================
 -- 10. 기본 설정 데이터 삽입
 -- ===================================================================
-INSERT INTO delivery_settings (setting_key, setting_value, setting_type, description) VALUES
+INSERT IGNORE INTO delivery_settings (setting_key, setting_value, setting_type, description) VALUES
 ('default_delivery_fee', '50.00', 'number', '기본 배달비 (PHP)'),
 ('free_delivery_threshold', '1000.00', 'number', '무료 배달 최소 주문 금액 (PHP)'),
 ('max_delivery_distance', '20', 'number', '최대 배달 거리 (km)'),
@@ -262,27 +262,39 @@ INSERT INTO delivery_settings (setting_key, setting_value, setting_type, descrip
 ('service_hours_start', '08:00', 'string', '서비스 시작 시간'),
 ('service_hours_end', '22:00', 'string', '서비스 종료 시간'),
 ('currency_symbol', '₱', 'string', '통화 기호'),
-('currency_code', 'PHP', 'string', '통화 코드')
-ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+('currency_code', 'PHP', 'string', '통화 코드');
 
 -- ===================================================================
 -- 11. 기본 배달 지역 데이터 (예시 - 마닐라 메트로 지역)
 -- ===================================================================
-INSERT INTO delivery_zones (zone_name, city, province, delivery_fee, min_order_amount, free_delivery_threshold) VALUES
+INSERT IGNORE INTO delivery_zones (zone_name, city, province, delivery_fee, min_order_amount, free_delivery_threshold) VALUES
 ('Metro Manila - Makati', 'Makati', 'Metro Manila', 50.00, 300.00, 1000.00),
 ('Metro Manila - BGC', 'Taguig', 'Metro Manila', 60.00, 300.00, 1000.00),
 ('Metro Manila - Ortigas', 'Pasig', 'Metro Manila', 55.00, 300.00, 1000.00),
 ('Metro Manila - Quezon City', 'Quezon City', 'Metro Manila', 65.00, 300.00, 1200.00),
-('Metro Manila - Manila', 'Manila', 'Metro Manila', 45.00, 250.00, 800.00)
-ON DUPLICATE KEY UPDATE delivery_fee = VALUES(delivery_fee);
+('Metro Manila - Manila', 'Manila', 'Metro Manila', 45.00, 250.00, 800.00);
 
 -- ===================================================================
 -- 인덱스 최적화
 -- ===================================================================
 -- users 테이블의 기본 배달 주소 외래키 추가 (delivery_addresses 테이블 생성 후)
-ALTER TABLE users 
-ADD CONSTRAINT fk_users_default_delivery_address 
-FOREIGN KEY (default_delivery_address_id) REFERENCES delivery_addresses(id) ON DELETE SET NULL;
+-- 이미 존재하는 경우 건너뛰기
+SET @constraint_exists = (
+    SELECT COUNT(*)
+    FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'users'
+    AND CONSTRAINT_NAME = 'fk_users_default_delivery_address'
+);
+
+SET @sql = IF(@constraint_exists = 0,
+    'ALTER TABLE users ADD CONSTRAINT fk_users_default_delivery_address FOREIGN KEY (default_delivery_address_id) REFERENCES delivery_addresses(id) ON DELETE SET NULL',
+    'SELECT "Foreign key fk_users_default_delivery_address already exists" as message'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- ===================================================================
 -- 완료 메시지

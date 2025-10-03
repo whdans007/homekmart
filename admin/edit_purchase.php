@@ -967,6 +967,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
+// 거래처 변경 처리 (슈퍼어드민만)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_supplier') {
+    if ($_SESSION['role'] === 'super_admin') {
+        $new_supplier_id = (int)$_POST['supplier_id'];
+
+        if ($new_supplier_id > 0) {
+            try {
+                $update_supplier_stmt = $conn->prepare("UPDATE purchases SET supplier_id = ? WHERE purchase_id = ?");
+                $update_supplier_stmt->bind_param("ii", $new_supplier_id, $purchase_id);
+
+                if ($update_supplier_stmt->execute()) {
+                    $message = '거래처가 성공적으로 변경되었습니다.';
+                    $message_type = 'success';
+                } else {
+                    throw new Exception('거래처 변경에 실패했습니다.');
+                }
+                $update_supplier_stmt->close();
+            } catch (Exception $e) {
+                $message = '거래처 변경 오류: ' . $e->getMessage();
+                $message_type = 'error';
+            }
+        } else {
+            $message = '유효한 거래처를 선택해주세요.';
+            $message_type = 'error';
+        }
+    } else {
+        $message = '권한이 없습니다.';
+        $message_type = 'error';
+    }
+}
+
 // deleted_at 컬럼이 존재하는지 확인
 $check_deleted_at_column = $conn->query("SHOW COLUMNS FROM purchases LIKE 'deleted_at'");
 $has_deleted_at = $check_deleted_at_column->num_rows > 0;
@@ -982,6 +1013,18 @@ $stmt->execute();
 $purchase_result = $stmt->get_result();
 $purchase = $purchase_result->fetch_assoc();
 $stmt->close();
+
+// 슈퍼어드민인 경우 거래처 목록 조회
+$suppliers = [];
+if ($_SESSION['role'] === 'super_admin') {
+    $suppliers_stmt = $conn->prepare("SELECT id, name FROM suppliers ORDER BY name");
+    $suppliers_stmt->execute();
+    $suppliers_result = $suppliers_stmt->get_result();
+    while ($supplier = $suppliers_result->fetch_assoc()) {
+        $suppliers[] = $supplier;
+    }
+    $suppliers_stmt->close();
+}
 
 if (!$purchase) {
     echo "<div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4'>매입 내역을 찾을 수 없습니다.</div>";
@@ -1147,9 +1190,22 @@ tr[id^="row-"] td:first-child:hover {
                     <div class="flex-shrink-0">
                         <i class="fas fa-building text-blue-500 mr-2"></i>
                     </div>
-                    <div>
+                    <div class="flex items-center space-x-2">
                         <span class="text-sm font-medium text-gray-600"><?php echo t('purchase.supplier'); ?>:</span>
-                        <span class="text-base font-semibold text-gray-900 ml-2"><?php echo htmlspecialchars($purchase['supplier_name']); ?></span>
+                        <?php if ($_SESSION['role'] === 'super_admin'): ?>
+                            <span class="text-base font-semibold text-gray-900" id="current-supplier-name"><?php echo htmlspecialchars($purchase['supplier_name']); ?></span>
+                            <button type="button" id="change-supplier-btn"
+                                    class="inline-flex items-center px-2 py-1 border border-blue-300 rounded text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500">
+                                <i class="fas fa-edit mr-1"></i>
+                                변경
+                            </button>
+                            <form method="POST" id="supplier-form" class="hidden">
+                                <input type="hidden" name="action" value="update_supplier">
+                                <input type="hidden" name="supplier_id" id="selected-supplier-id" value="<?php echo $purchase['supplier_id']; ?>">
+                            </form>
+                        <?php else: ?>
+                            <span class="text-base font-semibold text-gray-900 ml-2"><?php echo htmlspecialchars($purchase['supplier_name']); ?></span>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="flex items-center">
@@ -1476,6 +1532,79 @@ tr[id^="row-"] td:first-child:hover {
         </div>
     </div>
 </div>
+
+<!-- 거래처 변경 모달 -->
+<?php if ($_SESSION['role'] === 'super_admin'): ?>
+<div id="supplier-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50" style="display: none;">
+    <div class="relative top-20 mx-auto p-5 border shadow-lg rounded-md bg-white" style="max-width: 600px; width: 90%;">
+        <!-- 모달 헤더 -->
+        <div class="flex items-center justify-between pb-3 border-b border-gray-200">
+            <h3 class="text-xl font-semibold text-gray-900">
+                <i class="fas fa-building mr-2 text-blue-500"></i>
+                거래처 선택
+            </h3>
+            <button type="button" id="close-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- 검색 입력 -->
+        <div class="mt-4 mb-4">
+            <div class="relative">
+                <input type="text" id="supplier-search"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                       placeholder="거래처명으로 검색...">
+                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <i class="fas fa-search text-gray-400"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- 거래처 목록 -->
+        <div class="mt-4 max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
+            <table class="w-full">
+                <thead class="bg-gray-50 sticky top-0">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">거래처명</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">선택</th>
+                    </tr>
+                </thead>
+                <tbody id="supplier-list" class="bg-white divide-y divide-gray-200">
+                    <?php foreach ($suppliers as $supplier): ?>
+                        <tr class="supplier-row hover:bg-blue-50 transition-colors <?php echo ($supplier['id'] == $purchase['supplier_id']) ? 'bg-blue-100' : ''; ?>"
+                            data-supplier-id="<?php echo $supplier['id']; ?>"
+                            data-supplier-name="<?php echo htmlspecialchars($supplier['name']); ?>">
+                            <td class="px-4 py-3 text-sm text-gray-900">
+                                <?php echo htmlspecialchars($supplier['name']); ?>
+                                <?php if ($supplier['id'] == $purchase['supplier_id']): ?>
+                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500 text-white">
+                                        <i class="fas fa-check mr-1"></i>
+                                        현재
+                                    </span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <button type="button" class="select-supplier-btn px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" style="min-width: 80px; width: 80px; white-space: nowrap;">
+                                    <i class="fas fa-check mr-2"></i>선택
+                                </button>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 모달 푸터 -->
+        <div class="mt-4 flex justify-end space-x-2">
+            <button type="button" id="cancel-modal-btn"
+                    class="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
+                <i class="fas fa-times mr-1"></i>
+                취소
+            </button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <script>
 // PHP에서 JavaScript로 언어 데이터 전달
@@ -2334,6 +2463,129 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // 페이지 로드 완료 후 디버깅 정보 출력
+
+    // 거래처 변경 모달 기능
+    const supplierModal = document.getElementById('supplier-modal');
+    const changeSupplierBtn = document.getElementById('change-supplier-btn');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const cancelModalBtn = document.getElementById('cancel-modal-btn');
+    const supplierSearchInput = document.getElementById('supplier-search');
+    const supplierRows = document.querySelectorAll('.supplier-row');
+
+    // 모달 열기
+    if (changeSupplierBtn) {
+        changeSupplierBtn.addEventListener('click', function() {
+            supplierModal.style.display = 'block';
+            supplierModal.classList.remove('hidden');
+            // 검색 입력에 포커스
+            if (supplierSearchInput) {
+                setTimeout(() => supplierSearchInput.focus(), 100);
+            }
+        });
+    }
+
+    // 모달 닫기 함수
+    function closeSupplierModal() {
+        supplierModal.style.display = 'none';
+        supplierModal.classList.add('hidden');
+        // 검색 입력 초기화
+        if (supplierSearchInput) {
+            supplierSearchInput.value = '';
+            filterSuppliers('');
+        }
+    }
+
+    // 닫기 버튼들
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', closeSupplierModal);
+    }
+    if (cancelModalBtn) {
+        cancelModalBtn.addEventListener('click', closeSupplierModal);
+    }
+
+    // 모달 배경 클릭 시 닫기
+    supplierModal.addEventListener('click', function(e) {
+        if (e.target === supplierModal) {
+            closeSupplierModal();
+        }
+    });
+
+    // ESC 키로 모달 닫기
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && supplierModal.style.display === 'block') {
+            closeSupplierModal();
+        }
+    });
+
+    // 거래처 검색 기능
+    if (supplierSearchInput) {
+        supplierSearchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            filterSuppliers(searchTerm);
+        });
+    }
+
+    // 거래처 필터링 함수
+    function filterSuppliers(searchTerm) {
+        let visibleCount = 0;
+
+        supplierRows.forEach(row => {
+            const supplierName = row.dataset.supplierName.toLowerCase();
+            if (supplierName.includes(searchTerm)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // 검색 결과 없음 메시지
+        const noResultsRow = document.getElementById('no-results-row');
+        if (visibleCount === 0) {
+            if (!noResultsRow) {
+                const tbody = document.getElementById('supplier-list');
+                const tr = document.createElement('tr');
+                tr.id = 'no-results-row';
+                tr.innerHTML = '<td colspan="2" class="px-4 py-8 text-center text-gray-500"><i class="fas fa-search mr-2"></i>검색 결과가 없습니다.</td>';
+                tbody.appendChild(tr);
+            }
+        } else {
+            if (noResultsRow) {
+                noResultsRow.remove();
+            }
+        }
+    }
+
+    // 거래처 선택 버튼
+    const selectSupplierBtns = document.querySelectorAll('.select-supplier-btn');
+    selectSupplierBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const row = this.closest('.supplier-row');
+            const supplierId = row.dataset.supplierId;
+            const supplierName = row.dataset.supplierName;
+
+            if (confirm(`거래처를 "${supplierName}"(으)로 변경하시겠습니까?`)) {
+                // Hidden input에 선택된 거래처 ID 설정
+                document.getElementById('selected-supplier-id').value = supplierId;
+
+                // 폼 제출
+                document.getElementById('supplier-form').submit();
+            }
+        });
+    });
+
+    // 거래처 행 더블클릭으로 선택
+    supplierRows.forEach(row => {
+        row.addEventListener('dblclick', function() {
+            const supplierId = this.dataset.supplierId;
+            const supplierName = this.dataset.supplierName;
+
+            if (confirm(`거래처를 "${supplierName}"(으)로 변경하시겠습니까?`)) {
+                document.getElementById('selected-supplier-id').value = supplierId;
+                document.getElementById('supplier-form').submit();
+            }
+        });
+    });
 });
 </script>
 
