@@ -1166,6 +1166,11 @@ tr[id^="row-"] td:first-child:hover {
                     </button>
                 <?php endif; ?>
 
+                <button type="button" onclick="openPrintModal()" class="inline-flex items-center justify-center rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    <i class="fas fa-print mr-2"></i>
+                    인쇄 미리보기
+                </button>
+
                 <a href="purchase_management.php" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
                     <i class="fas fa-arrow-left mr-2"></i>
                     매입 관리로 돌아가기
@@ -2587,9 +2592,102 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// 인쇄 미리보기 모달 관련 함수들
+function openPrintModal() {
+    document.getElementById('printModal').classList.remove('hidden');
+    loadPrintData();
+}
+
+function closePrintModal() {
+    document.getElementById('printModal').classList.add('hidden');
+}
+
+function loadPrintData() {
+    const container = document.getElementById('modalPrintContent');
+    container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i><p class="mt-2 text-gray-600">데이터를 불러오는 중...</p></div>';
+
+    fetch('ajax_print_purchase.php?purchase_id=<?php echo $purchase_id; ?>')
+        .then(response => response.text())
+        .then(html => {
+            container.innerHTML = html;
+        })
+        .catch(error => {
+            container.innerHTML = '<div class="text-center py-8 text-red-600">로딩 실패: ' + error.message + '</div>';
+        });
+}
+
+function printModalContent() {
+    const printContent = document.getElementById('modalPrintContent').innerHTML;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>매입 상세 - Purchase ID: <?php echo $purchase_id; ?></title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #000; padding: 8px; text-align: left; font-size: 12px; }
+                th { background-color: #f5f5f5; font-weight: bold; }
+                .no-print { display: none; }
+                @media print {
+                    body { margin: 0; }
+                    table { font-size: 10px; }
+                    th, td { padding: 4px; }
+                }
+            </style>
+        </head>
+        <body>
+            ${printContent}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// 모달 외부 클릭시 닫기
+document.addEventListener('DOMContentLoaded', function() {
+    const printModal = document.getElementById('printModal');
+    if (printModal) {
+        printModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePrintModal();
+            }
+        });
+    }
+});
 </script>
 
-<?php 
+<!-- Print Preview Modal -->
+<div id="printModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900">인쇄 미리보기</h3>
+                <button onclick="closePrintModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <div class="flex items-center justify-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
+                <button onclick="printModalContent()" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">
+                    <i class="fas fa-print mr-2"></i>인쇄하기
+                </button>
+            </div>
+
+            <!-- 인쇄 내용 -->
+            <div id="modalPrintContent" class="border rounded-lg p-4 bg-white" style="max-height: 600px; overflow-y: auto;">
+                <div class="text-center py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
+                    <p class="mt-2 text-gray-600">데이터를 불러오는 중...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php
 $conn->close();
 require_once __DIR__ . '/partials/footer.php';
 ?>

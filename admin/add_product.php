@@ -81,11 +81,26 @@ try {
     $errors[] = str_replace('{error}', $e->getMessage(), t('product.database_connection_failed'));
 }
 
-// GET 파라미터로 전달된 sku를 초기값으로 채움 (페이지 최초 진입 시)
-if ($_SERVER["REQUEST_METHOD"] !== "POST" && isset($_GET['sku'])) {
-    $sku_prefill = trim($_GET['sku']);
-    if ($sku_prefill !== '') {
-        $product['sku'] = $sku_prefill;
+// GET 파라미터로 전달된 sku, 원가, 판매가, 점포정보를 초기값으로 채움 (페이지 최초 진입 시)
+$initial_cost_price = '';
+$initial_selling_price = '';
+$initial_store_id = null;
+
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    if (isset($_GET['sku'])) {
+        $sku_prefill = trim($_GET['sku']);
+        if ($sku_prefill !== '') {
+            $product['sku'] = $sku_prefill;
+        }
+    }
+    if (isset($_GET['cost_price'])) {
+        $initial_cost_price = trim($_GET['cost_price']);
+    }
+    if (isset($_GET['selling_price'])) {
+        $initial_selling_price = trim($_GET['selling_price']);
+    }
+    if (isset($_GET['store_id'])) {
+        $initial_store_id = intval($_GET['store_id']);
     }
 }
 
@@ -97,10 +112,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 
+    $cost_price = isset($_POST['cost_price']) ? trim($_POST['cost_price']) : null;
+    $selling_price = isset($_POST['selling_price']) ? trim($_POST['selling_price']) : null;
+    $store_id = isset($_POST['store_id']) ? intval($_POST['store_id']) : null;
+
     // 유효성 검사
     if (empty($product['sku'])) $errors[] = t('product.sku_required');
     if (empty($product['name_en'])) $errors[] = t('product.name_en_required');
     if (!empty($product['pieces_per_box']) && (!is_numeric($product['pieces_per_box']) || $product['pieces_per_box'] < 1)) $errors[] = t('product.pieces_per_box_numeric');
+
+    // 원가/판매가 유효성 검사
+    if (!empty($cost_price) && (!is_numeric($cost_price) || $cost_price < 0)) $errors[] = '원가는 0 이상의 숫자여야 합니다.';
+    if (!empty($selling_price) && (!is_numeric($selling_price) || $selling_price < 0)) $errors[] = '판매가는 0 이상의 숫자여야 합니다.';
 
     // SKU 중복 확인
     if (empty($errors)) {
@@ -113,6 +136,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (empty($errors)) {
         try {
+            $pdo->beginTransaction();
+
+            // 1. 상품 등록
             $sql = "INSERT INTO products (sku, name_ko, name_en, description, category_id, brand_id, image_url, is_active, pieces_per_box, is_vat_applicable, last_modified_by_user_id) VALUES (:sku, :name_ko, :name_en, :description, :category_id, :brand_id, :image_url, :is_active, :pieces_per_box, :is_vat_applicable, :user_id)";
             $stmt = $pdo->prepare($sql);
 
@@ -131,12 +157,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             ];
 
             $stmt->execute($params);
+            $product_id = $pdo->lastInsertId();
+
+            // 2. 점포별 재고 정보 등록 (원가/판매가가 입력된 경우)
+            if ($store_id && (!empty($cost_price) || !empty($selling_price))) {
+                $inv_sql = "INSERT INTO inventory (product_id, store_id, cost_price, selling_price, quantity)
+                            VALUES (:product_id, :store_id, :cost_price, :selling_price, 0)
+                            ON DUPLICATE KEY UPDATE
+                            cost_price = VALUES(cost_price),
+                            selling_price = VALUES(selling_price)";
+
+                $inv_stmt = $pdo->prepare($inv_sql);
+                $inv_stmt->execute([
+                    ':product_id' => $product_id,
+                    ':store_id' => $store_id,
+                    ':cost_price' => !empty($cost_price) ? $cost_price : null,
+                    ':selling_price' => !empty($selling_price) ? $selling_price : null
+                ]);
+            }
+
+            $pdo->commit();
 
             $_SESSION['flash'] = ['type' => 'success', 'message' => t('product.added_successfully')];
             header("Location: product_management.php");
             exit;
 
         } catch (PDOException $e) {
+            $pdo->rollBack();
             $errors[] = str_replace('{error}', $e->getMessage(), t('product.add_error'));
         }
     }
@@ -292,6 +339,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                         <span class="text-gray-500 text-sm"><?php echo t('product.pieces'); ?></span>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 가격 정보 섹션 -->
+                    <div>
+                        <div class="flex items-center mb-4">
+                            <div class="bg-emerald-100 rounded-full p-2 mr-3">
+                                <i class="fas fa-dollar-sign text-emerald-600 text-sm"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900">가격 정보</h3>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div>
+                                <label for="cost_price" class="block text-sm font-medium text-gray-700 mb-2">원가 <span class="text-gray-400">(<?php echo t('forms.optional'); ?>)</span></label>
+                                <input type="number" name="cost_price" id="cost_price" value="<?php echo htmlspecialchars($initial_cost_price); ?>" step="0.01" min="0" class="block w-full h-10 px-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="0.00">
+                                <p class="text-xs text-gray-500 mt-1">해당 점포의 원가를 입력하세요.</p>
+                            </div>
+                            <div>
+                                <label for="selling_price" class="block text-sm font-medium text-gray-700 mb-2">판매가 <span class="text-gray-400">(<?php echo t('forms.optional'); ?>)</span></label>
+                                <input type="number" name="selling_price" id="selling_price" value="<?php echo htmlspecialchars($initial_selling_price); ?>" step="0.01" min="0" class="block w-full h-10 px-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="0.00">
+                                <p class="text-xs text-gray-500 mt-1">해당 점포의 판매가를 입력하세요.</p>
+                            </div>
+                            <div>
+                                <label for="store_id_display" class="block text-sm font-medium text-gray-700 mb-2">등록 점포</label>
+                                <input type="text" id="store_id_display" value="<?php echo htmlspecialchars($current_store_name); ?>" readonly class="block w-full h-10 px-3 rounded-lg border-gray-300 bg-gray-50 text-sm" disabled>
+                                <input type="hidden" name="store_id" id="store_id" value="<?php echo htmlspecialchars($initial_store_id ?: $current_store_id); ?>">
+                                <p class="text-xs text-gray-500 mt-1">현재 점포에 상품이 등록됩니다.</p>
                             </div>
                         </div>
                     </div>

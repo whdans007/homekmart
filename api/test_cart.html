@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>장바구니 API 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        h2 {
+            color: #333;
+        }
+        input, button, select {
+            margin: 5px 0;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .btn-danger {
+            background-color: #f44336;
+        }
+        .btn-danger:hover {
+            background-color: #da190b;
+        }
+        .response {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .token-info {
+            padding: 10px;
+            background-color: #e7f3ff;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>장바구니 API 테스트</h1>
+
+    <div class="token-info">
+        <strong>인증 토큰:</strong> <span id="token_display">없음 (먼저 로그인하세요)</span>
+        <br>
+        <strong>User ID:</strong> <span id="user_id_display">13</span>
+    </div>
+
+    <!-- 장바구니 추가 테스트 -->
+    <div class="test-section">
+        <h2>1. 장바구니 추가 (Add to Cart)</h2>
+        <input type="number" id="add_user_id" placeholder="User ID" value="13">
+        <input type="number" id="add_product_id" placeholder="Product ID" value="5">
+        <input type="number" id="add_store_id" placeholder="Store ID" value="1">
+        <input type="number" id="add_quantity" placeholder="Quantity" value="2">
+        <button onclick="testAddToCart()">장바구니 추가</button>
+        <div id="add_response" class="response"></div>
+    </div>
+
+    <!-- 장바구니 목록 조회 -->
+    <div class="test-section">
+        <h2>2. 장바구니 목록 (Cart List)</h2>
+        <input type="number" id="list_user_id" placeholder="User ID" value="13">
+        <button onclick="testCartList()">장바구니 목록 조회</button>
+        <div id="list_response" class="response"></div>
+    </div>
+
+    <!-- 장바구니 수량 업데이트 -->
+    <div class="test-section">
+        <h2>3. 수량 업데이트 (Update Quantity)</h2>
+        <input type="number" id="update_cart_id" placeholder="Cart Item ID">
+        <input type="number" id="update_quantity" placeholder="New Quantity" value="5">
+        <button onclick="testUpdateCart()">수량 업데이트</button>
+        <div id="update_response" class="response"></div>
+    </div>
+
+    <!-- 장바구니 아이템 삭제 -->
+    <div class="test-section">
+        <h2>4. 아이템 삭제 (Delete Item)</h2>
+        <input type="number" id="delete_cart_id" placeholder="Cart Item ID">
+        <button class="btn-danger" onclick="testDeleteCart()">아이템 삭제</button>
+        <div id="delete_response" class="response"></div>
+    </div>
+
+    <!-- 로그인 테스트 (토큰 획득용) -->
+    <div class="test-section">
+        <h2>5. 로그인 (토큰 획득)</h2>
+        <input type="email" id="login_email" placeholder="Email" value="test@example.com">
+        <input type="password" id="login_password" placeholder="Password" value="password123">
+        <button onclick="testLogin()">로그인</button>
+        <div id="login_response" class="response"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://192-168-1-123.philsarang.direct.quickconnect.to/homekmart/api';
+
+        // 페이지 로드 시 저장된 토큰 표시
+        window.onload = function() {
+            const token = localStorage.getItem('auth_token');
+            if (token) {
+                document.getElementById('token_display').textContent = token.substring(0, 50) + '...';
+            }
+        };
+
+        async function testAddToCart() {
+            const responseDiv = document.getElementById('add_response');
+            responseDiv.className = 'response';
+            responseDiv.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`${API_BASE}/cart/add.php`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: parseInt(document.getElementById('add_user_id').value),
+                        product_id: parseInt(document.getElementById('add_product_id').value),
+                        store_id: parseInt(document.getElementById('add_store_id').value),
+                        quantity: parseInt(document.getElementById('add_quantity').value)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function testCartList() {
+            const responseDiv = document.getElementById('list_response');
+            responseDiv.className = 'response';
+            responseDiv.textContent = 'Loading...';
+
+            try {
+                const userId = document.getElementById('list_user_id').value;
+                const response = await fetch(`${API_BASE}/cart/list.php?user_id=${userId}`);
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function testUpdateCart() {
+            const responseDiv = document.getElementById('update_response');
+            responseDiv.className = 'response';
+            responseDiv.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`${API_BASE}/cart/update.php`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cart_item_id: parseInt(document.getElementById('update_cart_id').value),
+                        quantity: parseInt(document.getElementById('update_quantity').value)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function testDeleteCart() {
+            const responseDiv = document.getElementById('delete_response');
+            responseDiv.className = 'response';
+            responseDiv.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`${API_BASE}/cart/delete.php`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cart_item_id: parseInt(document.getElementById('delete_cart_id').value)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function testLogin() {
+            const responseDiv = document.getElementById('login_response');
+            responseDiv.className = 'response';
+            responseDiv.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login.php`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: document.getElementById('login_email').value,
+                        password: document.getElementById('login_password').value
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+
+                    // 토큰 저장
+                    if (data.data && data.data.token) {
+                        localStorage.setItem('auth_token', data.data.token);
+                        document.getElementById('token_display').textContent = data.data.token.substring(0, 50) + '...';
+
+                        if (data.data.user && data.data.user.id) {
+                            document.getElementById('user_id_display').textContent = data.data.user.id;
+                        }
+                    }
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

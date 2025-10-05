@@ -1,67 +1,151 @@
 <?php
 /**
- * 장바구니 수량 변경 API
- * PUT /api/cart?id={cart_id}
- * 인증 필요
+ * 장바구니 수량 업데이트 API
+ * PUT /api/cart/update.php
+ * 테스트용 - 인증 없음
  */
 
-require_once __DIR__ . '/../config.php';
+ini_set('display_errors', '1');
+error_reporting(E_ALL);
+
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: PUT, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Content-Type: application/json; charset=UTF-8');
+
+// OPTIONS 요청 처리
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+require_once __DIR__ . '/../../config/db_config.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
-    apiError(405, 'Method not allowed');
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => ['message' => 'Method not allowed']], JSON_UNESCAPED_UNICODE);
+    exit();
 }
 
-// 인증 확인
-$auth = requireAuth();
-$user_id = $auth['user_id'];
+// 요청 본문 파싱
+$input = file_get_contents('php://input');
+$data = json_decode($input, true);
 
-if (!isset($_GET['id'])) {
-    apiError(400, 'Cart item ID is required');
+// 필수 필드 검증
+if (!isset($data['cart_item_id']) || !isset($data['quantity'])) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'error' => ['message' => 'cart_item_id and quantity are required']
+    ], JSON_UNESCAPED_UNICODE);
+    exit();
 }
 
-$cart_id = intval($_GET['id']);
-$data = getRequestBody();
-
-validateRequired($data, ['quantity']);
-
+$cart_item_id = intval($data['cart_item_id']);
 $quantity = intval($data['quantity']);
 
-if ($quantity <= 0) {
-    apiError(400, 'Quantity must be greater than 0');
+// 수량 검증
+if ($quantity < 1) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'error' => ['message' => 'Quantity must be at least 1']
+    ], JSON_UNESCAPED_UNICODE);
+    exit();
 }
 
 try {
-    $pdo = getApiDbConnection();
+    $conn = get_db_connection();
 
-    // 장바구니 항목 소유권 확인
-    $check_sql = "SELECT product_id, store_id FROM shopping_cart WHERE id = ? AND user_id = ?";
-    $check_stmt = $pdo->prepare($check_sql);
-    $check_stmt->execute([$cart_id, $user_id]);
-    $cart_item = $check_stmt->fetch();
+    // 장바구니 아이템 확인
+    $check_sql = "
+        SELECT sc.id, sc.product_id, sc.store_id, i.quantity as stock
+        FROM shopping_cart sc
+        INNER JOIN inventory i ON sc.product_id = i.product_id AND sc.store_id = i.store_id
+        WHERE sc.id = $cart_item_id
+    ";
+    $check_result = $conn->query($check_sql);
 
-    if (!$cart_item) {
-        apiError(404, 'Cart item not found or access denied');
+    if ($check_result->num_rows === 0) {
+        http_response_code(404);
+        echo json_encode([
+            'success' => false,
+            'error' => ['message' => 'Cart item not found']
+        ], JSON_UNESCAPED_UNICODE);
+        exit();
     }
 
-    // 재고 확인
-    $stock_sql = "SELECT quantity FROM inventory WHERE product_id = ? AND store_id = ?";
-    $stock_stmt = $pdo->prepare($stock_sql);
-    $stock_stmt->execute([$cart_item['product_id'], $cart_item['store_id']]);
-    $stock = $stock_stmt->fetch();
+    $cart_item = $check_result->fetch_assoc();
 
-    if ($stock['quantity'] < $quantity) {
-        apiError(400, 'Insufficient stock. Available: ' . $stock['quantity']);
+    // 재고 확인
+    if ($cart_item['stock'] < $quantity) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'error' => [
+                'message' => 'Quantity exceeds available stock',
+                'available_stock' => intval($cart_item['stock'])
+            ]
+        ], JSON_UNESCAPED_UNICODE);
+        exit();
     }
 
     // 수량 업데이트
-    $update_sql = "UPDATE shopping_cart SET quantity = ?, updated_at = NOW() WHERE id = ?";
-    $update_stmt = $pdo->prepare($update_sql);
-    $update_stmt->execute([$quantity, $cart_id]);
+    $update_sql = "
+        UPDATE shopping_cart
+        SET quantity = $quantity, updated_at = NOW()
+        WHERE id = $cart_item_id
+    ";
+    $conn->query($update_sql);
 
-    apiSuccess(['cart_id' => $cart_id, 'quantity' => $quantity], 'Cart item updated');
+    // 업데이트된 아이템 정보 조회
+    $item_sql = "
+        SELECT
+            sc.id,
+            sc.user_id,
+            sc.product_id,
+            sc.store_id,
+            sc.quantity,
+            p.name_ko,
+            p.name_en,
+            p.sku,
+            p.image_url,
+            i.selling_price,
+            i.quantity as stock,
+            sc.added_at,
+            sc.updated_at
+        FROM shopping_cart sc
+        INNER JOIN products p ON sc.product_id = p.id
+        INNER JOIN inventory i ON p.id = i.product_id AND sc.store_id = i.store_id
+        WHERE sc.id = $cart_item_id
+    ";
+    $item_result = $conn->query($item_sql);
+    $item = $item_result->fetch_assoc();
 
-} catch (PDOException $e) {
+    // 타입 변환
+    $item['id'] = intval($item['id']);
+    $item['user_id'] = intval($item['user_id']);
+    $item['product_id'] = intval($item['product_id']);
+    $item['store_id'] = intval($item['store_id']);
+    $item['quantity'] = intval($item['quantity']);
+    $item['selling_price'] = floatval($item['selling_price']);
+    $item['stock'] = intval($item['stock']);
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Cart item updated',
+        'data' => $item
+    ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+
+} catch (Exception $e) {
     error_log("Cart update error: " . $e->getMessage());
-    apiError(500, 'Failed to update cart item');
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => [
+            'message' => 'Failed to update cart',
+            'details' => $e->getMessage()
+        ]
+    ], JSON_UNESCAPED_UNICODE);
 }
 ?>
