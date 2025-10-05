@@ -21,15 +21,26 @@ require_once __DIR__ . '/partials/header.php';
             </div>
 
             <div class="flex items-center gap-2 mb-4">
-                <button id="btnPreview" class="btn btn-secondary">미리보기</button>
                 <button id="btnGenerate" class="btn btn-primary">생성 및 예약</button>
                 <button id="btnRegister" class="btn btn-success" disabled>생성된 바코드로 상품등록하기</button>
             </div>
 
-            <div class="mt-6">
-                <label class="block text-sm text-gray-700 mb-1">생성 결과</label>
-                <input id="result" type="text" class="w-full border rounded px-3 py-2" readonly>
-                <p class="text-xs text-gray-500 mt-1">이 값을 상품 등록 시 바코드로 사용하세요.</p>
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm text-gray-700 mb-1">생성 결과</label>
+                    <input id="result" type="text" class="w-full border rounded px-3 py-2" readonly>
+                    <p class="text-xs text-gray-500 mt-1">이 값을 상품 등록 시 바코드로 사용하세요.</p>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-700 mb-1">원가</label>
+                    <input id="costPrice" type="number" step="0.01" min="0" class="w-full border rounded px-3 py-2" placeholder="0.00">
+                    <p class="text-xs text-gray-500 mt-1">상품의 원가를 입력하세요.</p>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-700 mb-1">판매가</label>
+                    <input id="sellingPrice" type="number" step="0.01" min="0" class="w-full border rounded px-3 py-2" placeholder="0.00">
+                    <p class="text-xs text-gray-500 mt-1">상품의 판매가를 입력하세요.</p>
+                </div>
             </div>
 
             <div id="msg" class="mt-4 text-sm"></div>
@@ -76,18 +87,6 @@ function computeCheckDigit(base12){
   return (10 - (sum % 10)) % 10;
 }
 
-async function preview(){
-  const prefix = document.getElementById('prefix').value.replace(/\D/g,'');
-  if(prefix.length!==7){
-    document.getElementById('msg').textContent='prefix는 7자리 숫자여야 합니다.';
-    return;
-  }
-  // 서버 예약 없이 직전 예약값을 모르면 정확한 다음값을 알 수 없어
-  // 서버에 실제 예약을 요청하지 않고는 보수적으로 표시를 보류합니다.
-  document.getElementById('preview').textContent = '예약 시 생성됩니다.';
-  document.getElementById('msg').textContent='';
-}
-
 async function generate(){
   const prefix = document.getElementById('prefix').value.replace(/\D/g,'');
   document.getElementById('msg').textContent='';
@@ -110,12 +109,21 @@ async function generate(){
   }
 }
 
-document.getElementById('btnPreview').addEventListener('click', preview);
 document.getElementById('btnGenerate').addEventListener('click', generate);
 document.getElementById('btnRegister').addEventListener('click', ()=>{
   const code = document.getElementById('result').value.trim();
   if(!code){ alert('먼저 바코드를 생성해 주세요.'); return; }
-  window.location.href = `add_product.php?sku=${encodeURIComponent(code)}`;
+
+  const costPrice = document.getElementById('costPrice').value.trim();
+  const sellingPrice = document.getElementById('sellingPrice').value.trim();
+  const storeId = '<?php echo $current_store_id ?? ''; ?>';
+
+  let url = `add_product.php?sku=${encodeURIComponent(code)}`;
+  if(costPrice) url += `&cost_price=${encodeURIComponent(costPrice)}`;
+  if(sellingPrice) url += `&selling_price=${encodeURIComponent(sellingPrice)}`;
+  if(storeId) url += `&store_id=${encodeURIComponent(storeId)}`;
+
+  window.location.href = url;
 });
 
 async function loadGeneratedList(){

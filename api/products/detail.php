@@ -23,16 +23,14 @@ try {
     $sql = "
         SELECT
             p.id,
-            p.name,
-            p.barcode,
+            p.name_ko,
+            p.name_en,
             p.sku,
             p.description,
             p.category_id,
             c.name as category_name,
             p.brand_id,
-            b.name as brand_name,
-            p.supplier_id,
-            s.name as supplier_name,
+            b.name_ko as brand_name,
             i.selling_price,
             i.cost_price,
             i.quantity,
@@ -44,7 +42,6 @@ try {
         INNER JOIN inventory i ON p.id = i.product_id AND i.store_id = ?
         LEFT JOIN categories c ON p.category_id = c.id
         LEFT JOIN brands b ON p.brand_id = b.id
-        LEFT JOIN suppliers s ON p.supplier_id = s.id
         WHERE p.id = ?
     ";
 

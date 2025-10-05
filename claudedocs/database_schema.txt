@@ -1,0 +1,1 @@
+C:/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe: error while loading shared libraries: ?: cannot open shared object file: No such file or directory

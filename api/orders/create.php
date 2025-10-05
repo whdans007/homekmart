@@ -1,244 +1,253 @@
 <?php
 /**
  * 주문 생성 API
- * POST /api/orders
- * 인증 필요
+ * POST /api/orders/create.php
+ * 테스트용 - 인증 없음
  *
  * 요청 본문:
  * {
+ *   "user_id": 1,
  *   "delivery_address_id": 1,
  *   "payment_method": "cod",
- *   "delivery_notes": "문 앞에 놔주세요",
- *   "use_points": 0
+ *   "delivery_notes": "문 앞에 놔주세요"
  * }
  */
 
-require_once __DIR__ . '/../config.php';
+ini_set('display_errors', '1');
+error_reporting(E_ALL);
+
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Content-Type: application/json; charset=UTF-8');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+require_once __DIR__ . '/../../config/db_config.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    apiError(405, 'Method not allowed');
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => ['message' => 'Method not allowed']], JSON_UNESCAPED_UNICODE);
+    exit();
 }
 
-// 인증 확인
-$auth = requireAuth();
-$user_id = $auth['user_id'];
+$input = file_get_contents('php://input');
+$data = json_decode($input, true);
 
-$data = getRequestBody();
-validateRequired($data, ['delivery_address_id', 'payment_method']);
+if (!isset($data['user_id']) || !isset($data['delivery_address_id'])) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'error' => ['message' => 'user_id and delivery_address_id are required']
+    ], JSON_UNESCAPED_UNICODE);
+    exit();
+}
+
+$user_id = intval($data['user_id']);
 
 $delivery_address_id = intval($data['delivery_address_id']);
-$payment_method = $data['payment_method'];
-$delivery_notes = $data['delivery_notes'] ?? '';
-$use_points = isset($data['use_points']) ? intval($data['use_points']) : 0;
-
-// 결제 방법 검증
-$valid_payment_methods = ['cod', 'gcash', 'paymaya'];
-if (!in_array($payment_method, $valid_payment_methods)) {
-    apiError(400, 'Invalid payment method. Must be: cod, gcash, or paymaya');
-}
+$payment_method = $data['payment_method'] ?? 'cod';
+$special_instructions = $data['special_instructions'] ?? null;
+$cod_amount = isset($data['cod_amount']) ? floatval($data['cod_amount']) : null;
 
 try {
-    $pdo = getApiDbConnection();
-    $pdo->beginTransaction();
+    $conn = get_db_connection();
+    $conn->autocommit(false);
 
-    // 1. 장바구니 조회
+    // 1. 사용자 점포 확인
+    $user_check_sql = "SELECT store_id FROM users WHERE id = $user_id";
+    $user_result = $conn->query($user_check_sql);
+
+    if ($user_result->num_rows === 0) {
+        throw new Exception('User not found');
+    }
+
+    $user = $user_result->fetch_assoc();
+    $store_id = $user['store_id'];
+
+    // 2. 배달 주소 확인
+    $address_sql = "
+        SELECT * FROM delivery_addresses
+        WHERE id = $delivery_address_id AND user_id = $user_id AND is_active = 1
+    ";
+    $address_result = $conn->query($address_sql);
+
+    if ($address_result->num_rows === 0) {
+        throw new Exception('Invalid or inactive delivery address');
+    }
+
+    $address = $address_result->fetch_assoc();
+
+    // 3. 배달 지역 및 배달비 확인
+    $delivery_zone_id = null;
+    $delivery_fee = 50.00;
+    $free_delivery_threshold = 1000.00;
+
+    $zone_sql = "
+        SELECT id, delivery_fee, free_delivery_threshold
+        FROM delivery_zones
+        WHERE city = '{$address['city']}'
+        AND province = '{$address['province']}'
+        AND is_active = 1
+        LIMIT 1
+    ";
+    $zone_result = $conn->query($zone_sql);
+
+    if ($zone_result->num_rows > 0) {
+        $zone = $zone_result->fetch_assoc();
+        $delivery_zone_id = $zone['id'];
+        $delivery_fee = floatval($zone['delivery_fee']);
+        if ($zone['free_delivery_threshold']) {
+            $free_delivery_threshold = floatval($zone['free_delivery_threshold']);
+        }
+    }
+
+    // 4. 장바구니 아이템 조회
     $cart_sql = "
         SELECT
             sc.id as cart_id,
             sc.product_id,
             sc.quantity,
-            sc.store_id,
-            p.name as product_name,
-            p.barcode,
-            i.price as unit_price,
-            i.quantity as stock_quantity
+            p.name_en,
+            i.selling_price,
+            i.quantity as stock
         FROM shopping_cart sc
         INNER JOIN products p ON sc.product_id = p.id
-        INNER JOIN inventory i ON sc.product_id = i.product_id AND sc.store_id = i.store_id
-        WHERE sc.user_id = ?
+        INNER JOIN inventory i ON p.id = i.product_id AND sc.store_id = i.store_id
+        WHERE sc.user_id = $user_id AND sc.store_id = $store_id
     ";
-    $cart_stmt = $pdo->prepare($cart_sql);
-    $cart_stmt->execute([$user_id]);
-    $cart_items = $cart_stmt->fetchAll();
+    $cart_result = $conn->query($cart_sql);
 
-    if (empty($cart_items)) {
-        $pdo->rollBack();
-        apiError(400, 'Cart is empty');
+    if ($cart_result->num_rows === 0) {
+        throw new Exception('Cart is empty');
     }
 
-    // 2. 재고 검증
-    foreach ($cart_items as $item) {
-        if ($item['stock_quantity'] < $item['quantity']) {
-            $pdo->rollBack();
-            apiError(400, "Insufficient stock for {$item['product_name']}. Available: {$item['stock_quantity']}");
+    $cart_items = [];
+    $subtotal = 0.00;
+
+    while ($item = $cart_result->fetch_assoc()) {
+        if ($item['stock'] < $item['quantity']) {
+            throw new Exception("Insufficient stock for {$item['name_en']}");
         }
+
+        $item_subtotal = floatval($item['selling_price']) * intval($item['quantity']);
+        $subtotal += $item_subtotal;
+
+        $cart_items[] = [
+            'product_id' => $item['product_id'],
+            'product_name' => $item['name_en'],
+            'product_price' => floatval($item['selling_price']),
+            'quantity' => intval($item['quantity']),
+            'subtotal' => $item_subtotal
+        ];
     }
 
-    // 3. 배송지 확인
-    $address_sql = "SELECT * FROM delivery_addresses WHERE id = ? AND user_id = ? AND is_active = TRUE";
-    $address_stmt = $pdo->prepare($address_sql);
-    $address_stmt->execute([$delivery_address_id, $user_id]);
-    $address = $address_stmt->fetch();
-
-    if (!$address) {
-        $pdo->rollBack();
-        apiError(404, 'Delivery address not found or inactive');
-    }
-
-    // 4. 배송비 계산 (구역 기반)
-    $zone_sql = "
-        SELECT delivery_fee, min_order_amount, free_delivery_threshold
-        FROM delivery_zones
-        WHERE city = ? AND province = ? AND is_active = TRUE
-        LIMIT 1
-    ";
-    $zone_stmt = $pdo->prepare($zone_sql);
-    $zone_stmt->execute([$address['city'], $address['province']]);
-    $zone = $zone_stmt->fetch();
-
-    $default_delivery_fee = 50.00;
-    $delivery_fee = $zone ? floatval($zone['delivery_fee']) : $default_delivery_fee;
-    $min_order_amount = $zone ? floatval($zone['min_order_amount']) : 0;
-    $free_delivery_threshold = $zone ? floatval($zone['free_delivery_threshold']) : 1000.00;
-
-    // 5. 주문 금액 계산
-    $subtotal = 0;
-    foreach ($cart_items as $item) {
-        $subtotal += $item['unit_price'] * $item['quantity'];
-    }
-
-    // 최소 주문 금액 확인
-    if ($subtotal < $min_order_amount) {
-        $pdo->rollBack();
-        apiError(400, "Minimum order amount is PHP {$min_order_amount}");
-    }
-
-    // 무료 배송 조건 확인
+    // 5. 배달비 계산
     if ($subtotal >= $free_delivery_threshold) {
-        $delivery_fee = 0;
+        $delivery_fee = 0.00;
     }
 
-    // 포인트 사용 검증 및 적용
-    $points_used = 0;
-    if ($use_points > 0) {
-        // 사용자 포인트 조회
-        $user_sql = "SELECT points FROM users WHERE id = ?";
-        $user_stmt = $pdo->prepare($user_sql);
-        $user_stmt->execute([$user_id]);
-        $user = $user_stmt->fetch();
+    $total_amount = $subtotal + $delivery_fee;
 
-        if (!$user || $user['points'] < $use_points) {
-            $pdo->rollBack();
-            apiError(400, 'Insufficient points');
-        }
+    // 6. 주문 번호 생성
+    $order_number = 'ORD' . date('Ymd') . strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
 
-        $points_used = $use_points;
-    }
+    // 7. 예상 배달 시간 (+60분)
+    $estimated_delivery_time = date('Y-m-d H:i:s', strtotime('+60 minutes'));
 
-    $total_amount = $subtotal + $delivery_fee - $points_used;
-
-    // 6. 주문 번호 생성 (DO-YYYYMMDD-XXXXX)
-    $order_number = 'DO-' . date('Ymd') . '-' . str_pad(rand(1, 99999), 5, '0', STR_PAD_LEFT);
-
-    // 7. 주문 생성
-    $store_id = $cart_items[0]['store_id']; // 첫 번째 상품의 점포
-
-    $order_sql = "
+    // 8. 주문 생성
+    $insert_order_sql = "
         INSERT INTO delivery_orders (
-            order_number, user_id, store_id, delivery_address_id,
-            subtotal, delivery_fee, points_used, total_amount,
-            payment_method, payment_status, order_status,
-            delivery_notes, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, NOW(), NOW())
+            order_number, user_id, store_id, delivery_address_id, delivery_zone_id,
+            subtotal, delivery_fee, discount_amount, total_amount,
+            payment_method, payment_status, cod_amount,
+            order_status, estimated_delivery_time, special_instructions
+        ) VALUES (
+            '$order_number', $user_id, $store_id, $delivery_address_id, " . ($delivery_zone_id ? $delivery_zone_id : 'NULL') . ",
+            $subtotal, $delivery_fee, 0.00, $total_amount,
+            '$payment_method', 'pending', " . ($cod_amount ? $cod_amount : 'NULL') . ",
+            'pending', '$estimated_delivery_time', " . ($special_instructions ? "'" . $conn->real_escape_string($special_instructions) . "'" : 'NULL') . "
+        )
     ";
-    $order_stmt = $pdo->prepare($order_sql);
-    $order_stmt->execute([
-        $order_number, $user_id, $store_id, $delivery_address_id,
-        $subtotal, $delivery_fee, $points_used, $total_amount,
-        $payment_method, $delivery_notes
-    ]);
 
-    $order_id = $pdo->lastInsertId();
+    if (!$conn->query($insert_order_sql)) {
+        throw new Exception('Failed to create order: ' . $conn->error);
+    }
 
-    // 8. 주문 상품 생성 및 재고 차감
-    $order_item_sql = "
-        INSERT INTO delivery_order_items (
-            order_id, product_id, product_name, barcode, quantity, unit_price, subtotal
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    ";
-    $order_item_stmt = $pdo->prepare($order_item_sql);
+    $order_id = $conn->insert_id;
 
-    $inventory_update_sql = "
-        UPDATE inventory
-        SET quantity = quantity - ?
-        WHERE product_id = ? AND store_id = ?
-    ";
-    $inventory_update_stmt = $pdo->prepare($inventory_update_sql);
-
+    // 9. 주문 아이템 생성
     foreach ($cart_items as $item) {
-        $item_subtotal = $item['unit_price'] * $item['quantity'];
+        $insert_item_sql = "
+            INSERT INTO delivery_order_items (
+                order_id, product_id, product_name, product_price, quantity, subtotal
+            ) VALUES (
+                $order_id, {$item['product_id']}, '" . $conn->real_escape_string($item['product_name']) . "',
+                {$item['product_price']}, {$item['quantity']}, {$item['subtotal']}
+            )
+        ";
 
-        // 주문 상품 추가
-        $order_item_stmt->execute([
-            $order_id,
-            $item['product_id'],
-            $item['product_name'],
-            $item['barcode'],
-            $item['quantity'],
-            $item['unit_price'],
-            $item_subtotal
-        ]);
+        if (!$conn->query($insert_item_sql)) {
+            throw new Exception('Failed to create order item: ' . $conn->error);
+        }
 
         // 재고 차감
-        $inventory_update_stmt->execute([
-            $item['quantity'],
-            $item['product_id'],
-            $item['store_id']
-        ]);
+        $update_stock_sql = "
+            UPDATE inventory
+            SET quantity = quantity - {$item['quantity']}
+            WHERE product_id = {$item['product_id']} AND store_id = $store_id
+        ";
+        $conn->query($update_stock_sql);
     }
 
-    // 9. 포인트 차감
-    if ($points_used > 0) {
-        $points_update_sql = "UPDATE users SET points = points - ? WHERE id = ?";
-        $points_update_stmt = $pdo->prepare($points_update_sql);
-        $points_update_stmt->execute([$points_used, $user_id]);
-    }
-
-    // 10. 배송 추적 초기 상태 생성
-    $tracking_sql = "
+    // 10. 배달 추적 레코드 생성
+    $insert_tracking_sql = "
         INSERT INTO delivery_tracking (
-            order_id, status, notes, created_at
-        ) VALUES (?, 'pending', 'Order placed', NOW())
+            order_id, status, status_message, updated_by_user_id
+        ) VALUES (
+            $order_id, 'order_placed', 'Order placed successfully', $user_id
+        )
     ";
-    $tracking_stmt = $pdo->prepare($tracking_sql);
-    $tracking_stmt->execute([$order_id]);
+    $conn->query($insert_tracking_sql);
 
     // 11. 장바구니 비우기
-    $clear_cart_sql = "DELETE FROM shopping_cart WHERE user_id = ?";
-    $clear_cart_stmt = $pdo->prepare($clear_cart_sql);
-    $clear_cart_stmt->execute([$user_id]);
+    $delete_cart_sql = "DELETE FROM shopping_cart WHERE user_id = $user_id AND store_id = $store_id";
+    $conn->query($delete_cart_sql);
 
-    $pdo->commit();
+    $conn->commit();
 
-    // 12. 생성된 주문 정보 반환
-    $result = [
-        'order_id' => $order_id,
-        'order_number' => $order_number,
-        'subtotal' => $subtotal,
-        'delivery_fee' => $delivery_fee,
-        'points_used' => $points_used,
-        'total_amount' => $total_amount,
-        'payment_method' => $payment_method,
-        'order_status' => 'pending'
-    ];
+    // 12. 생성된 주문 반환
+    echo json_encode([
+        'success' => true,
+        'message' => 'Order created successfully',
+        'data' => [
+            'order_id' => intval($order_id),
+            'order_number' => $order_number,
+            'subtotal' => floatval($subtotal),
+            'delivery_fee' => floatval($delivery_fee),
+            'total_amount' => floatval($total_amount),
+            'payment_method' => $payment_method,
+            'order_status' => 'pending',
+            'estimated_delivery_time' => $estimated_delivery_time
+        ]
+    ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
-    apiSuccess($result, 'Order created successfully');
-
-} catch (PDOException $e) {
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
+} catch (Exception $e) {
+    if (isset($conn)) {
+        $conn->rollback();
     }
     error_log("Order creation error: " . $e->getMessage());
-    apiError(500, 'Failed to create order');
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'error' => ['message' => $e->getMessage()]
+    ], JSON_UNESCAPED_UNICODE);
+} finally {
+    if (isset($conn)) {
+        $conn->close();
+    }
 }
 ?>

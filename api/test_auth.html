@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUTH API 테스트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        h2 {
+            color: #333;
+        }
+        input, button {
+            margin: 5px 0;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .response {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>HOME K MART Delivery API 테스트</h1>
+
+    <!-- 회원가입 테스트 -->
+    <div class="test-section">
+        <h2>1. 회원가입 (Register)</h2>
+        <input type="email" id="reg_email" placeholder="Email" value="test@example.com">
+        <input type="password" id="reg_password" placeholder="Password" value="password123">
+        <input type="text" id="reg_name" placeholder="Full Name" value="Test User">
+        <input type="tel" id="reg_phone" placeholder="Phone" value="09171234567">
+        <select id="reg_lang">
+            <option value="en">English</option>
+            <option value="ko">한국어</option>
+        </select>
+        <button onclick="testRegister()">회원가입 테스트</button>
+        <div id="reg_response" class="response"></div>
+    </div>
+
+    <!-- 로그인 테스트 -->
+    <div class="test-section">
+        <h2>2. 로그인 (Login)</h2>
+        <input type="email" id="login_email" placeholder="Email" value="test@example.com">
+        <input type="password" id="login_password" placeholder="Password" value="password123">
+        <button onclick="testLogin()">로그인 테스트</button>
+        <div id="login_response" class="response"></div>
+    </div>
+
+    <!-- 상품 목록 테스트 (인증 필요 없음) -->
+    <div class="test-section">
+        <h2>3. 상품 목록 조회</h2>
+        <input type="number" id="store_id" placeholder="Store ID" value="1">
+        <input type="number" id="limit" placeholder="Limit" value="5">
+        <button onclick="testProducts()">상품 목록 조회</button>
+        <div id="products_response" class="response"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://192-168-1-123.philsarang.direct.quickconnect.to/homekmart/api';
+
+        async function testRegister() {
+            const responseDiv = document.getElementById('reg_response');
+            responseDiv.className = 'response';
+            responseDiv.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register.php`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: document.getElementById('reg_email').value,
+                        password: document.getElementById('reg_password').value,
+                        full_name: document.getElementById('reg_name').value,
+                        phone: document.getElementById('reg_phone').value,
+                        preferred_language: document.getElementById('reg_lang').value
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+
+                    // 토큰 저장
+                    if (data.token) {
+                        localStorage.setItem('auth_token', data.token);
+                    }
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function testLogin() {
+            const responseDiv = document.getElementById('login_response');
+            responseDiv.className = 'response';
+            responseDiv.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login.php`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: document.getElementById('login_email').value,
+                        password: document.getElementById('login_password').value
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+
+                    // 토큰 저장
+                    if (data.token) {
+                        localStorage.setItem('auth_token', data.token);
+                    }
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function testProducts() {
+            const responseDiv = document.getElementById('products_response');
+            responseDiv.className = 'response';
+            responseDiv.textContent = 'Loading...';
+
+            try {
+                const storeId = document.getElementById('store_id').value;
+                const limit = document.getElementById('limit').value;
+
+                const response = await fetch(
+                    `${API_BASE}/products/index.php?store_id=${storeId}&page=1&limit=${limit}`
+                );
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
