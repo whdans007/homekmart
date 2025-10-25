@@ -33,11 +33,23 @@ try {
     // WHERE 절 구성
     $where_clause = " WHERE is_active = 1";
     $params = [];
-    
+
+    // 점포 필터링 (super_admin이 아닌 경우 자신의 점포만 조회)
+    if ($_SESSION['role'] !== 'super_admin') {
+        if (!empty($current_store_id)) {
+            $where_clause .= " AND store_id = ?";
+            $params[] = $current_store_id;
+        } else {
+            // 점포가 지정되지 않은 경우 데이터 조회 불가
+            $where_clause .= " AND 1 = 0";
+        }
+    }
+
     // 검색 조건 추가
     if (!empty($search_term)) {
         $where_clause .= " AND (name LIKE ? OR phone LIKE ? OR address LIKE ?)";
-        $params = ["%$search_term%", "%$search_term%", "%$search_term%"];
+        $search_params = ["%$search_term%", "%$search_term%", "%$search_term%"];
+        $params = array_merge($params, $search_params);
     }
 
     // 전체 거래처 수 계산
