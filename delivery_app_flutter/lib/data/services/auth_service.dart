@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/constants/storage_keys.dart';
@@ -103,12 +105,15 @@ class AuthService {
   /// 로그아웃
   Future<void> logout() async {
     try {
-      // 토큰 삭제
-      await _secureStorage.delete(key: StorageKeys.accessToken);
-      await _secureStorage.delete(key: StorageKeys.refreshToken);
-
-      // 사용자 정보 삭제
-      await _secureStorage.deleteAll();
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(StorageKeys.accessToken);
+        await prefs.remove(StorageKeys.refreshToken);
+      } else {
+        await _secureStorage.delete(key: StorageKeys.accessToken);
+        await _secureStorage.delete(key: StorageKeys.refreshToken);
+        await _secureStorage.deleteAll();
+      }
     } catch (e) {
       throw CacheException(message: 'Failed to logout');
     }
@@ -117,19 +122,29 @@ class AuthService {
   /// JWT 토큰 저장
   Future<void> _saveToken(String token) async {
     try {
-      await _secureStorage.write(
-        key: StorageKeys.accessToken,
-        value: token,
-      );
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(StorageKeys.accessToken, token);
+      } else {
+        await _secureStorage.write(
+          key: StorageKeys.accessToken,
+          value: token,
+        );
+      }
     } catch (e) {
-      throw CacheException(message: 'Failed to save token');
+      print('Warning: Failed to save token: $e');
     }
   }
 
   /// JWT 토큰 가져오기
   Future<String?> getToken() async {
     try {
-      return await _secureStorage.read(key: StorageKeys.accessToken);
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        return prefs.getString(StorageKeys.accessToken);
+      } else {
+        return await _secureStorage.read(key: StorageKeys.accessToken);
+      }
     } catch (e) {
       return null;
     }
@@ -137,7 +152,11 @@ class AuthService {
 
   /// 로그인 상태 확인
   Future<bool> isLoggedIn() async {
-    final token = await getToken();
-    return token != null && token.isNotEmpty;
+    try {
+      final token = await getToken();
+      return token != null && token.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
   }
 }

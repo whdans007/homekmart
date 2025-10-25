@@ -4,7 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/config/theme_config.dart';
 import '../../providers/order_provider.dart';
 import '../../widgets/loading_overlay.dart';
-import '../../widgets/error_widget.dart';
+import '../../widgets/error_widget.dart' as custom_error;
 import '../../widgets/app_button.dart';
 
 /// 주문 상세 화면
@@ -109,7 +109,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           }
 
           if (orderProvider.error != null) {
-            return AppErrorWidget(
+            return custom_error.AppErrorWidget(
               message: orderProvider.error!,
               onRetry: _loadOrderDetail,
             );
@@ -117,7 +117,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
           final order = orderProvider.currentOrderDetail;
           if (order == null) {
-            return const AppErrorWidget(message: 'Order not found');
+            return const custom_error.AppErrorWidget(message: 'Order not found');
           }
 
           return SingleChildScrollView(

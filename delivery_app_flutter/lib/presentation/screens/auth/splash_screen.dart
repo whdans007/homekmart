@@ -22,22 +22,25 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initialize() async {
-    // 최소 2초 대기 (로고 표시)
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      // 최소 1초 대기 (로고 표시)
+      await Future.delayed(const Duration(seconds: 1));
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    // 인증 상태 확인
-    final authProvider = context.read<AuthProvider>();
-    await authProvider.initialize();
+      // 배달앱은 로그인 없이 바로 메인 화면으로 이동
+      // 백그라운드에서 인증 상태만 확인
+      final authProvider = context.read<AuthProvider>();
+      authProvider.initialize(); // await 없이 비동기로 실행
 
-    if (!mounted) return;
-
-    // 로그인 여부에 따라 이동
-    if (authProvider.isLoggedIn) {
+      // 바로 홈 화면으로 이동
       context.go(AppRouter.home);
-    } else {
-      context.go(AppRouter.login);
+    } catch (e) {
+      // 에러 발생 시에도 홈 화면으로 이동
+      print('Splash initialization error: $e');
+      if (mounted) {
+        context.go(AppRouter.home);
+      }
     }
   }
 

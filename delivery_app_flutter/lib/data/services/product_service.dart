@@ -33,7 +33,7 @@ class ProductService {
       );
 
       if (response.data['success'] == true) {
-        return ProductListResponse.fromJson(response.data['data']);
+        return ProductListResponse.fromJson(response.data);
       } else {
         throw ServerException(
           message: response.data['error']?['message'] ?? 'Failed to fetch products',

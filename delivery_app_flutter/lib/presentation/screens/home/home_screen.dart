@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/config/theme_config.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../widgets/loading_overlay.dart';
-import '../../widgets/error_widget.dart';
+import '../../widgets/error_widget.dart' as custom_error;
 import '../../widgets/empty_state.dart';
 import '../../widgets/product_card.dart';
 import '../../routes/app_router.dart';
@@ -26,7 +25,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProducts();
+    // Build 완료 후 데이터 로드
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProducts();
+    });
   }
 
   @override
@@ -156,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
 
                 if (productProvider.error != null) {
-                  return AppErrorWidget(
+                  return custom_error.AppErrorWidget(
                     message: productProvider.error!,
                     onRetry: _loadProducts,
                   );

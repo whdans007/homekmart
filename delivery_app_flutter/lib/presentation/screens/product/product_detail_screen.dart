@@ -7,9 +7,8 @@ import '../../../core/network/dio_client.dart';
 import '../../../data/models/product_model.dart';
 import '../../../data/services/product_service.dart';
 import '../../providers/cart_provider.dart';
-import '../../providers/product_provider.dart';
 import '../../widgets/loading_overlay.dart';
-import '../../widgets/error_widget.dart';
+import '../../widgets/error_widget.dart' as custom_error;
 import '../../widgets/app_button.dart';
 
 /// 상품 상세 화면
@@ -113,12 +112,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       body: _isLoading
           ? const LoadingIndicator(message: 'Loading product...')
           : _error != null
-              ? AppErrorWidget(
+              ? custom_error.AppErrorWidget(
                   message: _error!,
                   onRetry: _loadProductDetail,
                 )
               : _product == null
-                  ? const AppErrorWidget(message: 'Product not found')
+                  ? const custom_error.AppErrorWidget(message: 'Product not found')
                   : SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,

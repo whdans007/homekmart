@@ -21,9 +21,9 @@ class MyApp extends StatelessWidget {
 
     return MultiProvider(
       providers: [
-        // Auth Provider
+        // Auth Provider (스플래시 화면에서 initialize 호출)
         ChangeNotifierProvider(
-          create: (_) => AuthProvider(dioClient)..initialize(),
+          create: (_) => AuthProvider(dioClient),
         ),
 
         // Product Provider
@@ -41,17 +41,11 @@ class MyApp extends StatelessWidget {
           create: (_) => OrderProvider(OrderService(dioClient)),
         ),
       ],
-      child: Consumer<AuthProvider>(
-        builder: (context, authProvider, child) {
-          return MaterialApp.router(
-            title: AppConstants.appName,
-            debugShowCheckedModeBanner: false,
-            theme: ThemeConfig.lightTheme,
-            routerConfig: AppRouter.router(
-              isLoggedIn: authProvider.isLoggedIn,
-            ),
-          );
-        },
+      child: MaterialApp.router(
+        title: AppConstants.appName,
+        debugShowCheckedModeBanner: false,
+        theme: ThemeConfig.lightTheme,
+        routerConfig: AppRouter.router(),
       ),
     );
   }

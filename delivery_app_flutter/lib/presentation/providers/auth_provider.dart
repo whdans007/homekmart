@@ -21,24 +21,17 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  /// 초기화 - 로그인 상태 확인
+  /// 초기화 - 로그인 상태 확인 (토큰 존재 여부만 체크, API 호출 안함)
   Future<void> initialize() async {
-    _isLoading = true;
-    notifyListeners();
-
     try {
       final isLoggedIn = await _authService.isLoggedIn();
-
-      if (isLoggedIn) {
-        _user = await _authService.getProfile();
-        _isLoggedIn = true;
-      }
+      _isLoggedIn = isLoggedIn;
+      // 프로필은 필요할 때 lazily 로드
     } catch (e) {
       _error = 'Failed to initialize: ${e.toString()}';
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+      _isLoggedIn = false;
     }
+    notifyListeners();
   }
 
   /// 로그인

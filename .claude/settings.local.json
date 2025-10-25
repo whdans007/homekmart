@@ -3,7 +3,32 @@
   "permissions": {
     "allow": [
       "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" admin/export_db_schema.php)",
-      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" \"z:\\homekmart\\admin\\export_db_schema.php\")"
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe\" \"z:\\homekmart\\admin\\export_db_schema.php\")",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter pub:*)",
+      "Bash(flutter run:*)",
+      "Bash(timeout:*)",
+      "Bash(/dev/null)",
+      "Bash(flutter:*)",
+      "Bash(gradlew.bat:*)",
+      "Bash(./gradlew --stop)",
+      "Bash(curl -I https://192-168-1-123.philsarang.direct.quickconnect.to/homekmart/api/products)",
+      "Bash(taskkill:*)",
+      "Bash(nc localhost 52184)",
+      "Bash(adb:*)",
+      "Bash(nc localhost 56824)",
+      "Bash(awk:*)",
+      "Bash(xargs kill:*)",
+      "Bash(curl -s \"https://192-168-1-123.philsarang.direct.quickconnect.to/homekmart/api/products?store_id=1&page=1&limit=1\")",
+      "Bash(curl -s -k \"https://192-168-1-123.philsarang.direct.quickconnect.to/homekmart/api/products?store_id=1&page=1&limit=1\")",
+      "Bash(curl -s -k -L \"https://192-168-1-123.philsarang.direct.quickconnect.to/homekmart/api/products?store_id=1&page=1&limit=1\")",
+      "Bash(python:*)",
+      "Bash(curl -s -k -L \"https://192-168-1-123.philsarang.direct.quickconnect.to/homekmart/api/products?store_id=1&page=1&limit=2\")",
+      "Read(//c/Users/whdan/AppData/Local/Android/Sdk/emulator/**)",
+      "Bash(/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

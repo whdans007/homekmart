@@ -8,9 +8,18 @@ ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 error_reporting(E_ALL);
 
-// CORS
+// CORS 완전 설정
 header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Max-Age: 86400');
 header('Content-Type: application/json; charset=UTF-8');
+
+// OPTIONS 요청 처리 (Preflight)
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit();
+}
 
 // config 로드
 require_once __DIR__ . '/../../config/db_config.php';
@@ -59,14 +68,17 @@ $result = $conn->query($sql);
 
 $products = [];
 while ($row = $result->fetch_assoc()) {
-    $row['selling_price'] = floatval($row['selling_price']);
-    $row['cost_price'] = floatval($row['cost_price']);
+    $row['id'] = intval($row['id']);
+    $row['selling_price'] = round((float) $row['selling_price'], 2);
+    $row['cost_price'] = round((float) $row['cost_price'], 2);
     $row['quantity'] = intval($row['quantity']);
+    if ($row['category_id']) $row['category_id'] = intval($row['category_id']);
+    if ($row['brand_id']) $row['brand_id'] = intval($row['brand_id']);
     $row['is_active'] = (bool) intval($row['is_active']);
     $products[] = $row;
 }
 
-$total_pages = ceil($total / $limit);
+$total_pages = intval(ceil($total / $limit));
 
 echo json_encode([
     'success' => true,
@@ -79,5 +91,5 @@ echo json_encode([
         'has_next' => $page < $total_pages,
         'has_prev' => $page > 1
     ]
-], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION);
 ?>

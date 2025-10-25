@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../screens/auth/splash_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
@@ -26,23 +28,29 @@ class AppRouter {
   static const String profile = '/profile';
 
   /// GoRouter 인스턴스
-  static GoRouter router({
-    required bool isLoggedIn,
-  }) {
+  static GoRouter router() {
     return GoRouter(
       initialLocation: splash,
       redirect: (context, state) {
+        // Provider에서 직접 로그인 상태 읽기 (listen: false로 무한 루프 방지)
+        final authProvider = context.read<AuthProvider>();
+        final isLoggedIn = authProvider.isLoggedIn;
+
         final isOnSplash = state.matchedLocation == splash;
         final isOnAuth = state.matchedLocation == login ||
                         state.matchedLocation == register;
+        final isOnCheckout = state.matchedLocation == checkout;
+        final isOnProfile = state.matchedLocation == profile;
+        final isOnOrders = state.matchedLocation.startsWith('/orders');
 
         // 스플래시 화면은 항상 접근 가능
         if (isOnSplash) {
           return null;
         }
 
-        // 로그인 필요한 화면
-        if (!isLoggedIn && !isOnAuth) {
+        // 배달앱: 상품 보기, 장바구니는 로그인 불필요
+        // 주문/결제/프로필만 로그인 필요
+        if (!isLoggedIn && (isOnCheckout || isOnProfile || isOnOrders)) {
           return login;
         }
 
