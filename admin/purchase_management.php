@@ -26,7 +26,7 @@ $current_page = max(1, (int)($_GET['page'] ?? 1));
 $items_per_page = 20;
 $offset = ($current_page - 1) * $items_per_page;
 
-// 검색 조건 구성 (삭제 상태만 확인)
+// 검색 조건 구성 (삭제 상태 + 점포 필터링)
 $where_conditions = [];
 $params = [];
 $param_types = '';
@@ -45,6 +45,19 @@ if ($has_deleted_at) {
 } elseif ($has_status) {
     // status 컬럼이 있는 경우 deleted 상태가 아닌 것만 조회
     $where_conditions[] = "p.status != 'deleted'";
+}
+
+// 점포 필터링 (super_admin이 아닌 경우 자신의 점포만 조회)
+if ($_SESSION['role'] !== 'super_admin') {
+    if (!empty($current_store_id)) {
+        // 점포가 지정된 경우: 해당 점포의 데이터만 조회
+        $where_conditions[] = "p.store_id = ?";
+        $params[] = $current_store_id;
+        $param_types .= 'i';
+    } else {
+        // 점포가 지정되지 않은 경우: 아무 데이터도 보이지 않게 함
+        $where_conditions[] = "1 = 0";
+    }
 }
 
 
@@ -92,6 +105,8 @@ $sql = "SELECT
             ELSE ''
         END
     ) AS purchase_datetime,
+    p.store_id,
+    st.name AS store_name,
     s.name AS supplier_name,
     p.total_items,
     p.total_amount,
@@ -110,6 +125,7 @@ $sql = "SELECT
     ) AS total_pieces
 FROM purchases p
 JOIN suppliers s ON p.supplier_id = s.id
+LEFT JOIN stores st ON p.store_id = st.id
 {$where_clause}
 ORDER BY p.purchase_date DESC, p.purchase_id DESC
 LIMIT {$items_per_page} OFFSET {$offset}";
@@ -235,6 +251,7 @@ body > div > div.flex.flex-col.flex-1.overflow-hidden > main > div > div {
 /* 각 컬럼 최적화 */
 th[data-column="number"] { width: 50px !important; }
 th[data-column="datetime"] { min-width: 150px !important; }
+th[data-column="store"] { min-width: 150px !important; }
 th[data-column="supplier"] { min-width: 200px !important; }
 th[data-column="total_items"] { min-width: 100px !important; }
 th[data-column="total_pieces"] { min-width: 100px !important; }
@@ -441,6 +458,7 @@ th[data-column="actions"] { min-width: 150px !important; }
                     <tr>
                         <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high mobile-hidden" data-column="number"><?php echo t('purchase.number'); ?></th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high" data-column="datetime"><?php echo t('purchase.date_time'); ?></th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high mobile-hidden" data-column="store">점포</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high mobile-show" data-column="supplier"><?php echo t('purchase.supplier'); ?></th>
                         <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-medium tablet-hidden mobile-hidden" data-column="total_items"><?php echo t('purchase.total_items'); ?></th>
                         <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-medium tablet-hidden mobile-hidden" data-column="total_pieces"><?php echo t('purchase.total_pieces'); ?></th>
@@ -457,6 +475,7 @@ th[data-column="actions"] { min-width: 150px !important; }
                             <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 clickable-row" data-purchase-id="<?php echo $row['purchase_id']; ?>">
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center border border-gray-100 priority-high mobile-hidden" data-column="number"><?php echo $row_number++; ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-100 priority-high" data-column="datetime"><?php echo htmlspecialchars($row['purchase_datetime']); ?></td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-100 priority-high mobile-hidden" data-column="store"><?php echo htmlspecialchars($row['store_name'] ?? '미지정'); ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-100 priority-high mobile-show" data-column="supplier"><?php echo htmlspecialchars($row['supplier_name']); ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-100 priority-medium tablet-hidden mobile-hidden" data-column="total_items"><?php echo htmlspecialchars($row['total_items']); ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-100 priority-medium tablet-hidden mobile-hidden" data-column="total_pieces">
