@@ -45,10 +45,15 @@ try {
         $where_conditions[] = "DATE(pch.changed_at) = ?";
         $params[] = $selected_date;
 
-        // 점포별 필터링 (super_admin이 아닌 경우)
-        if ($_SESSION['role'] !== 'super_admin' && !empty($current_store_id)) {
-            $where_conditions[] = "(pch.store_id = ? OR pch.store_id IS NULL)";
-            $params[] = $current_store_id;
+        // 작성자 필터링 (super_admin이 아닌 경우 본인이 작성한 내용만 조회)
+        if ($_SESSION['role'] !== 'super_admin') {
+            if (!empty($_SESSION['user_id'])) {
+                $where_conditions[] = "pch.changed_by_user_id = ?";
+                $params[] = $_SESSION['user_id'];
+            } else {
+                // 사용자 ID가 없으면 데이터 조회 불가
+                $where_conditions[] = "1 = 0";
+            }
         }
 
         $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
