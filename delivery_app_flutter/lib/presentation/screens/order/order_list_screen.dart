@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/theme_config.dart';
 import '../../providers/order_provider.dart';
 import '../../widgets/loading_overlay.dart';
-import '../../widgets/error_widget.dart';
+import '../../widgets/error_widget.dart' as custom_error;
 import '../../widgets/empty_state.dart';
 import '../../routes/app_router.dart';
 
@@ -113,7 +113,7 @@ class _OrderListScreenState extends State<OrderListScreen>
           }
 
           if (orderProvider.error != null) {
-            return AppErrorWidget(
+            return custom_error.AppErrorWidget(
               message: orderProvider.error!,
               onRetry: _loadOrders,
             );

@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/theme_config.dart';
 import '../../providers/cart_provider.dart';
 import '../../widgets/loading_overlay.dart';
-import '../../widgets/error_widget.dart';
+import '../../widgets/error_widget.dart' as custom_error;
 import '../../widgets/empty_state.dart';
 import '../../widgets/app_button.dart';
 import '../../routes/app_router.dart';
@@ -113,7 +113,7 @@ class _CartScreenState extends State<CartScreen> {
           }
 
           if (cartProvider.error != null) {
-            return AppErrorWidget(
+            return custom_error.AppErrorWidget(
               message: cartProvider.error!,
               onRetry: _loadCart,
             );
