@@ -200,9 +200,20 @@ try {
     if (!empty($search_term)) {
         $search_condition = " AND (pr.sku LIKE ? OR pr.name_ko LIKE ? OR pr.name_en LIKE ?)";
     }
-    
+
+    // 점포 필터링 조건 추가
+    $store_condition = '';
+    if ($_SESSION['role'] !== 'super_admin') {
+        if (!empty($current_store_id)) {
+            $store_condition = " AND p.store_id = ?";
+        } else {
+            // 점포가 지정되지 않은 경우 데이터 조회 불가
+            $store_condition = " AND 1 = 0";
+        }
+    }
+
     $sql = "
-        SELECT 
+        SELECT
             pr.id as product_id,
             pr.sku,
             pr.name_en,
@@ -220,16 +231,20 @@ try {
             s.name as supplier_name,
             p.purchase_date,
             pi.item_id as purchase_item_id,
-            p.purchase_id
+            p.purchase_id,
+            p.store_id,
+            st.name as store_name
         FROM purchase_items pi
         JOIN purchases p ON pi.purchase_id = p.purchase_id
         JOIN products pr ON pi.product_id = pr.id
         LEFT JOIN brands b ON pr.brand_id = b.id
         LEFT JOIN categories c ON pr.category_id = c.id
         LEFT JOIN suppliers s ON p.supplier_id = s.id
-        WHERE $where_condition 
+        LEFT JOIN stores st ON p.store_id = st.id
+        WHERE $where_condition
         $deleted_condition
         $search_condition
+        $store_condition
         $order_clause
     ";
     
@@ -259,7 +274,13 @@ try {
         $bind_params[] = $search_like;
         $bind_types .= 'sss';
     }
-    
+
+    // 점포 필터링 파라미터 추가
+    if ($_SESSION['role'] !== 'super_admin' && !empty($current_store_id)) {
+        $bind_params[] = $current_store_id;
+        $bind_types .= 'i';
+    }
+
     if (!empty($bind_params)) {
         $stmt->bind_param($bind_types, ...$bind_params);
     }
