@@ -1618,8 +1618,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const product = window.pendingProductToAdd;
 
-        // 전역 cart 사용
-        window.cart.push({
+        // 로컬 cart 변수에 추가
+        cart.push({
             product_id: product.productId,
             sku: product.sku,
             name_ko: product.nameKo,
@@ -1631,8 +1631,13 @@ document.addEventListener('DOMContentLoaded', function() {
             remarks: ''
         });
 
-        // 전역 함수와 요소들 사용
-        window.updateCart();
+        // 전역 cart도 동기화
+        window.cart = cart;
+
+        // 장바구니 업데이트
+        updateCart();
+
+        console.log('상품이 장바구니에 추가되었습니다:', cart);
 
         // 검색 결과만 숨기고 모달은 유지 (상품 목록 모달이 열려있으면 계속 열어둠)
         window.productSearchResults.classList.add('hidden');
