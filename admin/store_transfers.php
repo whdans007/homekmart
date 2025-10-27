@@ -1554,9 +1554,9 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('추가할 상품 정보가 없습니다.');
             return;
         }
-        
+
         const product = window.pendingProductToAdd;
-        
+
         // 전역 cart 사용
         window.cart.push({
             product_id: product.productId,
@@ -1569,15 +1569,20 @@ document.addEventListener('DOMContentLoaded', function() {
             total_price: selectedPrice * product.minQuantity,
             remarks: ''
         });
-        
+
         // 전역 함수와 요소들 사용
         window.updateCart();
+
+        // 검색 결과만 숨기고 모달은 유지 (상품 목록 모달이 열려있으면 계속 열어둠)
         window.productSearchResults.classList.add('hidden');
-        window.productSearch.value = '';
-        
+        // 상품 목록 모달이 열려있지 않을 때만 검색창 초기화
+        if (productModal.classList.contains('hidden')) {
+            window.productSearch.value = '';
+        }
+
         // 임시 상품 정보 정리
         window.pendingProductToAdd = null;
-        
+
     }
 
     function applyBoxCostToProduct(productId, boxCost) {
