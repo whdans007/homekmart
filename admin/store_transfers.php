@@ -1673,6 +1673,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // 폼 제출 전에 장바구니 데이터를 hidden input에 저장
+    const transferForm = document.getElementById('transfer-form');
+    transferForm.addEventListener('submit', function(e) {
+        // 장바구니 데이터를 JSON으로 변환하여 hidden input에 설정
+        const cartItemsInput = document.getElementById('cart_items_input');
+        cartItemsInput.value = JSON.stringify(cart);
+
+        console.log('폼 제출 중...', cart);
+
+        // 폼 제출 계속 진행
+        return true;
+    });
+
     // Execute initial destination store filtering
     updateToStoreOptions();
 });
