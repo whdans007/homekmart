@@ -931,6 +931,46 @@ document.addEventListener('DOMContentLoaded', function() {
                 displayProductResults(data.products);
                 searchStatus.textContent = data.products.length + ' products found';
                 searchStatus.className = 'mt-2 text-sm text-green-600';
+
+                // 바코드 스캐너 입력 시 검색 결과가 1개면 자동으로 매입가 선택 모달 표시
+                if (data.products.length === 1) {
+                    const product = data.products[0];
+                    // 검색 결과 숨기기
+                    productSearchResults.classList.add('hidden');
+                    // 검색창 비우기
+                    productSearch.value = '';
+
+                    // 상품 정보를 전역 변수에 저장
+                    window.pendingProductToAdd = {
+                        productId: product.id,
+                        sku: product.sku,
+                        nameKo: product.name_ko || '',
+                        nameEn: product.name_en || '',
+                        costPrice: parseFloat(product.cost_price || 0),
+                        availableQuantity: parseInt(product.available_quantity || 0),
+                        minQuantity: parseInt(product.min_quantity || 1),
+                        piecesPerBox: parseInt(product.pieces_per_box || 1),
+                        fromStoreId: getFromStoreId()
+                    };
+
+                    const productName = product.name_ko || product.name_en || 'N/A';
+
+                    // 이미 장바구니에 있는지 확인
+                    const existingIndex = window.cart.findIndex(cartItem => cartItem.product_id == product.id);
+                    if (existingIndex >= 0) {
+                        // 이미 있는 상품은 수량만 증가
+                        const currentQuantity = window.cart[existingIndex].quantity;
+                        const newQuantity = currentQuantity + window.pendingProductToAdd.minQuantity;
+
+                        window.cart[existingIndex].quantity = newQuantity;
+                        window.cart[existingIndex].total_price = window.cart[existingIndex].quantity * window.cart[existingIndex].unit_cost_price;
+                        window.updateCart();
+                        return;
+                    }
+
+                    // 새 상품인 경우 매입 이력 조회 모달 자동 표시
+                    showPurchaseHistoryForNewProduct(product.id, productName, product.sku, getFromStoreId());
+                }
             } else {
                 let errorMessage = data.message || translations.no_results;
 
