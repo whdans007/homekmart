@@ -746,17 +746,32 @@ document.addEventListener('DOMContentLoaded', function() {
     // 상품 검색
     productSearch.addEventListener('input', function() {
         const query = this.value.trim();
-        
+
         clearTimeout(searchTimeout);
-        
+
         if (query.length < 2) {
             productSearchResults.classList.add('hidden');
             return;
         }
-        
+
         searchTimeout = setTimeout(function() {
             searchProducts(query);
         }, 300);
+    });
+
+    // 바코드 스캐너 Enter 키 방지 (폼 제출 방지)
+    productSearch.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // 폼 제출 방지
+
+            const query = this.value.trim();
+            if (query.length >= 2) {
+                // 검색 실행
+                clearTimeout(searchTimeout);
+                searchProducts(query);
+            }
+            return false;
+        }
     });
     
     // 상품 검색 버튼 클릭 - 모달 표시
