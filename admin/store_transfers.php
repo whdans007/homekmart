@@ -1566,11 +1566,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             // 매입가 선택 모달 닫기
             window.purchaseHistoryModal.classList.add('hidden');
-
-            // 상품 목록 모달이 닫혀있다면 다시 열기 (연속 추가를 위해)
-            if (productModal.classList.contains('hidden')) {
-                productModal.classList.remove('hidden');
-            }
         }
     };
 
