@@ -24,8 +24,9 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    $stmt = $pdo->prepare("SELECT * FROM wholesale_customers WHERE id = ? AND is_active = 1");
-    $stmt->execute([$customer_id]);
+    // 현재 점포의 거래처만 조회
+    $stmt = $pdo->prepare("SELECT * FROM wholesale_customers WHERE id = ? AND store_id = ? AND is_active = 1");
+    $stmt->execute([$customer_id, $current_store_id]);
     $customer = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$customer) {
@@ -114,9 +115,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (empty($errors)) {
         try {
-            // 다른 거래처와의 중복명 확인 (자기 제외)
-            $check_stmt = $pdo->prepare("SELECT COUNT(*) FROM wholesale_customers WHERE name = ? AND id != ? AND is_active = 1");
-            $check_stmt->execute([$name, $customer_id]);
+            // 다른 거래처와의 중복명 확인 (자기 제외, 현재 점포 내에서)
+            $check_stmt = $pdo->prepare("SELECT COUNT(*) FROM wholesale_customers WHERE name = ? AND id != ? AND store_id = ? AND is_active = 1");
+            $check_stmt->execute([$name, $customer_id, $current_store_id]);
             
             if ($check_stmt->fetchColumn() > 0) {
                 $errors[] = '이미 등록된 거래처명입니다.';
