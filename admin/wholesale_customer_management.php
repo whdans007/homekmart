@@ -58,12 +58,12 @@ try {
     $total_customers = $total_stmt->fetchColumn();
     $total_pages = ceil($total_customers / $limit);
 
-    // 거래처 목록 가져오기
+    // 거래처 목록 가져오기 (최신 등록순)
     $sql = "
         SELECT id, name, phone, address, memo, created_at
         FROM wholesale_customers
         " . $where_clause . "
-        ORDER BY name ASC
+        ORDER BY created_at DESC, id DESC
         LIMIT ? OFFSET ?
     ";
     $stmt = $pdo->prepare($sql);
