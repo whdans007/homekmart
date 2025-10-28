@@ -34,20 +34,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo = new PDO($dsn, DB_USER, DB_PASS);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
-            // 중복 거래처명 확인
-            $check_stmt = $pdo->prepare("SELECT COUNT(*) FROM wholesale_customers WHERE name = ? AND is_active = 1");
-            $check_stmt->execute([$name]);
+            // 중복 거래처명 확인 (현재 점포 내에서)
+            $check_stmt = $pdo->prepare("SELECT COUNT(*) FROM wholesale_customers WHERE name = ? AND store_id = ? AND is_active = 1");
+            $check_stmt->execute([$name, $current_store_id]);
             
             if ($check_stmt->fetchColumn() > 0) {
                 $errors[] = t('add_wholesale_customer.name_already_exists');
             } else {
-                // 거래처 추가
+                // 거래처 추가 (현재 점포 ID 포함)
                 $stmt = $pdo->prepare("
-                    INSERT INTO wholesale_customers (name, phone, address, memo, is_active, created_at) 
-                    VALUES (?, ?, ?, ?, 1, NOW())
+                    INSERT INTO wholesale_customers (name, phone, address, memo, store_id, is_active, created_at)
+                    VALUES (?, ?, ?, ?, ?, 1, NOW())
                 ");
-                
-                if ($stmt->execute([$name, $phone, $address, $memo])) {
+
+                if ($stmt->execute([$name, $phone, $address, $memo, $current_store_id])) {
                     $_SESSION['flash'] = [
                         'type' => 'success',
                         'message' => t('add_wholesale_customer.save_success')
