@@ -186,15 +186,19 @@ try {
     
     $deleted_condition = $has_deleted_at ? "AND p.deleted_at IS NULL" : "";
     
-    // SQL 쿼리 구성 - 표시 모드에 따라 조건 변경
-    if ($display_mode === 'recent') {
+    // SQL 쿼리 구성 - 검색어가 있으면 날짜 조건 무시, 없으면 표시 모드에 따라 조건 변경
+    if (!empty($search_term)) {
+        // 검색 시에는 날짜 제한 없이 전체 기간 검색
+        $where_condition = "1 = 1";
+        $order_clause = "ORDER BY pi.item_id DESC";
+    } elseif ($display_mode === 'recent') {
         $where_condition = "DATE(p.purchase_date) BETWEEN ? AND ?";
         $order_clause = "ORDER BY pi.item_id DESC";
     } else {
         $where_condition = "DATE(p.purchase_date) = ?";
         $order_clause = "ORDER BY pi.item_id DESC";
     }
-    
+
     // 검색 조건 추가
     $search_condition = '';
     if (!empty($search_term)) {
@@ -256,16 +260,19 @@ try {
     // 바인딩 파라미터 설정
     $bind_params = [];
     $bind_types = '';
-    
-    if ($display_mode === 'recent') {
-        $bind_params[] = $start_date;
-        $bind_params[] = $end_date;
-        $bind_types .= 'ss';
-    } else {
-        $bind_params[] = $selected_date;
-        $bind_types .= 's';
+
+    // 검색어가 없을 때만 날짜 파라미터 추가
+    if (empty($search_term)) {
+        if ($display_mode === 'recent') {
+            $bind_params[] = $start_date;
+            $bind_params[] = $end_date;
+            $bind_types .= 'ss';
+        } else {
+            $bind_params[] = $selected_date;
+            $bind_types .= 's';
+        }
     }
-    
+
     // 검색어가 있으면 검색 파라미터 추가
     if (!empty($search_term)) {
         $search_like = "%$search_term%";
