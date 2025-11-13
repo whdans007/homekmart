@@ -615,7 +615,7 @@
     "box": "박스",
     "piece": "낱개",
     "quantity": "수량",
-    "pieces_per_box": "박스/개",
+    "pieces_per_box": "포장수량",
     "unit_price": "단가",
     "piece_price": "낱개가",
     "total_pieces": "입고량",
@@ -661,7 +661,13 @@
     "js_confirm_delete_purchase": "이 매입 내역 전체를 삭제하시겠습니까?\\n\\n삭제된 매입 내역은 복원이 가능하며, 모든 매입 상품의 재고가 차감됩니다.\\n\\n계속하시겠습니까?",
     "js_discount_rate_invalid": "할인율은 0에서 100 사이의 값을 입력해주세요.",
     "js_confirm_apply_discount": "선택된 {count}개 상품에 {rate}% 할인을 적용하시겠습니까?\\n\\n이 작업은 데이터베이스에 저장됩니다.",
-    "item_not_found": "상품을 찾을 수 없습니다"
+    "item_not_found": "상품을 찾을 수 없습니다",
+    "modal_pieces_per_box_title": "포장수량 변경",
+    "modal_pieces_per_box_warning": "박스포장 수량을 변경합니다.<br>매입수량이 아닙니다!!",
+    "modal_pieces_per_box_label": "포장수량",
+    "modal_pieces_per_box_help": "한 박스에 들어있는 낱개 수량을 입력하세요",
+    "modal_cancel": "취소",
+    "modal_confirm": "확인"
   },
   "price_change": {
     "history": "가격변경 이력 조회",
@@ -762,7 +768,9 @@
     "system_settings_section": "시스템 설정",
     "wholesale_product_management": "도매상품 관리",
     "other_info_management_section": "기타정보관리",
-    "customer_management": "고객 관리"
+    "customer_management": "고객 관리",
+    "barcode_generate": "바코드생성",
+    "purchase_analysis": "매입분석"
   },
   "forms": {
     "required_field": "필수 입력 항목입니다",
@@ -1683,5 +1691,39 @@
     "street": "거리",
     "house_number": "번지",
     "postal_code": "우편번호"
+  },
+  "barcode_generate": {
+    "page_title": "바코드 생성",
+    "prefix_label": "Prefix (앞 7자리)",
+    "prefix_example": "예: 2011223",
+    "next_barcode_preview": "다음 바코드 미리보기",
+    "generate_reserve": "생성 및 예약",
+    "register_product": "생성된 바코드로 상품등록하기",
+    "generation_result": "생성 결과",
+    "result_help": "이 값을 상품 등록 시 바코드로 사용하세요.",
+    "cost_price": "원가",
+    "cost_price_help": "상품의 원가를 입력하세요.",
+    "selling_price": "판매가",
+    "selling_price_help": "상품의 판매가를 입력하세요.",
+    "generated_products_title": "이 Prefix로 생성된 상품 (최근 50개)",
+    "print_selected_2copies": "선택 바코드 2매 출력",
+    "refresh": "새로고침",
+    "select": "선택",
+    "barcode_sku": "바코드(SKU)",
+    "product_name_en": "상품명(EN)",
+    "product_name_ko": "상품명(KO)",
+    "brand": "브랜드",
+    "manage": "관리",
+    "loading": "불러오는 중...",
+    "no_data": "데이터가 없습니다.",
+    "edit": "수정",
+    "reserved_message": "예약됨: prefix {prefix}, 일련번호 {serial} (체크 {checkDigit})",
+    "generation_failed": "생성 실패",
+    "please_generate_first": "먼저 바코드를 생성해 주세요.",
+    "please_select_barcode": "먼저 인쇄할 바코드를 선택해 주세요.",
+    "api_response_error": "API 응답 형식 오류: {error}",
+    "query_failed": "조회 실패",
+    "barcode_preview_title": "바코드 라벨 미리보기",
+    "close": "닫기"
   }
 }

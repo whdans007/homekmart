@@ -471,6 +471,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </form>
 </div>
 
+<!-- 포장수량 변경 모달 -->
+<div id="pieces-per-box-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900"><?php echo t('purchase.modal_pieces_per_box_title'); ?></h3>
+        </div>
+        <div class="px-6 py-4">
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-yellow-700 font-semibold">
+                            <?php echo t('purchase.modal_pieces_per_box_warning'); ?>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <label for="modal-pieces-per-box-input" class="block text-sm font-medium text-gray-700 mb-2">
+                    <?php echo t('purchase.modal_pieces_per_box_label'); ?>
+                </label>
+                <input type="number" id="modal-pieces-per-box-input"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                       min="1" value="1">
+                <p class="mt-2 text-sm text-gray-500">
+                    <?php echo t('purchase.modal_pieces_per_box_help'); ?>
+                </p>
+            </div>
+        </div>
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+            <button type="button" id="cancel-pieces-per-box-btn"
+                    class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <?php echo t('purchase.modal_cancel'); ?>
+            </button>
+            <button type="button" id="confirm-pieces-per-box-btn"
+                    class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <?php echo t('purchase.modal_confirm'); ?>
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
 // JavaScript translations object
 const translations = {
@@ -1479,12 +1523,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
             
-            // 수량 입력 후 엔터 시 박스수량으로 포커스 이동
+            // 수량 입력 후 엔터 시 단가로 포커스 이동
             newRow.querySelector('.quantity').addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    newRow.querySelector('.pieces-per-box').focus();
-                    newRow.querySelector('.pieces-per-box').select();
+                    newRow.querySelector('.unit-price').focus();
+                    newRow.querySelector('.unit-price').select();
                 }
             });
             
@@ -1875,6 +1919,92 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // 초기 VAT 설정
     updateVATCalculation();
+
+    // 포장수량 변경 모달 관련 코드
+    const piecesPerBoxModal = document.getElementById('pieces-per-box-modal');
+    const modalPiecesPerBoxInput = document.getElementById('modal-pieces-per-box-input');
+    const cancelPiecesPerBoxBtn = document.getElementById('cancel-pieces-per-box-btn');
+    const confirmPiecesPerBoxBtn = document.getElementById('confirm-pieces-per-box-btn');
+    let currentPiecesPerBoxInput = null; // 현재 수정 중인 input 요소
+
+    // 포장수량 필드 클릭 이벤트 (이벤트 위임 사용)
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('pieces-per-box')) {
+            // readonly인 경우는 모달을 띄우지 않음
+            if (e.target.readOnly) {
+                return;
+            }
+
+            e.preventDefault();
+            currentPiecesPerBoxInput = e.target;
+            modalPiecesPerBoxInput.value = e.target.value || 1;
+            piecesPerBoxModal.classList.remove('hidden');
+            piecesPerBoxModal.classList.add('flex');
+
+            // 모달이 열리면 input에 포커스
+            setTimeout(() => {
+                modalPiecesPerBoxInput.focus();
+                modalPiecesPerBoxInput.select();
+            }, 100);
+        }
+    });
+
+    // 포커스 이벤트도 처리 (탭 키로 이동했을 때)
+    document.addEventListener('focus', function(e) {
+        if (e.target.classList.contains('pieces-per-box') && !e.target.readOnly) {
+            // click 이벤트에서 처리하므로 blur 처리
+            e.target.blur();
+            // click 이벤트 트리거
+            e.target.click();
+        }
+    }, true);
+
+    // 모달 취소 버튼
+    cancelPiecesPerBoxBtn.addEventListener('click', function() {
+        piecesPerBoxModal.classList.add('hidden');
+        piecesPerBoxModal.classList.remove('flex');
+        currentPiecesPerBoxInput = null;
+    });
+
+    // 모달 확인 버튼
+    confirmPiecesPerBoxBtn.addEventListener('click', function() {
+        if (currentPiecesPerBoxInput) {
+            const newValue = parseInt(modalPiecesPerBoxInput.value) || 1;
+            currentPiecesPerBoxInput.value = newValue;
+
+            // input 이벤트 트리거 (합계 업데이트)
+            const event = new Event('input', { bubbles: true });
+            currentPiecesPerBoxInput.dispatchEvent(event);
+
+            // change 이벤트 트리거 (상품정보 업데이트)
+            const changeEvent = new Event('change', { bubbles: true });
+            currentPiecesPerBoxInput.dispatchEvent(changeEvent);
+        }
+
+        piecesPerBoxModal.classList.add('hidden');
+        piecesPerBoxModal.classList.remove('flex');
+        currentPiecesPerBoxInput = null;
+    });
+
+    // 모달 배경 클릭 시 닫기
+    piecesPerBoxModal.addEventListener('click', function(e) {
+        if (e.target === piecesPerBoxModal) {
+            piecesPerBoxModal.classList.add('hidden');
+            piecesPerBoxModal.classList.remove('flex');
+            currentPiecesPerBoxInput = null;
+        }
+    });
+
+    // 모달에서 엔터 키 처리
+    modalPiecesPerBoxInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            confirmPiecesPerBoxBtn.click();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelPiecesPerBoxBtn.click();
+        }
+    });
 });
 </script>
 
