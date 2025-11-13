@@ -32,10 +32,10 @@ if (empty($purchase_id)) {
 
 $conn = get_db_connection();
 
-// 매입 정보 조회
-$purchase_sql = "SELECT p.*, s.name as supplier_name 
-                 FROM purchases p 
-                 JOIN suppliers s ON p.supplier_id = s.id 
+// 매입 정보 조회 (확정 상태 포함)
+$purchase_sql = "SELECT p.*, s.name as supplier_name, COALESCE(p.is_confirmed, 0) as is_confirmed, p.confirmed_at, p.confirmed_by_user_id
+                 FROM purchases p
+                 JOIN suppliers s ON p.supplier_id = s.id
                  WHERE p.purchase_id = ?";
 $purchase_stmt = $conn->prepare($purchase_sql);
 $purchase_stmt->bind_param("s", $purchase_id);
@@ -116,7 +116,35 @@ $items_result = $items_stmt->get_result();
 </div>
 
 <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-2">
-    <div class="flex justify-end items-center mb-2">
+    <div class="flex justify-between items-center mb-2">
+        <!-- 왼쪽: 매입확정 상태 및 버튼 -->
+        <div class="flex items-center space-x-3">
+            <?php if (isset($purchase_info['is_confirmed']) && $purchase_info['is_confirmed']): ?>
+                <div class="flex items-center space-x-2 bg-green-50 border border-green-200 rounded-md px-4 py-2">
+                    <i class="fas fa-check-circle text-green-600"></i>
+                    <div>
+                        <span class="text-sm font-semibold text-green-800"><?php echo t('purchase.confirmed'); ?></span>
+                        <?php if ($purchase_info['confirmed_at']): ?>
+                            <span class="text-xs text-green-600 block"><?php echo t('purchase.confirmed_at'); ?>: <?php echo date('Y-m-d H:i', strtotime($purchase_info['confirmed_at'])); ?></span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php if ($_SESSION['role'] === 'super_admin'): ?>
+                    <button type="button" id="cancel-confirm-btn" data-purchase-id="<?php echo htmlspecialchars($purchase_id); ?>" class="inline-flex items-center justify-center rounded-md border border-orange-300 bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700 shadow-sm hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
+                        <i class="fas fa-undo mr-2"></i> <?php echo t('purchase.cancel_confirmation'); ?>
+                    </button>
+                <?php endif; ?>
+            <?php else: ?>
+                <button type="button" id="confirm-purchase-btn" data-purchase-id="<?php echo htmlspecialchars($purchase_id); ?>" class="inline-flex items-center justify-center rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 shadow-sm hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                    <i class="fas fa-check-circle mr-2"></i> <?php echo t('purchase.confirm_purchase'); ?>
+                </button>
+            <?php endif; ?>
+            <a href="edit_purchase.php?id=<?php echo htmlspecialchars($purchase_id); ?>" class="inline-flex items-center justify-center rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <i class="fas fa-edit mr-2"></i> <?php echo t('purchase.edit_purchase'); ?>
+            </a>
+        </div>
+
+        <!-- 오른쪽: 기존 버튼들 -->
         <div class="flex space-x-3">
             <!-- 가격 변동 선택 버튼들 -->
             <div class="flex space-x-2">
@@ -839,7 +867,75 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 초기 UI 상태 설정
     updateSelectedUI();
-    
+
+    // 매입 확정/취소 기능
+    const confirmPurchaseBtn = document.getElementById('confirm-purchase-btn');
+    const cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
+
+    if (confirmPurchaseBtn) {
+        confirmPurchaseBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            if (confirm('<?php echo addslashes(t("purchase.js_confirm_purchase_message")); ?>')) {
+                const purchaseId = this.dataset.purchaseId;
+                handlePurchaseConfirmation(purchaseId, 'confirm');
+            }
+        });
+    }
+
+    if (cancelConfirmBtn) {
+        cancelConfirmBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            if (confirm('<?php echo addslashes(t("purchase.js_cancel_confirmation_message")); ?>')) {
+                const purchaseId = this.dataset.purchaseId;
+                handlePurchaseConfirmation(purchaseId, 'cancel');
+            }
+        });
+    }
+
+    // 매입 확정/취소 처리 함수
+    function handlePurchaseConfirmation(purchaseId, action) {
+        const button = action === 'confirm' ? confirmPurchaseBtn : cancelConfirmBtn;
+        const originalText = button.innerHTML;
+
+        // 버튼 비활성화 및 로딩 상태 표시
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + (action === 'confirm' ? '<?php echo addslashes(t("purchase.confirming")); ?>...' : '<?php echo addslashes(t("purchase.canceling")); ?>...');
+
+        // AJAX 요청
+        fetch('ajax_confirm_purchase.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'purchase_id=' + encodeURIComponent(purchaseId) + '&action=' + encodeURIComponent(action)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 성공 시 페이지 새로고침
+                alert(data.message);
+                window.location.reload();
+            } else {
+                // 실패 시 오류 메시지 표시
+                alert('<?php echo addslashes(t("common.error")); ?>: ' + data.message);
+
+                // 버튼 복원
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('<?php echo addslashes(t("purchase.js_network_error")); ?>:', error);
+            alert('<?php echo addslashes(t("purchase.js_network_error_occurred")); ?>');
+
+            // 버튼 복원
+            button.disabled = false;
+            button.innerHTML = originalText;
+        });
+    }
+
     // 마진율 입력 필드 이벤트 (실시간 예상판매가 업데이트)
     document.querySelectorAll('.margin-input').forEach(input => {
         input.addEventListener('input', function() {

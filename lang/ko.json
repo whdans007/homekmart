@@ -667,7 +667,17 @@
     "modal_pieces_per_box_label": "포장수량",
     "modal_pieces_per_box_help": "한 박스에 들어있는 낱개 수량을 입력하세요",
     "modal_cancel": "취소",
-    "modal_confirm": "확인"
+    "modal_confirm": "확인",
+    "confirm_purchase": "매입확정",
+    "cancel_confirmation": "확정취소",
+    "confirmed": "확정됨",
+    "confirmed_at": "확정일시",
+    "confirming": "확정 중",
+    "canceling": "취소 중",
+    "edit_purchase": "매입수정",
+    "js_confirm_purchase_message": "매입을 확정하시겠습니까?\\n\\n확정 후에는 수정이 불가능하며, 각 상품의 박스단가가 업데이트됩니다.",
+    "js_cancel_confirmation_message": "매입 확정을 취소하시겠습니까?\\n\\n확정을 취소하면 다시 수정이 가능합니다.",
+    "js_network_error_occurred": "네트워크 오류가 발생했습니다. 다시 시도해주세요."
   },
   "price_change": {
     "history": "가격변경 이력 조회",
@@ -1724,6 +1734,16 @@
     "api_response_error": "API 응답 형식 오류: {error}",
     "query_failed": "조회 실패",
     "barcode_preview_title": "바코드 라벨 미리보기",
-    "close": "닫기"
+    "close": "닫기",
+    "product_name_ko_label": "상품명(한글)",
+    "product_name_en_label": "상품명(영문)",
+    "product_name_ko_placeholder": "상품명을 한글로 입력하세요",
+    "product_name_en_placeholder": "상품명을 영문으로 입력하세요",
+    "product_registered_success": "상품이 성공적으로 등록되었습니다!",
+    "product_register_failed": "상품 등록 실패",
+    "please_enter_product_name": "상품명을 입력해 주세요.",
+    "margin_rate": "마진율",
+    "margin_rate_help": "마진율을 입력하면 판매가가 자동 계산됩니다.",
+    "margin_rate_placeholder": "예: 30"
   }
 }

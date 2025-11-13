@@ -627,7 +627,17 @@
     "modal_pieces_per_box_label": "Packaging Quantity",
     "modal_pieces_per_box_help": "Enter the number of pieces per box",
     "modal_cancel": "Cancel",
-    "modal_confirm": "Confirm"
+    "modal_confirm": "Confirm",
+    "confirm_purchase": "Confirm Purchase",
+    "cancel_confirmation": "Cancel Confirmation",
+    "confirmed": "Confirmed",
+    "confirmed_at": "Confirmed At",
+    "confirming": "Confirming",
+    "canceling": "Canceling",
+    "edit_purchase": "Edit Purchase",
+    "js_confirm_purchase_message": "Confirm this purchase?\\n\\nAfter confirmation, modifications are not allowed and box prices will be updated.",
+    "js_cancel_confirmation_message": "Cancel purchase confirmation?\\n\\nAfter canceling, modifications will be allowed again.",
+    "js_network_error_occurred": "Network error occurred. Please try again."
   },
   "price_change": {
     "history": "Price Change History Inquiry",
@@ -1637,6 +1647,16 @@
     "api_response_error": "API response format error: {error}",
     "query_failed": "Query failed",
     "barcode_preview_title": "Barcode Label Preview",
-    "close": "Close"
+    "close": "Close",
+    "product_name_ko_label": "Product Name(KO)",
+    "product_name_en_label": "Product Name(EN)",
+    "product_name_ko_placeholder": "Enter product name in Korean",
+    "product_name_en_placeholder": "Enter product name in English",
+    "product_registered_success": "Product registered successfully!",
+    "product_register_failed": "Product registration failed",
+    "please_enter_product_name": "Please enter a product name.",
+    "margin_rate": "Margin Rate",
+    "margin_rate_help": "Enter margin rate to auto-calculate selling price.",
+    "margin_rate_placeholder": "e.g. 30"
   }
 }

@@ -113,7 +113,7 @@ try {
                 // 기존 레코드 업데이트
                 $update_stmt = $conn->prepare("
                     UPDATE inventory
-                    SET box_price = ?, updated_at = NOW()
+                    SET box_price = ?
                     WHERE product_id = ? AND store_id = ?
                 ");
                 $update_stmt->bind_param("dii", $box_price, $product_id, $current_store_id);
@@ -122,8 +122,8 @@ try {
             } else {
                 // 새로운 레코드 생성 (수량은 0, 박스단가만 설정)
                 $insert_stmt = $conn->prepare("
-                    INSERT INTO inventory (product_id, store_id, quantity, box_price, created_at, updated_at)
-                    VALUES (?, ?, 0, ?, NOW(), NOW())
+                    INSERT INTO inventory (product_id, store_id, quantity, box_price)
+                    VALUES (?, ?, 0, ?)
                 ");
                 $insert_stmt->bind_param("iid", $product_id, $current_store_id, $box_price);
                 $insert_stmt->execute();
