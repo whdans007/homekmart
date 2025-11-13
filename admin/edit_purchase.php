@@ -1132,7 +1132,7 @@ tr[id^="row-"] td:first-child:hover {
     </div>
 <?php endif; ?>
 
-<div class="bg-white shadow rounded-lg">
+<div class="sticky top-0 z-10 bg-white shadow">
     <div class="px-6 py-4 border-b border-gray-200">
         <div class="flex justify-between items-center">
             <h2 class="text-lg font-medium text-gray-900">매입 상세내역</h2>
@@ -1166,6 +1166,11 @@ tr[id^="row-"] td:first-child:hover {
                     </button>
                 <?php endif; ?>
 
+                <a href="purchase_price_change.php?purchase_id=<?php echo htmlspecialchars($purchase_id); ?>" class="inline-flex items-center justify-center rounded-md border border-purple-300 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 shadow-sm hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    가격변동 확인
+                </a>
+
                 <button type="button" onclick="openPrintModal()" class="inline-flex items-center justify-center rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                     <i class="fas fa-print mr-2"></i>
                     인쇄 미리보기
@@ -1178,9 +1183,8 @@ tr[id^="row-"] td:first-child:hover {
             </div>
         </div>
     </div>
-    <div class="p-6">
-        <!-- 매입 기본 정보 -->
-        <div class="bg-gray-50 rounded-lg p-4 mb-8">
+    <!-- 매입 기본 정보 -->
+    <div class="bg-gray-50 p-4 border-b border-gray-200">
             <div class="flex flex-wrap items-center justify-between gap-6">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
@@ -1232,11 +1236,10 @@ tr[id^="row-"] td:first-child:hover {
                     </div>
                 </div>
             </div>
-        </div>
-
-        <!-- 매입 상품 목록 -->
-        <div class="mb-6">
-            <div class="flex justify-between items-center mb-4">
+    </div>
+    <!-- 매입 상품 목록 헤더 -->
+    <div class="bg-white p-4 border-b border-gray-200">
+        <div class="flex justify-between items-center">
                 <div class="flex items-center space-x-3">
                     <h3 class="text-lg font-medium text-gray-900"><?php echo t('purchase.purchase_items'); ?></h3>
                     <?php if (isset($purchase['is_confirmed']) && $purchase['is_confirmed']): ?>
@@ -1262,30 +1265,41 @@ tr[id^="row-"] td:first-child:hover {
                     <i class="fas fa-save mr-2"></i>
                     <?php echo t('purchase.save_changes'); ?>
                 </button>
-            </div>
-            <div class="shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-                <table class="w-full table-fixed divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="w-8 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                <input type="checkbox" id="select-all" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
-                            </th>
-                            <th class="w-20 px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                            <th class="w-48 px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.product_name'); ?></th>
-                            <th class="w-20 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit'); ?></th>
-                            <th class="w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.quantity'); ?></th>
-                            <th class="w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.pieces_per_box'); ?></th>
-                            <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit_price'); ?></th>
-                            <th class="w-14 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">VAT 구분</th>
-                            <th class="w-14 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.piece_price'); ?></th>
-                            <th class="w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total_pieces'); ?></th>
-                            <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total'); ?></th>
-                            <th class="w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.discount_rate'); ?></th>
-                            <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.discounted_total'); ?></th>
-                            <th class="w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.delete'); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+        </div>
+    </div>
+    <!-- 테이블 헤더 -->
+    <div class="bg-gray-50 border-b border-gray-200">
+        <table class="w-full table-fixed">
+            <thead>
+                <tr>
+                    <th class="w-8 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <input type="checkbox" id="select-all" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
+                    </th>
+                    <th class="w-20 px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                    <th class="w-48 px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.product_name'); ?></th>
+                    <th class="w-20 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit'); ?></th>
+                    <th class="w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.quantity'); ?></th>
+                    <th class="w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.pieces_per_box'); ?></th>
+                    <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit_price'); ?></th>
+                    <th class="w-14 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">VAT 구분</th>
+                    <th class="w-14 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.piece_price'); ?></th>
+                    <th class="w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total_pieces'); ?></th>
+                    <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total'); ?></th>
+                    <th class="w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.discount_rate'); ?></th>
+                    <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.discounted_total'); ?></th>
+                    <th class="w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.delete'); ?></th>
+                </tr>
+            </thead>
+        </table>
+    </div>
+</div>
+
+<!-- 테이블 본문 (스크롤 가능) -->
+<div class="bg-white">
+    <div class="p-6">
+        <div class="shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+            <table class="w-full table-fixed divide-y divide-gray-200">
+                <tbody class="bg-white divide-y divide-gray-200">
                         <?php 
                         $total_amount = 0;
                         $total_pieces = 0;
