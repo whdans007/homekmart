@@ -26,7 +26,18 @@ require_once __DIR__ . '/partials/header.php';
                 <button id="btnRegister" class="btn btn-success" disabled><?php echo t('barcode_generate.register_product'); ?></button>
             </div>
 
-            <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm text-gray-700 mb-1"><?php echo t('barcode_generate.product_name_ko_label'); ?></label>
+                    <input id="productNameKo" type="text" class="w-full border rounded px-3 py-2" placeholder="<?php echo t('barcode_generate.product_name_ko_placeholder'); ?>">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-700 mb-1"><?php echo t('barcode_generate.product_name_en_label'); ?></label>
+                    <input id="productNameEn" type="text" class="w-full border rounded px-3 py-2" placeholder="<?php echo t('barcode_generate.product_name_en_placeholder'); ?>">
+                </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                     <label class="block text-sm text-gray-700 mb-1"><?php echo t('barcode_generate.generation_result'); ?></label>
                     <input id="result" type="text" class="w-full border rounded px-3 py-2" readonly>
@@ -36,6 +47,11 @@ require_once __DIR__ . '/partials/header.php';
                     <label class="block text-sm text-gray-700 mb-1"><?php echo t('barcode_generate.cost_price'); ?></label>
                     <input id="costPrice" type="number" step="0.01" min="0" class="w-full border rounded px-3 py-2" placeholder="0.00">
                     <p class="text-xs text-gray-500 mt-1"><?php echo t('barcode_generate.cost_price_help'); ?></p>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-700 mb-1"><?php echo t('barcode_generate.margin_rate'); ?> (%)</label>
+                    <input id="marginRate" type="number" step="0.01" min="0" max="1000" class="w-full border rounded px-3 py-2" placeholder="<?php echo t('barcode_generate.margin_rate_placeholder'); ?>">
+                    <p class="text-xs text-gray-500 mt-1"><?php echo t('barcode_generate.margin_rate_help'); ?></p>
                 </div>
                 <div>
                     <label class="block text-sm text-gray-700 mb-1"><?php echo t('barcode_generate.selling_price'); ?></label>
@@ -98,8 +114,29 @@ const translations = {
     product_name_en: '<?php echo addslashes(t("barcode_generate.product_name_en")); ?>',
     product_name_ko: '<?php echo addslashes(t("barcode_generate.product_name_ko")); ?>',
     selling_price: '<?php echo addslashes(t("barcode_generate.selling_price")); ?>',
-    manage: '<?php echo addslashes(t("barcode_generate.manage")); ?>'
+    manage: '<?php echo addslashes(t("barcode_generate.manage")); ?>',
+    please_enter_product_name: '<?php echo addslashes(t("barcode_generate.please_enter_product_name")); ?>',
+    product_registered_success: '<?php echo addslashes(t("barcode_generate.product_registered_success")); ?>',
+    product_register_failed: '<?php echo addslashes(t("barcode_generate.product_register_failed")); ?>'
 };
+
+// 마진율 기반 판매가 자동 계산
+function calculateSellingPrice() {
+  const costPrice = parseFloat(document.getElementById('costPrice').value) || 0;
+  const marginRate = parseFloat(document.getElementById('marginRate').value) || 0;
+
+  if (costPrice > 0 && marginRate > 0) {
+    // 판매가 = 원가 × (1 + 마진율/100)
+    const sellingPrice = costPrice * (1 + marginRate / 100);
+    document.getElementById('sellingPrice').value = sellingPrice.toFixed(2);
+  }
+}
+
+// 원가 입력 시 판매가 자동 계산
+document.getElementById('costPrice').addEventListener('input', calculateSellingPrice);
+
+// 마진율 입력 시 판매가 자동 계산
+document.getElementById('marginRate').addEventListener('input', calculateSellingPrice);
 
 function computeCheckDigit(base12){
   if(!/^\d{12}$/.test(base12)) return null;
@@ -134,20 +171,67 @@ async function generate(){
 }
 
 document.getElementById('btnGenerate').addEventListener('click', generate);
-document.getElementById('btnRegister').addEventListener('click', ()=>{
+document.getElementById('btnRegister').addEventListener('click', async ()=>{
   const code = document.getElementById('result').value.trim();
   if(!code){ alert(translations.please_generate_first); return; }
+
+  const productNameKo = document.getElementById('productNameKo').value.trim();
+  const productNameEn = document.getElementById('productNameEn').value.trim();
+
+  if(!productNameKo && !productNameEn){
+    alert(translations.please_enter_product_name);
+    return;
+  }
 
   const costPrice = document.getElementById('costPrice').value.trim();
   const sellingPrice = document.getElementById('sellingPrice').value.trim();
   const storeId = '<?php echo $current_store_id ?? ''; ?>';
 
-  let url = `add_product.php?sku=${encodeURIComponent(code)}`;
-  if(costPrice) url += `&cost_price=${encodeURIComponent(costPrice)}`;
-  if(sellingPrice) url += `&selling_price=${encodeURIComponent(sellingPrice)}`;
-  if(storeId) url += `&store_id=${encodeURIComponent(storeId)}`;
+  const msgDiv = document.getElementById('msg');
+  msgDiv.textContent = '등록 중...';
+  msgDiv.className = 'mt-4 text-sm text-blue-700';
 
-  window.location.href = url;
+  try {
+    const formData = new URLSearchParams();
+    formData.append('action', 'quick_register');
+    formData.append('sku', code);
+    formData.append('name_ko', productNameKo);
+    formData.append('name_en', productNameEn);
+    if(costPrice) formData.append('cost_price', costPrice);
+    if(sellingPrice) formData.append('selling_price', sellingPrice);
+    if(storeId) formData.append('store_id', storeId);
+
+    const response = await fetch('ajax_quick_register_product.php', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if(data.success) {
+      msgDiv.textContent = translations.product_registered_success;
+      msgDiv.className = 'mt-4 text-sm text-green-700';
+
+      // 입력 필드 초기화
+      document.getElementById('productNameKo').value = '';
+      document.getElementById('productNameEn').value = '';
+      document.getElementById('result').value = '';
+      document.getElementById('costPrice').value = '';
+      document.getElementById('marginRate').value = '';
+      document.getElementById('sellingPrice').value = '';
+      document.getElementById('btnRegister').disabled = true;
+
+      // 목록 새로고침
+      loadGeneratedList();
+    } else {
+      msgDiv.textContent = translations.product_register_failed + ': ' + (data.error || '');
+      msgDiv.className = 'mt-4 text-sm text-red-700';
+    }
+  } catch(e) {
+    msgDiv.textContent = translations.product_register_failed + ': ' + e.message;
+    msgDiv.className = 'mt-4 text-sm text-red-700';
+  }
 });
 
 async function loadGeneratedList(){

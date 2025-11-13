@@ -32,7 +32,8 @@
       "Read(//c/Users/whdan/.claude/**)",
       "Bash(claude mcp:*)",
       "Read(//c/Users/whdan/**)",
-      "Bash(php -l:*)"
+      "Bash(php -l:*)",
+      "Bash(php:*)"
     ],
     "deny": [],
     "ask": []
