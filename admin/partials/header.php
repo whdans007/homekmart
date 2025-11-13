@@ -116,7 +116,7 @@ if (!empty($_SESSION['user_id'])) {
                                 </a>
                                 <a href="barcode_generate.php" class="<?php echo ($current_page == 'barcode_generate.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-barcode mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
-                                    바코드생성
+                                    <?php echo t('navigation.barcode_generate'); ?>
                                 </a>
                                 <?php endif; ?>
                             </div>
@@ -150,7 +150,7 @@ if (!empty($_SESSION['user_id'])) {
 
                                 <a href="purchase_analysis.php" class="<?php echo ($current_page == 'purchase_analysis.php') ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200 hover:text-green-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-chart-bar mr-2 text-green-500 group-hover:text-green-600 text-xs"></i>
-                                    매입분석
+                                    <?php echo t('navigation.purchase_analysis'); ?>
                                 </a>
                             </div>
                         </div>
@@ -490,7 +490,7 @@ if (!empty($_SESSION['user_id'])) {
                                 <i class="fas fa-list-ul mr-2 text-xs"></i><?php echo t('navigation.price_label_lists'); ?>
                             </a>
                             <a href="barcode_generate.php" class="<?php echo ($current_page == 'barcode_generate.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
-                                <i class="fas fa-barcode mr-2 text-xs"></i>바코드생성
+                                <i class="fas fa-barcode mr-2 text-xs"></i><?php echo t('navigation.barcode_generate'); ?>
                             </a>
                             <?php endif; ?>
                         </div>
@@ -520,7 +520,7 @@ if (!empty($_SESSION['user_id'])) {
                             </a>
 
                             <a href="purchase_analysis.php" class="<?php echo ($current_page == 'purchase_analysis.php') ? 'bg-green-200 text-green-900' : 'text-green-700 hover:bg-green-200'; ?> block px-2 py-1 rounded text-sm">
-                                <i class="fas fa-chart-bar mr-2 text-xs"></i>매입분석
+                                <i class="fas fa-chart-bar mr-2 text-xs"></i><?php echo t('navigation.purchase_analysis'); ?>
                             </a>
                         </div>
                     </div>

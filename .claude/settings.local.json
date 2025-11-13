@@ -28,7 +28,11 @@
       "Bash(/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/cli/php.exe:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Read(//c/Users/whdan/.claude/**)",
+      "Bash(claude mcp:*)",
+      "Read(//c/Users/whdan/**)",
+      "Bash(php -l:*)"
     ],
     "deny": [],
     "ask": []

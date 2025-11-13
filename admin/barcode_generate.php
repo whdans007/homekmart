@@ -1,45 +1,46 @@
 <?php
-$page_title = '바코드 생성';
+require_once __DIR__ . '/../lib/lang_helper.php';
+$page_title = t('barcode_generate.page_title');
 require_once __DIR__ . '/partials/header.php';
 ?>
 
 <div class="flex-1 overflow-y-auto">
     <div class="max-w-4xl mx-auto p-6">
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 class="text-lg font-semibold mb-4">바코드 생성</h2>
+            <h2 class="text-lg font-semibold mb-4"><?php echo t('barcode_generate.page_title'); ?></h2>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                    <label class="block text-sm text-gray-700 mb-1">Prefix (앞 7자리)</label>
+                    <label class="block text-sm text-gray-700 mb-1"><?php echo t('barcode_generate.prefix_label'); ?></label>
                     <input id="prefix" type="text" value="2011223" class="w-full border rounded px-3 py-2" maxlength="7">
-                    <p class="text-xs text-gray-500 mt-1">예: 2011223</p>
+                    <p class="text-xs text-gray-500 mt-1"><?php echo t('barcode_generate.prefix_example'); ?></p>
                 </div>
                 <div>
-                    <label class="block text-sm text-gray-700 mb-1">다음 바코드 미리보기</label>
+                    <label class="block text-sm text-gray-700 mb-1"><?php echo t('barcode_generate.next_barcode_preview'); ?></label>
                     <div id="preview" class="w-full border rounded px-3 py-2 bg-gray-50">-</div>
                 </div>
             </div>
 
             <div class="flex items-center gap-2 mb-4">
-                <button id="btnGenerate" class="btn btn-primary">생성 및 예약</button>
-                <button id="btnRegister" class="btn btn-success" disabled>생성된 바코드로 상품등록하기</button>
+                <button id="btnGenerate" class="btn btn-primary"><?php echo t('barcode_generate.generate_reserve'); ?></button>
+                <button id="btnRegister" class="btn btn-success" disabled><?php echo t('barcode_generate.register_product'); ?></button>
             </div>
 
             <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-sm text-gray-700 mb-1">생성 결과</label>
+                    <label class="block text-sm text-gray-700 mb-1"><?php echo t('barcode_generate.generation_result'); ?></label>
                     <input id="result" type="text" class="w-full border rounded px-3 py-2" readonly>
-                    <p class="text-xs text-gray-500 mt-1">이 값을 상품 등록 시 바코드로 사용하세요.</p>
+                    <p class="text-xs text-gray-500 mt-1"><?php echo t('barcode_generate.result_help'); ?></p>
                 </div>
                 <div>
-                    <label class="block text-sm text-gray-700 mb-1">원가</label>
+                    <label class="block text-sm text-gray-700 mb-1"><?php echo t('barcode_generate.cost_price'); ?></label>
                     <input id="costPrice" type="number" step="0.01" min="0" class="w-full border rounded px-3 py-2" placeholder="0.00">
-                    <p class="text-xs text-gray-500 mt-1">상품의 원가를 입력하세요.</p>
+                    <p class="text-xs text-gray-500 mt-1"><?php echo t('barcode_generate.cost_price_help'); ?></p>
                 </div>
                 <div>
-                    <label class="block text-sm text-gray-700 mb-1">판매가</label>
+                    <label class="block text-sm text-gray-700 mb-1"><?php echo t('barcode_generate.selling_price'); ?></label>
                     <input id="sellingPrice" type="number" step="0.01" min="0" class="w-full border rounded px-3 py-2" placeholder="0.00">
-                    <p class="text-xs text-gray-500 mt-1">상품의 판매가를 입력하세요.</p>
+                    <p class="text-xs text-gray-500 mt-1"><?php echo t('barcode_generate.selling_price_help'); ?></p>
                 </div>
             </div>
 
@@ -48,15 +49,15 @@ require_once __DIR__ . '/partials/header.php';
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
             <div class="flex items-center justify-between mb-3">
-                <h3 class="text-base font-semibold">이 Prefix로 생성된 상품 (최근 50개)</h3>
+                <h3 class="text-base font-semibold"><?php echo t('barcode_generate.generated_products_title'); ?></h3>
                 <div class="flex items-center gap-2">
                     <select id="listLimit" class="border rounded px-2 py-1 text-sm">
                         <option value="20">20</option>
                         <option value="50" selected>50</option>
                         <option value="100">100</option>
                     </select>
-                    <button id="btnPrintSelected" class="btn btn-outline-primary btn-sm">선택 바코드 2매 출력</button>
-                    <button id="btnRefresh" class="btn btn-outline-secondary btn-sm">새로고침</button>
+                    <button id="btnPrintSelected" class="btn btn-outline-primary btn-sm"><?php echo t('barcode_generate.print_selected_2copies'); ?></button>
+                    <button id="btnRefresh" class="btn btn-outline-secondary btn-sm"><?php echo t('barcode_generate.refresh'); ?></button>
                 </div>
             </div>
             <div class="table-responsive">
@@ -64,15 +65,15 @@ require_once __DIR__ . '/partials/header.php';
                     <thead>
                         <tr>
                             <th style="width:100px">ID</th>
-                            <th style="width:180px">바코드(SKU)</th>
-                            <th>상품명(EN)</th>
-                            <th>상품명(KO)</th>
-                            <th style="width:180px">브랜드</th>
-                            <th style="width:120px">관리</th>
+                            <th style="width:180px"><?php echo t('barcode_generate.barcode_sku'); ?></th>
+                            <th><?php echo t('barcode_generate.product_name_en'); ?></th>
+                            <th><?php echo t('barcode_generate.product_name_ko'); ?></th>
+                            <th style="width:180px"><?php echo t('barcode_generate.brand'); ?></th>
+                            <th style="width:120px"><?php echo t('barcode_generate.manage'); ?></th>
                         </tr>
                     </thead>
                     <tbody id="generatedList">
-                        <tr><td colspan="6" class="text-center text-muted">불러오는 중...</td></tr>
+                        <tr><td colspan="6" class="text-center text-muted"><?php echo t('barcode_generate.loading'); ?></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -81,6 +82,25 @@ require_once __DIR__ . '/partials/header.php';
 </div>
 
 <script>
+// PHP에서 JavaScript로 번역 데이터 전달
+const translations = {
+    reserved_message: '<?php echo addslashes(t("barcode_generate.reserved_message")); ?>',
+    generation_failed: '<?php echo addslashes(t("barcode_generate.generation_failed")); ?>',
+    please_generate_first: '<?php echo addslashes(t("barcode_generate.please_generate_first")); ?>',
+    please_select_barcode: '<?php echo addslashes(t("barcode_generate.please_select_barcode")); ?>',
+    api_response_error: '<?php echo addslashes(t("barcode_generate.api_response_error")); ?>',
+    query_failed: '<?php echo addslashes(t("barcode_generate.query_failed")); ?>',
+    loading: '<?php echo addslashes(t("barcode_generate.loading")); ?>',
+    no_data: '<?php echo addslashes(t("barcode_generate.no_data")); ?>',
+    edit: '<?php echo addslashes(t("barcode_generate.edit")); ?>',
+    select: '<?php echo addslashes(t("barcode_generate.select")); ?>',
+    barcode_sku: '<?php echo addslashes(t("barcode_generate.barcode_sku")); ?>',
+    product_name_en: '<?php echo addslashes(t("barcode_generate.product_name_en")); ?>',
+    product_name_ko: '<?php echo addslashes(t("barcode_generate.product_name_ko")); ?>',
+    selling_price: '<?php echo addslashes(t("barcode_generate.selling_price")); ?>',
+    manage: '<?php echo addslashes(t("barcode_generate.manage")); ?>'
+};
+
 function computeCheckDigit(base12){
   if(!/^\d{12}$/.test(base12)) return null;
   let sum=0; for(let i=0;i<12;i++){const n=base12.charCodeAt(i)-48; sum += (i%2===0)?n:n*3;}
@@ -96,10 +116,14 @@ async function generate(){
       body: new URLSearchParams({prefix})
     });
     const data = await resp.json();
-    if(!data.ok){ throw new Error(data.error||'생성 실패'); }
+    if(!data.ok){ throw new Error(data.error||translations.generation_failed); }
     document.getElementById('result').value = data.barcode;
     document.getElementById('preview').textContent = data.barcode;
-    document.getElementById('msg').textContent = `예약됨: prefix ${data.prefix}, 일련번호 ${String(data.serial).padStart(5,'0')} (체크 ${data.checkDigit})`;
+    const message = translations.reserved_message
+      .replace('{prefix}', data.prefix)
+      .replace('{serial}', String(data.serial).padStart(5,'0'))
+      .replace('{checkDigit}', data.checkDigit);
+    document.getElementById('msg').textContent = message;
     document.getElementById('msg').className='mt-4 text-sm text-green-700';
     document.getElementById('btnRegister').disabled = false;
   }catch(e){
@@ -112,7 +136,7 @@ async function generate(){
 document.getElementById('btnGenerate').addEventListener('click', generate);
 document.getElementById('btnRegister').addEventListener('click', ()=>{
   const code = document.getElementById('result').value.trim();
-  if(!code){ alert('먼저 바코드를 생성해 주세요.'); return; }
+  if(!code){ alert(translations.please_generate_first); return; }
 
   const costPrice = document.getElementById('costPrice').value.trim();
   const sellingPrice = document.getElementById('sellingPrice').value.trim();
@@ -130,7 +154,7 @@ async function loadGeneratedList(){
   const prefix = document.getElementById('prefix').value.replace(/\D/g,'');
   const limit = document.getElementById('listLimit').value;
   const tbody = document.getElementById('generatedList');
-  tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">불러오는 중...</td></tr>';
+  tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">${translations.loading}</td></tr>`;
   try{
     const res = await fetch(`ajax_list_generated_barcodes.php?prefix=${encodeURIComponent(prefix)}&limit=${encodeURIComponent(limit)}`);
     const text = await res.text();
@@ -138,11 +162,11 @@ async function loadGeneratedList(){
     try {
       data = JSON.parse(text);
     } catch(parseErr){
-      throw new Error(`API 응답 형식 오류: ${text.slice(0,200)}`);
+      throw new Error(translations.api_response_error.replace('{error}', text.slice(0,200)));
     }
-    if(!data.ok) throw new Error(data.error||'조회 실패');
+    if(!data.ok) throw new Error(data.error||translations.query_failed);
     if(!data.items || data.items.length===0){
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">데이터가 없습니다.</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">${translations.no_data}</td></tr>`;
       return;
     }
     tbody.innerHTML = data.items.map(row=>{
@@ -155,7 +179,7 @@ async function loadGeneratedList(){
         <td>${escapeHtml(nameEn)}</td>
         <td>${escapeHtml(nameKo)}</td>
         <td>${escapeHtml(brand)}</td>
-        <td><a class="btn btn-sm btn-outline-primary" href="edit_product.php?id=${row.id}">수정</a></td>
+        <td><a class="btn btn-sm btn-outline-primary" href="edit_product.php?id=${row.id}">${translations.edit}</a></td>
       </tr>`;
     }).join('');
   }catch(e){
@@ -179,8 +203,8 @@ loadGeneratedList();
 <div id="barcodeModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:10000;">
   <div id="barcodeModalDialog" style="position:absolute; top:5%; left:50%; transform:translateX(-50%); width:95%; max-width:1200px; height:90%; background:#fff; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.3); overflow:hidden;">
     <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-bottom:1px solid #e5e7eb;">
-      <strong>바코드 라벨 미리보기</strong>
-      <button id="barcodeModalClose" type="button" style="border:none; background:#f3f4f6; padding:6px 10px; border-radius:6px; cursor:pointer;">닫기</button>
+      <strong><?php echo t('barcode_generate.barcode_preview_title'); ?></strong>
+      <button id="barcodeModalClose" type="button" style="border:none; background:#f3f4f6; padding:6px 10px; border-radius:6px; cursor:pointer;"><?php echo t('barcode_generate.close'); ?></button>
     </div>
     <iframe id="barcodePreviewFrame" src="about:blank" style="width:100%; height:calc(100% - 46px); border:0;"></iframe>
   </div>
@@ -220,7 +244,7 @@ loadGeneratedList();
         e.preventDefault();
         e.stopImmediatePropagation();
         const selected = Array.from(document.querySelectorAll('input.sku-check:checked')).map(el => el.value).filter(Boolean);
-        if (selected.length === 0) { alert('먼저 인쇄할 바코드를 선택해 주세요.'); return; }
+        if (selected.length === 0) { alert(translations.please_select_barcode); return; }
         const url = new URL('barcode_print.php', location.href);
         url.searchParams.set('skus', selected.join(','));
         openPreview(url.toString());
@@ -243,7 +267,7 @@ loadGeneratedList();
       if (needHeader) {
         const skuTh = ths[0];
         const selTh = document.createElement('th');
-        selTh.textContent = '선택';
+        selTh.textContent = translations.select;
         selTh.style.width = '80px';
         theadRow.insertBefore(selTh, skuTh);
       }
@@ -284,7 +308,7 @@ loadGeneratedList();
   if (printBtn) {
     printBtn.addEventListener('click', function(){
       const selected = Array.from(document.querySelectorAll('input.sku-check:checked')).map(el => el.value).filter(Boolean);
-      if (selected.length === 0) { alert('먼저 인쇄할 바코드를 선택해 주세요.'); return; }
+      if (selected.length === 0) { alert(translations.please_select_barcode); return; }
       const url = new URL('barcode_print.php', location.href);
       url.searchParams.set('skus', selected.join(','));
       window.open(url.toString(), '_blank');
@@ -310,23 +334,23 @@ loadGeneratedList();
     // 헤더 구성: SKU, EN, KO, 판매가, 관리
     const theadRow = document.querySelector(theadSel);
     if (theadRow) {
-      const headers = ['바코드(SKU)', '상품명(EN)', '상품명(KO)', '판매가', '관리'];
+      const headers = [translations.barcode_sku, translations.product_name_en, translations.product_name_ko, translations.selling_price, translations.manage];
       theadRow.innerHTML = headers.map((h,i)=>`<th${i===0? ' style="width:180px"':''}>${h}</th>`).join('');
     }
 
     const cols = document.querySelector(theadSel)?.querySelectorAll('th').length || 5;
-    tbody.innerHTML = `<tr><td colspan="${cols}" class="text-center text-muted">불러오는 중...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${cols}" class="text-center text-muted">${translations.loading}</td></tr>`;
 
     try{
       const res = await fetch(`ajax_list_generated_barcodes.php?prefix=${encodeURIComponent(prefix)}&limit=${encodeURIComponent(limit)}`);
       const text = await res.text();
       let data;
-      try { data = JSON.parse(text); } catch(e) { throw new Error(`API 응답 형식 오류: ${text.slice(0,200)}`); }
-      if(!data.ok) throw new Error(data.error||'조회 실패');
+      try { data = JSON.parse(text); } catch(e) { throw new Error(translations.api_response_error.replace('{error}', text.slice(0,200))); }
+      if(!data.ok) throw new Error(data.error||translations.query_failed);
 
       const items = Array.isArray(data.items) ? data.items : [];
       if(items.length === 0){
-        tbody.innerHTML = `<tr><td colspan="${cols}" class="text-center text-muted">데이터가 없습니다.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${cols}" class="text-center text-muted">${translations.no_data}</td></tr>`;
         return;
       }
 
@@ -339,7 +363,7 @@ loadGeneratedList();
           <td>${escapeHtml(nameEn)}</td>
           <td>${escapeHtml(nameKo)}</td>
           <td>${price}</td>
-          <td><a class="btn btn-sm btn-outline-primary" href="edit_product.php?id=${row.id}">수정</a></td>
+          <td><a class="btn btn-sm btn-outline-primary" href="edit_product.php?id=${row.id}">${translations.edit}</a></td>
         </tr>`;
       }).join('');
 

@@ -575,7 +575,7 @@
     "box": "Box",
     "piece": "Piece",
     "quantity": "Quantity",
-    "pieces_per_box": "Box/Pcs",
+    "pieces_per_box": "PKG",
     "unit_price": "Unit Price",
     "piece_price": "Price/Pc",
     "total_pieces": "Stock In",
@@ -621,7 +621,13 @@
     "js_confirm_delete_purchase": "Delete this entire purchase record?\\n\\nDeleted purchase records can be restored, and all purchase items' inventory will be adjusted.\\n\\nContinue?",
     "js_discount_rate_invalid": "Please enter a discount rate between 0 and 100.",
     "js_confirm_apply_discount": "Apply {rate}% discount to {count} selected items?\\n\\nThis will be saved to the database.",
-    "item_not_found": "Item not found"
+    "item_not_found": "Item not found",
+    "modal_pieces_per_box_title": "Change Packaging Quantity",
+    "modal_pieces_per_box_warning": "Changing box packaging quantity.<br>Not purchase quantity!!",
+    "modal_pieces_per_box_label": "Packaging Quantity",
+    "modal_pieces_per_box_help": "Enter the number of pieces per box",
+    "modal_cancel": "Cancel",
+    "modal_confirm": "Confirm"
   },
   "price_change": {
     "history": "Price Change History Inquiry",
@@ -721,7 +727,9 @@
     "store_transfer_section": "Store Transfer",
     "system_settings_section": "System Settings",
     "other_info_management_section": "Other Information Management",
-    "customer_management": "Customer Management"
+    "customer_management": "Customer Management",
+    "barcode_generate": "Barcode Generate",
+    "purchase_analysis": "Purchase Analysis"
   },
   "forms": {
     "required_field": "This field is required",
@@ -1596,5 +1604,39 @@
     "street": "Street",
     "house_number": "House No.",
     "postal_code": "Postal Code"
+  },
+  "barcode_generate": {
+    "page_title": "Barcode Generation",
+    "prefix_label": "Prefix (First 7 digits)",
+    "prefix_example": "e.g., 2011223",
+    "next_barcode_preview": "Next Barcode Preview",
+    "generate_reserve": "Generate & Reserve",
+    "register_product": "Register Product with Generated Barcode",
+    "generation_result": "Generation Result",
+    "result_help": "Use this value as the barcode when registering a product.",
+    "cost_price": "Cost Price",
+    "cost_price_help": "Enter the cost price of the product.",
+    "selling_price": "Selling Price",
+    "selling_price_help": "Enter the selling price of the product.",
+    "generated_products_title": "Products Generated with This Prefix (Recent 50)",
+    "print_selected_2copies": "Print Selected Barcodes (2 copies)",
+    "refresh": "Refresh",
+    "select": "Select",
+    "barcode_sku": "Barcode(SKU)",
+    "product_name_en": "Product Name(EN)",
+    "product_name_ko": "Product Name(KO)",
+    "brand": "Brand",
+    "manage": "Manage",
+    "loading": "Loading...",
+    "no_data": "No data available.",
+    "edit": "Edit",
+    "reserved_message": "Reserved: prefix {prefix}, serial {serial} (check {checkDigit})",
+    "generation_failed": "Generation failed",
+    "please_generate_first": "Please generate a barcode first.",
+    "please_select_barcode": "Please select barcodes to print first.",
+    "api_response_error": "API response format error: {error}",
+    "query_failed": "Query failed",
+    "barcode_preview_title": "Barcode Label Preview",
+    "close": "Close"
   }
 }
