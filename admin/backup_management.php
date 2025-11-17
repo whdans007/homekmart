@@ -300,7 +300,7 @@ let progressInterval = null;
 // 진행 상황 조회 함수
 async function checkProgress(type = 'backup', progressId = '') {
     try {
-        const response = await fetch('ajax_backup_progress.php?id=' + progressId);
+        const response = await fetch(window.location.origin + window.location.pathname.replace('backup_management.php', 'ajax_backup_progress.php') + '?id=' + progressId);
         const result = await response.json();
         
         if (result.success && result.progress) {
@@ -333,10 +333,12 @@ async function createBackup() {
     const progress = document.getElementById('backup-progress');
     const progressBar = document.getElementById('progress-bar');
     const progressText = document.getElementById('progress-text');
-    
+
     // 선택된 백업 타입 가져오기
     const backupType = document.querySelector('input[name="backup_type"]:checked').value;
-    
+
+    console.log('백업 시작 - 타입:', backupType);
+
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>백업 생성 중...';
     progress.classList.remove('hidden');
@@ -345,29 +347,45 @@ async function createBackup() {
     
     try {
         // 백업 시작 (비동기로 처리하고 바로 progress_id를 받음)
-        const startResponse = await fetch('backup_process.php', {
+        console.log('백업 시작 요청 전송 중...');
+        const startResponse = await fetch(window.location.origin + window.location.pathname.replace('backup_management.php', 'backup_process.php'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
             body: `action=start_backup&backup_type=${backupType}`
         });
-        
+
+        console.log('백업 시작 응답 상태:', startResponse.status, startResponse.statusText);
+
+        if (!startResponse.ok) {
+            throw new Error(`HTTP ${startResponse.status}: ${startResponse.statusText}`);
+        }
+
         const startResult = await startResponse.json();
+        console.log('백업 시작 결과:', startResult);
         if (startResult.progress_id) {
             // 진행 상황 모니터링 시작
             progressInterval = setInterval(() => checkProgress('backup', startResult.progress_id), 500);
             
             // 실제 백업 실행
-            const response = await fetch('backup_process.php', {
+            console.log('백업 생성 요청 전송 중... progress_id:', startResult.progress_id);
+            const response = await fetch(window.location.origin + window.location.pathname.replace('backup_management.php', 'backup_process.php'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: `action=create_backup&backup_type=${backupType}&progress_id=${startResult.progress_id}`
             });
-            
+
+            console.log('백업 생성 응답 상태:', response.status, response.statusText);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
             const result = await response.json();
+            console.log('백업 생성 결과:', result);
             
             if (result.success) {
                 clearInterval(progressInterval);
@@ -387,6 +405,7 @@ async function createBackup() {
         }
     } catch (error) {
         clearInterval(progressInterval);
+        console.error('백업 생성 에러:', error);
         alert('백업 생성 중 오류가 발생했습니다: ' + error.message);
     } finally {
         btn.disabled = false;
@@ -453,7 +472,7 @@ async function restoreData() {
     formData.append('action', 'restore_data');
     
     try {
-        const response = await fetch('restore_process.php', {
+        const response = await fetch(window.location.origin + window.location.pathname.replace('backup_management.php', 'restore_process.php'), {
             method: 'POST',
             body: formData
         });

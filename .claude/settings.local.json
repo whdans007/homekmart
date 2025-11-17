@@ -33,7 +33,9 @@
       "Bash(claude mcp:*)",
       "Read(//c/Users/whdan/**)",
       "Bash(php -l:*)",
-      "Bash(php:*)"
+      "Bash(php:*)",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\" -l \"z:\\homekmart\\admin\\backup_process.php\")",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\" -v)"
     ],
     "deny": [],
     "ask": []

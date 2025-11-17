@@ -1,7 +1,8 @@
 <?php
-// 에러 출력 방지
-error_reporting(0);
-ini_set('display_errors', 0);
+// 에러 출력 활성화 (디버깅용)
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
 
 // 출력 버퍼링 시작
 ob_start();
@@ -42,7 +43,16 @@ if (!has_permission('settings')) {
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     ob_clean();
-    echo json_encode(['success' => false, 'message' => '허용되지 않는 요청 방식입니다.']);
+    echo json_encode([
+        'success' => false,
+        'message' => '허용되지 않는 요청 방식입니다.',
+        'debug' => [
+            'method' => $_SERVER['REQUEST_METHOD'],
+            'post_data' => $_POST,
+            'get_data' => $_GET,
+            'raw_input' => file_get_contents('php://input')
+        ]
+    ]);
     ob_end_flush();
     exit;
 }
