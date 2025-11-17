@@ -118,6 +118,10 @@ if (!empty($_SESSION['user_id'])) {
                                     <i class="fas fa-barcode mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
                                     <?php echo t('navigation.barcode_generate'); ?>
                                 </a>
+                                <a href="mobile_product_edit.php" class="<?php echo ($current_page == 'mobile_product_edit.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-mobile-alt mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
+                                    모바일 상품명 수정
+                                </a>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -404,6 +408,9 @@ if (!empty($_SESSION['user_id'])) {
                             <a href="barcode_generate.php" class="<?php echo ($current_page == 'barcode_generate.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-barcode mr-2 text-xs"></i><?php echo t('navigation.barcode_generate'); ?>
                             </a>
+                            <a href="mobile_product_edit.php" class="<?php echo ($current_page == 'mobile_product_edit.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-mobile-alt mr-2 text-xs"></i>모바일 상품명 수정
+                            </a>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -517,6 +524,10 @@ if (!empty($_SESSION['user_id'])) {
                             
                             <a href="new_products_management.php" class="<?php echo ($current_page == 'new_products_management.php') ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-star mr-2 text-xs"></i><?php echo t('navigation.new_products_management'); ?>
+                            </a>
+
+                            <a href="mobile_product_edit.php" class="<?php echo ($current_page == 'mobile_product_edit.php') ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-mobile-alt mr-2 text-xs"></i>모바일 상품명 수정
                             </a>
                         </div>
                     </div>

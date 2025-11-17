@@ -67,6 +67,7 @@ require_once __DIR__ . '/partials/header.php';
             <div class="flex items-center justify-between mb-3">
                 <h3 class="text-base font-semibold"><?php echo t('barcode_generate.generated_products_title'); ?></h3>
                 <div class="flex items-center gap-2">
+                    <input type="text" id="searchInput" class="border rounded px-3 py-1 text-sm" placeholder="<?php echo t('common.search'); ?>..." style="width: 200px;">
                     <select id="listLimit" class="border rounded px-2 py-1 text-sm">
                         <option value="20">20</option>
                         <option value="50" selected>50</option>
@@ -461,5 +462,90 @@ loadGeneratedList();
   try { document.getElementById('prefix').onchange = window.loadGeneratedList; } catch(e) {}
   try { document.getElementById('listLimit').onchange = window.loadGeneratedList; } catch(e) {}
   try { window.loadGeneratedList(); } catch(e) {}
+})();
+
+// 검색 기능 구현
+(function(){
+  const searchInput = document.getElementById('searchInput');
+  const tbody = document.getElementById('generatedList');
+
+  if (!searchInput || !tbody) return;
+
+  // 디바운스 함수 - 입력 후 300ms 지연
+  let searchTimeout;
+
+  // 검색 필터 적용 함수
+  function applySearchFilter() {
+    const searchTerm = searchInput.value.trim().toLowerCase();
+    const rows = tbody.querySelectorAll('tr');
+
+    // 검색어가 없으면 모든 행 표시
+    if (searchTerm === '') {
+      rows.forEach(row => {
+        row.style.display = '';
+      });
+      return;
+    }
+
+    // 각 행을 검색어와 비교
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('td');
+
+      // 로딩 메시지나 데이터 없음 메시지는 항상 표시
+      if (cells.length === 1 && cells[0].colSpan > 1) {
+        row.style.display = '';
+        return;
+      }
+
+      // SKU, 영문명, 한글명에서 검색
+      let shouldShow = false;
+
+      // 선택 체크박스가 있는 경우와 없는 경우를 모두 처리
+      // 체크박스 열이 있으면 인덱스가 1씩 밀림
+      const hasCheckbox = cells[0]?.querySelector('input.sku-check') !== null;
+      const offset = hasCheckbox ? 1 : 0;
+
+      // SKU (code 태그 검색)
+      const skuElement = cells[0 + offset]?.querySelector('code');
+      if (skuElement && skuElement.textContent.toLowerCase().includes(searchTerm)) {
+        shouldShow = true;
+      }
+
+      // 영문 제품명
+      if (cells[1 + offset] && cells[1 + offset].textContent.toLowerCase().includes(searchTerm)) {
+        shouldShow = true;
+      }
+
+      // 한글 제품명
+      if (cells[2 + offset] && cells[2 + offset].textContent.toLowerCase().includes(searchTerm)) {
+        shouldShow = true;
+      }
+
+      row.style.display = shouldShow ? '' : 'none';
+    });
+  }
+
+  // 입력 이벤트 리스너
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(applySearchFilter, 300); // 300ms 디바운스
+  });
+
+  // 검색창 초기화 (Escape 키)
+  searchInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      searchInput.value = '';
+      applySearchFilter();
+    }
+  });
+
+  // tbody 내용이 변경될 때마다 검색 필터 재적용
+  const observer = new MutationObserver(function() {
+    if (searchInput.value.trim() !== '') {
+      applySearchFilter();
+    }
+  });
+
+  observer.observe(tbody, { childList: true, subtree: true });
 })();
 </script>
