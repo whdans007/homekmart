@@ -137,6 +137,13 @@ if (!empty($_SESSION['user_id'])) {
         gap: 1rem;
         margin-bottom: 2rem;
     }
+
+    /* 6개 카드 최적 배치를 위한 추가 스타일 */
+    @media (max-width: 374px) {
+        .cards-grid {
+            gap: 0.75rem;
+        }
+    }
     
     .function-card {
         background: white;
@@ -266,15 +273,30 @@ if (!empty($_SESSION['user_id'])) {
     }
     
     .card-transfer {
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+        border: 2px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .card-transfer::before {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+
+    .card-transfer .card-icon {
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    /* 점간 이동 카드 - 보라색 */
+    .card-store-transfer {
         background: linear-gradient(135deg, #7c3aed, #6d28d9);
         border: 2px solid rgba(139, 92, 246, 0.3);
     }
-    
-    .card-transfer::before {
+
+    .card-store-transfer::before {
         background: linear-gradient(135deg, #8b5cf6, #7c3aed);
     }
-    
-    .card-transfer .card-icon {
+
+    .card-store-transfer .card-icon {
         color: white;
         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
@@ -412,12 +434,34 @@ if (!empty($_SESSION['user_id'])) {
 
         <!-- 주요 기능 카드 -->
         <div class="cards-grid">
-            <!-- 가격표 출력 -->
-            <?php 
-            $has_price_permission = has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
-            if ($has_price_permission): 
+            <!-- 모바일 상품명 수정 -->
+            <?php
+            $has_product_permission = has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
+            if ($has_product_permission):
             ?>
-            <a href="price_label_lists.php?desktop=1" class="function-card card-price-label">
+            <a href="mobile_product_edit.php" class="function-card card-price-label">
+                <i class="fas fa-mobile-alt card-icon"></i>
+                <div class="card-title">
+                    상품명 수정
+                    <span class="card-title-en">Edit Product Name</span>
+                </div>
+            </a>
+            <?php else: ?>
+            <div class="function-card card-price-label disabled-card">
+                <i class="fas fa-mobile-alt card-icon"></i>
+                <div class="card-title">
+                    권한 없음
+                    <span class="card-title-en">No Permission</span>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- 가격표 출력 -->
+            <?php
+            $has_price_permission = has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
+            if ($has_price_permission):
+            ?>
+            <a href="price_label_lists.php?desktop=1" class="function-card card-purchase">
                 <i class="fas fa-tags card-icon"></i>
                 <div class="card-title">
                     가격표 출력
@@ -425,7 +469,7 @@ if (!empty($_SESSION['user_id'])) {
                 </div>
             </a>
             <?php else: ?>
-            <div class="function-card card-price-label disabled-card">
+            <div class="function-card card-purchase disabled-card">
                 <i class="fas fa-tags card-icon"></i>
                 <div class="card-title">
                     권한 없음
@@ -435,11 +479,11 @@ if (!empty($_SESSION['user_id'])) {
             <?php endif; ?>
             
             <!-- 매입 관리 -->
-            <?php 
+            <?php
             $has_purchase_permission = has_permission('purchase_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
-            if ($has_purchase_permission): 
+            if ($has_purchase_permission):
             ?>
-            <a href="purchase_management.php?desktop=1" class="function-card card-purchase">
+            <a href="purchase_management.php?desktop=1" class="function-card card-wholesale">
                 <i class="fas fa-shopping-cart card-icon"></i>
                 <div class="card-title">
                     매입 관리
@@ -447,7 +491,7 @@ if (!empty($_SESSION['user_id'])) {
                 </div>
             </a>
             <?php else: ?>
-            <div class="function-card card-purchase disabled-card">
+            <div class="function-card card-wholesale disabled-card">
                 <i class="fas fa-shopping-cart card-icon"></i>
                 <div class="card-title">
                     권한 없음
@@ -457,11 +501,11 @@ if (!empty($_SESSION['user_id'])) {
             <?php endif; ?>
             
             <!-- 도매 판매 -->
-            <?php 
+            <?php
             $has_wholesale_permission = has_permission('wholesale_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
-            if ($has_wholesale_permission): 
+            if ($has_wholesale_permission):
             ?>
-            <a href="wholesale_sales_list.php?desktop=1" class="function-card card-wholesale">
+            <a href="wholesale_sales_list.php?desktop=1" class="function-card card-transfer">
                 <i class="fas fa-handshake card-icon"></i>
                 <div class="card-title">
                     도매 판매
@@ -469,7 +513,7 @@ if (!empty($_SESSION['user_id'])) {
                 </div>
             </a>
             <?php else: ?>
-            <div class="function-card card-wholesale disabled-card">
+            <div class="function-card card-transfer disabled-card">
                 <i class="fas fa-handshake card-icon"></i>
                 <div class="card-title">
                     권한 없음
@@ -479,11 +523,11 @@ if (!empty($_SESSION['user_id'])) {
             <?php endif; ?>
             
             <!-- 점간 이동 -->
-            <?php 
+            <?php
             $has_transfer_permission = has_permission('store_transfer_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
-            if ($has_transfer_permission): 
+            if ($has_transfer_permission):
             ?>
-            <a href="store_transfers_list.php?desktop=1" class="function-card card-transfer">
+            <a href="store_transfers_list.php?desktop=1" class="function-card card-store-transfer">
                 <i class="fas fa-exchange-alt card-icon"></i>
                 <div class="card-title">
                     점간 이동
@@ -491,7 +535,7 @@ if (!empty($_SESSION['user_id'])) {
                 </div>
             </a>
             <?php else: ?>
-            <div class="function-card card-transfer disabled-card">
+            <div class="function-card card-store-transfer disabled-card">
                 <i class="fas fa-exchange-alt card-icon"></i>
                 <div class="card-title">
                     권한 없음
