@@ -27,6 +27,16 @@ if (!empty($_SESSION['user_id'])) {
     if ($user_row = $user_result->fetch_assoc()) {
         $store_name = $user_row['store_name'] ?? t('purchase.unassigned');
         $user_store_id = $user_row['store_id'];
+
+        // super_admin이고 store_id가 없는 경우 첫 번째 점포 자동 설정
+        if ($_SESSION['role'] === 'super_admin' && empty($user_store_id)) {
+            // 첫 번째 점포 조회
+            $first_store_result = $conn->query("SELECT id, name FROM stores ORDER BY id LIMIT 1");
+            if ($first_store_result && $first_store_row = $first_store_result->fetch_assoc()) {
+                $user_store_id = $first_store_row['id'];
+                $store_name = $first_store_row['name'];
+            }
+        }
     }
     $user_stmt->close();
 }
@@ -83,7 +93,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($supplier_id) || empty($purchase_date) || empty($items)) {
         $message = t('purchase.required_fields');
-    } else {
+    } else if (empty($user_store_id)) {
+        // 헤더에서 설정된 current_store_id 사용 시도
+        if (!empty($current_store_id)) {
+            $user_store_id = $current_store_id;
+        } else {
+            $message = '점포 정보가 없습니다. 관리자에게 문의하세요.';
+        }
+    }
+
+    if (empty($message)) {
         // 연결 상태 확인 및 필요시 재연결
         $connection_valid = false;
         if (isset($conn) && ($conn instanceof mysqli)) {
@@ -119,9 +138,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // 기존 매입에 상품 추가
                 $purchase_id = $edit_purchase_id;
             } else if (!$edit_purchase_id) {
-                // 새로운 매입 생성 - 이미 계산된 값 사용
-                $stmt = $conn->prepare("INSERT INTO purchases (supplier_id, purchase_date, total_amount, total_items) VALUES (?, ?, ?, ?)");
-                $stmt->bind_param("isdi", $supplier_id, $purchase_date, $total_amount, $total_items);
+                // 새로운 매입 생성 - store_id 포함
+
+                // store_id 최종 검증
+                if (empty($user_store_id)) {
+                    throw new Exception("점포 정보가 없습니다. store_id가 설정되지 않았습니다. (User: {$_SESSION['user_id']}, Role: {$_SESSION['role']})");
+                }
+
+                $stmt = $conn->prepare("INSERT INTO purchases (store_id, supplier_id, purchase_date, total_amount, total_items) VALUES (?, ?, ?, ?, ?)");
+                $stmt->bind_param("iisdi", $user_store_id, $supplier_id, $purchase_date, $total_amount, $total_items);
                 $stmt->execute();
                 $purchase_id = $stmt->insert_id;
                 $stmt->close();
@@ -400,16 +425,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
 
-        <!-- 3. 상품 검색 -->
+        <!-- 3. 통합 검색 (상품명 + 물류바코드) -->
         <div class="mb-6 relative">
-            <label for="product_search" class="block text-sm font-medium text-gray-700"><?php echo t('purchase.product_search_label'); ?></label>
+            <label for="product_search" class="block text-sm font-medium text-gray-700 mb-1">
+                <i class="fas fa-search mr-1 text-gray-600"></i>
+                상품 검색 / 물류바코드 스캔
+            </label>
             <div class="relative mt-1">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <i class="fas fa-search text-gray-400"></i>
+                    <i class="fas fa-barcode text-gray-400"></i>
                 </div>
-                <input type="text" id="product_search" disabled class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:text-gray-500" placeholder="<?php echo t('js.select_supplier_placeholder'); ?>">
+                <input type="text"
+                       id="product_search"
+                       disabled
+                       class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:text-gray-500"
+                       placeholder="<?php echo t('js.select_supplier_placeholder'); ?>">
             </div>
             <div id="search_results" class="absolute z-20 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden"></div>
+            <p class="mt-2 text-xs text-gray-500">
+                <i class="fas fa-info-circle mr-1"></i>
+                상품명으로 검색하거나 박스 물류바코드를 스캔하세요 (자동 인식)
+            </p>
         </div>
 
         <!-- 4-9. 상품 목록 -->
@@ -576,7 +612,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // 수정 모드에서는 검색 기능을 바로 활성화
     searchInput.disabled = false;
-    searchInput.placeholder = t('js.search_placeholder');
+    searchInput.placeholder = '상품명 검색 또는 물류바코드 스캔';
     searchInput.classList.remove('disabled:bg-gray-100', 'disabled:text-gray-500');
     <?php endif; ?>
 
@@ -796,7 +832,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         if (hasSupplier) {
             searchInput.disabled = false;
-            searchInput.placeholder = t('js.search_placeholder');
+            searchInput.placeholder = '상품명 검색 또는 물류바코드 스캔';
             searchInput.classList.remove('disabled:bg-gray-100', 'disabled:text-gray-500');
         } else {
             searchInput.disabled = true;
@@ -929,9 +965,17 @@ document.addEventListener('DOMContentLoaded', function () {
             if (keyboardNavigationActive && searchTerm === lastSearchTerm) {
                 return;
             }
-            
-            // console.log('상품 검색 시작:', searchTerm);
-            
+
+            // 바코드 패턴 감지 및 자동 전환
+            if (isLikelyBarcode(searchTerm)) {
+                console.log('🔍 바코드 패턴 감지, 물류바코드 검색으로 전환:', searchTerm);
+                tryLogisticsBarcode(searchTerm);
+                return; // 상품명 검색 중단
+            }
+
+            // 일반 상품명 검색
+            console.log('상품명 검색 시작:', searchTerm);
+
             fetch(`ajax_search_products.php?term=${encodeURIComponent(searchTerm)}`)
                 .then(response => {
                     // console.log('검색 응답 상태:', response.status);
@@ -1041,6 +1085,239 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         }, 300); // 300ms 디바운스
     });
+
+    // 바코드 패턴 감지 함수
+    function isLikelyBarcode(input) {
+        // 8자리 이상의 연속된 숫자이거나, 특정 패턴을 포함하면 바코드로 판단
+        const pureNumbers = input.replace(/[^0-9]/g, '');
+
+        // 1. 8자리 이상의 숫자만 있는 경우
+        if (pureNumbers.length >= 8 && input === pureNumbers) {
+            return true;
+        }
+
+        // 2. 13~14자리 연속 숫자 (EAN-13, ITF-14)
+        if (pureNumbers.length >= 13 && pureNumbers.length <= 14) {
+            return true;
+        }
+
+        // 3. BOX-, CASE-, CTN- 등 접두사가 있는 경우
+        if (/^(BOX|CASE|CTN|PACK|BX|CS)-/i.test(input)) {
+            return true;
+        }
+
+        // 4. GS1-128 패턴
+        if (/\(01\)\d{14}/.test(input)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    // 물류바코드 처리 함수 (통합)
+    function tryLogisticsBarcode(barcode) {
+        console.log('물류바코드 분석 시작:', barcode);
+
+        fetch(`ajax_parse_logistics_barcode.php?logistics_barcode=${encodeURIComponent(barcode)}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('물류바코드 분석 응답:', data);
+
+                if (data.success && data.data) {
+                    const product = data.data;
+
+                    // 디버그 정보 출력
+                    if (data.extracted_barcodes) {
+                        console.log('추출된 바코드들:', data.extracted_barcodes);
+                        console.log('매칭된 SKU:', data.matched_sku);
+                    }
+
+                    // 이미 추가된 상품인지 확인하고, 있으면 수량 증가
+                    const existingItems = itemList.querySelectorAll('tr:not(#empty-row)');
+                    let existingRow = null;
+
+                    existingItems.forEach(row => {
+                        const productIdInput = row.querySelector('input[name^="items"][name$="[product_id]"]');
+                        if (productIdInput && productIdInput.value == product.id) {
+                            existingRow = row;
+                        }
+                    });
+
+                    if (existingRow) {
+                        // 기존 상품의 수량 1 증가
+                        const quantityInput = existingRow.querySelector('input[name^="items"][name$="[quantity]"]');
+                        if (quantityInput) {
+                            const currentQty = parseInt(quantityInput.value) || 0;
+                            quantityInput.value = currentQty + 1;
+
+                            // 합계 재계산 트리거
+                            quantityInput.dispatchEvent(new Event('input'));
+
+                            // 시각적 피드백 (행 하이라이트)
+                            existingRow.style.backgroundColor = '#d1fae5';
+                            setTimeout(() => {
+                                existingRow.style.backgroundColor = '';
+                            }, 500);
+
+                            showSuccessMessage(`${product.name_ko} 수량 증가 (${currentQty + 1}개)`);
+                        }
+
+                        searchInput.value = '';
+                        searchResults.classList.add('hidden');
+                        return;
+                    }
+
+                    // 상품 자동 추가
+                    addProductToList(product);
+
+                    // 입력 필드 초기화 및 성공 피드백
+                    searchInput.value = '';
+                    searchInput.style.backgroundColor = '#d1fae5'; // 녹색 배경
+                    searchResults.classList.add('hidden');
+
+                    setTimeout(() => {
+                        searchInput.style.backgroundColor = '';
+                    }, 500);
+
+                    // 성공 메시지 표시 (매칭 정보 포함)
+                    const matchInfo = data.matched_sku ? ` (SKU: ${data.matched_sku})` : '';
+                    showSuccessMessage('물류바코드 인식 성공: ' + product.name_ko + matchInfo);
+
+                } else {
+                    // 물류바코드로 찾지 못했으면 일반 상품명 검색 실행
+                    console.log('물류바코드 매칭 실패, 상품명 검색으로 전환');
+                    performProductNameSearch(barcode);
+                }
+            })
+            .catch(error => {
+                console.error('물류바코드 분석 오류:', error);
+                // 오류 발생 시에도 상품명 검색으로 폴백
+                performProductNameSearch(barcode);
+            });
+    }
+
+    // 상품명 검색 수행 함수
+    function performProductNameSearch(searchTerm) {
+        fetch(`ajax_search_products.php?term=${encodeURIComponent(searchTerm)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    console.error('검색 오류:', data.error);
+                    alert(t('js.search_error') + ': ' + data.error);
+                    currentSearchResults = [];
+                    return;
+                }
+
+                // 검색 결과를 전역 변수에 저장
+                currentSearchResults = data;
+                lastSearchTerm = searchTerm;
+
+                // 바코드 정확히 일치 시 바로 추가
+                if (data.length === 1 && data[0].exact_match) {
+                    addProductToList(data[0]);
+                    searchInput.value = '';
+                    searchResults.classList.add('hidden');
+                    currentSearchResults = [];
+                } else {
+                    // 검색 결과 초기화 및 선택 인덱스 리셋
+                    selectedProductIndex = 0;
+                    searchResults.innerHTML = '';
+
+                    if (data.length > 0) {
+                        data.forEach((product, index) => {
+                            const div = document.createElement('div');
+                            div.className = 'product-result cursor-pointer p-3';
+
+                            if (index === 0) {
+                                div.classList.add('bg-indigo-200', 'border-l-4', 'border-indigo-500');
+                            } else {
+                                div.classList.add('hover:bg-indigo-50');
+                            }
+
+                            div.innerHTML = `
+                                <p class="font-semibold">${product.name_ko} <span class="text-gray-500 font-normal">(${product.name_en})</span></p>
+                                <p class="text-sm text-gray-500">SKU: ${product.sku} | 바코드: ${product.barcode || '없음'}</p>
+                                ${index === 0 ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-keyboard mr-1"></i>↑↓ 네비게이션, ↵ 선택</p>' : ''}
+                            `;
+
+                            div.addEventListener('click', () => {
+                                selectedProductIndex = index;
+                                addProductToList(currentSearchResults[selectedProductIndex]);
+                                resetProductSearch();
+                            });
+
+                            searchResults.appendChild(div);
+                        });
+                        searchResults.classList.remove('hidden');
+                    } else {
+                        // 검색 결과 없을 때 추가하기 버튼 표시
+                        searchResults.innerHTML = `
+                            <div class="p-3 bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500">
+                                <div class="text-gray-600 mb-3 flex items-center">
+                                    <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                                    <?php echo t('purchase.no_search_results'); ?>
+                                </div>
+                                <button type="button" id="add-new-product-btn"
+                                        class="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-sm font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center border-2 border-green-400 hover:border-green-500">
+                                    <i class="fas fa-plus-circle mr-2 text-lg"></i>
+                                    <span class="font-semibold">"${searchTerm}" <?php echo t('purchase.add_new_product'); ?></span>
+                                </button>
+                                <div class="text-xs text-gray-500 mt-2 text-center">
+                                    <i class="fas fa-lightbulb mr-1"></i>
+                                    <?php echo t('purchase.quick_product_registration'); ?>
+                                </div>
+                            </div>
+                        `;
+
+                        const addButton = searchResults.querySelector('#add-new-product-btn');
+                        if (addButton) {
+                            addButton.addEventListener('click', function() {
+                                showAddProductModal(searchTerm);
+                            });
+                        }
+
+                        searchResults.classList.remove('hidden');
+                        currentSearchResults = [];
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('상품 검색 오류:', error);
+                alert(t('js.network_error'));
+                currentSearchResults = [];
+                searchResults.innerHTML = `
+                    <div class="p-3 bg-red-50 border-l-4 border-red-500">
+                        <div class="text-red-600 text-sm">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            <?php echo t('purchase.product_search_network_error'); ?>
+                        </div>
+                    </div>
+                `;
+                searchResults.classList.remove('hidden');
+            });
+    }
+
+    // 성공 메시지 표시 함수
+    function showSuccessMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        messageDiv.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas fa-check-circle mr-2"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        document.body.appendChild(messageDiv);
+
+        setTimeout(() => {
+            messageDiv.remove();
+        }, 3000);
+    }
 
     // 검색 결과 외부 클릭 시 숨기기 (키보드 네비게이션 중에는 무시)
     document.addEventListener('click', function(e) {
@@ -1409,17 +1686,31 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 4. 상품 목록에 추가
     function addProductToList(product, quantity = 1, unitPrice = null, purchaseType = 'box', existingItemId = null, isNew = false) {
-        // 중복 상품 확인 (기존 상품이 아닌 경우만) - 경고만 표시하고 등록은 허용
+        // 중복 상품 확인 (기존 상품이 아닌 경우만) - 수량 증가
         if (existingItemId === null) {
             const existingRows = itemList.querySelectorAll('.item-row');
             for (let row of existingRows) {
                 const productIdInput = row.querySelector('input[name*="[product_id]"]');
                 if (productIdInput && productIdInput.value == product.id) {
-                    // 중복 상품 발견 시 확인 대화상자 표시
-                    if (!confirm(`이미 등록된 상품입니다. 계속 추가하시겠습니까?\n\n상품명: ${product.name_ko}\nSKU: ${product.sku}\n\n※ 같은 상품을 다른 단가로 등록할 수 있습니다.`)) {
-                        return; // 사용자가 취소하면 추가하지 않음
+                    // 중복 상품 발견 시 수량 증가
+                    const quantityInput = row.querySelector('input[name*="[quantity]"]');
+                    if (quantityInput && !quantityInput.hasAttribute('readonly')) {
+                        const currentQty = parseInt(quantityInput.value) || 0;
+                        quantityInput.value = currentQty + 1;
+
+                        // 합계 재계산 트리거
+                        quantityInput.dispatchEvent(new Event('input'));
+
+                        // 시각적 피드백 (행 하이라이트)
+                        row.style.backgroundColor = '#d1fae5';
+                        setTimeout(() => {
+                            row.style.backgroundColor = '';
+                        }, 500);
+
+                        showSuccessMessage(`${product.name_ko} 수량 증가 (${currentQty + 1}개)`);
+                        return; // 수량 증가 후 함수 종료
                     }
-                    break; // 확인 후 루프 종료
+                    break;
                 }
             }
         }
@@ -1634,9 +1925,12 @@ document.addEventListener('DOMContentLoaded', function () {
             piecePrice = unitPrice;
         }
         row.querySelector('.piece-price').textContent = Math.round(piecePrice).toLocaleString();
-        
+
         updateTotalAmount();
     }
+
+    // updateRowTotal은 updateRow의 별칭 (호환성 유지)
+    const updateRowTotal = updateRow;
 
     function updateTotalAmount() {
         let total = 0;

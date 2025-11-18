@@ -1579,13 +1579,39 @@ tr[id^="row-"] td:first-child:hover {
             </p>
         </div>
         
-        <!-- 상품 추가 버튼 -->
-        <div class="mt-6 flex justify-center">
-            <a href="add_purchase.php?edit_purchase_id=<?php echo $purchase_id; ?>" 
-               class="inline-flex items-center px-24 py-5 border border-blue-300 rounded-lg shadow-sm text-xl font-semibold text-blue-800 bg-blue-100 hover:bg-blue-200 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200">
-                <i class="fas fa-plus-circle mr-5 text-2xl"></i>
-                상품 추가하기
-            </a>
+        <!-- 상품 추가 섹션 -->
+        <div class="mt-6 space-y-4">
+            <!-- 물류바코드 스캔 -->
+            <div class="bg-gradient-to-r from-indigo-50 to-blue-50 p-6 rounded-lg border border-indigo-200">
+                <label for="logistics_barcode_quick" class="block text-sm font-semibold text-gray-700 mb-3">
+                    <i class="fas fa-barcode mr-2 text-indigo-600"></i>
+                    박스상품 물류바코드 빠른 스캔
+                </label>
+                <div class="flex gap-3">
+                    <div class="flex-1 relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-qrcode text-gray-400"></i>
+                        </div>
+                        <input type="text"
+                               id="logistics_barcode_quick"
+                               class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                               placeholder="물류바코드를 스캔하면 자동으로 상품이 추가됩니다">
+                    </div>
+                </div>
+                <p class="mt-2 text-xs text-gray-600">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    박스 물류바코드를 스캔하면 자동으로 매입 목록에 추가됩니다
+                </p>
+            </div>
+
+            <!-- 기존 상품 추가 버튼 -->
+            <div class="flex justify-center">
+                <a href="add_purchase.php?edit_purchase_id=<?php echo $purchase_id; ?>"
+                   class="inline-flex items-center px-24 py-5 border border-blue-300 rounded-lg shadow-sm text-xl font-semibold text-blue-800 bg-blue-100 hover:bg-blue-200 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200">
+                    <i class="fas fa-plus-circle mr-5 text-2xl"></i>
+                    상품 추가하기
+                </a>
+            </div>
         </div>
         
         <!-- Summary Information -->
@@ -3053,6 +3079,78 @@ window.addEventListener('load', function() {
         }
 
     }, 500); // 500ms 지연
+});
+
+// 물류바코드 빠른 스캔 기능
+document.addEventListener('DOMContentLoaded', function() {
+    const logisticsBarcodeInput = document.getElementById('logistics_barcode_quick');
+
+    if (!logisticsBarcodeInput) {
+        console.log('물류바코드 입력 필드를 찾을 수 없습니다.');
+        return;
+    }
+
+    let barcodeTimeout;
+
+    logisticsBarcodeInput.addEventListener('input', function(e) {
+        const barcode = this.value.trim();
+
+        // 바코드가 입력되지 않았으면 종료
+        if (!barcode) {
+            return;
+        }
+
+        // 이전 타이머 취소
+        if (barcodeTimeout) {
+            clearTimeout(barcodeTimeout);
+        }
+
+        // 바코드 스캐너는 빠르게 입력되므로 짧은 디바운스 사용
+        barcodeTimeout = setTimeout(() => {
+            console.log('물류바코드 분석 시작:', barcode);
+
+            fetch(`ajax_parse_logistics_barcode.php?logistics_barcode=${encodeURIComponent(barcode)}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('물류바코드 분석 응답:', data);
+
+                    if (data.success && data.data) {
+                        const product = data.data;
+
+                        // 디버그 정보 출력
+                        if (data.extracted_barcodes) {
+                            console.log('추출된 바코드들:', data.extracted_barcodes);
+                            console.log('매칭된 SKU:', data.matched_sku);
+                        }
+
+                        // 상품을 add_purchase.php로 전달하여 추가
+                        const purchaseId = <?php echo $purchase_id; ?>;
+                        window.location.href = `add_purchase.php?edit_purchase_id=${purchaseId}&quick_add_product_id=${product.id}`;
+
+                    } else {
+                        // 상품을 찾지 못함
+                        logisticsBarcodeInput.style.backgroundColor = '#fee2e2'; // 빨간색 배경
+
+                        setTimeout(() => {
+                            logisticsBarcodeInput.style.backgroundColor = '';
+                            logisticsBarcodeInput.value = '';
+                        }, 1000);
+
+                        // 힌트 정보가 있으면 함께 표시
+                        let errorMsg = data.message || '물류바코드에 해당하는 상품을 찾을 수 없습니다.';
+                        if (data.hint) {
+                            errorMsg += '\n\n' + data.hint;
+                        }
+                        alert(errorMsg);
+                    }
+                })
+                .catch(error => {
+                    console.error('물류바코드 분석 오류:', error);
+                    alert('물류바코드 분석 중 오류가 발생했습니다.');
+                    logisticsBarcodeInput.value = '';
+                });
+        }, 100); // 100ms 디바운스
+    });
 });
 </script>
 
