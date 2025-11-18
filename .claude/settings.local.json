@@ -39,7 +39,8 @@
       "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\":*)",
       "Bash(grep:*)",
       "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\" -l backup_management.php)",
-      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\" -l restore_process.php)"
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\" -l restore_process.php)",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\" -r \"\n$conn = new mysqli(''localhost'', ''root'', '''', ''u622428657_homekmart'');\n$result = $conn->query(\"\"SHOW COLUMNS FROM purchase_items LIKE ''sort_order''\"\");\nif ($result->num_rows > 0) {\n    echo ''✓ sort_order 컬럼이 존재합니다.\\n'';\n} else {\n    echo ''✗ sort_order 컬럼이 없습니다. 추가가 필요합니다.\\n'';\n}\n$conn->close();\n\")"
     ],
     "deny": [],
     "ask": []

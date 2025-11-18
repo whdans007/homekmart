@@ -1,39 +1,117 @@
 <?php
 
+// 순번 변경 처리 - 다른 HTML 출력 전에 처리
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_sort_order') {
+    session_start();
+    require_once __DIR__ . '/../config/db_config.php';
+
+    header('Content-Type: application/json');
+
+    $purchase_id = $_POST['purchase_id'] ?? null;
+    $order_data_json = $_POST['order_data'] ?? null;
+
+    if (!$purchase_id || !$order_data_json) {
+        echo json_encode(['success' => false, 'error' => '필수 데이터가 누락되었습니다.']);
+        exit;
+    }
+
+    try {
+        $conn = get_db_connection();
+
+        // 매입 확정 여부 확인
+        $check_stmt = $conn->prepare("SELECT is_confirmed FROM purchases WHERE purchase_id = ?");
+        $check_stmt->bind_param("i", $purchase_id);
+        $check_stmt->execute();
+        $result = $check_stmt->get_result();
+        $purchase = $result->fetch_assoc();
+        $check_stmt->close();
+
+        if ($purchase && $purchase['is_confirmed']) {
+            $conn->close();
+            echo json_encode(['success' => false, 'error' => '확정된 매입은 순번을 변경할 수 없습니다.']);
+            exit;
+        }
+
+        // JSON 문자열을 배열로 변환
+        $order_data = json_decode($order_data_json, true);
+
+        if (!$order_data || !is_array($order_data)) {
+            $conn->close();
+            echo json_encode(['success' => false, 'error' => 'JSON 파싱 실패: ' . json_last_error_msg()]);
+            exit;
+        }
+
+        $conn->begin_transaction();
+
+        // 순번 업데이트
+        $update_stmt = $conn->prepare("UPDATE purchase_items SET sort_order = ? WHERE item_id = ? AND purchase_id = ?");
+
+        $updated_count = 0;
+        foreach ($order_data as $order_item) {
+            $item_id = (int)$order_item['item_id'];
+            $new_order = (int)$order_item['sort_order'];
+
+            $update_stmt->bind_param("iii", $new_order, $item_id, $purchase_id);
+            if ($update_stmt->execute()) {
+                $updated_count++;
+            }
+        }
+
+        $conn->commit();
+        $update_stmt->close();
+        $conn->close();
+
+        echo json_encode([
+            'success' => true,
+            'message' => '순번이 성공적으로 변경되었습니다.',
+            'updated_count' => $updated_count
+        ]);
+
+    } catch (Exception $e) {
+        if (isset($conn)) {
+            $conn->rollback();
+            $conn->close();
+        }
+        if (isset($update_stmt)) $update_stmt->close();
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // 상품명 업데이트 처리 - 다른 HTML 출력 전에 처리
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_product_name') {
     session_start();
     require_once __DIR__ . '/../config/db_config.php';
-    
+
     header('Content-Type: application/json');
-    
+
     $purchase_id = $_POST['purchase_id'] ?? $_GET['id'] ?? null;
     $product_id = (int)$_POST['product_id'];
-    $item_id = (int)$_POST['item_id'];  
+    $item_id = (int)$_POST['item_id'];
     $new_name = trim($_POST['new_name']);
     $field_type = $_POST['field_type'] ?? 'ko'; // 'ko' 또는 'en'
-    
+
     // 입력 검증
     if (empty($new_name)) {
         $error_msg = $field_type === 'en' ? '영문 상품명을 입력해주세요.' : '상품명을 입력해주세요.';
         echo json_encode(['success' => false, 'error' => $error_msg]);
         exit;
     }
-    
+
     if (strlen($new_name) > 255) {
         $error_msg = $field_type === 'en' ? '영문 상품명이 너무 깁니다. (최대 255자)' : '상품명이 너무 깁니다. (최대 255자)';
         echo json_encode(['success' => false, 'error' => $error_msg]);
         exit;
     }
-    
+
     try {
         $conn = get_db_connection();
         $conn->begin_transaction();
-        
+
         // 권한 검증 - 해당 매입 아이템이 존재하고 올바른 매입에 속하는지 확인
         $auth_stmt = $conn->prepare("
-            SELECT pi.item_id 
-            FROM purchase_items pi 
+            SELECT pi.item_id
+            FROM purchase_items pi
             JOIN purchases p ON pi.purchase_id = p.purchase_id
             WHERE pi.item_id = ? AND p.purchase_id = ?
         ");
@@ -41,16 +119,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $auth_stmt->execute();
         $auth_result = $auth_stmt->get_result();
         $auth_stmt->close();
-        
+
         if ($auth_result->num_rows === 0) {
             throw new Exception('권한이 없습니다.');
         }
-        
+
         // 상품명 업데이트 (한글 또는 영문)
         $field_name = $field_type === 'en' ? 'name_en' : 'name_ko';
         $update_stmt = $conn->prepare("UPDATE products SET {$field_name} = ? WHERE id = ?");
         $update_stmt->bind_param("si", $new_name, $product_id);
-        
+
         if ($update_stmt->execute()) {
             $conn->commit();
             $update_stmt->close();
@@ -61,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $error_msg = $field_type === 'en' ? '영문 상품명 업데이트에 실패했습니다.' : '상품명 업데이트에 실패했습니다.';
             throw new Exception($error_msg);
         }
-        
+
     } catch (Exception $e) {
         if (isset($conn)) {
             $conn->rollback();
@@ -101,13 +179,28 @@ try {
     if ($check_discount_rate->num_rows == 0) {
         $conn->query("ALTER TABLE purchase_items ADD COLUMN discount_rate DECIMAL(5,2) DEFAULT 0.00 COMMENT 'Discount Rate (%)' AFTER unit_price");
     }
-    
+
     // discounted_total 컬럼 체크 및 추가
     $check_discounted_total = $conn->query("SHOW COLUMNS FROM purchase_items LIKE 'discounted_total'");
     if ($check_discounted_total->num_rows == 0) {
         $conn->query("ALTER TABLE purchase_items ADD COLUMN discounted_total DECIMAL(10,2) DEFAULT NULL COMMENT 'Discounted Total' AFTER discount_rate");
         // 기존 데이터 초기화
         $conn->query("UPDATE purchase_items SET discounted_total = (quantity * unit_price) WHERE discounted_total IS NULL");
+    }
+
+    // sort_order 컬럼 체크 및 추가
+    $check_sort_order = $conn->query("SHOW COLUMNS FROM purchase_items LIKE 'sort_order'");
+    if ($check_sort_order->num_rows == 0) {
+        $conn->query("ALTER TABLE purchase_items ADD COLUMN sort_order INT NOT NULL DEFAULT 0 AFTER item_id");
+        // 기존 데이터에 순번 자동 부여
+        $conn->query("
+            UPDATE purchase_items pi
+            JOIN (
+                SELECT item_id, ROW_NUMBER() OVER (PARTITION BY purchase_id ORDER BY item_id) as new_order
+                FROM purchase_items
+            ) sorted ON pi.item_id = sorted.item_id
+            SET pi.sort_order = sorted.new_order
+        ");
     }
 } catch (Exception $e) {
 }
@@ -1035,7 +1128,7 @@ if (!$purchase) {
 
 // Fetch purchase items with product details (할인 정보 및 VAT 정보 포함)
 $stmt = $conn->prepare("
-    SELECT 
+    SELECT
         pi.*,
         COALESCE(pi.vat_included, 1) as vat_included,
         pi.original_unit_price,
@@ -1044,16 +1137,16 @@ $stmt = $conn->prepare("
         pr.name_en as product_name_en,
         pr.sku,
         pr.pieces_per_box,
-        CASE 
+        CASE
             WHEN pi.purchase_type = 'box' THEN pi.quantity * COALESCE(pr.pieces_per_box, 1)
             ELSE pi.quantity
         END as total_pieces,
         COALESCE(pi.discount_rate, 0) as discount_rate,
         COALESCE(pi.discounted_total, pi.quantity * pi.unit_price) as discounted_total
-    FROM purchase_items pi 
-    JOIN products pr ON pi.product_id = pr.id 
-    WHERE pi.purchase_id = ? 
-    ORDER BY pi.item_id
+    FROM purchase_items pi
+    JOIN products pr ON pi.product_id = pr.id
+    WHERE pi.purchase_id = ?
+    ORDER BY pi.sort_order, pi.item_id
 ");
 $stmt->bind_param("i", $purchase_id);
 $stmt->execute();
@@ -1275,6 +1368,7 @@ tr[id^="row-"] td:first-child:hover {
                     <th class="w-8 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <input type="checkbox" id="select-all" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
                     </th>
+                    <th class="w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">순번</th>
                     <th class="w-20 px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
                     <th class="w-48 px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.product_name'); ?></th>
                     <th class="w-20 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit'); ?></th>
@@ -1320,9 +1414,15 @@ tr[id^="row-"] td:first-child:hover {
                                 $piece_price = $item['unit_price'];
                             }
                         ?>
-                                <tr class="hover:bg-gray-50 transition-colors duration-150" id="row-<?php echo $item['item_id']; ?>">
+                                <tr class="hover:bg-gray-50 transition-colors duration-150 sortable-item" id="row-<?php echo $item['item_id']; ?>" data-item-id="<?php echo $item['item_id']; ?>" data-sort-order="<?php echo $item['sort_order']; ?>">
                                     <td class="w-8 px-1 py-3 text-center">
                                         <input type="checkbox" class="item-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" value="<?php echo $item['item_id']; ?>" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
+                                    </td>
+                                    <td class="w-10 px-1 py-3 text-center">
+                                        <div class="flex items-center justify-center">
+                                            <i class="fas fa-grip-vertical text-gray-400 cursor-move drag-handle mr-1" title="드래그하여 순번 변경"></i>
+                                            <span class="text-xs font-medium text-gray-700"><?php echo $item['sort_order']; ?></span>
+                                        </div>
                                     </td>
                                     <td class="w-20 px-1 py-3 text-xs font-medium text-gray-900" title="<?php echo htmlspecialchars($item['sku']); ?>">
                                         <?php echo htmlspecialchars($item['sku']); ?>
@@ -2863,6 +2963,145 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 </div>
+
+<!-- SortableJS 라이브러리 추가 -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<script>
+// 드래그 앤 드롭 기능 초기화
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        const tbody = document.querySelector('tbody.bg-white.divide-y.divide-gray-200');
+        const isConfirmed = <?php echo ($purchase['is_confirmed'] ?? false) ? 'true' : 'false'; ?>;
+
+        if (!tbody) return;
+        if (isConfirmed) return;
+
+        try {
+            const sortable = new Sortable(tbody, {
+                animation: 200,
+                handle: '.drag-handle',
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+                chosenClass: 'sortable-chosen',
+
+                onEnd: function(evt) {
+                    if (evt.oldIndex !== evt.newIndex) {
+                        updateSortOrder();
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('드래그 기능 초기화 실패:', error);
+        }
+
+        function updateSortOrder() {
+            const rows = tbody.querySelectorAll('.sortable-item');
+            const orderData = [];
+
+            rows.forEach((row, index) => {
+                const itemId = row.getAttribute('data-item-id');
+                const newOrder = index + 1;
+
+                const sortOrderSpan = row.querySelector('td:nth-child(2) span');
+                if (sortOrderSpan) {
+                    sortOrderSpan.textContent = newOrder;
+                }
+
+                row.setAttribute('data-sort-order', newOrder);
+
+                orderData.push({
+                    item_id: itemId,
+                    sort_order: newOrder
+                });
+            });
+
+            saveSortOrder(orderData);
+        }
+
+        function saveSortOrder(orderData) {
+            const formData = new FormData();
+            formData.append('action', 'update_sort_order');
+            formData.append('purchase_id', '<?php echo $purchase_id; ?>');
+            formData.append('order_data', JSON.stringify(orderData));
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(text => {
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        setTimeout(function() {
+                            location.reload();
+                        }, 500);
+                    } else {
+                        alert('순번 변경 중 오류가 발생했습니다: ' + data.error);
+                        location.reload();
+                    }
+                } catch (e) {
+                    alert('서버 응답 처리 중 오류가 발생했습니다.');
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                alert('순번 변경 중 오류가 발생했습니다.');
+                location.reload();
+            });
+        }
+
+    }, 500); // 500ms 지연
+});
+</script>
+
+<style>
+/* 드래그 앤 드롭 스타일 */
+.sortable-ghost {
+    opacity: 0.4;
+    background: #e0e7ff !important;
+}
+
+.sortable-drag {
+    opacity: 1;
+    background: #ffffff !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2) !important;
+    border: 2px solid #4f46e5 !important;
+}
+
+.sortable-chosen {
+    background: #f3f4f6 !important;
+}
+
+.drag-handle {
+    transition: all 0.2s;
+    cursor: grab !important;
+    font-size: 14px;
+}
+
+.drag-handle:hover {
+    color: #4f46e5 !important;
+    transform: scale(1.2);
+}
+
+.drag-handle:active {
+    cursor: grabbing !important;
+}
+
+tbody.sortable-active .sortable-item {
+    cursor: move !important;
+}
+
+/* 드래그 가능한 행 스타일 */
+.sortable-item {
+    position: relative;
+}
+
+.sortable-item:hover .drag-handle {
+    color: #6366f1;
+}
+</style>
 
 <?php
 $conn->close();
