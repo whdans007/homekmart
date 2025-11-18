@@ -170,17 +170,83 @@ function formatFileSize($size) {
                 </div>
                 <div class="p-6">
                     <p class="text-sm text-gray-600 mb-4">
-                        백업 파일을 업로드하여 데이터베이스를 복원합니다.
+                        백업 파일을 선택하여 데이터베이스를 복원합니다.
                         <span class="text-red-600 font-medium">주의: 현재 데이터가 모두 삭제됩니다.</span>
                     </p>
-                    
+
                     <form id="restore-form" enctype="multipart/form-data" class="space-y-4">
+                        <!-- 복원 방법 선택 -->
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-3">복원 방법 선택</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="restore_method" value="server" checked
+                                           onclick="toggleRestoreMethod('server')"
+                                           class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300">
+                                    <span class="ml-2 text-sm text-gray-900">
+                                        <i class="fas fa-server text-orange-600 mr-1"></i>
+                                        <strong>서버 백업 파일</strong> - 서버에 저장된 백업 선택 (권장)
+                                    </span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="restore_method" value="upload"
+                                           onclick="toggleRestoreMethod('upload')"
+                                           class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300">
+                                    <span class="ml-2 text-sm text-gray-900">
+                                        <i class="fas fa-upload text-blue-600 mr-1"></i>
+                                        <strong>파일 업로드</strong> - 로컬 PC에서 백업 파일 업로드
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 서버 백업 파일 선택 -->
+                        <div id="server-backup-select">
+                            <label for="server-backup-file" class="block text-sm font-medium text-gray-700 mb-2">
+                                서버 백업 파일 선택
+                            </label>
+                            <select id="server-backup-file" name="server_backup_file"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                                <option value="">백업 파일을 선택하세요...</option>
+                                <?php
+                                // 백업 파일 목록 가져오기 (ID=1 포함 여부 표시)
+                                foreach ($backup_files as $file):
+                                    // ID=1 포함 여부 확인
+                                    $has_id1 = false;
+                                    $file_path = $backup_dir . $file['name'];
+                                    if (file_exists($file_path) && filesize($file_path) < 50 * 1024 * 1024) {
+                                        $sample = file_get_contents($file_path, false, null, 0, 500000); // 처음 500KB만 읽기
+                                        $has_id1 = preg_match("/INSERT INTO `users`.*VALUES\s*\('?1'?,/i", $sample);
+                                    }
+
+                                    $label = $file['name'] . ' (' . date('Y-m-d H:i', $file['date']) . ')';
+                                    if ($has_id1) {
+                                        $label .= ' ✅ ID=1 포함';
+                                    }
+
+                                    // pre_restore 백업은 경고 표시
+                                    if (strpos($file['name'], 'pre_restore') !== false) {
+                                        $label .= ' ⚠️ 복원 전 자동 백업';
+                                    }
+                                ?>
+                                <option value="<?php echo htmlspecialchars($file['name']); ?>"
+                                        <?php echo $has_id1 ? 'data-has-id1="1"' : ''; ?>>
+                                    <?php echo htmlspecialchars($label); ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="mt-2 text-xs text-gray-500">
+                                💡 "✅ ID=1 포함" 표시가 있는 백업을 선택하세요.
+                            </p>
+                        </div>
+
+                        <!-- 파일 업로드 -->
+                        <div id="upload-backup-file" style="display: none;">
                             <label for="backup-file" class="block text-sm font-medium text-gray-700 mb-2">
-                                백업 파일 선택 (.sql 파일만)
+                                백업 파일 업로드 (.sql 파일만)
                             </label>
                             <input type="file" id="backup-file" name="backup_file" accept=".sql"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
                         </div>
                         
                         <div id="restore-progress" class="hidden mb-4">
@@ -431,66 +497,118 @@ function formatFileSize(bytes) {
     }
 }
 
+// 복원 방법 토글
+function toggleRestoreMethod(method) {
+    const serverSelect = document.getElementById('server-backup-select');
+    const uploadFile = document.getElementById('upload-backup-file');
+
+    if (method === 'server') {
+        serverSelect.style.display = 'block';
+        uploadFile.style.display = 'none';
+    } else {
+        serverSelect.style.display = 'none';
+        uploadFile.style.display = 'block';
+    }
+}
+
 // 복원 확인
 function confirmRestore() {
-    const fileInput = document.getElementById('backup-file');
-    if (!fileInput.files[0]) {
-        alert('먼저 백업 파일을 선택해주세요.');
-        return;
+    const restoreMethod = document.querySelector('input[name="restore_method"]:checked').value;
+
+    // 서버 백업 파일 선택
+    if (restoreMethod === 'server') {
+        const serverFileSelect = document.getElementById('server-backup-file');
+        if (!serverFileSelect.value) {
+            alert('먼저 서버 백업 파일을 선택해주세요.');
+            return;
+        }
+
+        const selectedOption = serverFileSelect.options[serverFileSelect.selectedIndex];
+        const hasId1 = selectedOption.getAttribute('data-has-id1') === '1';
+
+        let warningMessage = '정말로 데이터를 복원하시겠습니까?\n\n경고: 현재의 모든 데이터가 삭제되고 백업 파일의 데이터로 대체됩니다.\n이 작업은 되돌릴 수 없습니다.';
+
+        if (!hasId1) {
+            warningMessage += '\n\n⚠️ 주의: 선택한 백업 파일에는 ID=1 슈퍼유저가 포함되어 있지 않습니다.\n복원 후 ID=1 슈퍼유저를 다시 생성해야 할 수 있습니다.';
+        }
+
+        if (confirm(warningMessage)) {
+            if (confirm('복원하기 전에 현재 데이터의 백업을 먼저 생성하는 것을 권장합니다.\n\n계속 진행하시겠습니까?')) {
+                restoreData();
+            }
+        }
     }
-    
-    const filename = fileInput.files[0].name;
-    if (!filename.endsWith('.sql')) {
-        alert('SQL 파일만 업로드 가능합니다.');
-        return;
-    }
-    
-    if (confirm('정말로 데이터를 복원하시겠습니까?\n\n경고: 현재의 모든 데이터가 삭제되고 백업 파일의 데이터로 대체됩니다.\n이 작업은 되돌릴 수 없습니다.')) {
-        if (confirm('복원하기 전에 현재 데이터의 백업을 먼저 생성하는 것을 권장합니다.\n\n계속 진행하시겠습니까?')) {
-            restoreData();
+    // 파일 업로드
+    else {
+        const fileInput = document.getElementById('backup-file');
+        if (!fileInput.files[0]) {
+            alert('먼저 백업 파일을 선택해주세요.');
+            return;
+        }
+
+        const filename = fileInput.files[0].name;
+        if (!filename.endsWith('.sql')) {
+            alert('SQL 파일만 업로드 가능합니다.');
+            return;
+        }
+
+        if (confirm('정말로 데이터를 복원하시겠습니까?\n\n경고: 현재의 모든 데이터가 삭제되고 백업 파일의 데이터로 대체됩니다.\n이 작업은 되돌릴 수 없습니다.')) {
+            if (confirm('복원하기 전에 현재 데이터의 백업을 먼저 생성하는 것을 권장합니다.\n\n계속 진행하시겠습니까?')) {
+                restoreData();
+            }
         }
     }
 }
 
 // 데이터 복원 함수
 async function restoreData() {
-    const fileInput = document.getElementById('backup-file');
+    const restoreMethod = document.querySelector('input[name="restore_method"]:checked').value;
     const progress = document.getElementById('restore-progress');
     const progressBar = document.getElementById('restore-progress-bar');
     const progressText = document.getElementById('restore-progress-text');
-    
+
     // 프로그레스 바 표시
     progress.classList.remove('hidden');
     progressBar.style.width = '0%';
     progressText.textContent = '복원을 시작합니다...';
-    
+
     // 진행 상황 모니터링 시작
     progressInterval = setInterval(() => checkProgress('restore'), 500); // 0.5초마다 확인
-    
+
     const formData = new FormData();
-    formData.append('backup_file', fileInput.files[0]);
     formData.append('action', 'restore_data');
-    
+
+    // 복원 방법에 따라 다른 데이터 전송
+    if (restoreMethod === 'server') {
+        const serverFileSelect = document.getElementById('server-backup-file');
+        formData.append('restore_method', 'server');
+        formData.append('server_backup_file', serverFileSelect.value);
+    } else {
+        const fileInput = document.getElementById('backup-file');
+        formData.append('restore_method', 'upload');
+        formData.append('backup_file', fileInput.files[0]);
+    }
+
     try {
         const response = await fetch(window.location.origin + window.location.pathname.replace('backup_management.php', 'restore_process.php'), {
             method: 'POST',
             body: formData
         });
-        
+
         const result = await response.json();
-        
+
         clearInterval(progressInterval);
-        
+
         if (result.success) {
             progressBar.style.width = '100%';
             progressText.textContent = '데이터 복원 완료!';
-            
+
             let message = '데이터 복원이 성공적으로 완료되었습니다.\n';
             if (result.stats) {
                 message += '\n성공: ' + result.stats.success + '개';
                 message += '\n실패: ' + result.stats.errors + '개';
             }
-            
+
             setTimeout(() => {
                 alert(message);
                 location.reload();
