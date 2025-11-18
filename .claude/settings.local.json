@@ -35,7 +35,11 @@
       "Bash(php -l:*)",
       "Bash(php:*)",
       "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\" -l \"z:\\homekmart\\admin\\backup_process.php\")",
-      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\" -v)"
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\" -v)",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\":*)",
+      "Bash(grep:*)",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\" -l backup_management.php)",
+      "Bash(\"/c/Users/whdan/Downloads/wampp-2.2/wampp2/php/php.exe\" -l restore_process.php)"
     ],
     "deny": [],
     "ask": []

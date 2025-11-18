@@ -38,32 +38,68 @@ if ($action !== 'restore_data') {
     exit;
 }
 
-// 파일 업로드 확인
-if (!isset($_FILES['backup_file']) || $_FILES['backup_file']['error'] !== UPLOAD_ERR_OK) {
-    echo json_encode(['success' => false, 'message' => '백업 파일이 업로드되지 않았습니다.']);
-    exit;
-}
+// 복원 방법 확인
+$restore_method = $_POST['restore_method'] ?? 'upload';
 
-$uploaded_file = $_FILES['backup_file'];
+// 파일 경로 결정
+$temp_file = null;
 
-// 파일 확장자 검사
-$file_ext = strtolower(pathinfo($uploaded_file['name'], PATHINFO_EXTENSION));
-if ($file_ext !== 'sql') {
-    echo json_encode(['success' => false, 'message' => 'SQL 파일만 업로드 가능합니다.']);
-    exit;
-}
+if ($restore_method === 'server') {
+    // 서버 백업 파일 사용
+    $server_backup_file = $_POST['server_backup_file'] ?? '';
+    if (empty($server_backup_file)) {
+        echo json_encode(['success' => false, 'message' => '서버 백업 파일이 선택되지 않았습니다.']);
+        exit;
+    }
 
-// 파일 크기 검사 (최대 100MB)
-$max_size = 100 * 1024 * 1024; // 100MB
-if ($uploaded_file['size'] > $max_size) {
-    echo json_encode(['success' => false, 'message' => '파일 크기가 너무 큽니다. (최대 100MB)']);
-    exit;
+    // 백업 디렉토리
+    $backup_dir = __DIR__ . '/../backups/';
+
+    // 파일명 검증 (보안: 디렉토리 탐색 방지)
+    $server_backup_file = basename($server_backup_file);
+    $temp_file = $backup_dir . $server_backup_file;
+
+    // 파일 존재 확인
+    if (!file_exists($temp_file)) {
+        echo json_encode(['success' => false, 'message' => '서버 백업 파일을 찾을 수 없습니다: ' . $server_backup_file]);
+        exit;
+    }
+
+    // 파일 확장자 검사
+    $file_ext = strtolower(pathinfo($temp_file, PATHINFO_EXTENSION));
+    if ($file_ext !== 'sql') {
+        echo json_encode(['success' => false, 'message' => 'SQL 파일만 사용 가능합니다.']);
+        exit;
+    }
+
+} else {
+    // 파일 업로드 방식
+    if (!isset($_FILES['backup_file']) || $_FILES['backup_file']['error'] !== UPLOAD_ERR_OK) {
+        echo json_encode(['success' => false, 'message' => '백업 파일이 업로드되지 않았습니다.']);
+        exit;
+    }
+
+    $uploaded_file = $_FILES['backup_file'];
+
+    // 파일 확장자 검사
+    $file_ext = strtolower(pathinfo($uploaded_file['name'], PATHINFO_EXTENSION));
+    if ($file_ext !== 'sql') {
+        echo json_encode(['success' => false, 'message' => 'SQL 파일만 업로드 가능합니다.']);
+        exit;
+    }
+
+    // 파일 크기 검사 (최대 100MB)
+    $max_size = 100 * 1024 * 1024; // 100MB
+    if ($uploaded_file['size'] > $max_size) {
+        echo json_encode(['success' => false, 'message' => '파일 크기가 너무 큽니다. (최대 100MB)']);
+        exit;
+    }
+
+    // 임시 파일 위치
+    $temp_file = $uploaded_file['tmp_name'];
 }
 
 try {
-    // 임시 파일 위치
-    $temp_file = $uploaded_file['tmp_name'];
-    
     // 파일 내용 안전성 검사
     $file_content = file_get_contents($temp_file);
     if ($file_content === false) {
@@ -295,7 +331,7 @@ function restoreDataOnly($sql_content, $conn) {
             'percentage' => 0
         ];
         
-        // 각 테이블 데이터 삭제
+        // 각 테이블 데이터 삭제 및 AUTO_INCREMENT 리셋
         foreach ($tables as $table) {
             $current_step++;
             $_SESSION['restore_progress'] = [
@@ -305,16 +341,36 @@ function restoreDataOnly($sql_content, $conn) {
                 'total' => $total_tables * 2,
                 'percentage' => round(($current_step / ($total_tables * 2)) * 100)
             ];
-            
-            // 각 테이블의 데이터 삭제
-            $delete_query = "DELETE FROM `$table`";
-            $delete_result = $conn->query($delete_query);
-            if ($delete_result) {
-                error_log("Successfully cleared table: $table");
-                // AUTO_INCREMENT 리셋
-                $conn->query("ALTER TABLE `$table` AUTO_INCREMENT = 1");
+
+            // 외래키 제약조건 임시 비활성화 (이미 설정되어 있지만 명시적으로 확인)
+            $conn->query("SET SESSION foreign_key_checks = 0");
+
+            // TRUNCATE를 사용하여 데이터 삭제 및 AUTO_INCREMENT 자동 리셋
+            // TRUNCATE는 DELETE보다 빠르고 AUTO_INCREMENT를 자동으로 1로 리셋함
+            $truncate_result = $conn->query("TRUNCATE TABLE `$table`");
+
+            if ($truncate_result) {
+                error_log("Successfully truncated table: $table (AUTO_INCREMENT automatically reset to 1)");
             } else {
-                error_log("Failed to clear table $table: " . $conn->error);
+                // TRUNCATE 실패 시 DELETE 사용 (외래키 문제 등)
+                error_log("TRUNCATE failed for $table, trying DELETE: " . $conn->error);
+
+                $delete_result = $conn->query("DELETE FROM `$table`");
+                if ($delete_result) {
+                    $deleted_rows = $conn->affected_rows;
+                    error_log("Successfully deleted from table: $table (deleted {$deleted_rows} rows)");
+
+                    // AUTO_INCREMENT 리셋 - TRUNCATE와 달리 DELETE는 자동 리셋 안됨
+                    $reset_result = $conn->query("ALTER TABLE `$table` AUTO_INCREMENT = 1");
+                    if ($reset_result) {
+                        error_log("Successfully reset AUTO_INCREMENT for table: $table to 1");
+                    } else {
+                        error_log("Failed to reset AUTO_INCREMENT for table $table: " . $conn->error);
+                    }
+                } else {
+                    error_log("Failed to delete from table $table: " . $conn->error);
+                    // 삭제 실패해도 계속 진행 (일부 테이블은 비어있을 수 있음)
+                }
             }
         }
         
@@ -363,9 +419,21 @@ function restoreDataOnly($sql_content, $conn) {
             $result = $conn->query($query);
             if ($result) {
                 $success_count++;
+
+                // users 테이블 INSERT 성공 시 로깅
+                if (stripos($query, 'INSERT INTO `users`') !== false) {
+                    error_log("Successfully inserted into users table. Affected rows: " . $conn->affected_rows);
+                    error_log("Query preview: " . substr($query, 0, 200));
+                }
             } else {
                 $error_count++;
                 $error_msg = $conn->error;
+
+                // users 테이블 INSERT 실패 시 상세 로깅
+                if (stripos($query, 'INSERT INTO `users`') !== false) {
+                    error_log("FAILED to insert into users table: " . $error_msg);
+                    error_log("Failed query: " . substr($query, 0, 500));
+                }
                 
                 // "Data truncated" 또는 "Incorrect" 오류는 경고로 처리
                 if (strpos($error_msg, 'Data truncated') !== false || 
@@ -415,7 +483,16 @@ function restoreDataOnly($sql_content, $conn) {
             // 모든 쿼리 성공
             $conn->commit();
             $conn->query("SET SESSION autocommit = 1");
-            
+
+            // 복원 후 users 테이블 상태 확인
+            $verify_result = $conn->query("SELECT id, username, role FROM users ORDER BY id LIMIT 5");
+            if ($verify_result) {
+                error_log("Users table after restore:");
+                while ($user_row = $verify_result->fetch_assoc()) {
+                    error_log("  - ID: {$user_row['id']}, Username: {$user_row['username']}, Role: {$user_row['role']}");
+                }
+            }
+
             return [
                 'success' => true,
                 'message' => "데이터 복원 완료. {$success_count}개의 쿼리가 성공적으로 실행되었습니다."
@@ -425,7 +502,16 @@ function restoreDataOnly($sql_content, $conn) {
             if ($error_count < $success_count / 10) {
                 $conn->commit();
                 $conn->query("SET SESSION autocommit = 1");
-                
+
+                // 복원 후 users 테이블 상태 확인
+                $verify_result = $conn->query("SELECT id, username, role FROM users ORDER BY id LIMIT 5");
+                if ($verify_result) {
+                    error_log("Users table after restore (with warnings):");
+                    while ($user_row = $verify_result->fetch_assoc()) {
+                        error_log("  - ID: {$user_row['id']}, Username: {$user_row['username']}, Role: {$user_row['role']}");
+                    }
+                }
+
                 return [
                     'success' => true,
                     'message' => "데이터 복원 완료 (일부 경고 포함). 성공: {$success_count}개, 실패: {$error_count}개"
@@ -485,7 +571,12 @@ function restoreDatabase($sql_content, $conn) {
         if ($tables_result) {
             while ($table_row = $tables_result->fetch_array()) {
                 $table = $table_row[0];
-                $conn->query("DROP TABLE IF EXISTS `$table`");
+                $drop_result = $conn->query("DROP TABLE IF EXISTS `$table`");
+                if ($drop_result) {
+                    error_log("Successfully dropped table: $table");
+                } else {
+                    error_log("Failed to drop table $table: " . $conn->error);
+                }
             }
         }
         
@@ -529,10 +620,22 @@ function restoreDatabase($sql_content, $conn) {
             $result = $conn->query($query);
             if ($result) {
                 $success_count++;
+
+                // users 테이블 INSERT 성공 시 로깅
+                if (stripos($query, 'INSERT INTO `users`') !== false) {
+                    error_log("Successfully inserted into users table. Affected rows: " . $conn->affected_rows);
+                    error_log("Query preview: " . substr($query, 0, 200));
+                }
             } else {
                 $error_count++;
                 $error_msg = $conn->error;
-                
+
+                // users 테이블 관련 실패 시 상세 로깅
+                if (stripos($query, 'users') !== false) {
+                    error_log("FAILED query on users table: " . $error_msg);
+                    error_log("Failed query type: " . substr($query, 0, 50));
+                }
+
                 // "Table already exists" 오류는 무시 (DROP TABLE IF EXISTS가 실패한 경우)
                 if (strpos($error_msg, 'already exists') !== false) {
                     // 테이블이 이미 존재하면 삭제 후 재시도
@@ -583,7 +686,16 @@ function restoreDatabase($sql_content, $conn) {
             // 모든 쿼리 성공
             $conn->commit();
             $conn->query("SET SESSION autocommit = 1");
-            
+
+            // 복원 후 users 테이블 상태 확인
+            $verify_result = $conn->query("SELECT id, username, role FROM users ORDER BY id LIMIT 5");
+            if ($verify_result) {
+                error_log("Users table after full restore:");
+                while ($user_row = $verify_result->fetch_assoc()) {
+                    error_log("  - ID: {$user_row['id']}, Username: {$user_row['username']}, Role: {$user_row['role']}");
+                }
+            }
+
             return [
                 'success' => true,
                 'message' => "복원 완료. {$success_count}개의 쿼리가 성공적으로 실행되었습니다."
@@ -593,7 +705,16 @@ function restoreDatabase($sql_content, $conn) {
             if ($error_count < $success_count / 10) { // 오류가 전체의 10% 미만인 경우
                 $conn->commit();
                 $conn->query("SET SESSION autocommit = 1");
-                
+
+                // 복원 후 users 테이블 상태 확인
+                $verify_result = $conn->query("SELECT id, username, role FROM users ORDER BY id LIMIT 5");
+                if ($verify_result) {
+                    error_log("Users table after full restore (with warnings):");
+                    while ($user_row = $verify_result->fetch_assoc()) {
+                        error_log("  - ID: {$user_row['id']}, Username: {$user_row['username']}, Role: {$user_row['role']}");
+                    }
+                }
+
                 return [
                     'success' => true,
                     'message' => "복원 완료 (일부 경고 포함). 성공: {$success_count}개, 실패: {$error_count}개"
