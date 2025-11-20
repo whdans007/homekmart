@@ -87,14 +87,7 @@ if (!empty($_SESSION['user_id'])) {
                                     <?php echo t('navigation.dashboard'); ?>
                                 </a>
                                 <?php endif; ?>
-                                
-                                <?php if (has_permission('shop_access')): ?>
-                                <a href="shop_dashboard.php" class="<?php echo ($current_page == 'shop_dashboard.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-shopping-cart mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
-                                    <?php echo t('navigation.shop'); ?>
-                                </a>
-                                <?php endif; ?>
-                                
+
                                 <?php if (has_permission('user_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
                                 <a href="user_management.php" class="<?php echo in_array($current_page, ['user_management.php', 'add_user.php', 'edit_user.php']) ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-users mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
@@ -183,24 +176,6 @@ if (!empty($_SESSION['user_id'])) {
                                 <a href="wholesale_sales_list.php" class="<?php echo in_array($current_page, ['wholesale_sales_list.php', 'wholesale_sales.php', 'wholesale_sale_preview.php']) ? 'bg-orange-200 text-orange-900' : 'text-orange-700 hover:bg-orange-200 hover:text-orange-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-handshake mr-2 text-orange-500 group-hover:text-orange-600 text-xs"></i>
                                     <?php echo t('navigation.wholesale_sales_list'); ?>
-                                </a>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-
-                        <!-- 고객 관리 카드 (파란색) -->
-                        <?php if (has_permission('customer_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-2 border border-blue-200 shadow-sm">
-                            <div class="flex items-center mb-3">
-                                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-                                    <i class="fas fa-users text-white text-sm"></i>
-                                </div>
-                                <h3 class="text-sm font-semibold text-blue-800"><?php echo t('navigation.customer_management'); ?></h3>
-                            </div>
-                            <div class="space-y-1">
-                                <a href="customer_management.php" class="<?php echo in_array($current_page, ['customer_management.php', 'edit_customer.php']) ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200 hover:text-blue-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-list mr-2 text-blue-500 group-hover:text-blue-600 text-xs"></i>
-                                    <?php echo t('customer.list'); ?>
                                 </a>
                             </div>
                         </div>
@@ -382,13 +357,7 @@ if (!empty($_SESSION['user_id'])) {
                                 <i class="fas fa-tachometer-alt mr-2 text-xs"></i><?php echo t('navigation.dashboard'); ?>
                             </a>
                             <?php endif; ?>
-                            
-                            <?php if (has_permission('shop_access')): ?>
-                            <a href="shop.php" class="<?php echo ($current_page == 'shop.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
-                                <i class="fas fa-shopping-cart mr-2 text-xs"></i><?php echo t('navigation.shop'); ?>
-                            </a>
-                            <?php endif; ?>
-                            
+
                             <?php if (has_permission('user_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
                             <a href="user_management.php" class="<?php echo in_array($current_page, ['user_management.php', 'add_user.php', 'edit_user.php']) ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-users mr-2 text-xs"></i><?php echo t('navigation.user_management'); ?>
@@ -469,23 +438,6 @@ if (!empty($_SESSION['user_id'])) {
                             
                             <a href="wholesale_sales_list.php" class="<?php echo ($current_page == 'wholesale_sales_list.php') ? 'bg-orange-200 text-orange-900' : 'text-orange-700 hover:bg-orange-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-list mr-2 text-xs"></i><?php echo t('navigation.wholesale_sales_list'); ?>
-                            </a>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-
-                    <!-- 모바일 고객 관리 카드 -->
-                    <?php if (has_permission('customer_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-1.5 border border-blue-200">
-                        <div class="flex items-center mb-2">
-                            <div class="w-6 h-6 bg-blue-600 rounded flex items-center justify-center mr-2">
-                                <i class="fas fa-users text-white text-xs"></i>
-                            </div>
-                            <h4 class="text-xs font-semibold text-blue-800"><?php echo t('navigation.customer_management'); ?></h4>
-                        </div>
-                        <div class="space-y-1">
-                            <a href="customer_management.php" class="<?php echo in_array($current_page, ['customer_management.php', 'edit_customer.php']) ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200'; ?> block px-2 py-1 rounded text-sm">
-                                <i class="fas fa-list mr-2 text-xs"></i><?php echo t('customer.list'); ?>
                             </a>
                         </div>
                     </div>
