@@ -53,7 +53,12 @@
     "selected_date": "선택된 날짜",
     "no": "번호",
     "error_occurred": "오류가 발생했습니다",
-    "all_stores": "전체 점포"
+    "all_stores": "전체 점포",
+    "page_info": "총 {total}개 중 {from}-{to}",
+    "first_page": "처음",
+    "prev_page": "이전",
+    "next_page": "다음",
+    "last_page": "마지막"
   },
   "auth": {
     "login": "로그인",
