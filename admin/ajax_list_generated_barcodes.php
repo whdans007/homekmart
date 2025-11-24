@@ -33,6 +33,9 @@ if (!is_logged_in()) {
 $prefix = isset($_GET['prefix']) ? preg_replace('/\D/', '', $_GET['prefix']) : '2011223';
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
 if ($limit < 1 || $limit > 200) { $limit = 50; }
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) { $page = 1; }
+$offset = ($page - 1) * $limit;
 
 if (strlen($prefix) !== 7) {
     http_response_code(400);
@@ -82,6 +85,18 @@ try {
     // 13자리 숫자 + 지정 prefix로 시작하는 SKU만 조회
     $joinInventory = ($hasInventory && $hasInvPrice) ? 'LEFT JOIN inventory inv ON inv.product_id = p.id AND inv.store_id = :store_id' : '';
 
+    // 전체 개수 조회
+    $countSql = "
+        SELECT COUNT(*)
+        FROM products p
+        WHERE LEFT(p.sku,7) = :prefix AND CHAR_LENGTH(p.sku) = 13
+    ";
+    $countStmt = $pdo->prepare($countSql);
+    $countStmt->bindValue(':prefix', $prefix, PDO::PARAM_STR);
+    $countStmt->execute();
+    $totalCount = (int)$countStmt->fetchColumn();
+    $totalPages = ceil($totalCount / $limit);
+
     $sql = "
         SELECT p.id, p.sku, p.name_en, p.name_ko, $finalPriceExpr, b.name_ko AS brand_name
         FROM products p
@@ -89,7 +104,7 @@ try {
         $joinInventory
         WHERE LEFT(p.sku,7) = :prefix AND CHAR_LENGTH(p.sku) = 13
         ORDER BY p.sku DESC
-        LIMIT $limit
+        LIMIT $limit OFFSET $offset
     ";
     $stmt = $pdo->prepare($sql);
     $stmt->bindValue(':prefix', $prefix, PDO::PARAM_STR);
@@ -97,9 +112,16 @@ try {
     $stmt->execute();
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // 이름에는 가격을 덧붙이지 않음(판매가 별도 열 표시)
-
-    echo json_encode(['ok' => true, 'items' => $rows], JSON_UNESCAPED_UNICODE);
+    echo json_encode([
+        'ok' => true,
+        'items' => $rows,
+        'pagination' => [
+            'page' => $page,
+            'limit' => $limit,
+            'total_count' => $totalCount,
+            'total_pages' => $totalPages
+        ]
+    ], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);

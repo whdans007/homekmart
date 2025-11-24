@@ -52,7 +52,12 @@
     "store": "Store",
     "selected_date": "Selected Date",
     "no": "No",
-    "all_stores": "All Stores"
+    "all_stores": "All Stores",
+    "page_info": "{from}-{to} of {total}",
+    "first_page": "First",
+    "prev_page": "Prev",
+    "next_page": "Next",
+    "last_page": "Last"
   },
   "auth": {
     "login": "Login",

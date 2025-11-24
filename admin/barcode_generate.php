@@ -94,6 +94,11 @@ require_once __DIR__ . '/partials/header.php';
                     </tbody>
                 </table>
             </div>
+            <!-- 페이지네이션 UI -->
+            <div id="paginationContainer" class="flex items-center justify-between mt-4 pt-4 border-t">
+                <div id="paginationInfo" class="text-sm text-gray-600"></div>
+                <div id="paginationButtons" class="flex items-center gap-1"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -118,7 +123,12 @@ const translations = {
     manage: '<?php echo addslashes(t("barcode_generate.manage")); ?>',
     please_enter_product_name: '<?php echo addslashes(t("barcode_generate.please_enter_product_name")); ?>',
     product_registered_success: '<?php echo addslashes(t("barcode_generate.product_registered_success")); ?>',
-    product_register_failed: '<?php echo addslashes(t("barcode_generate.product_register_failed")); ?>'
+    product_register_failed: '<?php echo addslashes(t("barcode_generate.product_register_failed")); ?>',
+    page_info: '<?php echo addslashes(t("common.page_info")); ?>',
+    first_page: '<?php echo addslashes(t("common.first_page")); ?>',
+    prev_page: '<?php echo addslashes(t("common.prev_page")); ?>',
+    next_page: '<?php echo addslashes(t("common.next_page")); ?>',
+    last_page: '<?php echo addslashes(t("common.last_page")); ?>'
 };
 
 // 마진율 기반 판매가 자동 계산
@@ -405,12 +415,81 @@ loadGeneratedList();
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
 
 <script>
-// 기존 리스트 렌더링을 덮어쓰기: ID/브랜드 제거 + 판매가 열 추가
+// 기존 리스트 렌더링을 덮어쓰기: ID/브랜드 제거 + 판매가 열 추가 + 페이지네이션
 (function(){
   const theadSel = 'table thead tr';
   const tbodySel = '#generatedList';
 
-  window.loadGeneratedList = async function(){
+  // 현재 페이지 상태 관리
+  let currentPage = 1;
+
+  // 페이지네이션 UI 렌더링 함수
+  function renderPagination(pagination) {
+    const infoDiv = document.getElementById('paginationInfo');
+    const buttonsDiv = document.getElementById('paginationButtons');
+
+    if (!pagination || pagination.total_count === 0) {
+      if (infoDiv) infoDiv.textContent = '';
+      if (buttonsDiv) buttonsDiv.innerHTML = '';
+      return;
+    }
+
+    const { page, limit, total_count, total_pages } = pagination;
+    const from = (page - 1) * limit + 1;
+    const to = Math.min(page * limit, total_count);
+
+    // 정보 텍스트
+    if (infoDiv) {
+      infoDiv.textContent = translations.page_info
+        .replace('{total}', total_count.toLocaleString())
+        .replace('{from}', from.toLocaleString())
+        .replace('{to}', to.toLocaleString());
+    }
+
+    // 페이지 버튼 생성
+    if (buttonsDiv) {
+      let buttonsHtml = '';
+
+      // 처음/이전 버튼
+      buttonsHtml += `<button class="btn btn-sm btn-outline-secondary" ${page <= 1 ? 'disabled' : ''} onclick="goToPage(1)">${translations.first_page}</button>`;
+      buttonsHtml += `<button class="btn btn-sm btn-outline-secondary" ${page <= 1 ? 'disabled' : ''} onclick="goToPage(${page - 1})">${translations.prev_page}</button>`;
+
+      // 페이지 번호 버튼 (현재 페이지 주변 5개)
+      const startPage = Math.max(1, page - 2);
+      const endPage = Math.min(total_pages, page + 2);
+
+      if (startPage > 1) {
+        buttonsHtml += `<span class="px-2 text-gray-400">...</span>`;
+      }
+
+      for (let p = startPage; p <= endPage; p++) {
+        const isActive = p === page;
+        buttonsHtml += `<button class="btn btn-sm ${isActive ? 'btn-primary' : 'btn-outline-secondary'}" ${isActive ? 'disabled' : ''} onclick="goToPage(${p})">${p}</button>`;
+      }
+
+      if (endPage < total_pages) {
+        buttonsHtml += `<span class="px-2 text-gray-400">...</span>`;
+      }
+
+      // 다음/마지막 버튼
+      buttonsHtml += `<button class="btn btn-sm btn-outline-secondary" ${page >= total_pages ? 'disabled' : ''} onclick="goToPage(${page + 1})">${translations.next_page}</button>`;
+      buttonsHtml += `<button class="btn btn-sm btn-outline-secondary" ${page >= total_pages ? 'disabled' : ''} onclick="goToPage(${total_pages})">${translations.last_page}</button>`;
+
+      buttonsDiv.innerHTML = buttonsHtml;
+    }
+  }
+
+  // 페이지 이동 함수 (전역)
+  window.goToPage = function(page) {
+    currentPage = page;
+    window.loadGeneratedList();
+  };
+
+  window.loadGeneratedList = async function(resetPage = false){
+    if (resetPage) {
+      currentPage = 1;
+    }
+
     const prefix = document.getElementById('prefix').value.replace(/\D/g,'');
     const limit = document.getElementById('listLimit').value;
     const tbody = document.querySelector(tbodySel);
@@ -427,13 +506,17 @@ loadGeneratedList();
     tbody.innerHTML = `<tr><td colspan="${cols}" class="text-center text-muted">${translations.loading}</td></tr>`;
 
     try{
-      const res = await fetch(`ajax_list_generated_barcodes.php?prefix=${encodeURIComponent(prefix)}&limit=${encodeURIComponent(limit)}`);
+      const res = await fetch(`ajax_list_generated_barcodes.php?prefix=${encodeURIComponent(prefix)}&limit=${encodeURIComponent(limit)}&page=${currentPage}`);
       const text = await res.text();
       let data;
       try { data = JSON.parse(text); } catch(e) { throw new Error(translations.api_response_error.replace('{error}', text.slice(0,200))); }
       if(!data.ok) throw new Error(data.error||translations.query_failed);
 
       const items = Array.isArray(data.items) ? data.items : [];
+
+      // 페이지네이션 렌더링
+      renderPagination(data.pagination);
+
       if(items.length === 0){
         tbody.innerHTML = `<tr><td colspan="${cols}" class="text-center text-muted">${translations.no_data}</td></tr>`;
         return;
@@ -455,12 +538,13 @@ loadGeneratedList();
       tbody.innerHTML = rowsHtml;
     }catch(err){
       tbody.innerHTML = `<tr><td colspan="${cols}" class="text-center text-danger">${escapeHtml(String(err.message || err))}</td></tr>`;
+      renderPagination(null);
     }
   };
   // 기존 이벤트 핸들러 덮어쓰기 및 즉시 1회 렌더링
-  try { document.getElementById('btnRefresh').onclick = window.loadGeneratedList; } catch(e) {}
-  try { document.getElementById('prefix').onchange = window.loadGeneratedList; } catch(e) {}
-  try { document.getElementById('listLimit').onchange = window.loadGeneratedList; } catch(e) {}
+  try { document.getElementById('btnRefresh').onclick = () => window.loadGeneratedList(); } catch(e) {}
+  try { document.getElementById('prefix').onchange = () => window.loadGeneratedList(true); } catch(e) {}
+  try { document.getElementById('listLimit').onchange = () => window.loadGeneratedList(true); } catch(e) {}
   try { window.loadGeneratedList(); } catch(e) {}
 })();
 
