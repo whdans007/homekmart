@@ -320,7 +320,6 @@ if (isset($_SESSION['flash'])) {
                                 <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Qty</th>
                                 <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Unit Price</th>
                                 <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Total</th>
-                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Remarks</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -360,14 +359,13 @@ if (isset($_SESSION['flash'])) {
                                         <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['quantity']); ?></td>
                                         <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['unit_price']); ?></td>
                                         <td class="px-2 py-2 text-sm text-gray-900 text-right font-medium border-b border-gray-200"><?php echo number_format($item['total_price']); ?></td>
-                                        <td class="px-2 py-2 text-sm text-gray-600 border-b border-gray-200"><?php echo htmlspecialchars($item['remarks'] ?: '-'); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </tbody>
                         <tfoot class="bg-gray-50">
                             <tr>
-                                <td colspan="7" class="px-2 py-2 text-right text-sm font-medium text-gray-900 border-t border-gray-200">Grand Total:</td>
+                                <td colspan="6" class="px-2 py-2 text-right text-sm font-medium text-gray-900 border-t border-gray-200">Grand Total:</td>
                                 <td class="px-2 py-2 text-right text-lg font-bold text-gray-900 border-t border-gray-200"><?php echo number_format($sale['final_amount']); ?></td>
                             </tr>
                         </tfoot>
@@ -450,6 +448,96 @@ if (isset($_SESSION['flash'])) {
     <input type="hidden" name="sale_id" value="<?php echo $sale_id; ?>">
 </form>
 
+<!-- 인쇄 미리보기 모달 -->
+<div id="print-preview-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden z-50 overflow-y-auto">
+    <div class="min-h-screen px-4 py-6">
+        <!-- 모달 헤더 (고정) -->
+        <div class="sticky top-0 z-10 bg-white rounded-t-lg max-w-4xl mx-auto px-4 py-3 flex items-center justify-between border-b">
+            <h3 class="text-lg font-semibold text-gray-900">인쇄 미리보기</h3>
+            <div class="flex items-center gap-3">
+                <button id="modal-print-btn" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">
+                    <i class="fas fa-print mr-2"></i>인쇄하기
+                </button>
+                <button id="modal-close-btn" class="inline-flex items-center px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-md hover:bg-gray-600">
+                    <i class="fas fa-times mr-2"></i>닫기
+                </button>
+            </div>
+        </div>
+        <!-- 모달 콘텐츠 -->
+        <div class="bg-white max-w-4xl mx-auto rounded-b-lg shadow-xl">
+            <div id="print-preview-content" class="print-preview-wrapper p-4">
+                <!-- 여기에 invoice-content가 복사됨 -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 인쇄 미리보기 모달 스타일 - 폰트 9px 통일 */
+.print-preview-wrapper {
+    font-size: 9px !important;
+    line-height: 1.3;
+}
+.print-preview-wrapper #invoice-content {
+    box-shadow: none;
+    border: none;
+    padding: 10px;
+}
+.print-preview-wrapper h1 {
+    font-size: 14px !important;
+    margin-bottom: 8px !important;
+}
+.print-preview-wrapper h3 {
+    font-size: 11px !important;
+}
+.print-preview-wrapper table {
+    font-size: 9px !important;
+}
+.print-preview-wrapper table th {
+    font-size: 9px !important;
+    padding: 3px 5px !important;
+}
+.print-preview-wrapper table td {
+    font-size: 9px !important;
+    padding: 3px 5px !important;
+}
+.print-preview-wrapper .info-table th,
+.print-preview-wrapper .info-table td {
+    font-size: 9px !important;
+    padding: 3px 5px !important;
+}
+.print-preview-wrapper .payment-table {
+    max-width: 220px !important;
+}
+.print-preview-wrapper .payment-table th,
+.print-preview-wrapper .payment-table td {
+    font-size: 9px !important;
+    padding: 3px 5px !important;
+}
+.print-preview-wrapper .text-center.text-xs {
+    font-size: 9px !important;
+}
+/* 상품 테이블 컬럼 너비 */
+.print-preview-wrapper .product-table {
+    table-layout: fixed;
+    width: 100%;
+}
+.print-preview-wrapper .product-table th:nth-child(1),
+.print-preview-wrapper .product-table td:nth-child(1) { width: 12%; }
+.print-preview-wrapper .product-table th:nth-child(2),
+.print-preview-wrapper .product-table td:nth-child(2) { width: 46%; font-size: 8px !important; }
+.print-preview-wrapper .product-table th:nth-child(3),
+.print-preview-wrapper .product-table td:nth-child(3) { width: 7%; }
+.print-preview-wrapper .product-table th:nth-child(4),
+.print-preview-wrapper .product-table td:nth-child(4) { width: 7%; }
+.print-preview-wrapper .product-table th:nth-child(5),
+.print-preview-wrapper .product-table td:nth-child(5) { width: 6%; }
+.print-preview-wrapper .product-table th:nth-child(6),
+.print-preview-wrapper .product-table td:nth-child(6) { width: 10%; }
+.print-preview-wrapper .product-table th:nth-child(7),
+.print-preview-wrapper .product-table td:nth-child(7) { width: 12%; }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const printBtn = document.getElementById('print-btn');
@@ -459,10 +547,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmDelete = document.getElementById('confirm-delete');
     const deleteForm = document.getElementById('delete-form');
     
-    // 인쇄 버튼
+    // 인쇄 버튼 - 모달 팝업으로 미리보기
     if (printBtn) {
         printBtn.addEventListener('click', function() {
-            window.print();
+            const invoiceContent = document.getElementById('invoice-content');
+            if (!invoiceContent) return;
+
+            // 모달 열기
+            const printModal = document.getElementById('print-preview-modal');
+            const printPreviewContent = document.getElementById('print-preview-content');
+
+            if (printModal && printPreviewContent) {
+                printPreviewContent.innerHTML = invoiceContent.outerHTML;
+                printModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            }
         });
     }
     
@@ -498,10 +597,112 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ESC 키로 모달 닫기
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && !deleteModal.classList.contains('hidden')) {
-            deleteModal.classList.add('hidden');
+        if (e.key === 'Escape') {
+            if (deleteModal && !deleteModal.classList.contains('hidden')) {
+                deleteModal.classList.add('hidden');
+            }
+            const printModal = document.getElementById('print-preview-modal');
+            if (printModal && !printModal.classList.contains('hidden')) {
+                printModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
         }
     });
+
+    // 인쇄 미리보기 모달 - 닫기 버튼
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+    const printPreviewModal = document.getElementById('print-preview-modal');
+
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', function() {
+            printPreviewModal.classList.add('hidden');
+            document.body.style.overflow = '';
+        });
+    }
+
+    // 인쇄 미리보기 모달 - 인쇄 버튼
+    const modalPrintBtn = document.getElementById('modal-print-btn');
+    if (modalPrintBtn) {
+        modalPrintBtn.addEventListener('click', function() {
+            const printContent = document.getElementById('print-preview-content').innerHTML;
+
+            // 인쇄용 iframe 생성
+            const printFrame = document.createElement('iframe');
+            printFrame.style.position = 'absolute';
+            printFrame.style.top = '-10000px';
+            printFrame.style.left = '-10000px';
+            document.body.appendChild(printFrame);
+
+            const printDoc = printFrame.contentDocument || printFrame.contentWindow.document;
+            printDoc.open();
+            printDoc.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>거래명세서 인쇄</title>
+                    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+                    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+                    <style>
+                        body {
+                            font-family: 'Malgun Gothic', sans-serif;
+                            font-size: 9px;
+                            line-height: 1.3;
+                            padding: 5mm;
+                        }
+                        #invoice-content {
+                            box-shadow: none;
+                            border: none;
+                        }
+                        h1 { font-size: 14px !important; margin-bottom: 8px !important; }
+                        h3 { font-size: 11px !important; }
+                        table { font-size: 9px !important; }
+                        table th { font-size: 9px !important; padding: 3px 5px !important; }
+                        table td { font-size: 9px !important; padding: 3px 5px !important; }
+                        .info-table th, .info-table td { font-size: 9px !important; padding: 3px 5px !important; }
+                        .payment-table { max-width: 220px !important; }
+                        .payment-table th, .payment-table td { font-size: 9px !important; padding: 3px 5px !important; }
+                        .text-center.text-xs { font-size: 9px !important; }
+                        .product-table { table-layout: fixed; width: 100%; }
+                        .product-table th:nth-child(1), .product-table td:nth-child(1) { width: 12%; }
+                        .product-table th:nth-child(2), .product-table td:nth-child(2) { width: 46%; font-size: 8px !important; }
+                        .product-table th:nth-child(3), .product-table td:nth-child(3) { width: 7%; }
+                        .product-table th:nth-child(4), .product-table td:nth-child(4) { width: 7%; }
+                        .product-table th:nth-child(5), .product-table td:nth-child(5) { width: 6%; }
+                        .product-table th:nth-child(6), .product-table td:nth-child(6) { width: 10%; }
+                        .product-table th:nth-child(7), .product-table td:nth-child(7) { width: 12%; }
+                        @page { size: A4; margin: 8mm; }
+                        .product-table { page-break-inside: auto !important; }
+                        .product-table thead { display: table-header-group; }
+                        .product-table tbody tr { page-break-inside: avoid; }
+                    </style>
+                </head>
+                <body>${printContent}</body>
+                </html>
+            `);
+            printDoc.close();
+
+            // CSS 로딩 대기 후 인쇄
+            printFrame.onload = function() {
+                setTimeout(function() {
+                    printFrame.contentWindow.print();
+                    setTimeout(function() {
+                        document.body.removeChild(printFrame);
+                    }, 1000);
+                }, 500);
+            };
+        });
+    }
+
+    // 인쇄 미리보기 모달 - 외부 클릭시 닫기
+    if (printPreviewModal) {
+        printPreviewModal.addEventListener('click', function(e) {
+            if (e.target === printPreviewModal) {
+                printPreviewModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+        });
+    }
 });
 </script>
 
@@ -510,38 +711,63 @@ document.addEventListener('DOMContentLoaded', function() {
     /* A4 페이지 설정 */
     @page {
         size: A4;
-        margin: 0;
-        /* 브라우저 헤더/푸터 제거 */
-        @top-left { content: ""; }
-        @top-center { content: ""; }
-        @top-right { content: ""; }
-        @bottom-left { content: ""; }
-        @bottom-center { content: ""; }
-        @bottom-right { content: ""; }
+        margin: 10mm 5mm;
     }
-    
-    body * {
-        visibility: hidden;
+
+    /* 기본 설정 */
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
-    
-    #invoice-content, #invoice-content * {
-        visibility: visible;
+
+    /* 인쇄에서 숨길 요소들 */
+    header,
+    nav,
+    footer,
+    .no-print,
+    #print-btn,
+    #delete-btn,
+    #delete-modal,
+    #delete-form,
+    .mb-6.text-right,
+    nav[aria-label="Breadcrumb"],
+    .px-2.sm\\:px-3.md\\:px-4.py-4 > .w-full > .mb-6:first-child {
+        display: none !important;
+        visibility: hidden !important;
     }
-    
+
+    /* 컨테이너 초기화 */
+    .px-2, .sm\\:px-3, .md\\:px-4, .py-4,
+    .w-full, .max-w-none {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
     #invoice-content {
-        position: absolute;
-        left: 50%;
-        top: 0;
-        width: 95%;
-        transform: translateX(-50%);
-        padding: 8px;
+        display: block !important;
+        visibility: visible !important;
+        position: relative !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 5mm !important;
         box-shadow: none !important;
         border: none !important;
         font-size: 11px !important;
         line-height: 1.3 !important;
         color: #000000 !important;
+        background: white !important;
     }
-    
+
+    #invoice-content * {
+        visibility: visible !important;
+    }
+
     /* 모든 텍스트 요소를 검정색으로 설정 */
     #invoice-content * {
         color: #000000 !important;
@@ -627,14 +853,28 @@ document.addEventListener('DOMContentLoaded', function() {
     
     
     
-    /* 페이지 나눔 방지 */
-    table {
-        page-break-inside: avoid;
+    /* 페이지 나눔 설정 - 테이블은 자연스럽게 넘어가도록 허용 */
+    .product-table {
+        page-break-inside: auto !important;
     }
-    
-    tr {
+
+    .product-table thead {
+        display: table-header-group; /* 각 페이지에 헤더 반복 */
+    }
+
+    .product-table tbody tr {
         page-break-inside: avoid;
         page-break-after: auto;
+    }
+
+    .product-table tfoot {
+        display: table-footer-group;
+    }
+
+    /* 정보 테이블과 서명란은 나눔 방지 */
+    .info-table,
+    .payment-table {
+        page-break-inside: avoid;
     }
     
     /* 담당자 및 서명란 테이블 최적화 */
