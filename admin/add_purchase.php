@@ -156,8 +156,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // 매입 상세 데이터 저장 및 재고 업데이트
-            $stmt_item = $conn->prepare("INSERT INTO purchase_items (purchase_id, product_id, purchase_type, quantity, unit_price, vat_included, original_unit_price, vat_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            
+            $stmt_item = $conn->prepare("INSERT INTO purchase_items (purchase_id, product_id, purchase_type, quantity, unit_price, vat_included, original_unit_price, vat_amount, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+            $sort_order = 1; // 순번 1부터 시작
             foreach ($new_items as $item) {
                 if (!empty($item['product_id']) && !empty($item['quantity']) && isset($item['unit_price']) && $item['unit_price'] !== '') {
                     // 데이터 검증 및 정제
@@ -206,11 +207,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                     
-                    // 1. 매입 상세 데이터 저장 (VAT 관련 필드 포함)
-                    $stmt_item->bind_param("iisididd", $purchase_id, $item['product_id'], $purchase_type, $item['quantity'], $final_unit_price, $vat_included, $original_price, $vat_amount);
+                    // 1. 매입 상세 데이터 저장 (VAT 관련 필드 포함 + sort_order)
+                    $stmt_item->bind_param("iisiddddi", $purchase_id, $item['product_id'], $purchase_type, $item['quantity'], $final_unit_price, $vat_included, $original_price, $vat_amount, $sort_order);
                     if (!$stmt_item->execute()) {
                         throw new Exception(str_replace(['{error}', '{type}'], [$stmt_item->error, $purchase_type], t('purchase.item_save_failed')));
                     }
+                    $sort_order++; // 다음 상품 순번 증가
                     
                     // 2. 실제 입고 수량 계산 (박스/낱개 구분)
                     $actual_quantity = (int)$item['quantity'];

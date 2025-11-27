@@ -974,15 +974,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
             }
             
-            // 1. 매입 상세 데이터 저장 (VAT 관련 필드 포함)
-            $stmt_item = $conn->prepare("INSERT INTO purchase_items (purchase_id, product_id, purchase_type, quantity, unit_price, vat_included, original_unit_price, vat_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt_item->bind_param("iisididd", $purchase_id, $product_id, $purchase_type, $quantity, $final_unit_price, $vat_included, $original_price, $vat_amount);
+            // 1. 현재 매입의 최대 순번 조회
+            $max_order_stmt = $conn->prepare("SELECT COALESCE(MAX(sort_order), 0) as max_order FROM purchase_items WHERE purchase_id = ?");
+            $max_order_stmt->bind_param("i", $purchase_id);
+            $max_order_stmt->execute();
+            $max_order_result = $max_order_stmt->get_result();
+            $max_order_row = $max_order_result->fetch_assoc();
+            $next_sort_order = ($max_order_row['max_order'] ?? 0) + 1;
+            $max_order_stmt->close();
+
+            // 2. 매입 상세 데이터 저장 (VAT 관련 필드 포함 + sort_order)
+            $stmt_item = $conn->prepare("INSERT INTO purchase_items (purchase_id, product_id, purchase_type, quantity, unit_price, vat_included, original_unit_price, vat_amount, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt_item->bind_param("iisiddddi", $purchase_id, $product_id, $purchase_type, $quantity, $final_unit_price, $vat_included, $original_price, $vat_amount, $next_sort_order);
             if (!$stmt_item->execute()) {
                 throw new Exception("매입 상세 저장 실패: " . $stmt_item->error);
             }
             $stmt_item->close();
-            
-            // 2. 실제 입고 수량 계산 (박스/낱개 구분)
+
+            // 3. 실제 입고 수량 계산 (박스/낱개 구분)
             $actual_quantity = $quantity;
             if ($purchase_type === 'box') {
                 $pieces_stmt = $conn->prepare("SELECT pieces_per_box FROM products WHERE id = ?");
@@ -996,16 +1005,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $pieces_stmt->close();
             }
             
-            // 3. inventory 테이블 업데이트
+            // 4. inventory 테이블 업데이트
             if ($user_info && $user_info['store_id']) {
                 $store_id = $user_info['store_id'];
-                
+
                 // 기존 재고 레코드 확인
                 $inv_check_stmt = $conn->prepare("SELECT id, quantity FROM inventory WHERE product_id = ? AND store_id = ?");
                 $inv_check_stmt->bind_param("ii", $product_id, $store_id);
                 $inv_check_stmt->execute();
                 $inv_result = $inv_check_stmt->get_result();
-                
+
                 if ($inv_row = $inv_result->fetch_assoc()) {
                     // 기존 재고 업데이트 (VAT 포함 가격으로 cost_price도 함께 업데이트)
                     $new_quantity = $inv_row['quantity'] + $actual_quantity;
@@ -1023,8 +1032,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $inv_insert_stmt->close();
                 }
                 $inv_check_stmt->close();
-                
-                // 4. inventory_transactions 로그 기록
+
+                // 5. inventory_transactions 로그 기록
                 $transaction_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, '입고', ?, ?)");
                 $remarks = "매입 상품 추가 (Purchase ID: {$purchase_id})";
                 $transaction_stmt->bind_param("iiis", $inventory_id, $_SESSION['user_id'], $actual_quantity, $remarks);
@@ -1033,8 +1042,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
                 $transaction_stmt->close();
             }
-            
-            // 5. 매입 전체 합계 재계산 및 업데이트 (할인후 금액 기준)
+
+            // 6. 매입 전체 합계 재계산 및 업데이트 (할인후 금액 기준)
             $update_stmt = $conn->prepare("
                 UPDATE purchases SET 
                     total_amount = (SELECT COALESCE(SUM(CASE WHEN discounted_total IS NOT NULL THEN discounted_total ELSE quantity * unit_price END), 0) FROM purchase_items WHERE purchase_id = ?),

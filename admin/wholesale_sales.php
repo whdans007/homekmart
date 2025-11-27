@@ -606,7 +606,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // 거래처 검색 버튼 클릭 - 모달 표시
-    customerSearchBtn.addEventListener('click', function() {
+    customerSearchBtn.addEventListener('click', function(e) {
+        e.preventDefault(); // 폼 제출 방지
         const query = customerSearch.value.trim();
         if (query.length === 0) {
             // 빈 검색어일 때 전체 목록을 모달로 표시
@@ -620,21 +621,48 @@ document.addEventListener('DOMContentLoaded', function() {
     // 상품 검색
     productSearch.addEventListener('input', function() {
         const query = this.value.trim();
-        
+
         clearTimeout(searchTimeout);
-        
+
         if (query.length < 2) {
             productSearchResults.classList.add('hidden');
             return;
         }
-        
+
         searchTimeout = setTimeout(function() {
             searchProducts(query);
         }, 300);
     });
+
+    // 상품 검색창에서 엔터키 입력 시 폼 제출 방지
+    productSearch.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const query = this.value.trim();
+            if (query.length >= 2) {
+                searchProducts(query);
+            } else if (query.length === 0) {
+                showProductModal();
+            }
+        }
+    });
+
+    // 거래처 검색창에서 엔터키 입력 시 폼 제출 방지
+    customerSearch.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const query = this.value.trim();
+            if (query.length >= 2) {
+                searchCustomers(query);
+            } else if (query.length === 0) {
+                showCustomerModal();
+            }
+        }
+    });
     
     // 상품 검색 버튼 클릭 - 모달 표시
-    productSearchBtn.addEventListener('click', function() {
+    productSearchBtn.addEventListener('click', function(e) {
+        e.preventDefault(); // 폼 제출 방지
         const query = productSearch.value.trim();
         if (query.length === 0) {
             // 빈 검색어일 때 전체 목록을 모달로 표시
