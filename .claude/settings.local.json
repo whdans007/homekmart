@@ -4,7 +4,14 @@
     "allow": [
       "Bash(PATH=\"/c/xampp/php:$PATH\" php:*)",
       "Bash(PATH=\"/c/xampp/php:$PATH\" php -r:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(for table in stores users brands categories suppliers products inventory)",
+      "Bash(do echo \"=== $table ===\")",
+      "Bash(done)",
+      "Bash(PATH=\"/c/xampp/php:$PATH\" php -r \"echo password_hash(''admin123'', PASSWORD_DEFAULT);\")",
+      "Bash(export PATH=\"/c/xampp/php:$PATH\")",
+      "Bash(php -r:*)"
     ],
     "deny": [],
     "ask": []

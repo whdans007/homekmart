@@ -160,7 +160,14 @@ try {
                 </a>
                 <?php endif; ?>
             </div>
-            
+
+            <!-- 가격변경 버튼 -->
+            <div>
+                <button onclick="openPriceChangeModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                    <i class="fas fa-edit mr-2"></i>
+                    가격변경
+                </button>
+            </div>
         </div>
     </div>
 
@@ -432,6 +439,92 @@ try {
                 }
                 
             </style>
+        </div>
+    </div>
+</div>
+
+<!-- Price Change Modal -->
+<div id="priceChangeModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900">가격변경</h3>
+                <button onclick="closePriceChangeModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <!-- 바코드 입력 영역 -->
+            <div class="mb-6">
+                <label for="barcodeInput" class="block text-sm font-medium text-gray-700 mb-2">
+                    바코드 스캔
+                </label>
+                <input type="text" id="barcodeInput"
+                       class="w-full px-4 py-3 text-lg border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                       placeholder="바코드를 스캔하거나 입력하세요"
+                       autocomplete="off">
+                <p class="mt-1 text-sm text-gray-500">바코드 스캔 후 Enter를 누르세요</p>
+            </div>
+
+            <!-- 로딩 표시 -->
+            <div id="loadingIndicator" class="hidden text-center py-4">
+                <i class="fas fa-spinner fa-spin text-2xl text-indigo-600"></i>
+                <p class="mt-2 text-sm text-gray-600">상품 정보를 불러오는 중...</p>
+            </div>
+
+            <!-- 상품 정보 표시 영역 -->
+            <div id="productInfoArea" class="hidden">
+                <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3">상품 정보</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">상품명 (영문)</label>
+                            <p id="productNameEn" class="text-sm font-medium text-gray-900">-</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">상품명 (한글)</label>
+                            <p id="productNameKo" class="text-sm font-medium text-gray-900">-</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">원가</label>
+                            <p id="currentCostPrice" class="text-sm font-medium text-gray-900">-</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">현재 판매가</label>
+                            <p id="currentSellingPrice" class="text-sm font-medium text-gray-900">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 신규 판매가 입력 -->
+                <div class="mb-4">
+                    <label for="newSellingPrice" class="block text-sm font-medium text-gray-700 mb-2">
+                        신규 판매가 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="number" id="newSellingPrice"
+                           class="w-full px-4 py-3 text-lg border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                           placeholder="신규 판매가를 입력하세요"
+                           min="0"
+                           step="1">
+                </div>
+
+                <!-- 저장 버튼 -->
+                <div class="flex justify-end space-x-3">
+                    <button onclick="closePriceChangeModal()"
+                            class="px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                        취소
+                    </button>
+                    <button id="savePriceChangeBtn" onclick="savePriceChange()"
+                            class="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        저장
+                    </button>
+                </div>
+            </div>
+
+            <!-- 에러 메시지 -->
+            <div id="priceChangeError" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p class="text-sm text-red-800"></p>
+            </div>
         </div>
     </div>
 </div>
@@ -1300,6 +1393,178 @@ document.getElementById('priceCardModal').addEventListener('click', function(e) 
 document.getElementById('deleteModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeDeleteModal();
+    }
+});
+
+// 가격변경 모달 관련 변수
+let currentProductId = null;
+
+// 가격변경 모달 열기
+function openPriceChangeModal() {
+    document.getElementById('priceChangeModal').classList.remove('hidden');
+    document.getElementById('barcodeInput').value = '';
+    document.getElementById('productInfoArea').classList.add('hidden');
+    document.getElementById('priceChangeError').classList.add('hidden');
+    document.getElementById('loadingIndicator').classList.add('hidden');
+    currentProductId = null;
+
+    // 바코드 입력 필드에 포커스
+    setTimeout(() => {
+        document.getElementById('barcodeInput').focus();
+    }, 100);
+}
+
+// 가격변경 모달 닫기
+function closePriceChangeModal() {
+    document.getElementById('priceChangeModal').classList.add('hidden');
+}
+
+// 에러 메시지 표시
+function showPriceChangeError(message) {
+    const errorDiv = document.getElementById('priceChangeError');
+    errorDiv.querySelector('p').textContent = message;
+    errorDiv.classList.remove('hidden');
+}
+
+// 에러 메시지 숨기기
+function hidePriceChangeError() {
+    document.getElementById('priceChangeError').classList.add('hidden');
+}
+
+// 바코드로 상품 검색
+function searchProductByBarcode(barcode) {
+    if (!barcode || barcode.trim() === '') {
+        return;
+    }
+
+    hidePriceChangeError();
+    document.getElementById('loadingIndicator').classList.remove('hidden');
+    document.getElementById('productInfoArea').classList.add('hidden');
+
+    fetch('ajax_get_product_by_barcode.php?barcode=' + encodeURIComponent(barcode))
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('loadingIndicator').classList.add('hidden');
+
+            if (data.success && data.product) {
+                const product = data.product;
+                currentProductId = product.product_id;
+
+                // 상품 정보 표시
+                document.getElementById('productNameEn').textContent = product.name_en || '-';
+                document.getElementById('productNameKo').textContent = product.name_ko || '-';
+                document.getElementById('currentCostPrice').textContent = product.cost_price;
+                document.getElementById('currentSellingPrice').textContent = product.selling_price;
+
+                // 신규 판매가 입력 필드 초기화 및 포커스
+                const newPriceInput = document.getElementById('newSellingPrice');
+                newPriceInput.value = '';
+
+                document.getElementById('productInfoArea').classList.remove('hidden');
+
+                setTimeout(() => {
+                    newPriceInput.focus();
+                }, 100);
+            } else {
+                showPriceChangeError(data.message || '상품을 찾을 수 없습니다.');
+                document.getElementById('barcodeInput').select();
+            }
+        })
+        .catch(error => {
+            document.getElementById('loadingIndicator').classList.add('hidden');
+            console.error('Error:', error);
+            showPriceChangeError('상품 정보를 불러오는 중 오류가 발생했습니다.');
+        });
+}
+
+// 가격 변경 저장
+function savePriceChange() {
+    if (!currentProductId) {
+        showPriceChangeError('상품을 먼저 선택해주세요.');
+        return;
+    }
+
+    const newSellingPrice = document.getElementById('newSellingPrice').value;
+
+    if (!newSellingPrice || newSellingPrice <= 0) {
+        showPriceChangeError('올바른 판매가를 입력해주세요.');
+        return;
+    }
+
+    hidePriceChangeError();
+
+    const saveBtn = document.getElementById('savePriceChangeBtn');
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>저장 중...';
+
+    fetch('ajax_save_price_change.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            product_id: currentProductId,
+            new_selling_price: parseFloat(newSellingPrice)
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 성공 메시지
+                alert('가격이 성공적으로 변경되었습니다.');
+
+                // 모달 닫기
+                closePriceChangeModal();
+
+                // 페이지 새로고침하여 리스트 갱신
+                window.location.reload();
+            } else {
+                showPriceChangeError(data.message || '가격 변경에 실패했습니다.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showPriceChangeError('가격 변경 중 오류가 발생했습니다.');
+        })
+        .finally(() => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '저장';
+        });
+}
+
+// 바코드 입력 이벤트 처리
+document.addEventListener('DOMContentLoaded', function() {
+    const barcodeInput = document.getElementById('barcodeInput');
+
+    if (barcodeInput) {
+        barcodeInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchProductByBarcode(this.value.trim());
+            }
+        });
+    }
+
+    // 신규 판매가 입력 시 Enter로 저장
+    const newSellingPriceInput = document.getElementById('newSellingPrice');
+
+    if (newSellingPriceInput) {
+        newSellingPriceInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                savePriceChange();
+            }
+        });
+    }
+
+    // 모달 외부 클릭 시 닫기
+    const priceChangeModal = document.getElementById('priceChangeModal');
+    if (priceChangeModal) {
+        priceChangeModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePriceChangeModal();
+            }
+        });
     }
 });
 </script>
