@@ -272,36 +272,36 @@ try {
                 <table class="min-w-full">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider" style="width: 40px;">
+                            <th class="px-3 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider" style="width: 40px;">
                                 <input type="checkbox" id="selectAll" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                             </th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">SKU</th>
-                            <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.barcode'); ?></th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.product_name'); ?></th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.old_cost_price'); ?></th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.new_cost_price'); ?></th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.old_selling_price'); ?></th>
-                            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.new_selling_price'); ?></th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('price_change.changed_by'); ?></th>
+                            <th class="px-3 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" style="width: 100px;">SKU</th>
+                            <th class="px-3 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider" style="width: 100px;"><?php echo t('price_change.barcode'); ?></th>
+                            <th class="px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" style="min-width: 280px;"><?php echo t('price_change.product_name'); ?></th>
+                            <th class="px-3 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider" style="width: 90px;"><?php echo t('price_change.old_cost_price'); ?></th>
+                            <th class="px-3 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider" style="width: 90px;"><?php echo t('price_change.new_cost_price'); ?></th>
+                            <th class="px-3 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider" style="width: 90px;"><?php echo t('price_change.old_selling_price'); ?></th>
+                            <th class="px-3 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider" style="width: 90px;"><?php echo t('price_change.new_selling_price'); ?></th>
+                            <th class="px-3 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider" style="width: 110px;"><?php echo t('price_change.changed_by'); ?></th>
                         </tr>
                     </thead>
                     <tbody class="bg-white">
                         <?php foreach ($price_changes as $change): ?>
                             <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="toggleRowSelection(this, event)" data-id="<?php echo $change['id']; ?>">
-                                <td class="px-6 py-4 text-center" onclick="event.stopPropagation();">
+                                <td class="px-3 py-4 text-center" onclick="event.stopPropagation();">
                                     <input type="checkbox" class="row-checkbox rounded border-gray-300 text-primary-600 focus:ring-primary-500" data-id="<?php echo $change['id']; ?>">
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                <td class="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                     <?php echo htmlspecialchars($change['sku'] ?? 'N/A'); ?>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                <td class="px-3 py-4 whitespace-nowrap text-center">
                                     <?php if (!empty($change['sku'])): ?>
                                         <svg class="barcode inline-block" data-sku="<?php echo htmlspecialchars($change['sku']); ?>"></svg>
                                     <?php else: ?>
                                         <span class="text-gray-400 text-xs">-</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-6 py-4 w-64">
+                                <td class="px-4 py-4">
                                     <?php if (!empty($change['product_name_en'])): ?>
                                         <div class="flex items-center mb-1">
                                             <span class="text-xs font-bold text-green-600 mr-2 min-w-0 w-8">ENG</span>
@@ -321,35 +321,35 @@ try {
                                              title="클릭하여 상품명 수정"><?php echo htmlspecialchars($change['product_name_ko'] ?? 'N/A'); ?></div>
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                                <td class="px-3 py-4 whitespace-nowrap text-sm text-right">
                                     <?php if ($change['old_cost_price']): ?>
                                         <span class="text-gray-900"><?php echo number_format($change['old_cost_price'], 2); ?></span>
                                     <?php else: ?>
                                         <span class="text-gray-400">-</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                                <td class="px-3 py-4 whitespace-nowrap text-sm text-right">
                                     <?php if ($change['new_cost_price']): ?>
                                         <span class="text-green-600 font-semibold"><?php echo number_format($change['new_cost_price'], 2); ?></span>
                                     <?php else: ?>
                                         <span class="text-gray-400">-</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                                <td class="px-3 py-4 whitespace-nowrap text-sm text-right">
                                     <?php if ($change['old_selling_price']): ?>
                                         <span class="text-gray-900"><?php echo number_format($change['old_selling_price']); ?></span>
                                     <?php else: ?>
                                         <span class="text-gray-400">-</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right">
+                                <td class="px-3 py-4 whitespace-nowrap text-sm text-right">
                                     <?php if ($change['new_selling_price']): ?>
                                         <span class="text-blue-600 font-semibold"><?php echo number_format($change['new_selling_price']); ?></span>
                                     <?php else: ?>
                                         <span class="text-gray-400">-</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-3 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($change['changed_by'] ?? 'N/A'); ?></div>
                                     <div class="text-xs text-gray-500"><?php echo date('Y-m-d H:i', strtotime($change['changed_at'])); ?></div>
                                 </td>
