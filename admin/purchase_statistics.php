@@ -72,9 +72,7 @@ GROUP BY s.id, s.name
 HAVING SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) > 0
     OR SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) > 0
     OR SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) > 0
-ORDER BY (SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) +
-          SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) +
-          SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END)) DESC";
+ORDER BY SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) DESC";
 
 $monthly_stats = [];
 $monthly_totals = [
@@ -96,12 +94,10 @@ if ($stats_stmt) {
         $months[0]['year'], $months[0]['month'],
         $months[1]['year'], $months[1]['month'],
         $months[2]['year'], $months[2]['month'],
-        // ORDER BY 절 (3개 조건 x 2 = 6개)
-        $months[0]['year'], $months[0]['month'],
-        $months[1]['year'], $months[1]['month'],
-        $months[2]['year'], $months[2]['month']
+        // ORDER BY 절 (1개 조건 x 2 = 2개 - 이번 달만)
+        $months[0]['year'], $months[0]['month']
     ];
-    $stats_types = 'iiiiiiiiiiiiiiiiiiiiiiii'; // 24개
+    $stats_types = 'iiiiiiiiiiiiiiiiiiii'; // 20개
 
     if (!empty($store_params)) {
         $stats_params = array_merge($stats_params, $store_params);
