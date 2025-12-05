@@ -3,6 +3,7 @@
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_product_name') {
     session_start();
     require_once __DIR__ . '/../config/db_config.php';
+    require_once __DIR__ . '/../lib/lang_helper.php';
 
     header('Content-Type: application/json');
 
@@ -13,13 +14,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     // 입력 검증
     if (empty($new_name)) {
-        $error_msg = $field_type === 'en' ? '영문 상품명을 입력해주세요.' : '상품명을 입력해주세요.';
+        $error_msg = $field_type === 'en'
+            ? t('price_change.product_name_en_empty_error')
+            : t('price_change.product_name_empty_error');
         echo json_encode(['success' => false, 'error' => $error_msg]);
         exit;
     }
 
     if (strlen($new_name) > 255) {
-        $error_msg = $field_type === 'en' ? '영문 상품명이 너무 깁니다. (최대 255자)' : '상품명이 너무 깁니다. (최대 255자)';
+        $error_msg = $field_type === 'en'
+            ? t('price_change.product_name_en_too_long_error')
+            : t('price_change.product_name_too_long_error');
         echo json_encode(['success' => false, 'error' => $error_msg]);
         exit;
     }
@@ -37,10 +42,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $conn->commit();
             $update_stmt->close();
             $conn->close();
-            $success_msg = $field_type === 'en' ? '영문 상품명이 성공적으로 수정되었습니다.' : '상품명이 성공적으로 수정되었습니다.';
+            $success_msg = $field_type === 'en'
+                ? t('price_change.product_name_en_update_success')
+                : t('price_change.product_name_update_success');
             echo json_encode(['success' => true, 'message' => $success_msg]);
         } else {
-            $error_msg = $field_type === 'en' ? '영문 상품명 업데이트에 실패했습니다.' : '상품명 업데이트에 실패했습니다.';
+            $error_msg = $field_type === 'en'
+                ? t('price_change.product_name_en_update_failed')
+                : t('price_change.product_name_update_failed');
             throw new Exception($error_msg);
         }
 
@@ -221,7 +230,7 @@ try {
             <div>
                 <button onclick="openPriceChangeModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
                     <i class="fas fa-edit mr-2"></i>
-                    가격변경
+                    <?php echo t('price_change.price_change_button'); ?>
                 </button>
             </div>
         </div>
@@ -252,7 +261,7 @@ try {
                     </p>
                     <button id="deleteSelectedBtn" onclick="confirmDeleteSelected()" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
                         <i class="fas fa-trash mr-2"></i>
-                        선택 삭제
+                        <?php echo t('price_change.delete_selected'); ?>
                     </button>
                     <button id="printPriceCardsBtn" onclick="openPriceCardModal()" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
                         <i class="fas fa-tags mr-2"></i>
@@ -309,7 +318,7 @@ try {
                                                  data-product-id="<?php echo $change['product_id']; ?>"
                                                  data-history-id="<?php echo $change['id']; ?>"
                                                  data-original-name="<?php echo htmlspecialchars($change['product_name_en']); ?>"
-                                                 title="클릭하여 영문 상품명 수정"><?php echo htmlspecialchars($change['product_name_en']); ?></div>
+                                                 title="<?php echo t('price_change.edit_product_name_en'); ?>"><?php echo htmlspecialchars($change['product_name_en']); ?></div>
                                         </div>
                                     <?php endif; ?>
                                     <div class="flex items-center">
@@ -318,7 +327,7 @@ try {
                                              data-product-id="<?php echo $change['product_id']; ?>"
                                              data-history-id="<?php echo $change['id']; ?>"
                                              data-original-name="<?php echo htmlspecialchars($change['product_name_ko'] ?? 'N/A'); ?>"
-                                             title="클릭하여 상품명 수정"><?php echo htmlspecialchars($change['product_name_ko'] ?? 'N/A'); ?></div>
+                                             title="<?php echo t('price_change.edit_product_name'); ?>"><?php echo htmlspecialchars($change['product_name_ko'] ?? 'N/A'); ?></div>
                                     </div>
                                 </td>
                                 <td class="px-3 py-4 whitespace-nowrap text-sm text-right">
@@ -516,7 +525,7 @@ try {
     <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
         <div class="mt-3">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-900">가격변경</h3>
+                <h3 class="text-lg font-bold text-gray-900"><?php echo t('price_change.modal_title'); ?></h3>
                 <button onclick="closePriceChangeModal()" class="text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times text-xl"></i>
                 </button>
@@ -525,40 +534,40 @@ try {
             <!-- 바코드 입력 영역 -->
             <div class="mb-6">
                 <label for="barcodeInput" class="block text-sm font-medium text-gray-700 mb-2">
-                    바코드 스캔
+                    <?php echo t('price_change.barcode_scan'); ?>
                 </label>
                 <input type="text" id="barcodeInput"
                        class="w-full px-4 py-3 text-lg border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                       placeholder="바코드를 스캔하거나 입력하세요"
+                       placeholder="<?php echo t('price_change.barcode_input_placeholder'); ?>"
                        autocomplete="off">
-                <p class="mt-1 text-sm text-gray-500">바코드 스캔 후 Enter를 누르세요</p>
+                <p class="mt-1 text-sm text-gray-500"><?php echo t('price_change.barcode_input_help'); ?></p>
             </div>
 
             <!-- 로딩 표시 -->
             <div id="loadingIndicator" class="hidden text-center py-4">
                 <i class="fas fa-spinner fa-spin text-2xl text-indigo-600"></i>
-                <p class="mt-2 text-sm text-gray-600">상품 정보를 불러오는 중...</p>
+                <p class="mt-2 text-sm text-gray-600"><?php echo t('price_change.loading_indicator'); ?></p>
             </div>
 
             <!-- 상품 정보 표시 영역 -->
             <div id="productInfoArea" class="hidden">
                 <div class="bg-gray-50 rounded-lg p-4 mb-4">
-                    <h4 class="text-sm font-semibold text-gray-700 mb-3">상품 정보</h4>
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3"><?php echo t('price_change.product_info'); ?></h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs text-gray-500 mb-1">상품명 (영문)</label>
+                            <label class="block text-xs text-gray-500 mb-1"><?php echo t('price_change.product_name_en'); ?></label>
                             <p id="productNameEn" class="text-sm font-medium text-gray-900">-</p>
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-500 mb-1">상품명 (한글)</label>
+                            <label class="block text-xs text-gray-500 mb-1"><?php echo t('price_change.product_name_ko'); ?></label>
                             <p id="productNameKo" class="text-sm font-medium text-gray-900">-</p>
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-500 mb-1">원가</label>
+                            <label class="block text-xs text-gray-500 mb-1"><?php echo t('price_change.current_cost_price'); ?></label>
                             <p id="currentCostPrice" class="text-sm font-medium text-gray-900">-</p>
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-500 mb-1">현재 판매가</label>
+                            <label class="block text-xs text-gray-500 mb-1"><?php echo t('price_change.current_selling_price'); ?></label>
                             <p id="currentSellingPrice" class="text-sm font-medium text-gray-900">-</p>
                         </div>
                     </div>
@@ -567,11 +576,11 @@ try {
                 <!-- 신규 판매가 입력 -->
                 <div class="mb-4">
                     <label for="newSellingPrice" class="block text-sm font-medium text-gray-700 mb-2">
-                        신규 판매가 <span class="text-red-500">*</span>
+                        <?php echo t('price_change.new_selling_price_label'); ?> <span class="text-red-500">*</span>
                     </label>
                     <input type="number" id="newSellingPrice"
                            class="w-full px-4 py-3 text-lg border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                           placeholder="신규 판매가를 입력하세요"
+                           placeholder="<?php echo t('price_change.new_selling_price_placeholder'); ?>"
                            min="0"
                            step="1">
                 </div>
@@ -580,11 +589,11 @@ try {
                 <div class="flex justify-end space-x-3">
                     <button onclick="closePriceChangeModal()"
                             class="px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300">
-                        취소
+                        <?php echo t('price_change.cancel_btn'); ?>
                     </button>
                     <button id="savePriceChangeBtn" onclick="savePriceChange()"
                             class="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        저장
+                        <?php echo t('price_change.save_btn'); ?>
                     </button>
                 </div>
             </div>
@@ -604,28 +613,28 @@ try {
             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
                 <i class="fas fa-trash text-red-600 text-xl"></i>
             </div>
-            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4">선택된 항목 삭제</h3>
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4"><?php echo t('price_change.delete_confirm_title'); ?></h3>
             <div class="mt-2 px-7 py-3">
                 <p class="text-sm text-gray-500">
-                    선택된 <span id="deleteCount" class="font-semibold">0</span>개 항목을 삭제하시겠습니까?<br>
-                    <span class="text-red-600 font-medium">이 작업은 되돌릴 수 없습니다.</span>
+                    <?php echo t('price_change.delete_confirm_msg', ['count' => '<span id="deleteCount" class="font-semibold">0</span>']); ?><br>
+                    <span class="text-red-600 font-medium"><?php echo t('price_change.delete_confirm_warning'); ?></span>
                 </p>
             </div>
             <div class="items-center px-4 py-3">
                 <button id="confirmDeleteBtn" onclick="executeDelete()"
                         class="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md w-24 mr-3 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                    삭제
+                    <?php echo t('price_change.delete_btn'); ?>
                 </button>
                 <button onclick="closeDeleteModal()"
                         class="px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md w-24 hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300">
-                    취소
+                    <?php echo t('price_change.cancel_btn'); ?>
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<?php 
+<?php
 // JavaScript에서 사용할 번역 키들
 $js_keys = [
     'price_change.select_items_to_print',
@@ -634,9 +643,23 @@ $js_keys = [
     'price_change.delete_success',
     'price_change.delete_error',
     'price_change.selected_items',
-    'common.items'
+    'price_change.select_items_prompt',
+    'price_change.error_msg_product_not_found',
+    'price_change.error_msg_enter_price',
+    'price_change.error_msg_select_product',
+    'price_change.success_msg',
+    'price_change.error_msg_failed',
+    'price_change.loading_indicator',
+    'price_change.product_name_update_success',
+    'price_change.product_name_en_update_success',
+    'price_change.product_name_update_failed',
+    'price_change.server_communication_error',
+    'common.items',
+    'common.error',
+    'common.save',
+    'common.cancel'
 ];
-echo get_js_translation_script($js_keys); 
+echo get_js_translation_script($js_keys);
 ?>
 
 <!-- JsBarcode 라이브러리 -->
@@ -788,7 +811,7 @@ function updateSelectedCount() {
 // 삭제 확인 모달 열기
 function confirmDeleteSelected() {
     if (selectedIds.length === 0) {
-        alert('삭제할 항목을 선택해주세요.');
+        alert(t('price_change.select_items_prompt'));
         return;
     }
 
@@ -804,7 +827,7 @@ function closeDeleteModal() {
 // 실제 삭제 실행
 function executeDelete() {
     if (selectedIds.length === 0) {
-        alert('삭제할 항목이 없습니다.');
+        alert(t('price_change.select_items_prompt'));
         return;
     }
 
@@ -812,7 +835,7 @@ function executeDelete() {
 
     // 버튼 비활성화 및 로딩 표시
     confirmDeleteBtn.disabled = true;
-    confirmDeleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>삭제 중...';
+    confirmDeleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + t('price_change.delete_btn') + '...';
 
     fetch('ajax_delete_price_history.php', {
         method: 'POST',
@@ -850,17 +873,17 @@ function executeDelete() {
             // 페이지 새로고침 (총 개수 업데이트를 위해)
             window.location.reload();
         } else {
-            alert('삭제 중 오류가 발생했습니다: ' + (data.message || 'Unknown error'));
+            alert(t('price_change.delete_error') + ': ' + (data.message || 'Unknown error'));
         }
     })
     .catch(error => {
         console.error('Delete error:', error);
-        alert('삭제 요청 중 네트워크 오류가 발생했습니다.');
+        alert(t('price_change.delete_error'));
     })
     .finally(() => {
         // 버튼 상태 복구
         confirmDeleteBtn.disabled = false;
-        confirmDeleteBtn.innerHTML = '삭제';
+        confirmDeleteBtn.innerHTML = t('price_change.delete_btn');
     });
 }
 
@@ -873,10 +896,10 @@ function openPrintModal() {
 
 function openSelectedPrintModal() {
     if (selectedIds.length === 0) {
-        alert('항목을 선택해주세요.');
+        alert(t('price_change.select_items_to_print'));
         return;
     }
-    
+
     document.getElementById('printModal').classList.remove('hidden');
     modalCurrentDate = '<?php echo date('Y-m-d'); ?>';
     document.getElementById('modalDatePicker').value = modalCurrentDate;
@@ -1002,10 +1025,10 @@ function printModalContent() {
 // 프라이스카드 모달 열기
 function openPriceCardModal() {
     if (selectedIds.length === 0) {
-        alert('항목을 선택해주세요.');
+        alert(t('price_change.select_items_to_print'));
         return;
     }
-    
+
     document.getElementById('priceCardModal').classList.remove('hidden');
     generatePriceCardContent();
 }
@@ -1018,8 +1041,8 @@ function closePriceCardModal() {
 // 프라이스카드 내용 생성
 function generatePriceCardContent() {
     const container = document.getElementById('priceCardContent');
-    container.innerHTML = '<div class="text-center py-8 text-gray-500">데이터를 불러오는 중...</div>';
-    
+    container.innerHTML = '<div class="text-center py-8 text-gray-500">' + t('price_change.loading_data') + '</div>';
+
     // AJAX로 선택된 ID들의 데이터 가져오기
     fetch('ajax_price_card_final.php', {
         method: 'POST',
@@ -1034,14 +1057,14 @@ function generatePriceCardContent() {
     .then(text => {
         try {
             const data = JSON.parse(text);
-            
+
             if (!data.success) {
-                container.innerHTML = '<div class="text-center py-8 text-red-500">데이터를 불러오는데 실패했습니다: ' + (data.message || 'Unknown error') + '</div>';
+                container.innerHTML = '<div class="text-center py-8 text-red-500">' + t('price_change.loading_failed') + ': ' + (data.message || 'Unknown error') + '</div>';
                 return;
             }
-        
+
         if (data.products.length === 0) {
-            container.innerHTML = '<div class="text-center py-8 text-gray-500">선택한 항목의 데이터를 찾을 수 없습니다.</div>';
+            container.innerHTML = '<div class="text-center py-8 text-gray-500">' + t('price_change.no_history_desc') + '</div>';
             return;
         }
         
@@ -1119,19 +1142,19 @@ function generatePriceCardContent() {
         });
         
             container.innerHTML = cardsHtml;
-            
+
             // 바코드 생성
             setTimeout(() => {
                 generatePriceCardBarcodes();
             }, 100);
         } catch (e) {
             console.error('JSON parse error:', e);
-            container.innerHTML = '<div class="text-center py-8 text-red-500">응답 파싱 오류: ' + e.message + '</div>';
+            container.innerHTML = '<div class="text-center py-8 text-red-500">' + t('common.error') + ': ' + e.message + '</div>';
         }
     })
     .catch(error => {
         console.error('Fetch error:', error);
-        container.innerHTML = '<div class="text-center py-8 text-red-500">네트워크 오류: ' + error.message + '</div>';
+        container.innerHTML = '<div class="text-center py-8 text-red-500">' + t('common.error') + ': ' + error.message + '</div>';
     });
 }
 
@@ -1534,28 +1557,28 @@ function searchProductByBarcode(barcode) {
                     newPriceInput.focus();
                 }, 100);
             } else {
-                showPriceChangeError(data.message || '상품을 찾을 수 없습니다.');
+                showPriceChangeError(data.message || t('price_change.error_msg_product_not_found'));
                 document.getElementById('barcodeInput').select();
             }
         })
         .catch(error => {
             document.getElementById('loadingIndicator').classList.add('hidden');
             console.error('Error:', error);
-            showPriceChangeError('상품 정보를 불러오는 중 오류가 발생했습니다.');
+            showPriceChangeError(t('price_change.loading_failed'));
         });
 }
 
 // 가격 변경 저장
 function savePriceChange() {
     if (!currentProductId) {
-        showPriceChangeError('상품을 먼저 선택해주세요.');
+        showPriceChangeError(t('price_change.error_msg_select_product'));
         return;
     }
 
     const newSellingPrice = document.getElementById('newSellingPrice').value;
 
     if (!newSellingPrice || newSellingPrice <= 0) {
-        showPriceChangeError('올바른 판매가를 입력해주세요.');
+        showPriceChangeError(t('price_change.error_msg_enter_price'));
         return;
     }
 
@@ -1563,7 +1586,7 @@ function savePriceChange() {
 
     const saveBtn = document.getElementById('savePriceChangeBtn');
     saveBtn.disabled = true;
-    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>저장 중...';
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + t('common.save') + '...';
 
     fetch('ajax_save_price_change.php', {
         method: 'POST',
@@ -1579,7 +1602,7 @@ function savePriceChange() {
         .then(data => {
             if (data.success) {
                 // 성공 메시지
-                alert('가격이 성공적으로 변경되었습니다.');
+                alert(t('price_change.success_msg'));
 
                 // 모달 닫기
                 closePriceChangeModal();
@@ -1587,16 +1610,16 @@ function savePriceChange() {
                 // 페이지 새로고침하여 리스트 갱신
                 window.location.reload();
             } else {
-                showPriceChangeError(data.message || '가격 변경에 실패했습니다.');
+                showPriceChangeError(data.message || t('price_change.error_msg_failed'));
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showPriceChangeError('가격 변경 중 오류가 발생했습니다.');
+            showPriceChangeError(t('price_change.error_msg_failed'));
         })
         .finally(() => {
             saveBtn.disabled = false;
-            saveBtn.innerHTML = '저장';
+            saveBtn.innerHTML = t('common.save');
         });
 }
 
@@ -1695,18 +1718,18 @@ document.addEventListener('click', function(e) {
                     nameDiv.classList.remove('editing');
 
                     // 성공 피드백
-                    const successMessage = isEnglish ? '영문 상품명이 성공적으로 수정되었습니다.' : '상품명이 성공적으로 수정되었습니다.';
+                    const successMessage = isEnglish ? t('price_change.product_name_en_update_success') : t('price_change.product_name_update_success');
                     showFeedback(successMessage, 'success');
                 } else {
                     // 실패 시 원래 값으로 복원
                     cancelEdit();
-                    showFeedback(data.error || '상품명 수정에 실패했습니다.', 'error');
+                    showFeedback(data.error || t('price_change.product_name_update_failed'), 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 cancelEdit();
-                showFeedback('서버 통신 오류가 발생했습니다.', 'error');
+                showFeedback(t('price_change.server_communication_error'), 'error');
             });
         }
 

@@ -11,7 +11,8 @@
       "Bash(done)",
       "Bash(PATH=\"/c/xampp/php:$PATH\" php -r \"echo password_hash(''admin123'', PASSWORD_DEFAULT);\")",
       "Bash(export PATH=\"/c/xampp/php:$PATH\")",
-      "Bash(php -r:*)"
+      "Bash(php -r:*)",
+      "Bash(php -l:*)"
     ],
     "deny": [],
     "ask": []
