@@ -21,7 +21,15 @@ $error_message = '';
 // 검색 및 페이징 변수
 $search_term = $_GET['search'] ?? '';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$per_page = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10;
+
+// per_page 설정: GET 파라미터가 있으면 세션에 저장, 없으면 세션에서 가져오기
+if (isset($_GET['per_page'])) {
+    $per_page = (int)$_GET['per_page'];
+    $_SESSION['wholesale_per_page'] = $per_page;
+} else {
+    $per_page = $_SESSION['wholesale_per_page'] ?? 10;
+}
+
 $limit = in_array($per_page, [10, 25, 50, 100, 200]) ? $per_page : 10;
 $offset = ($page - 1) * $limit;
 
