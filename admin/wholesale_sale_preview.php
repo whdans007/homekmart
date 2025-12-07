@@ -351,10 +351,10 @@ if (isset($_SESSION['flash'])) {
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </tbody>
-                        <tfoot class="bg-gray-50">
+                        <tfoot class="bg-gray-50 grand-total-row">
                             <tr>
-                                <td colspan="5" class="px-2 py-2 text-right text-sm font-medium text-gray-900 border-t border-gray-200">Grand Total:</td>
-                                <td class="px-2 py-2 text-right text-lg font-bold text-gray-900 border-t border-gray-200"><?php echo number_format($sale['final_amount']); ?></td>
+                                <td colspan="5" class="px-2 py-2 text-right text-sm font-medium text-gray-900 border-t border-gray-200 grand-total-label">Grand Total:</td>
+                                <td class="px-2 py-2 text-right text-lg font-bold text-gray-900 border-t border-gray-200 grand-total-value"><?php echo number_format($sale['final_amount']); ?></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -522,6 +522,13 @@ if (isset($_SESSION['flash'])) {
 .print-preview-wrapper .product-table td:nth-child(5) { width: 10%; }
 .print-preview-wrapper .product-table th:nth-child(6),
 .print-preview-wrapper .product-table td:nth-child(6) { width: 12%; }
+/* Grand Total 폰트 사이즈 증가 */
+.print-preview-wrapper .product-table tfoot .grand-total-value {
+    font-size: 18px !important;
+}
+.print-preview-wrapper .product-table tfoot .grand-total-label {
+    font-size: 14px !important;
+}
 </style>
 
 <script>
@@ -656,6 +663,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         .product-table th:nth-child(4), .product-table td:nth-child(4) { width: 6%; }
                         .product-table th:nth-child(5), .product-table td:nth-child(5) { width: 10%; }
                         .product-table th:nth-child(6), .product-table td:nth-child(6) { width: 12%; }
+                        /* Grand Total 폰트 사이즈 증가 */
+                        .product-table tfoot .grand-total-value { font-size: 18px !important; }
+                        .product-table tfoot .grand-total-label { font-size: 14px !important; }
                         @page { size: A4; margin: 8mm; }
                         .product-table { page-break-inside: auto !important; }
                         .product-table thead { display: table-header-group; }
@@ -937,6 +947,14 @@ document.addEventListener('DOMContentLoaded', function() {
         max-width: 12% !important;
         min-width: 12% !important;
     } /* 합계금액 */
+
+    /* Grand Total 폰트 사이즈 증가 */
+    #invoice-content .product-table tfoot .grand-total-value {
+        font-size: 20px !important;
+    }
+    #invoice-content .product-table tfoot .grand-total-label {
+        font-size: 14px !important;
+    }
 }
 </style>
 
