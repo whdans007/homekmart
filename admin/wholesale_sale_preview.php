@@ -130,7 +130,8 @@ if ($sale_id > 0) {
             if ($has_new_columns) {
                 // 새로운 스키마 사용 - 도매 상품명 필드가 있는 경우
                 $items_sql = "
-                    SELECT 
+                    SELECT
+                        wsi.id,
                         wsi.product_id,
                         wsi.quantity,
                         wsi.unit_price,
@@ -152,7 +153,8 @@ if ($sale_id > 0) {
             } else {
                 // 기존 스키마 사용 - 도매 상품명 필드가 없는 경우
                 $items_sql = "
-                    SELECT 
+                    SELECT
+                        wsi.id,
                         wsi.product_id,
                         wsi.quantity,
                         wsi.unit_price,
@@ -316,7 +318,6 @@ if (isset($_SESSION['flash'])) {
                                 <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">SKU</th>
                                 <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Product Name</th>
                                 <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Pcs/Box</th>
-                                <th class="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Sale Unit</th>
                                 <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Qty</th>
                                 <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Unit Price</th>
                                 <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Total</th>
@@ -328,7 +329,7 @@ if (isset($_SESSION['flash'])) {
                                     <tr>
                                         <td class="px-2 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($item['sku']); ?></td>
                                         <td class="px-2 py-2 text-sm text-gray-900 border-b border-gray-200">
-                                            <?php 
+                                            <?php
                                             // 디버깅용 - 실제 데이터 확인
                                             echo "<!-- DEBUG: name_en=[".htmlspecialchars($item['name_en'])."] name_ko=[".htmlspecialchars($item['name_ko'])."] -->";
                                             ?>
@@ -343,19 +344,6 @@ if (isset($_SESSION['flash'])) {
                                             <?php endif; ?>
                                         </td>
                                         <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['pieces_per_box']); ?></td>
-                                        <td class="px-2 py-2 text-sm text-center border-b border-gray-200">
-                                            <?php if (isset($item['sale_unit']) && $item['sale_unit'] === 'piece'): ?>
-                                                <span class="inline-flex items-center text-orange-600">
-                                                    <i class="fas fa-cube mr-1"></i>
-                                                    <span class="text-xs font-medium">Piece</span>
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="inline-flex items-center text-blue-600">
-                                                    <i class="fas fa-box mr-1"></i>
-                                                    <span class="text-xs font-medium">Box</span>
-                                                </span>
-                                            <?php endif; ?>
-                                        </td>
                                         <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['quantity']); ?></td>
                                         <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['unit_price']); ?></td>
                                         <td class="px-2 py-2 text-sm text-gray-900 text-right font-medium border-b border-gray-200"><?php echo number_format($item['total_price']); ?></td>
@@ -365,7 +353,7 @@ if (isset($_SESSION['flash'])) {
                         </tbody>
                         <tfoot class="bg-gray-50">
                             <tr>
-                                <td colspan="6" class="px-2 py-2 text-right text-sm font-medium text-gray-900 border-t border-gray-200">Grand Total:</td>
+                                <td colspan="5" class="px-2 py-2 text-right text-sm font-medium text-gray-900 border-t border-gray-200">Grand Total:</td>
                                 <td class="px-2 py-2 text-right text-lg font-bold text-gray-900 border-t border-gray-200"><?php echo number_format($sale['final_amount']); ?></td>
                             </tr>
                         </tfoot>
@@ -525,17 +513,15 @@ if (isset($_SESSION['flash'])) {
 .print-preview-wrapper .product-table th:nth-child(1),
 .print-preview-wrapper .product-table td:nth-child(1) { width: 12%; }
 .print-preview-wrapper .product-table th:nth-child(2),
-.print-preview-wrapper .product-table td:nth-child(2) { width: 46%; font-size: 8px !important; }
+.print-preview-wrapper .product-table td:nth-child(2) { width: 53%; font-size: 6px !important; }
 .print-preview-wrapper .product-table th:nth-child(3),
 .print-preview-wrapper .product-table td:nth-child(3) { width: 7%; }
 .print-preview-wrapper .product-table th:nth-child(4),
-.print-preview-wrapper .product-table td:nth-child(4) { width: 7%; }
+.print-preview-wrapper .product-table td:nth-child(4) { width: 6%; }
 .print-preview-wrapper .product-table th:nth-child(5),
-.print-preview-wrapper .product-table td:nth-child(5) { width: 6%; }
+.print-preview-wrapper .product-table td:nth-child(5) { width: 10%; }
 .print-preview-wrapper .product-table th:nth-child(6),
-.print-preview-wrapper .product-table td:nth-child(6) { width: 10%; }
-.print-preview-wrapper .product-table th:nth-child(7),
-.print-preview-wrapper .product-table td:nth-child(7) { width: 12%; }
+.print-preview-wrapper .product-table td:nth-child(6) { width: 12%; }
 </style>
 
 <script>
@@ -665,12 +651,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         .text-center.text-xs { font-size: 9px !important; }
                         .product-table { table-layout: fixed; width: 100%; }
                         .product-table th:nth-child(1), .product-table td:nth-child(1) { width: 12%; }
-                        .product-table th:nth-child(2), .product-table td:nth-child(2) { width: 46%; font-size: 8px !important; }
+                        .product-table th:nth-child(2), .product-table td:nth-child(2) { width: 53%; font-size: 6px !important; }
                         .product-table th:nth-child(3), .product-table td:nth-child(3) { width: 7%; }
-                        .product-table th:nth-child(4), .product-table td:nth-child(4) { width: 7%; }
-                        .product-table th:nth-child(5), .product-table td:nth-child(5) { width: 6%; }
-                        .product-table th:nth-child(6), .product-table td:nth-child(6) { width: 10%; }
-                        .product-table th:nth-child(7), .product-table td:nth-child(7) { width: 12%; }
+                        .product-table th:nth-child(4), .product-table td:nth-child(4) { width: 6%; }
+                        .product-table th:nth-child(5), .product-table td:nth-child(5) { width: 10%; }
+                        .product-table th:nth-child(6), .product-table td:nth-child(6) { width: 12%; }
                         @page { size: A4; margin: 8mm; }
                         .product-table { page-break-inside: auto !important; }
                         .product-table thead { display: table-header-group; }
@@ -909,64 +894,49 @@ document.addEventListener('DOMContentLoaded', function() {
         table-layout: fixed !important;
         width: 100% !important;
     }
-    
-    .product-table th:nth-child(1), 
-    .product-table td:nth-child(1) { 
-        width: 10% !important; 
+
+    .product-table th:nth-child(1),
+    .product-table td:nth-child(1) {
+        width: 10% !important;
         max-width: 10% !important;
         min-width: 10% !important;
     } /* SKU */
-    
-    #invoice-content .product-table th:nth-child(2), 
-    #invoice-content .product-table td:nth-child(2) { 
-        width: 35% !important; 
-        max-width: 35% !important;
-        min-width: 35% !important;
-        font-size: 9px !important;
+
+    #invoice-content .product-table th:nth-child(2),
+    #invoice-content .product-table td:nth-child(2) {
+        width: 43% !important;
+        max-width: 43% !important;
+        min-width: 43% !important;
+        font-size: 7px !important;
     } /* 상품명 */
-    
-    .product-table th:nth-child(3), 
-    .product-table td:nth-child(3) { 
-        width: 7% !important; 
+
+    .product-table th:nth-child(3),
+    .product-table td:nth-child(3) {
+        width: 7% !important;
         max-width: 7% !important;
         min-width: 7% !important;
     } /* 박스포장수량 */
-    
-    .product-table th:nth-child(4), 
-    .product-table td:nth-child(4) { 
-        width: 8% !important; 
-        max-width: 8% !important;
-        min-width: 8% !important;
-        font-size: 8px !important;
-    } /* 판매단위 */
-    
-    .product-table th:nth-child(5), 
-    .product-table td:nth-child(5) { 
-        width: 6% !important; 
+
+    .product-table th:nth-child(4),
+    .product-table td:nth-child(4) {
+        width: 6% !important;
         max-width: 6% !important;
         min-width: 6% !important;
     } /* 수량 */
-    
-    .product-table th:nth-child(6), 
-    .product-table td:nth-child(6) { 
-        width: 10% !important; 
+
+    .product-table th:nth-child(5),
+    .product-table td:nth-child(5) {
+        width: 10% !important;
         max-width: 10% !important;
         min-width: 10% !important;
     } /* 판매가 */
-    
-    .product-table th:nth-child(7), 
-    .product-table td:nth-child(7) { 
-        width: 12% !important; 
+
+    .product-table th:nth-child(6),
+    .product-table td:nth-child(6) {
+        width: 12% !important;
         max-width: 12% !important;
         min-width: 12% !important;
     } /* 합계금액 */
-    
-    .product-table th:nth-child(8), 
-    .product-table td:nth-child(8) { 
-        width: 12% !important; 
-        max-width: 12% !important;
-        min-width: 12% !important;
-    } /* 비고 */
 }
 </style>
 

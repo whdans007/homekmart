@@ -12,7 +12,11 @@
       "Bash(PATH=\"/c/xampp/php:$PATH\" php -r \"echo password_hash(''admin123'', PASSWORD_DEFAULT);\")",
       "Bash(export PATH=\"/c/xampp/php:$PATH\")",
       "Bash(php -r:*)",
-      "Bash(php -l:*)"
+      "Bash(php -l:*)",
+      "Bash(php:*)",
+      "Bash(PATH=\"/c/xampp/php:$PATH\")",
+      "Bash(/c/xampp/php/php.exe:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

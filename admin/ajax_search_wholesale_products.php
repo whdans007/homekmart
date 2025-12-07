@@ -133,12 +133,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             2 as sort_priority
                         FROM products p
                         LEFT JOIN inventory i ON p.id = i.product_id" . ($store_id ? " AND i.store_id = ?" : "") . "
-                        WHERE p.is_active = 1 
+                        WHERE p.is_active = 1
                             AND (p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ?)
                             AND NOT EXISTS (
-                                SELECT 1 FROM wholesale_products wp2 
-                                WHERE wp2.product_id = p.id 
-                                AND wp2.is_active = 1 
+                                SELECT 1 FROM wholesale_products wp2
+                                WHERE wp2.product_id = p.id
+                                AND wp2.is_active = 1
                                 " . ($store_id ? "AND wp2.store_id = ?" : "") . "
                             )
                     )

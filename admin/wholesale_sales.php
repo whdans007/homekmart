@@ -376,22 +376,54 @@ if (isset($_SESSION['flash'])) {
                         <!-- 상품 검색 및 추가 -->
                         <div class="bg-gray-50 rounded-lg p-4">
                             <h3 class="text-lg font-medium text-gray-900 mb-4"><?php echo t('wholesale.add_product'); ?></h3>
-                            
-                            <div class="flex gap-2">
-                                <div class="relative flex-1">
-                                    <input type="text" id="product_search" 
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                                           placeholder="상품명이나 SKU를 입력해서 검색하세요..."
-                                           autocomplete="off">
-                                    <div id="product_search_results" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto hidden">
-                                        <!-- 검색 결과가 여기에 표시됩니다 -->
-                                    </div>
+
+                            <!-- 도매 마진율 설정 -->
+                            <div class="mb-4">
+                                <label for="margin_rate" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-percent mr-1"></i>
+                                    도매 마진율 (미등록 상품용)
+                                </label>
+                                <div class="flex gap-2 items-center">
+                                    <input type="number" id="margin_rate"
+                                           class="w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                           value="15"
+                                           min="0"
+                                           max="100"
+                                           step="0.1">
+                                    <span class="text-sm text-gray-600">% (기본: 15%)</span>
                                 </div>
-                                <button type="button" id="product_search_btn" 
-                                        class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 whitespace-nowrap">
+                                <p class="mt-1 text-xs text-gray-500">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    도매상품으로 등록되지 않은 상품의 판매가 계산에 사용됩니다. (원가 × (1 + 마진율/100))
+                                </p>
+                            </div>
+
+                            <!-- 통합 상품 검색 (바코드/상품명) -->
+                            <div>
+                                <label for="product_search" class="block text-sm font-medium text-gray-700 mb-2">
                                     <i class="fas fa-search mr-1"></i>
-                                    검색
-                                </button>
+                                    상품 검색 (바코드 / 상품명 / SKU)
+                                </label>
+                                <div class="flex gap-2">
+                                    <div class="relative flex-1">
+                                        <input type="text" id="product_search"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                               placeholder="바코드 스캔 또는 상품명/SKU 검색..."
+                                               autocomplete="off">
+                                        <div id="product_search_results" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto hidden">
+                                            <!-- 검색 결과가 여기에 표시됩니다 -->
+                                        </div>
+                                    </div>
+                                    <button type="button" id="product_search_btn"
+                                            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap">
+                                        <i class="fas fa-search mr-1"></i>
+                                        검색
+                                    </button>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-500">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    엔터키로 바로 검색 가능 / 도매상품과 일반상품이 모두 표시됩니다
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -419,11 +451,11 @@ if (isset($_SESSION['flash'])) {
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('product.sku'); ?></th>
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('product.name'); ?></th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('wholesale.box_packaging'); ?></th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('purchase.purchase_type'); ?></th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('wholesale.unit_price'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">원가</th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">판매가</th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">도매판매가</th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('wholesale.quantity'); ?></th>
                                                 <th class="px-2 py-3 text-right text-xs font-semibold text-gray-700"><?php echo t('common.total'); ?></th>
-                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('common.remarks'); ?></th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('common.delete'); ?></th>
                                             </tr>
                                         </thead>
@@ -524,6 +556,56 @@ if (isset($_SESSION['flash'])) {
     </div>
 </div>
 
+<!-- 상품 타입 선택 모달 -->
+<div id="product-type-selection-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">
+                    <i class="fas fa-box-open mr-2 text-blue-500"></i>
+                    상품 선택
+                </h3>
+                <button type="button" id="close-type-selection-modal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-gray-600 mb-4">
+                    이 상품은 도매상품으로 등록되어 있습니다. 어떤 가격으로 판매하시겠습니까?
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 도매상품 옵션 -->
+                    <div id="wholesale-option" class="border-2 border-blue-500 rounded-lg p-4 cursor-pointer hover:bg-blue-50 transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-medium text-gray-900">도매 등록상품</h4>
+                            <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">추천</span>
+                        </div>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>상품명: <span id="modal-wholesale-name" class="font-medium"></span></div>
+                            <div>도매가: <span id="modal-wholesale-price" class="font-medium text-blue-600"></span>원</div>
+                            <div class="text-xs text-gray-500 mt-2">등록된 도매가격으로 판매합니다</div>
+                        </div>
+                    </div>
+
+                    <!-- 인벤토리 상품 옵션 -->
+                    <div id="inventory-option" class="border-2 border-gray-300 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-medium text-gray-900">인벤토리 상품</h4>
+                            <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">일반</span>
+                        </div>
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <div>상품명: <span id="modal-inventory-name" class="font-medium"></span></div>
+                            <div>원가: <span id="modal-inventory-cost" class="font-medium"></span>원</div>
+                            <div>판매가: <span id="modal-inventory-price" class="font-medium text-green-600"></span>원</div>
+                            <div class="text-xs text-gray-500 mt-2">원가에 마진율을 적용하여 판매합니다</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // PHP 데이터를 JavaScript로 전달
 const editMode = <?php echo json_encode($edit_mode); ?>;
@@ -564,19 +646,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedCustomer = document.getElementById('selected_customer');
     const customerId = document.getElementById('customer_id');
     const clearCustomerSelection = document.getElementById('clear_customer_selection');
-    
+
     const productSearch = document.getElementById('product_search');
     const productSearchResults = document.getElementById('product_search_results');
-    
+
     const cartEmpty = document.getElementById('cart_empty');
     const cartItems = document.getElementById('cart_items');
     const cartList = document.getElementById('cart_list');
     const cartTotal = document.getElementById('cart_total');
     const cartItemsInput = document.getElementById('cart_items_input');
     const completeSaleBtn = document.getElementById('complete_sale_btn');
-    
+
     let searchTimeout;
-    
+
     // 모달 관련 요소들
     const customerModal = document.getElementById('customer-modal');
     const productModal = document.getElementById('product-modal');
@@ -634,16 +716,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
     });
 
-    // 상품 검색창에서 엔터키 입력 시 폼 제출 방지
+    // 상품 검색창에서 엔터키 입력 시 처리
     productSearch.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             const query = this.value.trim();
-            if (query.length >= 2) {
-                searchProducts(query);
-            } else if (query.length === 0) {
+
+            if (query.length === 0) {
                 showProductModal();
+                return;
             }
+
+            // 바코드 스캔으로 추정되는 경우 (검색 결과가 없거나 정확히 일치하는 경우)
+            // 먼저 바코드로 검색 시도
+            searchProductByBarcode(query);
         }
     });
 
@@ -660,15 +746,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // 상품 검색 버튼 클릭 - 모달 표시
+    // 상품 검색 버튼 클릭
     productSearchBtn.addEventListener('click', function(e) {
-        e.preventDefault(); // 폼 제출 방지
+        e.preventDefault();
         const query = productSearch.value.trim();
         if (query.length === 0) {
-            // 빈 검색어일 때 전체 목록을 모달로 표시
             showProductModal();
         } else {
-            // 검색어가 있으면 검색 실행
+            // 검색 실행 (드롭다운 결과 표시)
             searchProducts(query);
         }
     });
@@ -871,59 +956,52 @@ document.addEventListener('DOMContentLoaded', function() {
             if (isRegistered) {
                 // 등록된 도매상품
                 html += `
-                    <div class="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 product-item" 
-                         data-id="${product.id}" 
+                    <div class="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 product-item"
+                         data-id="${product.id}"
                          data-sku="${displaySkus}"
                          data-name-ko="${product.display_name_ko || ''}"
                          data-name-en="${product.display_name_en || ''}"
                          data-wholesale-price="${product.wholesale_price}"
                          data-wholesale-price-piece="${product.wholesale_price_piece || 0}"
-                         data-min-quantity="${product.min_quantity}">
+                         data-min-quantity="${product.min_quantity}"
+                         data-cost-price="${product.cost_price || 0}"
+                         data-selling-price="${product.selling_price || 0}"
+                         data-registered="true">
                         <div class="font-medium text-gray-900">
                             ${product.display_name_en || product.display_name_ko || 'N/A'}
-                            ${product.display_name_en !== product.name_en || product.display_name_ko !== product.name_ko ? 
-                                '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">' + translations.wholesale_suffix + '</span>' : ''}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">도매상품</span>
                         </div>
                         <div class="text-sm text-gray-600">${product.display_name_ko && product.display_name_en && product.display_name_ko !== product.display_name_en ? product.display_name_ko : ''}</div>
                         <div class="text-xs text-gray-500 mt-1">
-                            SKU: ${displaySkus} | ${translations.wholesale_badge}: ${Number(product.wholesale_price).toLocaleString()}원 | 박스: ${product.min_quantity || 1}개
+                            SKU: ${displaySkus} | 도매가: ${Number(product.wholesale_price).toLocaleString()}원 | 박스: ${product.min_quantity || 1}개
                         </div>
                     </div>
                 `;
             } else {
-                // 미등록 일반상품
-                const suggestedPrice = Math.round(parseFloat(product.cost_price) * 1.15); // 15% 마진 적용
-                
+                // 미등록 일반상품 - 현재 마진율로 제안가 계산
+                const marginRateInput = document.getElementById('margin_rate');
+                const currentMarginRate = marginRateInput ? parseFloat(marginRateInput.value) : 15.0;
+                const costPrice = parseFloat(product.cost_price) || 0;
+                const suggestedPrice = Math.round(costPrice * (1 + currentMarginRate / 100) * 100) / 100;
+
                 html += `
-                    <div class="p-3 border-b border-gray-100 last:border-b-0 bg-yellow-50 border-l-4 border-l-yellow-400" 
-                         data-id="${product.id}" 
+                    <div class="p-3 hover:bg-yellow-50 cursor-pointer border-b border-gray-100 last:border-b-0 product-item bg-yellow-50 border-l-4 border-l-yellow-400"
+                         data-id="${product.id}"
                          data-sku="${product.sku}"
                          data-name-ko="${product.display_name_ko || ''}"
                          data-name-en="${product.display_name_en || ''}"
-                         data-cost-price="${product.cost_price}"
-                         data-selling-price="${product.selling_price}"
-                         data-pieces-per-box="${product.product_pieces_per_box}">
-                        <div class="flex items-start justify-between">
-                            <div class="flex-1">
-                                <div class="font-medium text-gray-900">
-                                    ${product.display_name_en || product.display_name_ko || 'N/A'}
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 ml-2">미등록</span>
-                                </div>
-                                <div class="text-sm text-gray-600">${product.display_name_ko && product.display_name_en && product.display_name_ko !== product.display_name_en ? product.display_name_ko : ''}</div>
-                                <div class="text-xs text-gray-500 mt-1">
-                                    SKU: ${product.sku} | 원가: ${Number(product.cost_price).toLocaleString()}원 | 제안가: ${suggestedPrice.toLocaleString()}원 | 박스: ${product.product_pieces_per_box || 1}개
-                                </div>
-                            </div>
-                            <div class="ml-3 flex-shrink-0">
-                                <button type="button" 
-                                        class="register-wholesale-btn inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                                        data-product-id="${product.id}"
-                                        data-product-name="${product.display_name_ko || product.display_name_en || ''}"
-                                        onclick="registerAsWholesaleProduct(${product.id}, '${(product.display_name_ko || product.display_name_en || '').replace(/'/g, "\\'")}', event)">
-                                    <i class="fas fa-plus mr-1"></i>
-                                    도매상품 등록
-                                </button>
-                            </div>
+                         data-cost-price="${costPrice}"
+                         data-selling-price="${product.selling_price || 0}"
+                         data-suggested-price="${suggestedPrice}"
+                         data-min-quantity="${product.product_pieces_per_box || 1}"
+                         data-registered="false">
+                        <div class="font-medium text-gray-900">
+                            ${product.display_name_en || product.display_name_ko || 'N/A'}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 ml-2">미등록</span>
+                        </div>
+                        <div class="text-sm text-gray-600">${product.display_name_ko && product.display_name_en && product.display_name_ko !== product.display_name_en ? product.display_name_ko : ''}</div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            SKU: ${product.sku} | 원가: ${costPrice.toLocaleString()}원 | 제안 도매가(${currentMarginRate}% 마진): ${suggestedPrice.toLocaleString()}원 | 박스: ${product.product_pieces_per_box || 1}개
                         </div>
                     </div>
                 `;
@@ -932,13 +1010,47 @@ document.addEventListener('DOMContentLoaded', function() {
         
         productSearchResults.innerHTML = html;
         productSearchResults.classList.remove('hidden');
-        
-        // 등록된 상품 선택 이벤트만 바인딩
+
+        // 모든 상품 선택 이벤트 바인딩 (등록/미등록 모두)
         document.querySelectorAll('.product-item').forEach(function(item) {
             item.addEventListener('click', function() {
-                addToCart(this);
+                addToCartFromSearch(this);
             });
         });
+    }
+
+    // 검색 결과에서 장바구니에 추가
+    function addToCartFromSearch(item) {
+        const isRegistered = item.dataset.registered === 'true';
+
+        const productData = {
+            product_id: item.dataset.id,
+            sku: item.dataset.sku,
+            name_ko: item.dataset.nameKo,
+            name_en: item.dataset.nameEn,
+            min_quantity: parseInt(item.dataset.minQuantity) || 1,
+            is_registered: isRegistered
+        };
+
+        if (isRegistered) {
+            // 등록된 도매상품
+            productData.wholesale_price = parseFloat(item.dataset.wholesalePrice);
+            productData.wholesale_price_piece = parseFloat(item.dataset.wholesalePricePiece) || 0;
+            productData.margin_rate = 0; // 등록 상품은 마진율 표시 안함
+        } else {
+            // 미등록 상품 - 제안가 사용
+            const marginRateInput = document.getElementById('margin_rate');
+            const marginRate = marginRateInput ? parseFloat(marginRateInput.value) : 15.0;
+
+            productData.wholesale_price = parseFloat(item.dataset.suggestedPrice);
+            productData.wholesale_price_piece = 0;
+            productData.margin_rate = marginRate;
+        }
+
+        addProductToCartDirect(productData);
+        productSearchResults.classList.add('hidden');
+        productSearch.value = '';
+        productSearch.focus();
     }
     
     function selectCustomer(item) {
@@ -966,11 +1078,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const wholesalePrice = parseFloat(item.dataset.wholesalePrice);
         const wholesalePricePiece = parseFloat(item.dataset.wholesalePricePiece) || 0;
         const minQuantity = parseInt(item.dataset.minQuantity) || 1;
-        
-        
+        const costPrice = parseFloat(item.dataset.costPrice) || 0;
+        const sellingPrice = parseFloat(item.dataset.sellingPrice) || 0;
+
+
         // 이미 장바구니에 있는지 확인
         const existingIndex = cart.findIndex(item => item.product_id == productId);
-        
+
         if (existingIndex >= 0) {
             cart[existingIndex].quantity += 1; // 판매수량은 1개씩 증가
             cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_price;
@@ -986,14 +1100,256 @@ document.addEventListener('DOMContentLoaded', function() {
                 min_quantity: minQuantity, // 박스포장수량 정보 (표시용)
                 wholesale_price: wholesalePrice, // 박스 판매가
                 wholesale_price_piece: wholesalePricePiece, // 낱개 판매가
-                sale_unit: 'box', // 기본 판매단위는 박스
-                remarks: '' // 상품별 비고란 추가
+                cost_price: costPrice,
+                selling_price: sellingPrice
             });
         }
-        
+
         updateCart();
         productSearchResults.classList.add('hidden');
         productSearch.value = '';
+    }
+
+    // 바코드로 상품 추가
+    function addProductByBarcode(barcode) {
+        if (!barcode || barcode.trim() === '') {
+            showNotification('바코드를 입력해주세요.', 'error');
+            return;
+        }
+
+        // 현재 점포 ID 가져오기
+        const storeIdElement = document.getElementById('store_id');
+        let storeId = null;
+
+        if (storeIdElement) {
+            storeId = storeIdElement.value; // super_admin인 경우
+        } else {
+            storeId = <?php echo json_encode($current_store_id); ?>; // 일반 사용자인 경우
+        }
+
+        if (!storeId) {
+            showNotification('점포 정보가 필요합니다.', 'error');
+            return;
+        }
+
+        // 마진율 가져오기
+        const marginRateInput = document.getElementById('margin_rate');
+        const marginRate = marginRateInput ? parseFloat(marginRateInput.value) : 15.0;
+
+        // 마진율 유효성 검사
+        if (marginRate < 0 || marginRate > 100) {
+            showNotification('마진율은 0-100% 사이여야 합니다.', 'error');
+            return;
+        }
+
+        // AJAX로 바코드 검색
+        fetch(`ajax_get_wholesale_product_by_barcode.php?barcode=${encodeURIComponent(barcode)}&store_id=${storeId}&margin_rate=${marginRate}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const product = data.data;
+
+                    // 장바구니에 추가
+                    const existingIndex = cart.findIndex(item => item.product_id == product.product_id);
+
+                    if (existingIndex >= 0) {
+                        cart[existingIndex].quantity += 1;
+                        cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_price;
+                        showNotification('수량이 증가되었습니다.', 'success');
+                    } else {
+                        cart.push({
+                            product_id: product.product_id,
+                            sku: product.sku,
+                            name_ko: product.name_ko,
+                            name_en: product.name_en,
+                            unit_price: product.wholesale_price,
+                            quantity: 1,
+                            total_price: product.wholesale_price * 1,
+                            min_quantity: product.min_quantity,
+                            wholesale_price: product.wholesale_price,
+                            wholesale_price_piece: product.wholesale_price_piece
+                        });
+
+                        // 미등록 상품인 경우 알림 메시지
+                        if (!product.is_registered) {
+                            showNotification(`미등록 상품입니다. 원가에 ${product.margin_rate}% 마진이 적용되었습니다.`, 'info');
+                        } else {
+                            showNotification('상품이 장바구니에 추가되었습니다.', 'success');
+                        }
+                    }
+
+                    updateCart();
+                    productSearch.value = ''; // 검색창 초기화
+                    productSearch.focus(); // 포커스 다시 이동
+                } else {
+                    showNotification(data.message || '상품을 찾을 수 없습니다.', 'error');
+                    productSearch.value = '';
+                    productSearch.focus();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('바코드 검색 중 오류가 발생했습니다.', 'error');
+                productSearch.value = '';
+                productSearch.focus();
+            });
+    }
+
+    // 통합 상품 검색 함수 (바코드 또는 상품명/SKU)
+    function searchProductByBarcode(query) {
+        // 현재 점포 ID 가져오기
+        const storeIdElement = document.getElementById('store_id');
+        let storeId = storeIdElement ? storeIdElement.value : <?php echo json_encode($current_store_id); ?>;
+
+        if (!storeId) {
+            showNotification('점포 정보가 필요합니다.', 'error');
+            return;
+        }
+
+        // 마진율 가져오기
+        const marginRateInput = document.getElementById('margin_rate');
+        const marginRate = marginRateInput ? parseFloat(marginRateInput.value) : 15.0;
+
+        // 먼저 바코드로 검색 시도
+        fetch(`ajax_get_wholesale_product_by_barcode.php?barcode=${encodeURIComponent(query)}&store_id=${storeId}&margin_rate=${marginRate}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 바코드로 상품을 찾았으면 처리
+                    const product = data.data;
+
+                    if (product.is_registered) {
+                        // 도매상품으로 등록되어 있으면 모달 표시
+                        addProductToCartDirect(product);
+                    } else {
+                        // 미등록 상품이면 바로 장바구니에 추가
+                        addToCart(product, parseFloat(product.wholesale_price));
+                    }
+
+                    productSearch.value = '';
+                    productSearch.focus();
+                } else {
+                    // 바코드로 찾지 못했으면 일반 검색 실행
+                    searchProducts(query);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // 에러 발생 시에도 일반 검색으로 fallback
+                searchProducts(query);
+            });
+    }
+
+    // 상품을 바로 장바구니에 추가하는 함수
+    function addProductToCartDirect(product) {
+        // 도매상품으로 등록되어 있고 (원가 또는 판매가) 정보가 있는 경우 모달 표시
+        const costPrice = parseFloat(product.cost_price) || 0;
+        const sellingPrice = parseFloat(product.selling_price) || 0;
+
+        if (product.is_registered && (costPrice > 0 || sellingPrice > 0)) {
+            showProductTypeSelectionModal(product);
+            return;
+        }
+
+        // 그 외의 경우 바로 장바구니에 추가
+        addToCart(product, product.wholesale_price);
+    }
+
+    // 실제 장바구니 추가 함수
+    function addToCart(product, price) {
+        const existingIndex = cart.findIndex(item => item.product_id == product.product_id);
+
+        if (existingIndex >= 0) {
+            cart[existingIndex].quantity += 1;
+            cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_price;
+            showNotification('수량이 증가되었습니다.', 'success');
+        } else {
+            cart.push({
+                product_id: product.product_id,
+                sku: product.sku,
+                name_ko: product.name_ko,
+                name_en: product.name_en,
+                unit_price: price,
+                quantity: 1,
+                total_price: price * 1,
+                min_quantity: product.min_quantity,
+                wholesale_price: price,
+                wholesale_price_piece: product.wholesale_price_piece || 0,
+                cost_price: product.cost_price || 0,
+                selling_price: product.selling_price || 0
+            });
+
+            // 미등록 상품인 경우 알림 메시지
+            if (!product.is_registered) {
+                showNotification(`미등록 상품입니다. 원가에 ${product.margin_rate}% 마진이 적용되었습니다.`, 'info');
+            } else {
+                showNotification('상품이 장바구니에 추가되었습니다.', 'success');
+            }
+        }
+
+        updateCart();
+    }
+
+    // 상품 타입 선택 모달 표시
+    function showProductTypeSelectionModal(product) {
+        const modal = document.getElementById('product-type-selection-modal');
+        const marginRateInput = document.getElementById('margin_rate');
+        const marginRate = marginRateInput ? parseFloat(marginRateInput.value) : 15.0;
+
+        // 원가 기반 판매가 계산 (소숫점 이하 무조건 올림)
+        const costPrice = parseFloat(product.cost_price) || 0;
+        const sellingPrice = parseFloat(product.selling_price) || 0;
+        let inventoryPrice;
+
+        if (costPrice <= 0) {
+            // 원가가 0이면 판매가의 7% 할인
+            inventoryPrice = Math.ceil(sellingPrice * 0.93);
+        } else {
+            // 원가가 있으면 원가 + 마진율
+            inventoryPrice = Math.ceil(costPrice * (1 + marginRate / 100));
+        }
+
+        // 모달 데이터 채우기
+        document.getElementById('modal-wholesale-name').textContent = product.name_ko;
+        document.getElementById('modal-wholesale-price').textContent = parseFloat(product.wholesale_price).toLocaleString();
+
+        document.getElementById('modal-inventory-name').textContent = product.name_ko;
+        document.getElementById('modal-inventory-cost').textContent = costPrice > 0 ? costPrice.toLocaleString() : '판매가 기준';
+        document.getElementById('modal-inventory-price').textContent = inventoryPrice.toLocaleString();
+
+        // 모달 표시
+        modal.classList.remove('hidden');
+
+        // 이벤트 리스너 설정 (중복 방지를 위해 기존 리스너 제거)
+        const wholesaleOption = document.getElementById('wholesale-option');
+        const inventoryOption = document.getElementById('inventory-option');
+        const closeBtn = document.getElementById('close-type-selection-modal');
+
+        // 새로운 이벤트 리스너 (클로저로 product 정보 유지)
+        const wholesaleHandler = () => {
+            modal.classList.add('hidden');
+            addToCart(product, parseFloat(product.wholesale_price));
+        };
+
+        const inventoryHandler = () => {
+            modal.classList.add('hidden');
+            const modifiedProduct = {...product, wholesale_price: inventoryPrice, is_registered: false, margin_rate: marginRate};
+            addToCart(modifiedProduct, inventoryPrice);
+        };
+
+        const closeHandler = () => {
+            modal.classList.add('hidden');
+        };
+
+        // 기존 리스너 제거 후 새로 추가
+        wholesaleOption.replaceWith(wholesaleOption.cloneNode(true));
+        inventoryOption.replaceWith(inventoryOption.cloneNode(true));
+        closeBtn.replaceWith(closeBtn.cloneNode(true));
+
+        // 새로운 요소에 리스너 추가
+        document.getElementById('wholesale-option').addEventListener('click', wholesaleHandler);
+        document.getElementById('inventory-option').addEventListener('click', inventoryHandler);
+        document.getElementById('close-type-selection-modal').addEventListener('click', closeHandler);
     }
     
     function updateCart() {
@@ -1026,48 +1382,32 @@ document.addEventListener('DOMContentLoaded', function() {
                                 ${item.min_quantity}${translations.pieces}
                             </div>
                         </td>
-                        
-                        <!-- 판매단위 -->
+
+                        <!-- 원가 -->
                         <td class="px-2 py-3 text-center">
-                            <div class="flex items-center justify-center space-x-2">
-                                <label class="inline-flex items-center cursor-pointer">
-                                    <input type="radio" 
-                                           name="sale_unit_${index}" 
-                                           value="box" 
-                                           ${(item.sale_unit || 'box') === 'box' ? 'checked' : ''} 
-                                           onchange="updateSaleUnit(${index}, this.value)"
-                                           class="sr-only">
-                                    <div class="sale-unit-btn ${(item.sale_unit || 'box') === 'box' ? 'sale-unit-btn-active' : 'sale-unit-btn-inactive'}">
-                                        <i class="fas fa-box text-xs"></i>
-                                        <span class="text-xs font-medium">${translations.box_unit}</span>
-                                    </div>
-                                </label>
-                                <label class="inline-flex items-center cursor-pointer">
-                                    <input type="radio" 
-                                           name="sale_unit_${index}" 
-                                           value="piece" 
-                                           ${(item.sale_unit || 'box') === 'piece' ? 'checked' : ''} 
-                                           onchange="updateSaleUnit(${index}, this.value)"
-                                           class="sr-only">
-                                    <div class="sale-unit-btn ${(item.sale_unit || 'box') === 'piece' ? 'sale-unit-btn-active' : 'sale-unit-btn-inactive'}">
-                                        <i class="fas fa-cube text-xs"></i>
-                                        <span class="text-xs font-medium">${translations.piece_unit}</span>
-                                    </div>
-                                </label>
+                            <div class="text-sm text-gray-700">
+                                ${item.cost_price ? Number(item.cost_price).toLocaleString() : '-'}
                             </div>
                         </td>
-                        
-                        <!-- 단가 -->
+
+                        <!-- 판매가 -->
                         <td class="px-2 py-3 text-center">
-                            <input type="number" 
-                                   class="w-full px-2 py-1 text-sm border border-gray-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
+                            <div class="text-sm text-gray-700">
+                                ${item.selling_price ? Number(item.selling_price).toLocaleString() : '-'}
+                            </div>
+                        </td>
+
+                        <!-- 도매판매가 -->
+                        <td class="px-2 py-3 text-center">
+                            <input type="number"
+                                   class="w-full px-2 py-1 text-sm border border-gray-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                                    value="${item.unit_price}"
                                    min="0"
                                    step="0.01"
                                    onchange="updateUnitPrice(${index}, this.value)"
                                    style="min-width: 80px;">
                         </td>
-                        
+
                         <!-- 수량 -->
                         <td class="px-2 py-3 text-center">
                             <div class="flex items-center justify-center space-x-1 quantity-controls">
@@ -1086,23 +1426,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- 합계 -->
                         <td class="px-2 py-3 text-right">
                             <div class="text-sm font-semibold text-primary-600">
-                                ${Number(item.total_price).toLocaleString()}원
+                                ${Number(item.total_price).toLocaleString()}
                             </div>
                         </td>
-                        
-                        <!-- 비고 -->
-                        <td class="px-2 py-3">
-                            <input type="text" 
-                                   class="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
-                                   placeholder="${translations.delivery_placeholder}"
-                                   value="${item.remarks || ''}"
-                                   onchange="updateRemarks(${index}, this.value)"
-                                   maxlength="100">
-                        </td>
-                        
+
                         <!-- 삭제버튼 -->
                         <td class="px-2 py-3 text-center">
-                            <button type="button" onclick="removeFromCart(${index})" 
+                            <button type="button" onclick="removeFromCart(${index})"
                                     class="text-red-400 hover:text-red-600 w-6 h-6 rounded hover:bg-red-50 flex items-center justify-center">
                                 <i class="fas fa-times text-xs"></i>
                             </button>
@@ -1114,7 +1444,7 @@ document.addEventListener('DOMContentLoaded', function() {
             cartList.innerHTML = html;
             
             const total = cart.reduce((sum, item) => sum + item.total_price, 0);
-            cartTotal.textContent = Number(total).toLocaleString() + '원';
+            cartTotal.textContent = Number(total).toLocaleString();
         }
         
         cartItemsInput.value = JSON.stringify(cart);
@@ -1135,44 +1465,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         updateCart();
     };
-    
-    window.updateRemarks = function(index, value) {
-        cart[index].remarks = value;
-        cartItemsInput.value = JSON.stringify(cart);
-    };
-    
+
     window.updateUnitPrice = function(index, newPrice) {
         const price = parseFloat(newPrice) || 0;
         cart[index].unit_price = price;
         cart[index].total_price = cart[index].quantity * price;
-        updateCart();
-    };
-    
-    window.updateSaleUnit = function(index, saleUnit) {
-        cart[index].sale_unit = saleUnit;
-        
-        // 판매단위에 따라 가격 자동 변경
-        if (saleUnit === 'box') {
-            cart[index].unit_price = cart[index].wholesale_price || 0;
-        } else if (saleUnit === 'piece') {
-            cart[index].unit_price = cart[index].wholesale_price_piece || 0;
-        }
-        
-        // 총 가격 재계산
-        cart[index].total_price = cart[index].quantity * cart[index].unit_price;
-        
-        // 라디오 버튼 UI 즉시 업데이트
-        const boxBtn = document.querySelector(`input[name="sale_unit_${index}"][value="box"]`).parentElement.querySelector('.sale-unit-btn');
-        const pieceBtn = document.querySelector(`input[name="sale_unit_${index}"][value="piece"]`).parentElement.querySelector('.sale-unit-btn');
-        
-        if (saleUnit === 'box') {
-            boxBtn.className = 'sale-unit-btn sale-unit-btn-active';
-            pieceBtn.className = 'sale-unit-btn sale-unit-btn-inactive';
-        } else {
-            boxBtn.className = 'sale-unit-btn sale-unit-btn-inactive';
-            pieceBtn.className = 'sale-unit-btn sale-unit-btn-active';
-        }
-        
         updateCart();
     };
     
@@ -1302,14 +1599,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             html += `
-                <div class="modal-product-item p-3 border border-gray-200 rounded-md hover:bg-green-50 cursor-pointer transition-colors duration-200" 
-                     data-id="${product.id}" 
+                <div class="modal-product-item p-3 border border-gray-200 rounded-md hover:bg-green-50 cursor-pointer transition-colors duration-200"
+                     data-id="${product.id}"
                      data-sku="${displaySkus}"
                      data-name-ko="${product.display_name_ko || ''}"
                      data-name-en="${product.display_name_en || ''}"
                      data-wholesale-price="${product.wholesale_price}"
                      data-wholesale-price-piece="${product.wholesale_price_piece || 0}"
-                     data-min-quantity="${product.min_quantity}">
+                     data-min-quantity="${product.min_quantity}"
+                     data-cost-price="${product.cost_price || 0}"
+                     data-selling-price="${product.selling_price || 0}">
                     <div class="flex items-center justify-between">
                         <div class="flex-1 min-w-0">
                             <div class="font-medium text-gray-900 text-sm truncate">
@@ -1380,6 +1679,9 @@ document.addEventListener('DOMContentLoaded', function() {
             cart[existingIndex].quantity += 1; // 판매수량은 1개씩 증가
             cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_price;
         } else {
+            const costPrice = parseFloat(item.dataset.costPrice) || 0;
+            const sellingPrice = parseFloat(item.dataset.sellingPrice) || 0;
+
             cart.push({
                 product_id: productId,
                 sku: sku,
@@ -1391,13 +1693,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 min_quantity: minQuantity, // 박스포장수량 정보 (표시용)
                 wholesale_price: wholesalePrice, // 박스 판매가
                 wholesale_price_piece: wholesalePricePiece, // 낱개 판매가
-                sale_unit: 'box', // 기본 판매단위는 박스
-                remarks: '' // 상품별 비고란 추가
+                cost_price: costPrice,
+                selling_price: sellingPrice
             });
         }
-        
+
         updateCart();
-        
+
         // 모달 닫기
         productModal.classList.add('hidden');
     }
@@ -1468,8 +1770,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     min_quantity: parseInt(item.min_quantity) || 1, // 기존 데이터에서 박스포장수량 로드
                     wholesale_price: parseFloat(item.wholesale_price) || 0, // 박스 판매가
                     wholesale_price_piece: parseFloat(item.wholesale_price_piece) || 0, // 낱개 판매가
-                    sale_unit: item.sale_unit || 'box', // 판매단위 (기본값: box)
-                    remarks: item.remarks || '' // 기존 비고 데이터 로드
+                    cost_price: parseFloat(item.cost_price) || 0,
+                    selling_price: parseFloat(item.selling_price) || 0
                 });
             });
             

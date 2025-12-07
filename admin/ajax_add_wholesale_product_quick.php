@@ -44,11 +44,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo = new PDO($dsn, DB_USER, DB_PASS);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         
-        // 상품 정보 조회
-        $product_stmt = $pdo->prepare("SELECT * FROM products WHERE id = ? AND is_active = 1");
-        $product_stmt->execute([$product_id]);
+        // 상품 정보 조회 (inventory의 원가 사용)
+        $product_stmt = $pdo->prepare("
+            SELECT
+                p.*,
+                i.cost_price
+            FROM products p
+            LEFT JOIN inventory i ON p.id = i.product_id AND i.store_id = ?
+            WHERE p.id = ? AND p.is_active = 1
+        ");
+        $product_stmt->execute([$store_id, $product_id]);
         $product = $product_stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$product) {
             $response['message'] = '상품을 찾을 수 없습니다.';
             echo json_encode($response);
@@ -66,33 +73,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 echo json_encode($response);
                 exit;
             } else {
-                // 비활성화된 도매상품이 있으면 재활성화
+                // 비활성화된 도매상품이 있으면 재활성화 (원가 기반으로 가격 재계산)
+                // 도매가 계산 (원가에 마진율 적용, 소숫점 이하 올림)
+                $cost_price = (float)$product['cost_price'];
+                $wholesale_price = ceil($cost_price * (1 + $margin_rate / 100)); // 소숫점 이하 올림
+                $min_quantity = max(1, (int)$product['pieces_per_box']);
+
                 $reactivate_stmt = $pdo->prepare("
-                    UPDATE wholesale_products 
-                    SET is_active = 1, 
-                        wholesale_price = ?, 
+                    UPDATE wholesale_products
+                    SET is_active = 1,
+                        wholesale_price = ?,
+                        cost_price = ?,
                         min_quantity = ?,
                         updated_at = NOW()
                     WHERE id = ?
                 ");
-                
-                // 도매가 계산 (마진율 적용)
-                $cost_price = (float)$product['cost_price'];
-                $wholesale_price = round($cost_price * (1 + $margin_rate / 100));
-                $min_quantity = max(1, (int)$product['pieces_per_box']);
-                
+
                 $reactivate_success = $reactivate_stmt->execute([
                     $wholesale_price,
+                    $cost_price,
                     $min_quantity,
                     $existing_product['id']
                 ]);
-                
+
                 if ($reactivate_success) {
                     $response['success'] = true;
-                    $response['message'] = '비활성화된 도매상품을 다시 활성화했습니다.';
+                    $response['message'] = '비활성화된 도매상품을 다시 활성화했습니다. (원가 기준 15% 마진으로 도매가 재계산)';
                     $response['data'] = [
                         'wholesale_id' => $existing_product['id'],
                         'product_id' => $product_id,
+                        'cost_price' => $cost_price,
                         'wholesale_price' => $wholesale_price,
                         'min_quantity' => $min_quantity,
                         'margin_rate' => $margin_rate,
@@ -110,10 +120,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        // 도매가 계산 (마진율 적용)
+        // 도매가 계산 (원가에 마진율 적용, 소숫점 이하 올림)
         $cost_price = (float)$product['cost_price'];
-        $wholesale_price = round($cost_price * (1 + $margin_rate / 100));
-        
+        $wholesale_price = ceil($cost_price * (1 + $margin_rate / 100)); // 소숫점 이하 올림
+
         // 최소 주문수량 설정 (박스당 개수 또는 1)
         $min_quantity = max(1, (int)$product['pieces_per_box']);
         
@@ -190,12 +200,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($insert_success) {
             $wholesale_id = $pdo->lastInsertId();
-            
+
             $response['success'] = true;
-            $response['message'] = '도매상품으로 성공적으로 등록되었습니다.';
+            $response['message'] = '도매상품으로 성공적으로 등록되었습니다. (원가 기준 15% 마진 적용)';
             $response['data'] = [
                 'wholesale_id' => $wholesale_id,
                 'product_id' => $product_id,
+                'cost_price' => $cost_price,
                 'wholesale_price' => $wholesale_price,
                 'min_quantity' => $min_quantity,
                 'margin_rate' => $margin_rate,
