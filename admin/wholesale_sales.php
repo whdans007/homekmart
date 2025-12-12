@@ -1411,12 +1411,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- 수량 -->
                         <td class="px-2 py-3 text-center">
                             <div class="flex items-center justify-center space-x-1 quantity-controls">
-                                <button type="button" onclick="updateQuantity(${index}, -1)" 
+                                <button type="button" onclick="updateQuantity(${index}, -1)"
                                         class="w-6 h-6 text-xs bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center">
                                     <i class="fas fa-minus"></i>
                                 </button>
-                                <span class="text-sm font-medium px-2 min-w-[24px] text-center">${item.quantity}</span>
-                                <button type="button" onclick="updateQuantity(${index}, 1)" 
+                                <input type="number"
+                                       value="${item.quantity}"
+                                       class="w-16 text-sm text-center border border-gray-300 rounded px-1 py-1"
+                                       min="1"
+                                       onchange="setQuantity(${index}, this.value)">
+                                <button type="button" onclick="updateQuantity(${index}, 1)"
                                         class="w-6 h-6 text-xs bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center">
                                     <i class="fas fa-plus"></i>
                                 </button>
@@ -1463,6 +1467,18 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             cart[index].total_price = cart[index].quantity * cart[index].unit_price;
         }
+        updateCart();
+    };
+
+    window.setQuantity = function(index, newQuantity) {
+        const quantity = parseInt(newQuantity) || 0;
+        if (quantity <= 0) {
+            showNotification('수량은 1 이상이어야 합니다.', 'error');
+            updateCart(); // 이전 값으로 복원
+            return;
+        }
+        cart[index].quantity = quantity;
+        cart[index].total_price = cart[index].quantity * cart[index].unit_price;
         updateCart();
     };
 

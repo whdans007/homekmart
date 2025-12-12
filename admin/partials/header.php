@@ -103,19 +103,37 @@ if (!empty($_SESSION['user_id'])) {
                                 <?php endif; ?>
                                 
                                 <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                                <a href="price_label_lists.php" class="<?php echo in_array($current_page, ['price_label_lists.php', 'price_label_project_edit.php']) ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-list-ul mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
-                                    <?php echo t('navigation.price_label_lists'); ?>
-                                </a>
-                                <a href="barcode_generate.php" class="<?php echo ($current_page == 'barcode_generate.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
-                                    <i class="fas fa-barcode mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
-                                    <?php echo t('navigation.barcode_generate'); ?>
-                                </a>
                                 <a href="mobile_product_edit.php" class="<?php echo ($current_page == 'mobile_product_edit.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
                                     <i class="fas fa-mobile-alt mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
                                     모바일 상품명 수정
                                 </a>
                                 <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
+                        <!-- 바코드 카드 (빨간색) -->
+                        <?php if (has_permission('barcode_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                        <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-2 border border-red-200 shadow-sm">
+                            <div class="flex items-center mb-3">
+                                <div class="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-barcode text-white text-sm"></i>
+                                </div>
+                                <h3 class="text-sm font-semibold text-red-800"><?php echo t('navigation.barcode_section'); ?></h3>
+                            </div>
+                            <div class="space-y-1">
+                                <a href="price_label_lists.php" class="<?php echo in_array($current_page, ['price_label_lists.php', 'price_label_project_edit.php']) ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-list-ul mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
+                                    <?php echo t('navigation.price_label_lists'); ?>
+                                </a>
+                                <a href="barcode_generate.php" class="<?php echo ($current_page == 'barcode_generate.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-barcode mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
+                                    <?php echo t('navigation.barcode_generate'); ?>
+                                </a>
+                                <a href="barcode_print_2p.php" class="<?php echo ($current_page == 'barcode_print_2p.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200 hover:text-red-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-print mr-2 text-red-500 group-hover:text-red-600 text-xs"></i>
+                                    <?php echo t('navigation.barcode_print_2p'); ?>
+                                </a>
                             </div>
                         </div>
                         <?php endif; ?>
@@ -376,16 +394,33 @@ if (!empty($_SESSION['user_id'])) {
                             <?php endif; ?>
                             
                             <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
-                            <a href="price_label_lists.php" class="<?php echo in_array($current_page, ['price_label_lists.php', 'price_label_project_edit.php']) ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
-                                <i class="fas fa-list-ul mr-2 text-xs"></i><?php echo t('navigation.price_label_lists'); ?>
-                            </a>
-                            <a href="barcode_generate.php" class="<?php echo ($current_page == 'barcode_generate.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
-                                <i class="fas fa-barcode mr-2 text-xs"></i><?php echo t('navigation.barcode_generate'); ?>
-                            </a>
                             <a href="mobile_product_edit.php" class="<?php echo ($current_page == 'mobile_product_edit.php') ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200'; ?> block px-2 py-1 rounded text-sm">
                                 <i class="fas fa-mobile-alt mr-2 text-xs"></i>모바일 상품명 수정
                             </a>
                             <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- 모바일 바코드 카드 -->
+                    <?php if (has_permission('barcode_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                    <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-1.5 border border-red-200">
+                        <div class="flex items-center mb-2">
+                            <div class="w-6 h-6 bg-red-600 rounded flex items-center justify-center mr-2">
+                                <i class="fas fa-barcode text-white text-xs"></i>
+                            </div>
+                            <h4 class="text-xs font-semibold text-red-800"><?php echo t('navigation.barcode_section'); ?></h4>
+                        </div>
+                        <div class="space-y-1">
+                            <a href="price_label_lists.php" class="<?php echo in_array($current_page, ['price_label_lists.php', 'price_label_project_edit.php']) ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-list-ul mr-2 text-xs"></i><?php echo t('navigation.price_label_lists'); ?>
+                            </a>
+                            <a href="barcode_generate.php" class="<?php echo ($current_page == 'barcode_generate.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-barcode mr-2 text-xs"></i><?php echo t('navigation.barcode_generate'); ?>
+                            </a>
+                            <a href="barcode_print_2p.php" class="<?php echo ($current_page == 'barcode_print_2p.php') ? 'bg-red-200 text-red-900' : 'text-red-700 hover:bg-red-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-print mr-2 text-xs"></i><?php echo t('navigation.barcode_print_2p'); ?>
+                            </a>
                         </div>
                     </div>
                     <?php endif; ?>
