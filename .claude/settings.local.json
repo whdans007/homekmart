@@ -16,7 +16,9 @@
       "Bash(php:*)",
       "Bash(PATH=\"/c/xampp/php:$PATH\")",
       "Bash(/c/xampp/php/php.exe:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

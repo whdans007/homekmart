@@ -197,4 +197,4 @@ This application is primarily in Korean (한국어) with Korean comments and UI 
 - 언어 다중화 지원 (한국어, 영어)
 
 ### 🌐 개발 URL
-- https://192-168-0-138.philsarang.direct.quickconnect.to/homekmart/admin/
+- https://192-168-1-123.philsarang.direct.quickconnect.to/homekmart/admin/
