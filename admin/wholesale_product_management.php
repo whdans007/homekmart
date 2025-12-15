@@ -314,65 +314,53 @@ try {
 
         <!-- 페이징 -->
         <?php if ($total_pages > 1): ?>
-        <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <div class="flex-1 flex justify-between sm:hidden">
-                <?php if ($page > 1): ?>
-                    <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                        <?php echo t('common.previous'); ?>
-                    </a>
-                <?php endif; ?>
-                <?php if ($page < $total_pages): ?>
-                    <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                        <?php echo t('common.next'); ?>
-                    </a>
-                <?php endif; ?>
+        <div class="bg-white px-4 py-3 flex items-center justify-center border-t border-gray-200 sm:px-6">
+            <div class="flex-1 flex justify-center">
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <?php
+                    // 현재 페이지가 속한 10페이지 그룹 계산
+                    $current_group = ceil($page / 10);
+                    $group_start = ($current_group - 1) * 10 + 1;
+                    $group_end = min($current_group * 10, $total_pages);
+
+                    // 이전 그룹이 있으면 이전 버튼 표시
+                    if ($group_start > 1): ?>
+                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $group_start - 1])); ?>"
+                           class="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="fas fa-chevron-left mr-2"></i>이전
+                        </a>
+                    <?php endif; ?>
+
+                    <?php
+                    // 현재 그룹의 페이지들 표시 (1-10, 11-20, ...)
+                    for ($i = $group_start; $i <= $group_end; $i++):
+                    ?>
+                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>"
+                           class="<?php echo $i == $page ? 'bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'; ?>
+                                  relative inline-flex items-center px-4 py-2 border text-sm font-medium
+                                  <?php echo ($i == $group_start && $group_start == 1) ? 'rounded-l-md' : ''; ?>
+                                  <?php echo ($i == $group_end && $group_end == $total_pages) ? 'rounded-r-md' : ''; ?>">
+                            <?php echo $i; ?>
+                        </a>
+                    <?php endfor; ?>
+
+                    <?php
+                    // 다음 그룹이 있으면 다음 버튼 표시
+                    if ($group_end < $total_pages): ?>
+                        <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $group_end + 1])); ?>"
+                           class="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            다음<i class="fas fa-chevron-right ml-2"></i>
+                        </a>
+                    <?php endif; ?>
+                </nav>
             </div>
-            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                    <p class="text-sm text-gray-700">
-                        <?php 
-                        $start = ($page - 1) * $limit + 1;
-                        $end = min($page * $limit, $total_products);
-                        echo str_replace(
-                            ['{total}', '{start}', '{end}'],
-                            [number_format($total_products), number_format($start), number_format($end)],
-                            t('wholesale_product_management.pagination_showing')
-                        );
-                        ?>
-                    </p>
-                </div>
-                <div>
-                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <?php
-                        $start_page = max(1, $page - 2);
-                        $end_page = min($total_pages, $page + 2);
-                        
-                        if ($page > 1):
-                        ?>
-                            <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                <i class="fas fa-chevron-left"></i>
-                            </a>
-                        <?php endif; ?>
-                        
-                        <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
-                            <?php if ($i == $page): ?>
-                                <span class="relative inline-flex items-center px-4 py-2 border border-primary-500 bg-primary-50 text-sm font-medium text-primary-600">
-                                    <?php echo $i; ?>
-                                </span>
-                            <?php else: ?>
-                                <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                                    <?php echo $i; ?>
-                                </a>
-                            <?php endif; ?>
-                        <?php endfor; ?>
-                        
-                        <?php if ($page < $total_pages): ?>
-                            <a href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                <i class="fas fa-chevron-right"></i>
-                            </a>
-                        <?php endif; ?>
-                    </nav>
-                </div>
+
+            <!-- 하단 그룹 정보 -->
+            <div class="text-center mt-3">
+                <span class="text-sm text-gray-700">
+                    페이지 <?php echo $page; ?> / <?php echo $total_pages; ?>
+                    (총 <?php echo number_format($total_products); ?>개 항목)
+                </span>
             </div>
         </div>
         <?php endif; ?>
