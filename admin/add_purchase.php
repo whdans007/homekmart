@@ -1768,7 +1768,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <input type="number" name="items[${itemIndex}][quantity]" class="w-16 px-2 py-1 border border-gray-300 rounded-md text-right text-sm quantity focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" min="1" value="${quantity}" ${isExisting ? 'readonly' : ''}>
             </td>
             <td class="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-right">
-                <input type="number" name="items[${itemIndex}][pieces_per_box]" class="w-16 px-2 py-1 border border-gray-300 rounded-md text-right text-sm pieces-per-box focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" min="1" value="${product.pieces_per_box || 1}" ${isExisting ? 'readonly' : ''}>
+                <input type="number" name="items[${itemIndex}][pieces_per_box]" class="w-16 px-2 py-1 border border-gray-300 rounded-md text-right text-sm pieces-per-box focus:border-indigo-500 focus:ring-indigo-500 ${isExisting || currentUserRole !== 'super_admin' ? 'bg-gray-100' : ''}" min="1" value="${product.pieces_per_box || 1}" ${isExisting || currentUserRole !== 'super_admin' ? 'readonly' : ''}>
                 <span class="text-xs text-gray-500 ml-1">개</span>
             </td>
             <td class="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-right">
@@ -2222,12 +2222,18 @@ document.addEventListener('DOMContentLoaded', function () {
     const cancelPiecesPerBoxBtn = document.getElementById('cancel-pieces-per-box-btn');
     const confirmPiecesPerBoxBtn = document.getElementById('confirm-pieces-per-box-btn');
     let currentPiecesPerBoxInput = null; // 현재 수정 중인 input 요소
+    const currentUserRole = '<?php echo $_SESSION['role'] ?? ''; ?>';
 
     // 포장수량 필드 클릭 이벤트 (이벤트 위임 사용)
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('pieces-per-box')) {
             // readonly인 경우는 모달을 띄우지 않음
             if (e.target.readOnly) {
+                return;
+            }
+            // super_admin만 포장수량 변경 가능
+            if (currentUserRole !== 'super_admin') {
+                alert('수퍼관리자만 포장수량을 변경할 수 있습니다.');
                 return;
             }
 
