@@ -1494,7 +1494,7 @@ tr[id^="row-"] td:first-child:hover {
                                                data-item-id="<?php echo $item['item_id']; ?>"
                                                data-original-value="<?php echo $item['pieces_per_box'] ?? 1; ?>"
                                                min="1"
-                                               <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : ''; ?>>
+                                               <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : (($_SESSION['role'] !== 'super_admin') ? 'readonly' : ''); ?>>
                                     </td>
                                     <td class="w-16 px-1 py-3 text-sm text-gray-900 text-right">
                                         <input type="number"
@@ -1829,6 +1829,8 @@ const lang = {
     js_discount_rate_invalid: <?php echo json_encode(t('purchase.js_discount_rate_invalid')); ?>,
     js_confirm_apply_discount: <?php echo json_encode(t('purchase.js_confirm_apply_discount')); ?>
 };
+// 사용자 역할 정보
+const currentUserRole = '<?php echo $_SESSION['role'] ?? ''; ?>';
 
 document.addEventListener('DOMContentLoaded', function() {
     
@@ -2875,6 +2877,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target.classList.contains('pieces-input')) {
             // readonly인 경우는 모달을 띄우지 않음
             if (e.target.readOnly) {
+                return;
+            }
+            // super_admin만 포장수량 변경 가능
+            if (currentUserRole !== 'super_admin') {
+                alert('수퍼관리자만 포장수량을 변경할 수 있습니다.');
                 return;
             }
 
