@@ -1009,29 +1009,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if ($user_info && $user_info['store_id']) {
                 $store_id = $user_info['store_id'];
 
-                // 기존 재고 레코드 확인
-                $inv_check_stmt = $conn->prepare("SELECT id, quantity FROM inventory WHERE product_id = ? AND store_id = ?");
-                $inv_check_stmt->bind_param("ii", $product_id, $store_id);
-                $inv_check_stmt->execute();
-                $inv_result = $inv_check_stmt->get_result();
-
-                if ($inv_row = $inv_result->fetch_assoc()) {
-                    // 기존 재고 업데이트 (VAT 포함 가격으로 cost_price도 함께 업데이트)
-                    $new_quantity = $inv_row['quantity'] + $actual_quantity;
-                    $inv_update_stmt = $conn->prepare("UPDATE inventory SET quantity = ?, cost_price = ? WHERE id = ?");
-                    $inv_update_stmt->bind_param("idi", $new_quantity, $final_unit_price, $inv_row['id']);
-                    $inv_update_stmt->execute();
-                    $inv_update_stmt->close();
-                    $inventory_id = $inv_row['id'];
-                } else {
-                    // 새로운 재고 레코드 생성 (VAT 포함 가격으로 cost_price 설정)
-                    $inv_insert_stmt = $conn->prepare("INSERT INTO inventory (product_id, store_id, quantity, cost_price) VALUES (?, ?, ?, ?)");
-                    $inv_insert_stmt->bind_param("iiid", $product_id, $store_id, $actual_quantity, $final_unit_price);
-                    $inv_insert_stmt->execute();
-                    $inventory_id = $inv_insert_stmt->insert_id;
-                    $inv_insert_stmt->close();
+                // ON DUPLICATE KEY UPDATE를 사용하여 원자적 작업 처리
+                $inv_insert_stmt = $conn->prepare("
+                    INSERT INTO inventory (product_id, store_id, quantity, cost_price)
+                    VALUES (?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                    quantity = quantity + ?,
+                    cost_price = ?
+                ");
+                $inv_insert_stmt->bind_param("iididi", $product_id, $store_id, $actual_quantity, $final_unit_price, $actual_quantity, $final_unit_price);
+                if (!$inv_insert_stmt->execute()) {
+                    throw new Exception("재고 업데이트 실패: " . $inv_insert_stmt->error);
                 }
-                $inv_check_stmt->close();
+                $inv_insert_stmt->close();
+
+                // 방금 삽입/업데이트된 inventory 레코드의 ID 조회
+                $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
+                $inv_id_stmt->bind_param("ii", $product_id, $store_id);
+                $inv_id_stmt->execute();
+                $inv_id_result = $inv_id_stmt->get_result();
+                if ($inv_id_row = $inv_id_result->fetch_assoc()) {
+                    $inventory_id = $inv_id_row['id'];
+                } else {
+                    throw new Exception("재고 레코드 조회 실패");
+                }
+                $inv_id_stmt->close();
 
                 // 5. inventory_transactions 로그 기록
                 $transaction_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, '입고', ?, ?)");
@@ -1042,8 +1044,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
                 $transaction_stmt->close();
             }
-
-            // 6. 매입 전체 합계 재계산 및 업데이트 (할인후 금액 기준)
             $update_stmt = $conn->prepare("
                 UPDATE purchases SET 
                     total_amount = (SELECT COALESCE(SUM(CASE WHEN discounted_total IS NOT NULL THEN discounted_total ELSE quantity * unit_price END), 0) FROM purchase_items WHERE purchase_id = ?),
