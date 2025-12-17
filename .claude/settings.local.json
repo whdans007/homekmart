@@ -18,7 +18,12 @@
       "Bash(/c/xampp/php/php.exe:*)",
       "Bash(ls:*)",
       "Bash(find:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(python3 -c \"\nimport re\n\nwith open(''admin/edit_purchase.php'', ''r'', encoding=''utf-8'') as f:\n    lines = f.readlines()\n\n# 1. 1497줄 수정 (0-indexed이므로 1496)\nif ''<?php echo (\\$purchase['' in lines[1496]:\n    lines[1496] = ''                                               <?php echo (\\$purchase['' + \"\"''is_confirmed''\"\" + ''] ?? false) ? '' + \"\"''disabled readonly''\"\" + '' : (('' + \"\"\\\\\\$_ESSION[''role'']\"\" + '' !== '' + \"\"''super_admin''\"\" + '') ? '' + \"\"''readonly''\"\" + '' : '' + \"\"''''\"\" + ''); ?>\\n''\n\n# 2. 1831줄 이후에 currentUserRole 추가\nlines.insert(1832, ''// 사용자 역할 정보\\n'')\nlines.insert(1833, ''const currentUserRole = '' + \"\"''<?php echo \\$_ESSION[''role''] ?? ''''; ?>''\"\" + '';\\n'')\n\n# 3. readOnly 체크 후 권한 확인 추가 - 정확한 줄 찾기\nfor i, line in enumerate(lines):\n    if ''e.target.readOnly'' in line and ''pieces-input'' in lines[max(0, i-5):i][-1]:\n        # 이 줄 다음다음에 권한 체크 추가\n        if ''return;'' in lines[i+1]:\n            lines.insert(i+2, ''            // super_admin만 포장수량 변경 가능\\n'')\n            lines.insert(i+3, ''            if (currentUserRole !== '' + \"\"''super_admin''\"\" + '') {\\n'')\n            lines.insert(i+4, ''                alert('' + \"\"''수퍼관리자만 포장수량을 변경할 수 있습니다.''\"\" + '');\\n'')\n            lines.insert(i+5, ''                return;\\n'')\n            lines.insert(i+6, ''            }\\n'')\n            break\n\nwith open(''admin/edit_purchase.php'', ''w'', encoding=''utf-8'') as f:\n    f.writelines(lines)\n\nprint(''Changes applied successfully'')\n\")",
+      "Bash(cp:*)",
+      "Bash(perl -i.bak -0777 -pe:*)"
     ],
     "deny": [],
     "ask": []
