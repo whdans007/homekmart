@@ -80,99 +80,117 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (empty($errors)) {
         try {
-            // 중복 확인 (같은 점포에 같은 상품이 이미 등록되어 있는지)
-            $check_stmt = $pdo->prepare("SELECT COUNT(*) FROM wholesale_products WHERE product_id = ? AND store_id = ? AND is_active = 1");
-            $check_stmt->execute([$product_id, $store_id]);
-            
-            if ($check_stmt->fetchColumn() > 0) {
-                $errors[] = t('add_wholesale_product.product_already_exists');
-            } else {
-                // 스키마 호환성 확인
-                try {
-                    $check_columns = $pdo->query("SHOW COLUMNS FROM wholesale_products LIKE 'wholesale_name_ko'");
-                    $has_new_columns = $check_columns->rowCount() > 0;
-                    
-                    // cost_price 컬럼 존재 확인
-                    $check_cost_column = $pdo->query("SHOW COLUMNS FROM wholesale_products LIKE 'cost_price'");
-                    $has_cost_price_column = $check_cost_column->rowCount() > 0;
-                } catch (PDOException $e) {
-                    $has_new_columns = false;
-                    $has_cost_price_column = false;
-                }
+            // 스키마 호환성 확인
+            try {
+                $check_columns = $pdo->query("SHOW COLUMNS FROM wholesale_products LIKE 'wholesale_name_ko'");
+                $has_new_columns = $check_columns->rowCount() > 0;
                 
-                if ($has_new_columns) {
-                    // 새로운 스키마 사용
-                    if ($has_cost_price_column) {
-                        // cost_price 컬럼이 있는 경우
-                        $stmt = $pdo->prepare("
-                            INSERT INTO wholesale_products 
-                            (product_id, store_id, wholesale_name_ko, wholesale_name_en, wholesale_skus, wholesale_description, 
-                             wholesale_price, cost_price, min_quantity, is_active, created_at) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
-                        ");
-                        
-                        $insert_success = $stmt->execute([
-                            $product_id, 
-                            $store_id, 
-                            $wholesale_name_ko ?: null, 
-                            $wholesale_name_en ?: null, 
-                            $wholesale_skus_json, 
-                            $wholesale_description ?: null, 
-                            $wholesale_price,
-                            $cost_price, 
-                            $min_quantity
-                        ]);
-                    } else {
-                        // cost_price 컬럼이 없는 경우 (기존 방식)
-                        $stmt = $pdo->prepare("
-                            INSERT INTO wholesale_products 
-                            (product_id, store_id, wholesale_name_ko, wholesale_name_en, wholesale_skus, wholesale_description, 
-                             wholesale_price, min_quantity, is_active, created_at) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
-                        ");
-                        
-                        $insert_success = $stmt->execute([
-                            $product_id, 
-                            $store_id, 
-                            $wholesale_name_ko ?: null, 
-                            $wholesale_name_en ?: null, 
-                            $wholesale_skus_json, 
-                            $wholesale_description ?: null, 
-                            $wholesale_price, 
-                            $min_quantity
-                        ]);
-                    }
-                } else {
-                    // 기존 스키마 사용 (새 필드들 없이)
+                // cost_price 컬럼 존재 확인
+                $check_cost_column = $pdo->query("SHOW COLUMNS FROM wholesale_products LIKE 'cost_price'");
+                $has_cost_price_column = $check_cost_column->rowCount() > 0;
+            } catch (PDOException $e) {
+                $has_new_columns = false;
+                $has_cost_price_column = false;
+            }
+            
+            if ($has_new_columns) {
+                // 새로운 스키마 사용
+                if ($has_cost_price_column) {
+                    // cost_price 컬럼이 있는 경우
+                    // ON DUPLICATE KEY UPDATE로 중복 처리 자동화
                     $stmt = $pdo->prepare("
                         INSERT INTO wholesale_products 
-                        (product_id, store_id, wholesale_price, min_quantity, is_active, created_at) 
-                        VALUES (?, ?, ?, ?, 1, NOW())
+                        (product_id, store_id, wholesale_name_ko, wholesale_name_en, wholesale_skus, wholesale_description, 
+                         wholesale_price, cost_price, min_quantity, is_active, created_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
+                        ON DUPLICATE KEY UPDATE
+                        wholesale_name_ko = VALUES(wholesale_name_ko),
+                        wholesale_name_en = VALUES(wholesale_name_en),
+                        wholesale_skus = VALUES(wholesale_skus),
+                        wholesale_description = VALUES(wholesale_description),
+                        wholesale_price = VALUES(wholesale_price),
+                        cost_price = VALUES(cost_price),
+                        min_quantity = VALUES(min_quantity),
+                        is_active = 1,
+                        updated_at = NOW()
                     ");
                     
                     $insert_success = $stmt->execute([
                         $product_id, 
                         $store_id, 
+                        $wholesale_name_ko ?: null, 
+                        $wholesale_name_en ?: null, 
+                        $wholesale_skus_json, 
+                        $wholesale_description ?: null, 
+                        $wholesale_price,
+                        $cost_price, 
+                        $min_quantity
+                    ]);
+                } else {
+                    // cost_price 컬럼이 없는 경우 (기존 방식)
+                    $stmt = $pdo->prepare("
+                        INSERT INTO wholesale_products 
+                        (product_id, store_id, wholesale_name_ko, wholesale_name_en, wholesale_skus, wholesale_description, 
+                         wholesale_price, min_quantity, is_active, created_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
+                        ON DUPLICATE KEY UPDATE
+                        wholesale_name_ko = VALUES(wholesale_name_ko),
+                        wholesale_name_en = VALUES(wholesale_name_en),
+                        wholesale_skus = VALUES(wholesale_skus),
+                        wholesale_description = VALUES(wholesale_description),
+                        wholesale_price = VALUES(wholesale_price),
+                        min_quantity = VALUES(min_quantity),
+                        is_active = 1,
+                        updated_at = NOW()
+                    ");
+                    
+                    $insert_success = $stmt->execute([
+                        $product_id, 
+                        $store_id, 
+                        $wholesale_name_ko ?: null, 
+                        $wholesale_name_en ?: null, 
+                        $wholesale_skus_json, 
+                        $wholesale_description ?: null, 
                         $wholesale_price, 
                         $min_quantity
                     ]);
                 }
+            } else {
+                // 기존 스키마 사용 (새 필드들 없이)
+                $stmt = $pdo->prepare("
+                    INSERT INTO wholesale_products 
+                    (product_id, store_id, wholesale_price, min_quantity, is_active, created_at) 
+                    VALUES (?, ?, ?, ?, 1, NOW())
+                    ON DUPLICATE KEY UPDATE
+                    wholesale_price = VALUES(wholesale_price),
+                    min_quantity = VALUES(min_quantity),
+                    is_active = 1,
+                    updated_at = NOW()
+                ");
                 
-                if ($insert_success) {
-                    $_SESSION['flash'] = [
-                        'type' => 'success',
-                        'message' => t('add_wholesale_product.save_success')
-                    ];
-                    header('Location: wholesale_product_management.php');
-                    exit;
-                } else {
-                    $errors[] = t('add_wholesale_product.save_error');
-                }
+                $insert_success = $stmt->execute([
+                    $product_id, 
+                    $store_id, 
+                    $wholesale_price, 
+                    $min_quantity
+                ]);
+            }
+            
+            if ($insert_success) {
+                $_SESSION['flash'] = [
+                    'type' => 'success',
+                    'message' => t('add_wholesale_product.save_success')
+                ];
+                header('Location: wholesale_product_management.php');
+                exit;
+            } else {
+                $errors[] = t('add_wholesale_product.save_error');
             }
         } catch (PDOException $e) {
             $errors[] = t('add_wholesale_product.database_error') . $e->getMessage();
         }
     }
+
 }
 
 // 플래시 메시지 표시
