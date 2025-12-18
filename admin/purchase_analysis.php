@@ -57,7 +57,7 @@ if (!empty($search_product)) {
 
 $where_clause = implode(' AND ', $where_conditions);
 
-// 각 상품-거래처별 최신 매입정보 조회 (상품정보 포함)
+// 각 상품-거래처별 최신 매입정보 조회 (상품정보 포함 + 할인 정보)
 $query = "
     SELECT
         pr.sku AS sku,
@@ -66,6 +66,8 @@ $query = "
         pr.pieces_per_box,
         s.name AS supplier_name,
         pi.unit_price,
+        COALESCE(pi.discounted_unit_price, pi.unit_price) as discounted_unit_price,
+        COALESCE(pi.discount_rate, 0) as discount_rate,
         pi.purchase_type,
         p.purchase_date
     FROM purchase_items pi
@@ -112,6 +114,8 @@ while ($row = $result->fetch_assoc()) {
             'pieces_per_box' => $row['pieces_per_box'],
             'supplier_name' => $row['supplier_name'],
             'unit_price' => $row['unit_price'],
+            'discounted_unit_price' => $row['discounted_unit_price'],
+            'discount_rate' => $row['discount_rate'],
             'purchase_type' => $row['purchase_type'],
             'purchase_date' => $row['purchase_date']
         ];
@@ -129,6 +133,8 @@ foreach ($temp_data as $product_key => $suppliers) {
         'suppliers' => [],
         'dates' => [],
         'prices' => [],
+        'discounted_prices' => [],
+        'discount_rates' => [],
         'purchase_types' => []
     ];
 
@@ -140,6 +146,8 @@ foreach ($temp_data as $product_key => $suppliers) {
         $products_data[$product_key]['suppliers'][] = $supplier_data['supplier_name'];
         $products_data[$product_key]['dates'][] = $supplier_data['purchase_date'];
         $products_data[$product_key]['prices'][] = number_format($supplier_data['unit_price'], 2);
+        $products_data[$product_key]['discounted_prices'][] = number_format($supplier_data['discounted_unit_price'], 2);
+        $products_data[$product_key]['discount_rates'][] = $supplier_data['discount_rate'];
         $products_data[$product_key]['purchase_types'][] = $supplier_data['purchase_type'];
     }
 }
@@ -287,21 +295,60 @@ $conn->close();
                                             </span>
                                         </div>
 
-                                        <!-- 단가 -->
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-xs text-gray-500">
-                                                낱개단가: <?php
-                                                    if ($product['purchase_types'][$i] === 'piece') {
-                                                        echo $product['prices'][$i];
-                                                    } else {
-                                                        $piece_price = floatval(str_replace(',', '', $product['prices'][$i])) / $product['pieces_per_box'];
-                                                        echo number_format($piece_price, 2);
-                                                    }
-                                                ?>
-                                            </span>
-                                            <span class="font-bold text-blue-600 text-sm">
-                                                매입가: <?php echo $product['prices'][$i]; ?>
-                                            </span>
+                                        <!-- 단가 (할인 여부에 따라 표시) -->
+                                        <div class="space-y-1">
+                                            <!-- 낱개단가 -->
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-xs text-gray-500">낱개단가:</span>
+                                                <span class="text-xs font-semibold text-gray-700">
+                                                    <?php
+                                                        if ($product['purchase_types'][$i] === 'piece') {
+                                                            // 낱개 구매인 경우
+                                                            if ($product['discount_rates'][$i] > 0) {
+                                                                echo $product['discounted_prices'][$i];
+                                                            } else {
+                                                                echo $product['prices'][$i];
+                                                            }
+                                                        } else {
+                                                            // 박스 구매인 경우
+                                                            if ($product['discount_rates'][$i] > 0) {
+                                                                $piece_price = floatval(str_replace(',', '', $product['discounted_prices'][$i])) / $product['pieces_per_box'];
+                                                            } else {
+                                                                $piece_price = floatval(str_replace(',', '', $product['prices'][$i])) / $product['pieces_per_box'];
+                                                            }
+                                                            echo number_format($piece_price, 2);
+                                                        }
+                                                    ?>
+                                                </span>
+                                            </div>
+
+                                            <!-- 매입가 (할인된 단가 우선 표시) -->
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-xs text-gray-500">
+                                                    <?php echo $product['discount_rates'][$i] > 0 ? '할인 매입가:' : '매입가:'; ?>
+                                                </span>
+                                                <span class="font-bold text-blue-600 text-sm">
+                                                    <?php
+                                                        if ($product['discount_rates'][$i] > 0) {
+                                                            // 할인이 있으면 할인된 가격 표시
+                                                            echo $product['discounted_prices'][$i];
+                                                        } else {
+                                                            // 할인이 없으면 원래 가격 표시
+                                                            echo $product['prices'][$i];
+                                                        }
+                                                    ?>
+                                                </span>
+                                            </div>
+
+                                            <!-- 할인율 표시 (할인이 있는 경우만) -->
+                                            <?php if ($product['discount_rates'][$i] > 0): ?>
+                                            <div class="flex items-center justify-between bg-yellow-50 px-1 py-0.5 rounded">
+                                                <span class="text-xs text-yellow-700">할인율:</span>
+                                                <span class="font-semibold text-yellow-700 text-sm">
+                                                    <?php echo number_format($product['discount_rates'][$i], 1); ?>%
+                                                </span>
+                                            </div>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                     <?php endfor; ?>

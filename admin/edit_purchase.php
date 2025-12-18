@@ -188,6 +188,37 @@ try {
         $conn->query("UPDATE purchase_items SET discounted_total = (quantity * unit_price) WHERE discounted_total IS NULL");
     }
 
+    // original_unit_price 컬럼 체크 및 추가
+    $check_original_price = $conn->query("SHOW COLUMNS FROM purchase_items LIKE 'original_unit_price'");
+    if ($check_original_price->num_rows == 0) {
+        $conn->query("ALTER TABLE purchase_items ADD COLUMN original_unit_price DECIMAL(10,2) DEFAULT NULL COMMENT '할인 적용 전 원단가' AFTER discounted_total");
+    }
+
+    // discounted_unit_price 컬럼 체크 및 추가
+    $check_discounted_price = $conn->query("SHOW COLUMNS FROM purchase_items LIKE 'discounted_unit_price'");
+    if ($check_discounted_price->num_rows == 0) {
+        $conn->query("ALTER TABLE purchase_items ADD COLUMN discounted_unit_price DECIMAL(10,2) DEFAULT NULL COMMENT '할인 적용 후 원단가' AFTER original_unit_price");
+    }
+
+    // 기존 데이터 마이그레이션 (한 번만 실행)
+    $check_migrated = $conn->query("SELECT COUNT(*) as cnt FROM purchase_items WHERE original_unit_price IS NULL AND quantity > 0 LIMIT 1");
+    $migrated_result = $check_migrated->fetch_assoc();
+    if ($migrated_result['cnt'] > 0) {
+        $conn->query("
+            UPDATE purchase_items
+            SET
+                original_unit_price = CASE
+                    WHEN discount_rate > 0 THEN unit_price
+                    ELSE unit_price
+                END,
+                discounted_unit_price = CASE
+                    WHEN discount_rate > 0 THEN unit_price * (1 - discount_rate / 100)
+                    ELSE unit_price
+                END
+            WHERE original_unit_price IS NULL
+        ");
+    }
+
     // sort_order 컬럼 체크 및 추가
     $check_sort_order = $conn->query("SHOW COLUMNS FROM purchase_items LIKE 'sort_order'");
     if ($check_sort_order->num_rows == 0) {
@@ -429,11 +460,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     
                     // 할인 정보 계산
                     $original_total = $new_quantity * $new_unit_price;
+
+                    // 새로운 할인된 단가 계산
+                    $new_original_unit_price = $new_unit_price;
+                    $new_discounted_unit_price = $new_unit_price * (1 - $discount_rate / 100);
                     $discounted_total = $original_total * (1 - $discount_rate / 100);
-                    
+
                     // 매입 상품 정보 업데이트
-                    $update_item_stmt = $conn->prepare("UPDATE purchase_items SET quantity = ?, unit_price = ?, purchase_type = ?, discount_rate = ?, discounted_total = ? WHERE item_id = ?");
-                    $update_item_stmt->bind_param("idsidi", $new_quantity, $new_unit_price, $new_purchase_type, $discount_rate, $discounted_total, $item_id);
+                    $update_item_stmt = $conn->prepare("UPDATE purchase_items SET quantity = ?, unit_price = ?, purchase_type = ?, discount_rate = ?, original_unit_price = ?, discounted_unit_price = ?, discounted_total = ? WHERE item_id = ?");
+                    $update_item_stmt->bind_param("idsidddi", $new_quantity, $new_unit_price, $new_purchase_type, $discount_rate, $new_original_unit_price, $new_discounted_unit_price, $discounted_total, $item_id);
                     $update_item_stmt->execute();
                     $update_item_stmt->close();
                     
@@ -696,10 +731,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 // 할인 정보 추출
                 $discount_rate = isset($_POST['discount_rate']) ? (float)$_POST['discount_rate'] : 0.00;
                 $original_total = $new_quantity * $new_unit_price;
+
+                // 새로운 할인된 단가 계산
+                $new_original_unit_price = $new_unit_price;
+                $new_discounted_unit_price = $new_unit_price * (1 - $discount_rate / 100);
                 $discounted_total = $original_total * (1 - $discount_rate / 100);
-                
-                $update_item_stmt = $conn->prepare("UPDATE purchase_items SET quantity = ?, unit_price = ?, purchase_type = ?, discount_rate = ?, discounted_total = ? WHERE item_id = ?");
-                $update_item_stmt->bind_param("idsidi", $new_quantity, $new_unit_price, $new_purchase_type, $discount_rate, $discounted_total, $item_id);
+
+                $update_item_stmt = $conn->prepare("UPDATE purchase_items SET quantity = ?, unit_price = ?, purchase_type = ?, discount_rate = ?, original_unit_price = ?, discounted_unit_price = ?, discounted_total = ? WHERE item_id = ?");
+                $update_item_stmt->bind_param("idsidddi", $new_quantity, $new_unit_price, $new_purchase_type, $discount_rate, $new_original_unit_price, $new_discounted_unit_price, $discounted_total, $item_id);
                 $update_item_stmt->execute();
                 $update_item_stmt->close();
                 
@@ -874,14 +913,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 
                 if ($item_info) {
                     $original_total = $item_info['quantity'] * $item_info['unit_price'];
+
+                    // 새로운 할인된 단가 계산
+                    $new_original_unit_price = $item_info['unit_price'];
+                    $new_discounted_unit_price = $item_info['unit_price'] * (1 - $discount_rate / 100);
                     $discounted_total = $original_total * (1 - $discount_rate / 100);
-                    
+
                     // 할인 정보 업데이트
-                    $update_stmt = $conn->prepare("UPDATE purchase_items SET discount_rate = ?, discounted_total = ? WHERE item_id = ?");
-                    $update_stmt->bind_param("ddi", $discount_rate, $discounted_total, $item_id);
+                    $update_stmt = $conn->prepare("UPDATE purchase_items SET discount_rate = ?, original_unit_price = ?, discounted_unit_price = ?, discounted_total = ? WHERE item_id = ?");
+                    $update_stmt->bind_param("ddddi", $discount_rate, $new_original_unit_price, $new_discounted_unit_price, $discounted_total, $item_id);
                     $update_stmt->execute();
                     $update_stmt->close();
-                    
+
                     $updated_count++;
                 }
             }
@@ -983,9 +1026,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $next_sort_order = ($max_order_row['max_order'] ?? 0) + 1;
             $max_order_stmt->close();
 
-            // 2. 매입 상세 데이터 저장 (VAT 관련 필드 포함 + sort_order)
-            $stmt_item = $conn->prepare("INSERT INTO purchase_items (purchase_id, product_id, purchase_type, quantity, unit_price, vat_included, original_unit_price, vat_amount, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt_item->bind_param("iisiddddi", $purchase_id, $product_id, $purchase_type, $quantity, $final_unit_price, $vat_included, $original_price, $vat_amount, $next_sort_order);
+            // 2. 할인 관련 값 계산 (새 상품 추가 시 할인율은 0)
+            $discount_rate = 0; // 새 상품은 할인 미적용
+            $original_unit_price = $final_unit_price; // 할인 전 원가
+            $discounted_unit_price = $final_unit_price * (1 - $discount_rate / 100); // 할인 후 단가
+
+            // 3. 매입 상세 데이터 저장 (VAT 관련 필드 + 할인 관련 필드 포함)
+            $stmt_item = $conn->prepare("INSERT INTO purchase_items (purchase_id, product_id, purchase_type, quantity, unit_price, vat_included, original_unit_price, vat_amount, discount_rate, discounted_unit_price, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt_item->bind_param("iisiddddddi", $purchase_id, $product_id, $purchase_type, $quantity, $final_unit_price, $vat_included, $original_unit_price, $vat_amount, $discount_rate, $discounted_unit_price, $next_sort_order);
             if (!$stmt_item->execute()) {
                 throw new Exception("매입 상세 저장 실패: " . $stmt_item->error);
             }
@@ -1140,8 +1188,9 @@ $stmt = $conn->prepare("
     SELECT
         pi.*,
         COALESCE(pi.vat_included, 1) as vat_included,
-        pi.original_unit_price,
+        COALESCE(pi.original_unit_price, pi.unit_price) as original_unit_price,
         COALESCE(pi.vat_amount, 0) as vat_amount,
+        COALESCE(pi.discounted_unit_price, pi.unit_price) as discounted_unit_price,
         pr.name_ko as product_name,
         pr.name_en as product_name_en,
         pr.sku,
@@ -1384,11 +1433,13 @@ tr[id^="row-"] td:first-child:hover {
                     <th class="w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.quantity'); ?></th>
                     <th class="w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.pieces_per_box'); ?></th>
                     <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit_price'); ?></th>
+                    <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">원가(할인 전)</th>
                     <th class="w-14 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">VAT 구분</th>
                     <th class="w-14 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.piece_price'); ?></th>
                     <th class="w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total_pieces'); ?></th>
                     <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total'); ?></th>
                     <th class="w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.discount_rate'); ?></th>
+                    <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">할인된 단가</th>
                     <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.discounted_total'); ?></th>
                     <th class="w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.delete'); ?></th>
                 </tr>
@@ -1505,13 +1556,17 @@ tr[id^="row-"] td:first-child:hover {
                                                min="0"
                                                step="0.01"
                                                <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : ''; ?>>
-                                        <?php 
+                                        <?php
                                         // VAT 미포함 금액 계산
                                         $vat_excluded_price = $item['unit_price'] / 1.12;
                                         ?>
                                         <div class="text-xs text-gray-500 mt-1">
                                             미포함: <?php echo number_format($vat_excluded_price, 2); ?>
                                         </div>
+                                    </td>
+                                    <!-- 오리지날 원가 (할인 전) -->
+                                    <td class="w-16 px-1 py-3 text-xs text-gray-400 text-right font-semibold bg-gray-50">
+                                        <span class="original-unit-price" data-item-id="<?php echo $item['item_id']; ?>"><?php echo number_format($item['original_unit_price'] ?? $item['unit_price'], 2); ?></span>
                                     </td>
                                     <!-- VAT 구분 컬럼 -->
                                     <td class="w-14 px-1 py-3 text-center">
@@ -1540,7 +1595,11 @@ tr[id^="row-"] td:first-child:hover {
                                     </td>
                                     <td class="w-16 px-1 py-3 text-xs text-gray-900 text-right font-bold"><?php echo number_format($item_total, 2); ?></td>
                                     <td class="w-10 px-1 py-3 text-center">
-                                        <input type="number" class="discount-rate w-9 px-0 py-1 border border-gray-300 rounded-md text-center text-xs focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo number_format($item['discount_rate'], 1); ?>" min="0" max="100" step="0.1" placeholder="0" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : ''; ?>>
+                                        <input type="number" class="discount-rate w-9 px-0 py-1 border border-gray-300 rounded-md text-center text-xs focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo number_format($item['discount_rate'], 1); ?>" min="0" max="100" step="0.1" placeholder="0" data-item-id="<?php echo $item['item_id']; ?>" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : ''; ?>>
+                                    </td>
+                                    <!-- 할인된 단가 -->
+                                    <td class="w-16 px-1 py-3 text-xs text-gray-600 text-right font-semibold bg-amber-50">
+                                        <span class="discounted-unit-price" data-item-id="<?php echo $item['item_id']; ?>"><?php echo number_format($item['discounted_unit_price'] ?? $item['unit_price'], 2); ?></span>
                                     </td>
                                     <td class="w-16 px-1 py-3 text-xs text-gray-900 text-right font-bold discounted-total"><?php echo number_format($item['discounted_total'], 2); ?></td>
                                     <td class="w-10 px-1 py-3 text-center">
@@ -1850,14 +1909,22 @@ document.addEventListener('DOMContentLoaded', function() {
         const unitPrice = row.querySelector('.price-input').value;
         const piecesPerBox = row.querySelector('.pieces-input').value;
         const discountRate = row.querySelector('.discount-rate').value || 0;
-        
+
+        // 할인된 단가 및 오리지날 원가 계산
+        const numUnitPrice = parseFloat(unitPrice) || 0;
+        const numDiscountRate = parseFloat(discountRate) || 0;
+        const originalUnitPrice = numUnitPrice;
+        const discountedUnitPrice = numUnitPrice * (1 - numDiscountRate / 100);
+
         // 변경사항 저장
         changedItems.set(itemId, {
             quantity: quantity,
             unitPrice: unitPrice,
             purchaseType: purchaseType,
             piecesPerBox: piecesPerBox,
-            discountRate: discountRate
+            discountRate: discountRate,
+            originalUnitPrice: originalUnitPrice,
+            discountedUnitPrice: discountedUnitPrice
         });
         
         // 행에 변경 표시 추가
@@ -1920,6 +1987,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <input type="hidden" name="items[${index}][purchase_type]" value="${data.purchaseType}">
                 <input type="hidden" name="items[${index}][pieces_per_box]" value="${data.piecesPerBox}">
                 <input type="hidden" name="items[${index}][discount_rate]" value="${data.discountRate}">
+                <input type="hidden" name="items[${index}][original_unit_price]" value="${data.originalUnitPrice}">
+                <input type="hidden" name="items[${index}][discounted_unit_price]" value="${data.discountedUnitPrice}">
             `;
             index++;
         });
@@ -2433,27 +2502,48 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 합계 계산
         const total = quantity * unitPrice;
-        
+
+        // 할인된 단가 계산
+        const discountedUnitPrice = unitPrice * (1 - discountRate / 100);
+
         // 할인 후 합계 계산
-        const discountedTotal = total * (1 - discountRate / 100);
-        
+        const discountedTotal = discountedUnitPrice * quantity;
+
         // UI 업데이트
         // 개당 가격 (8번째 셀)
         row.cells[8].textContent = new Intl.NumberFormat('ko-KR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }).format(piecePrice);
-        
-        // 총 개수 (9번째 셀)
-        row.cells[9].innerHTML = `<span class="text-blue-600">${new Intl.NumberFormat('ko-KR').format(totalPieces)}</span>`;
-        
-        // 합계 (10번째 셀)
-        row.cells[10].textContent = new Intl.NumberFormat('ko-KR', {
+
+        // 오리지날 원가 (9번째 셀) - 현재 단가로 업데이트
+        const originalPriceElement = row.querySelector('.original-unit-price');
+        if (originalPriceElement) {
+            originalPriceElement.textContent = new Intl.NumberFormat('ko-KR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(unitPrice);
+        }
+
+        // 총 개수 (10번째 셀)
+        row.cells[10].innerHTML = `<span class="text-blue-600">${new Intl.NumberFormat('ko-KR').format(totalPieces)}</span>`;
+
+        // 합계 (11번째 셀)
+        row.cells[11].textContent = new Intl.NumberFormat('ko-KR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }).format(total);
-        
-        // 할인 후 합계 (12번째 셀)
+
+        // 할인된 단가 업데이트 (12번째 셀)
+        const discountedUnitPriceElement = row.querySelector('.discounted-unit-price');
+        if (discountedUnitPriceElement) {
+            discountedUnitPriceElement.textContent = new Intl.NumberFormat('ko-KR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(discountedUnitPrice);
+        }
+
+        // 할인 후 합계 (13번째 셀)
         row.querySelector('.discounted-total').textContent = new Intl.NumberFormat('ko-KR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
