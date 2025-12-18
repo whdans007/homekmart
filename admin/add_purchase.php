@@ -156,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // 매입 상세 데이터 저장 및 재고 업데이트
-            $stmt_item = $conn->prepare("INSERT INTO purchase_items (purchase_id, product_id, purchase_type, quantity, unit_price, vat_included, original_unit_price, vat_amount, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt_item = $conn->prepare("INSERT INTO purchase_items (purchase_id, product_id, purchase_type, quantity, unit_price, vat_included, original_unit_price, vat_amount, discount_rate, discounted_unit_price, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
             $sort_order = 1; // 순번 1부터 시작
             foreach ($new_items as $item) {
@@ -207,8 +207,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                     
-                    // 1. 매입 상세 데이터 저장 (VAT 관련 필드 포함 + sort_order)
-                    $stmt_item->bind_param("iisiddddi", $purchase_id, $item['product_id'], $purchase_type, $item['quantity'], $final_unit_price, $vat_included, $original_price, $vat_amount, $sort_order);
+                    // 1. 할인 관련 값 계산 (신규 추가 시 할인율은 0)
+                    $discount_rate = 0; // 신규 상품은 할인 미적용
+                    $original_unit_price_calc = $final_unit_price; // 할인 전 원가
+                    $discounted_unit_price_calc = $final_unit_price * (1 - $discount_rate / 100); // 할인 후 단가
+
+                    // 2. 매입 상세 데이터 저장 (VAT 관련 필드 + 할인 관련 필드 포함)
+                    $stmt_item->bind_param("iisiddddddi", $purchase_id, $item['product_id'], $purchase_type, $item['quantity'], $final_unit_price, $vat_included, $original_unit_price_calc, $vat_amount, $discount_rate, $discounted_unit_price_calc, $sort_order);
                     if (!$stmt_item->execute()) {
                         throw new Exception(str_replace(['{error}', '{type}'], [$stmt_item->error, $purchase_type], t('purchase.item_save_failed')));
                     }
