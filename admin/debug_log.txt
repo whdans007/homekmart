@@ -188,3 +188,4 @@
 2025-11-28 09:31:00 - 개별 가격적용 시작 - product_id: 11828, store_id: 1, selling_price: 128, cost_price: 105.56
 2025-11-28 09:31:00 - 점포별 가격 적용 시작 - store_id: 1
 2025-11-28 09:31:00 - inventory 테이블 selling_price 컬럼 존재 여부: true
+2025-12-28 09:11:10 - 가격변동 페이지 로드 - user_id: 9, store_id: 1, store_name: CLARK HILLS (클락힐스), role: admin
