@@ -83,7 +83,7 @@ JOIN products pr ON pi.product_id = pr.id
 LEFT JOIN categories c ON pr.category_id = c.id
 LEFT JOIN inventory inv ON pi.product_id = inv.product_id AND inv.store_id = ?
 WHERE pi.purchase_id = ?
-ORDER BY pi.item_id";
+ORDER BY COALESCE(pi.sort_order, pi.item_id)";
 
 $items_stmt = $conn->prepare($items_sql);
 $items_stmt->bind_param("is", $current_store_id, $purchase_id);
@@ -207,6 +207,7 @@ $items_result = $items_stmt->get_result();
                         <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 print:hidden">
                             <input type="checkbox" id="selectAll" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
                         </th>
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">순번</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('product.product_info'); ?></th>
                         <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.existing_cost'); ?></th>
                         <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"><?php echo t('purchase.purchase_cost'); ?><br><span class="text-xs normal-case">(<?php echo t('purchase.per_unit'); ?>)</span></th>
@@ -217,14 +218,14 @@ $items_result = $items_stmt->get_result();
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    <?php 
+                    <?php
                     $has_price_changes = false;
-                    if ($items_result && $items_result->num_rows > 0): 
-                        while($item = $items_result->fetch_assoc()): 
+                    if ($items_result && $items_result->num_rows > 0):
+                        while($item = $items_result->fetch_assoc()):
                             // 가격 변동 계산
                             $price_change = $item['purchase_unit_price_per_piece'] - $item['current_cost_price'];
                             $price_change_percent = $item['current_cost_price'] > 0 ? ($price_change / $item['current_cost_price']) * 100 : 0;
-                            
+
                             // 가격 변동 타입 결정
                             if (abs($price_change) < 1) {
                                 $price_change_type = 'same';
@@ -233,18 +234,18 @@ $items_result = $items_stmt->get_result();
                             } else {
                                 $price_change_type = 'decrease';
                             }
-                            
+
                             // 원가 변동이 있는지 확인 (데이터 없음 메시지 표시용)
                             if (abs($price_change) >= 1) {
                                 $has_price_changes = true;
                             }
-                            
+
                             // 기존 마진율 계산
                             $current_margin_rate = 0;
                             if ($item['current_cost_price'] > 0) {
                                 $current_margin_rate = (($item['current_selling_price'] - $item['current_cost_price']) / $item['current_cost_price']) * 100;
                             }
-                            
+
                             // 새 원가 기준 예상 판매가 계산 (기존 마진율 적용, 소수점 이하 무조건 올림)
                             $new_selling_price = 0;
                             if ($current_margin_rate > 0) {
@@ -258,6 +259,9 @@ $items_result = $items_stmt->get_result();
                             <tr class="hover:bg-gray-50 cursor-pointer item-row" data-product-id="<?php echo $item['product_id']; ?>" data-item-id="<?php echo $item['item_id']; ?>" data-price-change-type="<?php echo $price_change_type; ?>">
                                 <td class="px-3 py-4 text-center border border-gray-300 print:hidden">
                                     <input type="checkbox" class="item-checkbox h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" data-product-id="<?php echo $item['product_id']; ?>" data-item-id="<?php echo $item['item_id']; ?>">
+                                </td>
+                                <td class="px-3 py-4 text-center border border-gray-300 font-medium text-gray-700">
+                                    <?php echo $item['sort_order'] ?? $item['item_id']; ?>
                                 </td>
                                 <td class="px-3 py-4 border border-gray-300">
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($item['product_name_ko']); ?></div>
