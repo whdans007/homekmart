@@ -25,6 +25,7 @@ $offset = ($current_page - 1) * $items_per_page;
 // 검색 조건
 $search_sku = trim($_GET['search_sku'] ?? '');
 $search_product = trim($_GET['search_product'] ?? '');
+$search_supplier = trim($_GET['search_supplier'] ?? '');
 
 // WHERE 조건 구성
 $where_conditions = ["p.deleted_at IS NULL"];
@@ -55,43 +56,163 @@ if (!empty($search_product)) {
     $param_types .= 's';
 }
 
+if (!empty($search_supplier)) {
+    $where_conditions[] = "s.name LIKE ?";
+    $params[] = '%' . $search_supplier . '%';
+    $param_types .= 's';
+}
+
 $where_clause = implode(' AND ', $where_conditions);
 
-// 각 상품-거래처별 최신 매입정보 조회 (상품정보 포함 + 할인 정보)
-$query = "
-    SELECT
-        pr.sku AS sku,
-        pr.name_ko AS product_name_ko,
-        pr.name_en AS product_name_en,
-        pr.pieces_per_box,
-        s.name AS supplier_name,
-        pi.unit_price,
-        COALESCE(pi.discounted_unit_price, pi.unit_price) as discounted_unit_price,
-        COALESCE(pi.discount_rate, 0) as discount_rate,
-        pi.purchase_type,
-        p.purchase_date
-    FROM purchase_items pi
-    JOIN purchases p ON pi.purchase_id = p.purchase_id
-    JOIN products pr ON pi.product_id = pr.id
-    JOIN suppliers s ON p.supplier_id = s.id
-    WHERE p.deleted_at IS NULL
-";
+// Step 1: 검색 조건에 맞는 상품 ID 목록 구하기
+$product_ids = [];
+if (!empty($search_sku) || !empty($search_product) || !empty($search_supplier)) {
+    $search_where_conditions = ["p.deleted_at IS NULL"];
+    $search_params = [];
+    $search_param_types = '';
 
-if (count($where_conditions) > 1) {
-    // 검색 조건이 있는 경우 필터링
-    $additional_conditions = str_replace('p.deleted_at IS NULL', '', $where_clause);
-    $additional_conditions = trim($additional_conditions, ' AND ');
-    if (!empty($additional_conditions)) {
-        $query .= " AND " . $additional_conditions;
+    // 점포 필터링 (super_admin이 아닌 경우 자신의 점포만 조회)
+    if ($_SESSION['role'] !== 'super_admin') {
+        if (!empty($current_store_id)) {
+            $search_where_conditions[] = "p.store_id = ?";
+            $search_params[] = $current_store_id;
+            $search_param_types .= 'i';
+        } else {
+            $search_where_conditions[] = "1 = 0";
+        }
+    }
+
+    if (!empty($search_sku)) {
+        $search_where_conditions[] = "pr.sku LIKE ?";
+        $search_params[] = '%' . $search_sku . '%';
+        $search_param_types .= 's';
+    }
+
+    if (!empty($search_product)) {
+        $search_where_conditions[] = "pr.name_ko LIKE ?";
+        $search_params[] = '%' . $search_product . '%';
+        $search_param_types .= 's';
+    }
+
+    if (!empty($search_supplier)) {
+        $search_where_conditions[] = "s.name LIKE ?";
+        $search_params[] = '%' . $search_supplier . '%';
+        $search_param_types .= 's';
+    }
+
+    $search_where_clause = implode(' AND ', $search_where_conditions);
+
+    // 검색 조건에 맞는 상품들의 고유 ID 구하기
+    $search_query = "
+        SELECT DISTINCT pr.id
+        FROM purchase_items pi
+        JOIN purchases p ON pi.purchase_id = p.purchase_id
+        JOIN products pr ON pi.product_id = pr.id
+        JOIN suppliers s ON p.supplier_id = s.id
+        WHERE " . $search_where_clause;
+
+    $search_stmt = $conn->prepare($search_query);
+    if (!empty($search_params)) {
+        $search_stmt->bind_param($search_param_types, ...$search_params);
+    }
+    $search_stmt->execute();
+    $search_result = $search_stmt->get_result();
+
+    while ($row = $search_result->fetch_assoc()) {
+        $product_ids[] = $row['id'];
+    }
+    $search_stmt->close();
+}
+
+// Step 2: 검색된 상품들의 모든 업체 매입정보 조회
+if (!empty($product_ids)) {
+    // 검색 조건이 있는 경우: 검색된 상품의 모든 업체 매입 내역
+    $placeholders = implode(',', array_fill(0, count($product_ids), '?'));
+
+    $final_where_conditions = ["p.deleted_at IS NULL", "pr.id IN ($placeholders)"];
+    $final_params = $product_ids;
+    $final_param_types = str_repeat('i', count($product_ids));
+
+    // 점포 필터링 (super_admin이 아닌 경우 자신의 점포만 조회)
+    if ($_SESSION['role'] !== 'super_admin') {
+        if (!empty($current_store_id)) {
+            $final_where_conditions[] = "p.store_id = ?";
+            $final_params[] = $current_store_id;
+            $final_param_types .= 'i';
+        } else {
+            $final_where_conditions[] = "1 = 0";
+        }
+    }
+
+    $final_where_clause = implode(' AND ', $final_where_conditions);
+
+    $query = "
+        SELECT
+            pr.sku AS sku,
+            pr.name_ko AS product_name_ko,
+            pr.name_en AS product_name_en,
+            pr.pieces_per_box,
+            s.name AS supplier_name,
+            pi.unit_price,
+            COALESCE(pi.discounted_unit_price, pi.unit_price) as discounted_unit_price,
+            COALESCE(pi.discount_rate, 0) as discount_rate,
+            pi.purchase_type,
+            p.purchase_date
+        FROM purchase_items pi
+        JOIN purchases p ON pi.purchase_id = p.purchase_id
+        JOIN products pr ON pi.product_id = pr.id
+        JOIN suppliers s ON p.supplier_id = s.id
+        WHERE " . $final_where_clause . "
+        ORDER BY p.purchase_date DESC, pr.sku";
+
+    $stmt = $conn->prepare($query);
+    if (!empty($final_params)) {
+        $stmt->bind_param($final_param_types, ...$final_params);
+    }
+} else {
+    // 검색 조건이 없는 경우: 기존 로직 유지
+    $final_where_conditions = ["p.deleted_at IS NULL"];
+    $final_params = [];
+    $final_param_types = '';
+
+    // 점포 필터링 (super_admin이 아닌 경우 자신의 점포만 조회)
+    if ($_SESSION['role'] !== 'super_admin') {
+        if (!empty($current_store_id)) {
+            $final_where_conditions[] = "p.store_id = ?";
+            $final_params[] = $current_store_id;
+            $final_param_types .= 'i';
+        } else {
+            $final_where_conditions[] = "1 = 0";
+        }
+    }
+
+    $final_where_clause = implode(' AND ', $final_where_conditions);
+
+    $query = "
+        SELECT
+            pr.sku AS sku,
+            pr.name_ko AS product_name_ko,
+            pr.name_en AS product_name_en,
+            pr.pieces_per_box,
+            s.name AS supplier_name,
+            pi.unit_price,
+            COALESCE(pi.discounted_unit_price, pi.unit_price) as discounted_unit_price,
+            COALESCE(pi.discount_rate, 0) as discount_rate,
+            pi.purchase_type,
+            p.purchase_date
+        FROM purchase_items pi
+        JOIN purchases p ON pi.purchase_id = p.purchase_id
+        JOIN products pr ON pi.product_id = pr.id
+        JOIN suppliers s ON p.supplier_id = s.id
+        WHERE " . $final_where_clause . "
+        ORDER BY p.purchase_date DESC, pr.sku";
+
+    $stmt = $conn->prepare($query);
+    if (!empty($final_params)) {
+        $stmt->bind_param($final_param_types, ...$final_params);
     }
 }
 
-$query .= " ORDER BY p.purchase_date DESC, pr.sku";
-
-$stmt = $conn->prepare($query);
-if (!empty($params)) {
-    $stmt->bind_param($param_types, ...$params);
-}
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -197,6 +318,15 @@ $conn->close();
                                class="w-48 h-12 px-4 text-base border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200">
                     </div>
 
+                    <!-- 업체명 입력 -->
+                    <div class="flex items-center gap-3">
+                        <label for="search_supplier" class="text-base font-medium text-gray-700 whitespace-nowrap">업체:</label>
+                        <input type="text" name="search_supplier" id="search_supplier"
+                               value="<?php echo htmlspecialchars($search_supplier); ?>"
+                               placeholder="업체명 입력"
+                               class="w-48 h-12 px-4 text-base border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200">
+                    </div>
+
                     <!-- 버튼 그룹 -->
                     <div class="flex items-center gap-3 ml-auto">
                         <button type="submit" class="h-12 bg-blue-600 text-white px-6 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200 flex items-center font-medium text-base">
@@ -214,7 +344,7 @@ $conn->close();
         <div class="mb-4">
             <p class="text-sm text-gray-700">
                 총 <span class="font-semibold"><?php echo $total_products; ?></span>개 상품
-                <?php if (!empty($search_sku) || !empty($search_product)): ?>
+                <?php if (!empty($search_sku) || !empty($search_product) || !empty($search_supplier)): ?>
                     <span class="text-blue-600">(검색 결과)</span>
                 <?php endif; ?>
             </p>
@@ -384,7 +514,7 @@ $conn->close();
 
                     // 이전 그룹이 있으면 이전 버튼 표시
                     if ($group_start > 1): ?>
-                        <a href="?page=<?php echo $group_start - 1; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?>"
+                        <a href="?page=<?php echo $group_start - 1; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?><?php echo !empty($search_supplier) ? '&search_supplier=' . urlencode($search_supplier) : ''; ?>"
                            class="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                             <i class="fas fa-chevron-left mr-2"></i>이전
                         </a>
@@ -394,7 +524,7 @@ $conn->close();
                     // 현재 그룹의 페이지들 표시 (1-10, 11-20, ...)
                     for ($i = $group_start; $i <= $group_end; $i++):
                     ?>
-                        <a href="?page=<?php echo $i; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?>"
+                        <a href="?page=<?php echo $i; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?><?php echo !empty($search_supplier) ? '&search_supplier=' . urlencode($search_supplier) : ''; ?>"
                            class="<?php echo $i == $current_page ? 'bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'; ?>
                                   relative inline-flex items-center px-4 py-2 border text-sm font-medium
                                   <?php echo ($i == $group_start && $group_start == 1) ? 'rounded-l-md' : ''; ?>
@@ -406,7 +536,7 @@ $conn->close();
                     <?php
                     // 다음 그룹이 있으면 다음 버튼 표시
                     if ($group_end < $total_pages): ?>
-                        <a href="?page=<?php echo $group_end + 1; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?>"
+                        <a href="?page=<?php echo $group_end + 1; ?><?php echo !empty($search_sku) ? '&search_sku=' . urlencode($search_sku) : ''; ?><?php echo !empty($search_product) ? '&search_product=' . urlencode($search_product) : ''; ?><?php echo !empty($search_supplier) ? '&search_supplier=' . urlencode($search_supplier) : ''; ?>"
                            class="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                             다음<i class="fas fa-chevron-right ml-2"></i>
                         </a>
