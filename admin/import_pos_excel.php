@@ -63,7 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_data']) && isset
                 if (empty($sku)) $validation_errors[] = "SKU 없음";
                 if (empty($name_en)) $validation_errors[] = "상품명 없음";
                 if ($cost_price < 0) $validation_errors[] = "원가가 음수";
-                if ($selling_price <= 0) $validation_errors[] = "판매가 없음 또는 0원";
+                if ($selling_price < 0) $validation_errors[] = "판매가가 음수";
+                // 원가, 판매가 없으면 0으로 처리 (검증 오류 아님)
 
                 if (!empty($validation_errors)) {
                     $error_count++;
