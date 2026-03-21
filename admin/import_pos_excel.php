@@ -176,6 +176,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
 
                 // 파일 형식별 리더 생성
                 if ($file_extension === 'xlsx') {
+                    // XML 엔티티 오류 방지
+                    $libxml_disable_entity_loader = libxml_disable_entity_loader(true);
+
                     $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
                     try {
                         if (method_exists($reader, 'setReadDataOnly')) {
@@ -187,10 +190,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
                     } catch (Exception $e) {
                         error_log("XLSX reader configuration warning: " . $e->getMessage());
                     }
+
+                    libxml_disable_entity_loader($libxml_disable_entity_loader);
                 } elseif ($file_extension === 'csv') {
                     $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
                 } else {
                     try {
+                        // XML 엔티티 오류 방지
+                        $libxml_disable_entity_loader = libxml_disable_entity_loader(true);
+
                         $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($uploaded_file['tmp_name']);
                         if ($reader instanceof \PhpOffice\PhpSpreadsheet\Reader\Xlsx) {
                             try {
@@ -204,6 +212,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
                                 error_log("XLS reader configuration warning: " . $e->getMessage());
                             }
                         }
+
+                        libxml_disable_entity_loader($libxml_disable_entity_loader);
                     } catch (Exception $e) {
                         throw new Exception("XLS 파일 형식을 읽을 수 없습니다. 파일을 XLSX 형식으로 저장하여 다시 시도해주세요. 오류: " . $e->getMessage());
                     }
