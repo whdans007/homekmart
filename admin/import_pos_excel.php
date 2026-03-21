@@ -66,7 +66,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_data']) && isset
 
                 if (!empty($validation_errors)) {
                     $error_count++;
-                    $processed_items[] = "행 " . ($index + 2) . ": 필수 데이터 누락 (" . implode(", ", $validation_errors) . ")";
+                    // 처음 5개 행의 오류는 자세히 기록
+                    if ($error_count <= 5) {
+                        $processed_items[] = "행 " . ($index + 2) . ": 필수 데이터 누락 (" . implode(", ", $validation_errors) . ")";
+                        $processed_items[] = "   → 읽혀진 값: SKU='$sku', 상품명='$name_en', 원가=$cost_price, 판매가=$selling_price";
+                    }
                     continue;
                 }
 
@@ -139,7 +143,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_data']) && isset
                 }
             } else {
                 $conn->rollback();
-                $save_result = "❌ 모든 데이터 저장에 실패했습니다. (실패: {$error_count}개)";
+                $save_result = "❌ 모든 데이터 저장에 실패했습니다. (실패: {$error_count}개)\n\n";
+                $save_result .= "⚠️ 원인 확인:\n";
+                $save_result .= "• A열(SKU): 데이터가 있는지 확인\n";
+                $save_result .= "• C열(상품명): 영문명이 있는지 확인\n";
+                $save_result .= "• E열(판매가): 0이 아닌 숫자인지 확인\n";
+                $save_result .= "• J열(원가): 음수가 아닌지 확인\n\n";
+                $save_result .= "아래 처리 내역에서 실패 이유를 확인하세요:";
             }
 
             if (!empty($processed_items)) {
