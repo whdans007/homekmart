@@ -52,10 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_data']) && isset
             $default_category_stmt->close();
 
             foreach ($excel_data_json as $index => $row) {
-                $sku = trim($row[0] ?? '');
-                $name_en = trim($row[1] ?? '');
-                $selling_price = floatval($row[2] ?? 0);
-                $cost_price = floatval($row[3] ?? 0);
+                // 연관 배열로 접근 (키 이름 사용)
+                $sku = trim($row['sku'] ?? '');
+                $name_en = trim($row['name_en'] ?? '');
+                $selling_price = floatval($row['selling_price'] ?? 0);
+                $cost_price = floatval($row['cost_price'] ?? 0);
 
                 // 데이터 검증
                 $validation_errors = [];
