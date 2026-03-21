@@ -284,8 +284,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
 
                 // 실제 데이터 읽기 - ANSI POS 형식 (A, C, E, J 컬럼)
                 $excel_data = [];
+                $raw_data = []; // 원본 데이터 (모든 컬럼) - 디버깅용
+
                 for ($row = 2; $row <= $actualMaxRow; $row++) {
                     try {
+                        // 모든 컬럼 읽기 (디버깅용)
+                        $raw_row = [];
+                        for ($col = 0; $col < 20; $col++) {
+                            $colLetter = $columnLetters[$col];
+                            try {
+                                $cellValue = $worksheet->getCell($colLetter . $row)->getValue() ?? '';
+                                $raw_row[$colLetter] = trim((string)$cellValue);
+                            } catch (Exception $e) {
+                                $raw_row[$colLetter] = '';
+                            }
+                        }
+
+                        // 처음 20행의 원본 데이터 저장
+                        if ($row <= 21) {
+                            $raw_data[] = $raw_row;
+                        }
+
+                        // 특정 컬럼에서 데이터 추출
                         $sku = trim($worksheet->getCell('A' . $row)->getValue() ?? '');
                         $name_en = trim($worksheet->getCell('C' . $row)->getValue() ?? '');
                         $selling_price = floatval($worksheet->getCell('E' . $row)->getValue() ?? 0);
@@ -313,7 +333,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
                     // 미리보기 준비 (처음 10개만)
                     $preview_data = array_slice($excel_data, 0, 10);
                 } else {
-                    $message = "⚠️ 유효한 데이터를 찾을 수 없습니다. A열(SKU)에 데이터가 있는지 확인해주세요.";
+                    $message = "⚠️ 유효한 데이터를 찾을 수 없습니다. 아래 '원본 데이터' 섹션에서 엑셀 파일의 구조를 확인하세요.";
                 }
 
             } catch (Exception $e) {
@@ -401,6 +421,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
         </div>
     </form>
 </div>
+
+<!-- 원본 데이터 미리보기 (디버깅용) -->
+<?php if (!empty($raw_data)): ?>
+<div class="bg-white shadow rounded-lg overflow-hidden mb-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-medium text-gray-900">
+            <i class="fas fa-bug mr-2"></i>📋 원본 데이터 구조 확인 (모든 컬럼)
+        </h2>
+        <p class="mt-1 text-sm text-gray-500">
+            엑셀 파일의 실제 데이터 위치를 확인하세요. 어느 컬럼에 데이터가 있는지 파악하는 데 도움됩니다.
+        </p>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-xs">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-3 py-2 text-left font-medium text-gray-500">행</th>
+                    <?php for ($i = 0; $i < 20; $i++): ?>
+                    <th class="px-2 py-2 text-left font-medium text-gray-500 bg-<?php echo ($i == 0 || $i == 2 || $i == 4 || $i == 9) ? 'yellow-50' : 'gray-50'; ?>">
+                        <?php echo $columnLetters[$i]; ?>
+                    </th>
+                    <?php endfor; ?>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                <?php foreach (array_slice($raw_data, 0, 10) as $idx => $row): ?>
+                <tr class="<?php echo ($idx % 2 == 0) ? 'bg-white' : 'bg-gray-50'; ?>">
+                    <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo ($idx + 2); ?></td>
+                    <?php for ($i = 0; $i < 20; $i++): ?>
+                    <td class="px-2 py-2 whitespace-nowrap text-xs <?php echo ($i == 0 || $i == 2 || $i == 4 || $i == 9) ? 'bg-yellow-100 font-medium' : ''; ?>">
+                        <?php echo htmlspecialchars($row[$columnLetters[$i]] ?? ''); ?>
+                    </td>
+                    <?php endfor; ?>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="px-6 py-3 bg-yellow-50 border-t border-yellow-200">
+        <p class="text-xs text-yellow-800">
+            <strong>💡 팁:</strong> 노란색 컬럼(A, C, E, J)에 데이터가 없으면 실패합니다.<br>
+            만약 데이터가 다른 컬럼에 있다면, 엑셀 파일을 다시 저장하고 컬럼을 맞춰주세요.
+        </p>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- 미리보기 테이블 -->
 <?php if (!empty($preview_data)): ?>
