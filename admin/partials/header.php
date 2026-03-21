@@ -36,6 +36,12 @@ if (!empty($_SESSION['user_id'])) {
         error_log("Store info error: " . $e->getMessage());
     }
 }
+
+// 물류센터 지점 소속 여부 (role이 super_admin/admin이면 제한 없음)
+$is_logistics_user = false;
+if (!in_array($_SESSION['role'] ?? '', ['super_admin', 'admin'])) {
+    $is_logistics_user = is_logistics_department();
+}
 ?>
 <!DOCTYPE html>
 <html lang="ko">
@@ -61,7 +67,7 @@ if (!empty($_SESSION['user_id'])) {
 <body class="bg-gray-50 min-h-screen">
     <div class="flex h-screen bg-gray-50">
         <!-- Card-based Menu -->
-        <div class="hidden md:flex md:flex-shrink-0">
+        <div class="hidden md:flex md:flex-shrink-0 transition-all duration-300" id="desktop-sidebar">
             <div class="flex flex-col w-80">
                 <div class="flex flex-col flex-grow pt-5 pb-4 overflow-y-auto bg-white border-r border-gray-200">
                     <div class="flex items-center flex-shrink-0 px-4 mb-6">
@@ -71,6 +77,7 @@ if (!empty($_SESSION['user_id'])) {
                     </div>
                     
                     <div class="flex-grow px-4 space-y-4">
+                        <?php if (!$is_logistics_user): ?>
                         <!-- 기본 메뉴 카드 -->
                         <?php if (has_permission('admin_access') || has_permission('shop_access') || has_permission('user_management') || has_permission('store_management')): ?>
                         <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-2 border border-gray-200 shadow-sm">
@@ -108,6 +115,40 @@ if (!empty($_SESSION['user_id'])) {
                                     모바일 상품명 수정
                                 </a>
                                 <?php endif; ?>
+
+                                <?php if (has_permission('product_management') || has_permission('shop_access')): ?>
+                                <a href="store_order_lists.php" class="<?php echo in_array($current_page, ['store_order_lists.php', 'store_order_list_edit.php']) ? 'bg-gray-200 text-gray-900' : 'text-gray-700 hover:bg-gray-200 hover:text-gray-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-clipboard-list mr-2 text-gray-500 group-hover:text-gray-600 text-xs"></i>
+                                    점포세팅 주문관리
+                                </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                        <?php endif; ?>
+
+                        <!-- 물류 관리 카드 (청록색) -->
+                        <?php if ($is_logistics_user || has_permission('logistics_purchase_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                        <div class="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-2 border border-teal-200 shadow-sm">
+                            <div class="flex items-center mb-3">
+                                <div class="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-truck-loading text-white text-sm"></i>
+                                </div>
+                                <h3 class="text-sm font-semibold text-teal-800">물류 관리</h3>
+                            </div>
+                            <div class="space-y-1">
+                                <a href="logistics_purchase_management.php" class="<?php echo ($current_page == 'logistics_purchase_management.php') ? 'bg-teal-200 text-teal-900' : 'text-teal-700 hover:bg-teal-200 hover:text-teal-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-box-open mr-2 text-teal-500 group-hover:text-teal-600 text-xs"></i>
+                                    물류 매입 관리
+                                </a>
+                                <a href="logistics_outbound.php" class="<?php echo in_array($current_page, ['logistics_outbound.php', 'add_logistics_outbound.php', 'edit_logistics_outbound.php']) ? 'bg-teal-200 text-teal-900' : 'text-teal-700 hover:bg-teal-200 hover:text-teal-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-truck mr-2 text-teal-500 group-hover:text-teal-600 text-xs"></i>
+                                    출고 관리
+                                </a>
+                                <a href="logistics_inventory.php" class="<?php echo ($current_page == 'logistics_inventory.php') ? 'bg-teal-200 text-teal-900' : 'text-teal-700 hover:bg-teal-200 hover:text-teal-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-warehouse mr-2 text-teal-500 group-hover:text-teal-600 text-xs"></i>
+                                    재고 현황
+                                </a>
                             </div>
                         </div>
                         <?php endif; ?>
@@ -241,6 +282,11 @@ if (!empty($_SESSION['user_id'])) {
                                     <i class="fas fa-star mr-2 text-blue-500 group-hover:text-blue-600 text-xs"></i>
                                     <?php echo t('navigation.new_products_management'); ?>
                                 </a>
+
+                                <a href="import_pos_excel.php" class="<?php echo ($current_page == 'import_pos_excel.php') ? 'bg-blue-200 text-blue-900' : 'text-blue-700 hover:bg-blue-200 hover:text-blue-900'; ?> group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200">
+                                    <i class="fas fa-file-excel mr-2 text-blue-500 group-hover:text-blue-600 text-xs"></i>
+                                    POS 엑셀 임포트
+                                </a>
                             </div>
                         </div>
                         <?php endif; ?>
@@ -317,10 +363,15 @@ if (!empty($_SESSION['user_id'])) {
             <div class="relative z-10 flex-shrink-0 flex h-16 bg-white shadow">
                 <div class="flex-1 px-4 flex justify-between">
                     <div class="flex-1 flex items-center">
+                        <!-- Unified menu toggle -->
+                        <button id="unified-menu-toggle" class="mr-3 md:mr-4 inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 transition-colors duration-200">
+                            <span class="sr-only">Toggle menu</span>
+                            <i class="fas fa-bars text-xl"></i>
+                        </button>
+                        
                         <!-- Home button for mobile -->
-                        <a href="index.php" class="md:hidden inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
-                            <i class="fas fa-home mr-2"></i>
-                            <?php echo t('common.home'); ?>
+                        <a href="index.php" class="md:hidden inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-primary-600 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+                            <i class="fas fa-home"></i>
                         </a>
                     </div>
                     <div class="ml-4 flex items-center md:ml-6">
@@ -365,6 +416,7 @@ if (!empty($_SESSION['user_id'])) {
             <!-- Mobile menu -->
             <div class="md:hidden hidden" id="mobile-menu">
                 <div class="px-3 pt-3 pb-4 space-y-3 bg-white border-b border-gray-200 max-h-96 overflow-y-auto">
+                    <?php if (!$is_logistics_user): ?>
                     <!-- 모바일 기본 메뉴 카드 -->
                     <?php if (has_permission('admin_access') || has_permission('shop_access') || has_permission('user_management') || has_permission('store_management')): ?>
                     <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-1.5 border border-gray-200">
@@ -398,6 +450,30 @@ if (!empty($_SESSION['user_id'])) {
                                 <i class="fas fa-mobile-alt mr-2 text-xs"></i>모바일 상품명 수정
                             </a>
                             <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <?php endif; ?>
+
+                    <!-- 모바일 물류 관리 카드 (청록색) -->
+                    <?php if ($is_logistics_user || has_permission('logistics_purchase_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                    <div class="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-1.5 border border-teal-200">
+                        <div class="flex items-center mb-2">
+                            <div class="w-6 h-6 bg-teal-600 rounded flex items-center justify-center mr-2">
+                                <i class="fas fa-truck-loading text-white text-xs"></i>
+                            </div>
+                            <h4 class="text-xs font-semibold text-teal-800">물류 관리</h4>
+                        </div>
+                        <div class="space-y-1">
+                            <a href="logistics_purchase_management.php" class="<?php echo ($current_page == 'logistics_purchase_management.php') ? 'bg-teal-200 text-teal-900' : 'text-teal-700 hover:bg-teal-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-box-open mr-2 text-xs"></i>물류 매입 관리
+                            </a>
+                            <a href="logistics_outbound.php" class="<?php echo in_array($current_page, ['logistics_outbound.php', 'add_logistics_outbound.php', 'edit_logistics_outbound.php']) ? 'bg-teal-200 text-teal-900' : 'text-teal-700 hover:bg-teal-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-truck mr-2 text-xs"></i>출고 관리
+                            </a>
+                            <a href="logistics_inventory.php" class="<?php echo ($current_page == 'logistics_inventory.php') ? 'bg-teal-200 text-teal-900' : 'text-teal-700 hover:bg-teal-200'; ?> block px-2 py-1 rounded text-sm">
+                                <i class="fas fa-warehouse mr-2 text-xs"></i>재고 현황
+                            </a>
                         </div>
                     </div>
                     <?php endif; ?>
@@ -626,6 +702,46 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Mobile menu toggle removed
+    // Unified menu toggle logic
+    const unifiedMenuToggle = document.getElementById('unified-menu-toggle');
+    const desktopSidebar = document.getElementById('desktop-sidebar');
+    const mobileMenu = document.getElementById('mobile-menu');
+    
+    // Init desktop sidebar from local storage
+    if (unifiedMenuToggle && desktopSidebar) {
+        const sidebarHidden = localStorage.getItem('sidebarHidden') === 'true';
+        if (sidebarHidden) {
+            desktopSidebar.classList.remove('md:flex');
+            desktopSidebar.classList.add('md:hidden');
+        }
+    }
+
+    if (unifiedMenuToggle) {
+        unifiedMenuToggle.addEventListener('click', function() {
+            if (window.innerWidth >= 768) {
+                // Desktop Sidebar Toggle
+                if (desktopSidebar) {
+                    if (desktopSidebar.classList.contains('md:hidden')) {
+                        desktopSidebar.classList.remove('md:hidden');
+                        desktopSidebar.classList.add('md:flex');
+                        localStorage.setItem('sidebarHidden', 'false');
+                    } else {
+                        desktopSidebar.classList.remove('md:flex');
+                        desktopSidebar.classList.add('md:hidden');
+                        localStorage.setItem('sidebarHidden', 'true');
+                    }
+                }
+            } else {
+                // Mobile Menu Toggle
+                if (mobileMenu) {
+                    if (mobileMenu.classList.contains('hidden')) {
+                        mobileMenu.classList.remove('hidden');
+                    } else {
+                        mobileMenu.classList.add('hidden');
+                    }
+                }
+            }
+        });
+    }
 });
 </script>
