@@ -3,6 +3,9 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+// 대용량 엑셀 파일 처리를 위해 메모리 제한 증가
+ini_set('memory_limit', '512M');
+
 $page_title = "ANSI POS 엑셀 임포트 (KIMS MALL)";
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
