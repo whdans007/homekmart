@@ -149,6 +149,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <title>주문하기 - <?php echo htmlspecialchars($current_store['name']); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2783446549667436"
+     crossorigin="anonymous"></script>
     <style>
         .store-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

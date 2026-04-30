@@ -20,13 +20,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $error_message = t('forms.required_field');
     } else {
         try {
-            $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-            $pdo = new PDO($dsn, DB_USER, DB_PASS);
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $conn = get_db_connection();
 
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
-            $stmt->execute([$username]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            $stmt = $conn->prepare("SELECT id, username, full_name, password, role FROM users WHERE username = ?");
+            $stmt->bind_param("s", $username);
+            $stmt->execute();
+            $stmt->bind_result($uid, $uname, $ufull_name, $upassword, $urole);
+            $stmt->fetch();
+            $stmt->close();
+
+            $user = $uid ? [
+                'id'        => $uid,
+                'username'  => $uname,
+                'full_name' => $ufull_name,
+                'password'  => $upassword,
+                'role'      => $urole,
+            ] : null;
 
             // 사용자가 존재하고 비밀번호가 일치하는지 확인합니다.
             if ($user && password_verify($password, $user['password'])) {
@@ -42,21 +51,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $token = bin2hex(random_bytes(32));
                     $expiry = date('Y-m-d H:i:s', time() + (86400 * 30)); // 30일 후 만료
 
-                    $update_stmt = $pdo->prepare("UPDATE users SET remember_token = ?, remember_token_expiry = ? WHERE id = ?");
-                    $update_stmt->execute([password_hash($token, PASSWORD_DEFAULT), $expiry, $user['id']]);
+                    $update_stmt = $conn->prepare("UPDATE users SET remember_token = ?, remember_token_expiry = ? WHERE id = ?");
+                    $hashed_token = password_hash($token, PASSWORD_DEFAULT);
+                    $update_stmt->bind_param("ssi", $hashed_token, $expiry, $user['id']);
+                    $update_stmt->execute();
+                    $update_stmt->close();
 
                     $cookie_value = base64_encode($user['id'] . ':' . $token);
                     setcookie('remember_me', $cookie_value, time() + (86400 * 30), '/', '', isset($_SERVER['HTTPS']), true); // HttpOnly
                 }
 
+                $conn->close();
                 header("Location: index.php");
                 exit();
             } else {
                 $error_message = t('auth.invalid_credentials');
             }
-        } catch (PDOException $e) {
-            $error_message = t('messages.database_error');
-            // 실제 운영 환경에서는 로그를 남겨야 합니다. error_log($e->getMessage());
+            $conn->close();
+        } catch (Exception $e) {
+            error_log("login.php DB error: " . $e->getMessage());
+            // 개발 환경에서는 상세 오류 표시, 운영에서는 일반 메시지
+            if (defined('APP_DEBUG') && APP_DEBUG) {
+                $error_message = '데이터베이스 오류: ' . htmlspecialchars($e->getMessage());
+            } else {
+                $error_message = t('messages.database_error');
+            }
         }
     }
 }
@@ -69,28 +88,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title><?php echo t('company.name'); ?> - <?php echo t('auth.login'); ?></title>
     <link href="css/style.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#eff6ff',
-                            100: '#dbeafe',
-                            200: '#bfdbfe',
-                            300: '#93c5fd',
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            800: '#1e40af',
-                            900: '#1e3a8a',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
 </head>
 <body class="h-full">
     <div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">

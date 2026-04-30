@@ -1,0 +1,62 @@
+{
+  "name": "homekmart-pricing",
+  "version": "1.0.0",
+  "description": "HOME K MART 가격 조회 & 라벨 출력 앱",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:all": "electron-builder --mac --win"
+  },
+  "dependencies": {
+    "electron-store": "^7.0.3",
+    "exceljs": "^4.4.0",
+    "mysql2": "^3.11.5"
+  },
+  "devDependencies": {
+    "electron": "^33.4.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.homekmart.pricing",
+    "productName": "HOME K MART Pricing",
+    "icon": "assets/icon.png",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "assets/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.business",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": [
+        "ko_KR"
+      ],
+      "language": "1042"
+    }
+  }
+}

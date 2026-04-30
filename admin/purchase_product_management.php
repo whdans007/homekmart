@@ -712,8 +712,30 @@ $conn->close();
 
                 <!-- Pricing by Store -->
                 <h4 class="text-lg font-semibold text-gray-800 mb-2"><?php echo t('product.inventory_pricing'); ?></h4>
-                <div id="modal-inventory-wrapper">
+                <div id="modal-inventory-wrapper" class="mb-6">
                     <!-- JS will populate this -->
+                </div>
+
+                <!-- Lot Inventory Management -->
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="text-lg font-semibold text-gray-800">유통기한별 재고 (Lot) 관리</h4>
+                    <button type="button" id="btn-add-lot" class="text-xs px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100">
+                        <i class="fas fa-plus mr-1"></i>새 로트 추가
+                    </button>
+                </div>
+                <div id="modal-lot-wrapper" class="mb-6 overflow-x-auto">
+                    <table class="w-full text-sm text-center text-gray-600 border">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 font-semibold">유통기한 (년-월-일)</th>
+                                <th class="px-4 py-2 font-semibold text-right">수량</th>
+                                <th class="px-4 py-2 font-semibold">동작</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ppm-lot-inventory-tbody">
+                            <!-- JS will populate Lots here -->
+                        </tbody>
+                    </table>
                 </div>
 
                 <!-- Purchase History Section -->
@@ -909,6 +931,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 현재 점포 정보
     const currentStoreId = <?php echo json_encode($current_store_id); ?>;
     const currentStoreName = <?php echo json_encode($current_store_name); ?>;
+    window.ppmStoreId = currentStoreId; // Lot 관리 함수에서 사용
     
     const modal = document.getElementById('product-details-modal');
     const closeModalBtn = document.getElementById('close-modal-btn');
@@ -1442,6 +1465,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     // Load purchase history
                     loadPurchaseHistory(productId);
+                    
+                    // Load lot inventory
+                    ppmLoadLotInventory(productId);
 
                     // Show content
                     modalContent.loading.style.display = 'none';
@@ -2979,6 +3005,154 @@ document.addEventListener('DOMContentLoaded', function() {
     initBulkCategoryUpdate();
     initBulkBrandUpdate();
     initRowClickSelection();
+});
+
+// =============================================
+// Lot 재고 관리 함수들 (purchase_product_management용)
+// =============================================
+
+// currentProductId는 상위의 DOMContentLoaded 클로저 내 있는 변수를 사용할 수 없어 별도 전역 사용
+let ppmCurrentProductId = null;
+let ppmCurrentStoreId = null;
+
+function ppmLoadLotInventory(productId) {
+    ppmCurrentProductId = productId;
+    // currentStoreId는 첫 번째 DOMContentLoaded 블록에서 정의됨 (window에 노출 필요)
+    ppmCurrentStoreId = window.ppmStoreId;
+
+    const tbody = document.getElementById('ppm-lot-inventory-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4"><i class="fas fa-spinner fa-spin text-blue-600"></i></td></tr>`;
+
+    fetch(`ajax_get_lot_inventory.php?product_id=${productId}&store_id=${ppmCurrentStoreId}`)
+        .then(res => res.json())
+        .then(result => {
+            if (result.success) {
+                ppmRenderLotInventory(result.data);
+            } else {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-500">${result.error || '로드 실패'}</td></tr>`;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-500">통신 오류가 발생했습니다.</td></tr>`;
+        });
+}
+
+function ppmRenderLotInventory(lots) {
+    const tbody = document.getElementById('ppm-lot-inventory-tbody');
+    tbody.innerHTML = '';
+
+    if (!lots || lots.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-gray-500">등록된 유통기한 로트가 없습니다.</td></tr>`;
+    } else {
+        lots.forEach(lot => ppmAddLotRow(lot.id, lot.expiration_date, lot.quantity));
+    }
+
+    // 저장 버튼 추가 (중복 방지)
+    const wrapper = document.getElementById('modal-lot-wrapper');
+    if (wrapper && !document.getElementById('ppm-btn-save-lots')) {
+        const div = document.createElement('div');
+        div.className = 'flex justify-end mt-2';
+        div.innerHTML = `<button type="button" id="ppm-btn-save-lots" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">로트 재고 변경 저장</button>`;
+        wrapper.appendChild(div);
+        document.getElementById('ppm-btn-save-lots').addEventListener('click', ppmSaveLotInventory);
+    }
+}
+
+function ppmAddLotRow(id = 0, expDate = '', qty = 0) {
+    const tbody = document.getElementById('ppm-lot-inventory-tbody');
+    if (tbody.querySelector('td[colspan="3"]')) tbody.innerHTML = '';
+
+    const tr = document.createElement('tr');
+    tr.className = 'border-b ppm-lot-row';
+    tr.dataset.id = id;
+    tr.innerHTML = `
+        <td class="px-4 py-2">
+            <input type="date" class="ppm-lot-date px-2 py-1 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 w-full" value="${expDate}">
+        </td>
+        <td class="px-4 py-2">
+            <input type="number" class="ppm-lot-qty px-2 py-1 border border-gray-300 rounded focus:ring-blue-500 text-right w-full" value="${qty}">
+        </td>
+        <td class="px-4 py-2 text-center">
+            <button type="button" class="text-red-500 hover:text-red-700 ppm-btn-remove-lot" title="삭제"><i class="fas fa-trash"></i></button>
+        </td>
+    `;
+
+    tr.querySelector('.ppm-btn-remove-lot').addEventListener('click', function() {
+        tr.remove();
+        if (tbody.querySelectorAll('tr').length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-gray-500">등록된 유통기한 로트가 없습니다.</td></tr>`;
+        }
+    });
+
+    tbody.appendChild(tr);
+}
+
+function ppmSaveLotInventory() {
+    if (!ppmCurrentProductId) return;
+
+    const btnSave = document.getElementById('ppm-btn-save-lots');
+    btnSave.disabled = true;
+    btnSave.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> 저장 중...`;
+
+    const rows = document.querySelectorAll('.ppm-lot-row');
+    const lotsData = [];
+    let hasError = false;
+
+    rows.forEach(row => {
+        const date = row.querySelector('.ppm-lot-date').value;
+        const qty = row.querySelector('.ppm-lot-qty').value;
+        if (!date) {
+            hasError = true;
+            row.querySelector('.ppm-lot-date').classList.add('border-red-500');
+        } else {
+            row.querySelector('.ppm-lot-date').classList.remove('border-red-500');
+            lotsData.push({ id: row.dataset.id, expiration_date: date, quantity: qty });
+        }
+    });
+
+    if (hasError) {
+        alert('유통기한 날짜를 입력해주세요.');
+        btnSave.disabled = false;
+        btnSave.textContent = '로트 재고 변경 저장';
+        return;
+    }
+
+    fetch('ajax_update_lot_inventory.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: ppmCurrentProductId, store_id: ppmCurrentStoreId, lots: lotsData })
+    })
+    .then(res => res.json())
+    .then(result => {
+        if (result.success) {
+            alert(result.message || '저장되었습니다.');
+            ppmLoadLotInventory(ppmCurrentProductId);
+        } else {
+            alert(result.error || '저장 실패');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('에러가 발생했습니다.');
+    })
+    .finally(() => {
+        btnSave.disabled = false;
+        btnSave.textContent = '로트 재고 변경 저장';
+    });
+}
+
+// 새 로트 추가 버튼 이벤트 (DOMContentLoaded 이후 버튼이 존재하면 연결)
+document.addEventListener('DOMContentLoaded', function() {
+    const btnAddLot = document.getElementById('btn-add-lot');
+    if (btnAddLot) {
+        btnAddLot.addEventListener('click', function() {
+            const d = new Date();
+            d.setDate(d.getDate() + 30);
+            ppmAddLotRow(0, d.toISOString().split('T')[0], 0);
+        });
+    }
 });
 </script>
 

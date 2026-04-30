@@ -17,19 +17,22 @@ $store_id = null;
 $stores = [];
 $pdo = null;
 
+$conn = null;
 try {
-    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-    $pdo = new PDO($dsn, DB_USER, DB_PASS);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $conn = get_db_connection();
 
     // 지점 목록 가져오기
-    $stores = $pdo->query("SELECT id, name FROM stores ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+    $result = $conn->query("SELECT id, name FROM stores ORDER BY name ASC");
+    while ($row = $result->fetch_assoc()) {
+        $stores[] = $row;
+    }
 
-} catch (PDOException $e) {
-    $errors[] = "데이터베이스에 연결할 수 없어 지점 목록을 불러오지 못했습니다.";
+} catch (Exception $e) {
+    error_log("register.php DB error: " . $e->getMessage());
+    $errors[] = "지점 목록을 불러오지 못했습니다: " . $e->getMessage();
 }
 
-if ($_SERVER["REQUEST_METHOD"] == "POST" && $pdo) {
+if ($_SERVER["REQUEST_METHOD"] == "POST" && $conn) {
     $username = trim($_POST['username'] ?? '');
     $full_name = trim($_POST['full_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -45,27 +48,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $pdo) {
         $errors[] = "비밀번호는 8자 이상의 영문, 숫자를 포함해야 합니다.";
     }
     if ($password !== $password_confirm) $errors[] = "비밀번호가 일치하지 않습니다.";
-    
+
     if (empty($errors)) {
         try {
-            $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
-            $stmt->execute([$username, $email]);
-            if ($stmt->fetch()) {
+            $stmt = $conn->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
+            $stmt->bind_param("ss", $username, $email);
+            $stmt->execute();
+            $stmt->store_result();
+            if ($stmt->num_rows > 0) {
                 $errors[] = "이미 사용 중인 아이디 또는 이메일입니다.";
             } else {
-                $user_count = $pdo->query("SELECT COUNT(id) FROM users")->fetchColumn();
+                $count_result = $conn->query("SELECT COUNT(id) FROM users");
+                $user_count = $count_result->fetch_row()[0];
                 $role = ($user_count == 0) ? 'super_admin' : 'user';
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-                $insert_stmt = $pdo->prepare(
+                $insert_stmt = $conn->prepare(
                     "INSERT INTO users (username, full_name, email, password, store_id, role) VALUES (?, ?, ?, ?, ?, ?)"
                 );
-                $insert_stmt->execute([$username, $full_name, $email, $hashed_password, $store_id, $role]);
+                $insert_stmt->bind_param("ssssis", $username, $full_name, $email, $hashed_password, $store_id, $role);
+                $insert_stmt->execute();
+                $insert_stmt->close();
 
                 $success_message = "회원가입이 완료되었습니다. 3초 후 로그인 페이지로 이동합니다.";
             }
-        } catch (PDOException $e) {
-            $errors[] = "회원가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+            $stmt->close();
+        } catch (Exception $e) {
+            error_log("register.php insert error: " . $e->getMessage());
+            $errors[] = "회원가입 처리 중 오류가 발생했습니다: " . $e->getMessage();
         }
     }
 }
@@ -84,20 +94,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && $pdo) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['"Noto Sans KR"', 'sans-serif'],
-                    },
-                    colors: {
-                        primary: { 50:'#eff6ff', 100:'#dbeafe', 200:'#bfdbfe', 300:'#93c5fd', 400:'#60a5fa', 500:'#3b82f6', 600:'#2563eb', 700:'#1d4ed8', 800:'#1e40af', 900:'#1e3a8a' }
-                    }
-                }
-            }
-        }
-    </script>
     <style>
         .form-group {
             position: relative;

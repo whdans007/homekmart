@@ -374,27 +374,37 @@ th[data-column="actions"] { min-width: 150px !important; }
 
 
 
-    <!-- 모바일 카드 뷰 (임시 비활성화) -->
+    <!-- 모바일 카드 뷰 (비활성화) -->
     <div class="hidden">
-        <?php if (false && $result && $result->num_rows > 0): ?>
+        <?php if ($result && $result->num_rows > 0): ?>
             <?php $result->data_seek(0); // 결과 포인터 리셋 ?>
             <?php $row_number = 1; ?>
             <?php while($row = $result->fetch_assoc()): ?>
-                <div class="mobile-card" data-purchase-id="<?php echo $row['purchase_id']; ?>">
+                <div class="mobile-card cursor-pointer" data-purchase-id="<?php echo $row['purchase_id']; ?>" onclick="window.location.href='edit_purchase.php?id=<?php echo $row['purchase_id']; ?>'" title="클릭하여 상세내역 보기">
                     <div class="flex justify-between items-start mb-3">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">
+                            <h3 class="text-base font-semibold text-gray-900">
                                 #<?php echo htmlspecialchars($row['purchase_id']); ?>
+                                <?php if ($row['is_confirmed']): ?>
+                                    <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <i class="fas fa-check-circle mr-1"></i>확정
+                                    </span>
+                                <?php else: ?>
+                                    <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        <i class="fas fa-clock mr-1"></i>미확정
+                                    </span>
+                                <?php endif; ?>
                             </h3>
                             <p class="text-sm text-gray-600"><?php echo htmlspecialchars($row['supplier_name']); ?></p>
+                            <p class="text-xs text-gray-400 mt-0.5"><?php echo htmlspecialchars($row['store_name'] ?? '미지정'); ?></p>
                         </div>
                         <div class="text-right">
-                            <p class="text-lg font-bold text-primary-600"><?php echo number_format($row['total_amount'], 2); ?>원</p>
+                            <p class="text-base font-bold text-primary-600"><?php echo number_format($row['total_amount'], 2); ?>원</p>
                             <p class="text-xs text-gray-500"><?php echo htmlspecialchars($row['purchase_datetime']); ?></p>
                         </div>
                     </div>
-                    
-                    <div class="grid grid-cols-2 gap-4 mb-3">
+
+                    <div class="grid grid-cols-2 gap-2 mb-3">
                         <div class="mobile-card-row">
                             <span class="mobile-card-label"><?php echo t('purchase.total_items'); ?></span>
                             <span class="mobile-card-value"><?php echo htmlspecialchars($row['total_items']); ?>개</span>
@@ -404,18 +414,20 @@ th[data-column="actions"] { min-width: 150px !important; }
                             <span class="mobile-card-value"><?php echo number_format($row['total_pieces'] ?? 0); ?>개</span>
                         </div>
                     </div>
-                    
-                    <div class="flex justify-end space-x-2 pt-3 border-t border-gray-100">
-                        <a href="edit_purchase.php?id=<?php echo $row['purchase_id']; ?>" 
+
+                    <div class="flex justify-end space-x-2 pt-3 border-t border-gray-100" onclick="event.stopPropagation()">
+                        <a href="edit_purchase.php?id=<?php echo $row['purchase_id']; ?>"
                            class="inline-flex items-center px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100">
                             <i class="fas fa-eye mr-1"></i>
                             <?php echo t('purchase.detail_view'); ?>
                         </a>
-                        <a href="purchase_price_change.php?purchase_id=<?php echo $row['purchase_id']; ?>" 
-                           class="inline-flex items-center px-3 py-2 text-sm font-medium text-green-600 bg-green-50 rounded-md hover:bg-green-100">
+                        <?php if (!$row['is_confirmed']): ?>
+                        <a href="purchase_price_change.php?purchase_id=<?php echo $row['purchase_id']; ?>"
+                           class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
                             <i class="fas fa-edit mr-1"></i>
-                            <?php echo t('purchase.price_change'); ?>
+                            <?php echo t('purchase.price_change_confirm'); ?>
                         </a>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php $row_number++; ?>
@@ -707,7 +719,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (viewportWidth <= 767) {
             // 중요하지 않은 컬럼 자동 숨김
             ['total_items', 'total_pieces', 'supplier'].forEach(col => {
-                if (document.querySelector(`button[data-column="${col}"]`).classList.contains('active')) {
+                const btn = document.querySelector(`button[data-column="${col}"]`);
+                if (btn && btn.classList.contains('active')) {
                     toggleColumn(col, false);
                 }
             });
@@ -716,7 +729,8 @@ document.addEventListener('DOMContentLoaded', function() {
         else if (viewportWidth <= 1023) {
             // 부가적인 컬럼만 숨김
             ['total_items', 'total_pieces'].forEach(col => {
-                if (document.querySelector(`button[data-column="${col}"]`).classList.contains('active')) {
+                const btn = document.querySelector(`button[data-column="${col}"]`);
+                if (btn && btn.classList.contains('active')) {
                     toggleColumn(col, false);
                 }
             });

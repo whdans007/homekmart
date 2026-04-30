@@ -296,7 +296,8 @@ try {
                     </thead>
                     <tbody class="bg-white">
                         <?php foreach ($price_changes as $change): ?>
-                            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="toggleRowSelection(this, event)" data-id="<?php echo $change['id']; ?>">
+                            <?php $change_time = date('Y-m-d H:i', strtotime($change['changed_at'])); ?>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="toggleRowSelection(this, event)" data-id="<?php echo $change['id']; ?>" data-changed-time="<?php echo $change_time; ?>">
                                 <td class="px-3 py-4 text-center" onclick="event.stopPropagation();">
                                     <input type="checkbox" class="row-checkbox rounded border-gray-300 text-primary-600 focus:ring-primary-500" data-id="<?php echo $change['id']; ?>">
                                 </td>
@@ -360,7 +361,7 @@ try {
                                 </td>
                                 <td class="px-3 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($change['changed_by'] ?? 'N/A'); ?></div>
-                                    <div class="text-xs text-gray-500"><?php echo date('Y-m-d H:i', strtotime($change['changed_at'])); ?></div>
+                                    <div class="time-group-selector text-xs text-blue-500 hover:text-blue-700 hover:underline cursor-pointer select-none" data-time="<?php echo $change_time; ?>" onclick="selectByTime(event, '<?php echo $change_time; ?>')" title="클릭하면 같은 시간대 항목 모두 선택"><?php echo $change_time; ?></div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -692,6 +693,43 @@ function toggleRowSelection(row, event) {
     }
     
     updateSelectedCount();
+}
+
+// 같은 시간대 행 전체 선택
+function selectByTime(event, time) {
+    event.stopPropagation();
+
+    const rows = document.querySelectorAll(`tr[data-changed-time="${time}"]`);
+    const rowIds = Array.from(rows).map(r => r.getAttribute('data-id'));
+
+    // 해당 시간대가 이미 모두 선택되어 있으면 해제, 아니면 선택
+    const allSelected = rowIds.every(id => selectedIds.includes(id));
+
+    rows.forEach(row => {
+        const checkbox = row.querySelector('.row-checkbox');
+        const id = row.getAttribute('data-id');
+
+        if (allSelected) {
+            checkbox.checked = false;
+            row.classList.remove('bg-blue-50');
+            selectedIds = selectedIds.filter(s => s !== id);
+        } else {
+            checkbox.checked = true;
+            row.classList.add('bg-blue-50');
+            if (!selectedIds.includes(id)) selectedIds.push(id);
+        }
+    });
+
+    updateSelectedCount();
+
+    // 전체 선택 체크박스 상태 동기화
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    const selectAll = document.getElementById('selectAll');
+    if (selectAll) {
+        selectAll.checked = allCheckboxes.length === checkedBoxes.length && allCheckboxes.length > 0;
+        selectAll.indeterminate = checkedBoxes.length > 0 && checkedBoxes.length < allCheckboxes.length;
+    }
 }
 
 // 바코드 생성 함수

@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../config/db_config.php';
 require_once __DIR__ . '/../lib/session_helper.php';
 require_once __DIR__ . '/../lib/permission_helper.php';
+require_once __DIR__ . '/../lib/inventory_helper.php';
 
 header('Content-Type: application/json');
 
@@ -77,7 +78,7 @@ try {
 
         // 각 매입 상품의 단가를 inventory 테이블의 box_price로 업데이트
         $items_stmt = $conn->prepare("
-            SELECT pi.product_id, pi.unit_price, pi.purchase_type, pr.pieces_per_box
+            SELECT pi.product_id, pi.unit_price, pi.quantity, pi.purchase_type, pi.expiration_date, pr.pieces_per_box
             FROM purchase_items pi
             JOIN products pr ON pi.product_id = pr.id
             WHERE pi.purchase_id = ?
@@ -91,6 +92,19 @@ try {
             $unit_price = $item['unit_price'];
             $purchase_type = $item['purchase_type'];
             $pieces_per_box = $item['pieces_per_box'] ?? 1;
+            $pi_exp = $item['expiration_date'];
+
+            // 상품 유통기한 업데이트 로직 (가장 최근 입고 정보로 갱신)
+            if ($pi_exp) {
+                // 제품의 유통기한 업데이트
+                $exp_update_stmt = $conn->prepare("UPDATE products SET expiration_date = ? WHERE id = ?");
+                $exp_update_stmt->bind_param("si", $pi_exp, $product_id);
+                $exp_update_stmt->execute();
+                $exp_update_stmt->close();
+
+                // (신규) 유통기한별 로트(Lot) 재고 증가
+                add_inventory_by_expiration($conn, $current_store_id, $product_id, $pi_exp, $item['quantity']);
+            }
 
             // 박스단가 계산
             $box_price = $unit_price;

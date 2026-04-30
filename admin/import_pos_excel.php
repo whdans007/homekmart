@@ -6,7 +6,7 @@ error_reporting(E_ALL);
 // 대용량 엑셀 파일 처리를 위해 메모리 제한 증가
 ini_set('memory_limit', '512M');
 
-$page_title = "ANSI POS 엑셀 임포트 (KIMS MALL)";
+$page_title = "POS 마스터 엑셀 임포트";
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 require_once __DIR__ . '/../lib/permission_helper.php';
@@ -14,8 +14,8 @@ require_once __DIR__ . '/../lib/permission_helper.php';
 // 상품관리 권한 체크
 require_permission('product_management', 'login.php');
 
-// KIMS MALL store_id
-$kims_mall_store_id = 6;
+// 현재 로그인한 사용자의 점포 ID 사용 (header.php에서 설정됨)
+$target_store_id = $current_store_id;
 
 $message = '';
 $excel_data = [];
@@ -55,8 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_data']) && isset
                 // 연관 배열로 접근 (키 이름 사용)
                 $sku = trim($row['sku'] ?? '');
                 $name_en = trim($row['name_en'] ?? '');
-                $selling_price = floatval($row['selling_price'] ?? 0);
                 $cost_price = floatval($row['cost_price'] ?? 0);
+                $selling_price = floatval($row['selling_price'] ?? 0);
 
                 // 데이터 검증
                 $validation_errors = [];
@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_data']) && isset
                     }
                     $check_stmt->close();
 
-                    // 2. KIMS MALL 점포 가격 정보 저장/업데이트
+                    // 2. 현재 점포 가격 정보 저장/업데이트
                     if ($product_id) {
                         $inventory_stmt = $conn->prepare("
                             INSERT INTO inventory (product_id, store_id, selling_price, cost_price, quantity)
@@ -117,12 +117,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_data']) && isset
                                 selling_price = VALUES(selling_price),
                                 cost_price = VALUES(cost_price)
                         ");
-                        $inventory_stmt->bind_param("iidd", $product_id, $kims_mall_store_id, $selling_price, $cost_price);
+                        $inventory_stmt->bind_param("iidd", $product_id, $target_store_id, $selling_price, $cost_price);
                         $inventory_stmt->execute();
                         $inventory_stmt->close();
 
                         $updated_prices++;
-                        $processed_items[] = "   → KIMS MALL 가격 저장: 원가 " . number_format($cost_price, 2) . "원, 판매가 " . number_format($selling_price, 2) . "원";
+                        $processed_items[] = "   → 가격 저장: 원가 " . number_format($cost_price, 2) . "원, 판매가 " . number_format($selling_price, 2) . "원";
                     }
 
                     $success_count++;
@@ -147,10 +147,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_data']) && isset
                 $conn->rollback();
                 $save_result = "❌ 모든 데이터 저장에 실패했습니다. (실패: {$error_count}개)\n\n";
                 $save_result .= "⚠️ 원인 확인:\n";
-                $save_result .= "• A열(SKU): 데이터가 있는지 확인\n";
-                $save_result .= "• C열(상품명): 영문명이 있는지 확인\n";
-                $save_result .= "• E열(판매가): 0이 아닌 숫자인지 확인\n";
-                $save_result .= "• J열(원가): 음수가 아닌지 확인\n\n";
+                $save_result .= "• A열(ITEMCODE/SKU): 데이터가 있는지 확인\n";
+                $save_result .= "• B열(ITEMNAME/상품명): 값이 있는지 확인\n";
+                $save_result .= "• C열(UNITPRICE/원가): 음수가 아닌지 확인\n";
+                $save_result .= "• D열(SELLING_PRICE/판매가): 음수가 아닌지 확인\n\n";
                 $save_result .= "아래 처리 내역에서 실패 이유를 확인하세요:";
             }
 
@@ -175,7 +175,121 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_data']) && isset
     exit;
 }
 
-// 엑셀 파일 처리
+// NAS 폴더 임포트 폴더 경로 정의 — PHP가 직접 생성하여 경로 불일치 방지
+$nas_import_dir_raw = dirname(__DIR__) . '/uploads/pos_import';
+if (!is_dir($nas_import_dir_raw)) {
+    mkdir($nas_import_dir_raw, 0777, true);
+}
+$nas_import_dir = rtrim($nas_import_dir_raw, '/') . '/';
+
+// SMB 경로 계산: /volume1/web/ → \\192.168.1.116\web\
+$smb_hint = str_replace('/', '\\', preg_replace('#^/volume\d+/web/#', '\\\\\\\\192.168.1.116\\\\web\\\\', dirname(__DIR__)));
+$smb_import_path = $smb_hint . '\\uploads\\pos_import\\';
+
+// ── NAS 폴더 파일 처리 ─────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nas_file'])) {
+    $nas_file = basename($_POST['nas_file']); // 경로 조작 방지
+    $nas_file_path = $nas_import_dir . $nas_file;
+
+    // 경로 안전 확인
+    $real_path = realpath($nas_file_path);
+
+    if (!$real_path || !file_exists($real_path)) {
+        $message = "❌ 파일을 찾을 수 없습니다: {$nas_file}\n서버 경로: {$nas_file_path}\n폴더 내 파일 목록: " . implode(', ', array_map('basename', glob($nas_import_dir . '*') ?: []));
+    } elseif (!is_readable($real_path)) {
+        // 읽기 권한 없으면 chmod 시도 후 재확인
+        @chmod($real_path, 0644);
+        if (!is_readable($real_path)) {
+            $message = "❌ 파일 읽기 권한이 없습니다. Synology NAS에서 파일 권한을 확인하세요.\n경로: {$real_path}";
+        }
+    }
+
+    if (empty($message)) {
+        $nas_file_path = $real_path; // realpath로 교체
+        $file_extension = strtolower(pathinfo($nas_file_path, PATHINFO_EXTENSION));
+        if (!in_array($file_extension, ['xls', 'xlsx', 'csv'])) {
+            $message = "❌ xlsx, csv, xls 파일만 처리 가능합니다.";
+        } else {
+            try {
+                require_once __DIR__ . '/../vendor/autoload.php';
+
+                // ZipArchive 경로 문제 우회: PHP 임시 폴더로 복사 후 처리
+                $temp_path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'pos_import_' . time() . '.' . $file_extension;
+                if (!copy($nas_file_path, $temp_path)) {
+                    throw new Exception("파일 복사 실패. 원본 경로: {$nas_file_path}");
+                }
+                $process_path = $temp_path;
+                error_log("NAS POS 파일 처리 시작: {$nas_file} → temp: {$temp_path}");
+
+                if ($file_extension === 'xlsx') {
+                    $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
+                    $reader->setReadDataOnly(true);
+                } elseif ($file_extension === 'csv') {
+                    $reader = new \PhpOffice\PhpSpreadsheet\Reader\Csv();
+                } else {
+                    $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($process_path);
+                }
+
+                $spreadsheet = $reader->load($process_path);
+                $worksheet  = $spreadsheet->getActiveSheet();
+                $actualMaxRow = $worksheet->getHighestDataRow();
+
+                $excel_data = [];
+                $raw_data   = [];
+
+                for ($row = 2; $row <= $actualMaxRow; $row++) {
+                    $sku           = trim($worksheet->getCell('A' . $row)->getValue() ?? '');
+                    $name_en       = trim($worksheet->getCell('B' . $row)->getValue() ?? '');
+                    $cost_price    = floatval($worksheet->getCell('C' . $row)->getValue() ?? 0);
+                    $selling_price = floatval($worksheet->getCell('D' . $row)->getValue() ?? 0);
+
+                    if ($row <= 21) {
+                        $raw_row = [];
+                        for ($c = 0; $c < 20; $c++) {
+                            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c + 1);
+                            $raw_row[$col] = trim((string)($worksheet->getCell($col . $row)->getValue() ?? ''));
+                        }
+                        $raw_data[] = $raw_row;
+                    }
+
+                    if (!empty($sku)) {
+                        $excel_data[] = [
+                            'sku'           => $sku,
+                            'name_en'       => $name_en,
+                            'selling_price' => $selling_price,
+                            'cost_price'    => $cost_price,
+                        ];
+                    }
+                }
+
+                if (count($excel_data) > 0) {
+                    $file_size_mb  = round(filesize($nas_file_path) / 1024 / 1024, 1);
+                    $message       = "✅ NAS 파일 분석 완료: {$nas_file} ({$file_size_mb}MB) — " . count($excel_data) . "개 데이터 행";
+                    $preview_data  = array_slice($excel_data, 0, 10);
+                } else {
+                    $message = "⚠️ 유효한 데이터가 없습니다. A열(SKU)을 확인하세요.";
+                }
+            } catch (Exception $e) {
+                $message = "❌ 파일 처리 오류: " . $e->getMessage() . "\n원본 경로: {$nas_file_path}";
+                error_log("NAS 파일 처리 오류: " . $e->getMessage());
+            } finally {
+                // 임시 파일 삭제
+                if (!empty($temp_path) && file_exists($temp_path)) {
+                    @unlink($temp_path);
+                }
+            }
+        }
+    }
+}
+
+// POST 요청인데 $_FILES가 비어있으면 파일 크기 초과로 판단
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['save_data']) && !isset($_POST['nas_file']) && empty($_FILES)) {
+    $content_length = intval($_SERVER['CONTENT_LENGTH'] ?? 0);
+    $post_max = ini_get('post_max_size');
+    $message = "❌ 파일 크기 초과: 서버 허용 용량({$post_max})을 초과했습니다. 아래 'NAS 폴더 방식'을 사용하세요.";
+}
+
+// ── HTTP 업로드 파일 처리 ──────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
     $uploaded_file = $_FILES['excel_file'];
 
@@ -307,11 +421,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
                             $raw_data[] = $raw_row;
                         }
 
-                        // 특정 컬럼에서 데이터 추출
+                        // POS 마스터 파일 컬럼 매핑
+                        // A열: ITEMCODE(SKU), B열: ITEMNAME(상품명), C열: UNITPRICE(원가), D열: SELLING_PRICE(판매가)
                         $sku = trim($worksheet->getCell('A' . $row)->getValue() ?? '');
-                        $name_en = trim($worksheet->getCell('C' . $row)->getValue() ?? '');
-                        $selling_price = floatval($worksheet->getCell('E' . $row)->getValue() ?? 0);
-                        $cost_price = floatval($worksheet->getCell('J' . $row)->getValue() ?? 0);
+                        $name_en = trim($worksheet->getCell('B' . $row)->getValue() ?? '');
+                        $cost_price = floatval($worksheet->getCell('C' . $row)->getValue() ?? 0);
+                        $selling_price = floatval($worksheet->getCell('D' . $row)->getValue() ?? 0);
 
                         // SKU가 있으면 유효한 행으로 간주
                         if (!empty($sku)) {
@@ -366,8 +481,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
         <i class="fas fa-arrow-left mr-2"></i>
         상품관리로 돌아가기
     </a>
-    <h1 class="text-3xl font-bold text-gray-900">ANSI POS 엑셀 임포트</h1>
-    <p class="mt-2 text-gray-600">ANSI POS 시스템의 엑셀 파일을 업로드하여 KIMS MALL 점포의 상품정보와 가격을 저장합니다.</p>
+    <h1 class="text-3xl font-bold text-gray-900">POS 마스터 엑셀 임포트</h1>
+    <p class="mt-2 text-gray-600">POS 마스터 파일을 업로드하여 <strong><?php echo htmlspecialchars($current_store_name); ?></strong> 점포의 상품정보와 가격을 저장합니다.</p>
 </div>
 
 <!-- 메시지 표시 -->
@@ -387,34 +502,138 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
     </div>
 <?php endif; ?>
 
+<!-- ★ NAS 폴더 방식 (대용량 파일 권장) -->
+<div class="bg-blue-50 border border-blue-300 rounded-lg p-6 mb-6">
+    <h2 class="text-lg font-semibold text-blue-900 mb-1">
+        <i class="fas fa-folder-open mr-2"></i>NAS 폴더 직접 처리 <span class="text-sm font-normal text-blue-700">(대용량 파일 권장)</span>
+    </h2>
+    <p class="text-sm text-blue-800 mb-2">
+        파일을 아래 NAS 공유 폴더에 복사한 후 처리하면 파일 크기 제한 없이 임포트할 수 있습니다.
+    </p>
+    <div class="mb-3 bg-yellow-50 border border-yellow-300 rounded p-3 text-sm">
+        <div class="font-bold text-yellow-900 mb-1">Windows 탐색기에서 복사할 경로:</div>
+        <code class="text-yellow-800 text-xs break-all"><?php echo htmlspecialchars($smb_import_path); ?></code>
+        <button onclick="navigator.clipboard.writeText('<?php echo addslashes($smb_import_path); ?>')"
+            class="ml-2 text-xs px-2 py-0.5 bg-yellow-200 rounded hover:bg-yellow-300">복사</button>
+    </div>
+    <div class="text-xs text-gray-500 mb-4 bg-white border border-gray-200 rounded p-2 space-y-0.5">
+        <div>서버 경로: <code><?php echo htmlspecialchars($nas_import_dir); ?></code>
+            <span class="<?php echo is_dir($nas_import_dir) ? 'text-green-600' : 'text-red-600'; ?>">
+                <?php echo is_dir($nas_import_dir) ? '✅ 폴더 존재' : '❌ 폴더 없음'; ?>
+            </span>
+        </div>
+    </div>
+
+    <?php
+    // NAS 폴더 파일 목록
+    $nas_files = [];
+    if (is_dir($nas_import_dir)) {
+        foreach (glob($nas_import_dir . '*.{xlsx,xls,csv}', GLOB_BRACE) as $f) {
+            $nas_files[] = [
+                'name'     => basename($f),
+                'size'     => round(filesize($f) / 1024 / 1024, 1),
+                'modified' => date('Y-m-d H:i', filemtime($f)),
+            ];
+        }
+        usort($nas_files, fn($a, $b) => strcmp($b['modified'], $a['modified']));
+    }
+    ?>
+
+    <?php if (empty($nas_files)): ?>
+        <div class="text-sm text-blue-700 bg-white border border-blue-200 rounded p-3">
+            <i class="fas fa-info-circle mr-1"></i>
+            폴더에 파일이 없습니다. 위 경로에 xlsx 파일을 복사하고 이 페이지를 새로고침하세요.
+        </div>
+    <?php else: ?>
+        <form method="POST" class="space-y-2">
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm bg-white border border-blue-200 rounded">
+                    <thead class="bg-blue-100">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs text-blue-700">선택</th>
+                            <th class="px-4 py-2 text-left text-xs text-blue-700">파일명</th>
+                            <th class="px-4 py-2 text-right text-xs text-blue-700">크기</th>
+                            <th class="px-4 py-2 text-left text-xs text-blue-700">수정일시</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($nas_files as $i => $nf): ?>
+                        <tr class="<?php echo $i % 2 === 0 ? 'bg-white' : 'bg-blue-50'; ?> hover:bg-yellow-50">
+                            <td class="px-4 py-2">
+                                <input type="radio" name="nas_file" value="<?php echo htmlspecialchars($nf['name']); ?>"
+                                    <?php echo $i === 0 ? 'checked' : ''; ?>>
+                            </td>
+                            <td class="px-4 py-2 font-medium text-gray-800"><?php echo htmlspecialchars($nf['name']); ?></td>
+                            <td class="px-4 py-2 text-right text-gray-600"><?php echo $nf['size']; ?> MB</td>
+                            <td class="px-4 py-2 text-gray-500"><?php echo $nf['modified']; ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <button type="submit"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+                <i class="fas fa-cog mr-2"></i>선택한 파일 분석하기
+            </button>
+        </form>
+    <?php endif; ?>
+</div>
+
+<!-- 서버 업로드 설정 안내 -->
+<div class="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-600">
+    <i class="fas fa-server mr-1"></i>
+    <strong>서버 업로드 설정:</strong>
+    파일 최대 크기: <strong><?php echo ini_get('upload_max_filesize'); ?></strong> |
+    POST 최대 크기: <strong><?php echo ini_get('post_max_size'); ?></strong> |
+    메모리: <strong><?php echo ini_get('memory_limit'); ?></strong>
+</div>
+
 <!-- 파일 업로드 폼 -->
 <div class="bg-white shadow rounded-lg p-6 mb-8">
     <h2 class="text-lg font-medium text-gray-900 mb-4">
-        <i class="fas fa-upload mr-2"></i>1단계: ANSI POS 엑셀 파일 업로드
+        <i class="fas fa-upload mr-2"></i>1단계: POS 마스터 파일 업로드
     </h2>
 
-    <form method="POST" enctype="multipart/form-data" class="space-y-4">
+    <form id="uploadForm" method="POST" enctype="multipart/form-data" class="space-y-4">
         <div>
-            <label for="excel_file" class="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
                 파일 선택 (.xlsx, .csv)
             </label>
             <div class="mb-2 text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <i class="fas fa-info-circle mr-1"></i>
-                <strong>엑셀 형식:</strong> A열(SKU) | C열(상품명 영문) | E열(판매가) | J열(원가)
+                <strong>엑셀 형식:</strong> A열(ITEMCODE/SKU) | B열(ITEMNAME/상품명) | C열(UNITPRICE/원가) | D열(SELLING_PRICE/판매가)
             </div>
-            <input
-                type="file"
-                id="excel_file"
-                name="excel_file"
-                accept=".xlsx,.csv,.xls"
-                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                required
-            >
+
+            <!-- 커스텀 파일 선택 영역 -->
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors" id="dropZone">
+                <i class="fas fa-file-excel text-4xl text-gray-400 mb-3"></i>
+                <p class="text-sm text-gray-600 mb-3">파일을 여기에 드래그하거나 아래 버튼을 클릭하세요</p>
+                <label for="excel_file" class="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                    <i class="fas fa-folder-open mr-2"></i>
+                    파일 선택하기
+                </label>
+                <input
+                    type="file"
+                    id="excel_file"
+                    name="excel_file"
+                    accept=".xlsx,.csv,.xls"
+                    class="hidden"
+                >
+                <!-- 선택된 파일 표시 -->
+                <div id="fileSelected" class="hidden mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <i class="fas fa-check-circle text-green-600 mr-2"></i>
+                    <span id="fileName" class="text-sm font-medium text-green-700"></span>
+                    <span id="fileSize" class="text-xs text-green-600 ml-2"></span>
+                </div>
+                <div id="noFileMsg" class="mt-2 text-xs text-gray-500">아직 파일이 선택되지 않았습니다.</div>
+            </div>
         </div>
 
         <div>
             <button
-                type="submit"
+                type="button"
+                id="uploadBtn"
+                onclick="submitUpload()"
                 class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
                 <i class="fas fa-upload mr-2"></i>
@@ -442,7 +661,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
                 <tr>
                     <th class="px-3 py-2 text-left font-medium text-gray-500">행</th>
                     <?php for ($i = 0; $i < 20; $i++): ?>
-                    <th class="px-2 py-2 text-left font-medium text-gray-500 bg-<?php echo ($i == 0 || $i == 2 || $i == 4 || $i == 9) ? 'yellow-50' : 'gray-50'; ?>">
+                    <th class="px-2 py-2 text-left font-medium text-gray-500 bg-<?php echo ($i == 0 || $i == 1 || $i == 2 || $i == 3) ? 'yellow-50' : 'gray-50'; ?>">
                         <?php echo $columnLetters[$i]; ?>
                     </th>
                     <?php endfor; ?>
@@ -453,7 +672,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
                 <tr class="<?php echo ($idx % 2 == 0) ? 'bg-white' : 'bg-gray-50'; ?>">
                     <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo ($idx + 2); ?></td>
                     <?php for ($i = 0; $i < 20; $i++): ?>
-                    <td class="px-2 py-2 whitespace-nowrap text-xs <?php echo ($i == 0 || $i == 2 || $i == 4 || $i == 9) ? 'bg-yellow-100 font-medium' : ''; ?>">
+                    <td class="px-2 py-2 whitespace-nowrap text-xs <?php echo ($i == 0 || $i == 1 || $i == 2 || $i == 3) ? 'bg-yellow-100 font-medium' : ''; ?>">
                         <?php echo htmlspecialchars($row[$columnLetters[$i]] ?? ''); ?>
                     </td>
                     <?php endfor; ?>
@@ -465,8 +684,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
 
     <div class="px-6 py-3 bg-yellow-50 border-t border-yellow-200">
         <p class="text-xs text-yellow-800">
-            <strong>💡 팁:</strong> 노란색 컬럼(A, C, E, J)에 데이터가 없으면 실패합니다.<br>
-            만약 데이터가 다른 컬럼에 있다면, 엑셀 파일을 다시 저장하고 컬럼을 맞춰주세요.
+            <strong>💡 팁:</strong> 노란색 컬럼(A=ITEMCODE, B=ITEMNAME, C=UNITPRICE, D=SELLING_PRICE)에 데이터가 있어야 합니다.<br>
+            A열(SKU)이 비어있는 행은 무시됩니다.
         </p>
     </div>
 </div>
@@ -480,7 +699,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
             <i class="fas fa-table mr-2"></i>2단계: 데이터 미리보기 (처음 10개)
         </h2>
         <p class="mt-1 text-sm text-gray-500">
-            KIMS MALL (킴스몰)에 저장될 상품정보 및 가격
+            <?php echo htmlspecialchars($current_store_name); ?> 점포에 저장될 상품정보 및 가격
         </p>
     </div>
 
@@ -554,7 +773,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
 <!-- 저장 영역 -->
 <div class="bg-green-50 border border-green-200 rounded-lg p-6">
     <h2 class="text-lg font-medium text-green-900 mb-4">
-        <i class="fas fa-database mr-2"></i>3단계: KIMS MALL 가격정보 저장하기
+        <i class="fas fa-database mr-2"></i>3단계: <?php echo htmlspecialchars($current_store_name); ?> 가격정보 저장하기
     </h2>
 
     <div class="mb-4 bg-white border border-gray-300 rounded-lg p-4">
@@ -572,7 +791,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
             <div class="flex items-start">
                 <i class="fas fa-pencil-alt text-blue-600 mr-3 mt-0.5"></i>
                 <div>
-                    <strong>모든 상품:</strong> KIMS MALL(킴스몰) 점포의 inventory 테이블에 가격정보 저장<br>
+                    <strong>모든 상품:</strong> <?php echo htmlspecialchars($current_store_name); ?> 점포의 inventory 테이블에 가격정보 저장<br>
                     <span class="text-xs text-gray-600">(원가, 판매가 저장 또는 업데이트)</span>
                 </div>
             </div>
@@ -587,7 +806,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
             <div>
                 <div class="text-sm text-gray-600">
                     <i class="fas fa-info-circle mr-1"></i>
-                    <strong>저장 대상 점포:</strong> KIMS MALL (킴스몰)
+                    <strong>저장 대상 점포:</strong> <?php echo htmlspecialchars($current_store_name); ?>
                 </div>
                 <div class="text-xs text-gray-500 mt-1">
                     총 <?php echo count($excel_data); ?>개 상품 데이터를 처리합니다.
@@ -613,12 +832,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
     </h3>
     <div class="text-sm text-blue-800 space-y-3">
         <div>
-            <strong>📋 엑셀 파일 형식 (ANSI POS):</strong>
+            <strong>📋 POS 마스터 파일 형식:</strong>
             <ul class="list-disc pl-6 mt-1 space-y-1">
-                <li><strong>A열:</strong> SKU 코드 (예: 10001, ABC123)</li>
-                <li><strong>C열:</strong> 상품명 (영문)</li>
-                <li><strong>E열:</strong> 판매가</li>
-                <li><strong>J열:</strong> 원가</li>
+                <li><strong>A열 (ITEMCODE):</strong> SKU/바코드 코드</li>
+                <li><strong>B열 (ITEMNAME):</strong> 상품명</li>
+                <li><strong>C열 (UNITPRICE):</strong> 원가(매입가)</li>
+                <li><strong>D열 (SELLING_PRICE):</strong> 판매가</li>
                 <li>1행은 헤더로 자동 건너뜀 (2행부터 데이터로 인식)</li>
             </ul>
         </div>
@@ -627,7 +846,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
             <ul class="list-disc pl-6 mt-1 space-y-1">
                 <li><strong>신규 SKU:</strong> products 테이블에 새 상품 생성</li>
                 <li><strong>기존 SKU:</strong> products는 유지, inventory만 가격 업데이트</li>
-                <li><strong>점포:</strong> KIMS MALL (킴스몰)에만 저장</li>
+                <li><strong>점포:</strong> <?php echo htmlspecialchars($current_store_name); ?> 점포에만 저장</li>
                 <li>모든 데이터를 한번에 처리 (개수 제한 없음)</li>
             </ul>
         </div>
@@ -635,7 +854,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
             <strong>✅ 저장 후 확인:</strong>
             <ul class="list-disc pl-6 mt-1 space-y-1">
                 <li>상품관리에서 새 상품 등록 확인</li>
-                <li>KIMS MALL 점포 가격정보 확인</li>
+                <li><?php echo htmlspecialchars($current_store_name); ?> 점포 가격정보 확인</li>
                 <li>같은 파일 재업로드 시 가격만 업데이트 (중복 상품 생성 없음)</li>
             </ul>
         </div>
@@ -643,6 +862,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
 </div>
 
 <script>
+// 파일 선택 감지
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('excel_file');
+    const fileSelected = document.getElementById('fileSelected');
+    const noFileMsg = document.getElementById('noFileMsg');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const dropZone = document.getElementById('dropZone');
+
+    function handleFile(file) {
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['xlsx', 'csv', 'xls'].includes(ext)) {
+            alert('xlsx, csv, xls 파일만 업로드 가능합니다.');
+            fileInput.value = '';
+            return;
+        }
+        fileName.textContent = file.name;
+        const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+        fileSize.textContent = '(' + sizeMB + ' MB)';
+        fileSelected.classList.remove('hidden');
+        noFileMsg.classList.add('hidden');
+        dropZone.classList.add('border-green-400', 'bg-green-50');
+        dropZone.classList.remove('border-gray-300');
+    }
+
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            handleFile(this.files[0]);
+        }
+    });
+
+    // 드래그앤드롭 지원
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('border-blue-400', 'bg-blue-50');
+    });
+    dropZone.addEventListener('dragleave', function() {
+        dropZone.classList.remove('border-blue-400', 'bg-blue-50');
+    });
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-400', 'bg-blue-50');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            // DataTransfer로 받은 파일을 input에 설정
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+            handleFile(file);
+        }
+    });
+});
+
+function submitUpload() {
+    const fileInput = document.getElementById('excel_file');
+    if (!fileInput.files || fileInput.files.length === 0) {
+        alert('파일을 먼저 선택해주세요.\n\n"파일 선택하기" 버튼을 클릭하여 xlsx 파일을 선택하세요.');
+        return;
+    }
+    const btn = document.getElementById('uploadBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>업로드 중...';
+    document.getElementById('uploadForm').submit();
+}
+
 // 엑셀 데이터를 JavaScript로 전달
 <?php if (!empty($excel_data)): ?>
 const excelData = <?php echo json_encode($excel_data); ?>; // 모든 데이터
@@ -680,10 +965,11 @@ function confirmSave() {
         }
     });
 
-    const confirmMessage = `📊 KIMS MALL 가격정보 저장 확인\n\n` +
+    const storeName = <?php echo json_encode($current_store_name); ?>;
+    const confirmMessage = `📊 ${storeName} 가격정보 저장 확인\n\n` +
         `• 총 상품: ${dataCount}개\n` +
         `• 저장할 상품: ${validCount}개\n` +
-        `• 대상 점포: KIMS MALL (킴스몰)\n` +
+        `• 대상 점포: ${storeName}\n` +
         `• 저장 위치: products + inventory 테이블\n\n` +
         `처리 중 오류가 발생해도 유효한 데이터는 저장됩니다.\n\n` +
         `계속하시겠습니까?`;

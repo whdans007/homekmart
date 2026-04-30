@@ -102,7 +102,11 @@ function check_legacy_permission($permission, $role) {
         'settings' => ['super_admin'],
         'shop_access' => ['super_admin', 'admin', 'user', 'staff', 'office_staff'],
         'barcode_management' => ['super_admin', 'admin', 'staff', 'office_staff'],
-        'accounting_management' => ['super_admin', 'admin', 'office_staff']
+        'accounting_management' => ['super_admin', 'admin', 'office_staff'],
+        // 물류센터 전용 권한
+        'logistics_purchase_management' => ['super_admin', 'admin'],
+        'logistics_outbound_management'  => ['super_admin', 'admin'],
+        'logistics_inventory_management' => ['super_admin', 'admin'],
     ];
     
     return isset($legacy_permissions[$permission]) && 
@@ -154,7 +158,10 @@ function get_user_permissions($user_id = null) {
                 'settings' => true,
                 'shop_access' => true,
                 'barcode_management' => true,
-                'accounting_management' => true
+                'accounting_management' => true,
+                'logistics_purchase_management' => true,
+                'logistics_outbound_management' => true,
+                'logistics_inventory_management' => true,
             ];
         }
         
@@ -196,7 +203,10 @@ function get_default_permissions($role) {
             'settings' => true,
             'shop_access' => true,
             'barcode_management' => true,
-            'accounting_management' => true
+            'accounting_management' => true,
+            'logistics_purchase_management' => true,
+            'logistics_outbound_management' => true,
+            'logistics_inventory_management' => true,
         ],
         'admin' => [
             'admin_access' => true,
@@ -212,7 +222,10 @@ function get_default_permissions($role) {
             'settings' => false,
             'shop_access' => true,
             'barcode_management' => true,
-            'accounting_management' => true
+            'accounting_management' => true,
+            'logistics_purchase_management' => true,
+            'logistics_outbound_management' => true,
+            'logistics_inventory_management' => true,
         ],
         'staff' => [
             'admin_access' => false,
@@ -285,7 +298,10 @@ function get_permission_label($permission) {
         'settings' => '환경 설정',
         'shop_access' => '쇼핑몰 접근',
         'barcode_management' => '바코드 관리',
-        'accounting_management' => '회계 관리'
+        'accounting_management' => '회계 관리',
+        'logistics_purchase_management' => '물류 매입 관리',
+        'logistics_outbound_management' => '물류 출고 관리',
+        'logistics_inventory_management' => '물류 재고 현황',
     ];
     
     return $labels[$permission] ?? $permission;
@@ -352,4 +368,51 @@ function require_permission($required_permission, $redirect_url = 'index.php') {
         exit;
     }
 }
-?>
+
+/**
+ * 현재 로그인 사용자가 물류센터 지점 소속인지 확인합니다.
+ * users.store_id → stores.name = '물류센터' 이면 true
+ * @return bool
+ */
+function is_logistics_department() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if (!isset($_SESSION['user_id'])) {
+        return false;
+    }
+
+    // super_admin/admin 은 물류센터 제한 없이 모든 메뉴 이용 가능
+    // (메뉴 제한은 물류 부서원만 적용)
+    // 여기선 순수하게 '지점이 물류센터인가' 만 반환
+    if (isset($_SESSION['is_logistics'])) {
+        return (bool)$_SESSION['is_logistics'];
+    }
+
+    try {
+        require_once __DIR__ . '/../config/db_config.php';
+        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+        $pdo = new PDO($dsn, DB_USER, DB_PASS);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        $stmt = $pdo->prepare(
+            "SELECT s.name AS store_name
+             FROM users u
+             LEFT JOIN stores s ON u.store_id = s.id
+             WHERE u.id = ?"
+        );
+        $stmt->execute([$_SESSION['user_id']]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $is_logistics = (isset($row['store_name']) && $row['store_name'] === 'WHEREHOUSE (물류센터)');
+        $_SESSION['is_logistics'] = $is_logistics; // 세션 캐시
+
+        return $is_logistics;
+
+    } catch (Exception $e) {
+        error_log("is_logistics_department error: " . $e->getMessage());
+        return false;
+    }
+}
+?>

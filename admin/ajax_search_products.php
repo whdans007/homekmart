@@ -34,7 +34,7 @@ error_log("로그인 확인 완료");
 try {
     // GET 방식과 POST 방식 둘 다 지원
     $term = $_GET['term'] ?? $_POST['q'] ?? '';
-    $limit = min(max(1, (int)($_GET['limit'] ?? $_POST['limit'] ?? 10)), 50);
+    $limit = min(max(1, (int)($_GET['limit'] ?? $_POST['limit'] ?? 50)), 50);
     
     error_log("검색 파라미터 - term: " . $term . ", limit: " . $limit);
 

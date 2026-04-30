@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>가격 조회 / 라벨 출력</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body { display: flex; flex-direction: column; background: #0f172a; font-family: 'Segoe UI', Arial, 'Malgun Gothic', sans-serif; }
+
+    /* ── 헤더 ── */
+    #appHeader {
+      display: flex; align-items: center;
+      padding: 0 20px; height: 80px;
+      background: #1e293b; border-bottom: 1px solid #334155;
+      flex-shrink: 0; position: relative;
+    }
+    .header-brand { font-weight: 700; color: #f1f5f9; font-size: 15px; letter-spacing: -0.3px; }
+    .header-brand span { color: #38bdf8; }
+    .header-center {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 16px;
+    }
+    .header-right { margin-left: auto; }
+    .mode-btn {
+      padding: 18px 44px; border-radius: 10px; border: 2px solid transparent;
+      font-size: 18px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+      letter-spacing: -0.3px;
+    }
+    .mode-btn.lookup { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+    .mode-btn.lookup:not(.active) { background: transparent; color: #94a3b8; border-color: #334155; }
+    .mode-btn.lookup:not(.active):hover { border-color: #0ea5e9; color: #0ea5e9; }
+    .mode-btn.print-mode { background: #16a34a; color: #fff; border-color: #16a34a; }
+    .mode-btn.print-mode:not(.active) { background: transparent; color: #94a3b8; border-color: #334155; }
+    .mode-btn.print-mode:not(.active):hover { border-color: #16a34a; color: #16a34a; }
+    /* ── 점포 선택 ── */
+    #storePicker { position: relative; }
+    #storeBtn {
+      display: flex; align-items: center; gap: 8px;
+      background: #0f172a; border: 1.5px solid #334155; color: #cbd5e1;
+      border-radius: 8px; padding: 8px 14px; cursor: pointer;
+      font-size: 13px; font-weight: 600; transition: all 0.15s; white-space: nowrap;
+    }
+    #storeBtn:hover { border-color: #38bdf8; color: #38bdf8; }
+    #storeBtn .store-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+    #storeBtn .store-arrow { font-size: 10px; color: #475569; transition: transform 0.2s; }
+    #storeBtn.open .store-arrow { transform: rotate(180deg); }
+    #storeDropdown {
+      display: none; position: absolute; right: 0; top: calc(100% + 8px);
+      background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+      min-width: 200px; padding: 8px; z-index: 1000;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    #storeDropdown.open { display: block; }
+    #storeDropdown .sd-title {
+      font-size: 11px; color: #475569; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; padding: 4px 8px 8px; border-bottom: 1px solid #334155; margin-bottom: 6px;
+    }
+    .sd-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 8px; cursor: pointer;
+      font-size: 14px; font-weight: 600; color: #cbd5e1;
+      transition: background 0.1s; border: none; width: 100%; text-align: left; background: transparent;
+    }
+    .sd-item:hover { background: #334155; color: #f1f5f9; }
+    .sd-item.active { background: #0ea5e9; color: #fff; }
+    .sd-item .sd-icon { font-size: 16px; width: 20px; text-align: center; }
+
+    /* ── 환경설정 버튼 ── */
+    #settingsBtn {
+      display: flex; align-items: center; gap: 6px;
+      background: #0f172a; border: 1.5px solid #334155; color: #94a3b8;
+      border-radius: 8px; padding: 8px 14px; cursor: pointer;
+      font-size: 13px; font-weight: 600; transition: all 0.15s; margin-left: 10px;
+    }
+    #settingsBtn:hover { border-color: #94a3b8; color: #f1f5f9; }
+
+    /* ── 환경설정 모달 ── */
+    #settingsOverlay {
+      display: none; position: fixed; inset: 0; z-index: 9000;
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+    }
+    #settingsOverlay.open { display: flex; align-items: center; justify-content: center; }
+    #settingsModal {
+      background: #1e293b; border: 1px solid #334155; border-radius: 20px;
+      width: 640px; max-width: 96vw; max-height: 90vh;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.6); display: flex; flex-direction: column; overflow: hidden;
+    }
+    #settingsModal .sm-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px 16px; border-bottom: 1px solid #334155; flex-shrink: 0;
+    }
+    #settingsModal .sm-title { font-size: 17px; font-weight: 700; color: #f1f5f9; }
+    #settingsModal .sm-close {
+      background: none; border: none; color: #64748b; cursor: pointer;
+      font-size: 20px; padding: 4px 8px; border-radius: 6px; transition: color 0.15s;
+    }
+    #settingsModal .sm-close:hover { color: #f1f5f9; }
+    /* 탭 */
+    .sm-tabs { display: flex; gap: 0; padding: 12px 24px 0; border-bottom: 1px solid #334155; flex-shrink: 0; }
+    .sm-tab {
+      padding: 8px 16px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+      color: #64748b; border-bottom: 2px solid transparent; margin-bottom: -1px;
+      background: none; border-top: none; border-left: none; border-right: none;
+      transition: all 0.15s;
+    }
+    .sm-tab:hover { color: #94a3b8; }
+    .sm-tab.active { color: #38bdf8; border-bottom-color: #38bdf8; }
+    /* 탭 컨텐츠 */
+    .sm-body { flex: 1; overflow-y: auto; padding: 20px 24px 24px; }
+    .sm-pane { display: none; }
+    .sm-pane.active { display: block; }
+    /* 폼 요소 */
+    .sm-label { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .sm-input {
+      width: 100%; background: #0f172a; border: 1.5px solid #334155; color: #f1f5f9;
+      border-radius: 8px; padding: 10px 14px; font-size: 15px; letter-spacing: 0.04em;
+      outline: none; transition: border-color 0.2s;
+    }
+    .sm-input:focus { border-color: #38bdf8; }
+    .sm-input::placeholder { color: #475569; font-size: 13px; }
+    .sm-input-group { display: flex; gap: 8px; align-items: center; }
+    .sm-input-group .sm-input { flex: 1; }
+    .sm-search-btn {
+      background: #0ea5e9; color: #fff; border: none; border-radius: 8px;
+      padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .sm-search-btn:hover { background: #0284c7; }
+    /* 상품 정보 카드 */
+    .sm-product-card {
+      display: none; margin-top: 14px; background: #0f172a; border: 1px solid #334155;
+      border-radius: 12px; padding: 14px 16px;
+    }
+    .sm-product-card.visible { display: block; }
+    .sm-product-card .spc-sku { font-size: 11px; color: #475569; font-family: monospace; margin-bottom: 4px; }
+    .sm-product-card .spc-name-en { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+    .sm-product-card .spc-name-ko { font-size: 13px; color: #94a3b8; margin-top: 2px; }
+    .sm-product-card .spc-price { font-size: 22px; font-weight: 800; color: #38bdf8; margin-top: 6px; }
+    /* 폼 필드 그룹 */
+    .sm-field { margin-top: 14px; }
+    .sm-save-btn {
+      margin-top: 14px; width: 100%; background: #16a34a; color: #fff; border: none;
+      border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .sm-save-btn:hover { background: #15803d; }
+    .sm-save-btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+    .sm-msg { font-size: 13px; font-weight: 600; margin-top: 10px; padding: 8px 12px; border-radius: 8px; display: none; }
+    .sm-msg.success { background: #052e16; color: #4ade80; display: block; }
+    .sm-msg.error   { background: #2d0a0a; color: #f87171; display: block; }
+    /* 점포 목록 (설정 내) */
+    .sm-store-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+    .sm-store-item {
+      display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+      border-radius: 10px; border: 1.5px solid #334155; cursor: pointer;
+      font-size: 14px; font-weight: 600; color: #cbd5e1;
+      transition: all 0.15s; background: #0f172a;
+    }
+    .sm-store-item:hover { border-color: #0ea5e9; color: #f1f5f9; background: #0c1a2e; }
+    .sm-store-item.active { border-color: #0ea5e9; background: #0c2340; color: #38bdf8; }
+    .sm-store-item .ssi-icon { color: #38bdf8; font-size: 15px; width: 20px; text-align: center; }
+    .sm-store-item .ssi-check { margin-left: auto; color: #0ea5e9; font-size: 14px; display: none; }
+    .sm-store-item.active .ssi-check { display: block; }
+    /* 언어 선택 탭 */
+    .lang-toggle { display: flex; gap: 6px; margin-top: 8px; }
+    .lang-btn {
+      flex: 1; padding: 8px; border: 1.5px solid #334155; border-radius: 8px;
+      background: #0f172a; color: #64748b; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .lang-btn.active { border-color: #38bdf8; background: #0c2340; color: #38bdf8; }
+
+    /* ── 자동완성 드롭다운 ── */
+    .suggest-wrap { position: relative; flex: 1; }
+    .suggest-wrap .sm-input,
+    .suggest-wrap #lookupInput,
+    .suggest-wrap #printInput { width: 100%; }
+    .suggest-dropdown {
+      display: none; position: absolute; left: 0; top: calc(100% + 4px);
+      background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+      z-index: 500; width: 100%; max-height: 320px; overflow-y: auto;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    }
+    .suggest-dropdown.open { display: block; }
+    .suggest-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; cursor: pointer; transition: background 0.1s;
+      border-bottom: 1px solid #273449;
+    }
+    .suggest-item:last-child { border-bottom: none; }
+    .suggest-item:hover, .suggest-item.focused { background: #334155; }
+    .suggest-item .si-sku { font-family: monospace; font-size: 11px; color: #64748b; width: 100px; flex-shrink: 0; }
+    .suggest-item .si-name { flex: 1; min-width: 0; }
+    .suggest-item .si-name-en { font-size: 13px; font-weight: 600; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .suggest-item .si-name-ko { font-size: 11px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .suggest-item .si-price { font-size: 13px; font-weight: 700; color: #38bdf8; flex-shrink: 0; }
+    .suggest-empty { padding: 14px; text-align: center; color: #475569; font-size: 13px; }
+    /* 프라이싱 화면 자동완성은 밝은 테마 */
+    #printScreen .suggest-dropdown {
+      background: #fff; border-color: #e2e8f0;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    #printScreen .suggest-item { border-bottom-color: #f1f5f9; }
+    #printScreen .suggest-item:hover, #printScreen .suggest-item.focused { background: #f8fafc; }
+    #printScreen .suggest-item .si-sku { color: #94a3b8; }
+    #printScreen .suggest-item .si-name-en { color: #1f2937; }
+    #printScreen .suggest-item .si-name-ko { color: #6b7280; }
+    #printScreen .suggest-item .si-price { color: #2563eb; }
+    #printScreen .suggest-empty { color: #9ca3af; }
+
+    /* ── 가격 조회 화면 ── */
+    #lookupScreen {
+      flex: 1; display: flex; flex-direction: column;
+      min-height: 0; overflow-y: scroll; scrollbar-gutter: stable;
+    }
+    /* 바코드 입력 영역 */
+    #lookupInputBar {
+      background: #1e293b; padding: 12px 20px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid #334155; flex-shrink: 0;
+    }
+    #lookupInput {
+      flex: 1; background: #0f172a; border: 1.5px solid #334155; color: #f1f5f9;
+      border-radius: 8px; padding: 10px 16px; font-size: 18px; letter-spacing: 0.05em;
+      outline: none; transition: border-color 0.2s;
+    }
+    #lookupInput:focus { border-color: #38bdf8; }
+    #lookupInput::placeholder { color: #475569; font-size: 14px; }
+    .lookup-search-btn {
+      background: #0ea5e9; color: #fff; border: none; border-radius: 8px;
+      padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lookup-search-btn:hover { background: #0284c7; }
+
+    /* 가격 표시 영역 */
+    #lookupDisplay {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 20px; min-height: 0;
+    }
+    /* 대기 상태 */
+    #lookupIdle {
+      text-align: center;
+    }
+    #lookupIdle .idle-icon { font-size: 80px; color: #1e3a5f; margin-bottom: 16px; }
+    #lookupIdle .idle-text { color: #334155; font-size: 22px; font-weight: 600; }
+    #lookupIdle .idle-sub  { color: #1e293b; font-size: 14px; margin-top: 8px; }
+    /* 상품 정보 카드 */
+    #lookupResult {
+      display: none; width: 100%; max-width: 900px;
+      background: #1e293b; border-radius: 20px;
+      border: 1px solid #334155; overflow: hidden;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+    }
+    #lookupResult .result-top {
+      padding: 28px 36px 20px;
+      border-bottom: 1px solid #334155;
+    }
+    #lookupResult .result-sku {
+      font-size: 13px; color: #64748b; font-family: monospace; letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    #lookupResult .result-name-en {
+      font-size: 32px; font-weight: 700; color: #f1f5f9; line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    #lookupResult .result-name-ko {
+      font-size: 18px; color: #94a3b8; font-weight: 500;
+    }
+    #lookupResult .result-bottom {
+      display: flex; align-items: center; justify-content: center; padding: 28px 36px;
+    }
+    #lookupResult .result-price-label {
+      font-size: 13px; color: #64748b; margin-bottom: 6px; text-align: center;
+    }
+    #lookupResult .result-price {
+      font-size: 80px; font-weight: 800; color: #38bdf8;
+      line-height: 1; letter-spacing: -2px;
+    }
+    #lookupResult .result-price.no-price { color: #475569; font-size: 40px; }
+    #lookupResult .result-currency {
+      font-size: 28px; color: #64748b; margin-right: 6px; align-self: flex-end; padding-bottom: 12px;
+    }
+    /* 오류 표시 */
+    #lookupError {
+      display: none; text-align: center;
+    }
+    #lookupError .err-icon { font-size: 60px; color: #ef4444; margin-bottom: 12px; }
+    #lookupError .err-text { color: #fca5a5; font-size: 20px; font-weight: 600; }
+    #lookupError .err-sub  { color: #64748b; font-size: 14px; margin-top: 8px; }
+
+    /* ── 프라이싱 출력 화면 ── */
+    #printScreen {
+      flex: 1; display: none; flex-direction: column;
+      background: #0f172a; min-height: 0; overflow-y: scroll;
+      scrollbar-gutter: stable;
+    }
+    #printScreen .ps-inner { width: 100%; max-width: 1200px; margin: 0 auto; padding: 20px 28px; box-sizing: border-box; }
+    .ps-card {
+      width: 100%; box-sizing: border-box;
+      background: #1e293b; border-radius: 14px; border: 1px solid #334155;
+      padding: 18px 20px; margin-bottom: 16px;
+    }
+    /* 토글 그룹 */
+    .toggle-group { display: inline-flex; background: #0f172a; border-radius: 8px; padding: 3px; gap: 3px; border: 1px solid #334155; }
+    .toggle-group button {
+      padding: 7px 18px; border: none; border-radius: 6px; font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: all 0.15s;
+      background: transparent; color: #64748b; white-space: nowrap;
+    }
+    .toggle-group button:hover { color: #94a3b8; }
+    .toggle-group button.active { background: #2563eb; color: #fff; }
+    .toggle-group button.active.green { background: #16a34a; }
+    /* 입력 필드 */
+    #printInput {
+      width: 100%; background: #0f172a; border: 1.5px solid #334155; color: #f1f5f9;
+      border-radius: 8px; padding: 10px 16px; font-size: 18px; letter-spacing: 0.05em;
+      outline: none; transition: border-color 0.2s;
+    }
+    #printInput:focus { border-color: #38bdf8; }
+    #printInput::placeholder { color: #475569; font-size: 14px; }
+    /* 상태 표시줄 — 고정 높이로 폭 변화 방지 */
+    #printStatusBar {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 600;
+      padding: 10px 14px; border-radius: 10px;
+      background: #172554; color: #93c5fd;
+      min-height: 40px; width: 100%;
+      margin-top: 12px; box-sizing: border-box;
+    }
+    /* 카드 제목 */
+    .ps-card-title { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+    /* 섹션 레이블 */
+    .ps-label { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    /* 수동 모드 테이블 */
+    .ps-table th { background: #162032; font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; padding: 10px 12px; }
+    .ps-table td { font-size: 13px; padding: 9px 12px; vertical-align: middle; border-top: 1px solid #1e3045; color: #cbd5e1; }
+    .qty-btn { width: 26px; height: 26px; border-radius: 5px; border: 1px solid #334155; background: #0f172a; color: #94a3b8; cursor: pointer; font-size: 14px; transition: all 0.1s; }
+    .qty-btn:hover { background: #334155; color: #f1f5f9; }
+    .qty-inp { width: 44px; text-align: center; border: 1px solid #334155; border-radius: 5px; padding: 3px; font-size: 13px; background: #0f172a; color: #f1f5f9; }
+    /* 이력 행 */
+    .ps-history-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #1e3045; font-size: 13px; }
+    .ps-history-row:last-child { border-bottom: none; }
+    /* 자동완성 프라이싱 화면은 다크 테마 그대로 */
+    #printScreen .suggest-dropdown { background: #1e293b; border-color: #334155; }
+    #printScreen .suggest-item { border-bottom-color: #273449; }
+    #printScreen .suggest-item:hover, #printScreen .suggest-item.focused { background: #334155; }
+    #printScreen .suggest-item .si-sku { color: #64748b; }
+    #printScreen .suggest-item .si-name-en { color: #f1f5f9; }
+    #printScreen .suggest-item .si-name-ko { color: #94a3b8; }
+    #printScreen .suggest-item .si-price { color: #38bdf8; }
+    #printScreen .suggest-empty { color: #475569; }
+  </style>
+</head>
+<body>
+
+<!-- ── 공통 헤더 ── -->
+<div id="appHeader">
+  <div class="header-brand">HOME K <span>MART</span></div>
+  <!-- 가운데 정렬 버튼 -->
+  <div class="header-center">
+    <button id="btnLookupMode" class="mode-btn lookup active" onclick="setScreen('lookup')">
+      <i class="fas fa-search" style="margin-right:8px"></i>가격 조회
+    </button>
+    <button id="btnPrintMode" class="mode-btn print-mode" onclick="setScreen('print')">
+      <i class="fas fa-print" style="margin-right:8px"></i>프라이싱 출력
+    </button>
+  </div>
+  <!-- 오른쪽: 점포 선택 + 환경설정 -->
+  <div class="header-right" style="display:flex;align-items:center;gap:0">
+    <?php if (!empty($stores)): ?>
+    <div id="storePicker">
+      <button id="storeBtn" onclick="toggleStoreDropdown()">
+        <i class="fas fa-store" style="color:#38bdf8;font-size:14px"></i>
+        <span class="store-name" id="storeNameLabel">로딩 중...</span>
+        <i class="fas fa-chevron-down store-arrow"></i>
+      </button>
+      <div id="storeDropdown">
+        <div class="sd-title"><i class="fas fa-store mr-1"></i>점포 선택</div>
+        <div id="storeDropdownItems"></div>
+      </div>
+    </div>
+    <button id="settingsBtn" onclick="openSettings()">
+      <i class="fas fa-cog"></i><span>환경설정</span>
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     환경설정 모달
+════════════════════════════════════════ -->
+<div id="settingsOverlay" onclick="handleOverlayClick(event)">
+  <div id="settingsModal">
+    <!-- 헤더 -->
+    <div class="sm-header">
+      <div class="sm-title"><i class="fas fa-cog" style="color:#38bdf8;margin-right:8px"></i>환경설정</div>
+      <button class="sm-close" onclick="closeSettings()"><i class="fas fa-times"></i></button>
+    </div>
+    <!-- 탭 -->
+    <div class="sm-tabs">
+      <button class="sm-tab active" onclick="switchSettingsTab('store')"><i class="fas fa-store" style="margin-right:5px"></i>점포 선택</button>
+      <button class="sm-tab" onclick="switchSettingsTab('upload')"><i class="fas fa-file-upload" style="margin-right:5px"></i>마스터 파일 업로드</button>
+      <button class="sm-tab" onclick="switchSettingsTab('dbconfig')"><i class="fas fa-database" style="margin-right:5px"></i>DB 설정</button>
+    </div>
+    <!-- 본문 -->
+    <div class="sm-body">
+
+      <!-- ① 점포 선택 -->
+      <div class="sm-pane active" id="paneStore">
+        <div class="sm-label">점포를 선택하면 해당 점포의 가격으로 조회합니다</div>
+        <div class="sm-store-list">
+          <?php foreach ($stores as $s): ?>
+          <div class="sm-store-item" data-id="<?php echo (int)$s['id']; ?>"
+               onclick="settingsSelectStore(<?php echo (int)$s['id']; ?>, <?php echo htmlspecialchars(json_encode($s['name']), ENT_QUOTES); ?>)">
+            <span class="ssi-icon"><i class="fas fa-store"></i></span>
+            <span><?php echo htmlspecialchars($s['name']); ?></span>
+            <i class="fas fa-check-circle ssi-check"></i>
+          </div>
+          <?php endforeach; ?>
+          <?php if (empty($stores)): ?>
+          <div style="color:#475569;font-size:13px;text-align:center;padding:20px 0">등록된 점포가 없습니다</div>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <!-- ② 마스터 파일 업로드 -->
+      <div class="sm-pane" id="paneUpload">
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#94a3b8;line-height:1.7">
+          <div style="font-weight:700;color:#f1f5f9;margin-bottom:4px"><i class="fas fa-info-circle" style="color:#38bdf8;margin-right:5px"></i>엑셀 컬럼 형식</div>
+          A열: 바코드(SKU) &nbsp;·&nbsp; C열: 상품명(영문) &nbsp;·&nbsp; E열: 판매가 &nbsp;·&nbsp; J열: 원가
+        </div>
+        <div style="background:#162032;border:1px solid #1e3a5f;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#93c5fd">
+          <i class="fas fa-store" style="margin-right:6px"></i>업로드 대상 점포: <strong id="uploadStoreLabel" style="color:#38bdf8">-</strong>
+        </div>
+
+        <div class="sm-label">엑셀 / CSV 파일 선택</div>
+        <div style="margin-bottom:14px">
+          <div id="uploadDropZone" onclick="pickUploadFile()" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed #334155;border-radius:10px;padding:24px 16px;cursor:pointer;transition:border-color 0.2s;background:#0f172a" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#334155'">
+            <i class="fas fa-file-excel" style="font-size:28px;color:#22c55e"></i>
+            <span style="font-size:13px;color:#94a3b8">클릭하여 파일 선택</span>
+            <span style="font-size:11px;color:#475569">.xlsx, .xls, .csv 지원</span>
+            <span id="uploadFileName" style="font-size:12px;color:#38bdf8;font-weight:600;display:none"></span>
+          </div>
+        </div>
+
+        <button id="uploadBtn" onclick="uploadMasterFile()" style="width:100%;background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:11px 0;font-size:14px;font-weight:700;cursor:pointer;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:8px" onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0ea5e9'">
+          <i class="fas fa-upload"></i>업로드 시작
+        </button>
+
+        <div id="uploadProgress" style="display:none;margin-top:14px;text-align:center;color:#94a3b8;font-size:13px">
+          <i class="fas fa-spinner fa-spin" style="color:#38bdf8;margin-right:6px"></i>파일 처리 중... 잠시 기다려 주세요
+        </div>
+
+        <div id="uploadResult" style="display:none;margin-top:14px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;font-size:12px;color:#cbd5e1;white-space:pre-wrap;line-height:1.7;max-height:220px;overflow-y:auto"></div>
+      </div>
+
+          <!-- ③ DB 설정 -->
+      <div class="sm-pane" id="paneDbconfig">
+        <div class="sm-field">
+          <div class="sm-label">DB 서버 호스트</div>
+          <input class="sm-input" id="dbHost" type="text" placeholder="예: localhost 또는 123.456.789.0">
+        </div>
+        <div class="sm-field">
+          <div class="sm-label">포트</div>
+          <input class="sm-input" id="dbPort" type="number" placeholder="3306" style="width:120px">
+        </div>
+        <div class="sm-field">
+          <div class="sm-label">데이터베이스명</div>
+          <input class="sm-input" id="dbName" type="text" placeholder="예: homekmart">
+        </div>
+        <div class="sm-field">
+          <div class="sm-label">사용자명</div>
+          <input class="sm-input" id="dbUser" type="text" placeholder="예: homekmart_user">
+        </div>
+        <div class="sm-field">
+          <div class="sm-label">비밀번호</div>
+          <input class="sm-input" id="dbPass" type="password" placeholder="비밀번호">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button onclick="testDbConnection()" style="flex:1;background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:700;cursor:pointer">연결 테스트</button>
+          <button onclick="saveDbConfig()" style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:700;cursor:pointer">저장</button>
+        </div>
+        <div id="dbConfigMsg" class="sm-msg"></div>
+      </div>
+</div><!-- /.sm-body -->
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     화면 1: 가격 조회
+════════════════════════════════════════ -->
+<div id="lookupScreen">
+  <!-- 바코드 입력 바 -->
+  <div id="lookupInputBar">
+    <i class="fas fa-barcode" style="color:#38bdf8;font-size:20px;flex-shrink:0"></i>
+    <div class="suggest-wrap">
+      <input id="lookupInput" type="text" placeholder="바코드 스캔 또는 상품명(한글/영문) 검색" autocomplete="off">
+      <div class="suggest-dropdown" id="lookupSuggest"></div>
+    </div>
+    <button class="lookup-search-btn" onclick="doLookup()" style="flex-shrink:0">
+      <i class="fas fa-search"></i>
+    </button>
+  </div>
+
+  <!-- 결과 표시 영역 -->
+  <div id="lookupDisplay">
+    <!-- 대기 상태 -->
+    <div id="lookupIdle">
+      <div class="idle-icon"><i class="fas fa-barcode"></i></div>
+      <div class="idle-text">바코드를 스캔하세요</div>
+      <div class="idle-sub">상품 가격이 여기에 표시됩니다</div>
+    </div>
+
+    <!-- 상품 정보 -->
+    <div id="lookupResult">
+      <div class="result-top">
+        <div class="result-sku" id="rSku"></div>
+        <div class="result-name-en" id="rNameEn"></div>
+        <div class="result-name-ko" id="rNameKo"></div>
+      </div>
+      <div class="result-bottom">
+        <div style="text-align:center">
+          <div class="result-price-label">판매가</div>
+          <div style="display:flex;align-items:flex-end;justify-content:center">
+            <span class="result-currency" id="rCurrencySymbol">₩</span>
+            <span class="result-price" id="rPrice"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 오류 -->
+    <div id="lookupError">
+      <div class="err-icon"><i class="fas fa-exclamation-circle"></i></div>
+      <div class="err-text" id="errText">상품을 찾을 수 없습니다</div>
+      <div class="err-sub" id="errSub"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     화면 2: 프라이싱 출력
+════════════════════════════════════════ -->
+<div id="printScreen">
+  <div class="ps-inner">
+
+    <!-- 모드 + 타입 선택 -->
+    <div class="ps-card">
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+        <div>
+          <div class="ps-label">출력 모드</div>
+          <div class="toggle-group">
+            <button id="btnAutoMode" class="active" onclick="setPrintMode('auto')"><i class="fas fa-bolt" style="margin-right:5px"></i>자동</button>
+            <button id="btnManualMode" onclick="setPrintMode('manual')"><i class="fas fa-list" style="margin-right:5px"></i>수동</button>
+          </div>
+        </div>
+        <div>
+          <div class="ps-label">라벨 종류</div>
+          <div class="toggle-group">
+            <button id="btnTypePricing" class="active green" onclick="setPrintType('pricing')"><i class="fas fa-tag" style="margin-right:5px"></i>프라이싱</button>
+            <button id="btnType2p" onclick="setPrintType('2p')"><i class="fas fa-copy" style="margin-right:5px"></i>바코드 2p</button>
+          </div>
+        </div>
+      </div>
+      <!-- 상태 표시줄: 전체 너비 고정 행 → 폭 변화 없음 -->
+      <div id="printStatusBar">
+        <i class="fas fa-bolt"></i>
+        <span id="printStatusText">스캔하면 자동으로 출력됩니다</span>
+      </div>
+    </div>
+
+    <!-- 바코드 / 상품명 입력 -->
+    <div class="ps-card">
+      <div class="ps-card-title">
+        <i class="fas fa-barcode" style="color:#38bdf8"></i>바코드 / 상품명 검색
+      </div>
+      <div style="display:flex;gap:8px">
+        <div class="suggest-wrap">
+          <input id="printInput" type="text" placeholder="바코드 스캔 또는 상품명(한글/영문) 검색" autocomplete="off">
+          <div class="suggest-dropdown" id="printSuggest"></div>
+        </div>
+        <button onclick="handlePrintBarcode()" style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:0 20px;font-size:14px;font-weight:600;cursor:pointer;flex-shrink:0;transition:background 0.15s" onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0ea5e9'">
+          <i class="fas fa-search"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- 자동 모드: 이력 -->
+    <div id="autoPanel" class="ps-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="ps-card-title" style="margin-bottom:0">
+          <i class="fas fa-history" style="color:#38bdf8"></i>최근 출력 이력
+        </div>
+        <button onclick="clearPrintHistory()" style="font-size:12px;color:#475569;background:none;border:none;cursor:pointer;transition:color 0.15s" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#475569'">전체 삭제</button>
+      </div>
+      <div id="printHistoryList">
+        <div style="text-align:center;color:#334155;font-size:13px;padding:24px 0">출력 이력이 없습니다</div>
+      </div>
+    </div>
+
+    <!-- 수동 모드: 리스트 -->
+    <div id="manualPanel" class="ps-card" style="display:none;padding:0;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid #334155">
+        <div class="ps-card-title" style="margin-bottom:0">
+          <i class="fas fa-list" style="color:#38bdf8"></i>출력 목록
+        </div>
+        <span id="listCountBadge" style="font-size:11px;background:#1e3a5f;color:#38bdf8;font-weight:700;padding:2px 8px;border-radius:20px">0</span>
+        <div style="flex:1"></div>
+        <button onclick="selectAllItems()" style="font-size:12px;color:#94a3b8;border:1px solid #334155;background:#0f172a;border-radius:6px;padding:5px 12px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='#38bdf8';this.style.color='#38bdf8'" onmouseout="this.style.borderColor='#334155';this.style.color='#94a3b8'">전체 선택</button>
+        <button onclick="printSelectedItems()" style="font-size:12px;background:#0ea5e9;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-weight:600;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0ea5e9'"><i class="fas fa-print" style="margin-right:5px"></i>선택 출력</button>
+        <button onclick="clearItems()" style="font-size:12px;color:#f87171;border:1px solid #3d1515;background:#1a0a0a;border-radius:6px;padding:5px 12px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#2d1010'" onmouseout="this.style.background='#1a0a0a'">전체 삭제</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="ps-table" style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="width:36px"><input type="checkbox" id="checkAllItems" onchange="toggleAllItems(this)" style="accent-color:#38bdf8"></th>
+              <th style="width:120px">SKU</th><th>상품명</th><th style="text-align:right;width:100px">가격</th>
+              <th style="text-align:center;width:120px">수량</th><th style="width:36px"></th>
+            </tr>
+          </thead>
+          <tbody id="itemTableBody">
+            <tr><td colspan="6" style="text-align:center;color:#334155;padding:28px">상품을 스캔하면 목록에 추가됩니다</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let currentScreen = 'lookup';
+let printMode = 'auto';
+let printType = 'pricing';
+let storeId = 1;
+let currentProduct = null;
+let printItems = [];
+let printHistory = [];
+
+// ── 점포 선택 ──
+function toggleStoreDropdown() {
+  const btn = document.getElementById('storeBtn');
+  const dd  = document.getElementById('storeDropdown');
+  if (!btn || !dd) return;
+  const isOpen = dd.classList.contains('open');
+  dd.classList.toggle('open', !isOpen);
+  btn.classList.toggle('open', !isOpen);
+}
+
+function selectStore(id, name) {
+  storeId = id;
+  localStorage.setItem('pricing_storeId', id);
+  const label = document.getElementById('storeNameLabel');
+  if (label) label.textContent = name;
+  // active 표시 갱신
+  document.querySelectorAll('.sd-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.id) === id);
+  });
+  // 드롭다운 닫기
+  document.getElementById('storeDropdown')?.classList.remove('open');
+  document.getElementById('storeBtn')?.classList.remove('open');
+  // 현재 결과 초기화 (다른 점포 가격 방지)
+  showLookupState('idle');
+}
+
+// 드롭다운 외부 클릭 시 닫기
+document.addEventListener('click', function(e) {
+  const picker = document.getElementById('storePicker');
+  if (picker && !picker.contains(e.target)) {
+    document.getElementById('storeDropdown')?.classList.remove('open');
+    document.getElementById('storeBtn')?.classList.remove('open');
+  }
+});
+
+// ── 화면 전환 ──
+function setScreen(screen) {
+  currentScreen = screen;
+  const isLookup = screen === 'lookup';
+  document.getElementById('lookupScreen').style.display = isLookup ? 'flex' : 'none';
+  document.getElementById('printScreen').style.display  = isLookup ? 'none' : 'flex';
+  document.getElementById('btnLookupMode').classList.toggle('active', isLookup);
+  document.getElementById('btnPrintMode').classList.toggle('active', !isLookup);
+  setTimeout(() => {
+    const inp = isLookup ? 'lookupInput' : 'printInput';
+    document.getElementById(inp).focus();
+  }, 50);
+  localStorage.setItem('pricing_screen', screen);
+}
+
+// ── 가격 조회 ──
+document.getElementById('lookupInput').addEventListener('keydown', e => { if (e.key === 'Enter') doLookup(); });
+
+function doLookup() {
+  const input = document.getElementById('lookupInput');
+  const barcode = input.value.trim();
+  input.value = '';
+  closeSuggest('lookupSuggest', 'lookup');
+  if (!barcode) return;
+  showLookupState('loading');
+  window.api.search(barcode, storeId).then(data => {
+      if (!data.success) {
+        showLookupState('error', data.message, barcode);
+        return;
+      }
+      currentProduct = data.product;
+      showLookupResult(data.product);
+    })
+    ;
+}
+
+function showLookupState(state, msg, barcode) {
+  document.getElementById('lookupIdle').style.display   = state === 'idle' ? 'block' : 'none';
+  document.getElementById('lookupResult').style.display = state === 'result' ? 'block' : 'none';
+  document.getElementById('lookupError').style.display  = state === 'error' ? 'block' : 'none';
+  if (state === 'error') {
+    document.getElementById('errText').textContent = msg || '상품을 찾을 수 없습니다';
+    document.getElementById('errSub').textContent  = barcode ? '스캔한 코드: ' + barcode : '';
+  }
+}
+
+function showLookupResult(p) {
+  document.getElementById('rSku').textContent    = p.sku;
+  document.getElementById('rNameEn').textContent = p.name_en || '';
+  document.getElementById('rNameKo').textContent = p.name_ko || '';
+  const priceEl = document.getElementById('rPrice');
+  const symEl   = document.getElementById('rCurrencySymbol');
+  if (p.selling_price && p.selling_price !== '0') {
+    priceEl.textContent = p.selling_price;
+    priceEl.className = 'result-price';
+    symEl.style.display = 'inline';
+  } else {
+    priceEl.textContent = '가격 없음';
+    priceEl.className = 'result-price no-price';
+    symEl.style.display = 'none';
+  }
+  showLookupState('result');
+}
+
+function quickPrintCurrent(type) {
+  if (!currentProduct) return;
+  window.api.openPrint({ skus: [currentProduct.sku], mode: type, storeId, autoprint: true });
+}
+
+// ── 프라이싱 출력 ──
+document.getElementById('printInput').addEventListener('keydown', e => { if (e.key === 'Enter') handlePrintBarcode(); });
+
+function setPrintMode(m) {
+  printMode = m;
+  document.getElementById('btnAutoMode').classList.toggle('active', m === 'auto');
+  document.getElementById('btnManualMode').classList.toggle('active', m === 'manual');
+  document.getElementById('autoPanel').style.display   = m === 'auto'   ? 'block' : 'none';
+  document.getElementById('manualPanel').style.display = m === 'manual' ? 'block' : 'none';
+  setPrintStatus(m === 'auto' ? 'blue' : 'gray',
+    m === 'auto' ? '<i class="fas fa-bolt mr-1"></i>스캔하면 자동으로 출력됩니다'
+                 : '<i class="fas fa-list mr-1"></i>스캔 후 목록에서 선택 출력');
+  document.getElementById('printInput').focus();
+}
+
+function setPrintType(t) {
+  printType = t;
+  document.getElementById('btnTypePricing').classList.toggle('active', t === 'pricing');
+  document.getElementById('btnType2p').classList.toggle('active', t === '2p');
+  localStorage.setItem('pricing_printType', t);
+  document.getElementById('printInput').focus();
+}
+
+function setPrintStatus(color, html) {
+  const bar  = document.getElementById('printStatusBar');
+  const text = document.getElementById('printStatusText');
+  const icon = bar.querySelector('i');
+  // 색상 맵 (다크 테마)
+  const bg   = { blue:'#172554', green:'#052e16', red:'#2d0a0a', gray:'#1e293b', yellow:'#1c1500' };
+  const fg   = { blue:'#93c5fd', green:'#4ade80', red:'#f87171', gray:'#94a3b8', yellow:'#fbbf24' };
+  const c    = color || 'blue';
+  bar.style.background = bg[c] || bg.blue;
+  bar.style.color      = fg[c] || fg.blue;
+  // icon 클래스만 교체 (html에서 fa-* 추출)
+  const iconMatch = html.match(/fa-[\w-]+/);
+  if (icon && iconMatch) {
+    icon.className = 'fas ' + iconMatch[0];
+  }
+  // 텍스트만 업데이트 (strip tags)
+  if (text) text.innerHTML = html.replace(/<[^>]+>/g, ' ').trim();
+}
+
+function handlePrintBarcode() {
+  const input = document.getElementById('printInput');
+  const barcode = input.value.trim();
+  input.value = '';
+  closeSuggest('printSuggest', 'print');
+  input.focus();
+  if (!barcode) return;
+
+  setPrintStatus('yellow', '<i class="fas fa-spinner fa-spin mr-1"></i>검색 중...');
+  window.api.search(barcode, storeId).then(data => {
+      if (!data.success) {
+        setPrintStatus('red', '<i class="fas fa-exclamation-circle mr-1"></i>' + escHtml(data.message));
+        return;
+      }
+      if (printMode === 'auto') {
+        silentPrint(data.product);
+      } else {
+        addItem(data.product);
+      }
+    })
+    ;
+}
+
+// iframe 기반 자동 출력: 팝업 차단 완전 우회, --kiosk-printing에서 대화상자 없이 기본 프린터 출력
+// VBA PrintOut과 동일한 동작 — 사용자 개입 없이 백그라운드 자동 출력
+function silentPrint(p) {
+  window.api.openPrint({ skus: [p.sku], mode: printType, storeId, autoprint: true });
+  setPrintStatus('green', '<i class="fas fa-check-circle mr-1"></i>출력: ' + escHtml(p.name_en || p.sku));
+  addPrintHistory(p);
+}
+
+// 팝업 창 출력: 사용자 클릭(user gesture) 컨텍스트에서만 사용 (이력 재출력, 수동 목록)
+function doPrint(p) {
+  window.api.openPrint({ skus: [p.sku], mode: printType, storeId, autoprint: true });
+  setPrintStatus('green', '<i class="fas fa-check-circle mr-1"></i>출력: ' + escHtml(p.name_en || p.sku));
+  addPrintHistory(p);
+}
+
+function addPrintHistory(p) {
+  const t = new Date();
+  const ts = String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0')+':'+String(t.getSeconds()).padStart(2,'0');
+  printHistory.unshift({...p, ts});
+  if (printHistory.length > 30) printHistory.pop();
+  renderPrintHistory();
+}
+function renderPrintHistory() {
+  const el = document.getElementById('printHistoryList');
+  if (!printHistory.length) { el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:20px 0">출력 이력이 없습니다</div>'; return; }
+  el.innerHTML = printHistory.map((h,i) => `
+    <div class="ps-history-row">
+      <span style="color:#475569;width:56px;font-size:12px;font-family:monospace;flex-shrink:0">${escHtml(h.ts)}</span>
+      <span style="font-family:monospace;font-size:11px;color:#64748b;width:108px;flex-shrink:0">${escHtml(h.sku)}</span>
+      <span style="flex:1;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(h.name_en || h.name_ko || '')}</span>
+      <span style="font-weight:700;color:#38bdf8;width:70px;text-align:right;flex-shrink:0">${escHtml(h.selling_price||'')}</span>
+      <button onclick="doPrint(printHistory[${i}])" style="background:#0c2340;color:#38bdf8;border:1px solid #1e4a7a;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;margin-left:8px;flex-shrink:0;transition:background 0.15s" onmouseover="this.style.background='#1e3a5f'" onmouseout="this.style.background='#0c2340'"><i class="fas fa-redo"></i></button>
+    </div>`).join('');
+}
+function clearPrintHistory() { printHistory = []; renderPrintHistory(); }
+
+// 수동 모드
+function addItem(p) {
+  const idx = printItems.findIndex(x => x.sku === p.sku);
+  if (idx >= 0) { printItems[idx].qty++; setPrintStatus('blue', '<i class="fas fa-plus-circle mr-1"></i>수량 증가: ' + escHtml(p.name_en||p.sku) + ' ×' + printItems[idx].qty); }
+  else { printItems.push({...p, qty:1, checked:true}); setPrintStatus('blue', '<i class="fas fa-plus-circle mr-1"></i>추가: ' + escHtml(p.name_en||p.name_ko||p.sku)); }
+  renderItems();
+}
+function renderItems() {
+  document.getElementById('listCountBadge').textContent = printItems.length;
+  const tbody = document.getElementById('itemTableBody');
+  if (!printItems.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:24px">상품을 스캔하면 목록에 추가됩니다</td></tr>'; return; }
+  tbody.innerHTML = printItems.map((p,i) => `
+    <tr>
+      <td><input type="checkbox" ${p.checked?'checked':''} onchange="printItems[${i}].checked=this.checked" style="accent-color:#38bdf8"></td>
+      <td style="font-family:monospace;font-size:11px;color:#64748b">${escHtml(p.sku)}</td>
+      <td style="min-width:0">
+        <input id="ni_en_${i}" type="text" value="${escHtml(p.name_en||'')}"
+          placeholder="영문명"
+          style="width:100%;min-width:0;background:#0f172a;border:1px solid #334155;border-radius:5px;color:#f1f5f9;font-size:12px;font-weight:600;padding:3px 6px;box-sizing:border-box;outline:none;transition:border-color 0.2s"
+          onfocus="this.style.borderColor='#38bdf8'"
+          onblur="this.style.borderColor='#334155';saveItemName(${i},'en',this.value)"
+          onkeydown="if(event.key==='Enter'){this.blur()}">
+        <input id="ni_ko_${i}" type="text" value="${escHtml(p.name_ko||'')}"
+          placeholder="한글명"
+          style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:5px;color:#94a3b8;font-size:11px;padding:3px 6px;margin-top:2px;box-sizing:border-box;outline:none;transition:border-color 0.2s"
+          onfocus="this.style.borderColor='#38bdf8'"
+          onblur="this.style.borderColor='#334155';saveItemName(${i},'ko',this.value)"
+          onkeydown="if(event.key==='Enter'){this.blur()}">
+      </td>
+      <td style="text-align:right;font-weight:700;color:#38bdf8">${escHtml(p.selling_price||'-')}</td>
+      <td style="text-align:center">
+        <div style="display:flex;align-items:center;justify-content:center;gap:3px">
+          <button class="qty-btn" onclick="chgQty(${i},-1)">−</button>
+          <input class="qty-inp" type="number" value="${p.qty}" min="1" onchange="printItems[${i}].qty=Math.max(1,parseInt(this.value)||1);renderItems()">
+          <button class="qty-btn" onclick="chgQty(${i},1)">+</button>
+        </div>
+      </td>
+      <td><button onclick="removeItem(${i})" style="background:none;border:none;color:#475569;cursor:pointer;font-size:12px;transition:color 0.15s" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#475569'"><i class="fas fa-trash-alt"></i></button></td>
+    </tr>`).join('');
+}
+function saveItemName(idx, lang, value) {
+  const p = printItems[idx];
+  if (!p || !p.product_id) return;
+  const trimmed = value.trim();
+  const prev = lang === 'en' ? p.name_en : p.name_ko;
+  if (trimmed === (prev || '')) return; // 변경 없음
+  if (lang === 'en') printItems[idx].name_en = trimmed;
+  else               printItems[idx].name_ko = trimmed;
+  const inputId = 'ni_' + lang + '_' + idx;
+  const el = document.getElementById(inputId);
+  window.api.updateName(p.product_id,
+      lang === 'en' ? trimmed : (printItems[idx].name_en || ''),
+      lang === 'ko' ? trimmed : (printItems[idx].name_ko || '')
+    ).then(data => {
+      if (el) {
+        el.style.borderColor = data.success ? '#22c55e' : '#ef4444';
+        setTimeout(() => { if (document.getElementById(inputId)) el.style.borderColor = '#334155'; }, 1200);
+      }
+    })
+    .catch(() => {
+      if (el) { el.style.borderColor = '#ef4444'; setTimeout(() => { if (document.getElementById(inputId)) el.style.borderColor = '#334155'; }, 1200); }
+    });
+}
+function chgQty(i,d){ printItems[i].qty=Math.max(1,(printItems[i].qty||1)+d); renderItems(); }
+function removeItem(i){ printItems.splice(i,1); renderItems(); }
+function selectAllItems(){ printItems.forEach(p=>p.checked=true); renderItems(); }
+function toggleAllItems(cb){ printItems.forEach(p=>p.checked=cb.checked); renderItems(); }
+function clearItems(){ printItems=[]; renderItems(); }
+function printSelectedItems(){
+  const sel = printItems.filter(p=>p.checked);
+  if (!sel.length){ setPrintStatus('red','<i class="fas fa-exclamation-circle mr-1"></i>선택된 상품이 없습니다'); return; }
+  const skus=[];
+  sel.forEach(p=>{ for(let i=0;i<(p.qty||1);i++) skus.push(p.sku); });
+  window.api.openPrint({ skus, mode: printType, storeId, autoprint: false });
+  setPrintStatus('green','<i class="fas fa-print mr-1"></i>'+skus.length+'장 출력 창을 열었습니다');
+}
+
+// ════════════════════════════════════════
+// 자동완성 (실시간 검색)
+// ════════════════════════════════════════
+let suggestTimers = {};
+let suggestFocusIdx = { lookup: -1, print: -1 };
+
+function initSuggest(inputId, dropdownId, key, onSelect) {
+  const input = document.getElementById(inputId);
+  const dd    = document.getElementById(dropdownId);
+
+  input.addEventListener('input', function() {
+    clearTimeout(suggestTimers[key]);
+    const q = this.value.trim();
+    if (q.length < 1) { closeSuggest(dropdownId, key); return; }
+    suggestTimers[key] = setTimeout(() => fetchSuggest(q, dropdownId, key, onSelect), 250);
+  });
+
+  input.addEventListener('keydown', function(e) {
+    const items = dd.querySelectorAll('.suggest-item');
+    if (!items.length || !dd.classList.contains('open')) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      suggestFocusIdx[key] = Math.min(suggestFocusIdx[key] + 1, items.length - 1);
+      updateSuggestFocus(items, key);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      suggestFocusIdx[key] = Math.max(suggestFocusIdx[key] - 1, 0);
+      updateSuggestFocus(items, key);
+    } else if (e.key === 'Enter') {
+      if (suggestFocusIdx[key] >= 0 && items[suggestFocusIdx[key]]) {
+        e.preventDefault();
+        items[suggestFocusIdx[key]].click();
+      }
+    } else if (e.key === 'Escape') {
+      closeSuggest(dropdownId, key);
+    }
+  });
+
+  // 외부 클릭 시 닫기
+  document.addEventListener('click', function(e) {
+    if (!input.contains(e.target) && !dd.contains(e.target)) {
+      closeSuggest(dropdownId, key);
+    }
+  });
+}
+
+function fetchSuggest(q, dropdownId, key, onSelect) {
+  window.api.suggest(q, storeId).then(data => {
+      const dd = document.getElementById(dropdownId);
+      suggestFocusIdx[key] = -1;
+      if (!data.success || !data.products.length) {
+        dd.innerHTML = '<div class="suggest-empty">검색 결과가 없습니다</div>';
+        dd.classList.add('open');
+        return;
+      }
+      dd.innerHTML = data.products.map((p, i) => `
+        <div class="suggest-item" data-idx="${i}" onclick="pickSuggest('${dropdownId}','${key}',${i})">
+          <span class="si-sku">${escHtml(p.sku)}</span>
+          <span class="si-name">
+            <div class="si-name-en">${escHtml(p.name_en || p.sku)}</div>
+            ${p.name_ko ? '<div class="si-name-ko">' + escHtml(p.name_ko) + '</div>' : ''}
+          </span>
+          ${p.selling_price ? '<span class="si-price">₩' + escHtml(p.selling_price) + '</span>' : ''}
+        </div>`).join('');
+      // 상품 데이터를 dropdown에 저장
+      dd._products = data.products;
+      dd.classList.add('open');
+    })
+    .catch(() => {});
+}
+
+function updateSuggestFocus(items, key) {
+  items.forEach((el, i) => el.classList.toggle('focused', i === suggestFocusIdx[key]));
+  if (suggestFocusIdx[key] >= 0) items[suggestFocusIdx[key]].scrollIntoView({ block: 'nearest' });
+}
+
+function closeSuggest(dropdownId, key) {
+  const dd = document.getElementById(dropdownId);
+  dd.classList.remove('open');
+  suggestFocusIdx[key] = -1;
+}
+
+// 전역 맵: dropdown별 onSelect 콜백 저장
+const suggestCallbacks = {};
+
+function pickSuggest(dropdownId, key, idx) {
+  const dd = document.getElementById(dropdownId);
+  const p  = dd._products && dd._products[idx];
+  if (!p) return;
+  closeSuggest(dropdownId, key);
+  if (suggestCallbacks[key]) suggestCallbacks[key](p);
+}
+
+function escHtml(s){ if(!s&&s!==0)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ════════════════════════════════════════
+// 환경설정 모달
+// ════════════════════════════════════════
+let settingsTab = 'store';
+
+function openSettings() {
+  syncSettingsStoreHighlight();
+  syncUploadStoreLabel();
+  document.getElementById('settingsOverlay').classList.add('open');
+}
+
+function syncUploadStoreLabel() {
+  const active = document.querySelector('.sd-item.active');
+  const label = active ? (active.dataset.name || active.querySelector('span:not(.sd-icon)').textContent.trim()) : '-';
+  const el = document.getElementById('uploadStoreLabel');
+  if (el) el.textContent = label;
+}
+
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('open');
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('settingsOverlay')) closeSettings();
+}
+
+function switchSettingsTab(tab) {
+  settingsTab = tab;
+  document.querySelectorAll('.sm-tab').forEach((el, i) => {
+    el.classList.toggle('active', ['store','upload','dbconfig'][i] === tab);
+  });
+  document.querySelectorAll('.sm-pane').forEach(el => el.classList.remove('active'));
+  const paneId = tab === 'upload' ? 'paneUpload' : tab === 'dbconfig' ? 'paneDbconfig' : 'paneStore';
+  document.getElementById(paneId).classList.add('active');
+  if (tab === 'upload') syncUploadStoreLabel();
+  if (tab === 'dbconfig') loadDbConfig();
+}
+
+// 설정 모달 내 점포 선택
+function syncSettingsStoreHighlight() {
+  document.querySelectorAll('.sm-store-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.id) === storeId);
+  });
+}
+
+function settingsSelectStore(id, name) {
+  // 기존 selectStore 재활용
+  selectStore(id, name);
+  syncSettingsStoreHighlight();
+}
+
+// ── 마스터 파일 업로드 ──
+function onUploadFileChange(input) {
+  // Electron: 파일 선택 버튼은 dialog API로 대체
+}
+
+function uploadMasterFile() {
+  const btn = document.getElementById('uploadBtn');
+  const progress = document.getElementById('uploadProgress');
+  const result = document.getElementById('uploadResult');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리 중...';
+  progress.style.display = 'block';
+  result.style.display = 'none';
+  window.api.importMaster(window._uploadFilePath, storeId).then(data => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-upload"></i>업로드 시작';
+    progress.style.display = 'none';
+    result.style.display = 'block';
+    result.style.borderColor = data.success ? '#22c55e' : '#ef4444';
+    result.style.color = data.success ? '#4ade80' : '#f87171';
+    result.textContent = data.message || (data.success ? '완료' : '오류 발생');
+  });
+}
+
+function showSettingsMsg(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = 'sm-msg ' + type;
+  el.textContent = msg;
+}
+function hideSettingsMsg(id) {
+  const el = document.getElementById(id);
+  el.className = 'sm-msg';
+  el.textContent = '';
+}
+
+// ── 초기화 ──
+async function loadStores() {
+  const { stores } = await window.api.getStores().catch(() => ({ stores: [] }));
+  const ddItems = document.getElementById('storeDropdownItems');
+  const settingsList = document.getElementById('settingsStoreList');
+  const savedStore = parseInt(localStorage.getItem('pricing_storeId')) || (stores[0]?.id || 1);
+  storeId = savedStore;
+  if (!stores.length) {
+    document.getElementById('storeNameLabel').textContent = '점포 없음';
+    return;
+  }
+  ddItems.innerHTML = stores.map(s =>
+    `<button class="sd-item${s.id==savedStore?' active':''}" data-id="${s.id}" data-name="${s.name}" onclick="selectStore(${s.id}, '${s.name.replace(/'/g,\"\\\\'\")}')">
+      <span class="sd-icon"><i class="fas fa-store"></i></span>${s.name}
+    </button>`
+  ).join('');
+  settingsList.innerHTML = stores.map(s =>
+    `<div class="sm-store-item${s.id==savedStore?' active':''}" data-id="${s.id}"
+         onclick="settingsSelectStore(${s.id}, '${s.name.replace(/'/g,\"\\\\'\")}')">
+      <span class="ssi-icon"><i class="fas fa-store"></i></span>
+      <span>${s.name}</span>
+      <i class="fas fa-check-circle ssi-check"></i>
+    </div>`
+  ).join('');
+  const matched = stores.find(s => s.id == savedStore) || stores[0];
+  document.getElementById('storeNameLabel').textContent = matched.name;
+}
+
+async function pickUploadFile() {
+  const fp = await window.api.openFile();
+  if (!fp) return;
+  window._uploadFilePath = fp;
+  const nameEl = document.getElementById('uploadFileName');
+  nameEl.textContent = fp.split(/[\\/]/).pop();
+  nameEl.style.display = 'block';
+  document.getElementById('uploadResult').style.display = 'none';
+}
+
+async function loadDbConfig() {
+  const cfg = await window.api.getConfig();
+  document.getElementById('dbHost').value = cfg.host || '';
+  document.getElementById('dbPort').value = cfg.port || 3306;
+  document.getElementById('dbName').value = cfg.database || '';
+  document.getElementById('dbUser').value = cfg.user || '';
+  document.getElementById('dbPass').value = cfg.password || '';
+}
+
+async function testDbConnection() {
+  const cfg = getDbFormValues();
+  const msg = document.getElementById('dbConfigMsg');
+  msg.className = 'sm-msg'; msg.textContent = '연결 테스트 중...'; msg.style.display='block';
+  const r = await window.api.testConnection(cfg);
+  msg.className = 'sm-msg ' + (r.success ? 'success' : 'error');
+  msg.textContent = r.success ? '✅ 연결 성공!' : ('❌ ' + r.message);
+}
+
+async function saveDbConfig() {
+  const cfg = getDbFormValues();
+  const msg = document.getElementById('dbConfigMsg');
+  msg.className = 'sm-msg'; msg.textContent = '저장 중...'; msg.style.display='block';
+  const r = await window.api.setConfig(cfg);
+  msg.className = 'sm-msg ' + (r.success ? 'success' : 'error');
+  msg.textContent = r.success ? '✅ 저장 완료! DB 연결됨.' : ('❌ ' + r.message);
+  if (r.success) { loadStores(); }
+}
+
+function getDbFormValues() {
+  return {
+    host: document.getElementById('dbHost').value.trim(),
+    port: parseInt(document.getElementById('dbPort').value) || 3306,
+    database: document.getElementById('dbName').value.trim(),
+    user: document.getElementById('dbUser').value.trim(),
+    password: document.getElementById('dbPass').value,
+    charset: 'utf8mb4',
+  };
+}
+
+(function init(){
+  const savedType   = localStorage.getItem('pricing_printType') || 'pricing';
+  const savedScreen = localStorage.getItem('pricing_screen')    || 'lookup';
+  const savedStore  = parseInt(localStorage.getItem('pricing_storeId')) || 1;
+
+  // 점포 복원
+  const matchedItem = document.querySelector(`.sd-item[data-id="${savedStore}"]`);
+  if (matchedItem) {
+    storeId = savedStore;
+    const label = document.getElementById('storeNameLabel');
+    if (label) label.textContent = matchedItem.dataset.name || matchedItem.textContent.trim();
+    matchedItem.classList.add('active');
+  } else {
+    // 첫 번째 항목을 active로
+    const firstItem = document.querySelector('.sd-item');
+    if (firstItem) firstItem.classList.add('active');
+  }
+
+  setPrintType(savedType);
+  setScreen(savedScreen);
+  syncSettingsStoreHighlight();
+
+  // ── 자동완성 초기화 ──
+  // 가격 조회 화면
+  suggestCallbacks['lookup'] = function(p) {
+    currentProduct = p;
+    showLookupResult(p);
+    document.getElementById('lookupInput').value = '';
+  };
+  initSuggest('lookupInput', 'lookupSuggest', 'lookup', suggestCallbacks['lookup']);
+
+  // 프라이싱 출력 화면
+  suggestCallbacks['print'] = function(p) {
+    document.getElementById('printInput').value = '';
+    closeSuggest('printSuggest', 'print');
+    if (printMode === 'auto') silentPrint(p);
+    else addItem(p);
+  };
+  initSuggest('printInput', 'printSuggest', 'print', suggestCallbacks['print']);
+  loadStores();
+  loadDbConfig();
+})();
+</script>
+</body>
+</html>

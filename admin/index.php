@@ -25,30 +25,60 @@ $stats = [
     'unassigned_users' => 0,
     'stores' => []
 ];
+$expiring_products = [];
+$expired_products  = [];
 $error_message = '';
 
 try {
-    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-    $pdo = new PDO($dsn, DB_USER, DB_PASS);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $conn = get_db_connection();
 
     // 1. 총 회원 수
-    $stats['total_users'] = $pdo->query("SELECT COUNT(id) FROM users")->fetchColumn();
+    $r = $conn->query("SELECT COUNT(id) FROM users");
+    if ($r) { $stats['total_users'] = $r->fetch_row()[0]; $r->free(); }
 
     // 2. 지점별 회원 수
-    $stmt_stores = $pdo->query("
+    $r = $conn->query("
         SELECT s.name, COUNT(u.id) as user_count
         FROM stores s
         LEFT JOIN users u ON s.id = u.store_id
         GROUP BY s.id, s.name
         ORDER BY s.name ASC
     ");
-    $stats['stores'] = $stmt_stores->fetchAll(PDO::FETCH_ASSOC);
+    if ($r) { while ($row = $r->fetch_assoc()) { $stats['stores'][] = $row; } $r->free(); }
 
     // 3. 미지정 회원 수
-    $stats['unassigned_users'] = $pdo->query("SELECT COUNT(id) FROM users WHERE store_id IS NULL")->fetchColumn();
+    $r = $conn->query("SELECT COUNT(id) FROM users WHERE store_id IS NULL");
+    if ($r) { $stats['unassigned_users'] = $r->fetch_row()[0]; $r->free(); }
 
-} catch (PDOException $e) {
+    // 4. 유통기한 임박 상품 (30일 이내) - inventory_expirations 테이블이 없을 수 있음
+    $r = $conn->query("
+        SELECT p.id, p.name_ko, p.sku, ie.expiration_date, SUM(ie.quantity) AS total_quantity
+        FROM inventory_expirations ie
+        JOIN products p ON ie.product_id = p.id
+        WHERE ie.expiration_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+          AND ie.expiration_date >= CURDATE()
+        GROUP BY p.id, p.name_ko, p.sku, ie.expiration_date
+        ORDER BY ie.expiration_date ASC
+        LIMIT 10
+    ");
+    if ($r) { while ($row = $r->fetch_assoc()) { $expiring_products[] = $row; } $r->free(); }
+
+    // 5. 이미 지난 상품들
+    $r = $conn->query("
+        SELECT p.id, p.name_ko, p.sku, ie.expiration_date, SUM(ie.quantity) AS total_quantity
+        FROM inventory_expirations ie
+        JOIN products p ON ie.product_id = p.id
+        WHERE ie.expiration_date < CURDATE()
+        GROUP BY p.id, p.name_ko, p.sku, ie.expiration_date
+        ORDER BY ie.expiration_date DESC
+        LIMIT 10
+    ");
+    if ($r) { while ($row = $r->fetch_assoc()) { $expired_products[] = $row; } $r->free(); }
+
+    $conn->close();
+
+} catch (Exception $e) {
+    error_log("index.php DB error: " . $e->getMessage());
     $error_message = t('dashboard.statistics_error') . ': ' . $e->getMessage();
 }
 ?>
@@ -121,7 +151,69 @@ try {
                 </div>
             </div>
         </div>
-    </div>
+        </div>
+
+        <!-- Expiration Alerts -->
+        <div class="mt-6 flex flex-col md:flex-row gap-6">
+            <!-- 임박 상품 -->
+            <div class="flex-1 bg-white rounded shadow-sm border border-yellow-200">
+                <div class="p-4 border-b border-gray-200 bg-yellow-50 flex items-center justify-between">
+                    <h2 class="text-base font-medium text-yellow-800"><i class="fas fa-exclamation-triangle mr-2"></i>유통기한 임박 상품 (30일 이내)</h2>
+                    <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full"><?php echo count($expiring_products); ?>건</span>
+                </div>
+                <div class="p-0 max-h-64 overflow-y-auto">
+                    <?php if (count($expiring_products) > 0): ?>
+                        <ul class="divide-y divide-gray-200">
+                            <?php foreach ($expiring_products as $product): 
+                                $days_left = (strtotime($product['expiration_date']) - time()) / 86400;
+                                $days_left = ceil($days_left);
+                            ?>
+                            <li class="p-3 hover:bg-gray-50 flex justify-between items-center">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($product['name_ko']); ?></p>
+                                    <p class="text-xs text-gray-500 font-mono"><?php echo htmlspecialchars($product['sku'] ?? '-'); ?></p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm font-semibold text-yellow-600"><?php echo htmlspecialchars($product['expiration_date']); ?></p>
+                                    <p class="text-xs text-yellow-500">D-<?php echo $days_left; ?></p>
+                                </div>
+                            </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php else: ?>
+                        <div class="p-4 text-center text-gray-500 text-sm">임박한 상품이 없습니다.</div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- 만료 상품 -->
+            <div class="flex-1 bg-white rounded shadow-sm border border-red-200">
+                <div class="p-4 border-b border-gray-200 bg-red-50 flex items-center justify-between">
+                    <h2 class="text-base font-medium text-red-800"><i class="fas fa-times-circle mr-2"></i>유통기한 만료 상품</h2>
+                    <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full"><?php echo count($expired_products); ?>건</span>
+                </div>
+                <div class="p-0 max-h-64 overflow-y-auto">
+                    <?php if (count($expired_products) > 0): ?>
+                        <ul class="divide-y divide-gray-200">
+                            <?php foreach ($expired_products as $product): ?>
+                            <li class="p-3 hover:bg-gray-50 flex justify-between items-center">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($product['name_ko']); ?></p>
+                                    <p class="text-xs text-gray-500 font-mono"><?php echo htmlspecialchars($product['sku'] ?? '-'); ?></p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm font-semibold text-red-600"><?php echo htmlspecialchars($product['expiration_date']); ?></p>
+                                    <p class="text-xs text-red-500">만료됨</p>
+                                </div>
+                            </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php else: ?>
+                        <div class="p-4 text-center text-gray-500 text-sm">만료된 상품이 없습니다.</div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
 
         <!-- Quick Actions -->
         <div class="mt-6">

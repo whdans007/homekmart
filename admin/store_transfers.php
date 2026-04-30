@@ -3,6 +3,7 @@ require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = t('store_transfer.management') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
+require_once __DIR__ . '/../lib/inventory_helper.php';
 
 // 점간이동 권한 확인
 if (!has_permission('store_transfer_management')) {
@@ -161,13 +162,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 foreach ($old_items as $old_item) {
                     
-                    // 출발지에 재고 복원
+                    // 출발지에 재고 복원 (간단화를 위해 오늘 기준 30일 뒤 날짜로 복원, 실제 상용에선 이력 추적이 필요함)
                     $restore_from = $pdo->prepare("UPDATE inventory SET quantity = quantity + ? WHERE product_id = ? AND store_id = ?");
                     $restore_from->execute([$old_item['quantity'], $old_item['product_id'], $delete_from_store_id]);
+                    add_inventory_by_expiration($pdo, $delete_from_store_id, $old_item['product_id'], date('Y-m-d', strtotime('+30 days')), $old_item['quantity']);
                     
-                    // 목적지에서 재고 차감
+                    // 목적지에서 재고 차감 (선입선출)
                     $reduce_to = $pdo->prepare("UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?");
                     $reduce_to->execute([$old_item['quantity'], $old_item['product_id'], $delete_to_store_id]);
+                    deduct_inventory_by_expiration($pdo, $delete_to_store_id, $old_item['product_id'], $old_item['quantity']);
                 }
             }
             
@@ -236,10 +239,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // 출발지에 재고 복원
                         $restore_from = $pdo->prepare("UPDATE inventory SET quantity = quantity + ? WHERE product_id = ? AND store_id = ?");
                         $restore_from->execute([$old_item['quantity'], $old_item['product_id'], $from_store_id]);
+                        add_inventory_by_expiration($pdo, $from_store_id, $old_item['product_id'], date('Y-m-d', strtotime('+30 days')), $old_item['quantity']);
                         
                         // 목적지에서 재고 차감
                         $reduce_to = $pdo->prepare("UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?");
                         $reduce_to->execute([$old_item['quantity'], $old_item['product_id'], $to_store_id]);
+                        deduct_inventory_by_expiration($pdo, $to_store_id, $old_item['product_id'], $old_item['quantity']);
                     }
                 }
                 
@@ -285,9 +290,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $item_stmt->execute([$transfer_id, $product_id, $quantity, $unit_cost_price, $total_price, $remarks]);
                 
-                // 출발지 재고 차감
+                // 출발지 재고 차감 및 어떤 롯트들이 차감되었는지 기록받기
                 $from_inventory_stmt = $pdo->prepare("UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?");
                 $from_inventory_stmt->execute([$quantity, $product_id, $from_store_id]);
+                $deducted_lots = deduct_inventory_by_expiration($pdo, $from_store_id, $product_id, $quantity);
                 
                 // 목적지 재고 추가 (없으면 원가 정보와 함께 생성)
                 $to_inventory_check = $pdo->prepare("SELECT quantity, cost_price FROM inventory WHERE product_id = ? AND store_id = ?");
@@ -305,6 +311,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         VALUES (?, ?, ?, ?)
                     ");
                     $to_inventory_insert->execute([$product_id, $to_store_id, $quantity, $unit_cost_price]);
+                }
+
+                // 출발지에서 빠진 유통기한 고스란히 목적지에 추가 (롯트 보존)
+                foreach ($deducted_lots as $lot) {
+                    add_inventory_by_expiration($pdo, $to_store_id, $product_id, $lot['expiration_date'], $lot['deducted']);
                 }
             }
             
