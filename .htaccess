@@ -70,20 +70,28 @@
 </FilesMatch>
 
 # 디렉토리 접근 차단
-<DirectoryMatch "^(.*/)?(\.|_|node_modules|vendor|src|config|lib)">
-    Order Allow,Deny
-    Deny from all
-</DirectoryMatch>
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*/)?(\.|_|node_modules|vendor|src|config|lib) - [F,L]
+</IfModule>
 
 # PHP 설정
 <IfModule mod_php.c>
     php_flag display_errors Off
     php_flag log_errors On
     php_value error_log /dev/null
-    php_value upload_max_filesize 10M
-    php_value post_max_size 10M
-    php_value memory_limit 128M
-    php_value max_execution_time 60
+    php_value upload_max_filesize 100M
+    php_value post_max_size 100M
+    php_value memory_limit 512M
+    php_value max_execution_time 300
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag display_errors Off
+    php_flag log_errors On
+    php_value upload_max_filesize 100M
+    php_value post_max_size 100M
+    php_value memory_limit 512M
+    php_value max_execution_time 300
 </IfModule>
 
 # 파일 압축 (성능 향상)
@@ -115,12 +123,10 @@
 Options -Indexes
 
 # 파일 실행 권한 차단 (업로드 디렉토리용)
-<Directory "*/uploads/*">
-    <FilesMatch "\.php$">
-        Order Allow,Deny
-        Deny from all
-    </FilesMatch>
-</Directory>
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^.*/?uploads/.*\.php$ - [F,L]
+</IfModule>
 
 # URL 리라이팅 (필요시)
 <IfModule mod_rewrite.c>

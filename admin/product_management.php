@@ -391,12 +391,34 @@ try {
 
                 <!-- Pricing by Store -->
                 <h4 class="text-lg font-semibold text-gray-800 mb-2"><?php echo t('product.inventory_pricing'); ?></h4>
-                <div id="modal-inventory-wrapper">
+                <div id="modal-inventory-wrapper" class="mb-6">
                     <!-- JS will populate this -->
                 </div>
 
+                <!-- Lot Inventory Management -->
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="text-lg font-semibold text-gray-800">유통기한별 재고 (Lot) 관리</h4>
+                    <button type="button" id="btn-add-lot" class="text-xs px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100">
+                        <i class="fas fa-plus mr-1"></i>새 로트 추가
+                    </button>
+                </div>
+                <div id="modal-lot-wrapper" class="mb-6 overflow-x-auto">
+                    <table class="w-full text-sm text-center text-gray-600 border">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 font-semibold">유통기한 (년-월-일)</th>
+                                <th class="px-4 py-2 font-semibold text-right">수량</th>
+                                <th class="px-4 py-2 font-semibold">동작</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lot-inventory-tbody">
+                            <!-- JS will populate Lots here -->
+                        </tbody>
+                    </table>
+                </div>
+
                 <!-- Purchase History Section -->
-                <h4 class="text-lg font-semibold text-gray-800 mb-2 mt-6"><?php echo t('product.recent_purchase_history'); ?></h4>
+                <h4 class="text-lg font-semibold text-gray-800 mb-2"><?php echo t('product.recent_purchase_history'); ?></h4>
                 <div id="modal-purchase-history-wrapper" class="mb-4">
                     <div id="purchase-history-loading" class="text-center py-4">
                         <i class="fas fa-spinner fa-spin text-primary-600"></i>
@@ -728,6 +750,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         // Load purchase history
                         loadPurchaseHistory(productId);
+                        
+                        // Load lot inventory
+                        loadLotInventory(productId);
 
                         // Show content
                         modalContent.loading.style.display = 'none';
@@ -1284,5 +1309,158 @@ document.addEventListener('DOMContentLoaded', function() {
             savePresetBtn.disabled = false;
         });
     });
+
+    // Lot Inventory 관련 함수들
+    const lotTbody = document.getElementById('lot-inventory-tbody');
+    const btnAddLot = document.getElementById('btn-add-lot');
+
+    function loadLotInventory(productId) {
+        lotTbody.innerHTML = `<tr><td colspan="3" class="text-center py-4"><i class="fas fa-spinner fa-spin text-primary-600"></i></td></tr>`;
+        
+        fetch(`ajax_get_lot_inventory.php?product_id=${productId}&store_id=${currentStoreId}`)
+            .then(res => res.json())
+            .then(result => {
+                if (result.success) {
+                    renderLotInventory(result.data);
+                } else {
+                    lotTbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-500">${result.error || 'Failed to load lots.'}</td></tr>`;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                lotTbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-red-500">통신 오류가 발생했습니다.</td></tr>`;
+            });
+    }
+
+    function renderLotInventory(lots) {
+        lotTbody.innerHTML = '';
+        if (!lots || lots.length === 0) {
+            lotTbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-gray-500">등록된 유통기한 로트가 없습니다.</td></tr>`;
+        } else {
+            lots.forEach(lot => addLotRow(lot.id, lot.expiration_date, lot.quantity));
+        }
+        
+        // Add "save changes" button if not already there
+        if (!document.getElementById('btn-save-lots')) {
+            const wrapper = document.getElementById('modal-lot-wrapper');
+            const saveBtnContainer = document.createElement('div');
+            saveBtnContainer.className = "flex justify-end mt-2";
+            saveBtnContainer.innerHTML = `
+                <button type="button" id="btn-save-lots" class="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">
+                    로트 재고 변경 저장
+                </button>
+            `;
+            wrapper.appendChild(saveBtnContainer);
+
+            document.getElementById('btn-save-lots').addEventListener('click', saveLotInventory);
+        }
+    }
+
+    function addLotRow(id = 0, expDate = '', qty = 0) {
+        // If empty row exists, remove it
+        if (lotTbody.querySelector('td[colspan="3"]')) {
+            lotTbody.innerHTML = '';
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = "border-b lot-row";
+        tr.dataset.id = id;
+        tr.innerHTML = `
+            <td class="px-4 py-2">
+                <input type="date" class="lot-date px-2 py-1 border border-gray-300 rounded focus:ring-primary-500 focus:border-primary-500 w-full" value="${expDate}" ${id > 0 ? '' : 'required'}>
+            </td>
+            <td class="px-4 py-2">
+                <input type="number" class="lot-qty px-2 py-1 border border-gray-300 rounded focus:ring-primary-500 text-right w-full" value="${qty}" ${id > 0 ? '' : ''}>
+            </td>
+            <td class="px-4 py-2 text-center">
+                <button type="button" class="text-red-500 hover:text-red-700 btn-remove-lot" title="삭제"><i class="fas fa-trash"></i></button>
+            </td>
+        `;
+        
+        tr.querySelector('.btn-remove-lot').addEventListener('click', function() {
+            tr.remove();
+            if (lotTbody.querySelectorAll('tr').length === 0) {
+                lotTbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-gray-500">등록된 유통기한 로트가 없습니다.</td></tr>`;
+            }
+        });
+        
+        lotTbody.appendChild(tr);
+    }
+
+    btnAddLot.addEventListener('click', function() {
+        const defaultExpDate = new Date();
+        defaultExpDate.setDate(defaultExpDate.getDate() + 30);
+        addLotRow(0, defaultExpDate.toISOString().split('T')[0], 0);
+    });
+
+    function saveLotInventory() {
+        if (!currentProductId) return;
+        
+        const btnSave = document.getElementById('btn-save-lots');
+        btnSave.disabled = true;
+        btnSave.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> 저장 중...`;
+
+        const lotRows = lotTbody.querySelectorAll('.lot-row');
+        const lotsData = [];
+        let hasError = false;
+
+        lotRows.forEach(row => {
+            const date = row.querySelector('.lot-date').value;
+            const qty = row.querySelector('.lot-qty').value;
+            
+            if (!date) {
+                hasError = true;
+                row.querySelector('.lot-date').classList.add('border-red-500');
+            } else {
+                row.querySelector('.lot-date').classList.remove('border-red-500');
+                lotsData.push({
+                    id: row.dataset.id,
+                    expiration_date: date,
+                    quantity: qty
+                });
+            }
+        });
+
+        if (hasError) {
+            showToast('유통기한 날짜를 입력해주세요.', 'error');
+            btnSave.disabled = false;
+            btnSave.innerHTML = `로트 재고 변경 저장`;
+            return;
+        }
+
+        const payload = {
+            product_id: currentProductId,
+            store_id: currentStoreId,
+            lots: lotsData
+        };
+
+        fetch('ajax_update_lot_inventory.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(result => {
+            if (result.success) {
+                showToast(result.message, 'success');
+                // Reload list to get updated IDs
+                loadLotInventory(currentProductId);
+                // Also optionally refresh the parent product table logic (if total stock might have changed)
+                // Using existing fetch flow for modal is tricky because it re-renders pricing table, 
+                // but we can just reload lots for now.
+            } else {
+                showToast(result.error || '저장 실패', 'error');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('에러가 발생했습니다.', 'error');
+        })
+        .finally(() => {
+            btnSave.disabled = false;
+            btnSave.innerHTML = `로트 재고 변경 저장`;
+        });
+    }
+
 });
 </script>

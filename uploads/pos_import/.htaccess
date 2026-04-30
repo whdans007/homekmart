@@ -1,0 +1,11 @@
+# pos_import 폴더: PHP 실행 차단, 파일 접근 차단
+<FilesMatch "\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+Options -Indexes
+
+# 직접 웹 접근 차단 (PHP에서만 접근 가능)
+Order Allow,Deny
+Deny from all

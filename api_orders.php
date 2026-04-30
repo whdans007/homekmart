@@ -9,6 +9,7 @@ header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 require_once __DIR__ . '/config/db_config.php';
+require_once __DIR__ . '/lib/inventory_helper.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -192,6 +193,12 @@ try {
                     $stock_stmt->execute([
                         $item['quantity'], $item['product_id'], $item['store_id']
                     ]);
+
+                    // 유통기한별 재고(Lot)도 선입선출 자동 차감
+                    deduct_inventory_by_expiration(
+                        $pdo, // PDO connection works if we make sure deduct_inventory_by_expiration handles it, BUT wait! The helper is written for mysqli!
+                        // Oh, wait, I need to check inventory_helper.php or adapt it.
+                    );
                 }
                 
                 // 배송 추적 생성

@@ -1,12 +1,11 @@
 <?php
-// 간단한 바코드 2분할 라벨 인쇄 페이지
+// 바코드 라벨 인쇄 페이지 (프라이싱 1p / 바코드라벨 2p 모드 지원)
 require_once __DIR__ . '/../lib/session_helper.php';
 require_once __DIR__ . '/../lib/permission_helper.php';
 require_once __DIR__ . '/../config/db_config.php';
 
 ensure_logged_in();
 
-// 권한: product_management 또는 admin/super_admin 허용
 if (!has_permission('product_management') && !in_array($_SESSION['role'] ?? '', ['admin','super_admin'])) {
     http_response_code(403);
     echo '권한이 없습니다.';
@@ -14,11 +13,14 @@ if (!has_permission('product_management') && !in_array($_SESSION['role'] ?? '', 
 }
 
 $skusParam = $_GET['skus'] ?? '';
-// 콤마/공백 구분 모두 허용
 $parts = preg_split('/[\s,]+/u', $skusParam, -1, PREG_SPLIT_NO_EMPTY);
 $skus = array_values(array_filter(array_map('trim', $parts), fn($s) => $s !== ''));
 
-// 세션의 매장 ID (header.php에서 설정)
+// 출력 모드: 'pricing' = 1장 전체에 바코드 1개, '2p' = 좌우 분할 같은 바코드 2개 (기본)
+$printMode = ($_GET['mode'] ?? '2p') === 'pricing' ? 'pricing' : '2p';
+// 자동 출력 모드: autoprint=1 이면 렌더링 완료 후 자동 print() + 창 닫기
+$autoPrint = ($_GET['autoprint'] ?? '0') === '1';
+
 $storeId = isset($_SESSION['store_id']) ? (int)$_SESSION['store_id'] : 1;
 
 $items = [];
@@ -28,7 +30,6 @@ if (!empty($skus)) {
         $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
         $pdo = new PDO($dsn, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 
-        // products.selling_price, inventory.selling_price 존재 여부 확인
         $hasProdPrice = false;
         $hasInventory = false;
         $hasInvPrice = false;
@@ -46,7 +47,6 @@ if (!empty($skus)) {
         } catch (Throwable $e) { $hasInventory = false; $hasInvPrice = false; }
 
         $inPlaceholders = implode(',', array_fill(0, count($skus), '?'));
-        // 최종 가격 표현식 결정
         if ($hasInventory && $hasInvPrice && $hasProdPrice) {
             $finalPriceExpr = 'COALESCE(inv.selling_price, p.selling_price) AS selling_price';
         } elseif ($hasInventory && $hasInvPrice) {
@@ -100,43 +100,53 @@ if (!empty($skus)) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>바코드 인쇄</title>
   <style>
-    /* 화면 기본 */
     @page { size: auto; margin: 5mm; }
     html, body { margin: 0; padding: 0; }
     body { font-family: Arial, 'Malgun Gothic', sans-serif; display:flex; flex-direction:column; align-items:center; }
     .controls { display: flex; gap: 8px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
     .controls .status { font-size: 12px; color: #555; }
     .controls .spacer { flex: 1 1 auto; }
-    /* 제목 텍스트 숨김 */
     .controls strong { display: none !important; }
-    /* 요청: 배율/맞춤/50%/100%/미리보기 새로고침 컨트롤 숨김 */
     #scale, #scaleVal, #btnFit, #btn50, #btn100, #btnRefresh,
     .controls label { display: none !important; }
     .grid { display: grid; grid-template-columns: 1fr; gap: 8mm; }
     #labels { margin: 0 auto; }
     #status { display: none !important; }
-    /* 화면에서도 실제 용지 크기(70mm x 30mm)를 렌더하고, 상단 배율 슬라이더로 확대/축소 미리보기 */
-    .label { width: 70mm; height: 30mm; border: 1px solid #000; padding: 0; display: flex; box-sizing: border-box; }
-    .half { flex: 1; width: 50%; max-width: 35mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1mm 2mm 2mm; box-sizing: border-box; }
-    .divider { width: 0; border-left: 1px solid #000; margin: 0; height: 100%; }
-    /* 상품명: 스케일 변환시 잘림 방지. 정확히 2줄 영역을 확보 */
-    .name { font-size: 7pt; font-weight: 700; text-align: center; width: 100%; margin: 0 0 0.4mm 0;
+
+    /* ===== 2p 모드: 좌우 분할 (기존) ===== */
+    .label-2p { width: 70mm; height: 30mm; border: 1px solid #000; padding: 0; display: flex; box-sizing: border-box; }
+    .label-2p .half { flex: 1; width: 50%; max-width: 35mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1mm 2mm 2mm; box-sizing: border-box; }
+    .label-2p .divider { width: 0; border-left: 1px solid #000; margin: 0; height: 100%; }
+    .label-2p .name { font-size: 7pt; font-weight: 700; text-align: center; width: 100%; margin: 0 0 0.4mm 0;
             padding-top: 0.2mm; white-space: normal; word-break: break-word; overflow: hidden;
             line-height: 1.2; min-height: 2.4em; max-height: 2.4em; display: block; }
-    /* 가격: 높이(행간)와 여백을 최소화하여 상품명이 보이도록 함 */
-    .price { font-size: 7pt; font-weight: 700; line-height: 1; margin: 0.2mm 0 0.2mm; }
-    .barcode { width: 90%; max-width: 30mm; height: 5mm; margin: 0.5mm auto 0; }
-    .foot { font-size: 8pt; margin-top: 0.5mm; }
-    /* 인쇄: 실제 용지 크기 가로 70mm x 세로 30mm에 정확히 맞춤 (하나의 라벨에 좌/우 2개 바코드) */
+    .label-2p .price { font-size: 7pt; font-weight: 700; line-height: 1; margin: 0.2mm 0 0.2mm; }
+    .label-2p .barcode { width: 90%; max-width: 30mm; height: 5mm; margin: 0.5mm auto 0; }
+    .label-2p .foot { font-size: 8pt; margin-top: 0.5mm; }
+
+    /* ===== 프라이싱 모드: 상단 이름 + 하단 좌(바코드)/우(가격) ===== */
+    .label-pricing { width: 70mm; height: 30mm; border: 1px solid #000; padding: 0; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
+    .label-pricing .pricing-header { text-align: center; padding: 1mm 1.5mm 0.5mm; border-bottom: 0.5pt solid #000; flex: 0 0 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box; }
+    .label-pricing .pricing-name-en { font-size: 12pt; font-weight: 700; line-height: 1.2; white-space: normal; word-break: break-word; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; max-height: 2.4em; }
+    .label-pricing .pricing-name-ko { font-size: 9pt; font-weight: 700; line-height: 1.15; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.5mm; }
+    .label-pricing .pricing-body { display: flex; flex: 1; min-height: 0; }
+    .label-pricing .pricing-barcode { flex: 1; width: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1mm 3mm 0.5mm; min-width: 0; box-sizing: border-box; }
+    .label-pricing .pricing-barcode svg { width: 100%; height: 7mm; }
+    .label-pricing .pricing-foot { font-size: 7.5pt; font-weight: 700; text-align: center; line-height: 1; margin-top: 0.8mm; }
+    .label-pricing .pricing-price { flex: 1; width: 50%; flex-shrink: 0; border-left: 0.5pt solid #000; display: flex; align-items: center; justify-content: center; font-size: 38pt; font-weight: 700; line-height: 1; box-sizing: border-box; }
+
+    /* 인쇄 */
     @media print {
       @page { size: 70mm 30mm; margin: 0; }
       html, body { margin: 0; padding: 0; }
       .controls { display: none !important; }
       #labels { transform: none !important; transform-origin: 0 0 !important; gap: 0 !important; }
-      /* 인쇄 시 라벨을 용지 전체(70mm x 30mm)로 확장하고 내부를 좌/우 절반으로 분할 */
-      .label { width: 70mm !important; height: 30mm !important; border: 2px solid #000; padding: 0; page-break-inside: avoid; box-sizing: border-box; }
-      .half { padding: 2mm; }
-      .divider { border-left: 1px solid #000; margin: 0; }
+      .label-2p { width: 70mm !important; height: 30mm !important; border: 2px solid #000; padding: 0; page-break-inside: avoid; box-sizing: border-box; }
+      .label-2p .half { padding: 2mm; }
+      .label-2p .divider { border-left: 1px solid #000; margin: 0; }
+      .label-pricing { width: 70mm !important; height: 30mm !important; border: none; padding: 0; page-break-inside: avoid; box-sizing: border-box; overflow: hidden; }
+      .label-pricing .pricing-header { border-bottom: 0.5pt solid #000; }
+      .label-pricing .pricing-price { border-left: none; }
     }
   </style>
 </head>
@@ -155,7 +165,7 @@ if (!empty($skus)) {
     <button id="btnPrint">인쇄</button>
     <span id="status" class="status"></span>
     <?php if (empty($items)): ?>
-      <span style="color:#c00">표시할 바코드가 없습니다. barcode_generate에서 선택하거나, URL에 ?skus=콤마구분 으로 전달하세요.</span>
+      <span style="color:#c00">표시할 바코드가 없습니다.</span>
     <?php endif; ?>
     <?php if ($dbError): ?>
       <span class="status" style="color:#a00">(참고) DB 조회 오류: <?php echo htmlspecialchars($dbError); ?></span>
@@ -163,30 +173,53 @@ if (!empty($skus)) {
   </div>
 
   <div class="grid" id="labels">
-    <?php 
-    foreach ($items as $it): 
+    <?php foreach ($items as $it):
       $sku = (string)($it['sku'] ?? '');
       $nameEn = trim((string)($it['name_en'] ?? ''));
       $nameKo = trim((string)($it['name_ko'] ?? ''));
       $baseName = $nameEn !== '' ? $nameEn : ($nameKo !== '' ? $nameKo : $sku);
       $price = $it['selling_price'];
       $priceText = is_null($price) || $price === '' ? '' : number_format((float)$price, 0);
+      $barcodeFormat = strlen($sku) === 13 ? 'EAN13' : 'CODE128';
     ?>
-    <div class="label">
+
+    <?php if ($printMode === 'pricing'): ?>
+    <!-- 프라이싱: 상단 이름 + 하단 좌(바코드)/우(가격) -->
+    <div class="label-pricing">
+      <div class="pricing-header">
+        <div class="pricing-name-en" title="<?php echo htmlspecialchars($nameEn ?: $nameKo ?: $sku); ?>"><?php echo htmlspecialchars($nameEn ?: $nameKo ?: $sku); ?></div>
+        <?php if ($nameEn !== '' && $nameKo !== ''): ?>
+        <div class="pricing-name-ko" title="<?php echo htmlspecialchars($nameKo); ?>"><?php echo htmlspecialchars($nameKo); ?></div>
+        <?php endif; ?>
+      </div>
+      <div class="pricing-body">
+        <div class="pricing-barcode">
+          <svg class="barcode" data-format="<?php echo $barcodeFormat; ?>" data-value="<?php echo htmlspecialchars($sku); ?>"></svg>
+          <div class="pricing-foot"><?php echo htmlspecialchars($sku); ?></div>
+        </div>
+        <div class="pricing-price"><?php echo $priceText !== '' ? $priceText : ''; ?></div>
+      </div>
+    </div>
+
+    <?php else: ?>
+    <!-- 2p: 좌우 분할 같은 바코드 2개 -->
+    <div class="label-2p">
       <div class="half">
         <div class="name" title="<?php echo htmlspecialchars($baseName); ?>"><?php echo htmlspecialchars($baseName); ?></div>
         <?php if ($priceText !== ''): ?><div class="price"><?php echo $priceText; ?></div><?php endif; ?>
-        <svg class="barcode" data-format="<?php echo strlen($sku)===13 ? 'EAN13':'CODE128'; ?>" data-value="<?php echo htmlspecialchars($sku); ?>"></svg>
+        <svg class="barcode" data-format="<?php echo $barcodeFormat; ?>" data-value="<?php echo htmlspecialchars($sku); ?>"></svg>
         <div class="foot"><?php echo htmlspecialchars($sku); ?></div>
       </div>
       <div class="divider"></div>
       <div class="half">
         <div class="name" title="<?php echo htmlspecialchars($baseName); ?>"><?php echo htmlspecialchars($baseName); ?></div>
         <?php if ($priceText !== ''): ?><div class="price"><?php echo $priceText; ?></div><?php endif; ?>
-        <svg class="barcode" data-format="<?php echo strlen($sku)===13 ? 'EAN13':'CODE128'; ?>" data-value="<?php echo htmlspecialchars($sku); ?>"></svg>
+        <svg class="barcode" data-format="<?php echo $barcodeFormat; ?>" data-value="<?php echo htmlspecialchars($sku); ?>"></svg>
         <div class="foot"><?php echo htmlspecialchars($sku); ?></div>
       </div>
     </div>
+    <?php endif; ?>
+
     <?php endforeach; ?>
   </div>
 
@@ -200,14 +233,12 @@ if (!empty($skus)) {
           JsBarcode(el, value, {
             format: format,
             lineColor: '#000',
-            width: 1, // 막대 폭을 줄여 35mm 내에 적합
+            width: 1,
             height: 20,
             displayValue: false,
             margin: 0
           });
-          // 컨테이너(35mm)에 가로가 정확히 맞도록 SVG를 강제 적응
           try {
-            // 비율을 유지하며 컨테이너(최대 30mm, 폭 90%) 안에 맞춤
             el.setAttribute('preserveAspectRatio','xMidYMid meet');
             el.removeAttribute('width');
             el.removeAttribute('height');
@@ -235,7 +266,7 @@ if (!empty($skus)) {
       const timer = setInterval(() => {
         attempts++;
         const ready = checkBarcodesReady(document.getElementById('labels'));
-        statusEl.textContent = ready ? '프리뷰 준비 완료' : `바코드 렌더링 중... (${attempts})`;
+        if (statusEl) statusEl.textContent = ready ? '프리뷰 준비 완료' : '바코드 렌더링 중... (' + attempts + ')';
         if (ready || attempts >= maxAttempts) {
           clearInterval(timer);
           callback(ready);
@@ -249,58 +280,22 @@ if (!empty($skus)) {
       container.style.transform = 'scale(2)';
     }
 
-    function setScale(percent){
-      const s = Math.max(10, Math.min(200, Math.round(percent)));
-      document.getElementById('scale').value = s;
-      applyScale();
-    }
-
-    function fitToWidth(){
-      const container = document.getElementById('labels');
-      // 현재 스케일
-      const current = 2; // 고정 배율
-      // 현재 렌더된 폭을 측정하고, 원래 폭을 역산하여 창 폭에 맞춤
-      const rect = container.getBoundingClientRect();
-      const originalWidth = rect.width / (current || 0.01);
-      const padding = 24; // 좌우 여백 약간
-      // 고정 200%로 유지
-      setScale(200);
-    }
-
-    function fitToPage(){
-      const container = document.getElementById('labels');
-      const current = Number(document.getElementById('scale').value) / 100 || 0.01;
-      const rect = container.getBoundingClientRect();
-      const originalWidth = rect.width / current;
-      const originalHeight = rect.height / current;
-      const padding = 48; // 여백을 더 두어 화면에서 너무 크게 보이지 않도록
-      const controls = document.querySelector('.controls');
-      const controlsH = controls ? controls.getBoundingClientRect().height : 0;
-      const availW = window.innerWidth - padding;
-      const availH = window.innerHeight - controlsH - padding;
-      const scaleW = availW / originalWidth;
-      const scaleH = availH / originalHeight;
-      const target = Math.max(0.1, Math.min(2.0, Math.floor(Math.min(scaleW, scaleH) * 100 * 0.80))); // 80%로 여유 확대
-      setScale(target);
-    }
-
     document.addEventListener('DOMContentLoaded', function(){
       renderBarcodes();
       applyScale();
-      document.getElementById('scale').addEventListener('input', applyScale);
-      document.getElementById('btnRefresh').addEventListener('click', function(){
-        document.getElementById('status').textContent = '프리뷰 갱신 중...';
-        renderBarcodes();
-        waitForBarcodes(function(){ document.getElementById('status').textContent = '프리뷰 준비 완료'; });
-      });
-      document.getElementById('btnPrint').addEventListener('click', function(){
+      var btnPrint = document.getElementById('btnPrint');
+      if (btnPrint) btnPrint.addEventListener('click', function(){
         waitForBarcodes(function(ready){ window.print(); });
       });
-      var _btnFit = document.getElementById('btnFit'); if (_btnFit) _btnFit.addEventListener('click', fitToPage);
-      var _btn50 = document.getElementById('btn50'); if (_btn50) _btn50.addEventListener('click', function(){ setScale(50); });
-      var _btn100 = document.getElementById('btn100'); if (_btn100) _btn100.addEventListener('click', function(){ setScale(100); });
-      waitForBarcodes(function(ready){ /* no-op, just update status */ });
-      // 최초 로드시 화면(가로/세로)에 맞춰 보기 좋게 맞춤
+      <?php if ($autoPrint): ?>
+      // 자동 출력 모드: 바코드 렌더링 완료 후 자동 인쇄 후 창 닫기
+      waitForBarcodes(function(ready){
+        window.print();
+        setTimeout(function(){ window.close(); }, 500);
+      });
+      <?php else: ?>
+      waitForBarcodes(function(ready){});
+      <?php endif; ?>
       setTimeout(applyScale, 0);
     });
   </script>

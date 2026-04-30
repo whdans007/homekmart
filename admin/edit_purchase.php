@@ -1,5 +1,100 @@
 <?php
 
+// 특정 상품 순번 재배치 처리 (140번→9번으로 바꾸면 9~139번은 자동으로 +1)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'reorder_item') {
+    session_start();
+    require_once __DIR__ . '/../config/db_config.php';
+
+    header('Content-Type: application/json');
+
+    $item_id    = (int)($_POST['item_id'] ?? 0);
+    $purchase_id = (int)($_POST['purchase_id'] ?? 0);
+    $new_order  = (int)($_POST['new_sort_order'] ?? 0);
+
+    if (!$item_id || !$purchase_id || $new_order < 1) {
+        echo json_encode(['success' => false, 'error' => '필수 데이터가 누락되었습니다.']);
+        exit;
+    }
+
+    try {
+        $conn = get_db_connection();
+
+        // 확정 여부 확인
+        $chk = $conn->prepare("SELECT is_confirmed FROM purchases WHERE purchase_id = ?");
+        $chk->bind_param("i", $purchase_id);
+        $chk->execute();
+        $p = $chk->get_result()->fetch_assoc();
+        $chk->close();
+        if ($p && $p['is_confirmed']) {
+            echo json_encode(['success' => false, 'error' => '확정된 매입은 순번을 변경할 수 없습니다.']);
+            exit;
+        }
+
+        // 현재 순번 조회
+        $cur_stmt = $conn->prepare("SELECT sort_order FROM purchase_items WHERE item_id = ? AND purchase_id = ?");
+        $cur_stmt->bind_param("ii", $item_id, $purchase_id);
+        $cur_stmt->execute();
+        $cur_row = $cur_stmt->get_result()->fetch_assoc();
+        $cur_stmt->close();
+        if (!$cur_row) {
+            echo json_encode(['success' => false, 'error' => '상품을 찾을 수 없습니다.']);
+            exit;
+        }
+        $current_order = (int)$cur_row['sort_order'];
+
+        // 최대 순번 조회
+        $max_stmt = $conn->prepare("SELECT MAX(sort_order) as mx FROM purchase_items WHERE purchase_id = ?");
+        $max_stmt->bind_param("i", $purchase_id);
+        $max_stmt->execute();
+        $max_row = $max_stmt->get_result()->fetch_assoc();
+        $max_stmt->close();
+        $max_order = (int)$max_row['mx'];
+
+        // 범위 제한
+        if ($new_order > $max_order) $new_order = $max_order;
+
+        if ($new_order === $current_order) {
+            echo json_encode(['success' => true, 'message' => '변경 없음']);
+            exit;
+        }
+
+        $conn->begin_transaction();
+
+        // 충돌 방지: 대상 항목을 임시값(0)으로 변경
+        $tmp = $conn->prepare("UPDATE purchase_items SET sort_order = 0 WHERE item_id = ?");
+        $tmp->bind_param("i", $item_id);
+        $tmp->execute();
+        $tmp->close();
+
+        if ($new_order < $current_order) {
+            // 위로 이동: new_order ~ current_order-1 범위를 +1
+            $shift = $conn->prepare("UPDATE purchase_items SET sort_order = sort_order + 1 WHERE purchase_id = ? AND sort_order >= ? AND sort_order < ?");
+            $shift->bind_param("iii", $purchase_id, $new_order, $current_order);
+        } else {
+            // 아래로 이동: current_order+1 ~ new_order 범위를 -1
+            $shift = $conn->prepare("UPDATE purchase_items SET sort_order = sort_order - 1 WHERE purchase_id = ? AND sort_order > ? AND sort_order <= ?");
+            $shift->bind_param("iii", $purchase_id, $current_order, $new_order);
+        }
+        $shift->execute();
+        $shift->close();
+
+        // 대상 항목을 새 순번으로 설정
+        $upd = $conn->prepare("UPDATE purchase_items SET sort_order = ? WHERE item_id = ?");
+        $upd->bind_param("ii", $new_order, $item_id);
+        $upd->execute();
+        $upd->close();
+
+        $conn->commit();
+        $conn->close();
+
+        echo json_encode(['success' => true, 'message' => "순번이 {$current_order}번에서 {$new_order}번으로 변경되었습니다."]);
+    } catch (Exception $e) {
+        if (isset($conn)) { $conn->rollback(); $conn->close(); }
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // 순번 변경 처리 - 다른 HTML 출력 전에 처리
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_sort_order') {
     session_start();
@@ -124,18 +219,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             throw new Exception('권한이 없습니다.');
         }
 
-        // 상품명 업데이트 (한글 또는 영문)
+        // 기존 상품명 조회 (이력 기록용)
         $field_name = $field_type === 'en' ? 'name_en' : 'name_ko';
+        $old_stmt = $conn->prepare("SELECT {$field_name} FROM products WHERE id = ?");
+        $old_stmt->bind_param("i", $product_id);
+        $old_stmt->execute();
+        $old_row = $old_stmt->get_result()->fetch_assoc();
+        $old_stmt->close();
+        $old_name = $old_row[$field_name] ?? '';
+
+        // 상품명 업데이트 (한글 또는 영문)
         $update_stmt = $conn->prepare("UPDATE products SET {$field_name} = ? WHERE id = ?");
         $update_stmt->bind_param("si", $new_name, $product_id);
 
         if ($update_stmt->execute()) {
-            $conn->commit();
             $update_stmt->close();
+
+            // 값이 실제로 변경된 경우에만 이력 기록
+            if ($old_name !== $new_name) {
+                $language = $field_type === 'en' ? 'en' : 'ko';
+                // 이력 테이블 생성 (없을 경우)
+                $conn->query("
+                    CREATE TABLE IF NOT EXISTS product_name_history (
+                        id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                        product_id INT UNSIGNED NOT NULL,
+                        language   ENUM('en','ko') NOT NULL,
+                        old_name   VARCHAR(255) NOT NULL DEFAULT '',
+                        new_name   VARCHAR(255) NOT NULL DEFAULT '',
+                        changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_product (product_id),
+                        INDEX idx_changed (changed_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                ");
+                $hist_stmt = $conn->prepare("INSERT INTO product_name_history (product_id, language, old_name, new_name, changed_at) VALUES (?, ?, ?, ?, NOW())");
+                $hist_stmt->bind_param("isss", $product_id, $language, $old_name, $new_name);
+                $hist_stmt->execute();
+                $hist_stmt->close();
+            }
+
+            $conn->commit();
             $conn->close();
             $success_msg = $field_type === 'en' ? '영문 상품명이 성공적으로 수정되었습니다.' : '상품명이 성공적으로 수정되었습니다.';
             echo json_encode(['success' => true, 'message' => $success_msg]);
         } else {
+            $update_stmt->close();
             $error_msg = $field_type === 'en' ? '영문 상품명 업데이트에 실패했습니다.' : '상품명 업데이트에 실패했습니다.';
             throw new Exception($error_msg);
         }
@@ -232,6 +359,12 @@ try {
             ) sorted ON pi.item_id = sorted.item_id
             SET pi.sort_order = sorted.new_order
         ");
+    }
+
+    // expiration_date 컬럼 체크 및 추가
+    $check_exp_date = $conn->query("SHOW COLUMNS FROM purchase_items LIKE 'expiration_date'");
+    if ($check_exp_date->num_rows == 0) {
+        $conn->query("ALTER TABLE purchase_items ADD COLUMN expiration_date DATE DEFAULT NULL COMMENT '유통기한' AFTER sort_order");
     }
 } catch (Exception $e) {
 }
@@ -391,6 +524,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $new_purchase_type = $item_data['purchase_type'] ?? 'piece';
                 $new_pieces_per_box = isset($item_data['pieces_per_box']) ? (int)$item_data['pieces_per_box'] : null;
                 $discount_rate = isset($item_data['discount_rate']) ? (float)$item_data['discount_rate'] : 0.00;
+                $new_expiration_date = !empty($item_data['expiration_date']) ? $item_data['expiration_date'] : null;
                 
                 // 기존 아이템 정보 조회
                 $item_stmt = $conn->prepare("
@@ -467,8 +601,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $discounted_total = $original_total * (1 - $discount_rate / 100);
 
                     // 매입 상품 정보 업데이트
-                    $update_item_stmt = $conn->prepare("UPDATE purchase_items SET quantity = ?, unit_price = ?, purchase_type = ?, discount_rate = ?, original_unit_price = ?, discounted_unit_price = ?, discounted_total = ? WHERE item_id = ?");
-                    $update_item_stmt->bind_param("idsidddi", $new_quantity, $new_unit_price, $new_purchase_type, $discount_rate, $new_original_unit_price, $new_discounted_unit_price, $discounted_total, $item_id);
+                    $update_item_stmt = $conn->prepare("UPDATE purchase_items SET quantity = ?, unit_price = ?, purchase_type = ?, discount_rate = ?, original_unit_price = ?, discounted_unit_price = ?, discounted_total = ?, expiration_date = ? WHERE item_id = ?");
+                    $update_item_stmt->bind_param("idsidddsi", $new_quantity, $new_unit_price, $new_purchase_type, $discount_rate, $new_original_unit_price, $new_discounted_unit_price, $discounted_total, $new_expiration_date, $item_id);
                     $update_item_stmt->execute();
                     $update_item_stmt->close();
                     
@@ -501,6 +635,122 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         } catch (Exception $e) {
             $conn->rollback();
             $message = '상품 일괄 수정에 실패했습니다: ' . $e->getMessage();
+            $message_type = 'error';
+        }
+    }
+}
+
+// 선택 항목 일괄 삭제 처리
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_selected_items') {
+    $item_ids = isset($_POST['item_ids']) ? array_map('intval', (array)$_POST['item_ids']) : [];
+
+    if (empty($item_ids)) {
+        $message = '삭제할 항목을 선택해주세요.';
+        $message_type = 'error';
+    } else {
+        try {
+            $conn->begin_transaction();
+
+            // 삭제 전 전체 아이템 수 확인
+            $count_stmt = $conn->prepare("SELECT COUNT(*) as cnt FROM purchase_items WHERE purchase_id = ?");
+            $count_stmt->bind_param("i", $purchase_id);
+            $count_stmt->execute();
+            $total_count = $count_stmt->get_result()->fetch_assoc()['cnt'];
+            $count_stmt->close();
+
+            foreach ($item_ids as $item_id) {
+                $item_stmt = $conn->prepare("
+                    SELECT pi.*, pr.pieces_per_box, u.store_id
+                    FROM purchase_items pi
+                    JOIN products pr ON pi.product_id = pr.id
+                    JOIN purchases p ON pi.purchase_id = p.purchase_id
+                    JOIN users u ON u.id = ?
+                    WHERE pi.item_id = ? AND pi.purchase_id = ?
+                ");
+                $item_stmt->bind_param("iii", $_SESSION['user_id'], $item_id, $purchase_id);
+                $item_stmt->execute();
+                $item_info = $item_stmt->get_result()->fetch_assoc();
+                $item_stmt->close();
+
+                if ($item_info) {
+                    $actual_quantity = (int)$item_info['quantity'];
+                    if ($item_info['purchase_type'] === 'box') {
+                        $actual_quantity = (int)$item_info['quantity'] * ($item_info['pieces_per_box'] ?? 1);
+                    }
+
+                    if ($item_info['store_id'] && $actual_quantity > 0) {
+                        $inv_stmt = $conn->prepare("UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?");
+                        $inv_stmt->bind_param("iii", $actual_quantity, $item_info['product_id'], $item_info['store_id']);
+                        $inv_stmt->execute();
+                        $inv_stmt->close();
+
+                        try {
+                            $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
+                            $inv_id_stmt->bind_param("ii", $item_info['product_id'], $item_info['store_id']);
+                            $inv_id_stmt->execute();
+                            if ($inv_row = $inv_id_stmt->get_result()->fetch_assoc()) {
+                                $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, 'OUT', ?, ?)");
+                                $remarks = "선택 항목 일괄 삭제 (Purchase Item ID: {$item_id})";
+                                $quantity_change = -$actual_quantity;
+                                $trans_stmt->bind_param("iiss", $inv_row['id'], $_SESSION['user_id'], $quantity_change, $remarks);
+                                $trans_stmt->execute();
+                                $trans_stmt->close();
+                            }
+                            $inv_id_stmt->close();
+                        } catch (Exception $log_error) {}
+                    }
+
+                    $delete_stmt = $conn->prepare("DELETE FROM purchase_items WHERE item_id = ? AND purchase_id = ?");
+                    $delete_stmt->bind_param("ii", $item_id, $purchase_id);
+                    $delete_stmt->execute();
+                    $delete_stmt->close();
+                }
+            }
+
+            // 삭제 후 남은 항목 수 확인
+            $remain_stmt = $conn->prepare("SELECT COUNT(*) as cnt FROM purchase_items WHERE purchase_id = ?");
+            $remain_stmt->bind_param("i", $purchase_id);
+            $remain_stmt->execute();
+            $remaining = $remain_stmt->get_result()->fetch_assoc()['cnt'];
+            $remain_stmt->close();
+
+            if ($remaining === 0) {
+                // 모두 삭제된 경우 전체 매입 Soft Delete
+                $check_deleted_at = $conn->query("SHOW COLUMNS FROM purchases LIKE 'deleted_at'");
+                if ($check_deleted_at->num_rows == 0) {
+                    $conn->query("ALTER TABLE purchases ADD COLUMN deleted_at TIMESTAMP NULL DEFAULT NULL");
+                }
+                $check_deleted_by = $conn->query("SHOW COLUMNS FROM purchases LIKE 'deleted_by_user_id'");
+                if ($check_deleted_by->num_rows == 0) {
+                    $conn->query("ALTER TABLE purchases ADD COLUMN deleted_by_user_id INT DEFAULT NULL");
+                }
+                $soft_delete_stmt = $conn->prepare("UPDATE purchases SET deleted_at = NOW(), deleted_by_user_id = ? WHERE purchase_id = ?");
+                $soft_delete_stmt->bind_param("ii", $_SESSION['user_id'], $purchase_id);
+                $soft_delete_stmt->execute();
+                $soft_delete_stmt->close();
+
+                $conn->commit();
+                header('Location: purchase_management.php?message=' . urlencode(t('purchase.js_delete_success')));
+                exit();
+            } else {
+                $update_stmt = $conn->prepare("
+                    UPDATE purchases SET
+                        total_amount = (SELECT COALESCE(SUM(CASE WHEN discounted_total IS NOT NULL THEN discounted_total ELSE quantity * unit_price END), 0) FROM purchase_items WHERE purchase_id = ?),
+                        total_items = (SELECT COUNT(*) FROM purchase_items WHERE purchase_id = ?)
+                    WHERE purchase_id = ?
+                ");
+                $update_stmt->bind_param("iii", $purchase_id, $purchase_id, $purchase_id);
+                $update_stmt->execute();
+                $update_stmt->close();
+
+                $conn->commit();
+                $deleted_count = count($item_ids);
+                $message = "{$deleted_count}개 항목이 삭제되었습니다.";
+                $message_type = 'success';
+            }
+        } catch (Exception $e) {
+            $conn->rollback();
+            $message = '삭제 오류: ' . $e->getMessage();
             $message_type = 'error';
         }
     }
@@ -655,6 +905,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $new_unit_price = (float)$_POST['unit_price'];
         $new_purchase_type = $_POST['purchase_type'] ?? 'piece';
         $new_pieces_per_box = isset($_POST['pieces_per_box']) ? (int)$_POST['pieces_per_box'] : null;
+        $new_expiration_date = !empty($_POST['expiration_date']) ? $_POST['expiration_date'] : null;
         
         try {
             $conn->begin_transaction();
@@ -737,8 +988,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $new_discounted_unit_price = $new_unit_price * (1 - $discount_rate / 100);
                 $discounted_total = $original_total * (1 - $discount_rate / 100);
 
-                $update_item_stmt = $conn->prepare("UPDATE purchase_items SET quantity = ?, unit_price = ?, purchase_type = ?, discount_rate = ?, original_unit_price = ?, discounted_unit_price = ?, discounted_total = ? WHERE item_id = ?");
-                $update_item_stmt->bind_param("idsidddi", $new_quantity, $new_unit_price, $new_purchase_type, $discount_rate, $new_original_unit_price, $new_discounted_unit_price, $discounted_total, $item_id);
+                $update_item_stmt = $conn->prepare("UPDATE purchase_items SET quantity = ?, unit_price = ?, purchase_type = ?, discount_rate = ?, original_unit_price = ?, discounted_unit_price = ?, discounted_total = ?, expiration_date = ? WHERE item_id = ?");
+                $update_item_stmt->bind_param("idsidddsi", $new_quantity, $new_unit_price, $new_purchase_type, $discount_rate, $new_original_unit_price, $new_discounted_unit_price, $discounted_total, $new_expiration_date, $item_id);
                 $update_item_stmt->execute();
                 $update_item_stmt->close();
                 
@@ -1209,6 +1460,59 @@ $stmt = $conn->prepare("
 $stmt->bind_param("i", $purchase_id);
 $stmt->execute();
 $items_result = $stmt->get_result();
+
+// 순번 갭 자동 정리: sort_order에 빈 번호가 있으면 연속되도록 재정렬
+$gap_check = $conn->prepare("SELECT item_id, sort_order FROM purchase_items WHERE purchase_id = ? ORDER BY sort_order, item_id");
+$gap_check->bind_param("i", $purchase_id);
+$gap_check->execute();
+$gap_rows = $gap_check->get_result();
+$seq = 1;
+$needs_renumber = false;
+$renumber_list = [];
+while ($gr = $gap_rows->fetch_assoc()) {
+    if ((int)$gr['sort_order'] !== $seq) {
+        $needs_renumber = true;
+    }
+    $renumber_list[] = ['item_id' => $gr['item_id'], 'new_order' => $seq];
+    $seq++;
+}
+$gap_check->close();
+
+if ($needs_renumber) {
+    $upd = $conn->prepare("UPDATE purchase_items SET sort_order = ? WHERE item_id = ?");
+    foreach ($renumber_list as $r) {
+        $upd->bind_param("ii", $r['new_order'], $r['item_id']);
+        $upd->execute();
+    }
+    $upd->close();
+
+    // 재정렬 후 다시 조회
+    $stmt2 = $conn->prepare("
+        SELECT
+            pi.*,
+            COALESCE(pi.vat_included, 1) as vat_included,
+            COALESCE(pi.original_unit_price, pi.unit_price) as original_unit_price,
+            COALESCE(pi.vat_amount, 0) as vat_amount,
+            COALESCE(pi.discounted_unit_price, pi.unit_price) as discounted_unit_price,
+            pr.name_ko as product_name,
+            pr.name_en as product_name_en,
+            pr.sku,
+            pr.pieces_per_box,
+            CASE
+                WHEN pi.purchase_type = 'box' THEN pi.quantity * COALESCE(pr.pieces_per_box, 1)
+                ELSE pi.quantity
+            END as total_pieces,
+            COALESCE(pi.discount_rate, 0) as discount_rate,
+            COALESCE(pi.discounted_total, pi.quantity * pi.unit_price) as discounted_total
+        FROM purchase_items pi
+        JOIN products pr ON pi.product_id = pr.id
+        WHERE pi.purchase_id = ?
+        ORDER BY pi.sort_order, pi.item_id
+    ");
+    $stmt2->bind_param("i", $purchase_id);
+    $stmt2->execute();
+    $items_result = $stmt2->get_result();
+}
 ?>
 
 <style>
@@ -1284,8 +1588,22 @@ tr[id^="row-"] td:first-child:hover {
 <?php endif; ?>
 
 <div class="sticky top-0 z-10 bg-white shadow">
-    <div class="px-6 py-4 border-b border-gray-200">
-        <div class="flex justify-between items-center">
+    <div class="px-3 md:px-6 py-3 md:py-4 border-b border-gray-200">
+        <!-- 모바일 헤더 -->
+        <div class="flex md:hidden justify-between items-center">
+            <a href="purchase_management.php" class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-arrow-left mr-1"></i>
+                목록
+            </a>
+            <h2 class="text-base font-semibold text-gray-900">매입 #<?php echo htmlspecialchars($purchase_id); ?></h2>
+            <a href="add_purchase.php?edit_purchase_id=<?php echo $purchase_id; ?>"
+               class="inline-flex items-center px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                <i class="fas fa-plus mr-1"></i>
+                상품추가
+            </a>
+        </div>
+        <!-- 데스크톱 헤더 -->
+        <div class="hidden md:flex justify-between items-center">
             <h2 class="text-lg font-medium text-gray-900">매입 상세내역</h2>
             <div class="flex space-x-3">
                 <?php if ($has_deleted_at): ?>
@@ -1302,7 +1620,6 @@ tr[id^="row-"] td:first-child:hover {
 
                 <!-- 매입 확정/취소 버튼 -->
                 <?php if (isset($purchase['is_confirmed']) && $purchase['is_confirmed']): ?>
-                    <!-- 확정된 매입 - 슈퍼관리자만 취소 가능 -->
                     <?php if ($_SESSION['role'] === 'super_admin'): ?>
                     <button type="button" id="cancel-confirm-btn" data-purchase-id="<?php echo htmlspecialchars($purchase_id); ?>" class="inline-flex items-center justify-center rounded-md border border-orange-300 bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700 shadow-sm hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
                         <i class="fas fa-undo mr-2"></i>
@@ -1310,7 +1627,6 @@ tr[id^="row-"] td:first-child:hover {
                     </button>
                     <?php endif; ?>
                 <?php else: ?>
-                    <!-- 미확정 매입 - 확정 버튼 -->
                     <button type="button" id="confirm-purchase-btn" data-purchase-id="<?php echo htmlspecialchars($purchase_id); ?>" class="inline-flex items-center justify-center rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 shadow-sm hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
                         <i class="fas fa-check mr-2"></i>
                         매입 확정
@@ -1335,8 +1651,8 @@ tr[id^="row-"] td:first-child:hover {
         </div>
     </div>
     <!-- 매입 기본 정보 -->
-    <div class="bg-gray-50 p-4 border-b border-gray-200">
-            <div class="flex flex-wrap items-center justify-between gap-6">
+    <div class="bg-gray-50 p-3 md:p-4 border-b border-gray-200">
+            <div class="flex flex-wrap items-center justify-between gap-2 md:gap-6">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <i class="fas fa-hashtag text-purple-500 mr-2"></i>
@@ -1389,10 +1705,10 @@ tr[id^="row-"] td:first-child:hover {
             </div>
     </div>
     <!-- 매입 상품 목록 헤더 -->
-    <div class="bg-white p-4 border-b border-gray-200">
+    <div class="bg-white p-3 md:p-4 border-b border-gray-200">
         <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-3">
-                    <h3 class="text-lg font-medium text-gray-900"><?php echo t('purchase.purchase_items'); ?></h3>
+                <div class="flex items-center space-x-2 md:space-x-3">
+                    <h3 class="text-base md:text-lg font-medium text-gray-900"><?php echo t('purchase.purchase_items'); ?></h3>
                     <?php if (isset($purchase['is_confirmed']) && $purchase['is_confirmed']): ?>
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             <i class="fas fa-check-circle mr-1"></i>
@@ -1408,52 +1724,89 @@ tr[id^="row-"] td:first-child:hover {
                         </span>
                     <?php endif; ?>
                 </div>
-                <button type="button" id="save-all-changes"
-                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white
-                               <?php echo ($purchase['is_confirmed'] ?? false) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'; ?>
-                               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                        <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
-                    <i class="fas fa-save mr-2"></i>
-                    <?php echo t('purchase.save_changes'); ?>
-                </button>
+                <div class="flex items-center space-x-2">
+                    <!-- 모바일에서는 숨김 (상단 헤더에 이미 있음) -->
+                    <a href="add_purchase.php?edit_purchase_id=<?php echo $purchase_id; ?>"
+                       class="hidden md:flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="fas fa-plus-circle mr-2"></i>
+                        상품 추가하기
+                    </a>
+                    <?php if (!($purchase['is_confirmed'] ?? false)): ?>
+                    <button type="button" id="delete-selected-btn"
+                            class="hidden md:flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled>
+                        <i class="fas fa-trash-alt mr-2"></i>
+                        선택 삭제 (<span id="selected-delete-count">0</span>)
+                    </button>
+                    <?php endif; ?>
+                    <button type="button" id="save-all-changes"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white
+                                   <?php echo ($purchase['is_confirmed'] ?? false) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'; ?>
+                                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                            <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
+                        <i class="fas fa-save mr-2"></i>
+                        <?php echo t('purchase.save_changes'); ?>
+                    </button>
+                </div>
         </div>
     </div>
-    <!-- 테이블 헤더 -->
-    <div class="bg-gray-50 border-b border-gray-200">
-        <table class="w-full table-fixed">
-            <thead>
-                <tr>
-                    <th class="w-8 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <input type="checkbox" id="select-all" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
-                    </th>
-                    <th class="w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">순번</th>
-                    <th class="w-20 px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                    <th class="w-48 px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.product_name'); ?></th>
-                    <th class="w-20 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit'); ?></th>
-                    <th class="w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.quantity'); ?></th>
-                    <th class="w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.pieces_per_box'); ?></th>
-                    <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit_price'); ?></th>
-                    <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">원가(할인 전)</th>
-                    <th class="w-14 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">VAT 구분</th>
-                    <th class="w-14 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.piece_price'); ?></th>
-                    <th class="w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total_pieces'); ?></th>
-                    <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total'); ?></th>
-                    <th class="w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.discount_rate'); ?></th>
-                    <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">할인된 단가</th>
-                    <th class="w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.discounted_total'); ?></th>
-                    <th class="w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.delete'); ?></th>
-                </tr>
-            </thead>
-        </table>
-    </div>
+    <!-- 테이블 헤더 + 본문 통합 -->
 </div>
 
-<!-- 테이블 본문 (스크롤 가능) -->
+<!-- 테이블 (헤더+본문 통합) -->
+<style>
+#purchase-items-table thead,
+#purchase-items-table tbody tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+#purchase-items-table tbody {
+    display: block;
+    overflow-y: auto;
+    max-height: 600px;
+    width: 100%;
+}
+@media (max-width: 767px) {
+    #purchase-items-table {
+        min-width: 0 !important;
+        table-layout: auto !important;
+    }
+    #purchase-items-table thead,
+    #purchase-items-table tbody tr {
+        table-layout: auto;
+    }
+    .col-mobile-hide {
+        display: none !important;
+    }
+}
+</style>
 <div class="bg-white">
-    <div class="p-6">
-        <div class="shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-            <table class="w-full table-fixed divide-y divide-gray-200">
-                <tbody class="bg-white divide-y divide-gray-200">
+    <div class="overflow-x-auto">
+        <table id="purchase-items-table" class="w-full table-fixed divide-y divide-gray-200" style="min-width: 1040px;">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="col-mobile-hide w-8 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <input type="checkbox" id="select-all" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
+                    </th>
+                    <th class="col-mobile-hide w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">순번</th>
+                    <th class="w-20 px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                    <th class="w-48 px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.product_name'); ?></th>
+                    <th class="col-mobile-hide w-20 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit'); ?></th>
+                    <th class="col-mobile-hide w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.quantity'); ?></th>
+                    <th class="col-mobile-hide w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.pieces_per_box'); ?></th>
+                    <th class="col-mobile-hide w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit_price'); ?></th>
+                    <th class="col-mobile-hide w-14 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">VAT 구분</th>
+                    <th class="col-mobile-hide w-14 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.piece_price'); ?></th>
+                    <th class="col-mobile-hide w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total_pieces'); ?></th>
+                    <th class="col-mobile-hide w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.discount_rate'); ?></th>
+                    <th class="col-mobile-hide w-16 px-1 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">할인된 단가</th>
+                    <th class="col-mobile-hide w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">합계</th>
+                    <th class="col-mobile-hide w-24 px-1 py-2 text-center text-xs font-medium text-green-700 uppercase tracking-wider">유통기한</th>
+                    <th class="col-mobile-hide w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.delete'); ?></th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
                         <?php 
                         $total_amount = 0;
                         $total_pieces = 0;
@@ -1475,10 +1828,10 @@ tr[id^="row-"] td:first-child:hover {
                             }
                         ?>
                                 <tr class="hover:bg-gray-50 transition-colors duration-150 sortable-item" id="row-<?php echo $item['item_id']; ?>" data-item-id="<?php echo $item['item_id']; ?>" data-sort-order="<?php echo $item['sort_order']; ?>">
-                                    <td class="w-8 px-1 py-3 text-center">
+                                    <td class="col-mobile-hide w-8 px-1 py-3 text-center">
                                         <input type="checkbox" class="item-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" value="<?php echo $item['item_id']; ?>" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
                                     </td>
-                                    <td class="w-10 px-1 py-3 text-center">
+                                    <td class="col-mobile-hide w-10 px-1 py-3 text-center">
                                         <div class="flex items-center justify-center">
                                             <i class="fas fa-grip-vertical text-gray-400 cursor-move drag-handle mr-1" title="드래그하여 순번 변경"></i>
                                             <span class="text-xs font-medium text-gray-700"><?php echo $item['sort_order']; ?></span>
@@ -1507,8 +1860,8 @@ tr[id^="row-"] td:first-child:hover {
                                         </div>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="w-20 px-1 py-3 text-center">
-                                        <div class="flex items-center justify-center space-x-1">
+                                    <td class="col-mobile-hide w-20 px-1 py-3 text-center">
+                                        <div class="flex flex-col items-start justify-center space-y-1 ml-2">
                                             <label class="inline-flex items-center text-xs">
                                                 <input type="radio" name="purchase_type_<?php echo $item['item_id']; ?>"
                                                        class="type-input text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-1"
@@ -1529,7 +1882,7 @@ tr[id^="row-"] td:first-child:hover {
                                             </label>
                                         </div>
                                     </td>
-                                    <td class="w-12 px-1 py-3 text-sm text-gray-900 text-right">
+                                    <td class="col-mobile-hide w-12 px-1 py-3 text-sm text-gray-900 text-right">
                                         <input type="number"
                                                class="quantity-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-xs hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                value="<?php echo $item['quantity']; ?>"
@@ -1538,7 +1891,7 @@ tr[id^="row-"] td:first-child:hover {
                                                min="1"
                                                <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : ''; ?>>
                                     </td>
-                                    <td class="w-12 px-1 py-3 text-sm text-gray-500 text-right">
+                                    <td class="col-mobile-hide w-12 px-1 py-3 text-sm text-gray-500 text-right">
                                         <input type="number"
                                                class="pieces-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-xs hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                value="<?php echo $item['pieces_per_box'] ?? 1; ?>"
@@ -1547,7 +1900,7 @@ tr[id^="row-"] td:first-child:hover {
                                                min="1"
                                                <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : (($_SESSION['role'] !== 'super_admin') ? 'readonly' : ''); ?>>
                                     </td>
-                                    <td class="w-16 px-1 py-3 text-sm text-gray-900 text-right">
+                                    <td class="col-mobile-hide w-16 px-1 py-3 text-sm text-gray-900 text-right">
                                         <input type="number"
                                                class="price-input w-full px-1 py-1 border border-gray-300 rounded-md text-right text-xs hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                                                value="<?php echo $item['unit_price']; ?>"
@@ -1557,21 +1910,16 @@ tr[id^="row-"] td:first-child:hover {
                                                step="0.01"
                                                <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : ''; ?>>
                                         <?php
-                                        // VAT 미포함 금액 계산
                                         $vat_excluded_price = $item['unit_price'] / 1.12;
                                         ?>
                                         <div class="text-xs text-gray-500 mt-1">
                                             미포함: <?php echo number_format($vat_excluded_price, 2); ?>
                                         </div>
                                     </td>
-                                    <!-- 오리지날 원가 (할인 전) -->
-                                    <td class="w-16 px-1 py-3 text-xs text-gray-400 text-right font-semibold bg-gray-50">
-                                        <span class="original-unit-price" data-item-id="<?php echo $item['item_id']; ?>"><?php echo number_format($item['original_unit_price'] ?? $item['unit_price'], 2); ?></span>
-                                    </td>
                                     <!-- VAT 구분 컬럼 -->
-                                    <td class="w-14 px-1 py-3 text-center">
+                                    <td class="col-mobile-hide w-14 px-1 py-3 text-center">
                                         <?php if ($item['vat_included'] == 1): ?>
-                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800" 
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
                                                   title="VAT 포함 상품&#10;저장가격: <?php echo number_format($item['unit_price'], 2); ?>원">
                                                 🟢 포함
                                             </span>
@@ -1581,28 +1929,34 @@ tr[id^="row-"] td:first-child:hover {
                                                 🟡 미포함
                                             </span>
                                         <?php endif; ?>
-                                        <?php 
-                                        // VAT 금액 계산 및 표시
+                                        <?php
                                         $calculated_vat = $item['unit_price'] - ($item['unit_price'] / 1.12);
                                         ?>
                                         <div class="text-xs text-gray-500 mt-1">
                                             VAT: <?php echo number_format($calculated_vat, 2); ?>
                                         </div>
                                     </td>
-                                    <td class="w-14 px-1 py-3 text-xs text-gray-500 text-right"><?php echo number_format($piece_price, 2); ?></td>
-                                    <td class="w-10 px-1 py-3 text-xs text-gray-900 text-right font-semibold">
+                                    <td class="col-mobile-hide w-14 px-1 py-3 text-xs text-gray-500 text-right"><?php echo number_format($piece_price, 2); ?></td>
+                                    <td class="col-mobile-hide w-10 px-1 py-3 text-xs text-gray-900 text-right font-semibold">
                                         <span class="text-blue-600"><?php echo number_format($item['total_pieces']); ?></span>
                                     </td>
-                                    <td class="w-16 px-1 py-3 text-xs text-gray-900 text-right font-bold"><?php echo number_format($item_total, 2); ?></td>
-                                    <td class="w-10 px-1 py-3 text-center">
+                                    <td class="col-mobile-hide w-10 px-1 py-3 text-center">
                                         <input type="number" class="discount-rate w-9 px-0 py-1 border border-gray-300 rounded-md text-center text-xs focus:border-indigo-500 focus:ring-indigo-500" value="<?php echo number_format($item['discount_rate'], 1); ?>" min="0" max="100" step="0.1" placeholder="0" data-item-id="<?php echo $item['item_id']; ?>" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : ''; ?>>
                                     </td>
                                     <!-- 할인된 단가 -->
-                                    <td class="w-16 px-1 py-3 text-xs text-gray-600 text-right font-semibold bg-amber-50">
+                                    <td class="col-mobile-hide w-16 px-1 py-3 text-xs text-gray-600 text-right font-semibold bg-amber-50">
                                         <span class="discounted-unit-price" data-item-id="<?php echo $item['item_id']; ?>"><?php echo number_format($item['discounted_unit_price'] ?? $item['unit_price'], 2); ?></span>
                                     </td>
-                                    <td class="w-16 px-1 py-3 text-xs text-gray-900 text-right font-bold discounted-total"><?php echo number_format($item['discounted_total'], 2); ?></td>
-                                    <td class="w-10 px-1 py-3 text-center">
+                                    <td class="col-mobile-hide w-16 px-1 py-3 text-xs text-gray-900 text-right font-bold discounted-total"><?php echo number_format($item['discounted_total'], 2); ?></td>
+                                    <!-- 유통기한 입력 -->
+                                    <td class="col-mobile-hide w-24 px-1 py-2 text-center">
+                                        <input type="date"
+                                            class="expiration-date-input w-full px-1 py-0.5 text-xs border border-green-300 rounded focus:ring-green-500 focus:border-green-500 bg-green-50"
+                                            data-item-id="<?php echo $item['item_id']; ?>"
+                                            value="<?php echo htmlspecialchars($item['expiration_date'] ?? ''); ?>"
+                                            <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
+                                    </td>
+                                    <td class="col-mobile-hide w-10 px-1 py-3 text-center">
                                         <button type="button" class="delete-btn inline-flex items-center justify-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 transition-colors duration-200" data-item-id="<?php echo $item['item_id']; ?>" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''; ?>>
                                             <i class="fas fa-trash-alt text-xs"></i>
                                         </button>
@@ -1611,9 +1965,9 @@ tr[id^="row-"] td:first-child:hover {
                         <?php endwhile; ?>
                     </tbody>
                 </table>
-            </div>
-        </div>
-        
+    </div>
+    <div class="p-6">
+
         <!-- Bulk Discount Control -->
         <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div class="flex items-center justify-between">
@@ -1672,14 +2026,6 @@ tr[id^="row-"] td:first-child:hover {
                 </p>
             </div>
 
-            <!-- 기존 상품 추가 버튼 -->
-            <div class="flex justify-center">
-                <a href="add_purchase.php?edit_purchase_id=<?php echo $purchase_id; ?>"
-                   class="inline-flex items-center px-24 py-5 border border-blue-300 rounded-lg shadow-sm text-xl font-semibold text-blue-800 bg-blue-100 hover:bg-blue-200 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200">
-                    <i class="fas fa-plus-circle mr-5 text-2xl"></i>
-                    상품 추가하기
-                </a>
-            </div>
         </div>
         
         <!-- Summary Information -->
@@ -1915,6 +2261,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const numDiscountRate = parseFloat(discountRate) || 0;
         const originalUnitPrice = numUnitPrice;
         const discountedUnitPrice = numUnitPrice * (1 - numDiscountRate / 100);
+        
+        // 유통기한
+        const expirationDate = row.querySelector('.expiration-date-input').value;
 
         // 변경사항 저장
         changedItems.set(itemId, {
@@ -1924,7 +2273,8 @@ document.addEventListener('DOMContentLoaded', function() {
             piecesPerBox: piecesPerBox,
             discountRate: discountRate,
             originalUnitPrice: originalUnitPrice,
-            discountedUnitPrice: discountedUnitPrice
+            discountedUnitPrice: discountedUnitPrice,
+            expirationDate: expirationDate
         });
         
         // 행에 변경 표시 추가
@@ -1989,6 +2339,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <input type="hidden" name="items[${index}][discount_rate]" value="${data.discountRate}">
                 <input type="hidden" name="items[${index}][original_unit_price]" value="${data.originalUnitPrice}">
                 <input type="hidden" name="items[${index}][discounted_unit_price]" value="${data.discountedUnitPrice}">
+                <input type="hidden" name="items[${index}][expiration_date]" value="${data.expirationDate || ''}">
             `;
             index++;
         });
@@ -2028,6 +2379,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // 수량 입력 필드 변경 이벤트
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('quantity-input')) {
+            const itemId = e.target.dataset.itemId;
+            trackChange(itemId);
+        }
+    });
+
+    // 유통기한 입력 필드 변경 이벤트
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('expiration-date-input')) {
             const itemId = e.target.dataset.itemId;
             trackChange(itemId);
         }
@@ -2323,15 +2682,69 @@ document.addEventListener('DOMContentLoaded', function() {
     // 일괄 할인 버튼 상태 업데이트
     function updateBulkDiscountButton() {
         const checkedItems = document.querySelectorAll('.item-checkbox:checked');
+        const count = checkedItems.length;
+
         if (bulkDiscountButton) {
-            bulkDiscountButton.disabled = checkedItems.length === 0;
+            bulkDiscountButton.disabled = count === 0;
         }
-        
+
         // VAT 버튼도 함께 업데이트
         const bulkVatButton = document.getElementById('apply-bulk-vat');
         if (bulkVatButton) {
-            bulkVatButton.disabled = checkedItems.length === 0;
+            bulkVatButton.disabled = count === 0;
         }
+
+        // 선택 삭제 버튼 상태 업데이트
+        const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+        if (deleteSelectedBtn) {
+            deleteSelectedBtn.disabled = count === 0;
+            const countSpan = document.getElementById('selected-delete-count');
+            if (countSpan) countSpan.textContent = count;
+        }
+    }
+
+    // 선택 삭제 버튼 클릭
+    const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+    if (deleteSelectedBtn) {
+        deleteSelectedBtn.addEventListener('click', function() {
+            const checkedItems = document.querySelectorAll('.item-checkbox:checked');
+            const itemIds = Array.from(checkedItems).map(cb => cb.value);
+
+            if (itemIds.length === 0) return;
+
+            const totalRows = document.querySelectorAll('tr[id^="row-"]').length;
+            let confirmMsg = `선택한 ${itemIds.length}개 항목을 삭제하시겠습니까?`;
+            if (itemIds.length >= totalRows) {
+                confirmMsg += '\n\n모든 항목이 삭제되면 매입 전체가 삭제됩니다.';
+            }
+
+            if (!confirm(confirmMsg)) return;
+
+            const existingForm = document.getElementById('delete-selected-form');
+            if (existingForm) existingForm.remove();
+
+            const form = document.createElement('form');
+            form.id = 'delete-selected-form';
+            form.method = 'POST';
+            form.action = window.location.pathname + window.location.search;
+
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'delete_selected_items';
+            form.appendChild(actionInput);
+
+            itemIds.forEach(id => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'item_ids[]';
+                input.value = id;
+                form.appendChild(input);
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+        });
     }
     
     // 행 선택 상태에 따른 시각적 피드백
@@ -2510,13 +2923,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const discountedTotal = discountedUnitPrice * quantity;
 
         // UI 업데이트
-        // 개당 가격 (8번째 셀)
-        row.cells[8].textContent = new Intl.NumberFormat('ko-KR', {
+        // 개당 가격 (cells[9])
+        row.cells[9].textContent = new Intl.NumberFormat('ko-KR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }).format(piecePrice);
 
-        // 오리지날 원가 (9번째 셀) - 현재 단가로 업데이트
+        // 오리지날 원가 업데이트
         const originalPriceElement = row.querySelector('.original-unit-price');
         if (originalPriceElement) {
             originalPriceElement.textContent = new Intl.NumberFormat('ko-KR', {
@@ -2525,14 +2938,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }).format(unitPrice);
         }
 
-        // 총 개수 (10번째 셀)
+        // 총 개수 (cells[10])
         row.cells[10].innerHTML = `<span class="text-blue-600">${new Intl.NumberFormat('ko-KR').format(totalPieces)}</span>`;
-
-        // 합계 (11번째 셀)
-        row.cells[11].textContent = new Intl.NumberFormat('ko-KR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(total);
 
         // 할인된 단가 업데이트 (12번째 셀)
         const discountedUnitPriceElement = row.querySelector('.discounted-unit-price');
@@ -2588,22 +2995,22 @@ document.addEventListener('DOMContentLoaded', function() {
             totalDiscountedAmount += discountedTotal;
         });
         
-        // 상단 총 금액 업데이트
+        // 상단 총 금액 업데이트 (할인 후 합계 기준 - DB 저장 방식과 동일)
         const totalAmountElement = document.querySelector('.total-amount');
         if (totalAmountElement) {
             totalAmountElement.textContent = new Intl.NumberFormat('ko-KR', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
-            }).format(totalAmount);
+            }).format(totalDiscountedAmount);
         }
-        
+
         // 요약 테이블 업데이트 (있을 경우)
         const summaryTotalElement = document.querySelector('.summary-total-amount');
         if (summaryTotalElement) {
             summaryTotalElement.textContent = new Intl.NumberFormat('ko-KR', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
-            }).format(totalAmount);
+            }).format(totalDiscountedAmount);
         }
         
         const summaryTotalPiecesElement = document.querySelector('.summary-total-pieces');
@@ -3185,6 +3592,70 @@ window.addEventListener('load', function() {
         }
 
     }, 500); // 500ms 지연
+});
+
+// 순번 클릭 편집 기능 (클릭 → 숫자 입력 → Enter/blur → 재배치)
+document.addEventListener('DOMContentLoaded', function() {
+    const tbody = document.querySelector('#items-table tbody') || document.querySelector('table tbody');
+    if (!tbody) return;
+
+    tbody.addEventListener('click', function(e) {
+        const span = e.target.closest('td:nth-child(2) span');
+        if (!span) return;
+
+        const row = span.closest('tr');
+        if (!row) return;
+
+        const itemId = row.getAttribute('data-item-id');
+        const currentOrder = parseInt(span.textContent.trim(), 10);
+        if (!itemId || isNaN(currentOrder)) return;
+
+        // 이미 편집 중이면 무시
+        if (span.querySelector('input')) return;
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '1';
+        input.value = currentOrder;
+        input.className = 'w-12 px-1 py-0 border border-indigo-400 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-indigo-500';
+        input.style.width = '48px';
+
+        const originalText = span.textContent;
+        span.textContent = '';
+        span.appendChild(input);
+        input.focus();
+        input.select();
+
+        function applyReorder() {
+            const newOrder = parseInt(input.value, 10);
+            span.textContent = originalText; // 일단 원복 (서버 응답 후 reload)
+
+            if (isNaN(newOrder) || newOrder < 1 || newOrder === currentOrder) return;
+
+            const formData = new FormData();
+            formData.append('action', 'reorder_item');
+            formData.append('purchase_id', '<?php echo $purchase_id; ?>');
+            formData.append('item_id', itemId);
+            formData.append('new_sort_order', newOrder);
+
+            fetch(window.location.href, { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('순번 변경 실패: ' + data.error);
+                    }
+                })
+                .catch(() => alert('순번 변경 중 오류가 발생했습니다.'));
+        }
+
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); applyReorder(); }
+            if (e.key === 'Escape') { span.textContent = originalText; }
+        });
+        input.addEventListener('blur', applyReorder);
+    });
 });
 
 // 물류바코드 빠른 스캔 기능

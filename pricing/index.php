@@ -1,0 +1,2266 @@
+<?php
+require_once __DIR__ . '/../config/db_config.php';
+
+$stores = [];
+try {
+    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+    $pdo = new PDO($dsn, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    // is_active 컬럼이 없는 환경도 안전하게 처리 (다른 admin 페이지와 동일한 쿼리 패턴)
+    $stores = $pdo->query("SELECT id, name FROM stores ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    error_log('pricing/index.php stores query error: ' . $e->getMessage());
+}
+// id > 0 인 첫 번째 점포를 기본값으로 (id=0 방어)
+$defaultStore = 0;
+foreach ($stores as $s) {
+    if ((int)$s['id'] > 0) { $defaultStore = (int)$s['id']; break; }
+}
+if (!$defaultStore) $defaultStore = 1;
+?><!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>가격 조회 / 라벨 출력</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body { display: flex; flex-direction: column; background: #0f172a; font-family: 'Segoe UI', Arial, 'Malgun Gothic', sans-serif; }
+
+    /* ── 헤더 ── */
+    #appHeader {
+      display: flex; align-items: center;
+      padding: 0 20px; height: 80px;
+      background: #1e293b; border-bottom: 1px solid #334155;
+      flex-shrink: 0; position: relative;
+    }
+    .header-brand { font-weight: 700; font-size: 30px; letter-spacing: -0.3px; }
+    .header-brand .brand-home { color: #ef4444; }
+    .header-brand .brand-kmart { color: #3b82f6; }
+    .header-center {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 16px;
+    }
+    .header-right { margin-left: auto; }
+    .mode-btn {
+      padding: 18px 44px; border-radius: 10px; border: 2px solid transparent;
+      font-size: 18px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+      letter-spacing: -0.3px;
+    }
+    .mode-btn.lookup { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+    .mode-btn.lookup:not(.active) { background: transparent; color: #94a3b8; border-color: #334155; }
+    .mode-btn.lookup:not(.active):hover { border-color: #0ea5e9; color: #0ea5e9; }
+    .mode-btn.print-mode { background: #16a34a; color: #fff; border-color: #16a34a; }
+    .mode-btn.print-mode:not(.active) { background: transparent; color: #94a3b8; border-color: #334155; }
+    .mode-btn.print-mode:not(.active):hover { border-color: #16a34a; color: #16a34a; }
+    /* ── 언어 토글 ── */
+    .lang-toggle { display: flex; align-items: center; margin-right: 12px; }
+    .lang-btn {
+      padding: 8px 14px; border-radius: 8px; border: 1.5px solid #334155;
+      font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+      background: transparent; color: #94a3b8;
+    }
+    .lang-btn:first-child { border-radius: 8px 0 0 8px; border-right: none; }
+    .lang-btn:last-child { border-radius: 0 8px 8px 0; }
+    .lang-btn.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+    .lang-btn:not(.active):hover { border-color: #7c3aed; color: #7c3aed; }
+    /* ── 점포 표시 배지 ── */
+    #storeDisplay { white-space: nowrap; }
+
+    /* ── 환경설정 버튼 ── */
+    #settingsBtn {
+      display: flex; align-items: center; gap: 6px;
+      background: #0f172a; border: 1.5px solid #334155; color: #94a3b8;
+      border-radius: 8px; padding: 8px 14px; cursor: pointer;
+      font-size: 13px; font-weight: 600; transition: all 0.15s; margin-left: 10px;
+    }
+    #settingsBtn:hover { border-color: #94a3b8; color: #f1f5f9; }
+
+    /* ── 환경설정 모달 ── */
+    #settingsOverlay {
+      display: none; position: fixed; inset: 0; z-index: 9000;
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+    }
+    #settingsOverlay.open { display: flex; align-items: center; justify-content: center; }
+    #settingsModal {
+      background: #1e293b; border: 1px solid #334155; border-radius: 20px;
+      width: 640px; max-width: 96vw; max-height: 90vh;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.6); display: flex; flex-direction: column; overflow: hidden;
+    }
+    #settingsModal .sm-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px 16px; border-bottom: 1px solid #334155; flex-shrink: 0;
+    }
+    #settingsModal .sm-title { font-size: 17px; font-weight: 700; color: #f1f5f9; }
+    #settingsModal .sm-close {
+      background: none; border: none; color: #64748b; cursor: pointer;
+      font-size: 20px; padding: 4px 8px; border-radius: 6px; transition: color 0.15s;
+    }
+    #settingsModal .sm-close:hover { color: #f1f5f9; }
+    /* 탭 */
+    .sm-tabs { display: flex; gap: 0; padding: 12px 24px 0; border-bottom: 1px solid #334155; flex-shrink: 0; }
+    .sm-tab {
+      padding: 8px 16px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+      color: #64748b; border-bottom: 2px solid transparent; margin-bottom: -1px;
+      background: none; border-top: none; border-left: none; border-right: none;
+      transition: all 0.15s;
+    }
+    .sm-tab:hover { color: #94a3b8; }
+    .sm-tab.active { color: #38bdf8; border-bottom-color: #38bdf8; }
+    /* 탭 컨텐츠 */
+    .sm-body { flex: 1; overflow-y: auto; padding: 20px 24px 24px; }
+    .sm-pane { display: none; }
+    .sm-pane.active { display: block; }
+    /* 폼 요소 */
+    .sm-label { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .sm-input {
+      width: 100%; background: #0f172a; border: 1.5px solid #334155; color: #f1f5f9;
+      border-radius: 8px; padding: 10px 14px; font-size: 15px; letter-spacing: 0.04em;
+      outline: none; transition: border-color 0.2s;
+    }
+    .sm-input:focus { border-color: #38bdf8; }
+    .sm-input::placeholder { color: #475569; font-size: 13px; }
+    .sm-input-group { display: flex; gap: 8px; align-items: center; }
+    .sm-input-group .sm-input { flex: 1; }
+    .sm-search-btn {
+      background: #0ea5e9; color: #fff; border: none; border-radius: 8px;
+      padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .sm-search-btn:hover { background: #0284c7; }
+    /* 상품 정보 카드 */
+    .sm-product-card {
+      display: none; margin-top: 14px; background: #0f172a; border: 1px solid #334155;
+      border-radius: 12px; padding: 14px 16px;
+    }
+    .sm-product-card.visible { display: block; }
+    .sm-product-card .spc-sku { font-size: 11px; color: #475569; font-family: monospace; margin-bottom: 4px; }
+    .sm-product-card .spc-name-en { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+    .sm-product-card .spc-name-ko { font-size: 13px; color: #94a3b8; margin-top: 2px; }
+    .sm-product-card .spc-price { font-size: 22px; font-weight: 800; color: #38bdf8; margin-top: 6px; }
+    /* 폼 필드 그룹 */
+    .sm-field { margin-top: 14px; }
+    .sm-save-btn {
+      margin-top: 14px; width: 100%; background: #16a34a; color: #fff; border: none;
+      border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .sm-save-btn:hover { background: #15803d; }
+    .sm-save-btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+    .sm-msg { font-size: 13px; font-weight: 600; margin-top: 10px; padding: 8px 12px; border-radius: 8px; display: none; }
+    .sm-msg.success { background: #052e16; color: #4ade80; display: block; }
+    .sm-msg.error   { background: #2d0a0a; color: #f87171; display: block; }
+    /* 점포 목록 (설정 내) */
+    .sm-store-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+    .sm-store-item {
+      display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+      border-radius: 10px; border: 1.5px solid #334155; cursor: pointer;
+      font-size: 14px; font-weight: 600; color: #cbd5e1;
+      transition: all 0.15s; background: #0f172a;
+    }
+    .sm-store-item:hover { border-color: #0ea5e9; color: #f1f5f9; background: #0c1a2e; }
+    .sm-store-item.active { border-color: #0ea5e9; background: #0c2340; color: #38bdf8; }
+    .sm-store-item .ssi-icon { color: #38bdf8; font-size: 15px; width: 20px; text-align: center; }
+    .sm-store-item .ssi-check { margin-left: auto; color: #0ea5e9; font-size: 14px; display: none; }
+    .sm-store-item.active .ssi-check { display: block; }
+    /* 언어 선택 탭 */
+    .lang-toggle { display: flex; gap: 6px; margin-top: 8px; }
+    .lang-btn {
+      flex: 1; padding: 8px; border: 1.5px solid #334155; border-radius: 8px;
+      background: #0f172a; color: #64748b; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .lang-btn.active { border-color: #38bdf8; background: #0c2340; color: #38bdf8; }
+
+    /* ── 자동완성 드롭다운 ── */
+    .suggest-wrap { position: relative; flex: 1; }
+    .suggest-wrap .sm-input,
+    .suggest-wrap #lookupInput,
+    .suggest-wrap #printInput { width: 100%; }
+    .suggest-dropdown {
+      display: none; position: absolute; left: 0; top: calc(100% + 4px);
+      background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+      z-index: 500; width: 100%; max-height: 320px; overflow-y: auto;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    }
+    .suggest-dropdown.open { display: block; }
+    .suggest-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; cursor: pointer; transition: background 0.1s;
+      border-bottom: 1px solid #273449;
+    }
+    .suggest-item:last-child { border-bottom: none; }
+    .suggest-item:hover, .suggest-item.focused { background: #334155; }
+    .suggest-item .si-sku { font-family: monospace; font-size: 11px; color: #64748b; width: 100px; flex-shrink: 0; }
+    .suggest-item .si-name { flex: 1; min-width: 0; }
+    .suggest-item .si-name-en { font-size: 13px; font-weight: 600; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .suggest-item .si-name-ko { font-size: 11px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .suggest-item .si-price { font-size: 13px; font-weight: 700; color: #38bdf8; flex-shrink: 0; }
+    .suggest-empty { padding: 14px; text-align: center; color: #475569; font-size: 13px; }
+    /* 프라이싱 화면 자동완성은 밝은 테마 */
+    #printScreen .suggest-dropdown {
+      background: #fff; border-color: #e2e8f0;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    #printScreen .suggest-item { border-bottom-color: #f1f5f9; }
+    #printScreen .suggest-item:hover, #printScreen .suggest-item.focused { background: #f8fafc; }
+    #printScreen .suggest-item .si-sku { color: #94a3b8; }
+    #printScreen .suggest-item .si-name-en { color: #1f2937; }
+    #printScreen .suggest-item .si-name-ko { color: #6b7280; }
+    #printScreen .suggest-item .si-price { color: #2563eb; }
+    #printScreen .suggest-empty { color: #9ca3af; }
+
+    /* ── 가격 조회 화면 ── */
+    #lookupScreen {
+      flex: 1; display: flex; flex-direction: column;
+      min-height: 0; overflow-y: scroll; scrollbar-gutter: stable;
+    }
+    /* 바코드 입력 영역 */
+    #lookupInputBar {
+      background: #1e293b; padding: 12px 20px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid #334155; flex-shrink: 0;
+    }
+    #lookupInput {
+      flex: 1; background: #0f172a; border: 1.5px solid #334155; color: #f1f5f9;
+      border-radius: 8px; padding: 10px 16px; font-size: 18px; letter-spacing: 0.05em;
+      outline: none; transition: border-color 0.2s;
+    }
+    #lookupInput:focus { border-color: #38bdf8; }
+    #lookupInput::placeholder { color: #475569; font-size: 14px; }
+    .lookup-search-btn {
+      background: #0ea5e9; color: #fff; border: none; border-radius: 8px;
+      padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lookup-search-btn:hover { background: #0284c7; }
+
+    /* 가격 표시 영역 */
+    #lookupDisplay {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 20px; min-height: 0;
+    }
+    /* 대기 상태 */
+    #lookupIdle {
+      text-align: center;
+    }
+    #lookupIdle .idle-icon { font-size: 80px; color: #1e3a5f; margin-bottom: 16px; }
+    #lookupIdle .idle-text { color: #334155; font-size: 22px; font-weight: 600; }
+    #lookupIdle .idle-sub  { color: #1e293b; font-size: 14px; margin-top: 8px; }
+    /* 상품 정보 카드 */
+    #lookupResult {
+      display: none; width: 100%; max-width: 900px;
+      background: #1e293b; border-radius: 20px;
+      border: 1px solid #334155; overflow: hidden;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+    }
+    #lookupResult .result-top {
+      padding: 28px 36px 20px;
+      border-bottom: 1px solid #334155;
+    }
+    #lookupResult .result-sku {
+      font-size: 13px; color: #64748b; font-family: monospace; letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    #lookupResult .result-name-en {
+      font-size: 32px; font-weight: 700; color: #f1f5f9; line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    #lookupResult .result-name-ko {
+      font-size: 18px; color: #94a3b8; font-weight: 500;
+    }
+    #lookupResult .result-bottom {
+      display: flex; align-items: center; justify-content: center; padding: 28px 36px;
+    }
+    #lookupResult .result-price-label {
+      font-size: 13px; color: #64748b; margin-bottom: 6px; text-align: center;
+    }
+    #lookupResult .result-price {
+      font-size: 80px; font-weight: 800; color: #38bdf8;
+      line-height: 1; letter-spacing: -2px;
+    }
+    #lookupResult .result-price.no-price { color: #475569; font-size: 40px; }
+    #lookupResult .result-currency {
+      font-size: 28px; color: #64748b; margin-right: 6px; align-self: flex-end; padding-bottom: 12px;
+    }
+
+    /* ── 히든 원가조회 모달 ── */
+    #staffModalOverlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75); z-index: 2000;
+      align-items: center; justify-content: center;
+    }
+    #staffModalOverlay.open { display: flex; }
+    #staffModal {
+      background: #1e293b; border: 1px solid #334155; border-radius: 20px;
+      width: 90%; max-width: 640px; padding: 32px 36px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+      position: relative;
+    }
+    #staffModal .sm2-close {
+      position: absolute; top: 16px; right: 16px;
+      background: none; border: none; color: #475569; font-size: 20px; cursor: pointer;
+    }
+    #staffModal .sm2-close:hover { color: #f1f5f9; }
+    #staffModal .sm2-title {
+      font-size: 18px; font-weight: 700; color: #f1f5f9; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    #staffSearchWrap {
+      display: flex; gap: 8px; margin-bottom: 20px; position: relative;
+    }
+    #staffInput {
+      flex: 1; background: #0f172a; border: 1.5px solid #334155; color: #f1f5f9;
+      border-radius: 8px; padding: 10px 16px; font-size: 16px; outline: none;
+      transition: border-color 0.2s;
+    }
+    #staffInput:focus { border-color: #38bdf8; }
+    #staffInput::placeholder { color: #475569; font-size: 13px; }
+    #staffSearchBtn {
+      background: #0ea5e9; color: #fff; border: none; border-radius: 8px;
+      padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+    }
+    #staffSearchBtn:hover { background: #0284c7; }
+    #staffResult { display: none; }
+    #staffResult .sr-name {
+      font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px;
+    }
+    #staffResult .sr-sku {
+      font-size: 12px; color: #475569; font-family: monospace; margin-bottom: 20px;
+    }
+    #staffResult .sr-prices {
+      display: flex; gap: 0; border: 1px solid #334155; border-radius: 12px; overflow: hidden;
+    }
+    #staffResult .sr-price-cell {
+      flex: 1; padding: 20px; text-align: center;
+    }
+    #staffResult .sr-price-cell:first-child { border-right: 1px solid #334155; }
+    #staffResult .sr-price-cell .sr-label {
+      font-size: 12px; color: #64748b; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    #staffResult .sr-price-cell .sr-val {
+      font-size: 42px; font-weight: 800; line-height: 1; letter-spacing: -1px;
+    }
+    #staffResult .sr-price-cell.cost .sr-val { color: #fb923c; }
+    #staffResult .sr-price-cell.sell .sr-val { color: #38bdf8; }
+    #staffResult .sr-no-price { color: #475569; font-size: 22px; }
+    #staffError { display: none; text-align: center; padding: 20px 0; }
+    #staffError .se-icon { font-size: 40px; color: #ef4444; margin-bottom: 8px; }
+    #staffError .se-text { color: #fca5a5; font-size: 16px; font-weight: 600; }
+    .header-brand { cursor: pointer; user-select: none; }
+    #staffSuggest {
+      position: absolute; top: calc(100% + 4px); left: 0;
+      width: calc(100% - 88px);
+    }
+
+    /* ── 핀번호 입력 모달 ── */
+    #pinModalOverlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85); z-index: 2500;
+      align-items: center; justify-content: center;
+    }
+    #pinModalOverlay.open { display: flex; }
+    #pinModal {
+      background: #1e293b; border: 1px solid #334155; border-radius: 20px;
+      width: 320px; padding: 28px 28px 24px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+      position: relative;
+    }
+    #pinModal .pm-close {
+      position: absolute; top: 14px; right: 14px;
+      background: none; border: none; color: #475569; font-size: 18px; cursor: pointer;
+    }
+    #pinModal .pm-close:hover { color: #f1f5f9; }
+    #pinModal .pm-title {
+      font-size: 16px; font-weight: 700; color: #f1f5f9;
+      display: flex; align-items: center; gap: 8px; margin-bottom: 20px;
+    }
+    /* 4자리 도트 표시 */
+    #pinDots {
+      display: flex; justify-content: center; gap: 14px; margin-bottom: 20px;
+    }
+    .pin-dot {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid #475569; background: transparent;
+      transition: all 0.15s;
+    }
+    .pin-dot.filled { background: #fb923c; border-color: #fb923c; }
+    /* 오류 메시지 */
+    #pinError {
+      min-height: 20px; font-size: 13px; color: #f87171;
+      text-align: center; margin-bottom: 14px; font-weight: 600;
+    }
+    /* 숫자 패드 */
+    #pinPad {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    }
+    .pp-btn {
+      background: #0f172a; border: 1.5px solid #334155; color: #f1f5f9;
+      border-radius: 10px; font-size: 22px; font-weight: 700;
+      padding: 14px 0; cursor: pointer; transition: all 0.12s; text-align: center;
+    }
+    .pp-btn:hover { background: #334155; border-color: #475569; }
+    .pp-btn:active { transform: scale(0.93); }
+    .pp-btn.del { font-size: 18px; color: #94a3b8; }
+    .pp-btn.confirm {
+      background: #fb923c; border-color: #fb923c; color: #fff; font-size: 18px;
+    }
+    .pp-btn.confirm:hover { background: #f97316; border-color: #f97316; }
+    .pp-btn.confirm:disabled { background: #475569; border-color: #475569; cursor: not-allowed; }
+
+    /* ── 핀번호 설정 (보안 탭) ── */
+    .sm-pin-row {
+      display: flex; gap: 8px; margin-bottom: 10px;
+    }
+    .sm-pin-input {
+      flex: 1; background: #0f172a; border: 1.5px solid #334155; color: #f1f5f9;
+      border-radius: 8px; padding: 10px 14px; font-size: 18px; letter-spacing: 8px;
+      text-align: center; outline: none; transition: border-color 0.2s;
+    }
+    .sm-pin-input:focus { border-color: #38bdf8; }
+    .sm-pin-msg { font-size: 13px; font-weight: 600; min-height: 18px; margin-top: 6px; }
+    .sm-pin-msg.ok { color: #4ade80; }
+    .sm-pin-msg.err { color: #f87171; }
+    .sm-pin-status {
+      display: flex; align-items: center; gap: 8px;
+      background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+      padding: 10px 14px; margin-bottom: 16px; font-size: 13px;
+    }
+    .sm-pin-status .ps-badge {
+      padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700;
+    }
+    .sm-pin-status .ps-badge.set { background: #14532d; color: #4ade80; }
+    .sm-pin-status .ps-badge.unset { background: #450a0a; color: #fca5a5; }
+
+    /* 오류 표시 */
+    #lookupError {
+      display: none; text-align: center;
+    }
+    #lookupError .err-icon { font-size: 60px; color: #ef4444; margin-bottom: 12px; }
+    #lookupError .err-text { color: #fca5a5; font-size: 20px; font-weight: 600; }
+    #lookupError .err-sub  { color: #64748b; font-size: 14px; margin-top: 8px; }
+
+    /* ── 가격표 출력 화면 ── */
+    #printScreen {
+      flex: 1; display: none; flex-direction: column;
+      background: #0f172a; min-height: 0; overflow-y: scroll;
+      scrollbar-gutter: stable;
+    }
+    #printScreen .ps-inner { width: 100%; max-width: 1200px; margin: 0 auto; padding: 20px 28px; box-sizing: border-box; }
+    .ps-card {
+      width: 100%; box-sizing: border-box;
+      background: #1e293b; border-radius: 14px; border: 1px solid #334155;
+      padding: 18px 20px; margin-bottom: 16px;
+    }
+    /* 토글 그룹 */
+    .toggle-group { display: inline-flex; background: #0f172a; border-radius: 8px; padding: 3px; gap: 3px; border: 1px solid #334155; }
+    .toggle-group button {
+      padding: 7px 18px; border: none; border-radius: 6px; font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: all 0.15s;
+      background: transparent; color: #64748b; white-space: nowrap;
+    }
+    .toggle-group button:hover { color: #94a3b8; }
+    .toggle-group button.active { background: #2563eb; color: #fff; }
+    .toggle-group button.active.green { background: #16a34a; }
+    /* 입력 필드 */
+    #printInput {
+      width: 100%; background: #0f172a; border: 1.5px solid #334155; color: #f1f5f9;
+      border-radius: 8px; padding: 10px 16px; font-size: 18px; letter-spacing: 0.05em;
+      outline: none; transition: border-color 0.2s;
+    }
+    #printInput:focus { border-color: #38bdf8; }
+    #printInput::placeholder { color: #475569; font-size: 14px; }
+    /* 상태 표시줄 — 고정 높이로 폭 변화 방지 */
+    #printStatusBar {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 600;
+      padding: 10px 14px; border-radius: 10px;
+      background: #172554; color: #93c5fd;
+      min-height: 40px; width: 100%;
+      margin-top: 12px; box-sizing: border-box;
+    }
+    /* 카드 제목 */
+    .ps-card-title { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+    /* 섹션 레이블 */
+    .ps-label { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    /* 수동 모드 테이블 */
+    .ps-table th { background: #162032; font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; padding: 10px 12px; }
+    .ps-table td { font-size: 13px; padding: 9px 12px; vertical-align: middle; border-top: 1px solid #1e3045; color: #cbd5e1; }
+    .qty-btn { width: 26px; height: 26px; border-radius: 5px; border: 1px solid #334155; background: #0f172a; color: #94a3b8; cursor: pointer; font-size: 14px; transition: all 0.1s; }
+    .qty-btn:hover { background: #334155; color: #f1f5f9; }
+    .qty-inp { width: 44px; text-align: center; border: 1px solid #334155; border-radius: 5px; padding: 3px; font-size: 13px; background: #0f172a; color: #f1f5f9; }
+    /* 이력 행 */
+    .ps-history-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #1e3045; font-size: 13px; }
+    .ps-history-row:last-child { border-bottom: none; }
+    /* 자동완성 프라이싱 화면은 다크 테마 그대로 */
+    #printScreen .suggest-dropdown { background: #1e293b; border-color: #334155; }
+    #printScreen .suggest-item { border-bottom-color: #273449; }
+    #printScreen .suggest-item:hover, #printScreen .suggest-item.focused { background: #334155; }
+    #printScreen .suggest-item .si-sku { color: #64748b; }
+    #printScreen .suggest-item .si-name-en { color: #f1f5f9; }
+    #printScreen .suggest-item .si-name-ko { color: #94a3b8; }
+    #printScreen .suggest-item .si-price { color: #38bdf8; }
+    #printScreen .suggest-empty { color: #475569; }
+  </style>
+</head>
+<body>
+
+<!-- ── 공통 헤더 ── -->
+<div id="appHeader">
+  <div class="header-brand"><span class="brand-home">Home</span> <span class="brand-kmart">k mart</span></div>
+  <!-- 가운데 정렬 버튼 -->
+  <div class="header-center">
+    <button id="btnLookupMode" class="mode-btn lookup active" onclick="setScreen('lookup')">
+      <i class="fas fa-search" style="margin-right:8px"></i><span data-i18n="nav.lookup">가격 조회</span>
+    </button>
+    <button id="btnPrintMode" class="mode-btn print-mode" onclick="setScreen('print')">
+      <i class="fas fa-print" style="margin-right:8px"></i><span data-i18n="nav.print">가격표 출력</span>
+    </button>
+  </div>
+  <!-- 오른쪽: 현재 점포 표시(읽기 전용) + 환경설정 -->
+  <div class="header-right" style="display:flex;align-items:center;gap:0">
+    <div class="lang-toggle">
+      <button class="lang-btn active" id="btnLangKo" onclick="setLang('ko')">한국어</button>
+      <button class="lang-btn" id="btnLangEn" onclick="setLang('en')">ENGLISH</button>
+    </div>
+    <div id="storeDisplay" style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:#0c1a2e;border-radius:6px;color:#38bdf8;font-size:13px;font-weight:600;user-select:none;">
+      <i class="fas fa-store" style="font-size:13px;opacity:0.8"></i>
+      <span id="storeNameLabel"><?php echo !empty($stores) ? htmlspecialchars($stores[0]['name']) : '점포 없음'; ?></span>
+    </div>
+    <button id="settingsBtn" onclick="openSettings()">
+      <i class="fas fa-cog"></i><span data-i18n="nav.settings">환경설정</span>
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     환경설정 모달
+════════════════════════════════════════ -->
+<div id="settingsOverlay" onclick="handleOverlayClick(event)">
+  <div id="settingsModal">
+    <!-- 헤더 -->
+    <div class="sm-header">
+      <div class="sm-title"><i class="fas fa-cog" style="color:#38bdf8;margin-right:8px"></i><span data-i18n="settings.title">환경설정</span></div>
+      <button class="sm-close" onclick="closeSettings()"><i class="fas fa-times"></i></button>
+    </div>
+    <!-- 탭 -->
+    <div class="sm-tabs">
+      <button class="sm-tab active" onclick="switchSettingsTab('store')"><i class="fas fa-store" style="margin-right:5px"></i><span data-i18n="settings.tab_store">점포 선택</span></button>
+      <button class="sm-tab" onclick="switchSettingsTab('upload')"><i class="fas fa-file-upload" style="margin-right:5px"></i><span data-i18n="settings.tab_upload">마스터 파일 업로드</span></button>
+      <button class="sm-tab" onclick="switchSettingsTab('security')"><i class="fas fa-shield-alt" style="margin-right:5px"></i>보안</button>
+    </div>
+    <!-- 본문 -->
+    <div class="sm-body">
+
+      <!-- ① 점포 선택 -->
+      <div class="sm-pane active" id="paneStore">
+        <div class="sm-label" data-i18n="settings.store_instruction">점포를 선택하면 해당 점포의 가격으로 조회합니다</div>
+        <div class="sm-store-list">
+          <?php foreach ($stores as $s): ?>
+          <div class="sm-store-item" data-id="<?php echo (int)$s['id']; ?>"
+               onclick="settingsSelectStore(<?php echo (int)$s['id']; ?>, <?php echo htmlspecialchars(json_encode($s['name']), ENT_QUOTES); ?>)">
+            <span class="ssi-icon"><i class="fas fa-store"></i></span>
+            <span><?php echo htmlspecialchars($s['name']); ?></span>
+            <i class="fas fa-check-circle ssi-check"></i>
+          </div>
+          <?php endforeach; ?>
+          <?php if (empty($stores)): ?>
+          <div style="color:#475569;font-size:13px;text-align:center;padding:20px 0" data-i18n="settings.no_stores">등록된 점포가 없습니다</div>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <!-- ② 마스터 파일 업로드 -->
+      <div class="sm-pane" id="paneUpload">
+        <!-- 대상 점포 -->
+        <div style="background:#162032;border:1px solid #1e3a5f;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#93c5fd">
+          <i class="fas fa-store" style="margin-right:6px"></i>업로드 대상 점포: <strong id="uploadStoreLabel" style="color:#38bdf8">-</strong>
+        </div>
+
+        <!-- 소스 선택 탭 -->
+        <div style="display:flex;gap:0;margin-bottom:12px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:3px">
+          <button id="srcTabUpload" onclick="setUploadSource('upload')"
+            style="flex:1;padding:7px 0;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;background:#0ea5e9;color:#fff;transition:all 0.15s">
+            <i class="fas fa-upload" style="margin-right:5px"></i>파일 업로드
+          </button>
+          <button id="srcTabNas" onclick="setUploadSource('nas')"
+            style="flex:1;padding:7px 0;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#64748b;transition:all 0.15s">
+            <i class="fas fa-network-wired" style="margin-right:5px"></i>NAS 폴더
+          </button>
+        </div>
+
+        <!-- 파일 업로드 패널 -->
+        <div id="srcPanelUpload">
+          <div style="margin-bottom:12px">
+            <label id="uploadDropZone" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed #334155;border-radius:10px;padding:20px 16px;cursor:pointer;transition:border-color 0.2s;background:#0f172a" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#334155'">
+              <i class="fas fa-file-excel" style="font-size:28px;color:#22c55e"></i>
+              <span style="font-size:13px;color:#94a3b8">클릭하여 파일 선택 또는 드래그 앤 드롭</span>
+              <span style="font-size:11px;color:#475569">.xlsx, .xls, .csv 지원</span>
+              <span id="uploadFileName" style="font-size:12px;color:#38bdf8;font-weight:600;display:none"></span>
+              <input type="file" id="uploadFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="onUploadFileChange(this)">
+            </label>
+          </div>
+          <button id="uploadBtn" onclick="uploadMasterFile('upload')"
+            style="width:100%;background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:11px 0;font-size:14px;font-weight:700;cursor:pointer;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:8px"
+            onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0ea5e9'">
+            <i class="fas fa-upload"></i><span>업로드 시작</span>
+          </button>
+        </div>
+
+        <!-- NAS 폴더 패널 -->
+        <div id="srcPanelNas" style="display:none">
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#94a3b8;line-height:1.7">
+            <i class="fas fa-info-circle" style="color:#38bdf8;margin-right:5px"></i>
+            파일을 SMB/NAS 공유 폴더 <strong style="color:#f1f5f9">uploads/pos_import/</strong>에 복사하거나, 아래에서 직접 업로드하세요.
+          </div>
+
+          <!-- NAS로 파일 업로드 -->
+          <div style="margin-bottom:12px">
+            <div style="font-size:12px;font-weight:600;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">NAS 폴더에 파일 업로드</div>
+            <label id="nasUploadZone" style="display:flex;align-items:center;gap:8px;border:1px dashed #334155;border-radius:8px;padding:9px 12px;cursor:pointer;background:#0f172a;transition:border-color 0.2s" onmouseover="this.style.borderColor='#7c3aed'" onmouseout="this.style.borderColor='#334155'">
+              <i class="fas fa-upload" style="color:#7c3aed;font-size:15px;flex-shrink:0"></i>
+              <span id="nasUploadFileName" style="font-size:12px;color:#64748b;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">클릭하여 파일 선택 (.xlsx, .xls, .csv)</span>
+              <input type="file" id="nasUploadFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="onNasUploadFileChange(this)">
+            </label>
+            <button id="nasUploadBtn" onclick="uploadToNas()"
+              style="margin-top:6px;width:100%;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:9px 0;font-size:13px;font-weight:700;cursor:pointer;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:6px"
+              onmouseover="this.style.background='#6d28d9'" onmouseout="this.style.background='#7c3aed'">
+              <i class="fas fa-upload"></i><span>NAS 폴더에 업로드</span>
+            </button>
+            <div id="nasUploadResult" style="display:none;margin-top:6px;font-size:12px;font-weight:600;line-height:1.5"></div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div class="sm-label" style="margin:0;flex:1">NAS 폴더의 파일 목록</div>
+            <button onclick="loadNasFiles()" style="background:none;border:1px solid #334155;border-radius:6px;color:#94a3b8;font-size:12px;padding:4px 10px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='#38bdf8';this.style.color='#38bdf8'" onmouseout="this.style.borderColor='#334155';this.style.color='#94a3b8'">
+              <i class="fas fa-sync-alt"></i> 새로고침
+            </button>
+          </div>
+          <div id="nasFileList" style="background:#0f172a;border:1px solid #334155;border-radius:8px;min-height:60px;max-height:140px;overflow-y:auto;margin-bottom:10px">
+            <div style="padding:16px;text-align:center;color:#475569;font-size:13px">새로고침 버튼을 눌러 파일 목록을 불러오세요</div>
+          </div>
+          <button id="nasImportBtn" onclick="updateMasterFile()"
+            style="width:100%;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:11px 0;font-size:14px;font-weight:700;cursor:pointer;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:8px"
+            onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+            <i class="fas fa-rotate"></i><span>마스터파일 업데이트</span>
+          </button>
+        </div>
+
+        <!-- 컬럼 매핑 설정 (접을 수 있는 섹션) -->
+        <div style="margin-top:14px">
+          <button onclick="toggleColMap()" style="width:100%;background:none;border:1px solid #334155;border-radius:8px;padding:8px 14px;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:6px;transition:border-color 0.15s" onmouseover="this.style.borderColor='#94a3b8'" onmouseout="this.style.borderColor='#334155'">
+            <i class="fas fa-table" style="color:#38bdf8"></i>
+            <span>컬럼 매핑 설정 (점포별 파일 형식)</span>
+            <i id="colMapChevron" class="fas fa-chevron-down" style="margin-left:auto;font-size:11px;transition:transform 0.2s"></i>
+          </button>
+          <div id="colMapPanel" style="display:none;background:#0f172a;border:1px solid #334155;border-top:none;border-radius:0 0 8px 8px;padding:12px 14px">
+            <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.6">
+              각 데이터가 있는 <strong style="color:#94a3b8">엑셀 열 문자</strong>를 입력하세요 (예: A, B, C…). 헤더가 없으면 헤더행=0.
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div>
+                <div class="sm-label" style="margin-bottom:4px">SKU/바코드 열</div>
+                <input id="cmColSku" type="text" maxlength="3" value="A" class="sm-input" style="text-transform:uppercase;font-size:18px;font-weight:700;text-align:center;padding:8px" oninput="this.value=this.value.toUpperCase()">
+              </div>
+              <div>
+                <div class="sm-label" style="margin-bottom:4px">상품명 열</div>
+                <input id="cmColName" type="text" maxlength="3" value="B" class="sm-input" style="text-transform:uppercase;font-size:18px;font-weight:700;text-align:center;padding:8px" oninput="this.value=this.value.toUpperCase()">
+              </div>
+              <div>
+                <div class="sm-label" style="margin-bottom:4px">원가 열</div>
+                <input id="cmColCost" type="text" maxlength="3" value="C" class="sm-input" style="text-transform:uppercase;font-size:18px;font-weight:700;text-align:center;padding:8px" oninput="this.value=this.value.toUpperCase()">
+              </div>
+              <div>
+                <div class="sm-label" style="margin-bottom:4px">판매가 열</div>
+                <input id="cmColPrice" type="text" maxlength="3" value="D" class="sm-input" style="text-transform:uppercase;font-size:18px;font-weight:700;text-align:center;padding:8px" oninput="this.value=this.value.toUpperCase()">
+              </div>
+            </div>
+            <div style="margin-top:8px">
+              <div class="sm-label" style="margin-bottom:4px">헤더 행 번호 <span style="color:#475569;font-weight:400">(데이터는 다음 행부터)</span></div>
+              <input id="cmHeaderRow" type="number" min="0" max="10" value="1" class="sm-input" style="width:80px;font-size:16px;font-weight:700;text-align:center;padding:8px">
+            </div>
+            <button onclick="saveColMap()" style="margin-top:10px;width:100%;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:9px 0;font-size:13px;font-weight:700;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='#6d28d9'" onmouseout="this.style.background='#7c3aed'">
+              <i class="fas fa-save" style="margin-right:5px"></i>이 점포의 설정 저장
+            </button>
+            <div id="colMapMsg" style="margin-top:6px;font-size:12px;font-weight:600;min-height:16px;color:#4ade80"></div>
+          </div>
+        </div>
+
+        <div id="uploadProgress" style="display:none;margin-top:12px;text-align:center;color:#94a3b8;font-size:13px">
+          <i class="fas fa-spinner fa-spin" style="color:#38bdf8;margin-right:6px"></i>파일 처리 중... 잠시 기다려 주세요
+        </div>
+
+        <div id="uploadResult" style="display:none;margin-top:12px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;font-size:12px;color:#cbd5e1;white-space:pre-wrap;line-height:1.7;max-height:220px;overflow-y:auto"></div>
+      </div>
+
+      <!-- ③ 보안 (핀번호 설정) -->
+      <div class="sm-pane" id="paneSecurity">
+        <div class="sm-label" style="margin-bottom:10px">원가 조회 핀번호</div>
+        <div class="sm-pin-status" id="pinStatusBadge">
+          <i class="fas fa-lock" style="color:#64748b"></i>
+          <span>핀번호 상태:</span>
+          <span class="ps-badge unset" id="pinStatusText">확인 중...</span>
+        </div>
+
+        <div class="sm-label" style="margin-bottom:6px">현재 핀번호 <span style="font-size:11px;color:#475569;font-weight:400;">(미설정 시 빈칸, 관리자는 백도어 사용 가능)</span></div>
+        <div class="sm-pin-row">
+          <input type="password" id="settingCurrentPin" class="sm-pin-input" maxlength="6" placeholder="현재 핀" inputmode="numeric" autocomplete="off">
+        </div>
+
+        <div class="sm-label" style="margin-bottom:6px;margin-top:12px">새 핀번호 <span style="font-size:11px;color:#475569;font-weight:400;">(4자리 숫자)</span></div>
+        <div class="sm-pin-row">
+          <input type="password" id="settingNewPin" class="sm-pin-input" maxlength="4" placeholder="새 핀" inputmode="numeric" autocomplete="off">
+          <input type="password" id="settingNewPinConfirm" class="sm-pin-input" maxlength="4" placeholder="확인" inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="sm-pin-msg" id="pinChangeMsg"></div>
+
+        <button onclick="savePinSetting()" style="width:100%;background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:11px 0;font-size:14px;font-weight:700;cursor:pointer;margin-top:14px;transition:background 0.15s" onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0ea5e9'">
+          <i class="fas fa-key" style="margin-right:6px"></i>핀번호 변경
+        </button>
+        <div style="margin-top:14px;background:#0f172a;border:1px solid #1e3a5f;border-radius:8px;padding:10px 14px;font-size:12px;color:#64748b;line-height:1.7">
+          <i class="fas fa-info-circle" style="color:#38bdf8;margin-right:5px"></i>
+          핀번호를 잊어버렸을 경우, <strong style="color:#94a3b8">관리자 백도어</strong>를 현재 핀번호 입력란에 입력하면 변경할 수 있습니다.
+        </div>
+      </div>
+
+    </div><!-- /.sm-body -->
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     화면 1: 가격 조회
+════════════════════════════════════════ -->
+<div id="lookupScreen">
+  <!-- 바코드 입력 바 -->
+  <div id="lookupInputBar">
+    <i class="fas fa-barcode" style="color:#38bdf8;font-size:20px;flex-shrink:0"></i>
+    <div class="suggest-wrap">
+      <input id="lookupInput" type="text" placeholder="바코드 스캔 또는 상품명(한글/영문) 검색" autocomplete="off">
+      <div class="suggest-dropdown" id="lookupSuggest"></div>
+    </div>
+    <button class="lookup-search-btn" onclick="doLookup()" style="flex-shrink:0">
+      <i class="fas fa-search"></i>
+    </button>
+  </div>
+
+  <!-- 결과 표시 영역 -->
+  <div id="lookupDisplay">
+    <!-- 대기 상태 -->
+    <div id="lookupIdle">
+      <div class="idle-icon"><i class="fas fa-barcode"></i></div>
+      <div class="idle-text" data-i18n="lookup.idle_text">바코드를 스캔하세요</div>
+      <div class="idle-sub" data-i18n="lookup.idle_sub">상품 가격이 여기에 표시됩니다</div>
+    </div>
+
+    <!-- 상품 정보 -->
+    <div id="lookupResult">
+      <div class="result-top">
+        <div class="result-sku" id="rSku"></div>
+        <div class="result-name-en" id="rNameEn"></div>
+        <div class="result-name-ko" id="rNameKo"></div>
+      </div>
+      <div class="result-bottom">
+        <div style="text-align:center">
+          <div class="result-price-label" data-i18n="lookup.price_label">판매가</div>
+          <div style="display:flex;align-items:flex-end;justify-content:center">
+            <span class="result-currency" id="rCurrencySymbol"></span>
+            <span class="result-price" id="rPrice"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 오류 -->
+    <div id="lookupError">
+      <div class="err-icon"><i class="fas fa-exclamation-circle"></i></div>
+      <div class="err-text" id="errText" data-i18n="lookup.error_not_found">상품을 찾을 수 없습니다</div>
+      <div class="err-sub" id="errSub"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     화면 2: 가격표 출력
+════════════════════════════════════════ -->
+<div id="printScreen">
+  <div class="ps-inner">
+
+    <!-- 모드 + 타입 선택 -->
+    <div class="ps-card">
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+        <div>
+          <div class="ps-label" data-i18n="print.mode_label">출력 모드</div>
+          <div class="toggle-group">
+            <button id="btnAutoMode" class="active" onclick="setPrintMode('auto')"><i class="fas fa-bolt" style="margin-right:5px"></i><span data-i18n="print.mode_auto">자동</span></button>
+            <button id="btnManualMode" onclick="setPrintMode('manual')"><i class="fas fa-list" style="margin-right:5px"></i><span data-i18n="print.mode_manual">수동</span></button>
+          </div>
+        </div>
+        <div>
+          <div class="ps-label" data-i18n="print.type_label">라벨 종류</div>
+          <div class="toggle-group">
+            <button id="btnTypePricing" class="active green" onclick="setPrintType('pricing')"><i class="fas fa-tag" style="margin-right:5px"></i><span data-i18n="print.type_pricing">프라이싱</span></button>
+            <button id="btnType2p" onclick="setPrintType('2p')"><i class="fas fa-copy" style="margin-right:5px"></i><span data-i18n="print.type_barcode">바코드 2p</span></button>
+          </div>
+        </div>
+      </div>
+      <!-- 상태 표시줄: 전체 너비 고정 행 → 폭 변화 없음 -->
+      <div id="printStatusBar">
+        <i class="fas fa-bolt"></i>
+        <span id="printStatusText" data-i18n="print.status_auto">스캔하면 자동으로 출력됩니다</span>
+      </div>
+    </div>
+
+    <!-- 바코드 / 상품명 입력 -->
+    <div class="ps-card">
+      <div class="ps-card-title">
+        <i class="fas fa-barcode" style="color:#38bdf8"></i><span data-i18n="print.search_title">바코드 / 상품명 검색</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div class="suggest-wrap">
+          <input id="printInput" type="text" placeholder="바코드 스캔 또는 상품명(한글/영문) 검색" autocomplete="off">
+          <div class="suggest-dropdown" id="printSuggest"></div>
+        </div>
+        <button onclick="handlePrintBarcode()" style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;padding:0 20px;font-size:14px;font-weight:600;cursor:pointer;flex-shrink:0;transition:background 0.15s" onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0ea5e9'">
+          <i class="fas fa-search"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- 자동 모드: 이력 -->
+    <div id="autoPanel" class="ps-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="ps-card-title" style="margin-bottom:0">
+          <i class="fas fa-history" style="color:#38bdf8"></i><span data-i18n="print.history_title">최근 출력 이력</span>
+        </div>
+        <button onclick="clearPrintHistory()" style="font-size:12px;color:#475569;background:none;border:none;cursor:pointer;transition:color 0.15s" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#475569'" data-i18n="print.clear_all">전체 삭제</button>
+      </div>
+      <div id="printHistoryList">
+        <div style="text-align:center;color:#334155;font-size:13px;padding:24px 0" data-i18n="print.history_empty">출력 이력이 없습니다</div>
+      </div>
+    </div>
+
+    <!-- 수동 모드: 리스트 -->
+    <div id="manualPanel" class="ps-card" style="display:none;padding:0;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid #334155">
+        <div class="ps-card-title" style="margin-bottom:0">
+          <i class="fas fa-list" style="color:#38bdf8"></i><span data-i18n="print.list_title">출력 목록</span>
+        </div>
+        <span id="listCountBadge" style="font-size:11px;background:#1e3a5f;color:#38bdf8;font-weight:700;padding:2px 8px;border-radius:20px">0</span>
+        <div style="flex:1"></div>
+        <button onclick="selectAllItems()" style="font-size:12px;color:#94a3b8;border:1px solid #334155;background:#0f172a;border-radius:6px;padding:5px 12px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.borderColor='#38bdf8';this.style.color='#38bdf8'" onmouseout="this.style.borderColor='#334155';this.style.color='#94a3b8'" data-i18n="print.select_all">전체 선택</button>
+        <button onclick="printSelectedItems()" style="font-size:12px;background:#0ea5e9;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-weight:600;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='#0284c7'" onmouseout="this.style.background='#0ea5e9'"><i class="fas fa-print" style="margin-right:5px"></i><span data-i18n="print.print_selected">선택 출력</span></button>
+        <button onclick="clearItems()" style="font-size:12px;color:#f87171;border:1px solid #3d1515;background:#1a0a0a;border-radius:6px;padding:5px 12px;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#2d1010'" onmouseout="this.style.background='#1a0a0a'" data-i18n="print.clear_all">전체 삭제</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="ps-table" style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="width:36px"><input type="checkbox" id="checkAllItems" onchange="toggleAllItems(this)" style="accent-color:#38bdf8"></th>
+              <th style="width:120px">SKU</th><th data-i18n="print.th_name">상품명</th><th style="text-align:right;width:100px" data-i18n="print.th_price">가격</th>
+              <th style="text-align:center;width:120px" data-i18n="print.th_qty">수량</th><th style="width:36px"></th>
+            </tr>
+          </thead>
+          <tbody id="itemTableBody">
+            <tr><td colspan="6" style="text-align:center;color:#334155;padding:28px" data-i18n="print.list_empty">상품을 스캔하면 목록에 추가됩니다</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let currentScreen = 'lookup';
+let printMode = 'auto';
+let printType = 'pricing';
+let storeId = <?php echo $defaultStore; ?>;
+let currentProduct = null;
+let printItems = [];
+let printHistory = [];
+
+// ── 점포 선택 ──
+function selectStore(id, name) {
+  storeId = id;
+  localStorage.setItem('pricing_storeId', id);
+  const label = document.getElementById('storeNameLabel');
+  if (label) label.textContent = name;
+  // active 표시 갱신 (환경설정 모달 내)
+  document.querySelectorAll('.sm-store-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.id) === id);
+  });
+  // 현재 결과 초기화 (다른 점포 가격 방지)
+  showLookupState('idle');
+}
+
+// ── 화면 전환 ──
+function setScreen(screen) {
+  currentScreen = screen;
+  const isLookup = screen === 'lookup';
+  document.getElementById('lookupScreen').style.display = isLookup ? 'flex' : 'none';
+  document.getElementById('printScreen').style.display  = isLookup ? 'none' : 'flex';
+  document.getElementById('btnLookupMode').classList.toggle('active', isLookup);
+  document.getElementById('btnPrintMode').classList.toggle('active', !isLookup);
+  setTimeout(() => {
+    const inp = isLookup ? 'lookupInput' : 'printInput';
+    document.getElementById(inp).focus();
+  }, 50);
+  localStorage.setItem('pricing_screen', screen);
+}
+
+// ── 가격 조회 ──
+document.getElementById('lookupInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const dd = document.getElementById('lookupSuggest');
+    if (dd.classList.contains('open') && suggestFocusIdx['lookup'] >= 0) return;
+    doLookup();
+  }
+});
+
+function doLookup() {
+  const input = document.getElementById('lookupInput');
+  const barcode = input.value.trim().replace(/^,+/, '');
+  input.value = '';
+  closeSuggest('lookupSuggest', 'lookup');
+  if (!barcode) return;
+  showLookupState('loading');
+  fetch('ajax_search.php?barcode=' + encodeURIComponent(barcode) + '&store_id=' + storeId)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        showLookupState('error', data.message, barcode);
+        return;
+      }
+      currentProduct = data.product;
+      showLookupResult(data.product);
+    })
+    .catch(() => showLookupState('error', tl('error.network')));
+}
+
+function showLookupState(state, msg, barcode) {
+  document.getElementById('lookupIdle').style.display   = state === 'idle' ? 'block' : 'none';
+  document.getElementById('lookupResult').style.display = state === 'result' ? 'block' : 'none';
+  document.getElementById('lookupError').style.display  = state === 'error' ? 'block' : 'none';
+  if (state === 'error') {
+    document.getElementById('errText').textContent = msg || tl('lookup.error_not_found');
+    document.getElementById('errSub').textContent  = barcode ? tl('lookup.scanned_code') + barcode : '';
+  }
+}
+
+function showLookupResult(p) {
+  document.getElementById('rSku').textContent    = p.sku;
+  document.getElementById('rNameEn').textContent = p.name_en || '';
+  const koEl = document.getElementById('rNameKo');
+  koEl.textContent = (p.name_ko && p.name_ko !== p.name_en) ? p.name_ko : '';
+  koEl.style.display = (p.name_ko && p.name_ko !== p.name_en) ? '' : 'none';
+  const priceEl = document.getElementById('rPrice');
+  const symEl   = document.getElementById('rCurrencySymbol');
+  if (p.selling_price && p.selling_price !== '0') {
+    priceEl.textContent = p.selling_price;
+    priceEl.className = 'result-price';
+    symEl.style.display = 'inline';
+  } else {
+    priceEl.textContent = tl('lookup.no_price');
+    priceEl.className = 'result-price no-price';
+    symEl.style.display = 'none';
+  }
+  showLookupState('result');
+}
+
+function quickPrintCurrent(type) {
+  if (!currentProduct) return;
+  const url = 'print.php?skus=' + encodeURIComponent(currentProduct.sku)
+            + '&mode=' + type + '&store_id=' + storeId + '&autoprint=1';
+  window.open(url, '_blank', 'width=900,height=600,toolbar=0,menubar=0,location=0,status=0');
+}
+
+// ── 가격표 출력 ──
+document.getElementById('printInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const dd = document.getElementById('printSuggest');
+    if (dd.classList.contains('open') && suggestFocusIdx['print'] >= 0) return;
+    handlePrintBarcode();
+  }
+});
+
+function setPrintMode(m) {
+  printMode = m;
+  localStorage.setItem('pricing_printMode', m);
+  document.getElementById('btnAutoMode').classList.toggle('active', m === 'auto');
+  document.getElementById('btnManualMode').classList.toggle('active', m === 'manual');
+  document.getElementById('autoPanel').style.display   = m === 'auto'   ? 'block' : 'none';
+  document.getElementById('manualPanel').style.display = m === 'manual' ? 'block' : 'none';
+  setPrintStatus(m === 'auto' ? 'blue' : 'gray',
+    m === 'auto' ? '<i class="fas fa-bolt mr-1"></i>' + tl('print.status_auto')
+                 : '<i class="fas fa-list mr-1"></i>' + tl('print.status_manual'));
+  document.getElementById('printInput').focus();
+}
+
+function setPrintType(t) {
+  printType = t;
+  document.getElementById('btnTypePricing').classList.toggle('active', t === 'pricing');
+  document.getElementById('btnType2p').classList.toggle('active', t === '2p');
+  localStorage.setItem('pricing_printType', t);
+  document.getElementById('printInput').focus();
+}
+
+function setPrintStatus(color, html) {
+  const bar  = document.getElementById('printStatusBar');
+  const text = document.getElementById('printStatusText');
+  const icon = bar.querySelector('i');
+  // 색상 맵 (다크 테마)
+  const bg   = { blue:'#172554', green:'#052e16', red:'#2d0a0a', gray:'#1e293b', yellow:'#1c1500' };
+  const fg   = { blue:'#93c5fd', green:'#4ade80', red:'#f87171', gray:'#94a3b8', yellow:'#fbbf24' };
+  const c    = color || 'blue';
+  bar.style.background = bg[c] || bg.blue;
+  bar.style.color      = fg[c] || fg.blue;
+  // icon 클래스만 교체 (html에서 fa-* 추출)
+  const iconMatch = html.match(/fa-[\w-]+/);
+  if (icon && iconMatch) {
+    icon.className = 'fas ' + iconMatch[0];
+  }
+  // 텍스트만 업데이트 (strip tags)
+  if (text) text.innerHTML = html.replace(/<[^>]+>/g, ' ').trim();
+}
+
+function handlePrintBarcode() {
+  const input = document.getElementById('printInput');
+  const barcode = input.value.trim().replace(/^,+/, '');
+  input.value = '';
+  closeSuggest('printSuggest', 'print');
+  input.focus();
+  if (!barcode) return;
+
+  setPrintStatus('yellow', '<i class="fas fa-spinner fa-spin mr-1"></i>' + tl('print.status_searching'));
+  fetch('ajax_search.php?barcode=' + encodeURIComponent(barcode) + '&store_id=' + storeId)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        setPrintStatus('red', '<i class="fas fa-exclamation-circle mr-1"></i>' + escHtml(data.message));
+        return;
+      }
+      if (printMode === 'auto') {
+        silentPrint(data.product);
+      } else {
+        addItem(data.product);
+      }
+    })
+    .catch(() => {
+      setPrintStatus('red', '<i class="fas fa-exclamation-triangle mr-1"></i>' + tl('error.network_short'));
+    });
+}
+
+// iframe 기반 자동 출력: 팝업 차단 완전 우회, --kiosk-printing에서 대화상자 없이 기본 프린터 출력
+// VBA PrintOut과 동일한 동작 — 사용자 개입 없이 백그라운드 자동 출력
+function silentPrint(p) {
+  const url = 'print.php?skus=' + encodeURIComponent(p.sku) + '&mode=' + printType + '&store_id=' + storeId + '&autoprint=1';
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:900px;height:600px;border:none;visibility:hidden;';
+  document.body.appendChild(iframe);
+  iframe.src = url;
+  // print.php 내부 autoprint 로직이 iframe 안에서 window.print() 호출
+  // --kiosk-printing 모드: 프린트 대화상자 없이 기본 프린터로 자동 출력
+  // 15초 후 iframe 제거 (바코드 렌더링 + 출력 완료 대기)
+  setTimeout(function() { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); }, 15000);
+  setPrintStatus('green', '<i class="fas fa-check-circle mr-1"></i>' + tl('print.status_printed') + escHtml(p.name_en || p.sku));
+  addPrintHistory(p);
+}
+
+// 팝업 창 출력: 사용자 클릭(user gesture) 컨텍스트에서만 사용 (이력 재출력, 수동 목록)
+function doPrint(p) {
+  const url = 'print.php?skus=' + encodeURIComponent(p.sku) + '&mode=' + printType + '&store_id=' + storeId + '&autoprint=1';
+  const win = window.open(url, '_blank', 'width=900,height=600,toolbar=0,menubar=0,location=0,status=0');
+  if (!win || win.closed || typeof win.closed === 'undefined') {
+    window.open(url, '_blank');
+    setPrintStatus('yellow', '<i class="fas fa-exclamation-triangle mr-1"></i>' + tl('error.popup_blocked'));
+  } else {
+    setPrintStatus('green', '<i class="fas fa-check-circle mr-1"></i>' + tl('print.status_printed') + escHtml(p.name_en || p.sku));
+  }
+  addPrintHistory(p);
+}
+
+function addPrintHistory(p) {
+  const t = new Date();
+  const ts = String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0')+':'+String(t.getSeconds()).padStart(2,'0');
+  printHistory.unshift({...p, ts});
+  if (printHistory.length > 30) printHistory.pop();
+  renderPrintHistory();
+}
+function renderPrintHistory() {
+  const el = document.getElementById('printHistoryList');
+  if (!printHistory.length) { el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:20px 0">' + tl('print.history_empty') + '</div>'; return; }
+  el.innerHTML = printHistory.map((h,i) => `
+    <div class="ps-history-row">
+      <span style="color:#475569;width:56px;font-size:12px;font-family:monospace;flex-shrink:0">${escHtml(h.ts)}</span>
+      <span style="font-family:monospace;font-size:11px;color:#64748b;width:108px;flex-shrink:0">${escHtml(h.sku)}</span>
+      <span style="flex:1;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(h.name_en || h.name_ko || '')}${(h.name_ko && h.name_ko !== h.name_en) ? ' <span style="color:#94a3b8;font-size:11px">' + escHtml(h.name_ko) + '</span>' : ''}</span>
+      <span style="font-weight:700;color:#38bdf8;width:70px;text-align:right;flex-shrink:0">${escHtml(h.selling_price||'')}</span>
+      <button onclick="doPrint(printHistory[${i}])" style="background:#0c2340;color:#38bdf8;border:1px solid #1e4a7a;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;margin-left:8px;flex-shrink:0;transition:background 0.15s" onmouseover="this.style.background='#1e3a5f'" onmouseout="this.style.background='#0c2340'"><i class="fas fa-redo"></i></button>
+    </div>`).join('');
+}
+function clearPrintHistory() { printHistory = []; renderPrintHistory(); }
+
+// 수동 모드
+function addItem(p) {
+  const idx = printItems.findIndex(x => x.sku === p.sku);
+  if (idx >= 0) { printItems[idx].qty++; setPrintStatus('blue', '<i class="fas fa-plus-circle mr-1"></i>' + tl('print.status_qty_up') + escHtml(p.name_en||p.sku) + ' ×' + printItems[idx].qty); }
+  else { printItems.push({...p, qty:1, checked:true}); setPrintStatus('blue', '<i class="fas fa-plus-circle mr-1"></i>' + tl('print.status_added') + escHtml(p.name_en||p.name_ko||p.sku)); }
+  renderItems();
+}
+function renderItems() {
+  document.getElementById('listCountBadge').textContent = printItems.length;
+  const tbody = document.getElementById('itemTableBody');
+  if (!printItems.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:24px">' + tl('print.list_empty') + '</td></tr>'; return; }
+  tbody.innerHTML = printItems.map((p,i) => `
+    <tr>
+      <td><input type="checkbox" ${p.checked?'checked':''} onchange="printItems[${i}].checked=this.checked" style="accent-color:#38bdf8"></td>
+      <td style="font-family:monospace;font-size:11px;color:#64748b">${escHtml(p.sku)}</td>
+      <td style="min-width:0">
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="flex-shrink:0;font-size:9px;font-weight:700;color:#38bdf8;background:#0c2340;border:1px solid #1e4a7a;border-radius:3px;padding:1px 4px;line-height:1.4">ENG</span>
+          <input id="ni_en_${i}" type="text" value="${escHtml(p.name_en||'')}"
+            placeholder="영문명"
+            style="flex:1;min-width:0;background:#0f172a;border:1px solid #334155;border-radius:5px;color:#f1f5f9;font-size:12px;font-weight:600;padding:3px 6px;box-sizing:border-box;outline:none;transition:border-color 0.2s"
+            onfocus="this.style.borderColor='#38bdf8'"
+            onblur="this.style.borderColor='#334155';saveItemName(${i},'en',this.value)"
+            onkeydown="if(event.key==='Enter'){this.blur()}">
+          <button onclick="openNameHistory(${p.product_id||0},'${escHtml(p.sku||'')}')" title="변경 이력" style="flex-shrink:0;background:none;border:none;color:#475569;cursor:pointer;font-size:11px;padding:2px 4px;border-radius:4px;transition:color 0.15s" onmouseover="this.style.color='#38bdf8'" onmouseout="this.style.color='#475569'"><i class="fas fa-history"></i></button>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+          <span style="flex-shrink:0;font-size:9px;font-weight:700;color:#f59e0b;background:#1a1400;border:1px solid #78350f;border-radius:3px;padding:1px 4px;line-height:1.4">KOR</span>
+          <input id="ni_ko_${i}" type="text" value="${escHtml(p.name_ko||'')}"
+            placeholder="한글명"
+            style="flex:1;min-width:0;background:#0f172a;border:1px solid #334155;border-radius:5px;color:#94a3b8;font-size:11px;padding:3px 6px;box-sizing:border-box;outline:none;transition:border-color 0.2s"
+            onfocus="this.style.borderColor='#38bdf8'"
+            onblur="this.style.borderColor='#334155';saveItemName(${i},'ko',this.value)"
+            onkeydown="if(event.key==='Enter'){this.blur()}">
+        </div>
+      </td>
+      <td style="text-align:right;font-weight:700;color:#38bdf8">${escHtml(p.selling_price||'-')}</td>
+      <td style="text-align:center">
+        <div style="display:flex;align-items:center;justify-content:center;gap:3px">
+          <button class="qty-btn" onclick="chgQty(${i},-1)">−</button>
+          <input class="qty-inp" type="number" value="${p.qty}" min="1" onchange="printItems[${i}].qty=Math.max(1,parseInt(this.value)||1);renderItems()">
+          <button class="qty-btn" onclick="chgQty(${i},1)">+</button>
+        </div>
+      </td>
+      <td><button onclick="removeItem(${i})" style="background:none;border:none;color:#475569;cursor:pointer;font-size:12px;transition:color 0.15s" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#475569'"><i class="fas fa-trash-alt"></i></button></td>
+    </tr>`).join('');
+}
+function saveItemName(idx, lang, value) {
+  const p = printItems[idx];
+  if (!p || !p.product_id) return;
+  const trimmed = value.trim();
+  const prev = lang === 'en' ? p.name_en : p.name_ko;
+  if (trimmed === (prev || '')) return; // 변경 없음
+  if (lang === 'en') printItems[idx].name_en = trimmed;
+  else               printItems[idx].name_ko = trimmed;
+  const inputId = 'ni_' + lang + '_' + idx;
+  const el = document.getElementById(inputId);
+  const fd = new FormData();
+  fd.append('product_id',   p.product_id);
+  fd.append('language',     lang);
+  fd.append('product_name', trimmed);
+  fetch('ajax_update_name.php', { method:'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (el) {
+        el.style.borderColor = data.success ? '#22c55e' : '#ef4444';
+        setTimeout(() => { if (document.getElementById(inputId)) el.style.borderColor = '#334155'; }, 1200);
+      }
+    })
+    .catch(() => {
+      if (el) { el.style.borderColor = '#ef4444'; setTimeout(() => { if (document.getElementById(inputId)) el.style.borderColor = '#334155'; }, 1200); }
+    });
+}
+function chgQty(i,d){ printItems[i].qty=Math.max(1,(printItems[i].qty||1)+d); renderItems(); }
+function removeItem(i){ printItems.splice(i,1); renderItems(); }
+function selectAllItems(){ printItems.forEach(p=>p.checked=true); renderItems(); }
+function toggleAllItems(cb){ printItems.forEach(p=>p.checked=cb.checked); renderItems(); }
+function clearItems(){ printItems=[]; renderItems(); }
+function printSelectedItems(){
+  const sel = printItems.filter(p=>p.checked);
+  if (!sel.length){ setPrintStatus('red','<i class="fas fa-exclamation-circle mr-1"></i>' + tl('print.no_selection')); return; }
+  const skus=[];
+  sel.forEach(p=>{ for(let i=0;i<(p.qty||1);i++) skus.push(p.sku); });
+  const url='print.php?skus='+skus.map(encodeURIComponent).join(',')+'&mode='+printType+'&store_id='+storeId;
+  window.open(url,'_blank','width=900,height=600,toolbar=0,menubar=0,location=0,status=0');
+  setPrintStatus('green','<i class="fas fa-print mr-1"></i>'+skus.length + tl('print.status_opened'));
+}
+
+// ════════════════════════════════════════
+// 자동완성 (실시간 검색)
+// ════════════════════════════════════════
+let suggestTimers = {};
+let suggestFocusIdx = { lookup: -1, print: -1, staff: -1 };
+
+function initSuggest(inputId, dropdownId, key, onSelect) {
+  const input = document.getElementById(inputId);
+  const dd    = document.getElementById(dropdownId);
+
+  input.addEventListener('input', function() {
+    clearTimeout(suggestTimers[key]);
+    const q = this.value.trim();
+    if (q.length < 1) { closeSuggest(dropdownId, key); return; }
+    suggestTimers[key] = setTimeout(() => fetchSuggest(q, dropdownId, key, onSelect), 250);
+  });
+
+  input.addEventListener('keydown', function(e) {
+    const items = dd.querySelectorAll('.suggest-item');
+    if (!items.length || !dd.classList.contains('open')) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      suggestFocusIdx[key] = Math.min(suggestFocusIdx[key] + 1, items.length - 1);
+      updateSuggestFocus(items, key);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      suggestFocusIdx[key] = Math.max(suggestFocusIdx[key] - 1, 0);
+      updateSuggestFocus(items, key);
+    } else if (e.key === 'Enter') {
+      if (suggestFocusIdx[key] >= 0 && items[suggestFocusIdx[key]]) {
+        e.preventDefault();
+        items[suggestFocusIdx[key]].click();
+      }
+    } else if (e.key === 'Escape') {
+      closeSuggest(dropdownId, key);
+    }
+  });
+
+  // 외부 클릭 시 닫기
+  document.addEventListener('click', function(e) {
+    if (!input.contains(e.target) && !dd.contains(e.target)) {
+      closeSuggest(dropdownId, key);
+    }
+  });
+}
+
+function fetchSuggest(q, dropdownId, key, onSelect) {
+  fetch('ajax_suggest.php?q=' + encodeURIComponent(q) + '&store_id=' + storeId + '&limit=50')
+    .then(r => r.json())
+    .then(data => {
+      const dd = document.getElementById(dropdownId);
+      suggestFocusIdx[key] = -1;
+      if (!data.success || !data.products.length) {
+        dd.innerHTML = '<div class="suggest-empty">' + tl('search.no_results') + '</div>';
+        dd.classList.add('open');
+        return;
+      }
+      dd.innerHTML = data.products.map((p, i) => `
+        <div class="suggest-item" data-idx="${i}" onclick="pickSuggest('${dropdownId}','${key}',${i})">
+          <span class="si-sku">${escHtml(p.sku)}</span>
+          <span class="si-name">
+            <div class="si-name-en">${escHtml(p.name_en || p.sku)}</div>
+            ${(p.name_ko && p.name_ko !== p.name_en) ? '<div class="si-name-ko">' + escHtml(p.name_ko) + '</div>' : ''}
+          </span>
+          ${p.selling_price ? '<span class="si-price">' + escHtml(p.selling_price) + '</span>' : ''}
+        </div>`).join('');
+      // 상품 데이터를 dropdown에 저장
+      dd._products = data.products;
+      dd.classList.add('open');
+    })
+    .catch(() => {});
+}
+
+function updateSuggestFocus(items, key) {
+  items.forEach((el, i) => el.classList.toggle('focused', i === suggestFocusIdx[key]));
+  if (suggestFocusIdx[key] >= 0) items[suggestFocusIdx[key]].scrollIntoView({ block: 'nearest' });
+}
+
+function closeSuggest(dropdownId, key) {
+  const dd = document.getElementById(dropdownId);
+  dd.classList.remove('open');
+  suggestFocusIdx[key] = -1;
+}
+
+// 전역 맵: dropdown별 onSelect 콜백 저장
+const suggestCallbacks = {};
+
+function pickSuggest(dropdownId, key, idx) {
+  const dd = document.getElementById(dropdownId);
+  const p  = dd._products && dd._products[idx];
+  if (!p) return;
+  closeSuggest(dropdownId, key);
+  if (suggestCallbacks[key]) suggestCallbacks[key](p);
+}
+
+function escHtml(s){ if(!s&&s!==0)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ════════════════════════════════════════
+// 환경설정 모달
+// ════════════════════════════════════════
+let settingsTab = 'store';
+
+function openSettings() {
+  syncSettingsStoreHighlight();
+  syncUploadStoreLabel();
+  document.getElementById('settingsOverlay').classList.add('open');
+}
+
+function syncUploadStoreLabel() {
+  const label = document.getElementById('storeNameLabel');
+  const el = document.getElementById('uploadStoreLabel');
+  if (el) el.textContent = label ? label.textContent.trim() : '-';
+}
+
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('open');
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('settingsOverlay')) closeSettings();
+}
+
+function switchSettingsTab(tab) {
+  settingsTab = tab;
+  document.querySelectorAll('.sm-tab').forEach((el, i) => {
+    el.classList.toggle('active', ['store','upload','security'][i] === tab);
+  });
+  document.querySelectorAll('.sm-pane').forEach(el => el.classList.remove('active'));
+  const paneMap = { store: 'paneStore', upload: 'paneUpload', security: 'paneSecurity' };
+  document.getElementById(paneMap[tab] || 'paneStore').classList.add('active');
+  if (tab === 'upload') { syncUploadStoreLabel(); loadColMap(); }
+  if (tab === 'security') loadPinStatus();
+}
+
+// 설정 모달 내 점포 선택
+function syncSettingsStoreHighlight() {
+  document.querySelectorAll('.sm-store-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.id) === storeId);
+  });
+}
+
+function settingsSelectStore(id, name) {
+  // 기존 selectStore 재활용
+  selectStore(id, name);
+  syncSettingsStoreHighlight();
+}
+
+// ── 마스터 파일 업로드 ──
+let uploadSource = 'upload'; // 'upload' | 'nas'
+let nasSelectedFile = null;  // NAS에서 선택한 파일명
+
+function setUploadSource(src) {
+  uploadSource = src;
+  document.getElementById('srcTabUpload').style.cssText =
+    src === 'upload' ? 'flex:1;padding:7px 0;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;background:#0ea5e9;color:#fff;transition:all 0.15s'
+                     : 'flex:1;padding:7px 0;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#64748b;transition:all 0.15s';
+  document.getElementById('srcTabNas').style.cssText =
+    src === 'nas' ? 'flex:1;padding:7px 0;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;background:#16a34a;color:#fff;transition:all 0.15s'
+                  : 'flex:1;padding:7px 0;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#64748b;transition:all 0.15s';
+  document.getElementById('srcPanelUpload').style.display = src === 'upload' ? '' : 'none';
+  document.getElementById('srcPanelNas').style.display    = src === 'nas'    ? '' : 'none';
+}
+
+function onUploadFileChange(input) {
+  const nameEl = document.getElementById('uploadFileName');
+  if (input.files.length > 0) {
+    nameEl.textContent = input.files[0].name;
+    nameEl.style.display = 'block';
+  } else {
+    nameEl.style.display = 'none';
+  }
+  document.getElementById('uploadResult').style.display = 'none';
+}
+
+// ── NAS 파일 업로드 (브라우저 → NAS 폴더) ──
+function onNasUploadFileChange(input) {
+  const nameEl = document.getElementById('nasUploadFileName');
+  const zone   = document.getElementById('nasUploadZone');
+  if (input.files && input.files[0]) {
+    nameEl.textContent = input.files[0].name;
+    nameEl.style.color = '#a78bfa';
+    zone.style.borderColor = '#7c3aed';
+  } else {
+    nameEl.textContent = '클릭하여 파일 선택 (.xlsx, .xls, .csv)';
+    nameEl.style.color = '#64748b';
+    zone.style.borderColor = '#334155';
+  }
+}
+
+function uploadToNas() {
+  const fileInput = document.getElementById('nasUploadFileInput');
+  const btn       = document.getElementById('nasUploadBtn');
+  const resultEl  = document.getElementById('nasUploadResult');
+
+  if (!fileInput.files || !fileInput.files[0]) {
+    alert('파일을 먼저 선택해주세요.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>업로드 중...</span>';
+  resultEl.style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('action', 'upload_to_nas');
+  fd.append('nas_upload_file', fileInput.files[0]);
+
+  fetch('ajax_import_master.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      resultEl.style.display = 'block';
+      resultEl.style.color   = data.success ? '#4ade80' : '#f87171';
+      resultEl.textContent   = data.message;
+      if (data.success) {
+        fileInput.value = '';
+        document.getElementById('nasUploadFileName').textContent = '클릭하여 파일 선택 (.xlsx, .xls, .csv)';
+        document.getElementById('nasUploadFileName').style.color = '#64748b';
+        document.getElementById('nasUploadZone').style.borderColor = '#334155';
+        loadNasFiles(); // 목록 자동 새로고침
+      }
+    })
+    .catch(() => {
+      resultEl.style.display = 'block';
+      resultEl.style.color   = '#f87171';
+      resultEl.textContent   = '업로드 오류가 발생했습니다.';
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-upload"></i><span>NAS 폴더에 업로드</span>';
+    });
+}
+
+// ── NAS 파일 목록 로드 ──
+function loadNasFiles() {
+  const listEl = document.getElementById('nasFileList');
+  listEl.innerHTML = '<div style="padding:14px;text-align:center;color:#64748b;font-size:13px"><i class="fas fa-spinner fa-spin" style="margin-right:6px"></i>로딩 중...</div>';
+  nasSelectedFile = null;
+
+  const fd = new FormData();
+  fd.append('action', 'list_nas');
+  fetch('ajax_import_master.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success || !data.files.length) {
+        listEl.innerHTML = '<div style="padding:14px;text-align:center;color:#475569;font-size:13px">' +
+          (data.message || 'uploads/pos_import/ 폴더에 파일이 없습니다') + '</div>';
+        return;
+      }
+      listEl.innerHTML = data.files.map((f, i) => `
+        <div class="nas-file-item" data-name="${escHtml(f.name)}" onclick="selectNasFile(this, '${escHtml(f.name)}')"
+          style="display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:1px solid #1e3045;transition:background 0.1s${i === 0 ? ';background:#0c2340' : ''}"
+          onmouseover="this.style.background='#162032'" onmouseout="if(!this.classList.contains('selected'))this.style.background='transparent'">
+          <i class="fas fa-file-excel" style="color:#22c55e;font-size:14px;flex-shrink:0"></i>
+          <span style="flex:1;font-size:12px;color:#f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.name)}</span>
+          ${i === 0 ? '<span style="font-size:10px;background:#16a34a;color:#fff;border-radius:4px;padding:1px 5px;flex-shrink:0">최신</span>' : ''}
+          <span style="font-size:11px;color:#475569;flex-shrink:0">${f.size_kb} KB</span>
+          <span style="font-size:11px;color:#475569;flex-shrink:0">${f.modified.slice(5,16)}</span>
+          <button onclick="event.stopPropagation();deleteNasFile('${escHtml(f.name)}')"
+            style="flex-shrink:0;background:none;border:1px solid #334155;border-radius:5px;color:#64748b;font-size:11px;padding:2px 7px;cursor:pointer;transition:all 0.15s"
+            onmouseover="this.style.borderColor='#f87171';this.style.color='#f87171'" onmouseout="this.style.borderColor='#334155';this.style.color='#64748b'">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>`).join('');
+      // 가장 최근 파일 자동 선택
+      const firstItem = listEl.querySelector('.nas-file-item');
+      if (firstItem) {
+        firstItem.classList.add('selected');
+        nasSelectedFile = firstItem.dataset.name;
+      }
+    })
+    .catch(err => {
+      listEl.innerHTML = '<div style="padding:14px;text-align:center;color:#f87171;font-size:13px">오류: ' + escHtml(err.message) + '</div>';
+    });
+}
+
+function selectNasFile(el, name) {
+  document.querySelectorAll('.nas-file-item').forEach(x => {
+    x.classList.remove('selected');
+    x.style.background = 'transparent';
+    x.style.color = '';
+  });
+  el.classList.add('selected');
+  el.style.background = '#0c2340';
+  nasSelectedFile = name;
+}
+
+function updateMasterFile() {
+  const btn = document.getElementById('nasImportBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>파일 확인 중...</span>';
+
+  const fd = new FormData();
+  fd.append('action', 'list_nas');
+  fetch('ajax_import_master.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-rotate"></i><span>마스터파일 업데이트</span>';
+
+      if (!data.success || !data.files || !data.files.length) {
+        alert('NAS 폴더에 파일이 없습니다.\n먼저 파일을 업로드하세요.');
+        return;
+      }
+      const latest = data.files[0]; // 이미 최신순 정렬
+      if (!confirm(`가장 최근 파일로 마스터파일을 업데이트합니다.\n\n파일: ${latest.name}\n크기: ${latest.size_kb} KB\n수정일: ${latest.modified}\n\n계속하시겠습니까?`)) return;
+
+      nasSelectedFile = latest.name;
+      uploadMasterFile('nas');
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-rotate"></i><span>마스터파일 업데이트</span>';
+      alert('파일 목록을 불러오는 중 오류가 발생했습니다.');
+    });
+}
+
+function deleteNasFile(name) {
+  if (!confirm(`"${name}" 파일을 삭제하시겠습니까?`)) return;
+
+  const fd = new FormData();
+  fd.append('action', 'delete_nas');
+  fd.append('nas_filename', name);
+
+  fetch('ajax_import_master.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        if (nasSelectedFile === name) nasSelectedFile = null;
+        loadNasFiles();
+      } else {
+        alert('삭제 실패: ' + data.message);
+      }
+    })
+    .catch(() => alert('삭제 중 오류가 발생했습니다.'));
+}
+
+// ── 컬럼 매핑 설정 ──
+function toggleColMap() {
+  const panel = document.getElementById('colMapPanel');
+  const chev  = document.getElementById('colMapChevron');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : '';
+  chev.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  if (!isOpen) loadColMap(); // 열 때마다 현재 점포 설정 불러오기
+}
+
+function colMapKey(sid) { return 'pricing_colmap_' + sid; }
+
+function loadColMap() {
+  const sid = storeId;
+  const saved = JSON.parse(localStorage.getItem(colMapKey(sid)) || '{}');
+  document.getElementById('cmColSku').value   = saved.col_sku    || 'A';
+  document.getElementById('cmColName').value  = saved.col_name   || 'B';
+  document.getElementById('cmColCost').value  = saved.col_cost   || 'C';
+  document.getElementById('cmColPrice').value = saved.col_price  || 'D';
+  document.getElementById('cmHeaderRow').value = saved.header_row != null ? saved.header_row : 1;
+}
+
+function saveColMap() {
+  const sid = storeId;
+  const map = {
+    col_sku:    document.getElementById('cmColSku').value.toUpperCase().trim()   || 'A',
+    col_name:   document.getElementById('cmColName').value.toUpperCase().trim()  || 'B',
+    col_cost:   document.getElementById('cmColCost').value.toUpperCase().trim()  || 'C',
+    col_price:  document.getElementById('cmColPrice').value.toUpperCase().trim() || 'D',
+    header_row: parseInt(document.getElementById('cmHeaderRow').value) || 1,
+  };
+  localStorage.setItem(colMapKey(sid), JSON.stringify(map));
+  const msg = document.getElementById('colMapMsg');
+  msg.textContent = '✅ 저장됨 (점포 ID: ' + sid + ')';
+  setTimeout(() => { msg.textContent = ''; }, 2000);
+}
+
+function getColMap() {
+  const saved = JSON.parse(localStorage.getItem(colMapKey(storeId)) || '{}');
+  return {
+    col_sku:    saved.col_sku    || 'A',
+    col_name:   saved.col_name   || 'B',
+    col_cost:   saved.col_cost   || 'C',
+    col_price:  saved.col_price  || 'D',
+    header_row: saved.header_row != null ? saved.header_row : 1,
+  };
+}
+
+function uploadMasterFile(src) {
+  if (src) uploadSource = src;
+  if (!storeId || storeId <= 0) {
+    alert(tl('error.store_not_selected'));
+    return;
+  }
+
+  const progress = document.getElementById('uploadProgress');
+  const result   = document.getElementById('uploadResult');
+  const colMap   = getColMap();
+
+  const fd = new FormData();
+  fd.append('store_id',   storeId);
+  fd.append('action',     'import');
+  fd.append('col_sku',    colMap.col_sku);
+  fd.append('col_name',   colMap.col_name);
+  fd.append('col_cost',   colMap.col_cost);
+  fd.append('col_price',  colMap.col_price);
+  fd.append('header_row', colMap.header_row);
+
+  if (uploadSource === 'nas') {
+    if (!nasSelectedFile) {
+      alert('NAS 폴더에서 파일을 선택해주세요.');
+      return;
+    }
+    fd.append('source', 'nas');
+    fd.append('nas_filename', nasSelectedFile);
+    const btn = document.getElementById('nasImportBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리 중...';
+    progress.style.display = 'block';
+    result.style.display = 'none';
+
+    fetch('ajax_import_master.php', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-folder-open"></i> NAS 파일 가져오기';
+        progress.style.display = 'none';
+        result.style.display = 'block';
+        result.style.borderColor = data.success ? '#22c55e' : '#ef4444';
+        result.style.color = data.success ? '#4ade80' : '#f87171';
+        result.textContent = data.message || (data.success ? '완료' : '오류 발생');
+      })
+      .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-folder-open"></i> NAS 파일 가져오기';
+        progress.style.display = 'none';
+        result.style.display = 'block';
+        result.style.borderColor = '#ef4444';
+        result.style.color = '#f87171';
+        result.textContent = '네트워크 오류: ' + err.message;
+      });
+  } else {
+    // HTTP 파일 업로드
+    const fileInput = document.getElementById('uploadFileInput');
+    if (!fileInput.files.length) {
+      alert(tl('error.file_not_selected'));
+      return;
+    }
+    fd.append('source', 'upload');
+    fd.append('excel_file', fileInput.files[0]);
+    const btn = document.getElementById('uploadBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + tl('upload.processing');
+    progress.style.display = 'block';
+    result.style.display = 'none';
+
+    fetch('ajax_import_master.php', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-upload"></i> 업로드 시작';
+        progress.style.display = 'none';
+        result.style.display = 'block';
+        result.style.borderColor = data.success ? '#22c55e' : '#ef4444';
+        result.style.color = data.success ? '#4ade80' : '#f87171';
+        result.textContent = data.message || (data.success ? tl('upload.complete') : tl('upload.error'));
+      })
+      .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-upload"></i> 업로드 시작';
+        progress.style.display = 'none';
+        result.style.display = 'block';
+        result.style.borderColor = '#ef4444';
+        result.style.color = '#f87171';
+        result.textContent = tl('error.network_short') + ': ' + err.message;
+      });
+  }
+}
+
+function showSettingsMsg(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = 'sm-msg ' + type;
+  el.textContent = msg;
+}
+function hideSettingsMsg(id) {
+  const el = document.getElementById(id);
+  el.className = 'sm-msg';
+  el.textContent = '';
+}
+
+// ── 초기화 ──
+(function init(){
+  const savedType   = localStorage.getItem('pricing_printType') || 'pricing';
+  const savedScreen = localStorage.getItem('pricing_screen')    || 'lookup';
+  const savedStore  = (parseInt(localStorage.getItem('pricing_storeId') || '') || 0) > 0
+                      ? parseInt(localStorage.getItem('pricing_storeId'))
+                      : <?php echo $defaultStore; ?>;
+
+  // 점포 복원
+  const matchedItem = document.querySelector(`.sm-store-item[data-id="${savedStore}"]`);
+  if (matchedItem) {
+    storeId = savedStore;
+    const label   = document.getElementById('storeNameLabel');
+    const nameSpan = matchedItem.querySelector('span:not(.ssi-icon)');
+    if (label && nameSpan) label.textContent = nameSpan.textContent.trim();
+    matchedItem.classList.add('active');
+  } else {
+    // 저장된 점포가 없거나 삭제된 경우: 첫 번째 항목을 기본값으로
+    const firstItem = document.querySelector('.sm-store-item');
+    if (firstItem) {
+      firstItem.classList.add('active');
+      const firstId = parseInt(firstItem.dataset.id) || <?php echo $defaultStore; ?>;
+      storeId = firstId;
+      localStorage.setItem('pricing_storeId', firstId);
+    }
+  }
+
+  setPrintType(savedType);
+  setScreen(savedScreen);
+  syncSettingsStoreHighlight();
+
+  // ── 포커스 자동 복귀 (클릭해도 입력란에 포커스 유지) ──
+  document.addEventListener('mousedown', function(e) {
+    // 자동완성 드롭다운 클릭은 무시
+    if (e.target.closest('.suggest-dropdown')) return;
+    // 버튼, 링크, 입력란, 설정 패널 등 인터랙티브 요소 클릭은 무시
+    if (e.target.closest('button, a, input, select, textarea, .sm-body, .sm-store-item')) return;
+
+    const isLookup = currentScreen === 'lookup';
+    const isPrintAuto = !isLookup && printMode === 'auto';
+
+    if (isLookup || isPrintAuto) {
+      const targetInput = document.getElementById(isLookup ? 'lookupInput' : 'printInput');
+      setTimeout(function() { targetInput.focus(); }, 0);
+    }
+  });
+
+  // ── 자동완성 초기화 ──
+  // 가격 조회 화면
+  suggestCallbacks['lookup'] = function(p) {
+    currentProduct = p;
+    showLookupResult(p);
+    document.getElementById('lookupInput').value = '';
+  };
+  initSuggest('lookupInput', 'lookupSuggest', 'lookup', suggestCallbacks['lookup']);
+
+  // 가격표 출력 화면
+  suggestCallbacks['print'] = function(p) {
+    document.getElementById('printInput').value = '';
+    closeSuggest('printSuggest', 'print');
+    if (printMode === 'auto') silentPrint(p);
+    else addItem(p);
+  };
+  initSuggest('printInput', 'printSuggest', 'print', suggestCallbacks['print']);
+})();
+
+// ── 다국어 (i18n) ──
+const i18n = {
+  ko: {
+    'nav.lookup': '가격 조회',
+    'nav.print': '가격표 출력',
+    'nav.settings': '환경설정',
+    'nav.store_select': '점포 선택',
+    'nav.no_stores': '점포 없음',
+    'settings.title': '환경설정',
+    'settings.tab_store': '점포 선택',
+    'settings.tab_upload': '마스터 파일 업로드',
+    'settings.store_instruction': '점포를 선택하면 해당 점포의 가격으로 조회합니다',
+    'settings.no_stores': '등록된 점포가 없습니다',
+    'settings.excel_format': '엑셀 컬럼 형식',
+    'settings.excel_cols': 'A열: 바코드(SKU) \u00a0·\u00a0 B열: 상품명 \u00a0·\u00a0 C열: 원가 \u00a0·\u00a0 D열: 판매가',
+    'settings.upload_target': '업로드 대상 점포:',
+    'settings.file_select': '엑셀 / CSV 파일 선택',
+    'settings.file_hint': '클릭하여 파일 선택 또는 드래그 앤 드롭',
+    'settings.file_formats': '.xlsx, .xls, .csv 지원',
+    'settings.upload_start': '업로드 시작',
+    'settings.processing': '파일 처리 중... 잠시 기다려 주세요',
+    'lookup.placeholder': '바코드 스캔 또는 상품명(한글/영문) 검색',
+    'lookup.idle_text': '바코드를 스캔하세요',
+    'lookup.idle_sub': '상품 가격이 여기에 표시됩니다',
+    'lookup.cost_label': '원가',
+    'lookup.price_label': '판매가',
+    'lookup.error_not_found': '상품을 찾을 수 없습니다',
+    'lookup.scanned_code': '스캔한 코드: ',
+    'lookup.no_price': '가격 없음',
+    'print.mode_label': '출력 모드',
+    'print.mode_auto': '자동',
+    'print.mode_manual': '수동',
+    'print.type_label': '라벨 종류',
+    'print.type_pricing': '프라이싱',
+    'print.type_barcode': '바코드 2p',
+    'print.status_auto': '스캔하면 자동으로 출력됩니다',
+    'print.status_manual': '스캔 후 목록에서 선택 출력',
+    'print.search_title': '바코드 / 상품명 검색',
+    'print.input_placeholder': '바코드 스캔 또는 상품명(한글/영문) 검색',
+    'print.history_title': '최근 출력 이력',
+    'print.clear_all': '전체 삭제',
+    'print.history_empty': '출력 이력이 없습니다',
+    'print.list_title': '출력 목록',
+    'print.select_all': '전체 선택',
+    'print.print_selected': '선택 출력',
+    'print.th_name': '상품명',
+    'print.th_price': '가격',
+    'print.th_qty': '수량',
+    'print.list_empty': '상품을 스캔하면 목록에 추가됩니다',
+    'print.status_searching': '검색 중...',
+    'print.status_printed': '출력: ',
+    'print.status_qty_up': '수량 증가: ',
+    'print.status_added': '추가: ',
+    'print.status_opened': '장 출력 창을 열었습니다',
+    'print.no_selection': '선택된 상품이 없습니다',
+    'print.placeholder_en': '영문명',
+    'print.placeholder_ko': '한글명',
+    'error.network': '네트워크 오류가 발생했습니다',
+    'error.network_short': '네트워크 오류',
+    'error.popup_blocked': '팝업 차단됨 — 새 탭으로 열었습니다',
+    'error.file_not_selected': '파일을 선택해주세요.',
+    'error.store_not_selected': '점포를 먼저 선택해주세요. (환경설정 → 점포 선택)',
+    'upload.processing': '처리 중...',
+    'upload.complete': '완료',
+    'upload.error': '오류 발생',
+    'search.no_results': '검색 결과가 없습니다'
+  },
+  en: {
+    'nav.lookup': 'Price Lookup',
+    'nav.print': 'Label Printing',
+    'nav.settings': 'Settings',
+    'nav.store_select': 'Select Store',
+    'nav.no_stores': 'No Stores',
+    'settings.title': 'Settings',
+    'settings.tab_store': 'Store Selection',
+    'settings.tab_upload': 'Master File Upload',
+    'settings.store_instruction': 'Select a store to view its prices',
+    'settings.no_stores': 'No registered stores',
+    'settings.excel_format': 'Excel Column Format',
+    'settings.excel_cols': 'Col A: Barcode(SKU) \u00a0·\u00a0 Col B: Item Name \u00a0·\u00a0 Col C: Cost Price \u00a0·\u00a0 Col D: Selling Price',
+    'settings.upload_target': 'Upload Target Store:',
+    'settings.file_select': 'Select Excel / CSV File',
+    'settings.file_hint': 'Click to select file or drag and drop',
+    'settings.file_formats': 'Supports .xlsx, .xls, .csv',
+    'settings.upload_start': 'Start Upload',
+    'settings.processing': 'Processing file... Please wait',
+    'lookup.placeholder': 'Scan barcode or search product name',
+    'lookup.idle_text': 'Scan a barcode',
+    'lookup.idle_sub': 'Product price will be displayed here',
+    'lookup.cost_label': 'Cost Price',
+    'lookup.price_label': 'Selling Price',
+    'lookup.error_not_found': 'Product not found',
+    'lookup.scanned_code': 'Scanned code: ',
+    'lookup.no_price': 'No Price',
+    'print.mode_label': 'Print Mode',
+    'print.mode_auto': 'Auto',
+    'print.mode_manual': 'Manual',
+    'print.type_label': 'Label Type',
+    'print.type_pricing': 'Pricing',
+    'print.type_barcode': 'Barcode 2p',
+    'print.status_auto': 'Scans will print automatically',
+    'print.status_manual': 'Select items from list to print',
+    'print.search_title': 'Barcode / Product Search',
+    'print.input_placeholder': 'Scan barcode or search product name',
+    'print.history_title': 'Recent Print History',
+    'print.clear_all': 'Clear All',
+    'print.history_empty': 'No print history',
+    'print.list_title': 'Print List',
+    'print.select_all': 'Select All',
+    'print.print_selected': 'Print Selected',
+    'print.th_name': 'Product',
+    'print.th_price': 'Price',
+    'print.th_qty': 'Qty',
+    'print.list_empty': 'Scanned products will be added here',
+    'print.status_searching': 'Searching...',
+    'print.status_printed': 'Printed: ',
+    'print.status_qty_up': 'Qty increased: ',
+    'print.status_added': 'Added: ',
+    'print.status_opened': ' items sent to print',
+    'print.no_selection': 'No products selected',
+    'print.placeholder_en': 'English name',
+    'print.placeholder_ko': 'Korean name',
+    'error.network': 'A network error occurred',
+    'error.network_short': 'Network Error',
+    'error.popup_blocked': 'Popup blocked — opened in new tab',
+    'error.file_not_selected': 'Please select a file.',
+    'error.store_not_selected': 'Please select a store first. (Settings → Store Selection)',
+    'upload.processing': 'Processing...',
+    'upload.complete': 'Completed',
+    'upload.error': 'Error occurred',
+    'search.no_results': 'No search results'
+  }
+};
+
+let currentLang = localStorage.getItem('pricing_lang') || 'ko';
+
+function tl(key) { return (i18n[currentLang] && i18n[currentLang][key]) || (i18n['ko'][key]) || key; }
+
+function applyLang() {
+  // data-i18n 속성이 있는 모든 요소
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = tl(key);
+  });
+  // data-i18n-placeholder 속성이 있는 input
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = tl(el.getAttribute('data-i18n-ph'));
+  });
+  // 페이지 제목
+  document.title = tl('nav.lookup') + ' / ' + tl('nav.print');
+  // 토글 버튼 활성화 상태
+  document.getElementById('btnLangKo').classList.toggle('active', currentLang === 'ko');
+  document.getElementById('btnLangEn').classList.toggle('active', currentLang === 'en');
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem('pricing_lang', lang);
+  applyLang();
+}
+
+// 초기 적용
+document.addEventListener('DOMContentLoaded', function() {
+  // placeholder용 data-i18n-ph 세팅
+  const lookupInput = document.getElementById('lookupInput');
+  if (lookupInput) lookupInput.setAttribute('data-i18n-ph', 'lookup.placeholder');
+  const printInput = document.getElementById('printInput');
+  if (printInput) printInput.setAttribute('data-i18n-ph', 'print.input_placeholder');
+  applyLang();
+  // 출력 모드(자동/수동) 복원 — tl() 사용하므로 i18n 초기화 후 실행
+  const savedPrintMode = localStorage.getItem('pricing_printMode') || 'auto';
+  setPrintMode(savedPrintMode);
+});
+</script>
+
+<!-- ════════════════════════════════════════
+     핀번호 입력 모달
+════════════════════════════════════════ -->
+<div id="pinModalOverlay" onclick="handlePinOverlayClick(event)">
+  <div id="pinModal">
+    <button class="pm-close" onclick="closePinModal()"><i class="fas fa-times"></i></button>
+    <div class="pm-title">
+      <i class="fas fa-lock" style="color:#fb923c;font-size:15px"></i>
+      원가 조회 인증
+    </div>
+    <div id="pinDots">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div id="pinError"></div>
+    <div id="pinPad">
+      <button class="pp-btn" onclick="pinInput('1')">1</button>
+      <button class="pp-btn" onclick="pinInput('2')">2</button>
+      <button class="pp-btn" onclick="pinInput('3')">3</button>
+      <button class="pp-btn" onclick="pinInput('4')">4</button>
+      <button class="pp-btn" onclick="pinInput('5')">5</button>
+      <button class="pp-btn" onclick="pinInput('6')">6</button>
+      <button class="pp-btn" onclick="pinInput('7')">7</button>
+      <button class="pp-btn" onclick="pinInput('8')">8</button>
+      <button class="pp-btn" onclick="pinInput('9')">9</button>
+      <button class="pp-btn del" onclick="pinDelete()"><i class="fas fa-backspace"></i></button>
+      <button class="pp-btn" onclick="pinInput('0')">0</button>
+      <button class="pp-btn confirm" id="pinConfirmBtn" onclick="pinConfirm()" disabled><i class="fas fa-check"></i></button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     히든 원가조회 모달 (로고 클릭)
+════════════════════════════════════════ -->
+<div id="staffModalOverlay" onclick="handleStaffOverlayClick(event)">
+  <div id="staffModal">
+    <button class="sm2-close" onclick="closeStaffModal()"><i class="fas fa-times"></i></button>
+    <div class="sm2-title">
+      <i class="fas fa-lock" style="color:#fb923c;font-size:16px"></i>
+      원가 조회
+    </div>
+    <div id="staffSearchWrap">
+      <input id="staffInput" type="text" placeholder="바코드 스캔 또는 상품명 검색" autocomplete="off">
+      <div class="suggest-dropdown" id="staffSuggest" style="width:calc(100% - 88px)"></div>
+      <button id="staffSearchBtn" onclick="doStaffLookup()"><i class="fas fa-search"></i></button>
+    </div>
+    <div id="staffResult">
+      <div class="sr-sku" id="srSku"></div>
+      <div class="sr-name" id="srName"></div>
+      <div class="sr-prices">
+        <div class="sr-price-cell cost">
+          <div class="sr-label">원가</div>
+          <div class="sr-val" id="srCost"></div>
+        </div>
+        <div class="sr-price-cell sell">
+          <div class="sr-label">판매가</div>
+          <div class="sr-val" id="srSell"></div>
+        </div>
+      </div>
+    </div>
+    <div id="staffError">
+      <div class="se-icon"><i class="fas fa-exclamation-circle"></i></div>
+      <div class="se-text" id="seText"></div>
+    </div>
+  </div>
+</div>
+
+<div id="nameHistoryOverlay" onclick="if(event.target===this)closeNameHistory()" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;width:560px;max-width:96vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.6)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;border-bottom:1px solid #334155;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:8px">
+        <i class="fas fa-history" style="color:#38bdf8"></i>
+        <span style="font-size:16px;font-weight:700;color:#f1f5f9">상품명 변경 이력</span>
+        <span id="nhSku" style="font-size:12px;color:#64748b;margin-left:4px"></span>
+      </div>
+      <button onclick="closeNameHistory()" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:18px;padding:4px 8px;border-radius:6px;transition:color 0.15s" onmouseover="this.style.color='#f1f5f9'" onmouseout="this.style.color='#64748b'"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="nhBody" style="overflow-y:auto;flex:1;padding:16px 22px">
+      <div style="text-align:center;color:#64748b;padding:32px 0"><i class="fas fa-spinner fa-spin"></i> 불러오는 중...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 히든 모달 ──
+document.querySelector('.header-brand').addEventListener('click', openStaffModal);
+
+function openStaffModal() {
+  // PIN 모달을 먼저 띄워 인증 후 원가조회 모달 열기
+  openPinModal();
+}
+function closeStaffModal() {
+  document.getElementById('staffModalOverlay').classList.remove('open');
+  document.getElementById('staffInput').value = '';
+  closeSuggest('staffSuggest', 'staff');
+  resetStaffModal();
+}
+function handleStaffOverlayClick(e) {
+  if (e.target === document.getElementById('staffModalOverlay')) closeStaffModal();
+}
+
+// ── 상품명 변경 이력 모달 ──
+function openNameHistory(productId, sku) {
+  const overlay = document.getElementById('nameHistoryOverlay');
+  document.getElementById('nhSku').textContent = sku ? '(' + sku + ')' : '';
+  document.getElementById('nhBody').innerHTML = '<div style="text-align:center;color:#64748b;padding:32px 0"><i class="fas fa-spinner fa-spin"></i> 불러오는 중...</div>';
+  overlay.style.display = 'flex';
+  fetch('ajax_name_history.php?product_id=' + encodeURIComponent(productId))
+    .then(r => r.json())
+    .then(res => {
+      if (!res.success) { document.getElementById('nhBody').innerHTML = '<div style="color:#ef4444;text-align:center;padding:24px">불러오기 실패</div>'; return; }
+      const rows = res.data;
+      if (!rows.length) { document.getElementById('nhBody').innerHTML = '<div style="color:#64748b;text-align:center;padding:32px">변경 이력이 없습니다.</div>'; return; }
+      const langLabel = l => l === 'en' ? '<span style="font-size:10px;font-weight:700;color:#38bdf8;background:#0c2340;border:1px solid #1e4a7a;border-radius:3px;padding:1px 5px">ENG</span>' : '<span style="font-size:10px;font-weight:700;color:#f59e0b;background:#1a1400;border:1px solid #78350f;border-radius:3px;padding:1px 5px">KOR</span>';
+      document.getElementById('nhBody').innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+        + '<thead><tr style="color:#64748b;border-bottom:1px solid #334155"><th style="text-align:left;padding:6px 8px;width:100px">변경 일시</th><th style="padding:6px 4px;width:40px">언어</th><th style="text-align:left;padding:6px 8px">이전 이름</th><th style="padding:4px 4px;width:16px"></th><th style="text-align:left;padding:6px 8px">변경 후</th></tr></thead>'
+        + '<tbody>' + rows.map(r => `<tr style="border-bottom:1px solid #1e293b">
+          <td style="padding:7px 8px;color:#94a3b8;white-space:nowrap">${escHtml(r.changed_at.slice(0,16).replace('T',' '))}</td>
+          <td style="padding:7px 4px;text-align:center">${langLabel(r.language)}</td>
+          <td style="padding:7px 8px;color:#94a3b8">${escHtml(r.old_name || '(없음)')}</td>
+          <td style="padding:7px 4px;color:#475569;text-align:center">→</td>
+          <td style="padding:7px 8px;color:#f1f5f9;font-weight:600">${escHtml(r.new_name)}</td>
+        </tr>`).join('') + '</tbody></table>';
+    })
+    .catch(() => { document.getElementById('nhBody').innerHTML = '<div style="color:#ef4444;text-align:center;padding:24px">네트워크 오류</div>'; });
+}
+function closeNameHistory() {
+  document.getElementById('nameHistoryOverlay').style.display = 'none';
+}
+function resetStaffModal() {
+  document.getElementById('staffResult').style.display = 'none';
+  document.getElementById('staffError').style.display  = 'none';
+}
+
+document.getElementById('staffInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    // 드롭다운에 포커스된 항목이 있으면 initSuggest 핸들러에 맡김
+    const dd = document.getElementById('staffSuggest');
+    if (dd.classList.contains('open') && suggestFocusIdx['staff'] >= 0) return;
+    doStaffLookup();
+  }
+});
+
+function doStaffLookup() {
+  const input = document.getElementById('staffInput');
+  const barcode = input.value.trim().replace(/^,+/, '');
+  input.value = '';
+  closeSuggest('staffSuggest', 'staff');
+  if (!barcode) return;
+  resetStaffModal();
+  fetch('ajax_search.php?barcode=' + encodeURIComponent(barcode) + '&store_id=' + storeId)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        document.getElementById('seText').textContent = data.message || '상품을 찾을 수 없습니다';
+        document.getElementById('staffError').style.display = 'block';
+        return;
+      }
+      const p = data.product;
+      document.getElementById('srSku').textContent  = p.sku;
+      document.getElementById('srName').textContent = p.name_en || p.name_ko || '';
+      document.getElementById('srCost').textContent = (p.cost_price && p.cost_price !== '0.00')
+        ? p.cost_price : '-';
+      document.getElementById('srSell').textContent = (p.selling_price && p.selling_price !== '0')
+        ? p.selling_price : '-';
+      document.getElementById('staffResult').style.display = 'block';
+    })
+    .catch(() => {
+      document.getElementById('seText').textContent = '네트워크 오류가 발생했습니다';
+      document.getElementById('staffError').style.display = 'block';
+    });
+}
+
+// 자동완성 연결 (suggestCallbacks에 등록해야 pickSuggest에서 호출됨)
+suggestCallbacks['staff'] = function(p) {
+  document.getElementById('staffInput').value = p.sku;
+  doStaffLookup();
+};
+initSuggest('staffInput', 'staffSuggest', 'staff', suggestCallbacks['staff']);
+</script>
+
+<script>
+// ════════════════════════════════════════
+// 핀번호 입력 모달
+// ════════════════════════════════════════
+let pinBuffer = [];
+
+function openPinModal() {
+  pinBuffer = [];
+  updatePinDots();
+  document.getElementById('pinError').textContent = '';
+  document.getElementById('pinConfirmBtn').disabled = true;
+  document.getElementById('pinModalOverlay').classList.add('open');
+}
+
+function closePinModal() {
+  document.getElementById('pinModalOverlay').classList.remove('open');
+  pinBuffer = [];
+}
+
+function handlePinOverlayClick(e) {
+  if (e.target === document.getElementById('pinModalOverlay')) closePinModal();
+}
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById('pd' + i);
+    if (dot) dot.classList.toggle('filled', i < pinBuffer.length);
+  }
+  document.getElementById('pinConfirmBtn').disabled = (pinBuffer.length < 4);
+}
+
+function pinInput(digit) {
+  if (pinBuffer.length >= 6) return; // 백도어 최대 6자리
+  pinBuffer.push(digit);
+  updatePinDots();
+  document.getElementById('pinError').textContent = '';
+}
+
+function pinDelete() {
+  if (pinBuffer.length > 0) pinBuffer.pop();
+  updatePinDots();
+  document.getElementById('pinError').textContent = '';
+}
+
+function pinConfirm() {
+  if (pinBuffer.length < 4) return;
+  const pin = pinBuffer.join('');
+  const btn = document.getElementById('pinConfirmBtn');
+  btn.disabled = true;
+
+  const fd = new FormData();
+  fd.append('action', 'verify');
+  fd.append('pin', pin);
+
+  fetch('ajax_pin.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        closePinModal();
+        // 원가조회 모달 열기
+        document.getElementById('staffModalOverlay').classList.add('open');
+        document.getElementById('staffInput').focus();
+        resetStaffModal();
+      } else {
+        document.getElementById('pinError').textContent = data.message || '핀번호가 올바르지 않습니다.';
+        pinBuffer = [];
+        updatePinDots();
+        btn.disabled = true;
+        // 도트 흔들기 애니메이션
+        const dotsEl = document.getElementById('pinDots');
+        dotsEl.style.animation = 'none';
+        void dotsEl.offsetWidth;
+        dotsEl.style.animation = 'pinShake 0.4s ease';
+      }
+    })
+    .catch(() => {
+      document.getElementById('pinError').textContent = '네트워크 오류가 발생했습니다.';
+      btn.disabled = false;
+    });
+}
+
+// 키보드 입력 지원 (document 레벨에서 캡처 — div는 포커스 불가)
+document.addEventListener('keydown', function(e) {
+  if (!document.getElementById('pinModalOverlay').classList.contains('open')) return;
+  if (e.key >= '0' && e.key <= '9') { e.preventDefault(); pinInput(e.key); }
+  else if (e.key === 'Backspace')    { e.preventDefault(); pinDelete(); }
+  else if (e.key === 'Escape')       { e.preventDefault(); closePinModal(); }
+  else if (e.key === 'Enter' && pinBuffer.length >= 4) { e.preventDefault(); pinConfirm(); }
+});
+
+// 흔들기 애니메이션
+const pinStyle = document.createElement('style');
+pinStyle.textContent = `@keyframes pinShake {
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-8px)}
+  40%{transform:translateX(8px)}
+  60%{transform:translateX(-6px)}
+  80%{transform:translateX(6px)}
+}`;
+document.head.appendChild(pinStyle);
+
+// ════════════════════════════════════════
+// 보안 탭 — PIN 설정
+// ════════════════════════════════════════
+function loadPinStatus() {
+  const badge = document.getElementById('pinStatusText');
+  if (!badge) return;
+  const fd = new FormData();
+  fd.append('action', 'status');
+  fetch('ajax_pin.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        badge.textContent = data.has_pin ? '설정됨' : '미설정';
+        badge.className = 'ps-badge ' + (data.has_pin ? 'set' : 'unset');
+      }
+    })
+    .catch(() => {});
+}
+
+function savePinSetting() {
+  const currentPin = document.getElementById('settingCurrentPin').value.trim();
+  const newPin     = document.getElementById('settingNewPin').value.trim();
+  const newPinCfm  = document.getElementById('settingNewPinConfirm').value.trim();
+  const msgEl      = document.getElementById('pinChangeMsg');
+
+  if (!/^\d{4}$/.test(newPin)) {
+    msgEl.textContent = '새 핀번호는 4자리 숫자여야 합니다.';
+    msgEl.className = 'sm-pin-msg err';
+    return;
+  }
+  if (newPin !== newPinCfm) {
+    msgEl.textContent = '새 핀번호와 확인 핀번호가 일치하지 않습니다.';
+    msgEl.className = 'sm-pin-msg err';
+    return;
+  }
+
+  const fd = new FormData();
+  fd.append('action', 'update');
+  fd.append('current_pin', currentPin);
+  fd.append('new_pin', newPin);
+
+  fetch('ajax_pin.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      msgEl.textContent = data.message || (data.success ? '변경되었습니다.' : '오류가 발생했습니다.');
+      msgEl.className = 'sm-pin-msg ' + (data.success ? 'ok' : 'err');
+      if (data.success) {
+        document.getElementById('settingCurrentPin').value = '';
+        document.getElementById('settingNewPin').value = '';
+        document.getElementById('settingNewPinConfirm').value = '';
+        loadPinStatus();
+      }
+    })
+    .catch(() => {
+      msgEl.textContent = '네트워크 오류가 발생했습니다.';
+      msgEl.className = 'sm-pin-msg err';
+    });
+}
+</script>
+</body>
+</html>

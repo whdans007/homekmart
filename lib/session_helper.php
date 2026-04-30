@@ -78,24 +78,39 @@ function get_user_info() {
     try {
         $conn = get_db_connection();
         $user_stmt = $conn->prepare("
-            SELECT u.*, s.name as store_name 
-            FROM users u 
-            LEFT JOIN stores s ON u.store_id = s.id 
+            SELECT u.id, u.username, u.full_name, u.email, u.role, u.store_id,
+                   u.permissions, u.is_active, u.preferred_language,
+                   s.name as store_name
+            FROM users u
+            LEFT JOIN stores s ON u.store_id = s.id
             WHERE u.id = ?
         ");
         $user_stmt->bind_param("i", $_SESSION['user_id']);
         $user_stmt->execute();
-        $result = $user_stmt->get_result();
-        
-        if ($user_row = $result->fetch_assoc()) {
-            $user_stmt->close();
-            $conn->close();
-            return $user_row;
+        $user_stmt->bind_result(
+            $u_id, $u_username, $u_full_name, $u_email, $u_role, $u_store_id,
+            $u_permissions, $u_is_active, $u_preferred_language, $u_store_name
+        );
+
+        $user_row = null;
+        if ($user_stmt->fetch()) {
+            $user_row = [
+                'id'                 => $u_id,
+                'username'           => $u_username,
+                'full_name'          => $u_full_name,
+                'email'              => $u_email,
+                'role'               => $u_role,
+                'store_id'           => $u_store_id,
+                'permissions'        => $u_permissions,
+                'is_active'          => $u_is_active,
+                'preferred_language' => $u_preferred_language,
+                'store_name'         => $u_store_name,
+            ];
         }
-        
+
         $user_stmt->close();
         $conn->close();
-        return null;
+        return $user_row;
         
     } catch (Exception $e) {
         error_log("get_user_info error: " . $e->getMessage());

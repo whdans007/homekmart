@@ -582,8 +582,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const costPrice = parseFloat(marginInput.dataset.costPrice) || 0;
             
             if (costPrice > 0 && sellingPrice > 0) {
-                // 마진율 계산: ((판매가 - 원가) / 원가) * 100
-                const marginRate = ((sellingPrice - costPrice) / costPrice) * 100;
+                // 마진율 계산: (1 - 원가/판매가) * 100
+                const marginRate = (1 - costPrice / sellingPrice) * 100;
                 
                 // 마진율 필드 업데이트 (소수점 첫째 자리까지)
                 marginInput.value = marginRate.toFixed(1);

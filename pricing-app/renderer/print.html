@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>바코드 라벨 인쇄</title>
+  <style>
+    @page { size: 70mm 30mm; margin: 0; }
+    html, body { margin: 0; padding: 0; font-family: Arial, 'Malgun Gothic', sans-serif; }
+    body { display: flex; flex-direction: column; align-items: center; }
+
+    .controls { display: flex; gap: 8px; align-items: center; margin: 12px 0; padding: 0 12px; flex-wrap: wrap; }
+    .controls button { padding: 6px 14px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-size: 13px; background: #f5f5f5; }
+    .controls button:hover { background: #e8e8e8; }
+    .controls button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+    .controls button.primary:hover { background: #1d4ed8; }
+    .error-msg { color: #c00; font-size: 12px; }
+    .spacer { flex: 1; }
+
+    .grid { display: grid; grid-template-columns: 1fr; gap: 8mm; }
+    #labels { margin: 0 auto; }
+
+    /* ===== 2p 모드 ===== */
+    .label-2p { width: 70mm; height: 30mm; border: 1px solid #000; padding: 0; display: flex; box-sizing: border-box; }
+    .label-2p .half { flex: 1; width: 50%; max-width: 35mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1mm 2mm 2mm; box-sizing: border-box; }
+    .label-2p .divider { width: 0; border-left: 1px solid #000; height: 100%; }
+    .label-2p .name { font-size: 7pt; font-weight: 700; text-align: center; width: 100%; margin: 0 0 0.4mm; white-space: normal; word-break: break-word; overflow: hidden; line-height: 1.2; max-height: 2.4em; display: block; }
+    .label-2p .price { font-size: 7pt; font-weight: 700; line-height: 1; margin: 0.2mm 0; }
+    .label-2p .barcode { width: 90%; max-width: 30mm; height: 5mm; margin: 0.5mm auto 0; }
+    .label-2p .foot { font-size: 8pt; margin-top: 0.5mm; }
+
+    /* ===== 프라이싱 모드 ===== */
+    .label-pricing { width: 70mm; height: 30mm; border: 1px solid #000; padding: 0; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
+    .label-pricing .pricing-header { text-align: center; padding: 1mm 1.5mm 0.5mm; border-bottom: 0.5pt solid #000; flex: 0 0 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box; }
+    .label-pricing .pricing-name-en { font-size: 12pt; font-weight: 700; line-height: 1.2; white-space: normal; word-break: break-word; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; max-height: 2.4em; }
+    .label-pricing .pricing-name-ko { font-size: 9pt; font-weight: 700; line-height: 1.15; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.5mm; }
+    .label-pricing .pricing-body { display: flex; flex: 1; min-height: 0; }
+    .label-pricing .pricing-barcode { flex: 1; width: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1mm 3mm 0.5mm; min-width: 0; box-sizing: border-box; }
+    .label-pricing .pricing-barcode svg { width: 100%; height: 7mm; }
+    .label-pricing .pricing-foot { font-size: 7.5pt; font-weight: 700; text-align: center; line-height: 1; margin-top: 0.8mm; }
+    .label-pricing .pricing-price { flex: 1; width: 50%; flex-shrink: 0; border-left: 0.5pt solid #000; display: flex; align-items: center; justify-content: center; font-size: 38pt; font-weight: 700; line-height: 1; box-sizing: border-box; }
+
+    /* ===== 인쇄 ===== */
+    @media print {
+      @page { size: 70mm 30mm; margin: 0; }
+      html, body { margin: 0; padding: 0; }
+      .controls { display: none !important; }
+      #labels { transform: none !important; gap: 0 !important; }
+      .label-2p { width: 70mm !important; height: 30mm !important; border: 2px solid #000; page-break-inside: avoid; box-sizing: border-box; }
+      .label-2p .divider { border-left: 1px solid #000; }
+      .label-pricing { width: 70mm !important; height: 30mm !important; border: none; page-break-inside: avoid; box-sizing: border-box; overflow: hidden; }
+      .label-pricing .pricing-header { border-bottom: 0.5pt solid #000; }
+      .label-pricing .pricing-price { border-left: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <button class="primary" id="btnPrint">인쇄</button>
+    <button onclick="window.close()">닫기</button>
+    <div class="spacer"></div>
+    <?php if (empty($items)): ?><span class="error-msg">표시할 바코드가 없습니다.</span><?php endif; ?>
+    <?php if ($dbError): ?><span class="error-msg">DB 오류: <?php echo htmlspecialchars($dbError); ?></span><?php endif; ?>
+  </div>
+
+  <div class="grid" id="labels"></div>
+  <script>
+    function validateEanCheckDigit(code) {
+      const digits = code.split('').map(Number);
+      const last = digits.pop();
+      const len = digits.length;
+      const sum = digits.reduce((acc,d,i) => acc + d*((i%2===(len%2===0?1:0))?3:1), 0);
+      return (10-(sum%10))%10 === last;
+    }
+    function detectFormat(sku) {
+      if (/^\d+$/.test(sku)) {
+        const l = sku.length;
+        if (l===8  && validateEanCheckDigit(sku)) return 'EAN8';
+        if (l===12 && validateEanCheckDigit(sku)) return 'UPC';
+        if (l===13 && validateEanCheckDigit(sku)) return 'EAN13';
+        if (l===14 && validateEanCheckDigit(sku)) return 'ITF14';
+      } else if (/^[A-Z0-9 \-\.\/\+\%\*]+$/.test(sku)) return 'CODE39';
+      return 'CODE128';
+    }
+    function fmtPrice(v) {
+      if (!v && v!==0) return '';
+      return parseFloat(v).toLocaleString('ko-KR');
+    }
+    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function renderLabel2p(it) {
+      const name = it.name_en || it.name_ko || it.sku;
+      const price = it.selling_price ? fmtPrice(it.selling_price) : '';
+      const fmt = detectFormat(it.sku);
+      return `<div class="label-2p">
+        <div class="half">
+          <div class="name">${esc(name)}</div>
+          ${price?'<div class="price">'+esc(price)+'</div>':''}
+          <svg class="barcode" data-format="${fmt}" data-value="${esc(it.sku)}"></svg>
+          <div class="foot">${esc(it.sku)}</div>
+        </div>
+        <div class="divider"></div>
+        <div class="half">
+          <div class="name">${esc(name)}</div>
+          ${price?'<div class="price">'+esc(price)+'</div>':''}
+          <svg class="barcode" data-format="${fmt}" data-value="${esc(it.sku)}"></svg>
+          <div class="foot">${esc(it.sku)}</div>
+        </div>
+      </div>`;
+    }
+
+    function renderLabelPricing(it) {
+      const nameEn = it.name_en || '';
+      const nameKo = it.name_ko || '';
+      const price = it.selling_price ? fmtPrice(it.selling_price) : '';
+      const fmt = detectFormat(it.sku);
+      return `<div class="label-pricing">
+        <div class="pricing-header">
+          <div class="pricing-name-en">${esc(nameEn||nameKo||it.sku)}</div>
+          ${nameEn&&nameKo?'<div class="pricing-name-ko">'+esc(nameKo)+'</div>':''}
+        </div>
+        <div class="pricing-body">
+          <div class="pricing-barcode">
+            <svg class="barcode" data-format="${fmt}" data-value="${esc(it.sku)}"></svg>
+            <div class="pricing-foot">${esc(it.sku)}</div>
+          </div>
+          <div class="pricing-price">${esc(price)}</div>
+        </div>
+      </div>`;
+    }
+
+    function renderBarcodes() {
+      document.querySelectorAll('svg.barcode').forEach(el => {
+        const value = el.getAttribute('data-value') || '';
+        const format = el.getAttribute('data-format') || 'CODE128';
+        try {
+          JsBarcode(el, value, { format, lineColor:'#000', width:1, height:20, displayValue:false, margin:0 });
+          el.setAttribute('preserveAspectRatio','xMidYMid meet');
+          el.removeAttribute('width'); el.removeAttribute('height');
+          el.style.width='100%'; el.style.height='100%';
+        } catch(e) { el.outerHTML='<div style="color:#c00;font-size:8pt">바코드 오류</div>'; }
+      });
+    }
+
+    function barcodesReady() {
+      const svgs = document.querySelectorAll('svg.barcode');
+      if (!svgs.length) return true;
+      for (const svg of svgs) { if (!svg.querySelector('rect,g')) return false; }
+      return true;
+    }
+
+    function waitAndRun(fn, max, interval) {
+      max=max||30; interval=interval||80; let n=0;
+      const t=setInterval(()=>{ n++; if(barcodesReady()||n>=max){clearInterval(t);fn();} },interval);
+    }
+
+    async function init() {
+      const params = new URLSearchParams(location.search);
+      const skusRaw = params.get('skus') || '';
+      const skus = skusRaw.split(',').map(s=>s.trim()).filter(Boolean);
+      const mode = params.get('mode') || '2p';
+      const storeId = parseInt(params.get('store_id')) || 1;
+      const autoprint = params.get('autoprint') === '1';
+
+      const labels = document.getElementById('labels');
+      if (!skus.length) {
+        document.querySelector('.controls').insertAdjacentHTML('beforeend','<span class="error-msg">표시할 바코드가 없습니다.</span>');
+        return;
+      }
+
+      const { success, items, message } = await window.api.printItems(skus, storeId);
+      if (!success) {
+        document.querySelector('.controls').insertAdjacentHTML('beforeend','<span class="error-msg">DB 오류: '+message+'</span>');
+        return;
+      }
+
+      labels.innerHTML = items.map(it => mode==='pricing' ? renderLabelPricing(it) : renderLabel2p(it)).join('');
+      renderBarcodes();
+
+      document.getElementById('btnPrint').addEventListener('click', () => waitAndRun(() => window.print()));
+      if (autoprint) {
+        waitAndRun(() => {
+          window.print();
+          setTimeout(() => window.close(), 600);
+        });
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

@@ -64,6 +64,9 @@ $payment_labels = [
     <title>주문완료 - <?php echo htmlspecialchars($order['store_name']); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2783446549667436"
+     crossorigin="anonymous"></script>
     <style>
         .success-header {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
