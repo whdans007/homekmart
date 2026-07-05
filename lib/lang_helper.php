@@ -17,6 +17,20 @@ if (!isset($_SESSION['language'])) {
 $_translation_cache = [];
 
 /**
+ * 숫자 표시 헬퍼: 소수 데이터는 소숫점 둘째자리까지(끝자리 0 제거), 정수는 정수로 표시.
+ * 예) 1 → "1", 1.5 → "1.5", 1.25 → "1.25", 1234.5 → "1,234.5"
+ */
+if (!function_exists('fmt_num')) {
+    function fmt_num($value) {
+        $v = (float)$value;
+        if ($v == floor($v)) {
+            return number_format($v);
+        }
+        return rtrim(rtrim(number_format($v, 2), '0'), '.');
+    }
+}
+
+/**
  * 번역 파일 로드
  * @param string $lang 언어 코드 (ko, en)
  * @return array 번역 배열
