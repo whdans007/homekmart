@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../lib/session_helper.php';
 
 // remember_me 쿠키 삭제

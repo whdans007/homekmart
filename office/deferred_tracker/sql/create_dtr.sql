@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS dtr_saved_state (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  store_id   INT UNSIGNED NOT NULL,
+  year       SMALLINT NOT NULL,
+  month      TINYINT NOT NULL,
+  state_json MEDIUMTEXT NOT NULL,
+  saved_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_dtr (store_id, year, month)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

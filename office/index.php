@@ -1,5 +1,5 @@
-<?php
-$page_title      = '오피스 대시보드';
+﻿<?php
+$page_title      = 'Office Dashboard';
 $css_base        = '../admin/';
 $office_nav_base = './';
 require_once __DIR__ . '/partials/header.php';
@@ -8,7 +8,7 @@ $store_id = get_office_store_id();
 $year     = (int)($_GET['year']  ?? date('Y'));
 $month    = (int)($_GET['month'] ?? date('n'));
 
-// 당월 지출 합계
+// 당월 Total Expenses
 $totals = get_purchase_monthly_total($store_id, $year, $month);
 $pending_checks = get_pending_checks_count($store_id);
 
@@ -24,7 +24,7 @@ for ($i = 0; $i < 12; $i++) {
     $month_options[] = [
         'y'     => date('Y', $ts),
         'm'     => (int)date('n', $ts),
-        'label' => date('Y년 n월', $ts),
+        'label' => date('Y n월', $ts),
     ];
 }
 ?>
@@ -32,7 +32,7 @@ for ($i = 0; $i < 12; $i++) {
 <!-- 월 선택 -->
 <form method="GET" class="flex items-center gap-3 mb-8">
   <h2 class="text-xl font-bold text-gray-800 mr-2">
-    <i class="fa-solid fa-chart-line mr-2 text-blue-600"></i>오피스 대시보드
+    <i class="fa-solid fa-chart-line mr-2 text-blue-600"></i>Office Dashboard
   </h2>
   <select name="year" id="sel_year" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
     <?php foreach ($month_options as $opt): ?>
@@ -43,7 +43,7 @@ for ($i = 0; $i < 12; $i++) {
     <?php endforeach; ?>
   </select>
   <input type="hidden" name="month" id="sel_month" value="<?php echo $month; ?>">
-  <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">조회</button>
+  <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">Search</button>
 </form>
 
 <!-- 요약 카드 -->
@@ -53,7 +53,7 @@ for ($i = 0; $i < 12; $i++) {
       <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
         <i class="fa-solid fa-money-bill-wave text-green-600"></i>
       </div>
-      <span class="text-sm text-gray-500">상품구매 (현금)</span>
+      <span class="text-sm text-gray-500">Product Purchase (Cash)</span>
     </div>
     <div class="text-xl font-bold text-gray-800"><?php echo format_amount($totals['product_cash']); ?></div>
   </div>
@@ -63,7 +63,7 @@ for ($i = 0; $i < 12; $i++) {
       <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
         <i class="fa-solid fa-file-invoice text-purple-600"></i>
       </div>
-      <span class="text-sm text-gray-500">상품구매 (수표)</span>
+      <span class="text-sm text-gray-500">Product Purchase (Check)</span>
     </div>
     <div class="text-xl font-bold text-gray-800"><?php echo format_amount($totals['product_check']); ?></div>
   </div>
@@ -73,7 +73,7 @@ for ($i = 0; $i < 12; $i++) {
       <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
         <i class="fa-solid fa-box text-orange-600"></i>
       </div>
-      <span class="text-sm text-gray-500">비품구매 (현금)</span>
+      <span class="text-sm text-gray-500">Equipment Purchase (Cash)</span>
     </div>
     <div class="text-xl font-bold text-gray-800"><?php echo format_amount($totals['equipment']); ?></div>
   </div>
@@ -83,18 +83,18 @@ for ($i = 0; $i < 12; $i++) {
       <div class="w-10 h-10 <?php echo $pending_checks > 0 ? 'bg-red-100' : 'bg-gray-100'; ?> rounded-lg flex items-center justify-center">
         <i class="fa-solid fa-clock <?php echo $pending_checks > 0 ? 'text-red-500' : 'text-gray-400'; ?>"></i>
       </div>
-      <span class="text-sm text-gray-500">수표 미결</span>
+      <span class="text-sm text-gray-500">Pending Checks</span>
     </div>
     <div class="text-xl font-bold <?php echo $pending_checks > 0 ? 'text-red-600' : 'text-gray-800'; ?>">
-      <?php echo $pending_checks; ?>건
+      <?php echo $pending_checks; ?>
     </div>
   </div>
 </div>
 
-<!-- 총 지출 합계 -->
+<!-- 총 Total Expenses -->
 <div class="bg-blue-50 border border-blue-100 rounded-xl px-6 py-4 mb-8 flex items-center justify-between">
   <span class="text-sm text-blue-700 font-medium">
-    <?php echo $year; ?>년 <?php echo $month; ?>월 총 지출
+    <?php echo $year; ?> <?php echo $month; ?>Total Expenses
   </span>
   <span class="text-2xl font-bold text-blue-800">
     <?php echo format_amount($totals['product_cash'] + $totals['product_check'] + $totals['equipment']); ?>
@@ -103,9 +103,9 @@ for ($i = 0; $i < 12; $i++) {
 
 <!-- 6개월 추이 차트 -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-  <h3 class="text-sm font-semibold text-gray-700 mb-4">최근 6개월 지출 추이</h3>
+  <h3 class="text-sm font-semibold text-gray-700 mb-4">Last 6 Months Expense Trend</h3>
   <?php if (empty($trend)): ?>
-  <p class="text-center text-gray-400 py-8 text-sm">데이터가 없습니다.</p>
+  <p class="text-center text-gray-400 py-8 text-sm">No data available.</p>
   <?php else: ?>
   <canvas id="trendChart" height="80"></canvas>
   <?php endif; ?>
@@ -115,15 +115,15 @@ for ($i = 0; $i < 12; $i++) {
 <div class="grid grid-cols-3 gap-4">
   <a href="product_purchase/list.php" class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all text-center">
     <i class="fa-solid fa-cart-shopping text-blue-600 text-2xl mb-2 block"></i>
-    <span class="text-sm font-medium text-gray-700">상품구매지출</span>
+    <span class="text-sm font-medium text-gray-700">Product Purchase</span>
   </a>
   <a href="equipment_purchase/list.php" class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-orange-300 hover:shadow-md transition-all text-center">
     <i class="fa-solid fa-box text-orange-600 text-2xl mb-2 block"></i>
-    <span class="text-sm font-medium text-gray-700">비품구매지출</span>
+    <span class="text-sm font-medium text-gray-700">Equipment Purchase</span>
   </a>
   <a href="schedule/employees.php" class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-green-300 hover:shadow-md transition-all text-center">
     <i class="fa-solid fa-calendar-days text-green-600 text-2xl mb-2 block"></i>
-    <span class="text-sm font-medium text-gray-700">직원휴무관리</span>
+    <span class="text-sm font-medium text-gray-700">Employee Schedule</span>
   </a>
 </div>
 
@@ -136,7 +136,7 @@ if (ctx) {
     data: {
       labels: " . json_encode($trend_labels) . ",
       datasets: [{
-        label: '지출 합계',
+        label: 'Total Expenses',
         data: " . json_encode($trend_data) . ",
         backgroundColor: 'rgba(59,130,246,0.5)',
         borderColor: 'rgba(59,130,246,1)',
