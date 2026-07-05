@@ -1,0 +1,19 @@
+{
+  "name": "Home K Mart Price Lookup",
+  "short_name": "가격조회",
+  "description": "Home K Mart barcode price lookup for tablet",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#1e293b",
+  "icons": [
+    {
+      "src": "./homekmart_logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

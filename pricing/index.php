@@ -465,6 +465,14 @@ if (!$defaultStore) $defaultStore = 1;
     .toggle-group button:hover { color: #94a3b8; }
     .toggle-group button.active { background: #2563eb; color: #fff; }
     .toggle-group button.active.green { background: #16a34a; }
+    /* 할인스티커 버튼 */
+    .discount-sticker-btn {
+      padding: 7px 14px; border: 1.5px solid #475569; border-radius: 8px;
+      font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+      background: transparent; color: #94a3b8; white-space: nowrap;
+    }
+    .discount-sticker-btn:hover { border-color: #f1f5f9; color: #f1f5f9; }
+    .discount-sticker-btn:active { transform: scale(0.95); }
     /* 입력 필드 */
     #printInput {
       width: 100%; background: #0f172a; border: 1.5px solid #334155; color: #f1f5f9;
@@ -657,8 +665,22 @@ if (!$defaultStore) $defaultStore = 1;
             <i id="colMapChevron" class="fas fa-chevron-down" style="margin-left:auto;font-size:11px;transition:transform 0.2s"></i>
           </button>
           <div id="colMapPanel" style="display:none;background:#0f172a;border:1px solid #334155;border-top:none;border-radius:0 0 8px 8px;padding:12px 14px">
-            <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.6">
+            <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.6">
               각 데이터가 있는 <strong style="color:#94a3b8">엑셀 열 문자</strong>를 입력하세요 (예: A, B, C…). 헤더가 없으면 헤더행=0.
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <button onclick="applyPreset('kimsmall')" style="flex:1;background:#0f172a;border:1px solid #0ea5e9;border-radius:6px;color:#0ea5e9;font-size:12px;font-weight:700;padding:6px 0;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#0ea5e9';this.style.color='#fff'" onmouseout="this.style.background='#0f172a';this.style.color='#0ea5e9'">
+                <i class="fas fa-store" style="margin-right:4px"></i>kimsmall 프리셋
+              </button>
+              <button onclick="applyPreset('posco')" style="flex:1;background:#0f172a;border:1px solid #f59e0b;border-radius:6px;color:#f59e0b;font-size:12px;font-weight:700;padding:6px 0;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#f59e0b';this.style.color='#fff'" onmouseout="this.style.background='#0f172a';this.style.color='#f59e0b'">
+                <i class="fas fa-store" style="margin-right:4px"></i>POSCO 프리셋
+              </button>
+              <button onclick="applyPreset('village')" style="flex:1;background:#0f172a;border:1px solid #22c55e;border-radius:6px;color:#22c55e;font-size:12px;font-weight:700;padding:6px 0;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#22c55e';this.style.color='#fff'" onmouseout="this.style.background='#0f172a';this.style.color='#22c55e'">
+                <i class="fas fa-store" style="margin-right:4px"></i>THE VILLAGE 프리셋
+              </button>
+              <button onclick="applyPreset('default')" style="flex:1;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#64748b;font-size:12px;font-weight:700;padding:6px 0;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#1e293b';this.style.color='#94a3b8'" onmouseout="this.style.background='#0f172a';this.style.color='#64748b'">
+                <i class="fas fa-undo" style="margin-right:4px"></i>기본형
+              </button>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
               <div>
@@ -759,8 +781,8 @@ if (!$defaultStore) $defaultStore = 1;
     <div id="lookupResult">
       <div class="result-top">
         <div class="result-sku" id="rSku"></div>
-        <div class="result-name-en" id="rNameEn"></div>
-        <div class="result-name-ko" id="rNameKo"></div>
+        <div class="result-name-en" id="rNameEn" onclick="copyText(this)" title="클릭하여 상품명 복사" style="cursor:pointer"></div>
+        <div class="result-name-ko" id="rNameKo" onclick="copyText(this)" title="클릭하여 상품명 복사" style="cursor:pointer"></div>
       </div>
       <div class="result-bottom">
         <div style="text-align:center">
@@ -803,6 +825,17 @@ if (!$defaultStore) $defaultStore = 1;
           <div class="toggle-group">
             <button id="btnTypePricing" class="active green" onclick="setPrintType('pricing')"><i class="fas fa-tag" style="margin-right:5px"></i><span data-i18n="print.type_pricing">프라이싱</span></button>
             <button id="btnType2p" onclick="setPrintType('2p')"><i class="fas fa-copy" style="margin-right:5px"></i><span data-i18n="print.type_barcode">바코드 2p</span></button>
+          </div>
+        </div>
+        <div style="border-left:1px solid #334155;padding-left:20px">
+          <div class="ps-label">할인스티커</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="discount-sticker-btn" onclick="printDiscountSticker('20')" title="20% OFF 스티커 2장 출력">20%</button>
+            <button class="discount-sticker-btn" onclick="printDiscountSticker('30')" title="30% OFF 스티커 2장 출력">30%</button>
+            <button class="discount-sticker-btn" onclick="printDiscountSticker('50')" title="50% OFF 스티커 2장 출력">50%</button>
+            <button class="discount-sticker-btn" onclick="printDiscountSticker('75')" title="75% OFF 스티커 2장 출력">75%</button>
+            <button class="discount-sticker-btn" onclick="printDiscountSticker('1+1')" title="1+1 스티커 2장 출력" style="font-size:11px">1+1</button>
+            <button class="discount-sticker-btn" onclick="printLogoSticker()" title="HOME K MART 로고 스티커 4개 출력 (좌2 우2)" style="font-size:10px">로고</button>
           </div>
         </div>
       </div>
@@ -860,6 +893,7 @@ if (!$defaultStore) $defaultStore = 1;
             <tr>
               <th style="width:36px"><input type="checkbox" id="checkAllItems" onchange="toggleAllItems(this)" style="accent-color:#38bdf8"></th>
               <th style="width:120px">SKU</th><th data-i18n="print.th_name">상품명</th><th style="text-align:right;width:100px" data-i18n="print.th_price">가격</th>
+              <th style="width:120px">위치</th>
               <th style="text-align:center;width:120px" data-i18n="print.th_qty">수량</th><th style="width:36px"></th>
             </tr>
           </thead>
@@ -970,6 +1004,44 @@ function showLookupResult(p) {
   showLookupState('result');
 }
 
+// ── 상품명 클립보드 복사 ──
+function copyText(el) {
+  const text = (el.textContent || '').trim();
+  if (!text) return;
+  const done = () => showCopyToast(el);
+  if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else {
+    // LAN HTTP 등 비보안 컨텍스트 폴백
+    fallbackCopy(text, done);
+  }
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-1000px;left:-1000px;opacity:0';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try { if (document.execCommand('copy') && done) done(); } catch (e) {}
+  document.body.removeChild(ta);
+}
+function showCopyToast(anchor) {
+  let t = document.getElementById('copyToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'copyToast';
+    t.style.cssText = 'position:fixed;z-index:99999;background:#22c55e;color:#fff;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.35);transition:opacity 0.2s;opacity:0;transform:translateX(-50%)';
+    document.body.appendChild(t);
+  }
+  t.innerHTML = '<i class="fas fa-check" style="margin-right:5px"></i>상품명 복사됨';
+  const r = anchor.getBoundingClientRect();
+  t.style.left = (r.left + r.width / 2) + 'px';
+  t.style.top  = Math.max(8, r.top - 36) + 'px';
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 1200);
+}
+
 function quickPrintCurrent(type) {
   if (!currentProduct) return;
   const url = 'print.php?skus=' + encodeURIComponent(currentProduct.sku)
@@ -1005,6 +1077,17 @@ function setPrintType(t) {
   document.getElementById('btnType2p').classList.toggle('active', t === '2p');
   localStorage.setItem('pricing_printType', t);
   document.getElementById('printInput').focus();
+}
+
+function printDiscountSticker(rate) {
+  const url = 'print.php?mode=discount&discount=' + encodeURIComponent(rate) + '&autoprint=1';
+  window.open(url, '_blank', 'width=600,height=400');
+}
+
+// HOME K MART 로고 스티커: 70x30 라벨 3장(각 좌/우) = 로고 6개 출력
+function printLogoSticker() {
+  const url = 'print.php?mode=logo&autoprint=1';
+  window.open(url, '_blank', 'width=600,height=400');
 }
 
 function setPrintStatus(color, html) {
@@ -1053,18 +1136,27 @@ function handlePrintBarcode() {
     });
 }
 
-// iframe 기반 자동 출력: 팝업 차단 완전 우회, --kiosk-printing에서 대화상자 없이 기본 프린터 출력
-// VBA PrintOut과 동일한 동작 — 사용자 개입 없이 백그라운드 자동 출력
+// iframe 기반 자동 출력: 팝업 차단 우회 + 스캔 시 인쇄 대화상자 자동 표시
+// - 일반 Chrome: print.php 내부 window.print()가 인쇄 대화상자를 자동으로 띄움
+// - --kiosk-printing 모드: 대화상자 없이 기본 프린터로 자동 출력 (기존과 동일)
+// ※ visibility:hidden 을 쓰면 일부 환경에서 대화상자가 안 뜨거나 빈 출력이 되므로
+//   화면 밖으로만 이동(left:-10000px)시키고 visibility는 숨기지 않는다.
 function silentPrint(p) {
   const url = 'print.php?skus=' + encodeURIComponent(p.sku) + '&mode=' + printType + '&store_id=' + storeId + '&autoprint=1';
   const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:900px;height:600px;border:none;visibility:hidden;';
+  iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:900px;height:600px;border:none;';
+  const removeIframe = function() { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); };
+  iframe.onload = function() {
+    try {
+      iframe.contentWindow.focus(); // 인쇄 대화상자가 확실히 뜨도록 포커스
+      // 인쇄/취소 완료 후 iframe 정리 (대화상자가 열려 있는 동안 제거되지 않도록)
+      iframe.contentWindow.addEventListener('afterprint', function() { setTimeout(removeIframe, 500); });
+    } catch (e) {}
+  };
   document.body.appendChild(iframe);
   iframe.src = url;
-  // print.php 내부 autoprint 로직이 iframe 안에서 window.print() 호출
-  // --kiosk-printing 모드: 프린트 대화상자 없이 기본 프린터로 자동 출력
-  // 15초 후 iframe 제거 (바코드 렌더링 + 출력 완료 대기)
-  setTimeout(function() { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); }, 15000);
+  // 폴백 정리: afterprint가 안 와도 5분 뒤에는 제거
+  setTimeout(removeIframe, 300000);
   setPrintStatus('green', '<i class="fas fa-check-circle mr-1"></i>' + tl('print.status_printed') + escHtml(p.name_en || p.sku));
   addPrintHistory(p);
 }
@@ -1107,7 +1199,7 @@ function clearPrintHistory() { printHistory = []; renderPrintHistory(); }
 function addItem(p) {
   const idx = printItems.findIndex(x => x.sku === p.sku);
   if (idx >= 0) { printItems[idx].qty++; setPrintStatus('blue', '<i class="fas fa-plus-circle mr-1"></i>' + tl('print.status_qty_up') + escHtml(p.name_en||p.sku) + ' ×' + printItems[idx].qty); }
-  else { printItems.push({...p, qty:1, checked:true}); setPrintStatus('blue', '<i class="fas fa-plus-circle mr-1"></i>' + tl('print.status_added') + escHtml(p.name_en||p.name_ko||p.sku)); }
+  else { printItems.push({...p, qty:1, checked:true, location: p.location||''}); setPrintStatus('blue', '<i class="fas fa-plus-circle mr-1"></i>' + tl('print.status_added') + escHtml(p.name_en||p.name_ko||p.sku)); }
   renderItems();
 }
 function renderItems() {
@@ -1140,6 +1232,14 @@ function renderItems() {
         </div>
       </td>
       <td style="text-align:right;font-weight:700;color:#38bdf8">${escHtml(p.selling_price||'-')}</td>
+      <td>
+        <input id="loc_${i}" type="text" value="${escHtml(p.location||'')}"
+          placeholder="예: H2-1-5"
+          style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:5px;color:#a78bfa;font-size:12px;font-weight:600;padding:3px 6px;box-sizing:border-box;outline:none;transition:border-color 0.2s;letter-spacing:0.03em"
+          onfocus="this.style.borderColor='#a78bfa'"
+          onblur="this.style.borderColor='#334155';saveItemLocation(${i},this.value)"
+          onkeydown="if(event.key==='Enter'){this.blur()}">
+      </td>
       <td style="text-align:center">
         <div style="display:flex;align-items:center;justify-content:center;gap:3px">
           <button class="qty-btn" onclick="chgQty(${i},-1)">−</button>
@@ -1176,6 +1276,31 @@ function saveItemName(idx, lang, value) {
       if (el) { el.style.borderColor = '#ef4444'; setTimeout(() => { if (document.getElementById(inputId)) el.style.borderColor = '#334155'; }, 1200); }
     });
 }
+function saveItemLocation(idx, value) {
+  const p = printItems[idx];
+  if (!p || !p.product_id) return;
+  const trimmed = value.trim().toUpperCase();
+  if (trimmed === (p.location || '').toUpperCase()) return;
+  printItems[idx].location = trimmed;
+  const inputId = 'loc_' + idx;
+  const el = document.getElementById(inputId);
+  if (el) el.value = trimmed;
+  const fd = new FormData();
+  fd.append('product_id', p.product_id);
+  fd.append('store_id',   storeId);
+  fd.append('location',   trimmed);
+  fetch('ajax_update_location.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (el) {
+        el.style.borderColor = data.success ? '#a855f7' : '#ef4444';
+        setTimeout(() => { if (document.getElementById(inputId)) el.style.borderColor = '#334155'; }, 1200);
+      }
+    })
+    .catch(() => {
+      if (el) { el.style.borderColor = '#ef4444'; setTimeout(() => { if (document.getElementById(inputId)) el.style.borderColor = '#334155'; }, 1200); }
+    });
+}
 function chgQty(i,d){ printItems[i].qty=Math.max(1,(printItems[i].qty||1)+d); renderItems(); }
 function removeItem(i){ printItems.splice(i,1); renderItems(); }
 function selectAllItems(){ printItems.forEach(p=>p.checked=true); renderItems(); }
@@ -1196,6 +1321,7 @@ function printSelectedItems(){
 // ════════════════════════════════════════
 let suggestTimers = {};
 let suggestFocusIdx = { lookup: -1, print: -1, staff: -1 };
+let suggestSeq = {}; // 요청 순번 추적 — 오래된(out-of-order) 응답이 리스트/선택을 초기화하지 않도록
 
 function initSuggest(inputId, dropdownId, key, onSelect) {
   const input = document.getElementById(inputId);
@@ -1238,12 +1364,19 @@ function initSuggest(inputId, dropdownId, key, onSelect) {
 }
 
 function fetchSuggest(q, dropdownId, key, onSelect) {
+  const seq = (suggestSeq[key] = (suggestSeq[key] || 0) + 1);
   fetch('ajax_suggest.php?q=' + encodeURIComponent(q) + '&store_id=' + storeId + '&limit=50')
     .then(r => r.json())
     .then(data => {
+      if (seq !== suggestSeq[key]) return; // 더 최신 요청이 있으면 이 응답은 무시 (선택 초기화 방지)
       const dd = document.getElementById(dropdownId);
-      suggestFocusIdx[key] = -1;
+      // 재렌더 직전 선택돼 있던 항목의 SKU 보존 (늦게 도착한 디바운스 응답이 첫 선택을 풀어버리는 문제 방지)
+      let prevSku = null;
+      if (suggestFocusIdx[key] >= 0 && dd._products && dd._products[suggestFocusIdx[key]]) {
+        prevSku = dd._products[suggestFocusIdx[key]].sku;
+      }
       if (!data.success || !data.products.length) {
+        suggestFocusIdx[key] = -1;
         dd.innerHTML = '<div class="suggest-empty">' + tl('search.no_results') + '</div>';
         dd.classList.add('open');
         return;
@@ -1260,6 +1393,9 @@ function fetchSuggest(q, dropdownId, key, onSelect) {
       // 상품 데이터를 dropdown에 저장
       dd._products = data.products;
       dd.classList.add('open');
+      // 보존했던 선택 복원 — 같은 SKU가 새 목록에 있으면 하이라이트 유지, 없으면 초기화
+      suggestFocusIdx[key] = prevSku ? data.products.findIndex(p => p.sku === prevSku) : -1;
+      if (suggestFocusIdx[key] >= 0) updateSuggestFocus(dd.querySelectorAll('.suggest-item'), key);
     })
     .catch(() => {});
 }
@@ -1528,6 +1664,33 @@ function deleteNasFile(name) {
 }
 
 // ── 컬럼 매핑 설정 ──
+const PRESETS = {
+  kimsmall: { col_sku: 'B', col_name: 'C', col_cost: 'J', col_price: 'E', header_row: 1 },
+  posco:    { col_sku: 'B', col_name: 'C', col_cost: 'G', col_price: 'H', header_row: 1 },
+  village:  { col_sku: 'A', col_name: 'B', col_cost: 'E', col_price: 'C', header_row: 1 },
+  default:  { col_sku: 'A', col_name: 'B', col_cost: 'C', col_price: 'D', header_row: 1 },
+};
+const PRESET_LABELS = {
+  kimsmall: 'kimsmall (B/C/J/E)',
+  posco:    'POSCO (SKU:B / 상품명:C / 원가:G / 판매가:H)',
+  village:  'THE VILLAGE (SKU:A / 상품명:B / 원가:E / 판매가:C)',
+  default:  '기본형 (A/B/C/D)',
+};
+function applyPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  document.getElementById('cmColSku').value    = p.col_sku;
+  document.getElementById('cmColName').value   = p.col_name;
+  document.getElementById('cmColCost').value   = p.col_cost;
+  document.getElementById('cmColPrice').value  = p.col_price;
+  document.getElementById('cmHeaderRow').value = p.header_row;
+  const msg = document.getElementById('colMapMsg');
+  const label = PRESET_LABELS[name] || name;
+  msg.textContent = '✔ ' + label + ' 프리셋 적용됨 — 저장하려면 아래 버튼을 누르세요';
+  msg.style.color = '#38bdf8';
+  setTimeout(() => { msg.textContent = ''; msg.style.color = '#4ade80'; }, 3000);
+}
+
 function toggleColMap() {
   const panel = document.getElementById('colMapPanel');
   const chev  = document.getElementById('colMapChevron');
@@ -1969,7 +2132,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div id="staffResult">
       <div class="sr-sku" id="srSku"></div>
-      <div class="sr-name" id="srName"></div>
+      <div class="sr-name" id="srName" onclick="copyText(this)" title="클릭하여 상품명 복사" style="cursor:pointer"></div>
       <div class="sr-prices">
         <div class="sr-price-cell cost">
           <div class="sr-label">원가</div>
