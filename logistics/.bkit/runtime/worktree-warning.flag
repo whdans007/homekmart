@@ -1,0 +1,8 @@
+{
+  "detectedAt": "2026-06-12T01:19:11.831Z",
+  "toplevel": "//nas-sunset/web/sunset",
+  "gitDir": "\\\\nas-sunset\\web\\sunset\\.git",
+  "gitCommonDir": "\\\\nas-sunset\\web\\.git",
+  "issue": "https://github.com/anthropics/claude-code/issues/46808",
+  "message": "git worktree detected — Claude Code hooks may not fire (issue #46808). Run bkit from the primary repository if hook-driven automation is required."
+}
