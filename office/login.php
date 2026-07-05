@@ -1,8 +1,8 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../lib/session_helper.php';
 require_once __DIR__ . '/../config/db_config.php';
 
-// 이미 로그인 + 오피스 권한 있으면 대시보드로
+// Already logged in — redirect to dashboard
 if (is_logged_in()) {
     header('Location: index.php');
     exit;
@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
 
     if ($username === '' || $password === '') {
-        $error = '아이디와 비밀번호를 입력하세요.';
+        $error = 'Please enter your username and password.';
     } else {
         try {
             $conn = get_db_connection();
@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if (!$allowed) {
-                    $error = '오피스 관리 접근 권한이 없습니다.';
+                    $error = 'Access denied. Insufficient permissions.';
                 } else {
                     // 로그인 성공
                     session_regenerate_id(true);
@@ -78,22 +78,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit;
                 }
             } else {
-                $error = '아이디 또는 비밀번호가 올바르지 않습니다.';
+                $error = 'Invalid username or password.';
             }
             $conn->close();
         } catch (Exception $e) {
             error_log('Office login error: ' . $e->getMessage());
-            $error = '데이터베이스 오류가 발생했습니다.';
+            $error = 'A database error occurred.';
         }
     }
 }
 ?>
 <!DOCTYPE html>
-<html lang="ko" class="h-full bg-gray-50">
+<html lang="en" class="h-full bg-gray-50">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HOME K MART — 오피스 관리 로그인</title>
+  <title>HOME K MART — Office Management Login</title>
   <link href="../admin/css/style.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
         integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
 
       <h2 class="text-center text-3xl font-extrabold text-gray-900">HOME K MART</h2>
-      <p class="mt-2 text-center text-sm text-gray-500">오피스 관리 시스템</p>
+      <p class="mt-2 text-center text-sm text-gray-500">Office Management System</p>
     </div>
 
     <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -125,26 +125,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST" class="space-y-5">
           <div>
-            <label for="username" class="block text-sm font-medium text-gray-700 mb-1">아이디</label>
+            <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
             <input id="username" name="username" type="text" required autofocus
                    value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                   placeholder="아이디 입력">
+                   placeholder="Enter username">
           </div>
 
           <div>
-            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input id="password" name="password" type="password" required
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                   placeholder="비밀번호 입력">
+                   placeholder="Enter password">
           </div>
 
           <div class="flex items-center">
             <input id="remember_me" name="remember_me" type="checkbox"
                    class="h-4 w-4 text-blue-600 border-gray-300 rounded">
-            <label for="remember_me" class="ml-2 text-sm text-gray-600">로그인 상태 유지</label>
+            <label for="remember_me" class="ml-2 text-sm text-gray-600">Remember me</label>
           </div>
 
           <button type="submit"
@@ -152,7 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                          bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium
                          rounded-lg shadow-sm transition-colors duration-200">
             <i class="fa-solid fa-right-to-bracket"></i>
-            로그인
+            Sign In
           </button>
         </form>
 
