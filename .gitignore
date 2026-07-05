@@ -4,3 +4,25 @@ vendor/
 .DS_Store
 .env
 DockerDesktopInstaller.exe
+
+# 대용량/불필요 항목 (git 추적 제외 — 서버 배포와는 별개)
+*.exe
+*.zip
+*.rar
+delivery_app_flutter/
+.bkit/snapshots/
+admin/debug_log.txt
+
+# 런타임 업로드물 / 참고자료 / 도구·OS 잡파일 (git 추적 제외)
+uploads/
+1. reference/
+.playwright-mcp/
+Thumbs.db
+*.tmp
+
+# 루트 참고용 스크린샷 (git 추적 제외)
+/지출 엑셀 서식.png
+/일일보고.png
+
+# DB 접속정보 백업본 (접속정보 노출 방지 — git 추적 제외)
+config/db_config - *.php
