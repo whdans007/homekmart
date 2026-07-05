@@ -25,10 +25,31 @@ function ensure_logged_in() {
 
         // 쿠키로도 로그인이 안됐다면, 다시 한번 세션을 확인하고 리디렉션합니다.
         if (!is_logged_in()) {
+            // 원래 접근하려던 URL을 기억해두었다가 로그인 후 그곳으로 돌려보냅니다.
+            $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '';
             header('Location: login.php');
             exit();
         }
     }
+}
+
+/**
+ * 로그인 후 이동할 대상 URL을 반환합니다.
+ * ensure_logged_in()이 기억해 둔 원래 접근 URL이 있으면 그곳으로,
+ * 없으면 기본값($default)으로 보냅니다. 사용 후 세션 값은 제거합니다.
+ * 동일 출처 경로(/로 시작, //로 시작하지 않음)만 허용하여 오픈 리다이렉트를 방지합니다.
+ *
+ * @param string $default 기억된 URL이 없을 때의 기본 이동 경로
+ * @return string 이동할 안전한 경로
+ */
+function get_login_redirect_target($default = '/index.php') {
+    $target = $_SESSION['redirect_after_login'] ?? '';
+    unset($_SESSION['redirect_after_login']);
+
+    if (is_string($target) && $target !== '' && $target[0] === '/' && substr($target, 0, 2) !== '//') {
+        return $target;
+    }
+    return $default;
 }
 
 function try_login_from_cookie() {
@@ -58,6 +79,7 @@ function try_login_from_cookie() {
         $_SESSION['username'] = $user['username'];
         $_SESSION['full_name'] = $user['full_name'] ?? $user['name'] ?? '';
         $_SESSION['role'] = $user['role'];
+        $_SESSION['store_id'] = $user['store_id'] ?? null;
     } else {
         // 유효하지 않은 쿠키는 삭제합니다.
         setcookie('remember_me', '', time() - 3600, '/');
