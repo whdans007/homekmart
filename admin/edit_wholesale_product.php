@@ -238,6 +238,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $wholesale_price = trim($_POST['wholesale_price'] ?? '');
     $wholesale_price_piece = trim($_POST['wholesale_price_piece'] ?? '0');
     $sale_unit = trim($_POST['sale_unit'] ?? 'box');
+    $memo = trim($_POST['memo'] ?? '');
     $store_id = $_SESSION['role'] === 'super_admin' ? (int)($_POST['store_id'] ?? 0) : $wholesale_product['store_id'];
 
     
@@ -315,23 +316,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             SET store_id = ?, 
                                 wholesale_name_ko = ?, 
                                 wholesale_name_en = ?, 
-                                wholesale_skus = ?, 
+                                wholesale_skus = ?,
                                 wholesale_description = null,
+                                memo = ?,
                                 cost_price = ?,
                                 cost_price_piece = ?,
                                 margin_rate = ?,
                                 wholesale_price = ?,
                                 wholesale_price_piece = ?,
                                 sale_unit = ?,
-                                updated_at = NOW() 
+                                updated_at = NOW()
                             WHERE id = ?
                         ");
-                        
+
                         $update_success = $stmt->execute([
                             $store_id,
                             $wholesale_name_ko ?: null,
                             $wholesale_name_en ?: null,
                             $wholesale_skus_json,
+                            $memo ?: null,
                             $cost_price,
                             $cost_price_piece,
                             $margin_rate,
@@ -812,6 +815,16 @@ if (isset($_SESSION['flash'])) {
                         </table>
                     </div>
                     
+
+                    <!-- 메모 (특이사항) -->
+                    <div>
+                        <label for="memo" class="block text-sm font-medium text-gray-700 mb-1">
+                            <?php echo t('add_wholesale_product.memo_label'); ?>
+                        </label>
+                        <textarea name="memo" id="memo" rows="3"
+                                  class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                  placeholder="<?php echo htmlspecialchars(t('add_wholesale_product.memo_placeholder')); ?>"><?php echo htmlspecialchars($_POST['memo'] ?? $wholesale_product['memo'] ?? ''); ?></textarea>
+                    </div>
 
                     <!-- hidden input for sale_unit (default to box) -->
                     <input type="hidden" name="sale_unit" value="box">

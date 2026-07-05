@@ -33,12 +33,6 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    if ($_SESSION['role'] === 'super_admin') {
-        $store_stmt = $pdo->prepare("SELECT id, name FROM stores ORDER BY name");
-        $store_stmt->execute();
-        $stores = $store_stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-    
     // Load existing data in edit mode
     if ($edit_mode && $edit_sale_id > 0) {
         // Join sales info with customer info
@@ -66,30 +60,41 @@ try {
             $errors[] = t('wholesale.edit_not_found');
             $edit_mode = false;
         } else {
+            // KIMS MALL (킴스몰) 지점 ID 고정 (현재 점포 원가가 0일 때 폴백)
+            $kims_store_id = 6;
+            $kims_cost_box   = "(SELECT kb.cost_price FROM wholesale_products kb WHERE kb.product_id = p.id AND kb.store_id = {$kims_store_id} AND kb.is_active = 1 LIMIT 1)";
+            $kims_cost_piece = "(SELECT kp.cost_price_piece FROM wholesale_products kp WHERE kp.product_id = p.id AND kp.store_id = {$kims_store_id} AND kp.is_active = 1 LIMIT 1)";
+
             // Get sale items (도매상품 전용 상품명 우선 사용)
             $items_sql = "
-                SELECT 
+                SELECT
                     wsi.product_id,
                     wsi.quantity,
                     wsi.unit_price,
                     wsi.total_price,
                     wsi.sale_unit,
                     wsi.remarks,
-                    p.sku,
-                    COALESCE(wp.wholesale_name_ko, p.name_ko) as name_ko,
-                    COALESCE(wp.wholesale_name_en, p.name_en) as name_en,
+                    wsi.custom_product_name,
+                    wsi.custom_cost_price,
+                    COALESCE(p.sku, '수기') as sku,
+                    COALESCE(wp.wholesale_name_ko, p.name_ko, wsi.custom_product_name) as name_ko,
+                    COALESCE(wp.wholesale_name_en, p.name_en, wsi.custom_product_name) as name_en,
                     wp.wholesale_price,
                     COALESCE(wp.wholesale_price_piece, 0) as wholesale_price_piece,
-                    COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity
+                    COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
+                    COALESCE(wsi.custom_cost_price, NULLIF(wp.cost_price,0), {$kims_cost_box}, 0) as cost_price,
+                    COALESCE(NULLIF(wp.cost_price_piece,0), {$kims_cost_piece}, 0) as cost_price_piece,
+                    COALESCE(inv.selling_price, 0) as selling_price
                 FROM wholesale_sale_items wsi
                 LEFT JOIN products p ON wsi.product_id = p.id
-                LEFT JOIN wholesale_products wp ON wp.product_id = p.id AND wp.is_active = 1
+                LEFT JOIN wholesale_products wp ON wp.product_id = p.id AND wp.store_id = ?
+                LEFT JOIN inventory inv ON inv.product_id = p.id AND inv.store_id = ?
                 WHERE wsi.sale_id = ?
-                ORDER BY COALESCE(wp.wholesale_name_en, p.name_en), COALESCE(wp.wholesale_name_ko, p.name_ko)
+                ORDER BY wsi.sort_order ASC, wsi.id ASC
             ";
-            
+
             $items_stmt = $pdo->prepare($items_sql);
-            $items_stmt->execute([$edit_sale_id]);
+            $items_stmt->execute([$edit_data['store_id'], $edit_data['store_id'], $edit_sale_id]);
             $edit_data['items'] = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
         }
     }
@@ -100,7 +105,7 @@ try {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customer_id = (int)($_POST['customer_id'] ?? 0);
-    $store_id = $_SESSION['role'] === 'super_admin' ? (int)($_POST['store_id'] ?? 0) : $current_store_id;
+    $store_id = $current_store_id; // 점포는 접속자 점포로 고정
     $sale_date = $_POST['sale_date'] ?? date('Y-m-d');
     $cart_items = json_decode($_POST['cart_items'] ?? '[]', true);
     $is_edit = isset($_POST['edit_sale_id']) && is_numeric($_POST['edit_sale_id']);
@@ -148,19 +153,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $delete_stmt->execute([$edit_sale_id_post]);
                 
                 // Add new sale items
-                foreach ($cart_items as $item) {
+                foreach ($cart_items as $sort_index => $item) {
+                    $is_manual = empty($item['product_id']);
+                    $product_id = $is_manual ? null : (int)$item['product_id'];
+                    $custom_name = $is_manual ? trim($item['name_ko'] ?? $item['name_en'] ?? '') : null;
+                    // 원가는 판매단위(박스/낱개)에 맞는 값을 custom_cost_price로 저장 (UI에서 수정된 원가 반영)
+                    $cost_val = (($item['sale_unit'] ?? 'box') === 'piece')
+                        ? ($item['cost_price_piece'] ?? $item['cost_price'] ?? 0)
+                        : ($item['cost_price'] ?? 0);
+                    $custom_cost = ($cost_val > 0) ? (float)$cost_val : null;
+
                     $item_stmt = $pdo->prepare("
-                        INSERT INTO wholesale_sale_items (sale_id, product_id, quantity, unit_price, total_price, sale_unit, remarks, created_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                        INSERT INTO wholesale_sale_items (sale_id, product_id, custom_product_name, custom_cost_price, quantity, unit_price, total_price, sale_unit, remarks, sort_order, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
                     ");
                     $item_stmt->execute([
-                        $edit_sale_id_post, 
-                        $item['product_id'], 
-                        $item['quantity'], 
-                        $item['unit_price'], 
-                        $item['total_price'], 
+                        $edit_sale_id_post,
+                        $product_id,
+                        $custom_name,
+                        $custom_cost,
+                        $item['quantity'],
+                        $item['unit_price'],
+                        $item['total_price'],
                         $item['sale_unit'] ?? 'box',
-                        $item['remarks'] ?? ''
+                        $item['remarks'] ?? '',
+                        (int)$sort_index
                     ]);
                 }
                 
@@ -177,25 +194,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sale_id = $pdo->lastInsertId();
                 
                 // Add sale items
-                foreach ($cart_items as $item) {
+                foreach ($cart_items as $sort_index => $item) {
+                    $is_manual = empty($item['product_id']);
+                    $product_id = $is_manual ? null : (int)$item['product_id'];
+                    $custom_name = $is_manual ? trim($item['name_ko'] ?? $item['name_en'] ?? '') : null;
+                    // 원가는 판매단위(박스/낱개)에 맞는 값을 custom_cost_price로 저장 (UI에서 수정된 원가 반영)
+                    $cost_val = (($item['sale_unit'] ?? 'box') === 'piece')
+                        ? ($item['cost_price_piece'] ?? $item['cost_price'] ?? 0)
+                        : ($item['cost_price'] ?? 0);
+                    $custom_cost = ($cost_val > 0) ? (float)$cost_val : null;
+
                     $item_stmt = $pdo->prepare("
-                        INSERT INTO wholesale_sale_items (sale_id, product_id, quantity, unit_price, total_price, sale_unit, remarks, created_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+                        INSERT INTO wholesale_sale_items (sale_id, product_id, custom_product_name, custom_cost_price, quantity, unit_price, total_price, sale_unit, remarks, sort_order, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
                     ");
                     $item_stmt->execute([
-                        $sale_id, 
-                        $item['product_id'], 
-                        $item['quantity'], 
-                        $item['unit_price'], 
-                        $item['total_price'], 
+                        $sale_id,
+                        $product_id,
+                        $custom_name,
+                        $custom_cost,
+                        $item['quantity'],
+                        $item['unit_price'],
+                        $item['total_price'],
                         $item['sale_unit'] ?? 'box',
-                        $item['remarks'] ?? ''
+                        $item['remarks'] ?? '',
+                        (int)$sort_index
                     ]);
                 }
                 
                 $success_msg = t('wholesale.sale_registered_successfully');
             }
-            
+
+            // ── 거래처 도매 예외가 자동 학습 (체크박스 선택 시) ──
+            // 기본가와 다른 단가만 해당 거래처 예외가로 upsert. 등록 도매상품만 대상(수기 항목 제외).
+            if (!empty($_POST['save_cust_prices']) && $customer_id > 0) {
+                try {
+                    $has_cp = (bool)$pdo->query("SHOW TABLES LIKE 'wholesale_customer_prices'")->fetchColumn();
+                    if ($has_cp) {
+                        $find_wp  = $pdo->prepare("SELECT id, wholesale_price, COALESCE(wholesale_price_piece,0) AS wholesale_price_piece FROM wholesale_products WHERE product_id = ? AND store_id = ? AND is_active = 1 LIMIT 1");
+                        $up_box   = $pdo->prepare("INSERT INTO wholesale_customer_prices (customer_id, wholesale_product_id, wholesale_price) VALUES (?,?,?) ON DUPLICATE KEY UPDATE wholesale_price = VALUES(wholesale_price), updated_at = NOW()");
+                        $up_piece = $pdo->prepare("INSERT INTO wholesale_customer_prices (customer_id, wholesale_product_id, wholesale_price_piece) VALUES (?,?,?) ON DUPLICATE KEY UPDATE wholesale_price_piece = VALUES(wholesale_price_piece), updated_at = NOW()");
+                        foreach ($cart_items as $item) {
+                            if (empty($item['product_id'])) continue;            // 수기 항목 제외
+                            $unit = (float)($item['unit_price'] ?? 0);
+                            if ($unit <= 0) continue;
+                            $find_wp->execute([(int)$item['product_id'], $store_id]);
+                            $wprow = $find_wp->fetch(PDO::FETCH_ASSOC);
+                            if (!$wprow) continue;                               // 등록 도매상품만
+                            $is_piece = (($item['sale_unit'] ?? 'box') === 'piece');
+                            $base = $is_piece ? (float)$wprow['wholesale_price_piece'] : (float)$wprow['wholesale_price'];
+                            if (abs($unit - $base) < 0.005) continue;            // 기본가와 동일하면 예외 저장 안 함
+                            if ($is_piece) { $up_piece->execute([$customer_id, (int)$wprow['id'], $unit]); }
+                            else           { $up_box->execute([$customer_id, (int)$wprow['id'], $unit]); }
+                        }
+                    }
+                } catch (PDOException $e) {
+                    // 가격 학습 실패는 판매 저장을 막지 않음
+                    error_log("Customer price learn failed: " . $e->getMessage());
+                }
+            }
+
             $pdo->commit();
             
             $_SESSION['flash'] = [
@@ -222,284 +280,221 @@ if (isset($_SESSION['flash'])) {
 
 ?>
 
-<div class="container mx-auto px-2 sm:px-3 md:px-4 py-8">
-    <div class="w-full mx-auto">
-        <div class="mb-6">
-            <nav class="flex" aria-label="Breadcrumb">
-                <ol class="flex items-center space-x-2">
-                    <li>
-                        <a href="wholesale_customer_management.php" class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-handshake mr-1"></i>
-                            <?php echo t('navigation.wholesale_sales'); ?>
-                        </a>
-                    </li>
-                    <li>
-                        <div class="flex items-center">
-                            <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
-                            <span class="text-gray-600"><?php echo t('navigation.wholesale_sales'); ?></span>
-                        </div>
-                    </li>
-                </ol>
-            </nav>
+<div class="w-full px-3 py-3">
+
+    <?php if (isset($flash)): ?>
+        <div class="mb-3 px-4 py-2 rounded-md flex items-center gap-2 text-sm
+            <?php echo $flash['type'] === 'error' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-green-50 border border-green-200 text-green-700'; ?>">
+            <i class="fas <?php echo $flash['type'] === 'error' ? 'fa-exclamation-triangle' : 'fa-check-circle'; ?>"></i>
+            <?php echo htmlspecialchars($flash['message']); ?>
         </div>
+    <?php endif; ?>
 
-        <div class="bg-white shadow-sm rounded-lg border">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h1 class="text-xl font-semibold text-gray-900">
-                    <i class="fas fa-handshake mr-2 text-primary-500"></i>
-                    <?php echo $edit_mode ? t('wholesale.sales_edit') : t('navigation.wholesale_sales'); ?>
-                </h1>
-                <p class="mt-1 text-sm text-gray-600">
-                    <?php echo $edit_mode ? t('wholesale.sales_edit_description') : t('wholesale.sales_register_description'); ?>
-                </p>
-            </div>
+    <?php if (!empty($errors)): ?>
+        <div class="mb-3 px-4 py-2 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+            <i class="fas fa-exclamation-triangle mr-1"></i>
+            <?php echo implode(' / ', array_map('htmlspecialchars', $errors)); ?>
+        </div>
+    <?php endif; ?>
 
-            <div class="px-6 py-4">
-                <?php if (isset($flash)): ?>
-                    <div class="mb-6 p-4 rounded-md <?php echo $flash['type'] === 'error' ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'; ?>">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <i class="fas <?php echo $flash['type'] === 'error' ? 'fa-exclamation-triangle text-red-400' : 'fa-check-circle text-green-400'; ?>"></i>
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm <?php echo $flash['type'] === 'error' ? 'text-red-700' : 'text-green-700'; ?>">
-                                    <?php echo htmlspecialchars($flash['message']); ?>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                <?php endif; ?>
+    <form method="POST" id="wholesale-sales-form">
 
-                <?php if (!empty($errors)): ?>
-                    <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-exclamation-triangle text-red-400"></i>
-                            </div>
-                            <div class="ml-3">
-                                <h3 class="text-sm font-medium text-red-800">다음 오류를 해결해주세요:</h3>
-                                <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
-                                    <?php foreach ($errors as $error): ?>
-                                        <li><?php echo htmlspecialchars($error); ?></li>
-                                    <?php endforeach; ?>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                <?php endif; ?>
-
-                <form method="POST" id="wholesale-sales-form">
-                    <!-- Customer and basic information -->
-                    <div class="space-y-6">
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4"><?php echo t('wholesale.sales_info'); ?></h3>
-                            
-                            <!-- Customer, store, sale date in one line -->
-                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                                <!-- Customer selection -->
-                                <div>
-                                    <label for="customer_search" class="block text-sm font-medium text-gray-700 mb-2">
-                                        <?php echo t('wholesale.customer_required'); ?>
-                                    </label>
-                                    <div class="flex gap-2">
-                                        <div class="relative flex-1">
-                                            <input type="text" id="customer_search" 
-                                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                                                   placeholder="<?php echo t('wholesale.customer_search_placeholder'); ?>"
-                                                   autocomplete="off">
-                                            <div id="customer_search_results" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto hidden">
-                                                <!-- 검색 결과가 여기에 표시됩니다 -->
-                                            </div>
-                                        </div>
-                                        <button type="button" id="customer_search_btn" 
-                                                class="px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap">
-                                            <i class="fas fa-search"></i>
-                                        </button>
-                                    </div>
-                                    <input type="hidden" name="customer_id" id="customer_id" value="">
-                                </div>
-
-                                <?php if ($_SESSION['role'] === 'super_admin' && !empty($stores)): ?>
-                                <!-- 점포 선택 -->
-                                <div>
-                                    <label for="store_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                        점포 선택 <span class="text-red-500">*</span>
-                                    </label>
-                                    <select name="store_id" id="store_id" required
-                                            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
-                                        <option value="">점포를 선택하세요</option>
-                                        <?php foreach ($stores as $store): ?>
-                                            <option value="<?php echo $store['id']; ?>" 
-                                                    <?php echo ($store['id'] == $current_store_id) ? 'selected' : ''; ?>>
-                                                <?php echo htmlspecialchars($store['name']); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <?php else: ?>
-                                <!-- 현재 점포 표시 (수정 불가) -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        점포
-                                    </label>
-                                    <div class="p-3 bg-gray-50 border border-gray-300 rounded-md">
-                                        <span class="text-gray-900 font-medium"><?php echo htmlspecialchars($current_store_name); ?></span>
-                                    </div>
-                                    <input type="hidden" name="store_id" value="<?php echo $current_store_id; ?>">
-                                </div>
-                                <?php endif; ?>
-
-                                <!-- Sale date -->
-                                <div>
-                                    <label for="sale_date" class="block text-sm font-medium text-gray-700 mb-2">
-                                        <?php echo t('wholesale.sale_date'); ?>
-                                    </label>
-                                    <input type="date" name="sale_date" id="sale_date" value="<?php echo date('Y-m-d'); ?>"
-                                           class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
-                                </div>
-                            </div>
-                            
-                            <!-- Display selected customer information -->
-                            <div id="selected_customer" class="mb-4 p-3 bg-white border rounded-md hidden">
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <div class="font-medium text-gray-900" id="selected_customer_name"></div>
-                                        <div class="text-sm text-gray-600" id="selected_customer_info"></div>
-                                    </div>
-                                    <button type="button" id="clear_customer_selection" class="text-red-500 hover:text-red-700">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 상품 검색 및 추가 -->
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4"><?php echo t('wholesale.add_product'); ?></h3>
-
-                            <!-- 도매 마진율 설정 -->
-                            <div class="mb-4">
-                                <label for="margin_rate" class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-percent mr-1"></i>
-                                    도매 마진율 (미등록 상품용)
-                                </label>
-                                <div class="flex gap-2 items-center">
-                                    <input type="number" id="margin_rate"
-                                           class="w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                                           value="15"
-                                           min="0"
-                                           max="100"
-                                           step="0.1">
-                                    <span class="text-sm text-gray-600">% (기본: 15%)</span>
-                                </div>
-                                <p class="mt-1 text-xs text-gray-500">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    도매상품으로 등록되지 않은 상품의 판매가 계산에 사용됩니다. (원가 × (1 + 마진율/100))
-                                </p>
-                            </div>
-
-                            <!-- 통합 상품 검색 (바코드/상품명) -->
-                            <div>
-                                <label for="product_search" class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-search mr-1"></i>
-                                    상품 검색 (바코드 / 상품명 / SKU)
-                                </label>
-                                <div class="flex gap-2">
-                                    <div class="relative flex-1">
-                                        <input type="text" id="product_search"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                                               placeholder="바코드 스캔 또는 상품명/SKU 검색..."
-                                               autocomplete="off">
-                                        <div id="product_search_results" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto hidden">
-                                            <!-- 검색 결과가 여기에 표시됩니다 -->
-                                        </div>
-                                    </div>
-                                    <button type="button" id="product_search_btn"
-                                            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap">
-                                        <i class="fas fa-search mr-1"></i>
-                                        검색
-                                    </button>
-                                </div>
-                                <p class="mt-1 text-xs text-gray-500">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    엔터키로 바로 검색 가능 / 도매상품과 일반상품이 모두 표시됩니다
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 장바구니 섹션 -->
-                    <div class="mt-8">
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            <h3 class="text-lg font-medium text-gray-900 mb-4">
-                                <i class="fas fa-shopping-cart mr-2 text-primary-500"></i>
-                                <?php echo t('wholesale.cart'); ?>
-                            </h3>
-                            
-                            <div id="cart_empty" class="text-center text-gray-500 py-8">
-                                <i class="fas fa-shopping-cart text-4xl mb-4"></i>
-                                <p><?php echo t('wholesale.cart_empty'); ?></p>
-                                <p class="text-sm"><?php echo t('wholesale.search_add_products'); ?></p>
-                            </div>
-                            
-                            <div id="cart_items" class="hidden">
-                                <!-- 테이블 형태 장바구니 -->
-                                <div class="border rounded-md overflow-hidden cart-table-wrapper">
-                                    <table class="w-full cart-table">
-                                        <thead class="bg-gray-100">
-                                            <tr>
-                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('product.sku'); ?></th>
-                                                <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('product.name'); ?></th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('wholesale.box_packaging'); ?></th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">원가</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">판매가</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700">도매판매가</th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('wholesale.quantity'); ?></th>
-                                                <th class="px-2 py-3 text-right text-xs font-semibold text-gray-700"><?php echo t('common.total'); ?></th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('common.delete'); ?></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="cart_list">
-                                            <!-- Cart items will be added here -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                                
-                                <!-- 총 금액 -->
-                                <div class="mt-4 pt-3 border-t border-gray-300">
-                                    <div class="flex justify-between text-lg font-medium">
-                                        <span>총 금액:</span>
-                                        <span id="cart_total">0</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 저장 버튼 -->
-                        <div class="mt-8 flex justify-center space-x-3">
-                            <button type="submit" id="complete_sale_btn" 
-                                    class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:hover:bg-gray-400 whitespace-nowrap"
-                                    disabled>
-                                <i class="fas fa-save mr-1"></i>
-                                <?php echo $edit_mode ? '수정 완료' : '저장'; ?>
-                            </button>
-                            
-                            <a href="<?php echo $edit_mode ? 'wholesale_sales_list.php' : 'wholesale_sales_list.php'; ?>" 
-                               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                                <i class="fas fa-times mr-1"></i>
-                                취소
-                            </a>
-                        </div>
-                    </div>
-                    
-                    <input type="hidden" name="cart_items" id="cart_items_input" value="">
-                    <?php if ($edit_mode): ?>
-                        <input type="hidden" name="edit_sale_id" value="<?php echo $edit_sale_id; ?>">
-                    <?php endif; ?>
-                </form>
+        <!-- 타이틀 + 액션 버튼 -->
+        <div class="flex items-center justify-between mb-3">
+            <h1 class="text-base font-semibold text-gray-800">
+                <i class="fas fa-handshake mr-1 text-primary-500"></i>
+                <?php echo $edit_mode ? t('wholesale.sales_edit') : t('navigation.wholesale_sales'); ?>
+            </h1>
+            <div class="flex gap-2">
+                <button type="submit" id="complete_sale_btn"
+                        class="px-4 py-2 text-sm font-medium bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed whitespace-nowrap"
+                        disabled>
+                    <i class="fas fa-save mr-1"></i>
+                    <?php echo $edit_mode ? t('common.complete_edit') : t('common.save'); ?>
+                </button>
+                <a href="wholesale_sales_list.php"
+                   class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 whitespace-nowrap">
+                    <i class="fas fa-times mr-1"></i><?php echo t('common.cancel'); ?>
+                </a>
             </div>
         </div>
-    </div>
+
+        <!-- Row 1: 거래처 / 점포 / 판매일자 / 마진율 -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
+
+            <!-- 거래처 -->
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">
+                    <?php echo t('wholesale.customer_label'); ?> <span class="text-red-500">*</span>
+                </label>
+                <div class="flex gap-1">
+                    <div class="relative flex-1">
+                        <input type="text" id="customer_search"
+                               class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                               placeholder="<?php echo t('wholesale.customer_search_placeholder'); ?>"
+                               autocomplete="off">
+                        <div id="customer_search_results"
+                             class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto hidden"></div>
+                    </div>
+                    <button type="button" id="customer_search_btn"
+                            class="px-2 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                        <i class="fas fa-search text-sm"></i>
+                    </button>
+                </div>
+                <input type="hidden" name="customer_id" id="customer_id" value="">
+            </div>
+
+            <!-- 점포 (접속자 점포로 고정) -->
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1"><?php echo t('common.store'); ?></label>
+                <div class="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-md text-gray-700 font-medium">
+                    <?php echo htmlspecialchars($current_store_name); ?>
+                </div>
+                <input type="hidden" name="store_id" id="store_id" value="<?php echo $current_store_id; ?>">
+            </div>
+
+            <!-- 판매일자 -->
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1"><?php echo t('wholesale.sale_date_label'); ?></label>
+                <input type="date" name="sale_date" id="sale_date" value="<?php echo date('Y-m-d'); ?>"
+                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500">
+            </div>
+
+            <!-- 마진율 -->
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1"><?php echo t('wholesale.margin_rate_label'); ?></label>
+                <div class="flex items-center gap-1">
+                    <input type="number" id="margin_rate"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                           value="15" min="0" max="100" step="0.1">
+                    <span class="text-sm text-gray-500 whitespace-nowrap">%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 선택된 거래처 표시 (인라인, 컴팩트) -->
+        <div id="selected_customer" class="hidden mb-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between">
+            <div class="flex items-center gap-3 min-w-0">
+                <i class="fas fa-building text-blue-400 flex-shrink-0"></i>
+                <span class="text-sm font-medium text-blue-900 truncate" id="selected_customer_name"></span>
+                <span class="text-xs text-blue-600 truncate" id="selected_customer_info"></span>
+            </div>
+            <button type="button" id="clear_customer_selection" class="text-blue-400 hover:text-blue-600 ml-2 flex-shrink-0">
+                <i class="fas fa-times text-xs"></i>
+            </button>
+        </div>
+
+        <!-- 거래처 미선택 안내 -->
+        <?php $customer_preselected = ($edit_mode && !empty($edit_data['customer_id'])); ?>
+        <p id="product_search_hint"
+           class="text-xs text-amber-600 mb-1 <?php echo $customer_preselected ? 'hidden' : ''; ?>">
+            <i class="fas fa-info-circle mr-1"></i><?php echo t('wholesale.select_customer_first_hint'); ?>
+        </p>
+
+        <!-- Row 2: 상품 검색 + 수기 입력 버튼 -->
+        <div class="flex gap-2 mb-2">
+            <div class="relative flex-1">
+                <input type="text" id="product_search"
+                       class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                       placeholder="<?php echo t('wholesale.product_search_placeholder'); ?>"
+                       autocomplete="off"
+                       <?php echo $customer_preselected ? '' : 'disabled'; ?>>
+                <div id="product_search_results"
+                     class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-96 overflow-y-auto hidden"></div>
+            </div>
+            <button type="button" id="product_search_btn"
+                    class="px-3 py-2 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 whitespace-nowrap disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    <?php echo $customer_preselected ? '' : 'disabled'; ?>>
+                <i class="fas fa-search mr-1"></i><?php echo t('common.search'); ?>
+            </button>
+            <button type="button" id="toggle_manual_entry"
+                    class="px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                    <?php echo $customer_preselected ? '' : 'disabled'; ?>>
+                <i class="fas fa-pencil-alt mr-1"></i><?php echo t('wholesale.manual_entry_btn'); ?>
+            </button>
+        </div>
+
+        <!-- 수기 입력 폼 (접이식) -->
+        <div id="manual_entry_form" class="hidden mb-3 p-3 bg-gray-50 border border-indigo-200 rounded-md">
+            <div class="flex flex-wrap items-end gap-2">
+                <div class="flex-1 min-w-[140px]">
+                    <label class="block text-xs font-medium text-gray-600 mb-1"><?php echo t('wholesale.product_name'); ?> <span class="text-red-500">*</span></label>
+                    <input type="text" id="manual_product_name"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                           placeholder="<?php echo t('wholesale.product_name_placeholder'); ?>">
+                </div>
+                <div class="w-28">
+                    <label class="block text-xs font-medium text-gray-600 mb-1"><?php echo t('wholesale.cost_price'); ?></label>
+                    <input type="number" id="manual_cost_price"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                           placeholder="0" min="0" step="0.01">
+                </div>
+                <div class="w-28">
+                    <label class="block text-xs font-medium text-gray-600 mb-1"><?php echo t('common.quantity'); ?>(Weight)</label>
+                    <input type="number" id="manual_quantity"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                           value="1" min="0.01" step="0.01">
+                </div>
+                <div class="w-28">
+                    <label class="block text-xs font-medium text-gray-600 mb-1"><?php echo t('wholesale.wholesale_sale_price'); ?> <span class="text-red-500">*</span></label>
+                    <input type="number" id="manual_wholesale_price"
+                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                           placeholder="0" min="0" step="0.01">
+                </div>
+                <button type="button" id="add_manual_item_btn"
+                        class="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 whitespace-nowrap">
+                    <i class="fas fa-plus mr-1"></i><?php echo t('wholesale.add_to_cart'); ?>
+                </button>
+                <button type="button" id="cancel_manual_entry"
+                        class="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 whitespace-nowrap">
+                    <?php echo t('common.cancel'); ?>
+                </button>
+            </div>
+        </div>
+
+        <!-- Row 3: 장바구니 -->
+        <div id="cart_empty" class="text-center text-gray-400 py-16">
+            <i class="fas fa-shopping-cart text-3xl mb-2"></i>
+            <p class="text-sm"><?php echo t('wholesale.cart_empty'); ?></p>
+        </div>
+
+        <div id="cart_items" class="hidden">
+            <div class="cart-table-wrapper overflow-x-auto border rounded-md">
+                <table class="w-full cart-table text-sm">
+                    <thead class="bg-gray-50 border-b">
+                        <tr>
+                            <th class="px-2 py-2 text-left text-xs font-semibold text-gray-600"><?php echo t('product.sku'); ?></th>
+                            <th class="px-2 py-2 text-left text-xs font-semibold text-gray-600"><?php echo t('product.name'); ?></th>
+                            <th class="px-2 py-2 text-center text-xs font-semibold text-gray-600"><?php echo t('wholesale.box_packaging'); ?></th>
+                            <th class="px-2 py-2 text-center text-xs font-semibold text-gray-600"><?php echo t('wholesale.cost_price'); ?></th>
+                            <th class="px-2 py-2 text-center text-xs font-semibold text-gray-600"><?php echo t('wholesale.selling_price'); ?></th>
+                            <th class="px-2 py-2 text-center text-xs font-semibold text-gray-600"><?php echo t('add_wholesale_product.sale_unit_label'); ?></th>
+                            <th class="px-2 py-2 text-center text-xs font-semibold text-gray-600"><?php echo t('wholesale.wholesale_sale_price'); ?></th>
+                            <th class="px-2 py-2 text-center text-xs font-semibold text-gray-600"><?php echo t('wholesale.quantity'); ?></th>
+                            <th class="px-2 py-2 text-right text-xs font-semibold text-gray-600"><?php echo t('common.total'); ?></th>
+                            <th class="px-2 py-2 text-center text-xs font-semibold text-gray-600"><?php echo t('common.delete'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart_list"></tbody>
+                </table>
+            </div>
+            <div class="mt-3 flex justify-between items-center gap-3 flex-wrap">
+                <span class="text-sm text-gray-500"><span id="cart_count">0</span><?php echo t('common.items'); ?></span>
+                <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                    <input type="checkbox" name="save_cust_prices" id="save_cust_prices" value="1" checked class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                    <span><i class="fas fa-tags text-primary-500 mr-1"></i>변경된 단가를 이 거래처 도매가로 저장 <span class="text-gray-400">(기본가와 다른 항목만)</span></span>
+                </label>
+                <div class="text-base font-semibold text-gray-900">
+                    <?php echo t('wholesale.cart_total_label'); ?>: <span id="cart_total" class="text-primary-600">0</span>
+                </div>
+            </div>
+        </div>
+
+        <input type="hidden" name="cart_items" id="cart_items_input" value="">
+        <?php if ($edit_mode): ?>
+            <input type="hidden" name="edit_sale_id" value="<?php echo $edit_sale_id; ?>">
+        <?php endif; ?>
+    </form>
 </div>
 
 <!-- Customer list modal -->
@@ -529,6 +524,83 @@ if (isset($_SESSION['flash'])) {
     </div>
 </div>
 
+<!-- 신규 거래처 등록 모달 -->
+<div id="new-customer-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-[60]">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 class="text-base font-medium text-gray-900">
+                    <i class="fas fa-plus-circle mr-2 text-green-500"></i>
+                    <?php echo t('wholesale.new_customer_title'); ?>
+                </h3>
+                <button type="button" id="close-new-customer-modal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <div class="p-4">
+                <div id="new-customer-form-errors" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p class="text-sm text-red-700" id="new-customer-error-text"></p>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <?php echo t('wholesale.business_name'); ?> <span class="text-red-500">*</span>
+                        </label>
+                        <div class="flex gap-2">
+                            <input type="text" id="new_customer_name"
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="<?php echo t('wholesale.business_name_placeholder'); ?>">
+                            <button type="button" id="transliterate_btn"
+                                    class="px-3 py-2 bg-indigo-500 text-white text-sm rounded-md hover:bg-indigo-600 whitespace-nowrap">
+                                <i class="fas fa-language mr-1"></i>
+                                <?php echo t('wholesale.transliterate_btn'); ?>
+                            </button>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500"><?php echo t('wholesale.transliterate_hint'); ?></p>
+                    </div>
+                    <div id="transliterated_name_section" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <?php echo t('wholesale.english_pronunciation'); ?>
+                        </label>
+                        <input type="text" id="new_customer_name_en"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                               placeholder="<?php echo t('wholesale.english_pronunciation_placeholder'); ?>">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('wholesale.phone_label'); ?></label>
+                        <input type="tel" id="new_customer_phone"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                               placeholder="010-0000-0000">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('wholesale.address'); ?></label>
+                        <textarea id="new_customer_address" rows="2"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                  placeholder="<?php echo t('wholesale.address_placeholder'); ?>"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('wholesale.customer_memo'); ?></label>
+                        <textarea id="new_customer_memo" rows="2"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                  placeholder="<?php echo t('wholesale.memo_placeholder'); ?>"></textarea>
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-end gap-2">
+                    <button type="button" id="cancel-new-customer"
+                            class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        <?php echo t('common.cancel'); ?>
+                    </button>
+                    <button type="button" id="save-new-customer"
+                            class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
+                        <i class="fas fa-save mr-1"></i>
+                        <?php echo t('common.save'); ?>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 상품 목록 모달 -->
 <div id="product-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
     <div class="flex items-center justify-center min-h-screen p-4">
@@ -536,7 +608,7 @@ if (isset($_SESSION['flash'])) {
             <div class="flex items-center justify-between p-4 border-b border-gray-200">
                 <h3 class="text-base font-medium text-gray-900">
                     <i class="fas fa-box mr-2 text-green-500"></i>
-                    상품 목록
+                    <?php echo t('wholesale.product_list_title'); ?>
                 </h3>
                 <button type="button" id="close-product-modal" class="text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times text-lg"></i>
@@ -546,7 +618,7 @@ if (isset($_SESSION['flash'])) {
                 <div class="p-3 border-b border-gray-200">
                     <input type="text" id="modal-product-search" 
                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                           placeholder="상품명이나 SKU로 필터링...">
+                           placeholder="<?php echo t('wholesale.product_filter_placeholder'); ?>">
                 </div>
                 <div id="product-list" class="flex-1 overflow-y-auto p-3 space-y-2 max-h-80">
                     <!-- 상품 목록이 여기에 표시됩니다 -->
@@ -563,7 +635,7 @@ if (isset($_SESSION['flash'])) {
             <div class="flex items-center justify-between p-4 border-b border-gray-200">
                 <h3 class="text-lg font-medium text-gray-900">
                     <i class="fas fa-box-open mr-2 text-blue-500"></i>
-                    상품 선택
+                    <?php echo t('wholesale.select_product'); ?>
                 </h3>
                 <button type="button" id="close-type-selection-modal" class="text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times text-xl"></i>
@@ -571,33 +643,33 @@ if (isset($_SESSION['flash'])) {
             </div>
             <div class="p-6">
                 <p class="text-sm text-gray-600 mb-4">
-                    이 상품은 도매상품으로 등록되어 있습니다. 어떤 가격으로 판매하시겠습니까?
+                    <?php echo t('wholesale.product_type_question'); ?>
                 </p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- 도매상품 옵션 -->
                     <div id="wholesale-option" class="border-2 border-blue-500 rounded-lg p-4 cursor-pointer hover:bg-blue-50 transition">
                         <div class="flex items-center justify-between mb-2">
-                            <h4 class="font-medium text-gray-900">도매 등록상품</h4>
-                            <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">추천</span>
+                            <h4 class="font-medium text-gray-900"><?php echo t('wholesale.registered_product_title'); ?></h4>
+                            <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"><?php echo t('wholesale.recommended_badge'); ?></span>
                         </div>
                         <div class="text-sm text-gray-600 space-y-1">
-                            <div>상품명: <span id="modal-wholesale-name" class="font-medium"></span></div>
-                            <div>도매가: <span id="modal-wholesale-price" class="font-medium text-blue-600"></span>원</div>
-                            <div class="text-xs text-gray-500 mt-2">등록된 도매가격으로 판매합니다</div>
+                            <div><?php echo t('wholesale.product_name'); ?>: <span id="modal-wholesale-name" class="font-medium"></span></div>
+                            <div><?php echo t('wholesale.wholesale_price'); ?>: <span id="modal-wholesale-price" class="font-medium text-blue-600"></span><?php echo t('common.currency'); ?></div>
+                            <div class="text-xs text-gray-500 mt-2"><?php echo t('wholesale.sell_at_registered_price'); ?></div>
                         </div>
                     </div>
 
                     <!-- 인벤토리 상품 옵션 -->
                     <div id="inventory-option" class="border-2 border-gray-300 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition">
                         <div class="flex items-center justify-between mb-2">
-                            <h4 class="font-medium text-gray-900">인벤토리 상품</h4>
-                            <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">일반</span>
+                            <h4 class="font-medium text-gray-900"><?php echo t('wholesale.inventory_product_title'); ?></h4>
+                            <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded"><?php echo t('wholesale.general_badge'); ?></span>
                         </div>
                         <div class="text-sm text-gray-600 space-y-1">
-                            <div>상품명: <span id="modal-inventory-name" class="font-medium"></span></div>
-                            <div>원가: <span id="modal-inventory-cost" class="font-medium"></span>원</div>
-                            <div>판매가: <span id="modal-inventory-price" class="font-medium text-green-600"></span>원</div>
-                            <div class="text-xs text-gray-500 mt-2">원가에 마진율을 적용하여 판매합니다</div>
+                            <div><?php echo t('wholesale.product_name'); ?>: <span id="modal-inventory-name" class="font-medium"></span></div>
+                            <div><?php echo t('wholesale.cost_price'); ?>: <span id="modal-inventory-cost" class="font-medium"></span><?php echo t('common.currency'); ?></div>
+                            <div><?php echo t('wholesale.selling_price'); ?>: <span id="modal-inventory-price" class="font-medium text-green-600"></span><?php echo t('common.currency'); ?></div>
+                            <div class="text-xs text-gray-500 mt-2"><?php echo t('wholesale.sell_at_margin'); ?></div>
                         </div>
                     </div>
                 </div>
@@ -636,7 +708,21 @@ const translations = {
     product_added: '<?php echo addslashes(t("wholesale.js_product_added")); ?>',
     product_removed: '<?php echo addslashes(t("wholesale.js_product_removed")); ?>',
     price_updated: '<?php echo addslashes(t("wholesale.js_price_updated")); ?>',
-    no_image: '<?php echo addslashes(t("wholesale.js_no_image")); ?>'
+    no_image: '<?php echo addslashes(t("wholesale.js_no_image")); ?>',
+    product_name_required: '<?php echo addslashes(t("wholesale.js_product_name_required")); ?>',
+    wholesale_price_required: '<?php echo addslashes(t("wholesale.js_wholesale_price_required")); ?>',
+    quantity_min: '<?php echo addslashes(t("wholesale.js_quantity_min")); ?>',
+    manual_added: '<?php echo addslashes(t("wholesale.js_manual_added")); ?>',
+    customer_registered: '<?php echo addslashes(t("wholesale.js_customer_registered")); ?>',
+    product_not_found_barcode: '<?php echo addslashes(t("wholesale.js_product_not_found_barcode")); ?>',
+    barcode_error: '<?php echo addslashes(t("wholesale.js_barcode_error")); ?>',
+    store_required: '<?php echo addslashes(t("wholesale.js_store_required")); ?>',
+    margin_range: '<?php echo addslashes(t("wholesale.js_margin_range")); ?>',
+    qty_increased: '<?php echo addslashes(t("wholesale.js_qty_increased")); ?>',
+    unregistered_margin: '<?php echo addslashes(t("wholesale.js_unregistered_margin")); ?>',
+    wholesale_registered_success: '<?php echo addslashes(t("wholesale.js_wholesale_registered_success")); ?>',
+    register_error: '<?php echo addslashes(t("wholesale.js_register_error")); ?>',
+    server_error: '<?php echo addslashes(t("wholesale.js_server_error")); ?>'
 };
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -656,6 +742,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const cartTotal = document.getElementById('cart_total');
     const cartItemsInput = document.getElementById('cart_items_input');
     const completeSaleBtn = document.getElementById('complete_sale_btn');
+
+    // 숫자 표시: 소수는 소숫점 둘째자리까지(끝자리 0 제거), 정수는 정수로 표시
+    function fmtNum(v) {
+        const n = Number(v) || 0;
+        if (Number.isInteger(n)) return n.toLocaleString();
+        return (Math.round(n * 100) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
 
     let searchTimeout;
 
@@ -720,6 +813,10 @@ document.addEventListener('DOMContentLoaded', function() {
     productSearch.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
+            // 디바운스 타이머 취소 + 드롭다운 즉시 닫기
+            clearTimeout(searchTimeout);
+            productSearchResults.classList.add('hidden');
+
             const query = this.value.trim();
 
             if (query.length === 0) {
@@ -727,8 +824,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // 바코드 스캔으로 추정되는 경우 (검색 결과가 없거나 정확히 일치하는 경우)
-            // 먼저 바코드로 검색 시도
             searchProductByBarcode(query);
         }
     });
@@ -788,14 +883,166 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // 바코드 스캔 후 수량 입력란 포커스
+    function focusCartQuantity(index) {
+        setTimeout(function() {
+            const rows = document.querySelectorAll('#cart_list tr');
+            if (rows[index]) {
+                const qtyInput = rows[index].querySelector('.quantity-controls input[type="number"]');
+                if (qtyInput) {
+                    qtyInput.focus();
+                    qtyInput.select();
+                }
+            }
+        }, 50);
+    }
+
+    // 수량 입력란에서 Enter → 상품 검색창으로 복귀
+    cartList.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && e.target.matches('.quantity-controls input[type="number"]')) {
+            e.preventDefault();
+            productSearch.value = '';
+            productSearch.focus();
+        }
+    });
+
     // ESC 키로 모달 닫기
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             customerModal.classList.add('hidden');
             productModal.classList.add('hidden');
+            document.getElementById('manual_entry_form').classList.add('hidden');
         }
     });
-    
+
+    // 수기 입력 토글
+    document.getElementById('toggle_manual_entry').addEventListener('click', function() {
+        const form = document.getElementById('manual_entry_form');
+        form.classList.toggle('hidden');
+        if (!form.classList.contains('hidden')) {
+            document.getElementById('manual_product_name').focus();
+        }
+    });
+
+    document.getElementById('cancel_manual_entry').addEventListener('click', function() {
+        document.getElementById('manual_entry_form').classList.add('hidden');
+        clearManualForm();
+    });
+
+    document.getElementById('add_manual_item_btn').addEventListener('click', function() {
+        addManualItemToCart();
+    });
+
+    ['manual_product_name', 'manual_cost_price', 'manual_wholesale_price', 'manual_quantity'].forEach(function(id) {
+        document.getElementById(id).addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addManualItemToCart();
+            }
+        });
+    });
+
+    // 수기 입력: Cost Price / Quantity / Margin Rate 입력 시 도매가(Wholesale Price) 자동 계산
+    // 공식: 도매가(합계) = 원가 × (1 + 마진율/100) × 수량(무게)  (Margin Rate 포함, 합계 금액 표시)
+    let manualWholesaleEdited = false; // 사용자가 도매가를 직접 수정하면 자동 계산 중단
+    function recalcManualWholesalePrice() {
+        if (manualWholesaleEdited) return;
+        const cost = parseFloat(document.getElementById('manual_cost_price').value) || 0;
+        const qty = parseFloat(document.getElementById('manual_quantity').value) || 0;
+        const marginEl = document.getElementById('margin_rate');
+        const margin = marginEl ? (parseFloat(marginEl.value) || 0) : 0;
+        const wpEl = document.getElementById('manual_wholesale_price');
+        if (cost > 0) {
+            const unit = cost * (1 + margin / 100);
+            wpEl.value = Math.round(unit * (qty > 0 ? qty : 1) * 100) / 100; // 소숫점 둘째자리까지
+        }
+    }
+    document.getElementById('manual_cost_price').addEventListener('input', recalcManualWholesalePrice);
+    document.getElementById('manual_quantity').addEventListener('input', recalcManualWholesalePrice);
+    document.getElementById('margin_rate').addEventListener('input', recalcManualWholesalePrice);
+
+    // 마진율 기억: 이전에 사용했던 값을 localStorage에 저장/복원
+    (function rememberMarginRate() {
+        const MARGIN_KEY = 'wholesale_margin_rate';
+        const marginInput = document.getElementById('margin_rate');
+        if (!marginInput) return;
+
+        // 페이지 로드 시 저장된 값 복원
+        const saved = localStorage.getItem(MARGIN_KEY);
+        if (saved !== null && saved !== '' && !isNaN(parseFloat(saved))) {
+            marginInput.value = saved;
+            recalcManualWholesalePrice();
+        }
+
+        // 값이 바뀔 때마다 저장
+        marginInput.addEventListener('change', function() {
+            const v = parseFloat(this.value);
+            if (!isNaN(v) && v >= 0 && v <= 100) {
+                localStorage.setItem(MARGIN_KEY, this.value);
+            }
+        });
+    })();
+
+    // 도매가를 직접 입력하면 자동 계산을 멈추고, 비우면 다시 자동 계산
+    document.getElementById('manual_wholesale_price').addEventListener('input', function() {
+        manualWholesaleEdited = this.value.trim() !== '';
+    });
+
+    function clearManualForm() {
+        document.getElementById('manual_product_name').value = '';
+        document.getElementById('manual_cost_price').value = '';
+        document.getElementById('manual_wholesale_price').value = '';
+        document.getElementById('manual_quantity').value = '1';
+        manualWholesaleEdited = false; // 자동 계산 재개
+    }
+
+    function addManualItemToCart() {
+        const name = document.getElementById('manual_product_name').value.trim();
+        const costPrice = Math.round((parseFloat(document.getElementById('manual_cost_price').value) || 0) * 100) / 100;
+        // Wholesale Price 필드는 "합계 금액"을 의미 → 단가 = 합계 / 수량 (소숫점 둘째자리까지)
+        const totalAmount = Math.round((parseFloat(document.getElementById('manual_wholesale_price').value) || 0) * 100) / 100;
+        const quantity = Math.round((parseFloat(document.getElementById('manual_quantity').value) || 1) * 100) / 100;
+        const unitPrice = quantity > 0 ? Math.round((totalAmount / quantity) * 100) / 100 : totalAmount;
+
+        if (!name) {
+            showNotification(translations.product_name_required, 'error');
+            document.getElementById('manual_product_name').focus();
+            return;
+        }
+
+        if (totalAmount <= 0) {
+            showNotification(translations.wholesale_price_required, 'error');
+            document.getElementById('manual_wholesale_price').focus();
+            return;
+        }
+
+        if (quantity <= 0) {
+            showNotification(translations.quantity_min, 'error');
+            return;
+        }
+
+        cart.push({
+            product_id: null,
+            is_manual: true,
+            sku: '수기',
+            name_ko: name,
+            name_en: name,
+            unit_price: unitPrice,
+            quantity: quantity,
+            total_price: totalAmount,
+            min_quantity: 1,
+            wholesale_price: unitPrice,
+            wholesale_price_piece: 0,
+            cost_price: costPrice,
+            selling_price: 0
+        });
+
+        updateCart();
+        clearManualForm();
+        document.getElementById('manual_entry_form').classList.add('hidden');
+        showNotification(translations.manual_added, 'success');
+    }
+
     // 모달 내 검색 기능
     modalCustomerSearch.addEventListener('input', function() {
         const query = this.value.toLowerCase();
@@ -848,7 +1095,7 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'q=' + encodeURIComponent(query) + '&limit=10'
+            body: 'q=' + encodeURIComponent(query) + '&limit=10&customer_id=' + ((document.getElementById('customer_id') || {}).value || 0)
         })
         .then(response => {
             console.log('Response status:', response.status);
@@ -863,14 +1110,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = JSON.parse(text);
                 console.log('Parsed data:', data);
                 
-                if (data.success && data.customers) {
+                if (data.success && data.customers && data.customers.length > 0) {
                     console.log('고객 수:', data.customers.length);
-                    displayCustomerResults(data.customers);
+                    displayCustomerResults(data.customers, query);
                 } else {
                     console.log('검색 실패 또는 결과 없음:', data.message);
-                    customerSearchResults.innerHTML = '<div class="p-3 text-sm text-gray-500">' + 
-                        (data.message || '검색 결과가 없습니다.') + '</div>';
+                    customerSearchResults.innerHTML = `
+                        <div class="p-3 text-sm text-gray-500">검색 결과가 없습니다.</div>
+                        <div class="p-2 border-t border-gray-100">
+                            <button type="button" class="open-new-customer-modal w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100"
+                                    data-name="${escapeAttr(query)}">
+                                <i class="fas fa-plus-circle"></i>
+                                "<span class="font-medium">${escapeHtml(query)}</span>" 신규 거래처로 등록
+                            </button>
+                        </div>`;
                     customerSearchResults.classList.remove('hidden');
+                    bindNewCustomerBtns();
                 }
             } catch (parseError) {
                 console.error('JSON 파싱 오류:', parseError);
@@ -892,7 +1147,7 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'q=' + encodeURIComponent(query) + '&limit=10'
+            body: 'q=' + encodeURIComponent(query) + '&limit=10&customer_id=' + ((document.getElementById('customer_id') || {}).value || 0)
         })
         .then(response => response.json())
         .then(data => {
@@ -908,34 +1163,45 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    function displayCustomerResults(customers) {
+    function displayCustomerResults(customers, query) {
         let html = '';
         customers.forEach(function(customer) {
             html += `
-                <div class="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 customer-item" 
-                     data-id="${customer.id}" 
-                     data-name="${customer.name}"
-                     data-phone="${customer.phone || ''}"
-                     data-address="${customer.address || ''}">
-                    <div class="font-medium text-gray-900">${customer.name}</div>
-                    <div class="text-sm text-gray-600">${customer.phone || ''} ${customer.address || ''}</div>
+                <div class="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 customer-item"
+                     data-id="${customer.id}"
+                     data-name="${escapeAttr(customer.name)}"
+                     data-phone="${escapeAttr(customer.phone || '')}"
+                     data-address="${escapeAttr(customer.address || '')}">
+                    <div class="font-medium text-gray-900">${escapeHtml(customer.name)}</div>
+                    <div class="text-sm text-gray-600">${escapeHtml(customer.phone || '')} ${escapeHtml(customer.address || '')}</div>
                 </div>
             `;
         });
-        
+
+        html += `
+            <div class="p-2 border-t border-gray-100">
+                <button type="button" class="open-new-customer-modal w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100"
+                        data-name="${escapeAttr(query || '')}">
+                    <i class="fas fa-plus-circle"></i>
+                    신규 거래처 등록
+                </button>
+            </div>`;
+
         customerSearchResults.innerHTML = html;
         customerSearchResults.classList.remove('hidden');
-        
-        // 거래처 선택 이벤트
+
         document.querySelectorAll('.customer-item').forEach(function(item) {
             item.addEventListener('click', function() {
                 selectCustomer(this);
             });
         });
+        bindNewCustomerBtns();
     }
     
     function displayProductResults(products) {
         let html = '';
+        // 가격 포맷 (0/null → '-')
+        const fmtPrice = function(v) { return (v && Number(v) > 0) ? Number(v).toLocaleString() : '-'; };
         products.forEach(function(product) {
             // 등록 상태 확인
             const isRegistered = product.status === 'registered';
@@ -965,6 +1231,8 @@ document.addEventListener('DOMContentLoaded', function() {
                          data-wholesale-price-piece="${product.wholesale_price_piece || 0}"
                          data-min-quantity="${product.min_quantity}"
                          data-cost-price="${product.cost_price || 0}"
+                         data-cost-box="${product.wp_cost_box || 0}"
+                         data-cost-piece="${product.wp_cost_piece || 0}"
                          data-selling-price="${product.selling_price || 0}"
                          data-registered="true">
                         <div class="font-medium text-gray-900">
@@ -972,8 +1240,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">도매상품</span>
                         </div>
                         <div class="text-sm text-gray-600">${product.display_name_ko && product.display_name_en && product.display_name_ko !== product.display_name_en ? product.display_name_ko : ''}</div>
-                        <div class="text-xs text-gray-500 mt-1">
-                            SKU: ${displaySkus} | 도매가: ${Number(product.wholesale_price).toLocaleString()}원 | 박스: ${product.min_quantity || 1}개
+                        <div class="text-xs text-gray-500 mt-1">SKU: ${displaySkus} | 박스: ${product.min_quantity || 1}개</div>
+                        <div class="text-xs text-gray-600 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                            <span>원가(낱개): ${fmtPrice(product.wp_cost_piece)}</span>
+                            <span>원가(박스): ${fmtPrice(product.wp_cost_box)}</span>
+                            <span>마진: ${Number(product.wp_margin_rate || 0).toFixed(1)}%</span>
+                            <span class="text-blue-700 font-medium">도매가(낱개): ${fmtPrice(product.wholesale_price_piece)}</span>
+                            <span class="text-blue-700 font-medium">도매가(박스): ${fmtPrice(product.wholesale_price)}</span>
                         </div>
                     </div>
                 `;
@@ -1036,14 +1309,28 @@ document.addEventListener('DOMContentLoaded', function() {
             // 등록된 도매상품
             productData.wholesale_price = parseFloat(item.dataset.wholesalePrice);
             productData.wholesale_price_piece = parseFloat(item.dataset.wholesalePricePiece) || 0;
+            productData.cost_box = parseFloat(item.dataset.costBox) || 0;     // 원가(박스)
+            productData.cost_piece = parseFloat(item.dataset.costPiece) || 0; // 원가(낱개)
+            productData.cost_price = parseFloat(item.dataset.costPrice) || 0;       // 인벤토리 원가 (도매원가 0일 때 폴백)
+            productData.selling_price = parseFloat(item.dataset.sellingPrice) || 0; // 소매 판매가
             productData.margin_rate = 0; // 등록 상품은 마진율 표시 안함
         } else {
-            // 미등록 상품 - 제안가 사용
+            // 미등록 일반상품
             const marginRateInput = document.getElementById('margin_rate');
             const marginRate = marginRateInput ? parseFloat(marginRateInput.value) : 15.0;
+            const costPrice = parseFloat(item.dataset.costPrice) || 0;
+            const sellingPrice = parseFloat(item.dataset.sellingPrice) || 0;
 
-            productData.wholesale_price = parseFloat(item.dataset.suggestedPrice);
+            if (costPrice <= 0 && sellingPrice > 0) {
+                // 원가가 0이면 판매가(소매가)의 90%(10% 할인)를 도매가로 사용
+                productData.wholesale_price = Math.round(sellingPrice * 0.9);
+            } else {
+                // 원가가 있으면 현재 마진율 기준 제안가 사용
+                productData.wholesale_price = parseFloat(item.dataset.suggestedPrice);
+            }
             productData.wholesale_price_piece = 0;
+            productData.cost_price = costPrice;
+            productData.selling_price = sellingPrice;
             productData.margin_rate = marginRate;
         }
 
@@ -1113,7 +1400,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 바코드로 상품 추가
     function addProductByBarcode(barcode) {
         if (!barcode || barcode.trim() === '') {
-            showNotification('바코드를 입력해주세요.', 'error');
+            showNotification(translations.product_not_found_barcode, 'error');
             return;
         }
 
@@ -1128,7 +1415,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (!storeId) {
-            showNotification('점포 정보가 필요합니다.', 'error');
+            showNotification(translations.store_required, 'error');
             return;
         }
 
@@ -1138,12 +1425,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 마진율 유효성 검사
         if (marginRate < 0 || marginRate > 100) {
-            showNotification('마진율은 0-100% 사이여야 합니다.', 'error');
+            showNotification(translations.margin_range, 'error');
             return;
         }
 
-        // AJAX로 바코드 검색
-        fetch(`ajax_get_wholesale_product_by_barcode.php?barcode=${encodeURIComponent(barcode)}&store_id=${storeId}&margin_rate=${marginRate}`)
+        // AJAX로 바코드 검색 (거래처 예외가 적용)
+        fetch(`ajax_get_wholesale_product_by_barcode.php?barcode=${encodeURIComponent(barcode)}&store_id=${storeId}&margin_rate=${marginRate}&customer_id=${(document.getElementById('customer_id') || {}).value || 0}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -1151,11 +1438,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     // 장바구니에 추가
                     const existingIndex = cart.findIndex(item => item.product_id == product.product_id);
+                    let targetIndex;
 
                     if (existingIndex >= 0) {
                         cart[existingIndex].quantity += 1;
                         cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_price;
-                        showNotification('수량이 증가되었습니다.', 'success');
+                        showNotification(translations.qty_increased, 'success');
+                        targetIndex = existingIndex;
                     } else {
                         cart.push({
                             product_id: product.product_id,
@@ -1170,17 +1459,17 @@ document.addEventListener('DOMContentLoaded', function() {
                             wholesale_price_piece: product.wholesale_price_piece
                         });
 
-                        // 미등록 상품인 경우 알림 메시지
                         if (!product.is_registered) {
-                            showNotification(`미등록 상품입니다. 원가에 ${product.margin_rate}% 마진이 적용되었습니다.`, 'info');
+                            showNotification(translations.unregistered_margin.replace('{rate}', product.margin_rate), 'info');
                         } else {
-                            showNotification('상품이 장바구니에 추가되었습니다.', 'success');
+                            showNotification(translations.product_added, 'success');
                         }
+                        targetIndex = cart.length - 1;
                     }
 
                     updateCart();
-                    productSearch.value = ''; // 검색창 초기화
-                    productSearch.focus(); // 포커스 다시 이동
+                    productSearch.value = '';
+                    focusCartQuantity(targetIndex);
                 } else {
                     showNotification(data.message || '상품을 찾을 수 없습니다.', 'error');
                     productSearch.value = '';
@@ -1189,7 +1478,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Error:', error);
-                showNotification('바코드 검색 중 오류가 발생했습니다.', 'error');
+                showNotification(translations.barcode_error, 'error');
                 productSearch.value = '';
                 productSearch.focus();
             });
@@ -1202,7 +1491,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let storeId = storeIdElement ? storeIdElement.value : <?php echo json_encode($current_store_id); ?>;
 
         if (!storeId) {
-            showNotification('점포 정보가 필요합니다.', 'error');
+            showNotification(translations.store_required, 'error');
             return;
         }
 
@@ -1210,59 +1499,65 @@ document.addEventListener('DOMContentLoaded', function() {
         const marginRateInput = document.getElementById('margin_rate');
         const marginRate = marginRateInput ? parseFloat(marginRateInput.value) : 15.0;
 
-        // 먼저 바코드로 검색 시도
-        fetch(`ajax_get_wholesale_product_by_barcode.php?barcode=${encodeURIComponent(query)}&store_id=${storeId}&margin_rate=${marginRate}`)
+        // 먼저 바코드로 검색 시도 (거래처 예외가 적용)
+        fetch(`ajax_get_wholesale_product_by_barcode.php?barcode=${encodeURIComponent(query)}&store_id=${storeId}&margin_rate=${marginRate}&customer_id=${(document.getElementById('customer_id') || {}).value || 0}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     // 바코드로 상품을 찾았으면 처리
                     const product = data.data;
+                    let cartIdx;
 
                     if (product.is_registered) {
-                        // 도매상품으로 등록되어 있으면 모달 표시
-                        addProductToCartDirect(product);
+                        cartIdx = addProductToCartDirect(product);
                     } else {
-                        // 미등록 상품이면 바로 장바구니에 추가
-                        addToCart(product, parseFloat(product.wholesale_price));
+                        cartIdx = addToCart(product, parseFloat(product.wholesale_price));
                     }
 
                     productSearch.value = '';
-                    productSearch.focus();
+                    // 바코드 스캔 성공: 수량 입력란에 포커스 (모달 표시된 경우 제외)
+                    if (cartIdx >= 0) {
+                        focusCartQuantity(cartIdx);
+                    } else {
+                        productSearch.focus();
+                    }
                 } else {
-                    // 바코드로 찾지 못했으면 일반 검색 실행
-                    searchProducts(query);
+                    showNotification(translations.product_not_found_barcode + ': ' + escapeHtml(query), 'error');
+                    productSearch.value = '';
+                    productSearch.focus();
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                // 에러 발생 시에도 일반 검색으로 fallback
-                searchProducts(query);
+                showNotification(translations.barcode_error, 'error');
+                productSearch.value = '';
+                productSearch.focus();
             });
     }
 
-    // 상품을 바로 장바구니에 추가하는 함수
+    // 상품을 바로 장바구니에 추가하는 함수 (cart 인덱스 반환, 모달 표시 시 -1)
     function addProductToCartDirect(product) {
-        // 도매상품으로 등록되어 있고 (원가 또는 판매가) 정보가 있는 경우 모달 표시
         const costPrice = parseFloat(product.cost_price) || 0;
         const sellingPrice = parseFloat(product.selling_price) || 0;
 
         if (product.is_registered && (costPrice > 0 || sellingPrice > 0)) {
             showProductTypeSelectionModal(product);
-            return;
+            return -1;
         }
 
-        // 그 외의 경우 바로 장바구니에 추가
-        addToCart(product, product.wholesale_price);
+        return addToCart(product, product.wholesale_price);
     }
 
-    // 실제 장바구니 추가 함수
+    // 실제 장바구니 추가 함수 (추가/수정된 cart 인덱스를 반환)
     function addToCart(product, price) {
         const existingIndex = cart.findIndex(item => item.product_id == product.product_id);
+        let targetIndex;
 
         if (existingIndex >= 0) {
             cart[existingIndex].quantity += 1;
             cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_price;
-            showNotification('수량이 증가되었습니다.', 'success');
+            showNotification(translations.qty_increased, 'success');
+            targetIndex = existingIndex;
         } else {
             cart.push({
                 product_id: product.product_id,
@@ -1275,19 +1570,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 min_quantity: product.min_quantity,
                 wholesale_price: price,
                 wholesale_price_piece: product.wholesale_price_piece || 0,
-                cost_price: product.cost_price || 0,
-                selling_price: product.selling_price || 0
+                cost_price: product.cost_box || product.cost_price || 0,        // 원가(박스)
+                cost_price_piece: product.cost_piece || 0,                      // 원가(낱개)
+                selling_price: product.selling_price || 0,
+                sale_unit: 'piece'  // 기본 판매단위 PCS (단가는 유지, 토글 기본만 PCS)
             });
 
-            // 미등록 상품인 경우 알림 메시지
             if (!product.is_registered) {
-                showNotification(`미등록 상품입니다. 원가에 ${product.margin_rate}% 마진이 적용되었습니다.`, 'info');
+                showNotification(translations.unregistered_margin.replace('{rate}', product.margin_rate), 'info');
             } else {
-                showNotification('상품이 장바구니에 추가되었습니다.', 'success');
+                showNotification(translations.product_added, 'success');
             }
+            targetIndex = cart.length - 1;
         }
 
         updateCart();
+        return targetIndex;
     }
 
     // 상품 타입 선택 모달 표시
@@ -1362,6 +1660,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             let html = '';
             cart.forEach(function(item, index) {
+                // 수기 입력 제외 상품: 도매판매가(단가)는 소수점 이하 무조건 올림
+                if (!item.is_manual) {
+                    item.unit_price = Math.ceil(Number(item.unit_price) || 0);
+                    item.total_price = item.quantity * item.unit_price;
+                }
                 html += `
                     <tr class="border-b hover:bg-gray-50">
                         <!-- SKU -->
@@ -1383,17 +1686,31 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </td>
 
-                        <!-- 원가 -->
+                        <!-- 원가 (판매단위 기준: 박스→박스원가, 낱개→낱개원가) - 수정 가능 -->
+                        <td class="px-2 py-3 text-center">
+                            <input type="number"
+                                   class="w-full px-2 py-1 text-sm border border-gray-300 rounded text-center focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                   value="${item.sale_unit === 'piece' ? (item.cost_price_piece || 0) : (item.cost_price || 0)}"
+                                   min="0"
+                                   step="0.01"
+                                   onchange="updateCostPrice(${index}, this.value)"
+                                   style="min-width: 80px;">
+                        </td>
+
+                        <!-- 판매가 (소매 판매가, 참고용) -->
                         <td class="px-2 py-3 text-center">
                             <div class="text-sm text-gray-700">
-                                ${item.cost_price ? Number(item.cost_price).toLocaleString() : '-'}
+                                ${item.selling_price ? fmtNum(item.selling_price) : '-'}
                             </div>
                         </td>
 
-                        <!-- 판매가 -->
+                        <!-- 판매단위 (BOX/PCS 토글) -->
                         <td class="px-2 py-3 text-center">
-                            <div class="text-sm text-gray-700">
-                                ${item.selling_price ? Number(item.selling_price).toLocaleString() : '-'}
+                            <div class="inline-flex rounded border border-gray-300 overflow-hidden text-xs">
+                                <button type="button" onclick="setCartUnit(${index},'box')"
+                                        class="px-2 py-1 font-bold ${item.sale_unit === 'piece' ? 'bg-white text-gray-400' : 'bg-amber-500 text-white'}">BOX</button>
+                                <button type="button" onclick="setCartUnit(${index},'piece')"
+                                        class="px-2 py-1 font-bold ${item.sale_unit === 'piece' ? 'bg-blue-500 text-white' : 'bg-white text-gray-400'}">PCS</button>
                             </div>
                         </td>
 
@@ -1418,7 +1735,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <input type="number"
                                        value="${item.quantity}"
                                        class="w-16 text-sm text-center border border-gray-300 rounded px-1 py-1"
-                                       min="1"
+                                       min="${item.is_manual ? '0.01' : '1'}"
+                                       step="${item.is_manual ? '0.01' : '1'}"
                                        onchange="setQuantity(${index}, this.value)">
                                 <button type="button" onclick="updateQuantity(${index}, 1)"
                                         class="w-6 h-6 text-xs bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center">
@@ -1430,7 +1748,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- 합계 -->
                         <td class="px-2 py-3 text-right">
                             <div class="text-sm font-semibold text-primary-600">
-                                ${Number(item.total_price).toLocaleString()}
+                                ${fmtNum(item.total_price)}
                             </div>
                         </td>
 
@@ -1446,9 +1764,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             cartList.innerHTML = html;
-            
+
             const total = cart.reduce((sum, item) => sum + item.total_price, 0);
-            cartTotal.textContent = Number(total).toLocaleString();
+            cartTotal.textContent = fmtNum(total);
+            const cartCountEl = document.getElementById('cart_count');
+            if (cartCountEl) cartCountEl.textContent = cart.length;
         }
         
         cartItemsInput.value = JSON.stringify(cart);
@@ -1471,14 +1791,17 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     window.setQuantity = function(index, newQuantity) {
-        const quantity = parseInt(newQuantity) || 0;
+        // 수기 항목(무게)은 소숫점 둘째자리까지, 그 외(박스/등록상품)는 정수
+        const isManual = !!cart[index].is_manual;
+        let quantity = parseFloat(newQuantity) || 0;
+        quantity = isManual ? Math.round(quantity * 100) / 100 : Math.round(quantity);
         if (quantity <= 0) {
-            showNotification('수량은 1 이상이어야 합니다.', 'error');
+            showNotification(translations.quantity_min, 'error');
             updateCart(); // 이전 값으로 복원
             return;
         }
         cart[index].quantity = quantity;
-        cart[index].total_price = cart[index].quantity * cart[index].unit_price;
+        cart[index].total_price = Math.round(cart[index].quantity * cart[index].unit_price * 100) / 100;
         updateCart();
     };
 
@@ -1488,11 +1811,56 @@ document.addEventListener('DOMContentLoaded', function() {
         cart[index].total_price = cart[index].quantity * price;
         updateCart();
     };
+
+    // 원가(Cost Price) 수정 - 판매단위(박스/낱개)에 맞는 원가 필드 갱신
+    window.updateCostPrice = function(index, newCost) {
+        const cost = parseFloat(newCost) || 0;
+        if (cart[index].sale_unit === 'piece') {
+            cart[index].cost_price_piece = cost;
+        } else {
+            cart[index].cost_price = cost;
+        }
+        updateCart();
+    };
+
+    // 판매단위(박스/낱개) 선택 → 해당 단위의 도매판매가를 적용
+    window.setCartUnit = function(index, unit) {
+        const it = cart[index];
+        it.sale_unit = (unit === 'piece') ? 'piece' : 'box';
+        const boxPrice = parseFloat(it.wholesale_price) || 0;
+        const piecePrice = parseFloat(it.wholesale_price_piece) || 0;
+
+        if (it.sale_unit === 'piece') {
+            if (piecePrice > 0) {
+                it.unit_price = piecePrice;
+            } else {
+                showNotification('낱개 판매가가 없습니다. 도매판매가를 직접 입력하세요.', 'info');
+            }
+        } else {
+            if (boxPrice > 0) {
+                it.unit_price = boxPrice;
+            }
+        }
+        it.total_price = it.quantity * it.unit_price;
+        updateCart();
+    };
     
     function updateSaleButton() {
         const hasCustomer = customerId.value !== '';
         const hasItems = cart.length > 0;
         completeSaleBtn.disabled = !hasCustomer || !hasItems;
+
+        // 거래처를 먼저 선택(등록)해야 상품 검색/추가가 가능하도록 제어
+        productSearch.disabled = !hasCustomer;
+        productSearchBtn.disabled = !hasCustomer;
+        const manualToggleBtn = document.getElementById('toggle_manual_entry');
+        if (manualToggleBtn) manualToggleBtn.disabled = !hasCustomer;
+        const searchHint = document.getElementById('product_search_hint');
+        if (searchHint) searchHint.classList.toggle('hidden', hasCustomer);
+        if (!hasCustomer) {
+            productSearchResults.classList.add('hidden');
+            document.getElementById('manual_entry_form').classList.add('hidden');
+        }
     }
     
     // 거래처 모달 표시 및 전체 목록 로드
@@ -1543,7 +1911,7 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'q=&limit=100&show_all=1' // 전체 목록 요청
+            body: 'q=&limit=100&show_all=1&customer_id=' + ((document.getElementById('customer_id') || {}).value || 0) // 전체 목록 요청
         })
         .then(response => response.json())
         .then(data => {
@@ -1561,22 +1929,30 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 모달 거래처 목록 표시
     function displayModalCustomerList(customers) {
-        let html = '';
+        let html = `
+            <div class="mb-2">
+                <button type="button" class="open-new-customer-modal w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border-2 border-green-300 rounded-md hover:bg-green-100"
+                        data-name="">
+                    <i class="fas fa-plus-circle text-base"></i>
+                    신규 거래처 등록
+                </button>
+            </div>`;
+
         customers.forEach(function(customer) {
             html += `
-                <div class="modal-customer-item p-3 border border-gray-200 rounded-md hover:bg-blue-50 cursor-pointer transition-colors duration-200" 
-                     data-id="${customer.id}" 
-                     data-name="${customer.name}"
-                     data-phone="${customer.phone || ''}"
-                     data-address="${customer.address || ''}">
+                <div class="modal-customer-item p-3 border border-gray-200 rounded-md hover:bg-blue-50 cursor-pointer transition-colors duration-200"
+                     data-id="${customer.id}"
+                     data-name="${escapeAttr(customer.name)}"
+                     data-phone="${escapeAttr(customer.phone || '')}"
+                     data-address="${escapeAttr(customer.address || '')}">
                     <div class="flex items-center justify-between">
                         <div class="flex-1 min-w-0">
-                            <div class="font-medium text-gray-900 text-sm truncate">${customer.name}</div>
+                            <div class="font-medium text-gray-900 text-sm truncate">${escapeHtml(customer.name)}</div>
                             <div class="text-xs text-gray-600 mt-1 truncate">
-                                <i class="fas fa-phone mr-1"></i>${customer.phone || translations.no_phone}
+                                <i class="fas fa-phone mr-1"></i>${escapeHtml(customer.phone || translations.no_phone)}
                             </div>
                             ${customer.address ? `<div class="text-xs text-gray-500 truncate mt-1">
-                                <i class="fas fa-map-marker-alt mr-1"></i>${customer.address}
+                                <i class="fas fa-map-marker-alt mr-1"></i>${escapeHtml(customer.address)}
                             </div>` : ''}
                         </div>
                         <div class="text-blue-500 ml-2">
@@ -1586,20 +1962,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         });
-        
+
         customerList.innerHTML = html;
-        
-        // 클릭 이벤트 추가
+
         customerList.querySelectorAll('.modal-customer-item').forEach(function(item) {
             item.addEventListener('click', function() {
                 selectCustomerFromModal(this);
             });
         });
+        bindNewCustomerBtns();
     }
     
     // 모달 상품 목록 표시
     function displayModalProductList(products) {
         let html = '';
+        const fmtPrice = function(v) { return (v && Number(v) > 0) ? Number(v).toLocaleString() : '-'; };
         products.forEach(function(product) {
             // 도매 SKU들 처리
             let displaySkus = '';
@@ -1624,6 +2001,8 @@ document.addEventListener('DOMContentLoaded', function() {
                      data-wholesale-price-piece="${product.wholesale_price_piece || 0}"
                      data-min-quantity="${product.min_quantity}"
                      data-cost-price="${product.cost_price || 0}"
+                     data-cost-box="${product.wp_cost_box || 0}"
+                     data-cost-piece="${product.wp_cost_piece || 0}"
                      data-selling-price="${product.selling_price || 0}">
                     <div class="flex items-center justify-between">
                         <div class="flex-1 min-w-0">
@@ -1636,8 +2015,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                 `<div class="text-xs text-gray-600 mt-1 truncate">${product.display_name_ko}</div>` : ''}
                             <div class="text-xs text-gray-500 mt-1 flex flex-wrap gap-2">
                                 <span><i class="fas fa-barcode mr-1"></i>${displaySkus}</span>
-                                <span class="text-green-600 font-medium"><i class="fas fa-won-sign mr-1"></i>${Number(product.wholesale_price).toLocaleString()}원</span>
                                 <span><i class="fas fa-box mr-1"></i>${translations.minimum_prefix}${product.min_quantity || 1}</span>
+                                ${product.memo ? `<span class="text-amber-700"><i class="fas fa-sticky-note mr-1"></i>${product.memo}</span>` : ''}
+                            </div>
+                            <div class="text-xs text-gray-600 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                                <span>원가(낱개): ${fmtPrice(product.wp_cost_piece)}</span>
+                                <span>원가(박스): ${fmtPrice(product.wp_cost_box)}</span>
+                                <span>마진: ${Number(product.wp_margin_rate || 0).toFixed(1)}%</span>
+                                <span class="text-blue-700 font-medium">도매가(낱개): ${fmtPrice(product.wholesale_price_piece)}</span>
+                                <span class="text-blue-700 font-medium">도매가(박스): ${fmtPrice(product.wholesale_price)}</span>
                             </div>
                         </div>
                         <div class="text-green-500 ml-2">
@@ -1695,7 +2081,9 @@ document.addEventListener('DOMContentLoaded', function() {
             cart[existingIndex].quantity += 1; // 판매수량은 1개씩 증가
             cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_price;
         } else {
-            const costPrice = parseFloat(item.dataset.costPrice) || 0;
+            const costBox = parseFloat(item.dataset.costBox) || 0;
+            const costPiece = parseFloat(item.dataset.costPiece) || 0;
+            const costPrice = parseFloat(item.dataset.costPrice) || 0; // 인벤토리 원가 (폴백)
             const sellingPrice = parseFloat(item.dataset.sellingPrice) || 0;
 
             cart.push({
@@ -1709,8 +2097,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 min_quantity: minQuantity, // 박스포장수량 정보 (표시용)
                 wholesale_price: wholesalePrice, // 박스 판매가
                 wholesale_price_piece: wholesalePricePiece, // 낱개 판매가
-                cost_price: costPrice,
-                selling_price: sellingPrice
+                cost_price: costBox || costPrice,        // 원가(박스), 없으면 인벤토리 원가
+                cost_price_piece: costPiece, // 원가(낱개)
+                selling_price: sellingPrice,
+                sale_unit: 'piece'  // 기본 판매단위 PCS (단가는 유지, 토글 기본만 PCS)
             });
         }
 
@@ -1729,33 +2119,12 @@ document.addEventListener('DOMContentLoaded', function() {
             customerId.value = editData.customer_id;
             customerSearch.value = editData.customer_name || '';
             
-            // 선택된 거래처 표시 (있는 경우)
+            // 선택된 거래처 표시 (기존 span 요소 재사용)
             if (selectedCustomer && editData.customer_name) {
-                selectedCustomer.innerHTML = `
-                    <div class="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md">
-                        <div class="flex-1">
-                            <div class="font-medium text-blue-900">${editData.customer_name}</div>
-                            <div class="text-sm text-blue-700">
-                                ${editData.customer_phone || ''} ${editData.customer_address || ''}
-                            </div>
-                        </div>
-                        <button type="button" id="clear_customer_selection" class="text-blue-500 hover:text-blue-700">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                `;
+                document.getElementById('selected_customer_name').textContent = editData.customer_name;
+                document.getElementById('selected_customer_info').textContent =
+                    [editData.customer_phone, editData.customer_address].filter(Boolean).join(' ');
                 selectedCustomer.classList.remove('hidden');
-                
-                // 거래처 삭제 버튼 이벤트 재등록
-                const newClearBtn = document.getElementById('clear_customer_selection');
-                if (newClearBtn) {
-                    newClearBtn.addEventListener('click', function() {
-                        customerId.value = '';
-                        customerSearch.value = '';
-                        selectedCustomer.classList.add('hidden');
-                        updateCompleteSaleBtn();
-                    });
-                }
             }
         }
         
@@ -1775,26 +2144,32 @@ document.addEventListener('DOMContentLoaded', function() {
         if (editData.items && editData.items.length > 0) {
             cart = [];
             editData.items.forEach(function(item) {
+                const isManual = !item.product_id;
                 cart.push({
-                    product_id: item.product_id,
-                    sku: item.sku,
+                    product_id: item.product_id || null,
+                    is_manual: isManual,
+                    sku: item.sku || '수기',
                     name_ko: item.name_ko,
                     name_en: item.name_en,
                     unit_price: parseFloat(item.unit_price),
-                    quantity: parseInt(item.quantity),
+                    quantity: isManual ? (Math.round((parseFloat(item.quantity) || 0) * 100) / 100) : parseInt(item.quantity),
                     total_price: parseFloat(item.total_price),
-                    min_quantity: parseInt(item.min_quantity) || 1, // 기존 데이터에서 박스포장수량 로드
-                    wholesale_price: parseFloat(item.wholesale_price) || 0, // 박스 판매가
-                    wholesale_price_piece: parseFloat(item.wholesale_price_piece) || 0, // 낱개 판매가
+                    min_quantity: isManual ? 1 : (parseInt(item.min_quantity) || 1),
+                    wholesale_price: parseFloat(item.wholesale_price) || parseFloat(item.unit_price) || 0,
+                    wholesale_price_piece: parseFloat(item.wholesale_price_piece) || 0,
                     cost_price: parseFloat(item.cost_price) || 0,
-                    selling_price: parseFloat(item.selling_price) || 0
+                    cost_price_piece: parseFloat(item.cost_price_piece) || 0,
+                    selling_price: parseFloat(item.selling_price) || 0,
+                    sale_unit: (item.sale_unit === 'piece') ? 'piece' : 'box'
                 });
             });
             
             updateCart();
         }
+
+        updateSaleButton();
     }
-    
+
     // 페이지 로드 시 수정 모드 초기화
     if (editMode) {
         initializeEditMode();
@@ -1833,7 +2208,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 // 성공 시 알림 표시
-                showNotification('도매상품으로 등록되었습니다!', 'success');
+                showNotification(translations.wholesale_registered_success, 'success');
                 
                 // 검색 결과 새로고침
                 const currentQuery = document.getElementById('product_search').value;
@@ -1853,13 +2228,161 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error:', error);
-            showNotification('등록 중 오류가 발생했습니다.', 'error');
+            showNotification(translations.register_error, 'error');
             
             // 버튼 복원
             button.disabled = false;
             button.innerHTML = originalText;
         });
     };
+
+    // ─── 신규 거래처 등록 모달 ───────────────────────────────────────
+
+    const newCustomerModal = document.getElementById('new-customer-modal');
+
+    function openNewCustomerModal(prefillName) {
+        document.getElementById('new_customer_name').value = prefillName || '';
+        document.getElementById('new_customer_phone').value = '';
+        document.getElementById('new_customer_address').value = '';
+        document.getElementById('new_customer_memo').value = '';
+        document.getElementById('new_customer_name_en').value = '';
+        document.getElementById('transliterated_name_section').classList.add('hidden');
+        document.getElementById('new-customer-form-errors').classList.add('hidden');
+        customerModal.classList.add('hidden');
+        customerSearchResults.classList.add('hidden');
+        newCustomerModal.classList.remove('hidden');
+        document.getElementById('new_customer_name').focus();
+    }
+
+    function closeNewCustomerModal() {
+        newCustomerModal.classList.add('hidden');
+    }
+
+    document.getElementById('close-new-customer-modal').addEventListener('click', closeNewCustomerModal);
+    document.getElementById('cancel-new-customer').addEventListener('click', closeNewCustomerModal);
+
+    newCustomerModal.addEventListener('click', function(e) {
+        if (e.target === newCustomerModal) closeNewCustomerModal();
+    });
+
+    // 번역 버튼: 한글 → 영어 발음 변환
+    document.getElementById('transliterate_btn').addEventListener('click', function() {
+        const korean = document.getElementById('new_customer_name').value.trim();
+        if (!korean) return;
+        const romanized = koreanToRoman(korean);
+        document.getElementById('new_customer_name_en').value = romanized;
+        document.getElementById('transliterated_name_section').classList.remove('hidden');
+    });
+
+    // 저장 버튼
+    document.getElementById('save-new-customer').addEventListener('click', function() {
+        const name    = document.getElementById('new_customer_name').value.trim();
+        const phone   = document.getElementById('new_customer_phone').value.trim();
+        const address = document.getElementById('new_customer_address').value.trim();
+        const memo    = document.getElementById('new_customer_memo').value.trim();
+
+        const errBox  = document.getElementById('new-customer-form-errors');
+        const errText = document.getElementById('new-customer-error-text');
+
+        if (!name) {
+            errText.textContent = '업체명을 입력해주세요.';
+            errBox.classList.remove('hidden');
+            return;
+        }
+        errBox.classList.add('hidden');
+
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>저장 중...';
+
+        fetch('ajax_add_wholesale_customer.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `name=${encodeURIComponent(name)}&phone=${encodeURIComponent(phone)}&address=${encodeURIComponent(address)}&memo=${encodeURIComponent(memo)}`
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                closeNewCustomerModal();
+                // 등록된 거래처를 바로 선택
+                const c = data.customer;
+                customerId.value = c.id;
+                document.getElementById('selected_customer_name').textContent = c.name;
+                document.getElementById('selected_customer_info').textContent = `${c.phone || ''} ${c.address || ''}`.trim();
+                selectedCustomer.classList.remove('hidden');
+                customerSearch.value = c.name;
+                updateSaleButton();
+                showNotification(translations.customer_registered, 'success');
+            } else {
+                errText.textContent = data.message || '저장 중 오류가 발생했습니다.';
+                errBox.classList.remove('hidden');
+            }
+        })
+        .catch(() => {
+            errText.textContent = translations.server_error;
+            errBox.classList.remove('hidden');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save mr-1"></i>저장';
+        });
+    });
+
+    // 신규 등록 버튼 바인딩 (동적으로 추가되는 버튼들)
+    function bindNewCustomerBtns() {
+        document.querySelectorAll('.open-new-customer-modal').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openNewCustomerModal(this.dataset.name || '');
+            });
+        });
+    }
+
+    // ESC 키로 신규 거래처 모달 닫기
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            newCustomerModal.classList.add('hidden');
+        }
+    });
+
+    // ─── 한글 → 영어 발음 변환 (국어 로마자 표기법) ─────────────────
+
+    function koreanToRoman(str) {
+        const ONSET  = ['g','kk','n','d','tt','r','m','b','pp','s','ss','','j','jj','ch','k','t','p','h'];
+        const VOWEL  = ['a','ae','ya','yae','eo','e','yeo','ye','o','wa','wae','oe','yo','u','wo','we','wi','yu','eu','ui','i'];
+        const CODA   = ['','k','kk','ks','n','nj','nh','l','lk','lm','lb','ls','lt','lp','lh','m','p','ps','s','ss','ng','j','ch','k','t','p','h'];
+
+        let result = '';
+        for (let i = 0; i < str.length; i++) {
+            const code = str.charCodeAt(i);
+            if (code >= 0xAC00 && code <= 0xD7A3) {
+                const offset = code - 0xAC00;
+                const onset  = Math.floor(offset / (21 * 28));
+                const vowel  = Math.floor((offset % (21 * 28)) / 28);
+                const coda   = offset % 28;
+                result += ONSET[onset] + VOWEL[vowel] + CODA[coda];
+            } else if ((code >= 0x41 && code <= 0x5A) || (code >= 0x61 && code <= 0x7A) || (code >= 0x30 && code <= 0x39)) {
+                result += str[i];
+            } else if (code === 0x20) {
+                result += ' ';
+            }
+        }
+        return result.toUpperCase();
+    }
+
+    // ─── XSS 방지 헬퍼 ──────────────────────────────────────────────
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function escapeAttr(str) {
+        return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
 
     // 알림 표시 함수 정의
     window.showNotification = function(message, type = 'info') {
@@ -1900,262 +2423,39 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
-/* 모달 스타일링 */
+/* 모달 아이템 호버 */
 .modal-customer-item, .modal-product-item {
-    transition: all 0.2s ease-in-out;
+    transition: all 0.15s ease-in-out;
 }
-
 .modal-customer-item:hover, .modal-product-item:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
-/* 모달 애니메이션 */
-#customer-modal, #product-modal {
-    animation: fadeIn 0.2s ease-in-out;
-}
+/* 모달 진입 애니메이션 */
+@keyframes fadeIn  { from { opacity:0 } to { opacity:1 } }
+@keyframes slideIn { from { opacity:0; transform:translateY(-16px) } to { opacity:1; transform:translateY(0) } }
 
-#customer-modal > div, #product-modal > div {
-    animation: slideIn 0.2s ease-in-out;
-}
+#customer-modal, #product-modal, #new-customer-modal { animation: fadeIn 0.15s ease-in-out; }
+#customer-modal > div, #product-modal > div, #new-customer-modal > div { animation: slideIn 0.15s ease-in-out; }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* 검색 버튼 호버 효과 */
-#customer_search_btn, #product_search_btn {
-    transition: all 0.2s ease-in-out;
-}
-
-#customer_search_btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
-}
-
-#product_search_btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(34, 197, 94, 0.3);
-}
-
-/* 모달 스크롤바 커스터마이징 */
-#customer-list::-webkit-scrollbar,
-#product-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-#customer-list::-webkit-scrollbar-track,
-#product-list::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-#customer-list::-webkit-scrollbar-thumb,
-#product-list::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-}
-
-#customer-list::-webkit-scrollbar-thumb:hover,
-#product-list::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-/* 모바일 반응형 */
-@media (max-width: 640px) {
-    #customer-modal > div, #product-modal > div {
-        margin: 1rem;
-        max-height: calc(100vh - 2rem);
-        max-width: calc(100vw - 2rem);
-    }
-    
-    #customer-modal .max-w-2xl,
-    #product-modal .max-w-3xl {
-        max-width: calc(100vw - 2rem);
-    }
-    
-    .modal-customer-item,
-    .modal-product-item {
-        padding: 0.75rem;
-    }
-    
-    .modal-customer-item .text-lg, .modal-product-item .text-lg {
-        font-size: 1rem;
-    }
-    
-    .modal-product-item .flex.items-center.space-x-4 {
-        flex-direction: column;
-        align-items: flex-start;
-        space-x: 0;
-        gap: 0.5rem;
-    }
-}
-
-/* 점포/날짜 그리드 반응형 개선 */
-@media (max-width: 1024px) {
-    .grid.grid-cols-1.lg\\:grid-cols-3 {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-    }
-}
-
-/* 태블릿에서 2열 배치 */
-@media (min-width: 768px) and (max-width: 1023px) {
-    .grid.grid-cols-1.lg\\:grid-cols-3 {
-        grid-template-columns: 1fr 1fr;
-    }
-    
-    .grid.grid-cols-1.lg\\:grid-cols-3 > div:nth-child(3) {
-        grid-column: 1 / -1;
-    }
-}
-
-
-/* 모바일 최적화 */
-@media (max-width: 640px) {
-    #customer_search_btn {
-        padding: 0.5rem 0.75rem;
-        min-width: 44px;
-    }
-    
-    /* 장바구니 테이블 모바일 최적화 */
-    .cart-table {
-        font-size: 0.75rem; /* 12px */
-    }
-    
-    .cart-table th,
-    .cart-table td {
-        padding: 0.375rem 0.25rem; /* 6px 4px */
-    }
-    
-    /* 비고 입력란 모바일 최적화 */
-    .cart-table td input[type="text"] {
-        min-width: 80px;
-        font-size: 0.75rem;
-        padding: 0.25rem;
-    }
-    
-    /* 단가 입력란 모바일 최적화 */
-    .cart-table td input[type="number"] {
-        min-width: 80px;
-        font-size: 0.75rem;
-        padding: 0.25rem;
-    }
-    
-    /* 상품명 컬럼 최적화 */
-    .cart-table .product-name {
-        min-width: 120px;
-    }
-    
-    .cart-table .product-name div {
-        font-size: 0.6875rem; /* 11px */
-        line-height: 1.2;
-    }
-    
-    /* SKU 컬럼 최적화 */
-    .cart-table .sku-column {
-        font-size: 0.625rem; /* 10px */
-        min-width: 60px;
-    }
-    
-    /* 수량 버튼 최적화 */
-    .cart-table .quantity-controls button {
-        width: 1.25rem; /* 20px */
-        height: 1.25rem; /* 20px */
-        font-size: 0.625rem; /* 10px */
-    }
-    
-    .cart-table .quantity-controls span {
-        font-size: 0.6875rem; /* 11px */
-        min-width: 20px;
-        padding: 0 0.25rem;
-    }
-}
-
-/* 태블릿 최적화 */
-@media (min-width: 641px) and (max-width: 768px) {
-    .cart-table th,
-    .cart-table td {
-        padding: 0.5rem 0.375rem; /* 8px 6px */
-    }
-    
-    .cart-table td input[type="text"] {
-        min-width: 100px;
-    }
-    
-    .cart-table td input[type="number"] {
-        min-width: 100px;
-    }
-}
+/* 모달 스크롤바 */
+#customer-list::-webkit-scrollbar, #product-list::-webkit-scrollbar { width:5px; }
+#customer-list::-webkit-scrollbar-track, #product-list::-webkit-scrollbar-track { background:#f3f4f6; border-radius:3px; }
+#customer-list::-webkit-scrollbar-thumb, #product-list::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:3px; }
 
 /* 장바구니 테이블 가로 스크롤 */
-@media (max-width: 768px) {
-    .cart-table-wrapper {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    
-    .cart-table {
-        min-width: 900px; /* 박스포장수량, 판매단위 컬럼 추가로 인한 너비 증가 */
-    }
-}
+.cart-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cart-table { min-width: 940px; }
 
-/* 라디오 버튼 스타일링 */
-.sale-unit-btn {
-    @apply flex items-center space-x-1 px-2 py-1 rounded-lg border-2 cursor-pointer transition-all duration-200 text-xs;
-    min-width: 50px;
-    justify-content: center;
-}
-
-.sale-unit-btn-active {
-    @apply bg-primary-100 border-primary-500 text-primary-700;
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
-    transform: translateY(-1px);
-}
-
-.sale-unit-btn-inactive {
-    @apply bg-gray-50 border-gray-300 text-gray-600;
-}
-
-.sale-unit-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.sale-unit-btn-inactive:hover {
-    @apply bg-gray-100 border-gray-400 text-gray-700;
-}
-
-/* 모바일에서 라디오 버튼 최적화 */
+/* 모바일 */
 @media (max-width: 640px) {
-    .sale-unit-btn {
-        min-width: 45px;
-        padding: 0.25rem 0.5rem;
-    }
-    
-    .sale-unit-btn span {
-        font-size: 0.7rem;
-    }
-    
-    .sale-unit-btn i {
-        font-size: 0.6rem;
-    }
+    .cart-table { font-size: 0.7rem; }
+    .cart-table th, .cart-table td { padding: 0.25rem; }
+    .cart-table .product-name { min-width: 110px; }
+    .cart-table .sku-column  { min-width: 55px; font-size: 0.625rem; }
+    .cart-table .quantity-controls button { width:1.25rem; height:1.25rem; font-size:0.625rem; }
+    #customer-modal > div, #product-modal > div { margin:0.75rem; max-height:calc(100vh - 1.5rem); }
 }
 </style>
 

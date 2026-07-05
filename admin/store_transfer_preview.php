@@ -198,13 +198,13 @@ if (isset($_SESSION['flash'])) {
                 <div class="px-6 py-4 border-b border-gray-200">
                     <div class="flex justify-between items-center py-3">
                         <div class="text-left text-sm text-gray-900 font-medium">
-                            점포 이동: <?php echo htmlspecialchars($transfer['from_store_name']); ?> → <?php echo htmlspecialchars($transfer['to_store_name']); ?>
+                            <?php echo t('store_transfer.route_label'); ?>: <?php echo htmlspecialchars($transfer['from_store_name']); ?> → <?php echo htmlspecialchars($transfer['to_store_name']); ?>
                         </div>
                         <div class="text-center text-sm text-gray-900 font-medium">
-                            이동 번호: #<?php echo str_pad($transfer['id'], 6, '0', STR_PAD_LEFT); ?>
+                            <?php echo t('store_transfer.transfer_number'); ?>: #<?php echo str_pad($transfer['id'], 6, '0', STR_PAD_LEFT); ?>
                         </div>
                         <div class="text-right text-sm text-gray-900 font-medium">
-                            이동 날짜: <?php echo date('Y년 m월 d일', strtotime($transfer['transfer_date'])); ?>
+                            <?php echo t('store_transfer.transfer_date_display'); ?>: <?php echo date('Y-m-d', strtotime($transfer['transfer_date'])); ?>
                         </div>
                     </div>
 
@@ -223,7 +223,7 @@ if (isset($_SESSION['flash'])) {
                             <tr>
                                 <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b w-20">SKU</th>
                                 <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b w-64"><?php echo t('store_transfer.product_name_column'); ?></th>
-                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase border-b w-20">포장단위</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase border-b w-20"><?php echo t('store_transfer.pcs_per_box_column'); ?></th>
                                 <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase border-b w-24"><?php echo t('store_transfer.unit_cost_column'); ?></th>
                                 <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase border-b w-20"><?php echo t('store_transfer.quantity_column'); ?></th>
                                 <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase border-b w-24"><?php echo t('store_transfer.total_price_column'); ?></th>
@@ -298,13 +298,13 @@ if (isset($_SESSION['flash'])) {
                             <table class="signature-table w-full border border-gray-300">
                                 <thead>
                                     <tr class="bg-gray-50">
-                                        <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300">담당자</th>
-                                        <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300">싸인</th>
+                                        <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300"><?php echo t('store_transfer.processor'); ?></th>
+                                        <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300"><?php echo t('store_transfer.signature_column'); ?></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td class="px-3 py-4 text-sm text-gray-900 text-center border-r border-gray-300"><?php echo htmlspecialchars($transfer['user_name'] ?? '미확인'); ?></td>
+                                        <td class="px-3 py-4 text-sm text-gray-900 text-center border-r border-gray-300"><?php echo htmlspecialchars($transfer['user_name'] ?? t('store_transfer.unknown_processor')); ?></td>
                                         <td class="px-3 py-4 text-sm text-gray-900 text-center" style="height: 60px;"></td>
                                     </tr>
                                 </tbody>

@@ -150,7 +150,14 @@ try {
                     <span class="text-sm font-normal text-gray-500">(총 <?php echo number_format($total_products); ?>개)</span>
                 <?php endif; ?>
             </h3>
-            <div class="flex space-x-3">
+            <div class="flex space-x-3 items-center">
+                <form method="GET" action="export_new_products.php" class="flex items-center space-x-2 mr-1">
+                    <input type="month" name="month" value="<?php echo date('Y-m'); ?>" max="<?php echo date('Y-m'); ?>"
+                           class="px-2 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 text-sm">
+                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">
+                        <i class="fas fa-file-excel mr-2"></i>엑셀 다운로드
+                    </button>
+                </form>
                 <a href="product_management.php" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
                     <i class="fas fa-box-open mr-2"></i><?php echo t('product.management'); ?>
                 </a>

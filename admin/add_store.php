@@ -1,12 +1,12 @@
 <?php
 require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = t('store.add') . ' - ' . t('company.name');
-require_once __DIR__ . '/partials/header.php';
+require_once __DIR__ . '/partials/system_header.php';
 
 // 총괄관리자만 접근 가능
 if ($_SESSION['role'] !== 'super_admin') {
     echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'><div class='flex'><div class='flex-shrink-0'><i class='fas fa-exclamation-circle text-red-400'></i></div><div class='ml-3'><p class='text-sm text-red-800'>" . t('store.access_denied') . "</p></div></div></div>";
-    require_once __DIR__ . '/partials/footer.php';
+    require_once __DIR__ . '/partials/system_footer.php';
     exit;
 }
 
@@ -14,9 +14,11 @@ require_once __DIR__ . '/../config/db_config.php';
 
 $errors = [];
 $store_name = '';
+$company_name = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $store_name = trim($_POST['name'] ?? '');
+    $company_name = trim($_POST['company_name'] ?? '');
 
     if (empty($store_name)) {
         $errors[] = t('store.name_required');
@@ -33,8 +35,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if ($stmt->fetch()) {
                 $errors[] = t('store.already_exists');
             } else {
-                $insert_stmt = $pdo->prepare("INSERT INTO stores (name) VALUES (?)");
-                $insert_stmt->execute([$store_name]);
+                $insert_stmt = $pdo->prepare("INSERT INTO stores (name, company_name) VALUES (?, ?)");
+                $insert_stmt->execute([$store_name, $company_name !== '' ? $company_name : null]);
 
                 $_SESSION['flash'] = ['type' => 'success', 'message' => str_replace('{name}', htmlspecialchars($store_name), t('store.added_successfully'))];
                 header("Location: store_management.php");
@@ -85,13 +87,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 <form action="add_store.php" method="post" class="space-y-6">
                     <div>
-                        <label for="name" class="sr-only"><?php echo t('store.name'); ?></label>
+                        <label for="name" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('store.name'); ?></label>
                         <div class="relative">
                             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                 <i class="fas fa-store-alt text-gray-400"></i>
                             </div>
                             <input type="text" id="name" name="name" class="block w-full rounded-md border-gray-300 pl-10 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-3" value="<?php echo htmlspecialchars($store_name); ?>" required placeholder="<?php echo t('store.name'); ?>">
                         </div>
+                    </div>
+
+                    <div>
+                        <label for="company_name" class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('store.company_name'); ?></label>
+                        <div class="relative">
+                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                <i class="fas fa-building text-gray-400"></i>
+                            </div>
+                            <input type="text" id="company_name" name="company_name" class="block w-full rounded-md border-gray-300 pl-10 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm py-3" value="<?php echo htmlspecialchars($company_name); ?>" placeholder="<?php echo t('store.company_name_placeholder'); ?>">
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500"><?php echo t('store.company_name_hint'); ?></p>
                     </div>
 
                     <div class="pt-5 border-t border-gray-200">
@@ -109,4 +122,4 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </div>
 </div>
 
-<?php require_once __DIR__ . '/partials/footer.php'; ?>
+<?php require_once __DIR__ . '/partials/system_footer.php'; ?>

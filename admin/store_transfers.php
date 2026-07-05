@@ -631,7 +631,15 @@ if (isset($_SESSION['flash'])) {
                     </div>
                     
                     <div class="mb-4">
-                        <h4 class="text-sm font-medium text-gray-900 mb-3"><?php echo t('store_transfer.recent_purchase_history'); ?></h4>
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-medium text-gray-900"><?php echo t('store_transfer.recent_purchase_history'); ?></h4>
+                            <div class="flex gap-1 text-xs">
+                                <button type="button" id="btn-mode-box" onclick="setPriceMode('box')"
+                                        class="px-2 py-1 rounded border border-blue-500 bg-blue-500 text-white">박스원가</button>
+                                <button type="button" id="btn-mode-unit" onclick="setPriceMode('unit')"
+                                        class="px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50">낱개가격</button>
+                            </div>
+                        </div>
                         <div id="purchase-history-list" class="space-y-2">
                             <!-- 매입 이력이 여기에 표시됩니다 -->
                         </div>
@@ -649,11 +657,16 @@ if (isset($_SESSION['flash'])) {
                         </div>
                     </div>
                     
-                    <div class="border-t pt-4">
-                        <button type="button" id="manual-price-input-btn" 
-                                class="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                    <div class="border-t pt-4 flex gap-2">
+                        <button type="button" id="manual-price-input-btn"
+                                class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 text-sm">
                             <i class="fas fa-edit mr-2"></i>
-                            <?php echo t('store_transfer.manual_price_input'); ?>
+                            박스원가 직접 입력
+                        </button>
+                        <button type="button" id="manual-unit-price-btn"
+                                class="flex-1 px-4 py-2 border border-purple-400 text-purple-700 rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 text-sm">
+                            <i class="fas fa-cubes mr-2"></i>
+                            낱개가격 직접 입력
                         </button>
                     </div>
                 </div>
@@ -753,6 +766,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 현재 선택 중인 상품 정보
     let currentSelectedProduct = null;
+    let currentPriceMode = 'box'; // 'box' or 'unit'
+    let lastLoadedHistory = null;
+    let currentPiecesPerBox = 1;
     
     // 상품 검색
     productSearch.addEventListener('input', function() {
@@ -1139,15 +1155,18 @@ document.addEventListener('DOMContentLoaded', function() {
                                    onblur="updatePiecesPerBox(${index}, this.value)">
                         </td>
                         
-                        <!-- 박스원가 -->
+                        <!-- 박스원가/낱개가격 -->
                         <td class="px-2 py-3 text-center">
-                            <input type="number" 
-                                   class="w-24 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
-                                   value="${parseFloat(item.unit_cost_price).toFixed(2)}"
-                                   min="0"
-                                   step="0.01"
-                                   onchange="updateBoxPrice(${index}, this.value)"
-                                   onblur="updateBoxPrice(${index}, this.value)">
+                            <div class="flex flex-col items-center gap-1">
+                                <input type="number"
+                                       class="w-24 px-2 py-1 text-sm text-center border ${item.price_type === 'unit' ? 'border-purple-400' : 'border-gray-300'} rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                       value="${parseFloat(item.unit_cost_price).toFixed(2)}"
+                                       min="0"
+                                       step="0.01"
+                                       onchange="updateBoxPrice(${index}, this.value)"
+                                       onblur="updateBoxPrice(${index}, this.value)">
+                                ${item.price_type === 'unit' ? '<span class="text-xs text-purple-600 font-medium">낱개</span>' : ''}
+                            </div>
                         </td>
                         
                         <!-- 매입가 선택 -->
@@ -1414,8 +1433,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     name_ko: item.name_ko,
                     name_en: item.name_en,
                     unit_cost_price: parseFloat(item.unit_cost_price),
+                    price_type: item.price_type || 'box',
                     quantity: parseInt(item.quantity),
-                    pieces_per_box: parseInt(item.pieces_per_box) || 1, // Use actual box packaging quantity from product info
+                    pieces_per_box: parseInt(item.pieces_per_box) || 1,
                     total_price: parseFloat(item.total_price),
                     remarks: item.remarks || ''
                 });
@@ -1502,37 +1522,64 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 매입 이력 조회 모달 관련 함수들
     function showPurchaseHistoryForNewProduct(productId, productName, productSku, fromStoreId) {
-        
+
         // 상품 정보 설정 (전역 변수 사용)
         currentSelectedProduct = { productId, productName, productSku, fromStoreId, isNewProduct: true };
         window.currentSelectedProduct = currentSelectedProduct;
         purchaseProductName.textContent = productName || 'N/A';
         purchaseProductSku.textContent = 'SKU: ' + (productSku || 'N/A');
-        
+
+        // pieces_per_box 설정
+        currentPiecesPerBox = window.pendingProductToAdd ? (window.pendingProductToAdd.piecesPerBox || 1) : 1;
+
+        // 가격 모드 초기화 (박스원가 기본)
+        currentPriceMode = 'box';
+        lastLoadedHistory = null;
+        const boxBtn = document.getElementById('btn-mode-box');
+        const unitBtn = document.getElementById('btn-mode-unit');
+        if (boxBtn) boxBtn.className = 'px-2 py-1 rounded border border-blue-500 bg-blue-500 text-white';
+        if (unitBtn) unitBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
+
         // 모달 제목 업데이트 (새 상품 추가용)
         purchaseModalTitle.innerHTML = '<i class="fas fa-plus mr-2 text-green-500"></i>매입가 선택 후 추가';
-        
+
         // 모달 표시 (전역 변수 사용)
         window.purchaseHistoryModal.classList.remove('hidden');
-        
+
         // 매입 이력 로드
         loadPurchaseHistory(productId, fromStoreId);
     }
 
     window.showPurchaseHistoryModal = function(productId, productName, productSku, fromStoreId) {
-        
+
         // 상품 정보 설정 (전역 변수 사용)
         currentSelectedProduct = { productId, productName, productSku, fromStoreId };
         window.currentSelectedProduct = currentSelectedProduct;
         purchaseProductName.textContent = productName || 'N/A';
         purchaseProductSku.textContent = 'SKU: ' + (productSku || 'N/A');
-        
+
+        // pieces_per_box와 price_type을 기존 cart 항목에서 가져오기
+        const cartItem = window.cart.find(ci => ci.product_id == productId);
+        currentPiecesPerBox = cartItem ? (cartItem.pieces_per_box || 1) : 1;
+        lastLoadedHistory = null;
+        const existingPriceType = cartItem ? (cartItem.price_type || 'box') : 'box';
+        currentPriceMode = existingPriceType;
+        const boxBtn = document.getElementById('btn-mode-box');
+        const unitBtn = document.getElementById('btn-mode-unit');
+        if (existingPriceType === 'unit') {
+            if (boxBtn) boxBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
+            if (unitBtn) unitBtn.className = 'px-2 py-1 rounded border border-purple-500 bg-purple-500 text-white';
+        } else {
+            if (boxBtn) boxBtn.className = 'px-2 py-1 rounded border border-blue-500 bg-blue-500 text-white';
+            if (unitBtn) unitBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
+        }
+
         // 모달 제목 업데이트 (기존 상품 가격 변경용)
         purchaseModalTitle.innerHTML = '<i class="fas fa-history mr-2 text-blue-500"></i>매입가 변경';
-        
+
         // 모달 표시 (전역 변수 사용)
         window.purchaseHistoryModal.classList.remove('hidden');
-        
+
         // 매입 이력 로드
         loadPurchaseHistory(productId, fromStoreId);
     };
@@ -1569,9 +1616,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function displayPurchaseHistory(historyData) {
+        lastLoadedHistory = historyData;
         let html = '';
-        
+        const piecesPerBox = currentPiecesPerBox || 1;
+        const isUnitMode = currentPriceMode === 'unit';
+
         historyData.forEach((item, index) => {
+            const boxCost = parseFloat(item.box_cost);
+            const unitPrice = piecesPerBox > 1 ? boxCost / piecesPerBox : boxCost;
+            const displayPrice = isUnitMode ? unitPrice.toFixed(2) : item.box_cost_formatted;
+            const priceLabel = isUnitMode ? '낱개가격' : '박스원가';
+            const selectPrice = isUnitMode ? unitPrice : boxCost;
+
             html += `
                 <div class="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
                     <div class="flex justify-between items-start mb-2">
@@ -1580,24 +1636,41 @@ document.addEventListener('DOMContentLoaded', function() {
                                 ${item.purchase_date_formatted} | ${item.supplier_name || 'N/A'}
                             </div>
                             <div class="text-xs text-gray-600 mt-1">
-                                박스원가: <strong class="text-gray-900">${item.box_cost_formatted}</strong> | 
-                                수량: ${item.quantity}개 | 
+                                ${priceLabel}: <strong class="${isUnitMode ? 'text-purple-700' : 'text-gray-900'}">${displayPrice}</strong>
+                                ${isUnitMode ? '<span class="text-purple-500">(낱개)</span>' : ''} |
+                                수량: ${item.quantity}개 |
                                 유형: ${item.purchase_type === 'box' ? '박스' : '개별'}
                             </div>
                         </div>
-                        <button type="button" 
-                                onclick="selectPurchasePrice('${item.box_cost}')"
-                                class="ml-3 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
+                        <button type="button"
+                                onclick="selectPurchasePrice('${selectPrice}')"
+                                class="ml-3 px-3 py-1 ${isUnitMode ? 'bg-purple-500 hover:bg-purple-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-xs rounded focus:outline-none focus:ring-2 focus:ring-offset-1">
                             선택
                         </button>
                     </div>
                 </div>
             `;
         });
-        
+
         purchaseHistoryList.innerHTML = html;
         purchaseHistoryList.classList.remove('hidden');
     }
+
+    window.setPriceMode = function(mode) {
+        currentPriceMode = mode;
+        const boxBtn = document.getElementById('btn-mode-box');
+        const unitBtn = document.getElementById('btn-mode-unit');
+        if (mode === 'box') {
+            boxBtn.className = 'px-2 py-1 rounded border border-blue-500 bg-blue-500 text-white';
+            unitBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
+        } else {
+            boxBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
+            unitBtn.className = 'px-2 py-1 rounded border border-purple-500 bg-purple-500 text-white';
+        }
+        if (lastLoadedHistory && lastLoadedHistory.length > 0) {
+            displayPurchaseHistory(lastLoadedHistory);
+        }
+    };
 
     window.selectPurchasePrice = function(boxCost) {
         const price = parseFloat(boxCost);
@@ -1636,6 +1709,7 @@ document.addEventListener('DOMContentLoaded', function() {
             name_ko: product.nameKo,
             name_en: product.nameEn,
             unit_cost_price: selectedPrice, // 선택된 매입가 사용
+            price_type: currentPriceMode, // 'box' 또는 'unit'
             quantity: product.minQuantity,
             pieces_per_box: product.piecesPerBox,
             total_price: selectedPrice * product.minQuantity,
@@ -1662,12 +1736,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     }
 
-    function applyBoxCostToProduct(productId, boxCost) {
-        // 장바구니에서 해당 상품을 찾아서 박스원가 업데이트 (전역 변수 사용)
+    function applyBoxCostToProduct(productId, price) {
+        // 장바구니에서 해당 상품을 찾아서 가격 업데이트 (전역 변수 사용)
         const cartIndex = window.cart.findIndex(item => item.product_id == productId);
         if (cartIndex !== -1) {
-            window.cart[cartIndex].unit_cost_price = boxCost;
-            window.cart[cartIndex].total_price = window.cart[cartIndex].quantity * boxCost;
+            window.cart[cartIndex].unit_cost_price = price;
+            window.cart[cartIndex].price_type = currentPriceMode;
+            window.cart[cartIndex].total_price = window.cart[cartIndex].quantity * price;
             window.updateCart();
         }
     }
@@ -1677,33 +1752,62 @@ document.addEventListener('DOMContentLoaded', function() {
         window.purchaseHistoryModal.classList.add('hidden');
         currentSelectedProduct = null;
         window.currentSelectedProduct = null;
-        // 임시 상품 정보도 정리
+        currentPriceMode = 'box';
+        lastLoadedHistory = null;
+        currentPiecesPerBox = 1;
+        const boxBtn = document.getElementById('btn-mode-box');
+        const unitBtn = document.getElementById('btn-mode-unit');
+        if (boxBtn) boxBtn.className = 'px-2 py-1 rounded border border-blue-500 bg-blue-500 text-white';
+        if (unitBtn) unitBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
         if (window.pendingProductToAdd) {
             window.pendingProductToAdd = null;
         }
     });
 
     manualPriceInputBtn.addEventListener('click', function() {
-        const price = prompt(translations.enter_box_cost, '');
+        const price = prompt('박스원가를 입력하세요:', '');
         if (price !== null) {
             const numericPrice = parseFloat(price);
             if (!isNaN(numericPrice) && numericPrice > 0) {
                 if (window.currentSelectedProduct || currentSelectedProduct) {
                     const selectedProduct = window.currentSelectedProduct || currentSelectedProduct;
+                    currentPriceMode = 'box';
                     if (selectedProduct.isNewProduct) {
-                        // 새 상품 추가하기
                         addToCartWithSelectedPrice(numericPrice);
                     } else {
-                        // 기존 상품 가격 변경
                         applyBoxCostToProduct(selectedProduct.productId, numericPrice);
                     }
                     window.purchaseHistoryModal.classList.add('hidden');
                 }
             } else {
-                alert('Please enter a valid number.');
+                alert('올바른 숫자를 입력해주세요.');
             }
         }
     });
+
+    const manualUnitPriceBtn = document.getElementById('manual-unit-price-btn');
+    if (manualUnitPriceBtn) {
+        manualUnitPriceBtn.addEventListener('click', function() {
+            const price = prompt('낱개가격을 입력하세요:', '');
+            if (price !== null) {
+                const numericPrice = parseFloat(price);
+                if (!isNaN(numericPrice) && numericPrice > 0) {
+                    if (window.currentSelectedProduct || currentSelectedProduct) {
+                        const selectedProduct = window.currentSelectedProduct || currentSelectedProduct;
+                        currentPriceMode = 'unit';
+                        if (selectedProduct.isNewProduct) {
+                            addToCartWithSelectedPrice(numericPrice);
+                        } else {
+                            applyBoxCostToProduct(selectedProduct.productId, numericPrice);
+                        }
+                        window.purchaseHistoryModal.classList.add('hidden');
+                    }
+                } else {
+                    alert('올바른 숫자를 입력해주세요.');
+                }
+            }
+        });
+    }
 
     // 기본 원가로 추가 버튼 이벤트
     useDefaultPriceBtn.addEventListener('click', function() {
@@ -1722,7 +1826,13 @@ document.addEventListener('DOMContentLoaded', function() {
             this.classList.add('hidden');
             currentSelectedProduct = null;
             window.currentSelectedProduct = null;
-            // 임시 상품 정보도 정리
+            currentPriceMode = 'box';
+            lastLoadedHistory = null;
+            currentPiecesPerBox = 1;
+            const boxBtn = document.getElementById('btn-mode-box');
+            const unitBtn = document.getElementById('btn-mode-unit');
+            if (boxBtn) boxBtn.className = 'px-2 py-1 rounded border border-blue-500 bg-blue-500 text-white';
+            if (unitBtn) unitBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
             if (window.pendingProductToAdd) {
                 window.pendingProductToAdd = null;
             }

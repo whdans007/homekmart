@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = t('store.management') . ' - ' . t('company.name');
-require_once __DIR__ . '/partials/header.php';
+require_once __DIR__ . '/partials/system_header.php';
 
 // 지점관리 권한 확인
 if (!has_permission('store_management')) {
@@ -30,7 +30,7 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    $stmt = $pdo->query("SELECT id, name, created_at FROM stores ORDER BY id DESC");
+    $stmt = $pdo->query("SELECT id, name, company_name, created_at FROM stores ORDER BY id DESC");
     $stores = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
@@ -86,6 +86,7 @@ try {
                     <tr>
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ID</th>
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('store.name'); ?></th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('store.company_name'); ?></th>
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('store.created_at'); ?></th>
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo t('common.actions'); ?>
@@ -97,6 +98,7 @@ try {
                         <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="window.location.href='edit_store.php?id=<?php echo $store['id']; ?>'">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($store['id']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($store['name']); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo $store['company_name'] !== null && $store['company_name'] !== '' ? htmlspecialchars($store['company_name']) : '<span class="text-gray-400">-</span>'; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo date('Y-m-d', strtotime($store['created_at'])); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="flex space-x-2">
@@ -114,7 +116,7 @@ try {
                     <?php endforeach; ?>
                     <?php if (empty($stores)): ?>
                         <tr>
-                            <td colspan="4" class="px-6 py-12 text-center">
+                            <td colspan="5" class="px-6 py-12 text-center">
                                 <i class="fas fa-store text-gray-400 text-4xl mb-4"></i>
                                 <h3 class="text-lg font-medium text-gray-900 mb-2"><?php echo t('store.no_stores'); ?></h3>
                                 <p class="text-gray-600 mb-4">새로운 매장을 등록하여 시작하세요.</p>
@@ -133,4 +135,4 @@ try {
 
 </div>
 
-<?php require_once __DIR__ . '/partials/footer.php'; ?>
+<?php require_once __DIR__ . '/partials/system_footer.php'; ?>
