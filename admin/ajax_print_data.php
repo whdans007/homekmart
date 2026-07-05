@@ -18,11 +18,7 @@ try {
         exit('Unauthorized');
     }
 
-    // 매입관리 권한 확인
-    if (!has_permission('purchase_management')) {
-        http_response_code(403);
-        exit('Forbidden');
-    }
+    // 조회·출력은 점포 소속 사용자 누구나 가능 (로그인 여부만 확인)
 
     // 현재 사용자 정보 가져오기
     $current_store_id = $_SESSION['store_id'] ?? null;
@@ -115,10 +111,14 @@ try {
             $params[] = $selected_date;
         }
 
-        // 점포별 필터링 (super_admin이 아닌 경우)
-        if ($_SESSION['role'] !== 'super_admin' && !empty($current_store_id)) {
-            $where_conditions[] = "(pch.store_id = ? OR pch.store_id IS NULL)";
-            $params[] = $current_store_id;
+        // 점포 필터링 (super_admin이 아닌 경우 본인 소속 점포의 이력 전체) - 목록 페이지와 동일 기준
+        if ($_SESSION['role'] !== 'super_admin') {
+            if (!empty($current_store_id)) {
+                $where_conditions[] = "pch.store_id = ?";
+                $params[] = $current_store_id;
+            } else {
+                $where_conditions[] = "1 = 0";
+            }
         }
 
         $where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
@@ -206,13 +206,13 @@ try {
                     <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11%;">
                         <?php echo t('price_change.old_cost_price'); ?>
                     </th>
-                    <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11%;">
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11%; color: #e91e63;">
                         <?php echo t('price_change.new_cost_price'); ?>
                     </th>
                     <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11%;">
                         <?php echo t('price_change.old_selling_price'); ?>
                     </th>
-                    <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11%;">
+                    <th style="border: 1px solid #ddd; padding: 12px; text-align: right; font-weight: bold; width: 11%; color: #e91e63;">
                         <?php echo t('price_change.new_selling_price'); ?>
                     </th>
                 </tr>
@@ -256,7 +256,7 @@ try {
                         </td>
                         <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
                             <?php if ($change['new_cost_price']): ?>
-                                <strong style="color: #28a745;"><?php echo number_format($change['new_cost_price'], 2); ?></strong>
+                                <strong style="color: #e91e63;"><?php echo number_format($change['new_cost_price'], 2); ?></strong>
                             <?php else: ?>
                                 <span style="color: #999;">-</span>
                             <?php endif; ?>
@@ -270,7 +270,7 @@ try {
                         </td>
                         <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">
                             <?php if ($change['new_selling_price']): ?>
-                                <strong style="color: #007bff;"><?php echo number_format($change['new_selling_price']); ?></strong>
+                                <strong style="color: #e91e63;"><?php echo number_format($change['new_selling_price']); ?></strong>
                             <?php else: ?>
                                 <span style="color: #999;">-</span>
                             <?php endif; ?>

@@ -186,6 +186,21 @@ try {
         $unit_price_piece = 0; // 미등록 상품은 낱개가 없음
     }
 
+    // 거래처(업체)별 예외가 적용 — 등록 도매상품 + 거래처 선택 시
+    $customer_id = (int)($_GET['customer_id'] ?? $_POST['customer_id'] ?? 0);
+    if ($is_registered && $customer_id > 0 && !empty($product['wholesale_product_id'])) {
+        try {
+            if ($pdo->query("SHOW TABLES LIKE 'wholesale_customer_prices'")->fetchColumn()) {
+                $cps = $pdo->prepare("SELECT wholesale_price, wholesale_price_piece FROM wholesale_customer_prices WHERE customer_id = ? AND wholesale_product_id = ?");
+                $cps->execute([$customer_id, (int)$product['wholesale_product_id']]);
+                if ($ov = $cps->fetch(PDO::FETCH_ASSOC)) {
+                    if ($ov['wholesale_price'] !== null)       $unit_price       = (float)$ov['wholesale_price'];
+                    if ($ov['wholesale_price_piece'] !== null) $unit_price_piece = (float)$ov['wholesale_price_piece'];
+                }
+            }
+        } catch (PDOException $e) { /* 예외가 미적용 — 기본가 유지 */ }
+    }
+
     // 도매 SKU들 처리
     $display_skus = $product['sku'];
     if ($is_registered && $product['wholesale_skus']) {

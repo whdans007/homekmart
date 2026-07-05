@@ -10,6 +10,7 @@ ob_start();
 try {
     require_once __DIR__ . '/../config/db_config.php';
     require_once __DIR__ . '/../lib/session_helper.php';
+    require_once __DIR__ . '/../lib/permission_helper.php';
     require_once __DIR__ . '/../lib/margin_helper.php';
 } catch (Exception $e) {
     ob_clean();
@@ -38,7 +39,7 @@ if (!is_logged_in()) {
     exit;
 }
 
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['super_admin', 'admin'])) {
+if (!has_permission('purchase_management')) {
     ob_clean();
     echo json_encode(['success' => false, 'message' => '권한이 없습니다. 현재 권한: ' . ($_SESSION['role'] ?? 'none')]);
     exit;

@@ -19,6 +19,9 @@ $search_term = $_GET['q'] ?? $_POST['q'] ?? '';
 $limit = min(100, (int)($_GET['limit'] ?? $_POST['limit'] ?? 10));
 $show_all = $_GET['show_all'] ?? $_POST['show_all'] ?? '';
 
+// 점포 필터링 (super_admin이 아닌 경우 자신의 점포 거래처만 조회)
+$store_id = $_SESSION['role'] === 'super_admin' ? null : ($_SESSION['store_id'] ?? null);
+
 
 // 전체 목록 요청이거나 검색어가 있는 경우만 처리
 if (empty($search_term) && !$show_all) {
@@ -36,43 +39,51 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // 먼저 전체 거래처 수 확인
-    $count_stmt = $pdo->query("SELECT COUNT(*) FROM wholesale_customers WHERE is_active = 1");
+    // 먼저 전체 거래처 수 확인 (점포 필터 적용)
+    $count_sql = "SELECT COUNT(*) FROM wholesale_customers WHERE is_active = 1" . ($store_id ? " AND store_id = ?" : "");
+    $count_stmt = $pdo->prepare($count_sql);
+    $count_stmt->execute($store_id ? [$store_id] : []);
     $total_customers = $count_stmt->fetchColumn();
-    
+
     // 전체 목록 요청인지 검색인지에 따라 쿼리 구성
     if ($show_all && empty($search_term)) {
         // 전체 목록 요청
         $sql = "
             SELECT id, name, phone, address
-            FROM wholesale_customers 
-            WHERE is_active = 1 
+            FROM wholesale_customers
+            WHERE is_active = 1
+            " . ($store_id ? "AND store_id = ?" : "") . "
             ORDER BY name ASC
             LIMIT " . (int)$limit;
-        
+
         $stmt = $pdo->prepare($sql);
-        $stmt->execute();
+        $stmt->execute($store_id ? [$store_id] : []);
     } else {
         // 검색 요청
         $sql = "
             SELECT id, name, phone, address
-            FROM wholesale_customers 
-            WHERE is_active = 1 
+            FROM wholesale_customers
+            WHERE is_active = 1
+            " . ($store_id ? "AND store_id = ?" : "") . "
             AND (name LIKE ? OR phone LIKE ? OR address LIKE ?)
             ORDER BY name ASC
             LIMIT " . (int)$limit;
-        
+
         $stmt = $pdo->prepare($sql);
         $search_pattern = "%{$search_term}%";
-        
-        $stmt->execute([$search_pattern, $search_pattern, $search_pattern]);
+        $params = $store_id ? [$store_id] : [];
+        $params = array_merge($params, [$search_pattern, $search_pattern, $search_pattern]);
+
+        $stmt->execute($params);
     }
     $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    
+
+
     // 검색 결과가 없으면 샘플 데이터 확인
     if (empty($customers)) {
-        $sample_stmt = $pdo->query("SELECT id, name, phone, address FROM wholesale_customers WHERE is_active = 1 LIMIT 3");
+        $sample_sql = "SELECT id, name, phone, address FROM wholesale_customers WHERE is_active = 1" . ($store_id ? " AND store_id = ?" : "") . " LIMIT 3";
+        $sample_stmt = $pdo->prepare($sample_sql);
+        $sample_stmt->execute($store_id ? [$store_id] : []);
         $sample_customers = $sample_stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
