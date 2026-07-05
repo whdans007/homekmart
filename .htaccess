@@ -3,15 +3,16 @@
 # 보안 헤더 설정
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options nosniff
-    Header always set X-Frame-Options DENY
+    Header always set X-Frame-Options SAMEORIGIN
     Header always set X-XSS-Protection "1; mode=block"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 
-# HTTPS 강제 리다이렉트 (권장)
+# HTTPS 강제 리다이렉트 (리버스 프록시 X-Forwarded-Proto 지원)
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 </IfModule>
 
@@ -72,7 +73,7 @@
 # 디렉토리 접근 차단
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^(.*/)?(\.|_|node_modules|vendor|src|config|lib) - [F,L]
+    RewriteRule ^(.*/)?(\.[^/]*|_[^/]*|node_modules|vendor|src|config|lib)(/|$) - [F,L]
 </IfModule>
 
 # PHP 설정

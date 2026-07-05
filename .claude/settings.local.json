@@ -40,7 +40,16 @@
       "Bash(npm --version)",
       "Bash(winget --version)",
       "Bash(winget install:*)",
-      "Bash(export PATH=\"/c/Program Files/nodejs:$PATH\")"
+      "Bash(export PATH=\"/c/Program Files/nodejs:$PATH\")",
+      "Bash(python -c ' *)",
+      "PowerShell(openclaw config get models.authProfiles 2>&1)",
+      "PowerShell(openclaw config get providers.minimax 2>&1)",
+      "PowerShell(Get-Content \"$env:USERPROFILE\\\\.openclaw\\\\openclaw.json\" -Raw 2>&1 | Select-Object -First 100)",
+      "Read(//usr/bin/**)",
+      "Read(//usr/local/bin/**)",
+      "Bash(curl -s \"http://192.168.1.116/sunset/logistics/login.php\")",
+      "Bash(curl *)",
+      "PowerShell(wsl -d Ubuntu -- echo \"WSL is working\" 2>&1)"
     ],
     "deny": [],
     "ask": []
