@@ -32,6 +32,14 @@ try {
         : 'i.selling_price';
     $costExpr     = $hasCostPrice ? 'i.cost_price' : 'NULL';
 
+    // product_locations 테이블 없으면 location 조회 생략
+    $hasLocTable = (bool)$pdo->query(
+        "SELECT COUNT(*) FROM information_schema.tables
+         WHERE table_schema = DATABASE() AND table_name = 'product_locations'"
+    )->fetchColumn();
+    $locJoin  = $hasLocTable ? 'LEFT JOIN product_locations pl ON pl.product_id = p.id AND pl.store_id = ?' : '';
+    $locField = $hasLocTable ? ', COALESCE(pl.location, \'\') AS location' : ', \'\' AS location';
+
     $stmt = $pdo->prepare("
         SELECT
             p.id AS product_id,
@@ -40,12 +48,15 @@ try {
             p.sku,
             {$priceExpr} AS selling_price,
             {$costExpr} AS cost_price
+            {$locField}
         FROM products p
         LEFT JOIN inventory i ON p.id = i.product_id AND i.store_id = ?
+        {$locJoin}
         WHERE p.sku = ?
         LIMIT 1
     ");
-    $stmt->execute([$storeId, $barcode]);
+    $params = $hasLocTable ? [$storeId, $storeId, $barcode] : [$storeId, $barcode];
+    $stmt->execute($params);
     $product = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$product) {
@@ -68,6 +79,7 @@ try {
                                     ? number_format((float)$product['cost_price'], 2)
                                     : '',
             'cost_price_raw'    => (float)($product['cost_price'] ?? 0),
+            'location'          => $product['location'] ?? '',
         ]
     ]);
 
