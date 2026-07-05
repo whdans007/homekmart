@@ -90,8 +90,8 @@ try {
     <div class="bg-white shadow rounded-lg p-4 mb-6">
         <form method="GET" class="flex items-center space-x-3">
             <div class="flex-1">
-                <input type="text" name="search" id="search" value="<?php echo htmlspecialchars($search_term); ?>" 
-                       placeholder="거래처명, 전화번호, 주소로 검색..." 
+                <input type="text" name="search" id="search" value="<?php echo htmlspecialchars($search_term); ?>"
+                       placeholder="<?php echo htmlspecialchars(t('wholesale_customer_management.search_placeholder')); ?>"
                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 text-sm">
             </div>
             <button type="submit" class="px-3 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm">
@@ -103,10 +103,10 @@ try {
             <div class="flex items-center space-x-2">
                 <label for="per_page" class="text-sm text-gray-700 whitespace-nowrap"><?php echo t('product.display_count'); ?>:</label>
                 <select name="per_page" id="per_page" onchange="this.form.submit()" class="px-2 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 text-sm">
-                    <option value="10" <?php echo $per_page == 10 ? 'selected' : ''; ?>>10개</option>
-                    <option value="25" <?php echo $per_page == 25 ? 'selected' : ''; ?>>25개</option>
-                    <option value="50" <?php echo $per_page == 50 ? 'selected' : ''; ?>>50개</option>
-                    <option value="100" <?php echo $per_page == 100 ? 'selected' : ''; ?>>100개</option>
+                    <option value="10" <?php echo $per_page == 10 ? 'selected' : ''; ?>><?php echo htmlspecialchars(t('product.items_10')); ?></option>
+                    <option value="25" <?php echo $per_page == 25 ? 'selected' : ''; ?>><?php echo htmlspecialchars(t('product.items_25')); ?></option>
+                    <option value="50" <?php echo $per_page == 50 ? 'selected' : ''; ?>><?php echo htmlspecialchars(t('product.items_50')); ?></option>
+                    <option value="100" <?php echo $per_page == 100 ? 'selected' : ''; ?>><?php echo htmlspecialchars(t('product.items_100')); ?></option>
                 </select>
             </div>
         </form>
@@ -172,7 +172,7 @@ try {
                             <?php echo t('wholesale.customer_address'); ?>
                         </th>
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                            등록일
+                            <?php echo htmlspecialchars(t('common.registered_date')); ?>
                         </th>
                     </tr>
                 </thead>
@@ -228,7 +228,11 @@ try {
                         <?php 
                         $start = ($page - 1) * $limit + 1;
                         $end = min($page * $limit, $total_customers);
-                        echo "총 {$total_customers}개 중 {$start}-{$end}개 표시";
+                        echo htmlspecialchars(str_replace(
+                            ['{total}', '{start}', '{end}'],
+                            [number_format($total_customers), number_format($start), number_format($end)],
+                            t('wholesale_customer_management.pagination_showing')
+                        ));
                         ?>
                     </p>
                 </div>

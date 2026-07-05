@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/lang_helper.php';
-$page_title = 'Wholesale Sale Preview' . ' - ' . t('company.name');
+$page_title = t('wholesale_sale_preview.page_title') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
@@ -20,6 +20,10 @@ $customer = null;
 $store = null;
 $items = [];
 $errors = [];
+
+// 인쇄 상단 로고 (절대 URL — iframe 인쇄에서도 로드되도록)
+$_scheme  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$logo_url = $_scheme . '://' . ($_SERVER['HTTP_HOST'] ?? '') . '/logo/homekmart_logo.png';
 
 // 판매취소(삭제) 처리
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
@@ -44,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if (!$sale_to_delete) {
                 $_SESSION['flash'] = [
                     'type' => 'error',
-                    'message' => '삭제 권한이 없거나 해당 판매 내역을 찾을 수 없습니다.'
+                    'message' => t('wholesale_sale_preview.delete_no_permission')
                 ];
             } else {
                 // 트랜잭션 시작
@@ -63,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 
                 $_SESSION['flash'] = [
                     'type' => 'success',
-                    'message' => '판매 내역이 성공적으로 삭제되었습니다.'
+                    'message' => t('wholesale_sale_preview.delete_success')
                 ];
                 
                 // 판매 목록으로 리다이렉트
@@ -78,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             
             $_SESSION['flash'] = [
                 'type' => 'error',
-                'message' => '삭제 중 오류가 발생했습니다: ' . $e->getMessage()
+                'message' => t('wholesale_sale_preview.delete_error') . ': ' . $e->getMessage()
             ];
             
             error_log("Wholesale sale delete error: " . $e->getMessage());
@@ -86,6 +90,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         
         // 오류가 있었다면 현재 페이지로 리다이렉트
         header("Location: wholesale_sale_preview.php?id=$delete_sale_id");
+        exit;
+    }
+}
+
+// 결제 상태 처리 (완납/미납 토글)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array($_POST['action'], ['mark_paid', 'mark_unpaid'], true)) {
+    $pay_sale_id = (int)($_POST['sale_id'] ?? 0);
+    $payment_method = trim($_POST['payment_method'] ?? '');
+
+    if ($pay_sale_id > 0) {
+        try {
+            $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+            $pdo = new PDO($dsn, DB_USER, DB_PASS);
+            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+            // 권한 확인 - super_admin이 아닌 경우 본인 점포만
+            $check_sql = "SELECT id FROM wholesale_sales WHERE id = ?";
+            if ($_SESSION['role'] !== 'super_admin') {
+                $check_sql .= " AND store_id = " . (int)$current_store_id;
+            }
+            $check_stmt = $pdo->prepare($check_sql);
+            $check_stmt->execute([$pay_sale_id]);
+
+            if (!$check_stmt->fetch()) {
+                $_SESSION['flash'] = ['type' => 'error', 'message' => '결제 상태를 변경할 권한이 없습니다.'];
+            } else {
+                if ($_POST['action'] === 'mark_paid') {
+                    $stmt = $pdo->prepare("UPDATE wholesale_sales SET payment_status = 'paid', paid_at = NOW(), payment_method = ?, updated_at = NOW() WHERE id = ?");
+                    $stmt->execute([$payment_method ?: null, $pay_sale_id]);
+                    $_SESSION['flash'] = ['type' => 'success', 'message' => '결제완료로 처리되었습니다.'];
+                } else {
+                    $stmt = $pdo->prepare("UPDATE wholesale_sales SET payment_status = 'unpaid', paid_at = NULL, payment_method = NULL, updated_at = NOW() WHERE id = ?");
+                    $stmt->execute([$pay_sale_id]);
+                    $_SESSION['flash'] = ['type' => 'success', 'message' => '미결제로 변경되었습니다.'];
+                }
+            }
+        } catch (Exception $e) {
+            $_SESSION['flash'] = ['type' => 'error', 'message' => '결제 처리 중 오류: ' . $e->getMessage()];
+            error_log("Wholesale payment toggle error: " . $e->getMessage());
+        }
+        header("Location: wholesale_sale_preview.php?id=$pay_sale_id");
+        exit;
+    }
+}
+
+// V.A.T / E.W.T 적용 상태 저장 (체크박스 → DB 저장, 최종금액 재계산)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_tax') {
+    $tax_sale_id = (int)($_POST['sale_id'] ?? 0);
+    $vat_flag = isset($_POST['vat_applied']) ? 1 : 0;
+    $ewt_flag = isset($_POST['ewt_applied']) ? 1 : 0;
+
+    if ($tax_sale_id > 0) {
+        try {
+            $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+            $pdo = new PDO($dsn, DB_USER, DB_PASS);
+            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+            // 권한 확인 - super_admin이 아닌 경우 본인 점포만
+            $check_sql = "SELECT total_amount, final_amount FROM wholesale_sales WHERE id = ?";
+            if ($_SESSION['role'] !== 'super_admin') {
+                $check_sql .= " AND store_id = " . (int)$current_store_id;
+            }
+            $check_stmt = $pdo->prepare($check_sql);
+            $check_stmt->execute([$tax_sale_id]);
+            $row = $check_stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$row) {
+                $_SESSION['flash'] = ['type' => 'error', 'message' => '세금 적용 상태를 변경할 권한이 없습니다.'];
+            } else {
+                // vat_applied / ewt_applied 컬럼이 없으면 자동 추가 (하위 호환)
+                $col_check = $pdo->query("SHOW COLUMNS FROM wholesale_sales LIKE 'vat_applied'");
+                if ($col_check->rowCount() === 0) {
+                    $pdo->exec("ALTER TABLE wholesale_sales
+                        ADD COLUMN vat_applied TINYINT(1) NOT NULL DEFAULT 0,
+                        ADD COLUMN ewt_applied TINYINT(1) NOT NULL DEFAULT 0");
+                }
+
+                // TOTAL(기본 합계)은 total_amount, 최종금액 = TOTAL + VAT - EWT
+                $base = (float)($row['total_amount'] ?? $row['final_amount'] ?? 0);
+                $vat  = $vat_flag ? round($base * 0.12, 2) : 0;
+                $ewt  = $ewt_flag ? round($base * 0.01, 2) : 0;
+                $final = $base + $vat - $ewt;
+
+                $upd = $pdo->prepare("UPDATE wholesale_sales SET vat_applied = ?, ewt_applied = ?, final_amount = ?, updated_at = NOW() WHERE id = ?");
+                $upd->execute([$vat_flag, $ewt_flag, $final, $tax_sale_id]);
+                $_SESSION['flash'] = ['type' => 'success', 'message' => 'V.A.T / E.W.T 적용 상태가 저장되었습니다.'];
+            }
+        } catch (Exception $e) {
+            $_SESSION['flash'] = ['type' => 'error', 'message' => '세금 적용 저장 중 오류: ' . $e->getMessage()];
+            error_log("Wholesale tax save error: " . $e->getMessage());
+        }
+        header("Location: wholesale_sale_preview.php?id=$tax_sale_id");
         exit;
     }
 }
@@ -117,7 +213,7 @@ if ($sale_id > 0) {
         $sale = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$sale) {
-            $errors[] = '해당 판매 내역을 찾을 수 없습니다.';
+            $errors[] = t('wholesale_sale_preview.sale_not_found');
         } else {
             // 스키마 호환성 확인 후 적절한 쿼리 선택
             try {
@@ -138,15 +234,16 @@ if ($sale_id > 0) {
                         wsi.total_price,
                         wsi.sale_unit,
                         wsi.remarks,
-                        p.sku,
-                        COALESCE(wp.wholesale_name_ko, p.name_ko) as name_ko,
-                        COALESCE(wp.wholesale_name_en, p.name_en) as name_en,
+                        wsi.custom_product_name,
+                        COALESCE(p.sku, '수기') as sku,
+                        COALESCE(wp.wholesale_name_ko, p.name_ko, wsi.custom_product_name) as name_ko,
+                        COALESCE(wp.wholesale_name_en, p.name_en, wsi.custom_product_name) as name_en,
                         COALESCE(p.pieces_per_box, wp.min_quantity, 1) as pieces_per_box
                     FROM wholesale_sale_items wsi
                     LEFT JOIN products p ON wsi.product_id = p.id
                     LEFT JOIN wholesale_products wp ON wp.product_id = p.id AND wp.store_id = ?
                     WHERE wsi.sale_id = ?
-                    ORDER BY wsi.id ASC
+                    ORDER BY wsi.sort_order ASC, wsi.id ASC
                 ";
                 $items_stmt = $pdo->prepare($items_sql);
                 $items_stmt->execute([$sale['store_id'], $sale_id]);
@@ -161,7 +258,8 @@ if ($sale_id > 0) {
                         wsi.total_price,
                         wsi.sale_unit,
                         wsi.remarks,
-                        p.sku,
+                        NULL as custom_product_name,
+                        COALESCE(p.sku, '수기') as sku,
                         p.name_ko,
                         p.name_en,
                         COALESCE(p.pieces_per_box, wp.min_quantity, 1) as pieces_per_box
@@ -169,7 +267,7 @@ if ($sale_id > 0) {
                     LEFT JOIN products p ON wsi.product_id = p.id
                     LEFT JOIN wholesale_products wp ON wp.product_id = p.id AND wp.store_id = ?
                     WHERE wsi.sale_id = ?
-                    ORDER BY wsi.id ASC
+                    ORDER BY wsi.sort_order ASC, wsi.id ASC
                 ";
                 $items_stmt = $pdo->prepare($items_sql);
                 $items_stmt->execute([$sale['store_id'], $sale_id]);
@@ -177,14 +275,27 @@ if ($sale_id > 0) {
             
             $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
         }
-        
+
     } catch (PDOException $e) {
-        $errors[] = '데이터베이스 오류: ' . $e->getMessage();
+        $errors[] = t('wholesale_sale_preview.database_error') . $e->getMessage();
         error_log("Wholesale sale preview error: " . $e->getMessage());
     }
 } else {
-    $errors[] = '잘못된 판매 ID입니다.';
+    $errors[] = t('wholesale_sale_preview.invalid_sale_id');
 }
+
+// V.A.T / E.W.T 계산용 값 (TOTAL = total_amount, 최종 = TOTAL + VAT - EWT)
+$base_total  = 0;
+$vat_applied = false;
+$ewt_applied = false;
+if ($sale) {
+    $base_total  = (float)($sale['total_amount'] ?? $sale['final_amount'] ?? 0);
+    $vat_applied = !empty($sale['vat_applied']);
+    $ewt_applied = !empty($sale['ewt_applied']);
+}
+$vat_amount = $vat_applied ? round($base_total * 0.12, 2) : 0;
+$ewt_amount = $ewt_applied ? round($base_total * 0.01, 2) : 0;
+$computed_final = $base_total + $vat_amount - $ewt_amount;
 
 // 플래시 메시지 표시
 if (isset($_SESSION['flash'])) {
@@ -195,26 +306,6 @@ if (isset($_SESSION['flash'])) {
 
 <div class="px-2 sm:px-3 md:px-4 py-4">
     <div class="w-full max-w-none">
-        <!-- 헤더 영역 -->
-        <div class="mb-6">
-            <nav class="flex" aria-label="Breadcrumb">
-                <ol class="flex items-center space-x-2">
-                    <li>
-                        <a href="wholesale_sales.php" class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-handshake mr-1"></i>
-                            Wholesale Sales
-                        </a>
-                    </li>
-                    <li>
-                        <div class="flex items-center">
-                            <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
-                            <span class="text-gray-600">Transaction Statement Preview</span>
-                        </div>
-                    </li>
-                </ol>
-            </nav>
-        </div>
-
         <?php if (isset($flash)): ?>
             <div class="mb-6 p-4 rounded-md <?php echo $flash['type'] === 'error' ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'; ?>">
                 <div class="flex">
@@ -237,7 +328,7 @@ if (isset($_SESSION['flash'])) {
                         <i class="fas fa-exclamation-triangle text-red-400"></i>
                     </div>
                     <div class="ml-3">
-                        <h3 class="text-sm font-medium text-red-800">Please resolve the following errors:</h3>
+                        <h3 class="text-sm font-medium text-red-800"><?php echo t('wholesale_sale_preview.solve_errors'); ?></h3>
                         <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
                             <?php foreach ($errors as $error): ?>
                                 <li><?php echo htmlspecialchars($error); ?></li>
@@ -250,37 +341,61 @@ if (isset($_SESSION['flash'])) {
             <div class="text-center">
                 <a href="wholesale_sales.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700">
                     <i class="fas fa-arrow-left mr-2"></i>
-                    Back to Wholesale Sales
+                    <?php echo t('wholesale_sale_preview.back_to_wholesale'); ?>
                 </a>
             </div>
         <?php else: ?>
-            <!-- 버튼들 -->
-            <div class="mb-6 text-right">
-                <a href="wholesale_sales.php?edit=<?php echo $sale_id; ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                    <i class="fas fa-edit mr-2"></i>
-                    수정
-                </a>
-                <button id="print-btn" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    <i class="fas fa-print mr-2"></i>
-                    인쇄
-                </button>
-                <button id="delete-btn" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                    <i class="fas fa-trash mr-2"></i>
-                    판매취소
-                </button>
-                <a href="wholesale_sales_list.php" class="ml-3 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    목록으로
-                </a>
-            </div>
-
             <!-- 거래명세서 -->
             <div id="invoice-content" class="bg-white shadow-sm rounded-lg border p-4 print:shadow-none print:border-none">
-                <!-- 제목 -->
-                <div class="text-left mb-6">
-                    <h1 class="text-xl font-bold text-gray-900 mb-1">Wholesale Sales Transaction Statement</h1>
-                    <div class="text-sm text-gray-600">
-                        <div><?php echo htmlspecialchars($sale['store_name'] ?? 'Main Store'); ?></div>
+                <!-- 상단 가운데 로고 -->
+                <div class="invoice-logo text-center mb-4">
+                    <img src="<?php echo htmlspecialchars($logo_url); ?>" alt="Home K Mart" style="height:60px;display:inline-block;">
+                </div>
+                <!-- 제목 + 액션 버튼 -->
+                <?php $payment_status = $sale['payment_status'] ?? 'unpaid'; $is_paid = ($payment_status === 'paid'); ?>
+                <div class="flex items-start justify-between mb-6">
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-900 mb-1">
+                            <?php echo t('wholesale_sale_preview.transaction_title'); ?>
+                            <?php if ($is_paid): ?>
+                                <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800 align-middle"><i class="fas fa-check-circle mr-1"></i>결제완료</span>
+                            <?php else: ?>
+                                <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800 align-middle"><i class="fas fa-exclamation-circle mr-1"></i>미결제</span>
+                            <?php endif; ?>
+                        </h1>
+                        <div class="text-sm text-gray-600">
+                            <div><?php echo htmlspecialchars($sale['store_name'] ?? ''); ?></div>
+                            <?php if ($is_paid): ?>
+                                <div class="text-green-700 mt-1">
+                                    <i class="fas fa-money-bill-wave mr-1"></i>
+                                    <?php echo $sale['paid_at'] ? date('Y-m-d', strtotime($sale['paid_at'])) : ''; ?> 결제
+                                    <?php if (!empty($sale['payment_method'])): ?>(<?php echo htmlspecialchars($sale['payment_method']); ?>)<?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div id="preview-action-buttons" class="flex gap-2 flex-shrink-0 print:hidden">
+                        <?php if ($is_paid): ?>
+                            <button id="unpay-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-amber-500 hover:bg-amber-600">
+                                <i class="fas fa-undo mr-1.5"></i>미결제로 변경
+                            </button>
+                        <?php else: ?>
+                            <button id="pay-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700">
+                                <i class="fas fa-money-bill-wave mr-1.5"></i>결제완료 처리
+                            </button>
+                        <?php endif; ?>
+                        <a href="wholesale_sales.php?edit=<?php echo $sale_id; ?>" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                            <i class="fas fa-edit mr-1.5"></i><?php echo t('common.edit'); ?>
+                        </a>
+                        <button id="print-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                            <i class="fas fa-print mr-1.5"></i><?php echo t('common.print'); ?>
+                        </button>
+                        <button id="delete-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
+                            <i class="fas fa-trash mr-1.5"></i><?php echo t('wholesale_sale_preview.cancel_sale_btn'); ?>
+                        </button>
+                        <a href="wholesale_sales_list.php" class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                            <i class="fas fa-arrow-left mr-1.5"></i><?php echo t('wholesale_sale_preview.back_to_list'); ?>
+                        </a>
                     </div>
                 </div>
 
@@ -289,22 +404,34 @@ if (isset($_SESSION['flash'])) {
                     <table class="info-table w-full border border-gray-200 mb-4">
                         <tbody>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">Customer</th>
-                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200 font-medium"><?php echo htmlspecialchars($sale['customer_name']); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">Date</th>
-                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo date('M d, Y', strtotime($sale['sale_date'])); ?></td>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200"><?php echo t('wholesale_sale_preview.customer_label'); ?></th>
+                                <td class="cust-name px-3 py-2 text-base text-gray-900 border-b border-r border-gray-200 font-bold"><?php echo htmlspecialchars($sale['customer_name']); ?></td>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200"><?php echo t('wholesale_sale_preview.date_label'); ?></th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo date('Y-m-d', strtotime($sale['sale_date'])); ?></td>
                             </tr>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">Phone</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200"><?php echo t('wholesale_sale_preview.phone_label'); ?></th>
                                 <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200"><?php echo htmlspecialchars($sale['customer_phone'] ?: '-'); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">Salesperson</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200"><?php echo t('wholesale_sale_preview.salesperson_label'); ?></th>
                                 <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($sale['user_name']); ?></td>
                             </tr>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">Address</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200"><?php echo t('wholesale_sale_preview.address_label'); ?></th>
                                 <td class="px-3 py-2 text-sm text-gray-900 border-r border-gray-200"><?php echo htmlspecialchars($sale['customer_address'] ?: '-'); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">Sale No.</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200"><?php echo t('wholesale_sale_preview.sale_no_label'); ?></th>
                                 <td class="px-3 py-2 text-sm text-gray-900">#<?php echo str_pad($sale['id'], 6, '0', STR_PAD_LEFT); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 합계금액 요약 (배달정보와 상품 리스트 사이) -->
+                <div class="mb-6">
+                    <table class="summary-total-table w-full border border-gray-200">
+                        <tbody>
+                            <tr>
+                                <th class="bg-gray-50 px-3 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200 summary-total-label" style="width: 50%;"><?php echo t('wholesale_sale_preview.grand_total'); ?>:</th>
+                                <td class="px-3 py-2 text-right text-lg font-bold text-gray-900 summary-total-value"><?php echo fmt_num($computed_final); ?></td>
                             </tr>
                         </tbody>
                     </table>
@@ -315,12 +442,14 @@ if (isset($_SESSION['flash'])) {
                     <table class="product-table min-w-full border border-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">SKU</th>
-                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Product Name</th>
-                                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Pcs/Box</th>
-                                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Qty</th>
-                                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Unit Price</th>
-                                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Total</th>
+                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200"><?php echo t('wholesale_sale_preview.sku_label'); ?></th>
+                                <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200"><?php echo t('wholesale_sale_preview.product_name_label'); ?></th>
+                                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200"><?php echo t('wholesale_sale_preview.pcs_per_box_label'); ?></th>
+                                <?php $unit_header = t('wholesale_sale_preview.unit_header'); if ($unit_header === 'wholesale_sale_preview.unit_header') { $unit_header = '단위'; } ?>
+                                <th class="unit-cell px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200"><?php echo htmlspecialchars($unit_header); ?></th>
+                                <th class="qty-cell px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200"><?php echo t('wholesale_sale_preview.qty_label'); ?></th>
+                                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200"><?php echo t('wholesale_sale_preview.unit_price_label'); ?></th>
+                                <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200"><?php echo t('wholesale_sale_preview.total_label'); ?></th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -336,7 +465,8 @@ if (isset($_SESSION['flash'])) {
                                             <?php if ($item['name_en']): ?>
                                                 <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($item['name_en']); ?></div>
                                             <?php endif; ?>
-                                            <?php if ($item['name_ko']): ?>
+                                            <?php // 수기 입력 등 영문/한글명이 동일하면 한 줄만 표시 ?>
+                                            <?php if ($item['name_ko'] && $item['name_ko'] !== $item['name_en']): ?>
                                                 <div class="text-sm text-gray-600"><?php echo htmlspecialchars($item['name_ko']); ?></div>
                                             <?php endif; ?>
                                             <?php if (!$item['name_en'] && !$item['name_ko']): ?>
@@ -344,56 +474,105 @@ if (isset($_SESSION['flash'])) {
                                             <?php endif; ?>
                                         </td>
                                         <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['pieces_per_box']); ?></td>
-                                        <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['quantity']); ?></td>
-                                        <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo number_format($item['unit_price']); ?></td>
-                                        <td class="px-2 py-2 text-sm text-gray-900 text-right font-medium border-b border-gray-200"><?php echo number_format($item['total_price']); ?></td>
+                                        <?php
+                                        // 판매단위 라벨 — 영문(BOX/PCS), 별도 컬럼으로 표시
+                                        $is_piece = ((($item['sale_unit'] ?? 'box')) === 'piece');
+                                        $unit_label = $is_piece ? 'PCS' : 'BOX';
+                                        ?>
+                                        <td class="unit-cell px-2 py-2 text-sm text-gray-900 text-center border-b border-gray-200"><?php echo $unit_label; ?></td>
+                                        <td class="qty-cell px-2 py-2 text-sm text-gray-900 text-center border-b border-gray-200"><?php echo fmt_num($item['quantity']); ?></td>
+                                        <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo fmt_num($item['unit_price']); ?></td>
+                                        <td class="px-2 py-2 text-sm text-gray-900 text-right font-medium border-b border-gray-200"><?php echo fmt_num($item['total_price']); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </tbody>
                         <tfoot class="bg-gray-50 grand-total-row">
                             <tr>
-                                <td colspan="5" class="px-2 py-2 text-right text-sm font-medium text-gray-900 border-t border-gray-200 grand-total-label">Grand Total:</td>
-                                <td class="px-2 py-2 text-right text-lg font-bold text-gray-900 border-t border-gray-200 grand-total-value"><?php echo number_format($sale['final_amount']); ?></td>
+                                <td colspan="6" class="px-2 py-2 text-right text-sm font-medium text-gray-900 border-t border-gray-200 grand-total-label"><?php echo t('wholesale_sale_preview.grand_total'); ?>:</td>
+                                <td class="px-2 py-2 text-right text-lg font-bold text-gray-900 border-t border-gray-200 grand-total-value"><?php echo fmt_num($base_total); ?></td>
                             </tr>
                         </tfoot>
+                    </table>
+                </div>
+
+                <!-- V.A.T / E.W.T 계산 (체크박스 선택 시 반영) -->
+                <div id="tax-summary-box" class="mb-6">
+                    <!-- 체크박스 컨트롤 (인쇄/미리보기 제외) -->
+                    <?php $apply_label = t('common.apply') !== 'common.apply' ? t('common.apply') : '적용'; ?>
+                    <form method="POST" class="tax-controls flex flex-wrap items-center gap-4 mb-2 print:hidden">
+                        <input type="hidden" name="action" value="save_tax">
+                        <input type="hidden" name="sale_id" value="<?php echo $sale_id; ?>">
+                        <label class="inline-flex items-center text-sm font-medium text-gray-700 cursor-pointer">
+                            <input type="checkbox" id="vat-checkbox" name="vat_applied" value="1" <?php echo $vat_applied ? 'checked' : ''; ?> class="mr-1.5 h-4 w-4">
+                            V.A.T + 12% <?php echo $apply_label; ?>
+                        </label>
+                        <label class="inline-flex items-center text-sm font-medium text-gray-700 cursor-pointer">
+                            <input type="checkbox" id="ewt-checkbox" name="ewt_applied" value="1" <?php echo $ewt_applied ? 'checked' : ''; ?> class="mr-1.5 h-4 w-4">
+                            E.W.T - 1% <?php echo $apply_label; ?>
+                        </label>
+                        <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700">
+                            <i class="fas fa-save mr-1.5"></i><?php echo t('common.save') !== 'common.save' ? t('common.save') : '저장'; ?>
+                        </button>
+                    </form>
+                    <table class="tax-summary-table w-full border border-gray-200">
+                        <tbody>
+                            <tr class="vat-row" style="<?php echo $vat_applied ? '' : 'display: none;'; ?>">
+                                <th class="bg-gray-50 px-3 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200 tax-summary-label" style="width: 50%;">V.A.T + 12%:</th>
+                                <td class="px-3 py-2 text-right text-base text-gray-900 border-b border-gray-200 tax-summary-value vat-value">+<?php echo fmt_num($vat_amount); ?></td>
+                            </tr>
+                            <tr class="ewt-row" style="<?php echo $ewt_applied ? '' : 'display: none;'; ?>">
+                                <th class="bg-gray-50 px-3 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200 tax-summary-label">E.W.T - 1%:</th>
+                                <td class="px-3 py-2 text-right text-base text-gray-900 border-b border-gray-200 tax-summary-value ewt-value">-<?php echo fmt_num($ewt_amount); ?></td>
+                            </tr>
+                            <tr>
+                                <th class="bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-900 border-r border-gray-200 tax-summary-grand-label">TOTAL + VAT - EWT:</th>
+                                <td class="px-3 py-2 text-right text-lg font-bold text-gray-900 tax-summary-grand-value"><?php echo fmt_num($computed_final); ?></td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
 
                 <?php if (!empty($sale['notes'])): ?>
                     <!-- 비고 -->
                     <div class="mb-6">
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">Notes</h3>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2"><?php echo t('wholesale_sale_preview.notes_label'); ?></h3>
                         <div class="bg-gray-50 p-4 rounded-lg text-gray-700">
                             <?php echo nl2br(htmlspecialchars($sale['notes'])); ?>
                         </div>
                     </div>
                 <?php endif; ?>
 
-                <!-- 담당자 및 서명란 -->
-                <div class="mb-6 flex justify-end">
-                    <div class="w-full max-w-lg">
-                        <table class="payment-table w-full border border-gray-300">
-                            <thead>
-                                <tr class="bg-gray-50">
-                                    <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300">Representative</th>
-                                    <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300">Signature</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="px-3 py-4 text-sm text-gray-900 text-center border-r border-gray-300"><?php echo htmlspecialchars($sale['user_name']); ?></td>
-                                    <td class="px-3 py-4 text-sm text-gray-900 text-center" style="height: 60px;"></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                <!-- 작성자 / 인수자 서명란 -->
+                <div id="signOffBox" class="mb-6">
+                    <table class="payment-table w-full border border-gray-300" style="table-layout: fixed;">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300" style="width: 50%;"><?php echo t('wholesale_sale_preview.prepared_by_label'); ?></th>
+                                <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300" style="width: 50%;"><?php echo t('wholesale_sale_preview.received_by_label'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-r border-gray-300" style="vertical-align: top;">
+                                    <div><?php echo t('wholesale_sale_preview.name_label'); ?>: <strong><?php echo htmlspecialchars($sale['user_name']); ?></strong></div>
+                                    <div class="sign-space" style="height: 50px;"></div>
+                                    <div style="text-align: right;"><?php echo t('wholesale_sale_preview.signature_label'); ?>: _____________________</div>
+                                </td>
+                                <td class="px-3 py-2 text-sm text-gray-900" style="vertical-align: top;">
+                                    <div><?php echo t('wholesale_sale_preview.name_label'); ?>: <?php echo htmlspecialchars($sale['customer_name']); ?></div>
+                                    <div class="sign-space" style="height: 50px;"></div>
+                                    <div style="text-align: right;"><?php echo t('wholesale_sale_preview.signature_label'); ?>: _____________________</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 <!-- 푸터 -->
                 <div class="text-center text-xs text-gray-500 mt-8 border-t border-gray-200 pt-4">
-                    <div>Issued: <?php echo date('M d, Y H:i'); ?></div>
-                    <div class="mt-1"><?php echo htmlspecialchars(t('company.name')); ?> - Wholesale Sales Transaction Statement</div>
+                    <div><?php echo t('wholesale_sale_preview.issued_label'); ?>: <?php echo date('Y-m-d H:i'); ?></div>
+                    <div class="mt-1"><?php echo htmlspecialchars(t('company.name')); ?> - <?php echo t('wholesale_sale_preview.transaction_title'); ?></div>
                 </div>
             </div>
         <?php endif; ?>
@@ -411,18 +590,18 @@ if (isset($_SESSION['flash'])) {
                     </div>
                 </div>
                 <div class="text-center">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-2">판매 취소</h3>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-2"><?php echo t('wholesale_sale_preview.delete_modal_title'); ?></h3>
                     <div class="text-sm text-gray-500 mb-4">
-                        <p>이 판매 내역을 완전히 삭제하시겠습니까?</p>
-                        <p class="font-semibold text-red-600 mt-2">삭제된 데이터는 복구할 수 없습니다.</p>
+                        <p><?php echo t('wholesale_sale_preview.delete_confirm'); ?></p>
+                        <p class="font-semibold text-red-600 mt-2"><?php echo t('wholesale_sale_preview.delete_warning'); ?></p>
                     </div>
                 </div>
                 <div class="flex space-x-3 justify-center">
                     <button id="cancel-delete" type="button" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
-                        취소
+                        <?php echo t('common.cancel'); ?>
                     </button>
                     <button id="confirm-delete" type="button" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                        삭제
+                        <?php echo t('common.delete'); ?>
                     </button>
                 </div>
             </div>
@@ -436,23 +615,57 @@ if (isset($_SESSION['flash'])) {
     <input type="hidden" name="sale_id" value="<?php echo $sale_id; ?>">
 </form>
 
+<!-- 결제완료 처리 모달 -->
+<div id="payment-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-sm w-full">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 class="text-base font-medium text-gray-900"><i class="fas fa-money-bill-wave mr-2 text-emerald-600"></i>결제완료 처리</h3>
+                <button type="button" id="close-payment-modal" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <form method="POST" class="p-4">
+                <input type="hidden" name="action" value="mark_paid">
+                <input type="hidden" name="sale_id" value="<?php echo $sale_id; ?>">
+                <label class="block text-sm font-medium text-gray-700 mb-1">결제 수단</label>
+                <select name="payment_method" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 mb-4">
+                    <option value="현금">현금</option>
+                    <option value="계좌이체">계좌이체</option>
+                    <option value="카드">카드</option>
+                    <option value="수표">수표</option>
+                    <option value="기타">기타</option>
+                </select>
+                <div class="flex justify-end gap-2">
+                    <button type="button" id="cancel-payment" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50">취소</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700"><i class="fas fa-check mr-1"></i>결제완료</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 미결제 전환 폼 (숨김) -->
+<form id="unpay-form" method="POST" style="display: none;">
+    <input type="hidden" name="action" value="mark_unpaid">
+    <input type="hidden" name="sale_id" value="<?php echo $sale_id; ?>">
+</form>
+
 <!-- 인쇄 미리보기 모달 -->
 <div id="print-preview-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden z-50 overflow-y-auto">
     <div class="min-h-screen px-4 py-6">
         <!-- 모달 헤더 (고정) -->
-        <div class="sticky top-0 z-10 bg-white rounded-t-lg max-w-4xl mx-auto px-4 py-3 flex items-center justify-between border-b">
-            <h3 class="text-lg font-semibold text-gray-900">인쇄 미리보기</h3>
+        <div class="sticky top-0 z-10 bg-white rounded-t-lg mx-auto px-4 py-3 flex items-center justify-between border-b" style="max-width: 810px;">
+            <h3 class="text-lg font-semibold text-gray-900"><?php echo t('wholesale_sale_preview.print_preview_title'); ?></h3>
             <div class="flex items-center gap-3">
                 <button id="modal-print-btn" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">
-                    <i class="fas fa-print mr-2"></i>인쇄하기
+                    <i class="fas fa-print mr-2"></i><?php echo t('wholesale_sale_preview.print_btn'); ?>
                 </button>
                 <button id="modal-close-btn" class="inline-flex items-center px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-md hover:bg-gray-600">
-                    <i class="fas fa-times mr-2"></i>닫기
+                    <i class="fas fa-times mr-2"></i><?php echo t('common.close'); ?>
                 </button>
             </div>
         </div>
         <!-- 모달 콘텐츠 -->
-        <div class="bg-white max-w-4xl mx-auto rounded-b-lg shadow-xl">
+        <div class="bg-white mx-auto rounded-b-lg shadow-xl" style="max-width: 810px;">
             <div id="print-preview-content" class="print-preview-wrapper p-4">
                 <!-- 여기에 invoice-content가 복사됨 -->
             </div>
@@ -461,6 +674,25 @@ if (isset($_SESSION['flash'])) {
 </div>
 
 <style>
+/* 수량 열 배경색 분홍색 + 볼드 (화면 + 미리보기 공통) */
+.product-table th.qty-cell,
+.product-table td.qty-cell {
+    background-color: #fbcfe8 !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+}
+/* 수량 셀 폰트 - 화면 기본 (text-sm 14px → +2 = 16px) */
+.product-table td.qty-cell { font-size: 16px !important; }
+/* 미리보기 모달 - 기존 9px → +2 = 11px */
+.print-preview-wrapper .product-table th.qty-cell,
+.print-preview-wrapper .product-table td.qty-cell { font-size: 11px !important; }
+
+/* 거래명세서 글자색 검정 통일 (화면) - 상단 버튼 포함 모두 검정 */
+#invoice-content,
+#invoice-content * { color: #000 !important; }
+
 /* 인쇄 미리보기 모달 스타일 - 폰트 9px 통일 */
 .print-preview-wrapper {
     font-size: 9px !important;
@@ -471,6 +703,33 @@ if (isset($_SESSION['flash'])) {
     border: none;
     padding: 10px;
 }
+/* 미리보기 표 테두리 검정 통일 (회색 → 검정) */
+.print-preview-wrapper table { border-collapse: collapse !important; }
+.print-preview-wrapper .info-table,
+.print-preview-wrapper .info-table th,
+.print-preview-wrapper .info-table td,
+.print-preview-wrapper .product-table,
+.print-preview-wrapper .product-table th,
+.print-preview-wrapper .product-table td,
+.print-preview-wrapper .payment-table,
+.print-preview-wrapper .payment-table th,
+.print-preview-wrapper .payment-table td,
+.print-preview-wrapper .summary-total-table,
+.print-preview-wrapper .summary-total-table th,
+.print-preview-wrapper .summary-total-table td,
+.print-preview-wrapper .tax-summary-table,
+.print-preview-wrapper .tax-summary-table th,
+.print-preview-wrapper .tax-summary-table td {
+    border: 1px solid #000 !important;
+}
+/* 배달정보 하단 합계금액 요약 폰트 크기 */
+.print-preview-wrapper .summary-total-table .summary-total-value { font-size: 14px !important; font-weight: 700 !important; }
+.print-preview-wrapper .summary-total-table .summary-total-label { font-size: 11px !important; }
+/* V.A.T / E.W.T 요약 폰트 크기 */
+.print-preview-wrapper .tax-summary-table .tax-summary-value { font-size: 11px !important; }
+.print-preview-wrapper .tax-summary-table .tax-summary-label { font-size: 11px !important; }
+.print-preview-wrapper .tax-summary-table .tax-summary-grand-value { font-size: 14px !important; font-weight: 700 !important; }
+.print-preview-wrapper .tax-summary-table .tax-summary-grand-label { font-size: 12px !important; font-weight: 700 !important; }
 .print-preview-wrapper h1 {
     font-size: 14px !important;
     margin-bottom: 8px !important;
@@ -494,13 +753,25 @@ if (isset($_SESSION['flash'])) {
     font-size: 9px !important;
     padding: 3px 5px !important;
 }
+/* 거래처명 강조 (다른 셀 9px 대비 +2px, 볼드) */
+.print-preview-wrapper .info-table td.cust-name {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+}
+/* 상단 로고 */
+.print-preview-wrapper .invoice-logo { text-align: center !important; }
+.print-preview-wrapper .invoice-logo img { height: 50px !important; display: inline-block !important; }
 .print-preview-wrapper .payment-table {
-    max-width: 220px !important;
+    width: 100% !important;
+    table-layout: fixed !important;
 }
 .print-preview-wrapper .payment-table th,
 .print-preview-wrapper .payment-table td {
     font-size: 9px !important;
     padding: 3px 5px !important;
+}
+.print-preview-wrapper .payment-table .sign-space {
+    height: 36px !important;
 }
 .print-preview-wrapper .text-center.text-xs {
     font-size: 9px !important;
@@ -510,18 +781,24 @@ if (isset($_SESSION['flash'])) {
     table-layout: fixed;
     width: 100%;
 }
+/* 7컬럼: 1 SKU · 2 상품명 · 3 박스당수량 · 4 단위 · 5 수량 · 6 단가 · 7 합계 */
 .print-preview-wrapper .product-table th:nth-child(1),
-.print-preview-wrapper .product-table td:nth-child(1) { width: 12%; }
+.print-preview-wrapper .product-table td:nth-child(1) { width: 11%; }
 .print-preview-wrapper .product-table th:nth-child(2),
-.print-preview-wrapper .product-table td:nth-child(2) { width: 53%; font-size: 6px !important; }
+.print-preview-wrapper .product-table td:nth-child(2) { width: 40%; font-size: 6px !important; }
+/* 상품명 셀 내부 div(text-sm 등)가 폰트 크기를 키우는 것 방지 */
+.print-preview-wrapper .product-table td:nth-child(2) div { font-size: 6px !important; line-height: 1.25 !important; }
 .print-preview-wrapper .product-table th:nth-child(3),
-.print-preview-wrapper .product-table td:nth-child(3) { width: 7%; }
+.print-preview-wrapper .product-table td:nth-child(3) { width: 10%; }
+.print-preview-wrapper .product-table th:nth-child(3) { white-space: nowrap; }
 .print-preview-wrapper .product-table th:nth-child(4),
-.print-preview-wrapper .product-table td:nth-child(4) { width: 6%; }
+.print-preview-wrapper .product-table td:nth-child(4) { width: 7%; }
 .print-preview-wrapper .product-table th:nth-child(5),
-.print-preview-wrapper .product-table td:nth-child(5) { width: 10%; }
+.print-preview-wrapper .product-table td:nth-child(5) { width: 8%; }
 .print-preview-wrapper .product-table th:nth-child(6),
-.print-preview-wrapper .product-table td:nth-child(6) { width: 12%; }
+.print-preview-wrapper .product-table td:nth-child(6) { width: 10%; }
+.print-preview-wrapper .product-table th:nth-child(7),
+.print-preview-wrapper .product-table td:nth-child(7) { width: 14%; }
 /* Grand Total 폰트 사이즈 증가 */
 .print-preview-wrapper .product-table tfoot .grand-total-value {
     font-size: 18px !important;
@@ -551,7 +828,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const printPreviewContent = document.getElementById('print-preview-content');
 
             if (printModal && printPreviewContent) {
-                printPreviewContent.innerHTML = invoiceContent.outerHTML;
+                // 복제본에서 액션 버튼(Edit/Print/Cancel Sale/Back to List) 제거 후 미리보기에 표시
+                const clone = invoiceContent.cloneNode(true);
+                const actionBtns = clone.querySelector('#preview-action-buttons');
+                if (actionBtns) actionBtns.remove();
+                // VAT/EWT 체크박스 컨트롤은 미리보기/인쇄에서 제외 (계산 결과 행은 유지)
+                const taxControls = clone.querySelector('.tax-controls');
+                if (taxControls) taxControls.remove();
+                printPreviewContent.innerHTML = clone.outerHTML;
                 printModal.classList.remove('hidden');
                 document.body.style.overflow = 'hidden';
             }
@@ -562,6 +846,80 @@ document.addEventListener('DOMContentLoaded', function() {
     if (deleteBtn) {
         deleteBtn.addEventListener('click', function() {
             deleteModal.classList.remove('hidden');
+        });
+    }
+
+    // 결제완료 처리 버튼 → 모달
+    const payBtn = document.getElementById('pay-btn');
+    const paymentModal = document.getElementById('payment-modal');
+    const closePaymentModal = document.getElementById('close-payment-modal');
+    const cancelPayment = document.getElementById('cancel-payment');
+    if (payBtn && paymentModal) {
+        payBtn.addEventListener('click', function() { paymentModal.classList.remove('hidden'); });
+        if (closePaymentModal) closePaymentModal.addEventListener('click', function() { paymentModal.classList.add('hidden'); });
+        if (cancelPayment) cancelPayment.addEventListener('click', function() { paymentModal.classList.add('hidden'); });
+        paymentModal.addEventListener('click', function(e) { if (e.target === paymentModal) paymentModal.classList.add('hidden'); });
+    }
+
+    // V.A.T / E.W.T 계산 (체크박스 선택 시 반영) - TOTAL(기본 합계) 기준
+    const taxBase = <?php echo (float)$base_total; ?>;
+    const vatCheckbox = document.getElementById('vat-checkbox');
+    const ewtCheckbox = document.getElementById('ewt-checkbox');
+
+    // PHP fmt_num 과 동일한 형식 (정수는 콤마만, 소수는 둘째자리까지 후행 0 제거)
+    function fmtNum(v) {
+        v = Number(v);
+        if (v === Math.floor(v)) {
+            return v.toLocaleString('en-US');
+        }
+        let s = v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return s.replace(/0+$/, '').replace(/\.$/, '');
+    }
+
+    function recalcTax() {
+        if (!vatCheckbox || !ewtCheckbox) return;
+        const vatRow = document.querySelector('.vat-row');
+        const ewtRow = document.querySelector('.ewt-row');
+        const vatAmt = Math.round(taxBase * 0.12 * 100) / 100;
+        const ewtAmt = Math.round(taxBase * 0.01 * 100) / 100;
+        let total = taxBase;
+
+        if (vatCheckbox.checked) {
+            total += vatAmt;
+            if (vatRow) vatRow.style.display = '';
+            const vc = document.querySelector('.vat-value');
+            if (vc) vc.textContent = '+' + fmtNum(vatAmt);
+        } else if (vatRow) {
+            vatRow.style.display = 'none';
+        }
+
+        if (ewtCheckbox.checked) {
+            total -= ewtAmt;
+            if (ewtRow) ewtRow.style.display = '';
+            const ec = document.querySelector('.ewt-value');
+            if (ec) ec.textContent = '-' + fmtNum(ewtAmt);
+        } else if (ewtRow) {
+            ewtRow.style.display = 'none';
+        }
+
+        const gv = document.querySelector('.tax-summary-grand-value');
+        if (gv) gv.textContent = fmtNum(total);
+
+        // 상단 합계금액 요약도 TOTAL + VAT - EWT 값으로 동기화
+        const stv = document.querySelector('.summary-total-value');
+        if (stv) stv.textContent = fmtNum(total);
+    }
+
+    if (vatCheckbox) vatCheckbox.addEventListener('change', recalcTax);
+    if (ewtCheckbox) ewtCheckbox.addEventListener('change', recalcTax);
+    recalcTax();
+
+    // 미결제로 변경 버튼
+    const unpayBtn = document.getElementById('unpay-btn');
+    const unpayForm = document.getElementById('unpay-form');
+    if (unpayBtn && unpayForm) {
+        unpayBtn.addEventListener('click', function() {
+            if (confirm('미결제 상태로 변경하시겠습니까?')) unpayForm.submit();
         });
     }
     
@@ -617,7 +975,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalPrintBtn = document.getElementById('modal-print-btn');
     if (modalPrintBtn) {
         modalPrintBtn.addEventListener('click', function() {
-            const printContent = document.getElementById('print-preview-content').innerHTML;
+            const singleContent = document.getElementById('print-preview-content').innerHTML;
+            // 프린터 출력 시 동일 명세서 1부(1페이지)로 출력
+            const printContent = '<div class="print-copy">' + singleContent + '</div>';
 
             // 인쇄용 iframe 생성
             const printFrame = document.createElement('iframe');
@@ -633,7 +993,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <html>
                 <head>
                     <meta charset="UTF-8">
-                    <title>거래명세서 인쇄</title>
+                    <title><?php echo addslashes(t('wholesale_sale_preview.print_title')); ?></title>
                     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
                     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
                     <style>
@@ -643,6 +1003,23 @@ document.addEventListener('DOMContentLoaded', function() {
                             line-height: 1.3;
                             padding: 5mm;
                         }
+                        /* 출력 글자색 검정 통일 */
+                        body, body * { color: #000 !important; }
+                        /* 출력 표 테두리 검정 통일 (회색 → 검정) */
+                        table { border-collapse: collapse !important; }
+                        .info-table, .info-table th, .info-table td,
+                        .product-table, .product-table th, .product-table td,
+                        .payment-table, .payment-table th, .payment-table td,
+                        .summary-total-table, .summary-total-table th, .summary-total-table td,
+                        .tax-summary-table, .tax-summary-table th, .tax-summary-table td {
+                            border: 1px solid #000 !important;
+                        }
+                        .summary-total-table .summary-total-value { font-size: 14px !important; font-weight: 700 !important; }
+                        .summary-total-table .summary-total-label { font-size: 11px !important; }
+                        .tax-summary-table .tax-summary-value { font-size: 11px !important; }
+                        .tax-summary-table .tax-summary-label { font-size: 11px !important; }
+                        .tax-summary-table .tax-summary-grand-value { font-size: 14px !important; font-weight: 700 !important; }
+                        .tax-summary-table .tax-summary-grand-label { font-size: 12px !important; font-weight: 700 !important; }
                         #invoice-content {
                             box-shadow: none;
                             border: none;
@@ -653,23 +1030,45 @@ document.addEventListener('DOMContentLoaded', function() {
                         table th { font-size: 9px !important; padding: 3px 5px !important; }
                         table td { font-size: 9px !important; padding: 3px 5px !important; }
                         .info-table th, .info-table td { font-size: 9px !important; padding: 3px 5px !important; }
-                        .payment-table { max-width: 220px !important; }
+                        .info-table td.cust-name { font-size: 11px !important; font-weight: 700 !important; }
+                        .invoice-logo { text-align: center !important; margin-bottom: 8px !important; }
+                        .invoice-logo img { height: 55px !important; display: inline-block !important; }
+                        .payment-table { width: 100% !important; table-layout: fixed !important; }
                         .payment-table th, .payment-table td { font-size: 9px !important; padding: 3px 5px !important; }
+                        .payment-table .sign-space { height: 40px !important; }
                         .text-center.text-xs { font-size: 9px !important; }
                         .product-table { table-layout: fixed; width: 100%; }
-                        .product-table th:nth-child(1), .product-table td:nth-child(1) { width: 12%; }
-                        .product-table th:nth-child(2), .product-table td:nth-child(2) { width: 53%; font-size: 6px !important; }
-                        .product-table th:nth-child(3), .product-table td:nth-child(3) { width: 7%; }
-                        .product-table th:nth-child(4), .product-table td:nth-child(4) { width: 6%; }
-                        .product-table th:nth-child(5), .product-table td:nth-child(5) { width: 10%; }
-                        .product-table th:nth-child(6), .product-table td:nth-child(6) { width: 12%; }
+                        /* 7컬럼: 1 SKU · 2 상품명 · 3 박스당수량 · 4 단위 · 5 수량 · 6 단가 · 7 합계 */
+                        .product-table th:nth-child(1), .product-table td:nth-child(1) { width: 11%; }
+                        .product-table th:nth-child(2), .product-table td:nth-child(2) { width: 40%; font-size: 6px !important; }
+                        .product-table td:nth-child(2) div { font-size: 9px !important; line-height: 1.25 !important; }
+                        .product-table th:nth-child(3), .product-table td:nth-child(3) { width: 10%; }
+                        .product-table th:nth-child(3) { white-space: nowrap; }
+                        .product-table th:nth-child(4), .product-table td:nth-child(4) { width: 7%; }
+                        .product-table th:nth-child(5), .product-table td:nth-child(5) { width: 8%; }
+                        .product-table th:nth-child(6), .product-table td:nth-child(6) { width: 10%; }
+                        .product-table th:nth-child(7), .product-table td:nth-child(7) { width: 14%; }
+                        /* 수량 열 배경색 분홍색 + 볼드 + 폰트 +2 (9→11px) */
+                        .product-table th.qty-cell,
+                        .product-table td.qty-cell {
+                            background-color: #fbcfe8 !important;
+                            font-weight: 700 !important;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        .product-table td.qty-cell { font-size: 11px !important; }
                         /* Grand Total 폰트 사이즈 증가 */
                         .product-table tfoot .grand-total-value { font-size: 18px !important; }
                         .product-table tfoot .grand-total-label { font-size: 14px !important; }
                         @page { size: A4; margin: 8mm; }
+                        /* 3부 출력 — 각 부를 새 페이지로 */
+                        .print-copy { page-break-after: always; }
+                        .print-copy:last-child { page-break-after: auto; }
                         .product-table { page-break-inside: auto !important; }
                         .product-table thead { display: table-header-group; }
                         .product-table tbody tr { page-break-inside: avoid; }
+                        /* 합계금액(tfoot)은 매 페이지 반복하지 않고 마지막 페이지에만 표시 */
+                        .product-table tfoot { display: table-row-group; }
                     </style>
                 </head>
                 <body>${printContent}</body>
@@ -767,7 +1166,33 @@ document.addEventListener('DOMContentLoaded', function() {
     #invoice-content * {
         color: #000000 !important;
     }
-    
+
+    /* 표 테두리 검정 통일 (회색 → 검정) */
+    #invoice-content table { border-collapse: collapse !important; }
+    #invoice-content .info-table,
+    #invoice-content .info-table th,
+    #invoice-content .info-table td,
+    #invoice-content .product-table,
+    #invoice-content .product-table th,
+    #invoice-content .product-table td,
+    #invoice-content .payment-table,
+    #invoice-content .payment-table th,
+    #invoice-content .payment-table td,
+    #invoice-content .summary-total-table,
+    #invoice-content .summary-total-table th,
+    #invoice-content .summary-total-table td,
+    #invoice-content .tax-summary-table,
+    #invoice-content .tax-summary-table th,
+    #invoice-content .tax-summary-table td {
+        border: 1px solid #000 !important;
+    }
+    #invoice-content .summary-total-table .summary-total-value { font-size: 15px !important; font-weight: 700 !important; }
+    #invoice-content .summary-total-table .summary-total-label { font-size: 12px !important; }
+    #invoice-content .tax-summary-table .tax-summary-value { font-size: 11px !important; }
+    #invoice-content .tax-summary-table .tax-summary-label { font-size: 11px !important; }
+    #invoice-content .tax-summary-table .tax-summary-grand-value { font-size: 15px !important; font-weight: 700 !important; }
+    #invoice-content .tax-summary-table .tax-summary-grand-label { font-size: 12px !important; font-weight: 700 !important; }
+
     /* 제목 크기 조정 */
     #invoice-content h1 {
         font-size: 17px !important;
@@ -822,6 +1247,22 @@ document.addEventListener('DOMContentLoaded', function() {
         font-size: 9px !important;
         padding: 2px 3px !important;
     }
+
+    /* 거래처명 강조 (+2px, 볼드) */
+    .info-table td.cust-name {
+        font-size: 11px !important;
+        font-weight: 700 !important;
+    }
+
+    /* 상단 가운데 로고 */
+    #invoice-content .invoice-logo {
+        text-align: center !important;
+        margin-bottom: 8px !important;
+    }
+    #invoice-content .invoice-logo img {
+        height: 55px !important;
+        display: inline-block !important;
+    }
     
     /* 정보 테이블 컬럼 너비 고정 */
     .info-table th:nth-child(1),
@@ -872,16 +1313,14 @@ document.addEventListener('DOMContentLoaded', function() {
         page-break-inside: avoid;
     }
     
-    /* 담당자 및 서명란 테이블 최적화 */
+    /* 작성자 / 인수자 서명란 테이블 최적화 */
     .payment-table {
         font-size: 9px !important;
         margin-bottom: 8px !important;
         width: 100% !important;
-        max-width: 300px !important;
-        float: right !important;
         table-layout: fixed !important;
     }
-    
+
     .payment-table th {
         background: #f8f9fa !important;
         font-size: 8px !important;
@@ -890,13 +1329,15 @@ document.addEventListener('DOMContentLoaded', function() {
         text-align: center !important;
         width: 50% !important;
     }
-    
+
     .payment-table td {
         font-size: 8px !important;
-        padding: 2px 3px !important;
-        text-align: center !important;
-        height: 35px !important;
+        padding: 4px 6px !important;
         width: 50% !important;
+    }
+
+    .payment-table .sign-space {
+        height: 40px !important;
     }
 
     /* 상품 테이블 컬럼 너비 최적화 - 클래스 기반 선택자 사용 */
@@ -905,6 +1346,7 @@ document.addEventListener('DOMContentLoaded', function() {
         width: 100% !important;
     }
 
+    /* 7컬럼: 1 SKU · 2 상품명 · 3 박스당수량 · 4 단위 · 5 수량 · 6 판매가 · 7 합계 */
     .product-table th:nth-child(1),
     .product-table td:nth-child(1) {
         width: 10% !important;
@@ -914,39 +1356,62 @@ document.addEventListener('DOMContentLoaded', function() {
 
     #invoice-content .product-table th:nth-child(2),
     #invoice-content .product-table td:nth-child(2) {
-        width: 43% !important;
-        max-width: 43% !important;
-        min-width: 43% !important;
+        width: 32% !important;
+        max-width: 32% !important;
+        min-width: 32% !important;
         font-size: 7px !important;
     } /* 상품명 */
+    /* 상품명 셀 내부 div(text-sm 등)가 폰트 크기를 키우는 것 방지 */
+    #invoice-content .product-table td:nth-child(2) div {
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+    }
 
     .product-table th:nth-child(3),
     .product-table td:nth-child(3) {
-        width: 7% !important;
-        max-width: 7% !important;
-        min-width: 7% !important;
+        width: 10% !important;
+        max-width: 10% !important;
+        min-width: 10% !important;
     } /* 박스포장수량 */
+    .product-table th:nth-child(3) { white-space: nowrap !important; }
 
     .product-table th:nth-child(4),
     .product-table td:nth-child(4) {
-        width: 6% !important;
-        max-width: 6% !important;
-        min-width: 6% !important;
-    } /* 수량 */
+        width: 7% !important;
+        max-width: 7% !important;
+        min-width: 7% !important;
+    } /* 단위 */
 
     .product-table th:nth-child(5),
     .product-table td:nth-child(5) {
+        width: 8% !important;
+        max-width: 8% !important;
+        min-width: 8% !important;
+    } /* 수량 */
+
+    .product-table th:nth-child(6),
+    .product-table td:nth-child(6) {
         width: 10% !important;
         max-width: 10% !important;
         min-width: 10% !important;
     } /* 판매가 */
 
-    .product-table th:nth-child(6),
-    .product-table td:nth-child(6) {
-        width: 12% !important;
-        max-width: 12% !important;
-        min-width: 12% !important;
+    .product-table th:nth-child(7),
+    .product-table td:nth-child(7) {
+        width: 13% !important;
+        max-width: 13% !important;
+        min-width: 13% !important;
     } /* 합계금액 */
+
+    /* 수량 열 배경색 분홍색 + 볼드 + 폰트 +2 (10→12px) */
+    #invoice-content .product-table th.qty-cell,
+    #invoice-content .product-table td.qty-cell {
+        background-color: #fbcfe8 !important;
+        font-weight: 700 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    #invoice-content .product-table td.qty-cell { font-size: 12px !important; }
 
     /* Grand Total 폰트 사이즈 증가 */
     #invoice-content .product-table tfoot .grand-total-value {

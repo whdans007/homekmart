@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = t('user.add') . ' - ' . t('company.name');
-require_once __DIR__ . '/partials/header.php';
+require_once __DIR__ . '/partials/system_header.php';
 require_once __DIR__ . '/../lib/permission_helper.php';
 
 // 회원 관리 권한 확인
@@ -36,12 +36,12 @@ try {
     $errors[] = t('messages.database_error') . ': ' . $e->getMessage();
 }
 
-// 현재 로그인한 사용자의 권한에 따라 생성 가능한 역할 정의
-$allowed_roles = ['user'];
-if ($_SESSION['role'] === 'super_admin') {
-    $allowed_roles = array_merge($allowed_roles, ['admin', 'staff', 'office_staff']);
-} elseif ($_SESSION['role'] === 'admin') {
-    $allowed_roles = array_merge($allowed_roles, ['staff', 'office_staff']);
+// 현재 로그인한 사용자의 level보다 낮은 역할만 부여 가능 (super_admin은 전체)
+// Design Ref: role-permission-management §5.4 - get_all_roles() 기반 동적 역할 선택
+$assignable_roles = get_assignable_roles($_SESSION['role']);
+$allowed_roles = array_column($assignable_roles, 'role_key');
+if (!in_array($role, $allowed_roles) && !empty($allowed_roles)) {
+    $role = $allowed_roles[0];
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -54,6 +54,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $store_id = $_POST['store_id'] ?? null;
     $phone = trim($_POST['phone'] ?? '');
     $permissions = $_POST['permissions'] ?? [];
+
+    // 소속 지점 지정은 CEO 이상만 가능; 그 외에는 작성자 본인 소속 지점으로 고정
+    if (!can_change_store_directly()) {
+        $store_id = $_SESSION['store_id'] ?? null;
+    }
 
     // 유효성 검사
     if (empty($username)) $errors[] = t('forms.username_required');
@@ -77,15 +82,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $permissions_json = null;
                 if (!empty($permissions) && is_array($permissions)) {
                     // 체크된 권한들을 true로, 나머지는 false로 설정
-                    $all_permissions = [
-                        'admin_access', 'user_management', 'store_management', 
-                        'product_management', 'purchase_management', 'brand_management',
-                        'category_management', 'supplier_management', 'settings', 'shop_access',
-                        'barcode_management', 'accounting_management'
-                    ];
-                    
+                    // Design Ref: role-permission-management - 19개 권한 키 전체 반영 (get_all_permission_keys 기준)
                     $final_permissions = [];
-                    foreach ($all_permissions as $perm) {
+                    foreach (get_all_permission_keys() as $perm) {
                         $final_permissions[$perm] = in_array($perm, $permissions);
                     }
                     $permissions_json = json_encode($final_permissions);
@@ -183,31 +182,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <div class="sm:col-span-3">
                 <label for="role" class="block text-sm font-medium text-gray-700"><?php echo t('user.role'); ?></label>
                 <select id="role" name="role" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
-                    <?php 
-                    $role_labels = [
-                        'user' => t('roles.user'),
-                        'staff' => t('roles.staff'),
-                        'office_staff' => t('roles.office_staff'),
-                        'admin' => t('roles.admin'),
-                        'super_admin' => t('roles.super_admin')
-                    ];
-                    foreach ($allowed_roles as $role_value): ?>
-                        <option value="<?php echo $role_value; ?>" <?php echo ($role === $role_value) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($role_labels[$role_value] ?? ucfirst($role_value)); ?>
+                    <?php foreach ($assignable_roles as $role_option): ?>
+                        <option value="<?php echo htmlspecialchars($role_option['role_key']); ?>" <?php echo ($role === $role_option['role_key']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($role_option['label']); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
             </div>
             <div class="sm:col-span-3">
                 <label for="store_id" class="block text-sm font-medium text-gray-700"><?php echo t('user.store'); ?> <span class="text-gray-500">(<?php echo t('forms.optional'); ?>)</span></label>
-                <select id="store_id" name="store_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                <?php $store_locked = !can_change_store_directly(); ?>
+                <?php $store_selected = $store_locked ? ($_SESSION['store_id'] ?? '') : $store_id; ?>
+                <select id="store_id" name="store_id" <?php echo $store_locked ? 'disabled' : ''; ?> class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm <?php echo $store_locked ? 'bg-gray-100 cursor-not-allowed' : ''; ?>">
                     <option value=""><?php echo t('store.select_store'); ?></option>
                     <?php foreach ($stores as $store): ?>
-                        <option value="<?php echo $store['id']; ?>" <?php echo ($store_id == $store['id']) ? 'selected' : ''; ?>>
+                        <option value="<?php echo $store['id']; ?>" <?php echo ($store_selected == $store['id']) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($store['name']); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
+                <?php if ($store_locked): ?>
+                <p class="mt-2 text-sm text-gray-500"><i class="fas fa-lock mr-1"></i>지점 지정은 CEO 이상만 가능합니다. 신규 회원은 작성자 소속 지점으로 등록됩니다.</p>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -219,23 +215,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         <div class="mt-6">
             <div id="permissions-container" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <?php 
-                $all_permissions = [
-                    'admin_access' => t('permissions.admin_access'),
-                    'user_management' => t('permissions.user_management'),
-                    'store_management' => t('permissions.store_management'),
-                    'product_management' => t('permissions.product_management'),
-                    'purchase_management' => t('permissions.purchase_management'),
-                    'brand_management' => t('permissions.brand_management'),
-                    'category_management' => t('permissions.category_management'),
-                    'supplier_management' => t('permissions.supplier_management'),
-                    'settings' => t('permissions.settings'),
-                    'shop_access' => t('permissions.shop_access'),
-                    'barcode_management' => t('permissions.barcode_management'),
-                    'accounting_management' => t('permissions.accounting_management')
-                ];
-                
-                foreach ($all_permissions as $perm_key => $perm_label): 
+                <?php
+                // Design Ref: role-permission-management - 19개 권한 키 전체 표시 (get_all_permission_keys 기준)
+                $all_permissions = [];
+                foreach (get_all_permission_keys() as $perm_key) {
+                    $all_permissions[$perm_key] = get_permission_label($perm_key);
+                }
+
+                foreach ($all_permissions as $perm_key => $perm_label):
                 ?>
                 <div class="relative flex items-start">
                     <div class="flex items-center h-5">
@@ -265,25 +252,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
             
             <div class="mt-4 flex space-x-2">
-                <button type="button" id="preset-user" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <i class="fas fa-user mr-2"></i><?php echo t('roles.user'); ?>
-                </button>
-                <button type="button" id="preset-staff" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <i class="fas fa-id-badge mr-2"></i><?php echo t('roles.staff'); ?>
-                </button>
-                <button type="button" id="preset-office-staff" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <i class="fas fa-calculator mr-2"></i><?php echo t('roles.office_staff'); ?>
-                </button>
-                <button type="button" id="preset-admin" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <i class="fas fa-user-cog mr-2"></i><?php echo t('roles.admin'); ?>
-                </button>
-                <button type="button" id="preset-super-admin" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <i class="fas fa-user-shield mr-2"></i><?php echo t('roles.super_admin'); ?>
+                <button type="button" id="preset-role-default" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-rotate mr-2"></i><?php echo t('user.reset_to_role_permissions'); ?>
                 </button>
                 <button type="button" id="clear-all" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                     <i class="fas fa-times mr-2"></i><?php echo t('user.clear_all'); ?>
                 </button>
             </div>
+            <?php
+            // Design Ref: role-permission-management §5.4 - 역할별 권한맵을 JS에 전달하여 "역할 기본 권한으로 초기화" 버튼에서 사용
+            $role_permissions_map = [];
+            foreach ($assignable_roles as $role_option) {
+                $role_permissions_map[$role_option['role_key']] = get_role_permissions($role_option['role_key']);
+            }
+            ?>
+            <script>
+                const rolePermissionsMap = <?php echo json_encode($role_permissions_map); ?>;
+            </script>
         </div>
     </div>
     
@@ -318,96 +303,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 권한 프리셋 정의
-    const presets = {
-        user: ['shop_access'],
-        staff: ['shop_access', 'barcode_management'],
-        office_staff: ['shop_access', 'barcode_management', 'accounting_management'],
-        admin: ['admin_access', 'user_management', 'product_management', 'purchase_management', 'brand_management', 'category_management', 'supplier_management', 'shop_access', 'barcode_management', 'accounting_management'],
-        super_admin: ['admin_access', 'user_management', 'store_management', 'product_management', 'purchase_management', 'brand_management', 'category_management', 'supplier_management', 'settings', 'shop_access', 'barcode_management', 'accounting_management']
-    };
-    
     // 모든 체크박스 요소
     const checkboxes = document.querySelectorAll('input[name="permissions[]"]');
-    
+
     // 권한 설정 함수
-    function setPermissions(permissionList) {
+    function setPermissions(permissionMap) {
         checkboxes.forEach(checkbox => {
-            checkbox.checked = permissionList.includes(checkbox.value);
+            checkbox.checked = !!permissionMap[checkbox.value];
         });
     }
-    
-    // 프리셋 버튼 이벤트 리스너
-    document.getElementById('preset-user').addEventListener('click', function() {
-        setPermissions(presets.user);
-        document.getElementById('role').value = 'user';
+
+    // Design Ref: role-permission-management §5.4 - 선택된 역할의 role_permissions 값으로 초기화
+    document.getElementById('preset-role-default')?.addEventListener('click', function() {
+        const role = document.getElementById('role').value;
+        setPermissions(rolePermissionsMap[role] || {});
     });
-    
-    document.getElementById('preset-staff').addEventListener('click', function() {
-        setPermissions(presets.staff);
-        document.getElementById('role').value = 'staff';
-    });
-    
-    document.getElementById('preset-office-staff').addEventListener('click', function() {
-        setPermissions(presets.office_staff);
-        document.getElementById('role').value = 'office_staff';
-    });
-    
-    document.getElementById('preset-admin').addEventListener('click', function() {
-        setPermissions(presets.admin);
-        document.getElementById('role').value = 'admin';
-    });
-    
-    document.getElementById('preset-super-admin').addEventListener('click', function() {
-        setPermissions(presets.super_admin);
-        document.getElementById('role').value = 'super_admin';
-    });
-    
-    document.getElementById('clear-all').addEventListener('click', function() {
-        setPermissions([]);
-    });
-    
-    // 역할 변경 시 자동으로 권한 설정
-    document.getElementById('role').addEventListener('change', function() {
-        const role = this.value;
-        if (presets[role]) {
-            setPermissions(presets[role]);
-        }
-    });
-    
-    // 관리자 메뉴 접근 권한이 없으면 다른 관리 권한들도 자동으로 해제
-    const adminAccessCheckbox = document.getElementById('perm_admin_access');
-    if (adminAccessCheckbox) {
-        adminAccessCheckbox.addEventListener('change', function() {
-            if (!this.checked) {
-                // 관리자 메뉴 접근이 해제되면 다른 관리 권한들도 해제
-                const adminPermissions = ['user_management', 'store_management', 'product_management', 'purchase_management', 'brand_management', 'category_management', 'supplier_management', 'settings'];
-                adminPermissions.forEach(perm => {
-                    const checkbox = document.getElementById('perm_' + perm);
-                    if (checkbox) {
-                        checkbox.checked = false;
-                    }
-                });
-                
-                // 역할도 user로 변경
-                document.getElementById('role').value = 'user';
-            }
-        });
-    }
-    
-    // 다른 관리 권한이 체크되면 자동으로 관리자 메뉴 접근 권한도 체크
-    const adminPermissions = ['user_management', 'store_management', 'product_management', 'purchase_management', 'brand_management', 'category_management', 'supplier_management', 'settings'];
-    adminPermissions.forEach(perm => {
-        const checkbox = document.getElementById('perm_' + perm);
-        if (checkbox) {
-            checkbox.addEventListener('change', function() {
-                if (this.checked && adminAccessCheckbox) {
-                    adminAccessCheckbox.checked = true;
-                }
-            });
-        }
+
+    document.getElementById('clear-all')?.addEventListener('click', function() {
+        setPermissions({});
     });
 });
 </script>
 
-<?php require_once __DIR__ . '/partials/footer.php'; ?>
+<?php require_once __DIR__ . '/partials/system_footer.php'; ?>

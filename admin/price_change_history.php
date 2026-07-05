@@ -69,15 +69,9 @@ $page_title = t('price_change.history') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
-// 매입관리 권한 확인 (가격변경 이력도 매입관리 권한으로 제한)
-if (!has_permission('purchase_management')) {
-    $_SESSION['flash'] = [
-        'type' => 'error', 
-        'message' => t('price_change.no_permission')
-    ];
-    header('Location: shop.php');
-    exit;
-}
+// 조회·출력은 점포 소속 사용자 누구나 가능 (로그인 여부는 header.php에서 확인됨)
+// 가격변경 생성/삭제 등 관리 기능은 매입관리 권한 보유자에게만 노출
+$can_manage_price_change = has_permission('purchase_management');
 
 $pdo = null;
 $price_changes = [];
@@ -110,13 +104,13 @@ try {
         $where_conditions[] = "DATE(pch.changed_at) = ?";
         $params[] = $selected_date;
 
-        // 작성자 필터링 (super_admin이 아닌 경우 본인이 작성한 내용만 조회)
+        // 점포 필터링 (super_admin이 아닌 경우 본인 소속 점포의 이력 전체 조회)
         if ($_SESSION['role'] !== 'super_admin') {
-            if (!empty($_SESSION['user_id'])) {
-                $where_conditions[] = "pch.changed_by_user_id = ?";
-                $params[] = $_SESSION['user_id'];
+            if (!empty($current_store_id)) {
+                $where_conditions[] = "pch.store_id = ?";
+                $params[] = $current_store_id;
             } else {
-                // 사용자 ID가 없으면 데이터 조회 불가
+                // 소속 점포가 없으면 데이터 조회 불가
                 $where_conditions[] = "1 = 0";
             }
         }
@@ -226,13 +220,19 @@ try {
                 <?php endif; ?>
             </div>
 
-            <!-- 가격변경 버튼 -->
-            <div>
+            <!-- 가격변경 / 행상상품 등록 버튼 (관리 권한 보유자만) -->
+            <?php if ($can_manage_price_change): ?>
+            <div class="flex items-center space-x-2">
+                <button onclick="openBulkPriceModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2">
+                    <i class="fas fa-tags mr-2"></i>
+                    <?php echo t('price_change.bulk_price_change_button'); ?>
+                </button>
                 <button onclick="openPriceChangeModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                    <i class="fas fa-edit mr-2"></i>
+                    <i class="fas fa-truck mr-2"></i>
                     <?php echo t('price_change.price_change_button'); ?>
                 </button>
             </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -259,10 +259,12 @@ try {
                     <p class="text-sm text-gray-500" id="selectedCount" style="display:none;">
                         <?php echo t('price_change.selected_items'); ?>: <span class="font-semibold">0</span><?php echo t('common.items'); ?>
                     </p>
+                    <?php if ($can_manage_price_change): ?>
                     <button id="deleteSelectedBtn" onclick="confirmDeleteSelected()" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
                         <i class="fas fa-trash mr-2"></i>
                         <?php echo t('price_change.delete_selected'); ?>
                     </button>
+                    <?php endif; ?>
                     <button id="printPriceCardsBtn" onclick="openPriceCardModal()" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
                         <i class="fas fa-tags mr-2"></i>
                         <?php echo t('price_change.print_price_cards'); ?>
@@ -574,6 +576,33 @@ try {
                     </div>
                 </div>
 
+                <!-- 신규 원가 입력 -->
+                <div class="mb-4">
+                    <label for="newCostPrice" class="block text-sm font-medium text-gray-700 mb-2">
+                        <?php echo t('price_change.new_cost_price_label'); ?>
+                        <span class="text-xs text-gray-400 font-normal ml-1">(<?php echo t('common.optional'); ?>)</span>
+                    </label>
+                    <input type="number" id="newCostPrice"
+                           class="w-full px-4 py-3 text-lg border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                           placeholder="<?php echo t('price_change.new_cost_price_placeholder'); ?>"
+                           min="0"
+                           step="0.01">
+                </div>
+
+                <!-- 마진율 입력 -->
+                <div class="mb-4">
+                    <label for="marginRate" class="block text-sm font-medium text-gray-700 mb-2">
+                        <?php echo t('price_change.margin_rate_label'); ?>
+                        <span class="text-xs text-gray-400 font-normal ml-1">(<?php echo t('common.optional'); ?>)</span>
+                    </label>
+                    <input type="number" id="marginRate"
+                           class="w-full px-4 py-3 text-lg border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                           placeholder="<?php echo t('price_change.margin_rate_placeholder'); ?>"
+                           min="0"
+                           step="0.1">
+                    <p class="mt-1 text-sm text-gray-500"><?php echo t('price_change.margin_rate_help'); ?></p>
+                </div>
+
                 <!-- 신규 판매가 입력 -->
                 <div class="mb-4">
                     <label for="newSellingPrice" class="block text-sm font-medium text-gray-700 mb-2">
@@ -603,6 +632,76 @@ try {
             <div id="priceChangeError" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
                 <p class="text-sm text-red-800"></p>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Price Change Modal -->
+<div id="bulkPriceModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-5xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900"><?php echo t('price_change.bulk_modal_title'); ?></h3>
+                <button onclick="closeBulkPriceModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <!-- 검색 -->
+            <div class="mb-4">
+                <div class="flex gap-2">
+                    <div class="relative flex-1">
+                        <input type="text" id="bulkSearchInput"
+                               placeholder="<?php echo t('price_adjustment.search_placeholder'); ?>"
+                               class="w-full rounded-md border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                               autocomplete="off">
+                        <ul id="bulkSearchPreview" class="hidden absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-y-auto text-sm"></ul>
+                    </div>
+                    <button id="bulkSearchBtn" class="inline-flex items-center px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        <i class="fas fa-search mr-2"></i><?php echo t('price_adjustment.search_button'); ?>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 툴바 -->
+            <div id="bulkTableToolbar" class="hidden px-4 py-3 border border-gray-200 rounded-md bg-gray-50 mb-2 flex items-center justify-between">
+                <span id="bulkResultCount" class="text-sm text-gray-600"></span>
+                <button id="bulkSaveAllBtn" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-save mr-2"></i><span id="bulkSaveBtnLabel"><?php echo t('price_adjustment.save_all_button'); ?></span>
+                </button>
+            </div>
+
+            <!-- 안내 메시지 -->
+            <div id="bulkHintArea" class="py-12 text-center text-gray-400">
+                <i class="fas fa-search text-3xl mb-3"></i>
+                <p class="text-sm"><?php echo t('price_adjustment.search_hint'); ?></p>
+            </div>
+            <div id="bulkNoResultsArea" class="hidden py-12 text-center text-gray-400">
+                <i class="fas fa-box-open text-3xl mb-3"></i>
+                <p class="text-sm"><?php echo t('price_adjustment.no_results'); ?></p>
+            </div>
+
+            <!-- 결과 테이블 -->
+            <div id="bulkResultsArea" class="hidden overflow-x-auto border border-gray-200 rounded-md" style="max-height: 420px; overflow-y: auto;">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 border-b border-gray-200 sticky top-0">
+                        <tr>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-28"><?php echo t('price_adjustment.col_sku'); ?></th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"><?php echo t('price_adjustment.col_product_name'); ?></th>
+                            <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider w-28"><?php echo t('price_adjustment.col_current_cost'); ?></th>
+                            <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider w-32"><?php echo t('price_adjustment.col_new_cost'); ?></th>
+                            <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider w-24"><?php echo t('price_adjustment.col_margin'); ?></th>
+                            <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider w-28"><?php echo t('price_adjustment.col_current_selling'); ?></th>
+                            <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider w-32"><?php echo t('price_adjustment.col_new_selling'); ?></th>
+                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-10"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="bulkResultsTbody" class="divide-y divide-gray-100"></tbody>
+                </table>
+            </div>
+
+            <!-- 저장 결과 요약 -->
+            <div id="bulkSaveSummary" class="hidden mt-4 p-4 rounded-md border"></div>
         </div>
     </div>
 </div>
@@ -647,6 +746,7 @@ $js_keys = [
     'price_change.select_items_prompt',
     'price_change.error_msg_product_not_found',
     'price_change.error_msg_enter_price',
+    'price_change.error_msg_enter_cost_price',
     'price_change.error_msg_select_product',
     'price_change.success_msg',
     'price_change.error_msg_failed',
@@ -1535,6 +1635,8 @@ function openPriceChangeModal() {
     document.getElementById('productInfoArea').classList.add('hidden');
     document.getElementById('priceChangeError').classList.add('hidden');
     document.getElementById('loadingIndicator').classList.add('hidden');
+    document.getElementById('newCostPrice').value = '';
+    document.getElementById('marginRate').value = '';
     currentProductId = null;
 
     // 바코드 입력 필드에 포커스
@@ -1585,9 +1687,16 @@ function searchProductByBarcode(barcode) {
                 document.getElementById('currentCostPrice').textContent = product.cost_price;
                 document.getElementById('currentSellingPrice').textContent = product.selling_price;
 
-                // 신규 판매가 입력 필드 초기화 및 포커스
+                // 신규 원가/판매가 입력 필드 초기화
+                const newCostPriceInput = document.getElementById('newCostPrice');
+                newCostPriceInput.value = '';
+                newCostPriceInput.dataset.currentRaw = product.cost_price_raw;
+
                 const newPriceInput = document.getElementById('newSellingPrice');
                 newPriceInput.value = '';
+
+                // 마진율 입력 필드 초기화
+                document.getElementById('marginRate').value = '';
 
                 document.getElementById('productInfoArea').classList.remove('hidden');
 
@@ -1614,9 +1723,16 @@ function savePriceChange() {
     }
 
     const newSellingPrice = document.getElementById('newSellingPrice').value;
+    const newCostPriceInput = document.getElementById('newCostPrice');
+    const newCostPrice = newCostPriceInput.value;
 
     if (!newSellingPrice || newSellingPrice <= 0) {
         showPriceChangeError(t('price_change.error_msg_enter_price'));
+        return;
+    }
+
+    if (newCostPrice !== '' && (isNaN(parseFloat(newCostPrice)) || parseFloat(newCostPrice) < 0)) {
+        showPriceChangeError(t('price_change.error_msg_enter_cost_price'));
         return;
     }
 
@@ -1626,15 +1742,20 @@ function savePriceChange() {
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + t('common.save') + '...';
 
+    const requestBody = {
+        product_id: currentProductId,
+        new_selling_price: parseFloat(newSellingPrice)
+    };
+    if (newCostPrice !== '') {
+        requestBody.new_cost_price = parseFloat(newCostPrice);
+    }
+
     fetch('ajax_save_price_change.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            product_id: currentProductId,
-            new_selling_price: parseFloat(newSellingPrice)
-        })
+        body: JSON.stringify(requestBody)
     })
         .then(response => response.json())
         .then(data => {
@@ -1661,6 +1782,21 @@ function savePriceChange() {
         });
 }
 
+// 원가 + 마진율 -> 신판매가 자동 계산 (소숫점 첫째자리 무조건 올림)
+function recalcSellingPriceFromMargin() {
+    const cost = parseFloat(document.getElementById('newCostPrice').value);
+    const margin = parseFloat(document.getElementById('marginRate').value);
+
+    // 원가와 마진율이 모두 유효할 때만 계산
+    if (isNaN(cost) || cost <= 0 || isNaN(margin)) {
+        return;
+    }
+
+    // 마진율 = (판매가 - 원가) / 원가 * 100  =>  판매가 = 원가 * (1 + 마진율/100)
+    const sellingPrice = Math.ceil(cost * (1 + margin / 100));
+    document.getElementById('newSellingPrice').value = sellingPrice;
+}
+
 // 바코드 입력 이벤트 처리
 document.addEventListener('DOMContentLoaded', function() {
     const barcodeInput = document.getElementById('barcodeInput');
@@ -1670,6 +1806,24 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 searchProductByBarcode(this.value.trim());
+            }
+        });
+    }
+
+    // 신규 원가 / 마진율 입력 시 신판매가 자동 계산
+    const newCostPriceInput = document.getElementById('newCostPrice');
+    const marginRateInput = document.getElementById('marginRate');
+
+    if (newCostPriceInput) {
+        newCostPriceInput.addEventListener('input', recalcSellingPriceFromMargin);
+    }
+    if (marginRateInput) {
+        marginRateInput.addEventListener('input', recalcSellingPriceFromMargin);
+        // 마진율 입력 후 Enter 시 저장
+        marginRateInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                savePriceChange();
             }
         });
     }
@@ -1819,6 +1973,391 @@ function showFeedback(message, type = 'success') {
         }, 300);
     }, 3000);
 }
+
+// ===== 가격변경 (일괄) 모달 =====
+function bulkEscHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function bulkFormatNumber(n) {
+    return parseFloat(n || 0).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function bulkCalcMargin(costPrice, sellingPrice) {
+    const cost = parseFloat(costPrice) || 0;
+    const sell = parseFloat(sellingPrice) || 0;
+    if (cost <= 0) return '-';
+    const margin = ((sell - cost) / cost * 100);
+    const cls = margin >= 0 ? 'text-green-600' : 'text-red-600';
+    return `<span class="${cls}">${margin.toFixed(1)}%</span>`;
+}
+
+// 행의 유효 원가 (신원가 입력값 우선, 없으면 기존 원가)
+function bulkEffectiveCost(row) {
+    const v = row.querySelector('.bulk-new-cost').value;
+    return v !== '' ? (parseFloat(v) || 0) : (parseFloat(row.dataset.origCost) || 0);
+}
+
+// 원가/판매가로 마진율(%) 문자열 계산 (입력 필드용)
+function bulkMarginValue(cost, sell) {
+    cost = parseFloat(cost) || 0;
+    sell = parseFloat(sell) || 0;
+    if (cost <= 0) return '';
+    return ((sell - cost) / cost * 100).toFixed(1);
+}
+
+// 원가 + 마진율 -> 신판매가 자동 계산 (소숫점 첫째자리 무조건 올림)
+function bulkRecalcSellingFromMargin(row) {
+    const cost = bulkEffectiveCost(row);
+    const margin = parseFloat(row.querySelector('.bulk-margin').value);
+    if (cost <= 0 || isNaN(margin)) return;
+    const selling = Math.ceil(cost * (1 + margin / 100));
+    row.querySelector('.bulk-new-selling').value = selling;
+}
+
+// 현재 원가/판매가로 마진율 입력 필드 갱신
+function bulkRecalcMargin(row) {
+    const cost = bulkEffectiveCost(row);
+    const sellV = row.querySelector('.bulk-new-selling').value;
+    const sell = sellV !== '' ? parseFloat(sellV) : (parseFloat(row.dataset.origSelling) || 0);
+    row.querySelector('.bulk-margin').value = bulkMarginValue(cost, sell);
+}
+
+function openBulkPriceModal() {
+    document.getElementById('bulkPriceModal').classList.remove('hidden');
+    document.getElementById('bulkSearchInput').value = '';
+    setTimeout(() => document.getElementById('bulkSearchInput').focus(), 100);
+}
+
+function closeBulkPriceModal() {
+    document.getElementById('bulkPriceModal').classList.add('hidden');
+}
+
+function bulkCheckChanged(row) {
+    const origCost    = parseFloat(row.dataset.origCost)    || 0;
+    const origSelling = parseFloat(row.dataset.origSelling) || 0;
+    const costVal    = row.querySelector('.bulk-new-cost').value;
+    const sellingVal = row.querySelector('.bulk-new-selling').value;
+    const newCost    = costVal    !== '' ? parseFloat(costVal)    : origCost;
+    const newSelling = sellingVal !== '' ? parseFloat(sellingVal) : origSelling;
+    const changed = (newCost !== origCost) || (newSelling !== origSelling);
+    row.dataset.changed = changed ? 'true' : 'false';
+    row.classList.toggle('bg-yellow-50', changed);
+}
+
+
+function bulkBuildRow(p) {
+    const tr = document.createElement('tr');
+    tr.className = 'bulk-product-row hover:bg-gray-50 transition-colors';
+    tr.dataset.productId   = p.id;
+    tr.dataset.origCost    = p.cost_price || 0;
+    tr.dataset.origSelling = p.selling_price || 0;
+    tr.dataset.changed     = 'false';
+
+    tr.innerHTML = `
+        <td class="px-3 py-3 text-left text-sm font-mono text-gray-700">${bulkEscHtml(p.sku || '')}</td>
+        <td class="px-3 py-3">
+            <div class="text-sm text-gray-900 font-medium">${bulkEscHtml(p.name_ko || p.name_en || '')}</div>
+            ${p.name_en && p.name_ko ? `<div class="text-xs text-gray-400 mt-0.5">${bulkEscHtml(p.name_en)}</div>` : ''}
+        </td>
+        <td class="px-3 py-3 text-right text-sm text-gray-600">${bulkFormatNumber(p.cost_price)}</td>
+        <td class="px-3 py-3 text-right">
+            <input type="number" class="bulk-new-cost w-full text-right border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-teal-400"
+                placeholder="${bulkFormatNumber(p.cost_price)}" min="0" step="0.01" value="">
+        </td>
+        <td class="px-3 py-3 text-right">
+            <div class="relative">
+                <input type="number" class="bulk-margin w-full text-right border border-gray-300 rounded pl-2 pr-5 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-teal-400"
+                    placeholder="%" step="0.1" value="${bulkMarginValue(p.cost_price, p.selling_price)}">
+                <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">%</span>
+            </div>
+        </td>
+        <td class="px-3 py-3 text-right text-sm text-gray-600">${bulkFormatNumber(p.selling_price)}</td>
+        <td class="px-3 py-3 text-right">
+            <input type="number" class="bulk-new-selling w-full text-right border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-teal-400"
+                placeholder="${bulkFormatNumber(p.selling_price)}" min="0" step="0.01" value="">
+        </td>
+        <td class="px-3 py-3 text-center">
+            <button class="bulk-remove-row-btn text-gray-300 hover:text-red-500 transition-colors" title="<?php echo t('price_change.delete_selected'); ?>">
+                <i class="fas fa-times"></i>
+            </button>
+        </td>
+    `;
+
+    tr.querySelector('.bulk-new-cost').addEventListener('input', () => {
+        // 마진율이 입력되어 있으면 신원가 기준으로 신판매가 재계산, 아니면 마진율 갱신
+        if (tr.querySelector('.bulk-margin').value !== '') {
+            bulkRecalcSellingFromMargin(tr);
+        } else {
+            bulkRecalcMargin(tr);
+        }
+        bulkCheckChanged(tr);
+    });
+    tr.querySelector('.bulk-new-selling').addEventListener('input', () => {
+        // 판매가 직접 입력 시 마진율 역산
+        bulkRecalcMargin(tr);
+        bulkCheckChanged(tr);
+    });
+    tr.querySelector('.bulk-margin').addEventListener('input', () => {
+        // 마진율 입력 시 신판매가 자동 계산 (올림)
+        bulkRecalcSellingFromMargin(tr);
+        bulkCheckChanged(tr);
+    });
+    tr.querySelector('.bulk-remove-row-btn').addEventListener('click', () => {
+        tr.remove();
+        bulkUpdateRowCount();
+    });
+
+    return tr;
+}
+
+function bulkAddProductToList(p) {
+    const existing = document.querySelector(`.bulk-product-row[data-product-id="${p.id}"]`);
+    if (existing) {
+        existing.classList.add('ring-2', 'ring-inset', 'ring-teal-400');
+        existing.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        setTimeout(() => existing.classList.remove('ring-2', 'ring-inset', 'ring-teal-400'), 1500);
+        return;
+    }
+    document.getElementById('bulkHintArea').classList.add('hidden');
+    document.getElementById('bulkNoResultsArea').classList.add('hidden');
+    document.getElementById('bulkResultsArea').classList.remove('hidden');
+    document.getElementById('bulkTableToolbar').classList.remove('hidden');
+    document.getElementById('bulkResultsTbody').appendChild(bulkBuildRow(p));
+    bulkUpdateRowCount();
+}
+
+function bulkUpdateRowCount() {
+    const count = document.querySelectorAll('.bulk-product-row').length;
+    document.getElementById('bulkResultCount').textContent = `<?php echo t('price_change.selected_items'); ?>: ${count}<?php echo t('common.items'); ?>`;
+    if (count === 0) {
+        document.getElementById('bulkResultsArea').classList.add('hidden');
+        document.getElementById('bulkTableToolbar').classList.add('hidden');
+        document.getElementById('bulkHintArea').classList.remove('hidden');
+    }
+}
+
+async function bulkDoSearch() {
+    const term = bulkSearchInput.value.trim();
+    if (!term) return;
+
+    const searchBtn = document.getElementById('bulkSearchBtn');
+    const searchLabel = '<?php echo t("price_adjustment.search_button"); ?>';
+    searchBtn.disabled = true;
+    searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + searchLabel;
+
+    try {
+        const resp = await fetch(`ajax_search_products.php?term=${encodeURIComponent(term)}&limit=10`);
+        const data = await resp.json();
+        const products = Array.isArray(data) ? data : (data.products || []);
+
+        if (products.length === 0) {
+            document.getElementById('bulkNoResultsArea').classList.remove('hidden');
+            setTimeout(() => document.getElementById('bulkNoResultsArea').classList.add('hidden'), 2000);
+        } else {
+            products.forEach(p => bulkAddProductToList(p));
+        }
+
+        bulkSearchInput.value = '';
+        bulkClosePreview();
+    } catch (e) {
+        alert('<?php echo t("price_change.server_communication_error"); ?>');
+    } finally {
+        searchBtn.disabled = false;
+        searchBtn.innerHTML = '<i class="fas fa-search mr-2"></i>' + searchLabel;
+    }
+}
+
+async function bulkSaveAll() {
+    const rows = [...document.querySelectorAll('.bulk-product-row[data-changed="true"]')];
+
+    if (rows.length === 0) {
+        bulkShowSummary('warning', '<?php echo t("price_adjustment.no_changes"); ?>');
+        return;
+    }
+
+    const saveBtn = document.getElementById('bulkSaveAllBtn');
+    const saveLabel = document.getElementById('bulkSaveBtnLabel');
+    const originalLabel = saveLabel.textContent;
+    saveBtn.disabled = true;
+    saveLabel.textContent = '<?php echo t("price_adjustment.saving"); ?>';
+
+    let successCount = 0;
+    const errors = [];
+
+    for (const row of rows) {
+        const productId  = row.dataset.productId;
+        const costVal    = row.querySelector('.bulk-new-cost').value;
+        const sellingVal = row.querySelector('.bulk-new-selling').value;
+        const newCost    = costVal    !== '' ? parseFloat(costVal)    : parseFloat(row.dataset.origCost)    || 0;
+        const newSelling = sellingVal !== '' ? parseFloat(sellingVal) : parseFloat(row.dataset.origSelling) || 0;
+
+        try {
+            const resp = await fetch('ajax_save_price_change.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    product_id:        parseInt(productId),
+                    new_cost_price:    newCost,
+                    new_selling_price: newSelling,
+                    skip_event: true
+                })
+            });
+            const result = await resp.json();
+
+            if (result.success) {
+                successCount++;
+                row.dataset.changed = 'false';
+                row.classList.remove('bg-yellow-50');
+                setTimeout(() => { row.remove(); bulkUpdateRowCount(); }, 800);
+            } else {
+                row.classList.add('bg-red-50');
+                errors.push(result.message || '<?php echo t("price_change.error_msg_failed"); ?>');
+            }
+        } catch (e) {
+            row.classList.add('bg-red-50');
+            errors.push('<?php echo t("price_change.server_communication_error"); ?>');
+        }
+    }
+
+    saveBtn.disabled = false;
+    saveLabel.textContent = originalLabel;
+
+    if (errors.length === 0) {
+        const msg = '<?php echo t("price_adjustment.save_success_count"); ?>'.replace('{n}', successCount);
+        bulkShowSummary('success', msg);
+        // 가격변경 이력 갱신을 위해 새로고침
+        setTimeout(() => window.location.reload(), 1000);
+    } else {
+        const msg = `${successCount} / ${rows.length} - ${errors.join(', ')}`;
+        bulkShowSummary('error', msg);
+    }
+}
+
+function bulkShowSummary(type, msg) {
+    const el = document.getElementById('bulkSaveSummary');
+    el.classList.remove('hidden', 'bg-green-50', 'border-green-200', 'text-green-800',
+                                  'bg-red-50', 'border-red-200', 'text-red-800',
+                                  'bg-yellow-50', 'border-yellow-200', 'text-yellow-800');
+    if (type === 'success') {
+        el.classList.add('bg-green-50', 'border-green-200', 'text-green-800');
+        el.innerHTML = `<i class="fas fa-check-circle mr-2"></i>${bulkEscHtml(msg)}`;
+    } else if (type === 'error') {
+        el.classList.add('bg-red-50', 'border-red-200', 'text-red-800');
+        el.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i>${bulkEscHtml(msg)}`;
+    } else {
+        el.classList.add('bg-yellow-50', 'border-yellow-200', 'text-yellow-800');
+        el.innerHTML = `<i class="fas fa-info-circle mr-2"></i>${bulkEscHtml(msg)}`;
+    }
+}
+
+// 검색 미리보기
+let bulkPreviewTimer = null;
+let bulkPreviewActive = -1;
+let bulkPreviewProducts = [];
+
+const bulkSearchInput = document.getElementById('bulkSearchInput');
+const bulkPreviewList = document.getElementById('bulkSearchPreview');
+
+function bulkClosePreview() {
+    bulkPreviewList.classList.add('hidden');
+    bulkPreviewList.innerHTML = '';
+    bulkPreviewActive = -1;
+    bulkPreviewProducts = [];
+}
+
+function bulkBuildPreview(products) {
+    bulkPreviewProducts = products;
+    bulkPreviewList.innerHTML = '';
+    if (products.length === 0) { bulkClosePreview(); return; }
+
+    products.slice(0, 8).forEach((p, idx) => {
+        const li = document.createElement('li');
+        li.className = 'flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-teal-50 transition-colors';
+        li.dataset.idx = idx;
+        li.innerHTML = `
+            <span class="text-xs text-gray-400 font-mono w-20 shrink-0">
+                <i class="fas fa-barcode mr-1"></i>${bulkEscHtml(p.sku || '')}
+            </span>
+            <span class="truncate">
+                <span class="text-gray-800">${bulkEscHtml(p.name_ko || p.name_en || '')}</span>
+                ${p.name_en && p.name_ko ? `<span class="text-gray-400 text-xs ml-1">${bulkEscHtml(p.name_en)}</span>` : ''}
+            </span>
+        `;
+        li.addEventListener('mousedown', e => {
+            e.preventDefault();
+            bulkAddProductToList(p);
+            bulkSearchInput.value = '';
+            bulkClosePreview();
+        });
+        bulkPreviewList.appendChild(li);
+    });
+    bulkPreviewList.classList.remove('hidden');
+    bulkPreviewActive = -1;
+}
+
+function bulkHighlightPreview(idx) {
+    const items = bulkPreviewList.querySelectorAll('li');
+    items.forEach(li => li.classList.remove('bg-teal-50'));
+    if (idx >= 0 && idx < items.length) {
+        items[idx].classList.add('bg-teal-50');
+        bulkPreviewActive = idx;
+    }
+}
+
+bulkSearchInput.addEventListener('input', () => {
+    clearTimeout(bulkPreviewTimer);
+    const term = bulkSearchInput.value.trim();
+    if (term.length < 1) { bulkClosePreview(); return; }
+    bulkPreviewTimer = setTimeout(async () => {
+        try {
+            const resp = await fetch(`ajax_search_products.php?term=${encodeURIComponent(term)}&limit=8`);
+            const data = await resp.json();
+            const products = Array.isArray(data) ? data : (data.products || []);
+            bulkBuildPreview(products);
+        } catch (_) { bulkClosePreview(); }
+    }, 200);
+});
+
+bulkSearchInput.addEventListener('keydown', e => {
+    const items = bulkPreviewList.querySelectorAll('li');
+    if (!bulkPreviewList.classList.contains('hidden') && items.length > 0) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            bulkHighlightPreview(Math.min(bulkPreviewActive + 1, items.length - 1));
+            return;
+        }
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            bulkHighlightPreview(Math.max(bulkPreviewActive - 1, 0));
+            return;
+        }
+        if (e.key === 'Enter' && bulkPreviewActive >= 0) {
+            e.preventDefault();
+            bulkAddProductToList(bulkPreviewProducts[bulkPreviewActive]);
+            bulkSearchInput.value = '';
+            bulkClosePreview();
+            return;
+        }
+        if (e.key === 'Escape') { bulkClosePreview(); return; }
+    }
+    if (e.key === 'Enter') bulkDoSearch();
+});
+
+bulkSearchInput.addEventListener('blur', () => setTimeout(bulkClosePreview, 150));
+
+document.getElementById('bulkSearchBtn').addEventListener('click', bulkDoSearch);
+document.getElementById('bulkSaveAllBtn').addEventListener('click', bulkSaveAll);
+
+document.getElementById('bulkPriceModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeBulkPriceModal();
+    }
+});
 </script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

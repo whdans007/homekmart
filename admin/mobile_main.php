@@ -434,28 +434,6 @@ if (!empty($_SESSION['user_id'])) {
 
         <!-- 주요 기능 카드 -->
         <div class="cards-grid">
-            <!-- 모바일 상품명 수정 -->
-            <?php
-            $has_product_permission = has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
-            if ($has_product_permission):
-            ?>
-            <a href="mobile_product_edit.php" class="function-card card-price-label">
-                <i class="fas fa-mobile-alt card-icon"></i>
-                <div class="card-title">
-                    상품명 수정
-                    <span class="card-title-en">Edit Product Name</span>
-                </div>
-            </a>
-            <?php else: ?>
-            <div class="function-card card-price-label disabled-card">
-                <i class="fas fa-mobile-alt card-icon"></i>
-                <div class="card-title">
-                    권한 없음
-                    <span class="card-title-en">No Permission</span>
-                </div>
-            </div>
-            <?php endif; ?>
-
             <!-- 가격표 출력 -->
             <?php
             $has_price_permission = has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);

@@ -7,8 +7,10 @@ require_once __DIR__ . '/../config/db_config.php';
 require_once __DIR__ . '/../lib/session_helper.php';
 
 require_once __DIR__ . '/../lib/lang_helper.php';
+require_once __DIR__ . '/../lib/permission_helper.php';
 
-if (!is_logged_in() || !in_array($_SESSION['role'], ['super_admin', 'admin'])) {
+// 매입 관리 권한이 있으면 접근 가능 (매니져 등 점포 담당자 포함)
+if (!is_logged_in() || !has_permission('purchase_management')) {
     echo "<div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative' role='alert'><strong class='font-bold'>" . t('purchase.access_denied_title') . ":</strong><span class='block sm:inline'> " . t('purchase.access_denied') . "</span></div>";
     require_once __DIR__ . '/partials/footer.php';
     exit;
@@ -2068,7 +2070,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <input type="number" name="items[${itemIndex}][quantity]" class="w-16 px-2 py-1 border border-gray-300 rounded-md text-right text-sm quantity focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" min="1" value="${quantity}" ${isExisting ? 'readonly' : ''}>
             </td>
             <td class="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-right">
-                <input type="number" name="items[${itemIndex}][pieces_per_box]" class="w-16 px-2 py-1 border border-gray-300 rounded-md text-right text-sm pieces-per-box focus:border-indigo-500 focus:ring-indigo-500 ${isExisting || currentUserRole !== 'super_admin' ? 'bg-gray-100' : ''}" min="1" value="${product.pieces_per_box || 1}" ${isExisting || currentUserRole !== 'super_admin' ? 'readonly' : ''}>
+                <input type="number" name="items[${itemIndex}][pieces_per_box]" class="w-16 px-2 py-1 border border-gray-300 rounded-md text-right text-sm pieces-per-box focus:border-indigo-500 focus:ring-indigo-500 ${isExisting || !canEditPiecesPerBox ? 'bg-gray-100' : ''}" min="1" value="${product.pieces_per_box || 1}" ${isExisting || !canEditPiecesPerBox ? 'readonly' : ''}>
                 <span class="text-xs text-gray-500 ml-1"><?php echo t('purchase.pieces'); ?></span>
             </td>
             <td class="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-right">
@@ -2692,6 +2694,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const confirmPiecesPerBoxBtn = document.getElementById('confirm-pieces-per-box-btn');
     let currentPiecesPerBoxInput = null; // 현재 수정 중인 input 요소
     const currentUserRole = '<?php echo $_SESSION['role'] ?? ''; ?>';
+    // 포장수량(pieces_per_box) 변경 가능 역할: 수퍼관리자, 점장(branch_manager)
+    const canEditPiecesPerBox = (currentUserRole === 'super_admin' || currentUserRole === 'branch_manager');
 
     // 포장수량 필드 클릭 이벤트 (이벤트 위임 사용)
     document.addEventListener('click', function(e) {
@@ -2700,9 +2704,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (e.target.readOnly) {
                 return;
             }
-            // super_admin만 포장수량 변경 가능
-            if (currentUserRole !== 'super_admin') {
-                alert('수퍼관리자만 포장수량을 변경할 수 있습니다.');
+            // 수퍼관리자 · 점장만 포장수량 변경 가능
+            if (!canEditPiecesPerBox) {
+                alert('수퍼관리자 또는 점장만 포장수량을 변경할 수 있습니다.');
                 return;
             }
 

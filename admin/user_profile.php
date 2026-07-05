@@ -3,6 +3,8 @@ require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = t('user.profile') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
+require_once __DIR__ . '/../lib/permission_helper.php';
+require_once __DIR__ . '/../lib/store_change_request_helper.php';
 
 $errors = [];
 $success_message = '';
@@ -42,11 +44,37 @@ try {
 }
 
 // 폼 처리
-if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($user_data)) {
+$original_store_id = $user_data['store_id'] ?? null;
+$form_action = ($_SERVER["REQUEST_METHOD"] == "POST") ? ($_POST['form_action'] ?? 'profile') : '';
+
+// [발령] 지점 변경 요청 처리 (CEO 미만 사용자)
+if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($user_data) && $form_action === 'store_change_request') {
+    $to_store_id = $_POST['to_store_id'] ?? '';
+    $reason = trim($_POST['reason'] ?? '');
+    if (can_change_store_directly()) {
+        $errors[] = 'CEO 이상은 요청 없이 직접 변경할 수 있습니다.';
+    } elseif (empty($to_store_id) || !filter_var($to_store_id, FILTER_VALIDATE_INT)) {
+        $errors[] = t('user.invalid_store');
+    } else {
+        $res = create_store_change_request($_SESSION['user_id'], (int)$to_store_id, $reason, $_SESSION['user_id']);
+        if ($res === true) {
+            $success_message = '지점 변경 요청이 접수되었습니다. 도착 지점 점장(또는 CEO 이상) 승인 후 반영됩니다.';
+        } else {
+            $errors[] = $res;
+        }
+    }
+}
+
+// 프로필 저장 처리 (지점 변경 요청이 아닌 경우)
+if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($user_data) && $form_action !== 'store_change_request') {
     $full_name = trim($_POST['full_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
     $store_id = $_POST['store_id'] ?? '';
+    // 소속 지점 직접 변경은 CEO 이상만 가능 (그 외에는 변경 무시)
+    if (!can_change_store_directly()) {
+        $store_id = $original_store_id;
+    }
     $current_password = $_POST['current_password'] ?? '';
     $new_password = $_POST['new_password'] ?? '';
     $new_password_confirm = $_POST['new_password_confirm'] ?? '';
@@ -121,6 +149,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($user_data)) {
         } catch (PDOException $e) {
             $errors[] = t('user.profile_update_error') . ': ' . $e->getMessage();
         }
+    }
+}
+
+// 지점 변경 UI 표시용 데이터
+$stores = $stores ?? [];
+$can_direct_store = can_change_store_directly();
+$pending_request = !empty($user_data) ? get_user_pending_store_change($_SESSION['user_id']) : null;
+
+$current_store_name = '';
+$pending_to_name = '';
+foreach ($stores as $s) {
+    if (!empty($user_data) && $s['id'] == $user_data['store_id']) {
+        $current_store_name = $s['name'];
+    }
+    if ($pending_request && $s['id'] == $pending_request['to_store_id']) {
+        $pending_to_name = $s['name'];
     }
 }
 ?>
@@ -215,6 +259,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($user_data)) {
             </div>
             <div class="sm:col-span-3">
                 <label for="store_id" class="block text-sm font-medium text-gray-700"><?php echo t('user.store'); ?></label>
+                <?php if ($can_direct_store): ?>
                 <select id="store_id" name="store_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
                     <option value=""><?php echo t('store.select_store'); ?></option>
                     <?php foreach ($stores as $store): ?>
@@ -223,7 +268,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($user_data)) {
                         </option>
                     <?php endforeach; ?>
                 </select>
-                <p class="mt-1 text-xs text-gray-500"><?php echo t('user.store_changeable'); ?></p>
+                <p class="mt-1 text-xs text-gray-500"><i class="fas fa-crown mr-1 text-yellow-500"></i>CEO 권한: 소속 지점을 직접 변경할 수 있습니다.</p>
+                <?php else: ?>
+                <input type="text" value="<?php echo htmlspecialchars($current_store_name !== '' ? $current_store_name : '미지정'); ?>" readonly class="mt-1 block w-full border-gray-300 rounded-md shadow-sm bg-gray-50 sm:text-sm cursor-not-allowed">
+                <?php if ($pending_request): ?>
+                <p class="mt-1 text-xs text-yellow-600"><i class="fas fa-clock mr-1"></i>변경 요청 대기중: <?php echo htmlspecialchars($current_store_name ?: '미지정'); ?> → <?php echo htmlspecialchars($pending_to_name ?: '-'); ?> (점장 승인 대기)</p>
+                <?php else: ?>
+                <p class="mt-1 text-xs text-gray-500"><i class="fas fa-lock mr-1"></i>소속 지점 변경은 점장 승인이 필요합니다. 아래 '지점 변경(발령) 요청'에서 신청하세요.</p>
+                <?php endif; ?>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -261,6 +314,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($user_data)) {
         </button>
     </div>
 </form>
+
+<?php if (!$can_direct_store && !$pending_request): ?>
+<!-- 지점 변경(발령) 요청 -->
+<form action="user_profile.php" method="post" class="mt-6 space-y-6 bg-white shadow sm:rounded-lg p-6">
+    <input type="hidden" name="form_action" value="store_change_request">
+    <div>
+        <h2 class="text-lg font-medium leading-6 text-gray-900"><i class="fas fa-people-arrows mr-2 text-primary-600"></i>지점 변경(발령) 요청</h2>
+        <p class="mt-1 text-sm text-gray-500">발령으로 소속 지점이 바뀌는 경우 요청하세요. 도착 지점의 점장(또는 CEO 이상) 승인 후 반영됩니다.</p>
+    </div>
+    <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+        <div class="sm:col-span-3">
+            <label for="to_store_id" class="block text-sm font-medium text-gray-700">발령 지점</label>
+            <select id="to_store_id" name="to_store_id" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                <option value=""><?php echo t('store.select_store'); ?></option>
+                <?php foreach ($stores as $store): ?>
+                    <?php if (!empty($user_data) && $store['id'] == $user_data['store_id']) continue; ?>
+                    <option value="<?php echo $store['id']; ?>"><?php echo htmlspecialchars($store['name']); ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="sm:col-span-3">
+            <label for="reason" class="block text-sm font-medium text-gray-700">사유 <span class="text-gray-500">(선택)</span></label>
+            <input type="text" id="reason" name="reason" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" placeholder="예: 2026-07 인사발령">
+        </div>
+    </div>
+    <div class="flex justify-end">
+        <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+            <i class="fas fa-paper-plane mr-2"></i>요청 제출
+        </button>
+    </div>
+</form>
+<?php endif; ?>
 
 <?php else: ?>
 <div class="bg-red-50 border border-red-200 rounded-md p-4">

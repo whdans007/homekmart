@@ -283,11 +283,15 @@ $page_title = t('purchase.edit_purchase_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
-if (!is_logged_in() || !in_array($_SESSION['role'], ['super_admin', 'admin'])) {
+if (!is_logged_in() || !has_permission('purchase_management')) {
     echo "<div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative' role='alert'><strong class='font-bold'>" . t('purchase.access_denied_title') . ":</strong><span class='block sm:inline'> " . t('purchase.access_denied') . "</span></div>";
     require_once __DIR__ . '/partials/footer.php';
     exit;
 }
+
+// 포장수량(pieces_per_box) 변경 권한: 매니저(level 40) 이상만 허용
+require_once __DIR__ . '/../lib/permission_helper.php';
+$can_edit_pieces = current_user_level() >= get_role_level('manager');
 
 $purchase_id = $_GET['id'] ?? null;
 if (!$purchase_id) {
@@ -298,6 +302,21 @@ if (!$purchase_id) {
 $conn = get_db_connection();
 $message = '';
 $message_type = '';
+
+// 점포 소유권 확인: super_admin 외에는 자기 점포(그 점포)의 매입만 접근/수정 가능
+// (목록 필터와 동일하게, 소속 점포가 지정된 사용자에 한해 적용)
+if (($_SESSION['role'] ?? '') !== 'super_admin' && !empty($current_store_id)) {
+    $own_stmt = $conn->prepare("SELECT store_id FROM purchases WHERE purchase_id = ?");
+    $own_stmt->bind_param("i", $purchase_id);
+    $own_stmt->execute();
+    $own_row = $own_stmt->get_result()->fetch_assoc();
+    $own_stmt->close();
+    if (!$own_row || (int)$own_row['store_id'] !== (int)($current_store_id ?? 0)) {
+        echo "<div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative' role='alert'><strong class='font-bold'>" . t('purchase.access_denied_title') . ":</strong><span class='block sm:inline'> " . t('purchase.access_denied') . "</span></div>";
+        require_once __DIR__ . '/partials/footer.php';
+        exit;
+    }
+}
 
 // 할인 관련 컬럼 자동 추가 (한번만 실행)
 try {
@@ -524,7 +543,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $new_purchase_type = $item_data['purchase_type'] ?? 'piece';
                 $new_pieces_per_box = isset($item_data['pieces_per_box']) ? (int)$item_data['pieces_per_box'] : null;
                 $discount_rate = isset($item_data['discount_rate']) ? (float)$item_data['discount_rate'] : 0.00;
-                $new_expiration_date = !empty($item_data['expiration_date']) ? $item_data['expiration_date'] : null;
+                $new_expiration_date = null;
+                if (!empty($item_data['expiration_date'])) {
+                    $exp_parts = explode('-', $item_data['expiration_date']);
+                    if (count($exp_parts) === 3 && strlen($exp_parts[0]) === 4) {
+                        $new_expiration_date = $item_data['expiration_date'];
+                    }
+                }
                 
                 // 기존 아이템 정보 조회
                 $item_stmt = $conn->prepare("
@@ -584,8 +609,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         }
                     }
                     
-                    // 상품의 박스 수량도 업데이트 (제공된 경우)
-                    if ($new_pieces_per_box !== null && $new_pieces_per_box > 0) {
+                    // 상품의 박스 수량도 업데이트 (제공된 경우) — 매니저 이상만 허용
+                    if ($can_edit_pieces && $new_pieces_per_box !== null && $new_pieces_per_box > 0) {
                         $update_product_stmt = $conn->prepare("UPDATE products SET pieces_per_box = ? WHERE id = ?");
                         $update_product_stmt->bind_param("ii", $new_pieces_per_box, $old_info['product_id']);
                         $update_product_stmt->execute();
@@ -905,11 +930,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $new_unit_price = (float)$_POST['unit_price'];
         $new_purchase_type = $_POST['purchase_type'] ?? 'piece';
         $new_pieces_per_box = isset($_POST['pieces_per_box']) ? (int)$_POST['pieces_per_box'] : null;
-        $new_expiration_date = !empty($_POST['expiration_date']) ? $_POST['expiration_date'] : null;
-        
+        $new_expiration_date = null;
+        if (!empty($_POST['expiration_date'])) {
+            $exp_parts = explode('-', $_POST['expiration_date']);
+            if (count($exp_parts) === 3 && strlen($exp_parts[0]) === 4) {
+                $new_expiration_date = $_POST['expiration_date'];
+            }
+        }
+
         try {
             $conn->begin_transaction();
-            
+
             // 기존 아이템 정보 조회
             $item_stmt = $conn->prepare("
                 SELECT pi.*, pr.pieces_per_box, u.store_id 
@@ -970,8 +1001,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     }
                 }
                 
-                // 상품의 박스 수량도 업데이트 (제공된 경우)
-                if ($new_pieces_per_box !== null && $new_pieces_per_box > 0) {
+                // 상품의 박스 수량도 업데이트 (제공된 경우) — 매니저 이상만 허용
+                if ($can_edit_pieces && $new_pieces_per_box !== null && $new_pieces_per_box > 0) {
                     $update_product_stmt = $conn->prepare("UPDATE products SET pieces_per_box = ? WHERE id = ?");
                     $update_product_stmt->bind_param("ii", $new_pieces_per_box, $old_info['product_id']);
                     $update_product_stmt->execute();
@@ -1587,7 +1618,7 @@ tr[id^="row-"] td:first-child:hover {
     </div>
 <?php endif; ?>
 
-<div class="sticky top-0 z-10 bg-white shadow">
+<div class="bg-white shadow">
     <div class="px-3 md:px-6 py-3 md:py-4 border-b border-gray-200">
         <!-- 모바일 헤더 -->
         <div class="flex md:hidden justify-between items-center">
@@ -1620,7 +1651,7 @@ tr[id^="row-"] td:first-child:hover {
 
                 <!-- 매입 확정/취소 버튼 -->
                 <?php if (isset($purchase['is_confirmed']) && $purchase['is_confirmed']): ?>
-                    <?php if ($_SESSION['role'] === 'super_admin'): ?>
+                    <?php if (current_user_level() >= LEVEL_BRANCH_MANAGER): // 점장 이상 확정 취소 가능 ?>
                     <button type="button" id="cancel-confirm-btn" data-purchase-id="<?php echo htmlspecialchars($purchase_id); ?>" class="inline-flex items-center justify-center rounded-md border border-orange-300 bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700 shadow-sm hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
                         <i class="fas fa-undo mr-2"></i>
                         확정 취소
@@ -1739,14 +1770,7 @@ tr[id^="row-"] td:first-child:hover {
                         선택 삭제 (<span id="selected-delete-count">0</span>)
                     </button>
                     <?php endif; ?>
-                    <button type="button" id="save-all-changes"
-                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white
-                                   <?php echo ($purchase['is_confirmed'] ?? false) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'; ?>
-                                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                            <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
-                        <i class="fas fa-save mr-2"></i>
-                        <?php echo t('purchase.save_changes'); ?>
-                    </button>
+                    <!-- 저장 버튼은 화면 하단 고정 바로 이동했습니다 (#fixed-save-bar) -->
                 </div>
         </div>
     </div>
@@ -1755,26 +1779,18 @@ tr[id^="row-"] td:first-child:hover {
 
 <!-- 테이블 (헤더+본문 통합) -->
 <style>
-#purchase-items-table thead,
-#purchase-items-table tbody tr {
-    display: table;
-    width: 100%;
-    table-layout: fixed;
-}
-#purchase-items-table tbody {
-    display: block;
-    overflow-y: auto;
-    max-height: 600px;
-    width: 100%;
+/* 헤더(컬럼명)는 고정하고, 본문은 페이지와 함께 스크롤되도록 sticky 헤더 사용
+   (tbody 자체 스크롤 영역을 제거하여 이중 세로 스크롤을 없앰) */
+#purchase-items-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background-color: #f9fafb; /* bg-gray-50 */
 }
 @media (max-width: 767px) {
     #purchase-items-table {
         min-width: 0 !important;
         table-layout: auto !important;
-    }
-    #purchase-items-table thead,
-    #purchase-items-table tbody tr {
-        table-layout: auto;
     }
     .col-mobile-hide {
         display: none !important;
@@ -1782,8 +1798,8 @@ tr[id^="row-"] td:first-child:hover {
 }
 </style>
 <div class="bg-white">
-    <div class="overflow-x-auto">
-        <table id="purchase-items-table" class="w-full table-fixed divide-y divide-gray-200" style="min-width: 1040px;">
+    <div>
+        <table id="purchase-items-table" class="w-full table-fixed divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="col-mobile-hide w-8 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1898,7 +1914,7 @@ tr[id^="row-"] td:first-child:hover {
                                                data-item-id="<?php echo $item['item_id']; ?>"
                                                data-original-value="<?php echo $item['pieces_per_box'] ?? 1; ?>"
                                                min="1"
-                                               <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : (($_SESSION['role'] !== 'super_admin') ? 'readonly' : ''); ?>>
+                                               <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled readonly' : ((!$can_edit_pieces) ? 'readonly' : ''); ?>>
                                     </td>
                                     <td class="col-mobile-hide w-16 px-1 py-3 text-sm text-gray-900 text-right">
                                         <input type="number"
@@ -1950,10 +1966,12 @@ tr[id^="row-"] td:first-child:hover {
                                     <td class="col-mobile-hide w-16 px-1 py-3 text-xs text-gray-900 text-right font-bold discounted-total"><?php echo number_format($item['discounted_total'], 2); ?></td>
                                     <!-- 유통기한 입력 -->
                                     <td class="col-mobile-hide w-24 px-1 py-2 text-center">
-                                        <input type="date"
+                                        <input type="text"
                                             class="expiration-date-input w-full px-1 py-0.5 text-xs border border-green-300 rounded focus:ring-green-500 focus:border-green-500 bg-green-50"
                                             data-item-id="<?php echo $item['item_id']; ?>"
                                             value="<?php echo htmlspecialchars($item['expiration_date'] ?? ''); ?>"
+                                            placeholder="YYYY-MM-DD"
+                                            maxlength="10"
                                             <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
                                     </td>
                                     <td class="col-mobile-hide w-10 px-1 py-3 text-center">
@@ -2089,6 +2107,24 @@ tr[id^="row-"] td:first-child:hover {
                 </table>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- 고정 바에 가려지지 않도록 하단 여백 확보 -->
+<div style="height:80px"></div>
+
+<!-- 화면 하단 고정 저장 바 -->
+<div id="fixed-save-bar" class="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur px-4 py-3"
+     style="box-shadow:0 -2px 12px rgba(0,0,0,0.10)">
+    <div class="flex items-center justify-end gap-3">
+        <button type="button" id="save-all-changes"
+                class="inline-flex items-center px-6 py-2.5 border border-transparent text-sm font-medium rounded-md text-white
+                       <?php echo ($purchase['is_confirmed'] ?? false) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'; ?>
+                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
+            <i class="fas fa-save mr-2"></i>
+            <?php echo t('purchase.save_changes'); ?>
+        </button>
     </div>
 </div>
 
@@ -2236,6 +2272,8 @@ const lang = {
 };
 // 사용자 역할 정보
 const currentUserRole = '<?php echo $_SESSION['role'] ?? ''; ?>';
+// 포장수량 변경 권한 (매니저 이상)
+const canEditPieces = <?php echo $can_edit_pieces ? 'true' : 'false'; ?>;
 
 document.addEventListener('DOMContentLoaded', function() {
     
@@ -2311,6 +2349,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 showNotification(lang.js_pieces_required.replace('{itemId}', itemId), 'error');
                 hasError = true;
             }
+            if (data.expirationDate) {
+                const yearPart = data.expirationDate.split('-')[0];
+                if (yearPart && yearPart.length !== 4) {
+                    showNotification('유통기한 년도는 4자리로 입력해주세요. (예: 2026-12-31)', 'error');
+                    hasError = true;
+                }
+            }
         });
         
         if (hasError) return;
@@ -2384,10 +2429,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // 유통기한 자동 포맷 (숫자 입력 시 YYYY-MM-DD 자동 완성, 년 4자리 후 자동으로 월로 이동)
+    document.addEventListener('input', function(e) {
+        if (!e.target.classList.contains('expiration-date-input')) return;
+        const input = e.target;
+        const digits = input.value.replace(/\D/g, '').slice(0, 8);
+        let formatted = digits;
+        if (digits.length > 6) {
+            formatted = digits.slice(0, 4) + '-' + digits.slice(4, 6) + '-' + digits.slice(6);
+        } else if (digits.length > 4) {
+            formatted = digits.slice(0, 4) + '-' + digits.slice(4);
+        }
+        input.value = formatted;
+    });
+
     // 유통기한 입력 필드 변경 이벤트
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('expiration-date-input')) {
-            const itemId = e.target.dataset.itemId;
+            const input = e.target;
+            const val = input.value;
+            if (val) {
+                const parts = val.split('-');
+                if (parts[0] && parts[0].length > 4) {
+                    // 년도가 4자리 초과 시 앞 4자리만 사용
+                    const fixedYear = parts[0].slice(0, 4);
+                    input.value = [fixedYear, parts[1], parts[2]].join('-');
+                    showNotification('유통기한 년도는 4자리만 입력 가능합니다. 자동으로 수정되었습니다.', 'warning');
+                }
+            }
+            const itemId = input.dataset.itemId;
             trackChange(itemId);
         }
     });
@@ -3376,9 +3446,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target.readOnly) {
                 return;
             }
-            // super_admin만 포장수량 변경 가능
-            if (currentUserRole !== 'super_admin') {
-                alert('수퍼관리자만 포장수량을 변경할 수 있습니다.');
+            // 매니저 이상만 포장수량 변경 가능
+            if (!canEditPieces) {
+                alert('매니저 이상만 포장수량을 변경할 수 있습니다.');
                 return;
             }
 

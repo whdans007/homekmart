@@ -60,6 +60,14 @@ if ($_SESSION['role'] !== 'super_admin') {
     }
 }
 
+// 거래처명 검색 필터링
+$search_term = trim($_GET['search'] ?? '');
+if ($search_term !== '') {
+    $where_conditions[] = "s.name LIKE ?";
+    $params[] = '%' . $search_term . '%';
+    $param_types .= 's';
+}
+
 
 $where_clause = '';
 if (!empty($where_conditions)) {
@@ -83,6 +91,9 @@ if ($count_result && $count_result->num_rows > 0) {
     $count_row = $count_result->fetch_assoc();
     $total_count = $count_row['total_count'];
 }
+
+// 페이지네이션 링크에 유지할 검색어 쿼리스트링
+$search_query = $search_term !== '' ? '&search=' . urlencode($search_term) : '';
 
 // 총 페이지 수 계산
 $total_pages = max(1, ceil($total_count / $items_per_page));
@@ -451,6 +462,25 @@ th[data-column="actions"] { min-width: 150px !important; }
             <h3 class="text-lg leading-6 font-semibold text-gray-900">
                 <?php echo t('purchase.list'); ?>
             </h3>
+            <div class="flex items-center space-x-3">
+                <!-- 거래처명 검색 -->
+                <form method="get" action="purchase_management.php" class="flex items-center">
+                    <div class="relative">
+                        <input type="text" name="search" value="<?php echo htmlspecialchars($search_term); ?>"
+                               placeholder="거래처명 검색"
+                               class="pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 w-48">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                    </div>
+                    <button type="submit" class="ml-2 inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                        검색
+                    </button>
+                    <?php if ($search_term !== ''): ?>
+                    <a href="purchase_management.php" class="ml-2 inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
+                        <i class="fas fa-times mr-1"></i>초기화
+                    </a>
+                    <?php endif; ?>
+                </form>
+            </div>
             <div class="flex space-x-3">
                 <?php if (!$has_deleted_at): ?>
                 <a href="setup_soft_delete_purchases.php" class="inline-flex items-center px-4 py-2 border border-yellow-300 rounded-md shadow-sm text-sm font-medium text-yellow-700 bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
@@ -561,7 +591,7 @@ th[data-column="actions"] { min-width: 150px !important; }
 
                     // 이전 그룹이 있으면 이전 버튼 표시
                     if ($group_start > 1): ?>
-                        <a href="?page=<?php echo $group_start - 1; ?>"
+                        <a href="?page=<?php echo $group_start - 1; ?><?php echo $search_query; ?>"
                            class="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                             <i class="fas fa-chevron-left mr-2"></i>이전
                         </a>
@@ -571,7 +601,7 @@ th[data-column="actions"] { min-width: 150px !important; }
                     // 현재 그룹의 페이지들 표시 (1-10, 11-20, ...)
                     for ($i = $group_start; $i <= $group_end; $i++):
                     ?>
-                        <a href="?page=<?php echo $i; ?>"
+                        <a href="?page=<?php echo $i; ?><?php echo $search_query; ?>"
                            class="<?php echo $i == $current_page ? 'bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'; ?>
                                   relative inline-flex items-center px-4 py-2 border text-sm font-medium
                                   <?php echo ($i == $group_start && $group_start == 1) ? 'rounded-l-md' : ''; ?>
@@ -583,7 +613,7 @@ th[data-column="actions"] { min-width: 150px !important; }
                     <?php
                     // 다음 그룹이 있으면 다음 버튼 표시
                     if ($group_end < $total_pages): ?>
-                        <a href="?page=<?php echo $group_end + 1; ?>"
+                        <a href="?page=<?php echo $group_end + 1; ?><?php echo $search_query; ?>"
                            class="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                             다음<i class="fas fa-chevron-right ml-2"></i>
                         </a>

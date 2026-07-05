@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = t('user.management') . ' - ' . t('company.name');
-require_once __DIR__ . '/partials/header.php';
+require_once __DIR__ . '/partials/system_header.php';
 
 // 회원관리 권한 확인
 if (!has_permission('user_management')) {
@@ -229,4 +229,4 @@ try {
 
 </div>
 
-<?php require_once __DIR__ . '/partials/footer.php'; ?>
+<?php require_once __DIR__ . '/partials/system_footer.php'; ?>

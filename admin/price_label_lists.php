@@ -116,6 +116,25 @@ if (!has_permission('product_management')) {
 .search-dropdown .search-empty {
     padding: 1rem; text-align: center; color: #9ca3af; font-size: 0.875rem;
 }
+
+/* 비밀번호 생성기 */
+.pw-item {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.75rem; border-bottom: 1px solid #f3f4f6;
+    font-size: 0.875rem;
+}
+.pw-item:last-child { border-bottom: none; }
+.pw-code {
+    font-family: 'Courier New', monospace;
+    background: #f3f4f6;
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.375rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    flex: 1;
+    word-break: break-all;
+}
 </style>
 
 <div class="w-full px-2 sm:px-3 md:px-4 py-2 md:py-8">
@@ -271,6 +290,84 @@ if (!has_permission('product_management')) {
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 비밀번호 생성기 -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400 mt-4">
+        <div class="px-6 py-4 border-b border-gray-200 bg-white">
+            <h3 class="text-lg leading-6 font-semibold text-gray-900">
+                <i class="fas fa-key mr-2 text-green-500"></i>
+                비밀번호 생성기
+            </h3>
+        </div>
+        <div class="p-6">
+            <!-- 설정 -->
+            <div class="flex flex-wrap items-center gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-gray-600 whitespace-nowrap">비밀번호 길이</span>
+                    <div class="flex items-center gap-1">
+                        <button class="qty-btn" onclick="changePwLength(-1)">-</button>
+                        <input type="number" id="pwLength" value="12" min="6" max="32" class="qty-input" style="width:56px">
+                        <button class="qty-btn" onclick="changePwLength(1)">+</button>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <label class="inline-flex items-center gap-1.5 cursor-pointer text-sm text-gray-700">
+                        <input type="checkbox" id="pwUpper" checked class="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                        대문자 (A-Z)
+                    </label>
+                    <label class="inline-flex items-center gap-1.5 cursor-pointer text-sm text-gray-700">
+                        <input type="checkbox" id="pwLower" checked class="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                        소문자 (a-z)
+                    </label>
+                    <label class="inline-flex items-center gap-1.5 cursor-pointer text-sm text-gray-700">
+                        <input type="checkbox" id="pwNumbers" checked class="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                        숫자 (0-9)
+                    </label>
+                    <label class="inline-flex items-center gap-1.5 cursor-pointer text-sm text-gray-700">
+                        <input type="checkbox" id="pwSpecial" class="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                        특수문자 (!@#$...)
+                    </label>
+                </div>
+            </div>
+            <!-- 액션 -->
+            <div class="flex flex-wrap items-center gap-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-gray-600">생성 개수</span>
+                    <div class="flex items-center gap-1">
+                        <button class="qty-btn" onclick="changePwCount(-1)">-</button>
+                        <input type="number" id="pwCount" value="1" min="1" max="50" class="qty-input" style="width:56px">
+                        <button class="qty-btn" onclick="changePwCount(1)">+</button>
+                    </div>
+                </div>
+                <button onclick="generatePasswords()"
+                        class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors"
+                        style="color:white!important">
+                    <i class="fas fa-sync-alt mr-2" style="color:white!important"></i>생성
+                </button>
+                <button onclick="printPasswordLabels()"
+                        class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 transition-colors"
+                        style="color:white!important">
+                    <i class="fas fa-qrcode mr-2" style="color:white!important"></i>QR라벨 출력
+                </button>
+                <button onclick="clearPasswordList()"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-trash mr-2"></i>목록 삭제
+                </button>
+                <div class="ml-auto text-sm text-gray-500">
+                    총 <span id="pwTotalCount" class="font-semibold text-gray-700">0</span>개
+                </div>
+            </div>
+            <!-- 목록 -->
+            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                <div id="passwordList">
+                    <div class="text-center text-sm text-gray-400 py-8">
+                        <i class="fas fa-key text-2xl mb-2 block"></i>
+                        생성 버튼을 눌러 비밀번호를 생성하세요
+                    </div>
                 </div>
             </div>
         </div>
@@ -789,6 +886,106 @@ document.addEventListener('keydown', function(e) {
 document.addEventListener('DOMContentLoaded', function() {
     barcodeInput.focus();
 });
+
+// ========== Password Generator ==========
+let generatedPasswords = [];
+
+function changePwLength(delta) {
+    const el = document.getElementById('pwLength');
+    el.value = Math.max(6, Math.min(32, (parseInt(el.value) || 12) + delta));
+}
+
+function changePwCount(delta) {
+    const el = document.getElementById('pwCount');
+    el.value = Math.max(1, Math.min(50, (parseInt(el.value) || 1) + delta));
+}
+
+function generateOnePassword(length) {
+    const upper   = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lower   = 'abcdefghijklmnopqrstuvwxyz';
+    const nums    = '0123456789';
+    const special = '!@#$%^&*()_+-=[]{}|;:,.?';
+
+    let charset = '';
+    const required = [];
+    if (document.getElementById('pwUpper').checked)   { charset += upper;   required.push(upper); }
+    if (document.getElementById('pwLower').checked)   { charset += lower;   required.push(lower); }
+    if (document.getElementById('pwNumbers').checked) { charset += nums;    required.push(nums); }
+    if (document.getElementById('pwSpecial').checked) { charset += special; required.push(special); }
+    if (!charset) { charset = upper + lower + nums; required.push(upper, lower, nums); }
+
+    const arr = new Uint32Array(length);
+    crypto.getRandomValues(arr);
+    const pw = required.map((cs, i) => cs[arr[i] % cs.length]);
+    for (let i = required.length; i < length; i++) pw.push(charset[arr[i] % charset.length]);
+
+    const shuffleArr = new Uint32Array(length);
+    crypto.getRandomValues(shuffleArr);
+    for (let i = pw.length - 1; i > 0; i--) {
+        const j = shuffleArr[i] % (i + 1);
+        [pw[i], pw[j]] = [pw[j], pw[i]];
+    }
+    return pw.join('');
+}
+
+function generatePasswords() {
+    const count  = Math.max(1, Math.min(50, parseInt(document.getElementById('pwCount').value) || 1));
+    const length = Math.max(6, Math.min(32, parseInt(document.getElementById('pwLength').value) || 12));
+    for (let i = 0; i < count; i++) generatedPasswords.push(generateOnePassword(length));
+    renderPasswordList();
+}
+
+function renderPasswordList() {
+    const el = document.getElementById('passwordList');
+    document.getElementById('pwTotalCount').textContent = generatedPasswords.length;
+    if (generatedPasswords.length === 0) {
+        el.innerHTML = '<div class="text-center text-sm text-gray-400 py-8"><i class="fas fa-key text-2xl mb-2 block"></i>생성 버튼을 눌러 비밀번호를 생성하세요</div>';
+        return;
+    }
+    el.innerHTML = generatedPasswords.map((pw, idx) =>
+        '<div class="pw-item">' +
+        '<span class="text-xs text-gray-400 min-w-[1.5rem] text-right">' + (idx + 1) + '</span>' +
+        '<code class="pw-code">' + escapeHtml(pw) + '</code>' +
+        '<button onclick="copyPw(' + idx + ')" class="text-gray-400 hover:text-blue-500 transition-colors" title="복사"><i class="fas fa-copy text-sm"></i></button>' +
+        '<button onclick="regenPw(' + idx + ')" class="text-gray-400 hover:text-green-600 transition-colors" title="재생성"><i class="fas fa-sync-alt text-sm"></i></button>' +
+        '<button onclick="removePw(' + idx + ')" class="text-gray-400 hover:text-red-500 transition-colors" title="삭제"><i class="fas fa-trash text-sm"></i></button>' +
+        '</div>'
+    ).join('');
+}
+
+function copyPw(idx) {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(generatedPasswords[idx]).then(() => {
+        showStatus('<i class="fas fa-check-circle mr-1"></i>클립보드에 복사되었습니다', 'success');
+    });
+}
+
+function regenPw(idx) {
+    const length = Math.max(6, Math.min(32, parseInt(document.getElementById('pwLength').value) || 12));
+    generatedPasswords[idx] = generateOnePassword(length);
+    renderPasswordList();
+}
+
+function removePw(idx) {
+    generatedPasswords.splice(idx, 1);
+    renderPasswordList();
+}
+
+function clearPasswordList() {
+    if (generatedPasswords.length === 0) return;
+    if (!confirm('비밀번호 목록을 모두 삭제하시겠습니까?')) return;
+    generatedPasswords = [];
+    renderPasswordList();
+}
+
+function printPasswordLabels() {
+    if (generatedPasswords.length === 0) {
+        alert('출력할 비밀번호가 없습니다. 먼저 생성하세요.');
+        return;
+    }
+    const params = generatedPasswords.map(p => 'pw[]=' + encodeURIComponent(p)).join('&');
+    window.open('password_label_print.php?' + params, '_blank', 'width=900,height=700,toolbar=0,menubar=0,location=0,status=0');
+}
 </script>
 
 <?php

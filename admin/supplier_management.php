@@ -73,14 +73,22 @@ try {
 <?php else: ?>
     <!-- Suppliers Table -->
     <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
-        <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
+        <div class="px-6 py-4 border-b border-gray-200 bg-white flex flex-wrap gap-3 justify-between items-center">
             <h3 class="text-lg leading-6 font-semibold text-gray-900">
-                <?php echo t('supplier.list'); ?> 
-                <span class="text-sm font-normal text-gray-500">(총 <?php echo count($suppliers); ?>개)</span>
+                <?php echo t('supplier.list'); ?>
+                <span id="supplier_count" class="text-sm font-normal text-gray-500">(총 <?php echo count($suppliers); ?>개)</span>
             </h3>
-            <a href="add_supplier.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
-                <i class="fas fa-plus mr-2"></i><?php echo t('supplier.add'); ?>
-            </a>
+            <div class="flex gap-2 items-center flex-1 min-w-0 justify-end">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                    <input type="text" id="supplier_search" placeholder="업체명 / 전화번호 / 메모 검색"
+                           oninput="filterSuppliers(this.value)"
+                           class="pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-primary-400 focus:border-primary-400 w-64">
+                </div>
+                <a href="add_supplier.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200 whitespace-nowrap">
+                    <i class="fas fa-plus mr-2"></i><?php echo t('supplier.add'); ?>
+                </a>
+            </div>
         </div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
@@ -96,9 +104,11 @@ try {
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white">
+                <tbody class="bg-white" id="supplier_tbody">
                     <?php foreach ($suppliers as $supplier): ?>
-                        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150">
+                        <?php $search_str = strtolower(($supplier['name'] ?? '') . ' ' . ($supplier['phone'] ?? '') . ' ' . ($supplier['memo'] ?? '')); ?>
+                        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150"
+                            data-search="<?php echo htmlspecialchars($search_str, ENT_QUOTES); ?>">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($supplier['id']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($supplier['name']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($supplier['phone'] ?? '-'); ?></td>
@@ -119,6 +129,11 @@ try {
                             </td>
                         </tr>
                     <?php endforeach; ?>
+                    <tr id="search_empty" style="display:none">
+                        <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-400">
+                            <i class="fas fa-search mr-1"></i>검색 결과가 없습니다.
+                        </td>
+                    </tr>
                     <?php if (empty($suppliers)): ?>
                         <tr>
                             <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500">
@@ -137,5 +152,23 @@ try {
         </div>
     </div>
 <?php endif; ?>
+
+<script>
+function filterSuppliers(q) {
+    q = q.toLowerCase().trim();
+    const rows = document.querySelectorAll('#supplier_tbody tr[data-search]');
+    let visible = 0;
+    rows.forEach(row => {
+        const match = !q || row.dataset.search.includes(q);
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+    const total = <?php echo count($suppliers); ?>;
+    document.getElementById('supplier_count').textContent =
+        q ? `(${visible} / ${total}개)` : `(총 ${total}개)`;
+    const empty = document.getElementById('search_empty');
+    if (empty) empty.style.display = (q && visible === 0) ? '' : 'none';
+}
+</script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

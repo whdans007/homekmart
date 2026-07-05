@@ -1,11 +1,11 @@
 <?php
 $page_title = "지점 수정 - HOME K MART";
-require_once __DIR__ . '/partials/header.php';
+require_once __DIR__ . '/partials/system_header.php';
 
 // 총괄관리자만 접근 가능
 if ($_SESSION['role'] !== 'super_admin') {
     echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'><div class='flex'><div class='flex-shrink-0'><i class='fas fa-exclamation-circle text-red-400'></i></div><div class='ml-3'><p class='text-sm text-red-800'>이 페이지에 접근할 권한이 없습니다.</p></div></div></div>";
-    require_once __DIR__ . '/partials/footer.php';
+    require_once __DIR__ . '/partials/system_footer.php';
     exit;
 }
 
@@ -37,12 +37,13 @@ try {
     }
 } catch (PDOException $e) {
     echo "<div class='bg-red-50 border border-red-200 rounded-md p-4 mb-6'><div class='flex'><div class='flex-shrink-0'><i class='fas fa-exclamation-circle text-red-400'></i></div><div class='ml-3'><p class='text-sm text-red-800'>데이터베이스 연결에 실패했습니다: " . htmlspecialchars($e->getMessage()) . "</p></div></div></div>";
-    require_once __DIR__ . '/partials/footer.php';
+    require_once __DIR__ . '/partials/system_footer.php';
     exit;
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $store['name'] = trim($_POST['name'] ?? '');
+    $store['company_name'] = trim($_POST['company_name'] ?? '');
 
     if (empty($store['name'])) {
         $errors[] = "지점명을 입력해주세요.";
@@ -55,8 +56,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if ($stmt->fetch()) {
                 $errors[] = "이미 존재하는 지점명입니다.";
             } else {
-                $update_stmt = $pdo->prepare("UPDATE stores SET name = ? WHERE id = ?");
-                $update_stmt->execute([$store['name'], $store_id]);
+                $update_stmt = $pdo->prepare("UPDATE stores SET name = ?, company_name = ? WHERE id = ?");
+                $update_stmt->execute([$store['name'], $store['company_name'] !== '' ? $store['company_name'] : null, $store_id]);
 
                 $_SESSION['flash'] = ['type' => 'success', 'message' => "지점 정보가 성공적으로 수정되었습니다."];
                 header("Location: store_management.php");
@@ -106,6 +107,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <label for="name" class="block text-sm font-medium text-gray-700">지점명</label>
             <input type="text" id="name" name="name" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" value="<?php echo htmlspecialchars($store['name']); ?>" required>
         </div>
+        <div class="mt-6">
+            <label for="company_name" class="block text-sm font-medium text-gray-700">실제 회사명 (상호)</label>
+            <input type="text" id="company_name" name="company_name" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" value="<?php echo htmlspecialchars($store['company_name'] ?? ''); ?>" placeholder="사업자등록상 상호 / 법인명">
+            <p class="mt-1 text-xs text-gray-500">세금계산서 등에 사용되는 실제 회사명을 입력하세요.</p>
+        </div>
     </div>
 
     <div class="pt-8 border-t border-gray-200 flex justify-end gap-x-3">
@@ -117,4 +123,4 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </div>
 </form>
 
-<?php require_once __DIR__ . '/partials/footer.php'; ?>
+<?php require_once __DIR__ . '/partials/system_footer.php'; ?>

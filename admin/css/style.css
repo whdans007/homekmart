@@ -1,4 +1,4 @@
-/*
+﻿/*
 ! tailwindcss v3.4.4 | MIT License | https://tailwindcss.com
 *//*
 1. Prevent padding and border from affecting element width. (https://github.com/mozdevs/cssremedy/issues/4)
@@ -534,7 +534,7 @@ video {
     max-width: 1536px;
   }
 }
-/* 기본 버튼 스타일 */
+/* 湲곕낯 踰꾪듉 ?ㅽ???*/
 .btn {
   display: inline-flex;
   align-items: center;
@@ -575,7 +575,7 @@ video {
   --tw-ring-color: rgb(99 102 241 / var(--tw-ring-opacity));
   --tw-ring-offset-width: 2px;
 }
-/* Primary 버튼 */
+/* Primary 踰꾪듉 */
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -616,7 +616,7 @@ video {
   --tw-ring-color: rgb(99 102 241 / var(--tw-ring-opacity));
   --tw-ring-offset-width: 2px;
 }
-/* Success 버튼 */
+/* Success 踰꾪듉 */
 .btn-success {
   display: inline-flex;
   align-items: center;
@@ -657,9 +657,9 @@ video {
   --tw-ring-color: rgb(34 197 94 / var(--tw-ring-opacity));
   --tw-ring-offset-width: 2px;
 }
-/* Danger 버튼 */
-/* Warning 버튼 */
-/* Info 버튼 */
+/* Danger 踰꾪듉 */
+/* Warning 踰꾪듉 */
+/* Info 踰꾪듉 */
 .btn-info {
   display: inline-flex;
   align-items: center;
@@ -700,7 +700,7 @@ video {
   --tw-ring-color: rgb(59 130 246 / var(--tw-ring-opacity));
   --tw-ring-offset-width: 2px;
 }
-/* Secondary 버튼 */
+/* Secondary 踰꾪듉 */
 .btn-secondary {
   display: inline-flex;
   align-items: center;
@@ -741,7 +741,7 @@ video {
   --tw-ring-color: rgb(107 114 128 / var(--tw-ring-opacity));
   --tw-ring-offset-width: 2px;
 }
-/* 큰 버튼 */
+/* ??踰꾪듉 */
 .btn-lg {
   padding-left: 1.5rem;
   padding-right: 1.5rem;
@@ -750,7 +750,7 @@ video {
   font-size: 1rem;
   line-height: 1.5rem;
 }
-/* 작은 버튼 */
+/* ?묒? 踰꾪듉 */
 .btn-sm {
   padding-left: 0.75rem;
   padding-right: 0.75rem;
@@ -759,7 +759,7 @@ video {
   font-size: 0.75rem;
   line-height: 1rem;
 }
-/* 버튼 그룹 */
+/* 踰꾪듉 洹몃９ */
 .btn-group {
   display: inline-flex;
   border-radius: 0.375rem;
@@ -776,14 +776,14 @@ video {
   border-top-right-radius: 0px;
   border-bottom-right-radius: 0px;
 }
-/* 기존 흰색 텍스트 버튼들 오버라이드 */
+/* 湲곗〈 ?곗깋 ?띿뒪??踰꾪듉???ㅻ쾭?쇱씠??*/
 button[class*="text-white"],
   .text-white button,
   a[class*="text-white"] {
   --tw-text-opacity: 1 !important;
   color: rgb(17 24 39 / var(--tw-text-opacity)) !important;
 }
-/* 특정 배경색을 가진 버튼들의 텍스트 색상 강제 변경 */
+/* ?뱀젙 諛곌꼍?됱쓣 媛吏?踰꾪듉?ㅼ쓽 ?띿뒪???됱긽 媛뺤젣 蹂寃?*/
 .bg-indigo-600,
   .bg-indigo-700,
   .bg-primary-600,
@@ -2628,10 +2628,10 @@ button[class*="text-white"],
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* HOME K MART 통합 디자인 시스템 Import */
+/* HOME K MART ?듯빀 ?붿옄???쒖뒪??Import */
 @import '../admin/css/design-system.css';
 
-/* 버튼 스타일 통일 */
+/* 踰꾪듉 ?ㅽ????듭씪 */
 
 .hover\:bg-primary-700:hover {
   --tw-bg-opacity: 0.2 !important;
@@ -3603,3 +3603,99 @@ button[class*="text-white"],
     box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
   }
 }
+
+input[type=number].qty-input::-webkit-inner-spin-button,
+input[type=number].qty-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number].qty-input { -moz-appearance: textfield; }
+
+/* Office Menu Collapsible Sections */
+.menu-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  transition: background-color 200ms ease;
+  margin: 0 !important;
+}
+
+.menu-section-header:hover {
+  background-color: rgba(156, 163, 175, 0.15);
+}
+
+/* 토글 아이콘 회전 */
+
+
+.menu-section-header[data-collapsed="true"] 
+
+/* 메뉴 항목 애니메이션 */
+.menu-item {
+  transition: max-height 200ms ease, opacity 200ms ease, padding 200ms ease, margin 200ms ease;
+  max-height: 3rem;
+  opacity: 1;
+  overflow: hidden;
+}
+
+.menu-item[data-section-collapsed="true"] {
+  display: none !important;
+}
+
+/* 섹션 토글 아이콘 */
+.menu-toggle-icon {
+  font-weight: bold;
+  min-width: 1rem;
+  text-align: center;
+  transition: all 200ms ease;
+}
+
+
+/* ── logistics BOX/PCS 단위 색상 유틸리티 (box-pcs-unit) ──────────────
+   admin 페이지 기준으로 빌드된 Tailwind에 amber 계열이 purge되어 있어
+   logistics(box_break, inbound_add, inventory 등)에서 쓰는 클래스를 보충.
+   값은 Tailwind v3 표준 팔레트와 동일. */
+.bg-amber-50  { --tw-bg-opacity: 1; background-color: rgb(255 251 235 / var(--tw-bg-opacity)); }
+.bg-amber-100 { --tw-bg-opacity: 1; background-color: rgb(254 243 199 / var(--tw-bg-opacity)); }
+.bg-amber-500 { --tw-bg-opacity: 1; background-color: rgb(245 158 11 / var(--tw-bg-opacity)); }
+.bg-amber-600 { --tw-bg-opacity: 1; background-color: rgb(217 119 6 / var(--tw-bg-opacity)); }
+.hover\:bg-amber-50:hover  { --tw-bg-opacity: 1; background-color: rgb(255 251 235 / var(--tw-bg-opacity)); }
+.hover\:bg-amber-100:hover { --tw-bg-opacity: 1; background-color: rgb(254 243 199 / var(--tw-bg-opacity)); }
+.hover\:bg-amber-600:hover { --tw-bg-opacity: 1; background-color: rgb(217 119 6 / var(--tw-bg-opacity)); }
+.text-amber-100 { --tw-text-opacity: 1; color: rgb(254 243 199 / var(--tw-text-opacity)); }
+.text-amber-500 { --tw-text-opacity: 1; color: rgb(245 158 11 / var(--tw-text-opacity)); }
+.text-amber-600 { --tw-text-opacity: 1; color: rgb(217 119 6 / var(--tw-text-opacity)); }
+.text-amber-700 { --tw-text-opacity: 1; color: rgb(180 83 9 / var(--tw-text-opacity)); }
+.text-amber-800 { --tw-text-opacity: 1; color: rgb(146 64 14 / var(--tw-text-opacity)); }
+.text-amber-900 { --tw-text-opacity: 1; color: rgb(120 53 15 / var(--tw-text-opacity)); }
+.border-amber-200 { --tw-border-opacity: 1; border-color: rgb(253 230 138 / var(--tw-border-opacity)); }
+.border-amber-300 { --tw-border-opacity: 1; border-color: rgb(252 211 77 / var(--tw-border-opacity)); }
+.border-amber-400 { --tw-border-opacity: 1; border-color: rgb(251 191 36 / var(--tw-border-opacity)); }
+.focus\:border-amber-500:focus { --tw-border-opacity: 1; border-color: rgb(245 158 11 / var(--tw-border-opacity)); }
+.focus\:ring-amber-100:focus { --tw-ring-opacity: 1; --tw-ring-color: rgb(254 243 199 / var(--tw-ring-opacity)); }
+.focus\:ring-amber-400:focus { --tw-ring-opacity: 1; --tw-ring-color: rgb(251 191 36 / var(--tw-ring-opacity)); }
+/* ============================================================
+   Menu theme supplement (logistics teal 디자인 통일)
+   컴파일된 style.css에 누락된 teal 색상 + 일부 유틸리티 보충.
+   admin / office / store / order / logistics 사이드바 공용.
+   ============================================================ */
+.w-52{width:13rem}
+.w-56{width:14rem}
+.w-fit{width:-moz-fit-content;width:fit-content}
+.px-1\.5{padding-left:.375rem;padding-right:.375rem}
+.py-1\.5{padding-top:.375rem;padding-bottom:.375rem}
+.py-0\.5{padding-top:.125rem;padding-bottom:.125rem}
+
+.bg-teal-50{background-color:#f0fdfa}
+.bg-teal-100{background-color:#ccfbf1}
+.bg-teal-600{background-color:#0d9488}
+.bg-teal-700{background-color:#0f766e}
+.text-teal-600{color:#0d9488}
+.text-teal-700{color:#0f766e}
+.text-teal-800{color:#115e59}
+.border-teal-100{border-color:#ccfbf1}
+
+.hover\:bg-teal-50:hover{background-color:#f0fdfa}
+.hover\:bg-teal-100:hover{background-color:#ccfbf1}
+.hover\:bg-teal-700:hover{background-color:#0f766e}
+.hover\:text-teal-700:hover{color:#0f766e}
+.hover\:text-teal-800:hover{color:#115e59}
