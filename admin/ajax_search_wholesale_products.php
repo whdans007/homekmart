@@ -33,7 +33,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // 현재 사용자의 점포 ID 확인
         $store_id = $_SESSION['role'] === 'super_admin' ? null : $_SESSION['store_id'] ?? null;
-        
+
+        // KIMS MALL (킴스몰) 지점 ID 고정 - 현재 점포 원가가 0일 때 폴백용
+        $kims_store_id = 6;
+        // 원가 표현식: 현재 점포 원가가 0(또는 없음)이면 KIMS MALL 지점 원가로 폴백
+        $cost_box_expr = "COALESCE(NULLIF(wp.cost_price,0), (SELECT kb.cost_price FROM wholesale_products kb WHERE kb.product_id = wp.product_id AND kb.store_id = {$kims_store_id} AND kb.is_active = 1 LIMIT 1), 0)";
+        $cost_piece_expr = "COALESCE(NULLIF(wp.cost_price_piece,0), (SELECT kp.cost_price_piece FROM wholesale_products kp WHERE kp.product_id = wp.product_id AND kp.store_id = {$kims_store_id} AND kp.is_active = 1 LIMIT 1), 0)";
+
+        // 거래처(업체)별 예외가 적용 준비
+        $customer_id = (int)($_POST['customer_id'] ?? 0);
+        $has_cust_price = false;
+        try {
+            $has_cust_price = (bool)$pdo->query("SHOW TABLES LIKE 'wholesale_customer_prices'")->fetchColumn();
+        } catch (PDOException $e) { /* 무시 */ }
+        $use_cust = ($customer_id > 0 && $has_cust_price);
+        // 거래처가 선택되면 예외가(wcp) 우선, 없으면 기본가(wp)
+        $price_box_expr   = $use_cust ? "COALESCE(wcp.wholesale_price, wp.wholesale_price)" : "wp.wholesale_price";
+        $price_piece_expr = $use_cust ? "COALESCE(wcp.wholesale_price_piece, wp.wholesale_price_piece, 0)" : "COALESCE(wp.wholesale_price_piece, 0)";
+        $cust_join        = $use_cust ? "LEFT JOIN wholesale_customer_prices wcp ON wcp.wholesale_product_id = wp.id AND wcp.customer_id = ?" : "";
+
         $search_query = "%{$query}%";
         
         // 스키마 호환성 확인 후 적절한 쿼리 선택
@@ -58,22 +76,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         COALESCE(wp.wholesale_name_ko, p.name_ko) as display_name_ko,
                         COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
                         wp.wholesale_skus,
-                        wp.wholesale_price,
-                        COALESCE(wp.wholesale_price_piece, 0) as wholesale_price_piece,
+                        {$price_box_expr} as wholesale_price,
+                        {$price_piece_expr} as wholesale_price_piece,
+                        {$cost_box_expr} as wp_cost_box,
+                        {$cost_piece_expr} as wp_cost_piece,
+                        COALESCE(wp.margin_rate, 0) as wp_margin_rate,
                         COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
                         wp.wholesale_description,
+                        wp.memo,
                         'registered' as status
                     FROM wholesale_products wp
-                    INNER JOIN products p ON p.id = wp.product_id 
-                    WHERE wp.is_active = 1 
-                        AND p.is_active = 1 
+                    INNER JOIN products p ON p.id = wp.product_id
+                    {$cust_join}
+                    WHERE wp.is_active = 1
+                        AND p.is_active = 1
                         " . ($store_id ? "AND wp.store_id = ?" : "") . "
-                    ORDER BY COALESCE(wp.wholesale_name_en, p.name_en) ASC, 
+                    ORDER BY COALESCE(wp.wholesale_name_en, p.name_en) ASC,
                              COALESCE(wp.wholesale_name_ko, p.name_ko) ASC
                     LIMIT " . (int)$limit . "
                 ";
-                
+
                 $params = [];
+                if ($use_cust) {
+                    $params[] = $customer_id;
+                }
                 if ($store_id) {
                     $params[] = $store_id;
                 }
@@ -90,10 +116,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             COALESCE(wp.wholesale_name_ko, p.name_ko) as display_name_ko,
                             COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
                             wp.wholesale_skus,
-                            wp.wholesale_price,
-                            COALESCE(wp.wholesale_price_piece, 0) as wholesale_price_piece,
+                            {$price_box_expr} as wholesale_price,
+                            {$price_piece_expr} as wholesale_price_piece,
+                            {$cost_box_expr} as wp_cost_box,
+                            {$cost_piece_expr} as wp_cost_piece,
+                            COALESCE(wp.margin_rate, 0) as wp_margin_rate,
                             COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
                             wp.wholesale_description,
+                            wp.memo,
                             'registered' as status,
                             i.cost_price,
                             i.selling_price,
@@ -101,9 +131,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             1 as sort_priority
                         FROM wholesale_products wp
                         INNER JOIN products p ON p.id = wp.product_id
-                        LEFT JOIN inventory i ON wp.product_id = i.product_id AND wp.store_id = i.store_id 
-                        WHERE wp.is_active = 1 
-                            AND p.is_active = 1 
+                        LEFT JOIN inventory i ON wp.product_id = i.product_id AND wp.store_id = i.store_id
+                        {$cust_join}
+                        WHERE wp.is_active = 1
+                            AND p.is_active = 1
                             " . ($store_id ? "AND wp.store_id = ?" : "") . "
                             AND (
                                 p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ? 
@@ -113,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     )
                     UNION ALL
                     (
-                        SELECT DISTINCT
+                        SELECT
                             NULL as wholesale_product_id,
                             p.id,
                             p.sku,
@@ -124,11 +155,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             NULL as wholesale_skus,
                             NULL as wholesale_price,
                             NULL as wholesale_price_piece,
+                            NULL as wp_cost_box,
+                            NULL as wp_cost_piece,
+                            NULL as wp_margin_rate,
                             p.pieces_per_box as min_quantity,
                             NULL as wholesale_description,
+                            NULL as memo,
                             'unregistered' as status,
-                            i.cost_price,
-                            i.selling_price,
+                            MAX(i.cost_price) as cost_price,
+                            MAX(i.selling_price) as selling_price,
                             p.pieces_per_box as product_pieces_per_box,
                             2 as sort_priority
                         FROM products p
@@ -141,6 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 AND wp2.is_active = 1
                                 " . ($store_id ? "AND wp2.store_id = ?" : "") . "
                             )
+                        GROUP BY p.id, p.sku, p.name_ko, p.name_en, p.pieces_per_box
                     )
                     ORDER BY 
                         sort_priority ASC,
@@ -156,6 +192,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ";
                 
                 $params = [];
+                if ($use_cust) {
+                    $params[] = $customer_id; // 첫 SELECT 의 wcp JOIN
+                }
                 if ($store_id) {
                     $params[] = $store_id;
                 }

@@ -20,9 +20,15 @@ if (!has_permission('purchase_management')) {
 // POST 데이터 받기
 $input = json_decode(file_get_contents('php://input'), true);
 
-$product_id = $input['product_id'] ?? null;
-$new_selling_price = $input['new_selling_price'] ?? null;
-$new_cost_price = $input['new_cost_price'] ?? null; // 선택적
+$product_id        = $input['product_id']        ?? null;
+$new_selling_price = $input['new_selling_price']  ?? null;
+$new_cost_price    = $input['new_cost_price']      ?? null;
+$event_name        = trim($input['event_name']     ?? '') ?: null;
+$end_date          = $input['end_date']            ?? null;
+if ($end_date !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end_date)) {
+    $end_date = null;
+}
+$skip_event        = !empty($input['skip_event']);
 
 if (!$product_id || !$new_selling_price) {
     echo json_encode(['success' => false, 'message' => '필수 정보가 누락되었습니다.']);
@@ -44,6 +50,28 @@ try {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    // price_events 테이블 자동 생성
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `price_events` (
+          `id`                     INT           AUTO_INCREMENT PRIMARY KEY,
+          `product_id`             INT           NOT NULL,
+          `store_id`               INT           NOT NULL,
+          `original_cost_price`    DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+          `original_selling_price` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+          `event_cost_price`       DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+          `event_selling_price`    DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+          `event_name`             VARCHAR(255)  DEFAULT NULL,
+          `end_date`               DATE          DEFAULT NULL,
+          `status`                 ENUM('active','ended','deleted') NOT NULL DEFAULT 'active',
+          `created_by`             INT           NOT NULL,
+          `created_at`             DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          `ended_at`               DATETIME      DEFAULT NULL,
+          `ended_by`               INT           DEFAULT NULL,
+          INDEX `idx_store_status`  (`store_id`, `status`),
+          INDEX `idx_product_store` (`product_id`, `store_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
 
     // 사용자의 점포 ID 및 사용자 ID 확인
     $user_id = $_SESSION['user_id'] ?? null;
@@ -117,6 +145,21 @@ try {
             $user_id
         ]);
 
+        // price_events 기록 (신규 등록)
+        if (!$skip_event) {
+            $pdo->prepare("
+                INSERT INTO price_events
+                  (product_id, store_id, original_cost_price, original_selling_price,
+                   event_cost_price, event_selling_price, event_name, end_date, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ")->execute([
+                $product_id, $store_id,
+                $old_cost_price, $old_selling_price,
+                $new_cost_price, $new_selling_price,
+                $event_name, $end_date, $user_id
+            ]);
+        }
+
         $pdo->commit();
 
         echo json_encode([
@@ -178,6 +221,43 @@ try {
                 $new_selling_price,
                 $user_id
             ]);
+
+            // price_events 기록 — 기존 active 이벤트가 있으면 업데이트, 없으면 신규 삽입
+            if (!$skip_event) {
+                $evt_check = $pdo->prepare("
+                    SELECT id FROM price_events
+                    WHERE product_id = ? AND store_id = ? AND status = 'active'
+                    LIMIT 1
+                ");
+                $evt_check->execute([$product_id, $store_id]);
+                $existing_event = $evt_check->fetch(PDO::FETCH_ASSOC);
+
+                if ($existing_event) {
+                    $pdo->prepare("
+                        UPDATE price_events
+                        SET event_cost_price = ?, event_selling_price = ?,
+                            event_name = COALESCE(?, event_name),
+                            end_date   = COALESCE(?, end_date)
+                        WHERE id = ?
+                    ")->execute([
+                        $new_cost_price, $new_selling_price,
+                        $event_name, $end_date,
+                        $existing_event['id']
+                    ]);
+                } else {
+                    $pdo->prepare("
+                        INSERT INTO price_events
+                          (product_id, store_id, original_cost_price, original_selling_price,
+                           event_cost_price, event_selling_price, event_name, end_date, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ")->execute([
+                        $product_id, $store_id,
+                        $old_cost_price, $old_selling_price,
+                        $new_cost_price, $new_selling_price,
+                        $event_name, $end_date, $user_id
+                    ]);
+                }
+            }
 
             $pdo->commit();
 

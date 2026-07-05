@@ -154,9 +154,9 @@ try {
         ]);
 
     } else if ($action === 'cancel') {
-        // 매입 확정 취소 처리 (슈퍼관리자만 가능)
-        if ($_SESSION['role'] !== 'super_admin') {
-            throw new Exception('매입 확정 취소는 슈퍼관리자만 가능합니다.');
+        // 매입 확정 취소 처리 (점장 이상만 가능)
+        if (current_user_level() < LEVEL_BRANCH_MANAGER) {
+            throw new Exception('매입 확정 취소는 점장 이상만 가능합니다.');
         }
 
         if (!$purchase['is_confirmed']) {

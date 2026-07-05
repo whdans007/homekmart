@@ -6,9 +6,10 @@ error_reporting(E_ALL);
 
 require_once __DIR__ . '/../config/db_config.php';
 require_once __DIR__ . '/../lib/session_helper.php';
+require_once __DIR__ . '/../lib/permission_helper.php';
 
-// 세션 검증
-if (!is_logged_in() || !in_array($_SESSION['role'], ['super_admin', 'admin'])) {
+// 세션 검증 (매입 페이지와 동일하게 purchase_management 권한 기준 - manager 등급 포함)
+if (!is_logged_in() || !has_permission('purchase_management')) {
     echo json_encode(['error' => '접근 권한이 없습니다.']);
     exit;
 }
