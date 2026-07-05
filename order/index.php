@@ -69,6 +69,31 @@ $cartGroups = ord_get_cart_grouped(ord_current_store_id());
             </div>
             <div id="pagination" class="px-4 py-3 border-t border-gray-100 flex justify-center gap-2"></div>
         </div>
+
+        <!-- 입고 히스토리 (전 점포) -->
+        <div id="historyPanel" class="bg-white rounded-xl shadow-sm border border-gray-200 min-h-24 overflow-hidden mt-4">
+            <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <span class="text-sm font-medium text-gray-600">
+                    <i class="fas fa-clock-rotate-left mr-1 text-gray-400"></i>입고 히스토리 (전 점포)
+                    <span id="historyCount" class="text-indigo-600 ml-1"></span>
+                </span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 border-b border-gray-100">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">날짜</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">점포명</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">품명</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">입고가</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody" class="divide-y divide-gray-50">
+                        <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 전 점포의 입고 이력이 표시됩니다.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- 주문 내역 패널 -->
@@ -189,6 +214,52 @@ function doSearch(page = 1) {
         }
     })
     .catch(() => showFlash('error', '검색 중 오류가 발생했습니다.'));
+
+    loadPurchaseHistory(keyword);
+}
+
+function loadPurchaseHistory(keyword) {
+    const body = document.getElementById('historyBody');
+    const countEl = document.getElementById('historyCount');
+    if (!keyword) {
+        body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 전 점포의 입고 이력이 표시됩니다.</td></tr>';
+        countEl.textContent = '';
+        return;
+    }
+    body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-1"></i>불러오는 중...</td></tr>';
+
+    fetch(ORD_BASE + '/ajax/purchase_history.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({keyword, csrf_token: CSRF_TOKEN})
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) { body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-red-400 text-sm">이력을 불러오지 못했습니다.</td></tr>'; return; }
+        renderHistory(res.data);
+    })
+    .catch(() => { body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-red-400 text-sm">이력을 불러오지 못했습니다.</td></tr>'; });
+}
+
+function renderHistory(items) {
+    const body = document.getElementById('historyBody');
+    const countEl = document.getElementById('historyCount');
+    countEl.textContent = items.length ? items.length + '건' : '';
+    if (!items.length) {
+        body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm">입고 이력이 없습니다.</td></tr>';
+        return;
+    }
+    const fmt = v => Number(v).toLocaleString('ko-KR', {minimumFractionDigits: 2});
+    body.innerHTML = items.map(h => `
+        <tr class="hover:bg-gray-50">
+            <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">${escHtml(h.purchase_date)}</td>
+            <td class="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">${escHtml(h.store_name)}</td>
+            <td class="px-3 py-2 text-sm text-gray-800">${escHtml(h.product_name)}</td>
+            <td class="px-3 py-2 text-xs text-right text-indigo-600 font-mono whitespace-nowrap">
+                ${fmt(h.unit_price)}<span class="text-gray-400 ml-1">(${h.purchase_type === 'box' ? '박스' : '낱개'})</span>
+            </td>
+        </tr>
+    `).join('');
 }
 
 function renderResults(items) {
