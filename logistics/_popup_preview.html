@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<!--
+  점포 신규 주문 팝업 미리보기 (테스트용)
+  footer.php 의 #newOrderToast 마크업/동작을 그대로 복제한 정적 테스트 페이지.
+  브라우저로 이 파일을 열어 "새 주문 시뮬레이션" 버튼을 누르면
+  실제 팝업과 동일하게 화면 중앙 + 빨강 배경으로 표시됩니다.
+  확인 후 이 파일은 삭제해도 됩니다.
+-->
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>주문 팝업 미리보기</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: sans-serif; padding: 2rem; background:#f3f4f6; }
+        .btn { padding:0.6rem 1.2rem; background:#dc2626; color:#fff; border:none; border-radius:0.5rem; font-size:1rem; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <h1>점포 신규 주문 팝업 미리보기</h1>
+    <p>아래 버튼을 누르면 실제 footer.php 와 동일한 팝업이 화면 중앙에 빨강 배경으로 뜹니다.</p>
+    <button class="btn" onclick="simulate()"><i class="fas fa-bell"></i> 새 주문 시뮬레이션</button>
+
+    <!-- ==== footer.php #newOrderToast 와 동일한 마크업 ==== -->
+    <div id="newOrderToast" style="display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;background:rgba(0,0,0,0.5)">
+        <div style="width:30rem;max-width:90vw;border-radius:0.75rem;overflow:hidden;border:2px solid #991b1b;box-shadow:0 20px 45px rgba(0,0,0,0.4)">
+            <div style="background:#b91c1c;color:#fff;padding:0.85rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
+                <span style="font-size:1.05rem;font-weight:700"><i class="fas fa-bell" style="margin-right:0.5rem"></i><span id="noToastTitle">새 점포 주문</span></span>
+                <button type="button" onclick="lcCloseNewOrderToast()" style="color:#fff;opacity:0.85;background:none;border:none;cursor:pointer;font-size:1rem"><i class="fas fa-times"></i></button>
+            </div>
+            <div style="background:#dc2626;color:#fff;padding:1.25rem">
+                <p id="noToastStore" style="font-size:1.25rem;font-weight:700;margin:0"></p>
+                <p id="noToastMeta" style="font-size:0.9rem;color:#fee2e2;margin:0.35rem 0 0"></p>
+            </div>
+            <div style="background:#b91c1c;padding:0.85rem 1.25rem;display:flex;gap:0.5rem">
+                <a id="noToastViewLink" href="#" onclick="lcAckNewOrderToast()"
+                   style="flex:1;text-align:center;padding:0.55rem 0;background:#fff;color:#b91c1c;font-size:0.9rem;font-weight:700;border-radius:0.375rem;text-decoration:none">주문 보기</a>
+                <button type="button" onclick="lcCloseNewOrderToast()"
+                        style="padding:0.55rem 1rem;background:#7f1d1d;color:#fff;font-size:0.9rem;border:none;border-radius:0.375rem;cursor:pointer">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // footer.php showPopup() 와 동일한 로직 (샘플 데이터)
+    function showPopup(orders) {
+        var first = orders[0];
+        var n = orders.length;
+        document.getElementById('noToastTitle').textContent = '🔔 새 점포 주문 ' + n + '건';
+        document.getElementById('noToastStore').textContent = first.store_name + (n > 1 ? ' 외 ' + (n - 1) + '건' : '');
+        var amount = Math.round(first.total_amount).toLocaleString();
+        document.getElementById('noToastMeta').textContent = first.order_no + ' · ' + amount + '원 · ' + first.item_count + '개 품목';
+        document.getElementById('noToastViewLink').href = '#';
+        document.getElementById('newOrderToast').style.display = 'flex';
+    }
+    window.lcCloseNewOrderToast = function() { document.getElementById('newOrderToast').style.display = 'none'; };
+    window.lcAckNewOrderToast = function() { return false; };
+
+    function simulate() {
+        showPopup([
+            { id: 123, store_name: 'KIMS MALL (킴스몰)', order_no: '#0123', total_amount: 94074, item_count: 7 },
+            { id: 122, store_name: '다른 점포', order_no: '#0122', total_amount: 30000, item_count: 3 }
+        ]);
+    }
+    </script>
+</body>
+</html>
