@@ -101,6 +101,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $regular_prices     = $_POST['regular_price']     ?? [];
     $item_notes         = $_POST['item_notes']        ?? [];
     $pieces_per_box_inputs = $_POST['pieces_per_box'] ?? []; // Design Ref: inbound-ppb-override §3 — 행별 ppb 오버라이드
+    $damaged_qtys       = $_POST['damaged_qty']       ?? []; // Design Ref: inbound-damage-registration.design.md §3.3
+    $damage_reasons     = $_POST['damage_reason']     ?? [];
 
     if (!$form['inbound_date']) $errors[] = 'Please enter the inbound date.';
 
@@ -141,6 +143,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Design Ref: pack-unit §4 — 묶음(BOX/PACK) 입고는 낱개원가 환산, PCS는 그대로
         $cost_price_pcs = lc_is_bundle_unit($unit) ? lc_pcs_cost($final_price, $ppb) : round($final_price, 4);
 
+        // Design Ref: inbound-damage-registration.design.md §3.3 — 파손 수량은 해당 행의 입고 단위와 동일
+        $damaged = max(0, (int)($damaged_qtys[$i] ?? 0));
+        if ($damaged > $qty) {
+            $errors[] = "Item #" . ($i + 1) . ": Damaged quantity cannot exceed the inbound quantity.";
+            $error_fields[$i] = 'damaged_qty';
+            continue;
+        }
+        $damage_reason = trim($damage_reasons[$i] ?? '');
+        if ($damaged > 0 && $damage_reason === '') {
+            $errors[] = "Item #" . ($i + 1) . ": Please enter a damage reason.";
+            $error_fields[$i] = 'damage_reason';
+            continue;
+        }
+
         $valid_items[] = [
             '_idx'          => $i, // product_id[] 원본 인덱스 (오류 필드 매핑용)
             'product_id'    => $pid,
@@ -155,6 +171,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'regular_price' => $regular_price,
             'discount_rate' => $form['discount_rate'],
             'notes'         => trim($item_notes[$i]   ?? ''),
+            'damaged_qty'   => $damaged,
+            'damage_reason' => $damage_reason,
         ];
     }
 
@@ -217,6 +235,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $inbound_id = $conn->insert_id;
                 $st->close();
 
+                // Plan SC-2: 파손 수량만큼 판매 가능 재고에서 제외
+                $sellable_qty = $item['quantity'] - $item['damaged_qty'];
+
                 // Plan SC-1/SC-2: lot에 단위 기록 — BOX lot / PCS lot 분리 저장
                 $st2 = $conn->prepare(
                     "INSERT INTO lc_inventory
@@ -225,10 +246,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 $st2->bind_param('iissssi',
                     $inbound_id, $item['product_id'], $item['unit'], $item['lot_number'],
-                    $item['expiry_date'], $item['storage_location'], $item['quantity']
+                    $item['expiry_date'], $item['storage_location'], $sellable_qty
                 );
                 $st2->execute();
                 $st2->close();
+
+                // Design Ref: inbound-damage-registration.design.md §3.3 — 파손 이력 기록
+                if ($item['damaged_qty'] > 0) {
+                    $damaged_pcs_equiv = lc_is_bundle_unit($item['unit'])
+                        ? $item['damaged_qty'] * $item['pieces_per_box']
+                        : $item['damaged_qty'];
+                    $cost_loss = round($damaged_pcs_equiv * $item['cost_price_pcs'], 4);
+
+                    $st3 = $conn->prepare(
+                        "INSERT INTO lc_inbound_damages (inbound_id, product_id, supplier_id, quantity, unit, cost_loss, reason, created_by)
+                         VALUES (?,?,?,?,?,?,?,?)"
+                    );
+                    $st3->bind_param('iiiisdsi',
+                        $inbound_id, $item['product_id'], $form['supplier_id'],
+                        $item['damaged_qty'], $item['unit'], $cost_loss, $item['damage_reason'], $uid
+                    );
+                    $st3->execute();
+                    $st3->close();
+                }
             }
 
             $conn->commit();
@@ -381,6 +421,8 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                     <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-24">COST(PCS)</th>
                     <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-24">COST(BOX)</th>
                     <th class="px-3 py-2 text-left text-xs text-teal-700 font-semibold w-28">Total</th>
+                    <th class="px-3 py-2 text-left text-xs text-red-500 font-medium w-20">Damaged</th>
+                    <th class="px-3 py-2 text-left text-xs text-red-500 font-medium w-32">Damage Reason</th>
                     <th class="px-3 py-2 w-7"></th>
                 </tr>
             </thead>
@@ -438,6 +480,8 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                     <td class="px-3 py-2 text-left font-bold text-teal-800">
                         <?php echo $ei_row_total > 0 ? number_format($ei_row_total, 2) : '-'; ?>
                     </td>
+                    <td class="px-3 py-2 text-xs text-gray-300 text-center">-</td>
+                    <td class="px-3 py-2 text-xs text-gray-300">-</td>
                     <td class="px-3 py-2"></td>
                 </tr>
                 <?php endforeach; ?>
@@ -464,8 +508,11 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                         $r_qty_pcs   = $r_is_bundle ? ($r_qty * $r_ppb) : $r_qty;
                         $r_price_pcs = $r_unit === 'PCS' ? $r_cost : ($r_ppb > 0 ? round($r_cost / $r_ppb, 2) : $r_cost);
                         $r_price_box = $r_is_bundle ? $r_cost : round($r_cost * $r_ppb, 2);
+                        // Design Ref: inbound-damage-registration.design.md §3.1
+                        $r_damaged = (int)($damaged_qtys[$ri] ?? 0);
+                        $r_damage_reason = $damage_reasons[$ri] ?? '';
                 ?>
-                <tr class="item-row restored-row border-b border-gray-50" data-error-field="<?php echo htmlspecialchars($error_fields[$ri] ?? ''); ?>">
+                <tr class="item-row restored-row border-b border-gray-50<?php echo $r_damaged > 0 ? ' bg-red-50' : ''; ?>" data-error-field="<?php echo htmlspecialchars($error_fields[$ri] ?? ''); ?>">
                     <td class="px-3 py-2 text-xs text-gray-400 row-num"></td>
                     <td class="px-3 py-2" style="width:15rem;max-width:15rem">
                         <input type="hidden" name="product_id[]" class="product-id-hidden" value="<?php echo $rpid; ?>" data-req-expiry="<?php echo $r_req_expiry; ?>">
@@ -530,6 +577,16 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                     </td>
                     <td class="px-3 py-2">
                         <span class="row-total text-sm font-bold text-teal-800">-</span>
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="number" name="damaged_qty[]" min="0" placeholder="0" value="<?php echo $r_damaged > 0 ? $r_damaged : ''; ?>"
+                               class="row-damaged-qty w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400"
+                               oninput="onRowDamagedChange(this)">
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="text" name="damage_reason[]" maxlength="255" placeholder="Reason" value="<?php echo htmlspecialchars($r_damage_reason); ?>"
+                               <?php echo $r_damaged > 0 ? 'required' : ''; ?>
+                               class="row-damage-reason w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400">
                     </td>
                     <td class="px-3 py-2 text-center"><button type="button" onclick="removeRow(this)" class="text-gray-300 hover:text-red-400 transition-colors"><i class="fas fa-times text-xs"></i></button></td>
                 </tr>
@@ -922,6 +979,16 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
         <!-- Total -->
         <td class="px-3 py-2">
             <span class="row-total text-sm font-bold text-teal-800">-</span>
+        </td>
+        <!-- Damaged / Damage Reason (Design Ref: inbound-damage-registration.design.md §3.1) -->
+        <td class="px-3 py-2">
+            <input type="number" name="damaged_qty[]" min="0" placeholder="0"
+                   class="row-damaged-qty w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400"
+                   oninput="onRowDamagedChange(this)">
+        </td>
+        <td class="px-3 py-2">
+            <input type="text" name="damage_reason[]" maxlength="255" placeholder="Reason"
+                   class="row-damage-reason w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400">
         </td>
         <td class="px-3 py-2 text-center"><button type="button" onclick="removeRow(this)" class="text-gray-300 hover:text-red-400 transition-colors"><i class="fas fa-times text-xs"></i></button></td>
     </tr>
@@ -1589,6 +1656,24 @@ document.addEventListener('keydown', function(e) {
         updateRowFinalCost(row);
     };
 
+    // ── 파손 수량 변경 (Design Ref: inbound-damage-registration.design.md §3.2) ──
+    // 서버 검증이 최종 소스이며, 이 클라이언트 검증은 UX 보조 역할만 한다.
+    window.onRowDamagedChange = function(inp) {
+        var row = inp.closest('tr.item-row');
+        var sel = row.querySelector('.row-unit-select');
+        var isBundle = sel ? sel.value !== 'PCS' : false;
+        var qtyInp = isBundle ? row.querySelector('.row-qty-box') : row.querySelector('.row-qty-pcs');
+        var maxQty = qtyInp ? (parseFloat(qtyInp.value) || 0) : 0;
+        var damaged = parseFloat(inp.value) || 0;
+        if (damaged > maxQty) { damaged = maxQty; inp.value = maxQty > 0 ? maxQty : ''; }
+        var reasonInp = row.querySelector('.row-damage-reason');
+        if (reasonInp) {
+            if (damaged > 0) { reasonInp.setAttribute('required', 'required'); }
+            else { reasonInp.removeAttribute('required'); }
+        }
+        row.classList.toggle('bg-red-50', damaged > 0);
+    };
+
     // ── PKG 변경 시 재계산 ─────────────────────────────────────────
     window.onRowPpbInput = function(inp) {
         var v = parseInt(inp.value, 10);
@@ -1669,6 +1754,8 @@ document.addEventListener('keydown', function(e) {
         var rate = parseFloat(document.getElementById('discountRate').value) || 0;
         var pcsPriceEl = row.querySelector('.row-price-pcs');
         var pcsPrice = pcsPriceEl ? (parseFloat(pcsPriceEl.value) || 0) : 0;
+        var boxPriceEl = row.querySelector('.row-price-box');
+        var boxPriceRaw = boxPriceEl ? (parseFloat(boxPriceEl.value) || 0) : 0;
         var ppb = getRowPpb(row);
         var qtyPcsEl = row.querySelector('.row-qty-pcs');
         var qtyPcs = qtyPcsEl ? (parseFloat(qtyPcsEl.value) || 0) : 0;
@@ -1678,17 +1765,20 @@ document.addEventListener('keydown', function(e) {
         var discSpan  = row.querySelector('.row-discount-rate');
         if (!finalSpan) return;
         var costPcs = rate > 0 && pcsPrice > 0 ? pcsPrice * (1 - rate / 100) : pcsPrice;
+        // COST(BOX)는 PRICE(PCS)를 ppb로 되곱하면 반올림 오차가 누적되므로(예: 500.5 -> 500.52),
+        // 입력된 PRICE(BOX) 원본 값을 그대로(할인율만 적용) 사용한다.
+        var costBox = boxPriceRaw > 0 ? boxPriceRaw * (1 - rate / 100) : costPcs * ppb;
         if (rate > 0 && pcsPrice > 0) {
             if (discSpan) discSpan.textContent = '-' + rate + '%';
             finalSpan.textContent = costPcs.toFixed(2);
             finalSpan.style.color = '#0f766e';
-            if (boxSpan) { boxSpan.textContent = (costPcs * ppb).toFixed(2); boxSpan.style.color = '#0f766e'; }
+            if (boxSpan) { boxSpan.textContent = costBox.toFixed(2); boxSpan.style.color = '#0f766e'; }
         } else {
             if (discSpan) discSpan.textContent = '-';
             finalSpan.textContent = pcsPrice > 0 ? costPcs.toFixed(2) : '-';
             finalSpan.style.color = pcsPrice > 0 ? '#374151' : '';
             if (boxSpan) {
-                boxSpan.textContent = pcsPrice > 0 ? (costPcs * ppb).toFixed(2) : '-';
+                boxSpan.textContent = pcsPrice > 0 ? costBox.toFixed(2) : '-';
                 boxSpan.style.color = pcsPrice > 0 ? '#374151' : '';
             }
         }

@@ -9,7 +9,7 @@ if (!is_logged_in()) {
         try_login_from_cookie();
     }
     if (!is_logged_in()) {
-        header('Location: /admin/login.php');
+        header('Location: admin/login.php');
         exit();
     }
 }

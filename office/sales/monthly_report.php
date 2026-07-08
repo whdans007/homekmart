@@ -28,11 +28,12 @@ $store_display = strtoupper(trim($store_display));
 
 $conn = get_db_connection();
 
-// 1) 일별 POS 매출 — 셀 마감액(expected_cash, POS Z리딩) 기준. daily_entry DAY TOTAL과 동일 기준.
-//    (기존 sales_daily.{shift}_pos{n} = 시제 재계산액(total_amount)은 도매(wholesale)를 제외하고 저장되어
-//     daily_entry 화면의 실제 마감 리딩과 어긋났음 → 원인 규명 후 expected_cash 기준으로 통일)
+// 1) 일별 POS 매출 — 셀 total_amount(그 POS의 총 매출 = 입금분+기타결제+지출 합계+POS 등록 외상) 기준.
+//    daily_entry DAY TOTAL/그리드와 동일 기준.
+//    (과거엔 total_amount가 지출·POS외상을 빼고 저장돼 daily_entry 마감 리딩과 어긋나 expected_cash로
+//     임시 대체했었음 → total_amount 계산식 자체를 정정했으므로 다시 total_amount 기준으로 복귀)
 $stmt = $conn->prepare(
-    "SELECT DAY(sale_date) AS d, shift, pos_no, expected_cash
+    "SELECT DAY(sale_date) AS d, shift, pos_no, total_amount
      FROM sales_pos_reconciliation
      WHERE store_id=? AND YEAR(sale_date)=? AND MONTH(sale_date)=?"
 );
@@ -42,7 +43,7 @@ $sales_by_day = [];
 foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $r) {
     $d = (int)$r['d'];
     if (!isset($sales_by_day[$d])) $sales_by_day[$d] = [];
-    $sales_by_day[$d]["{$r['shift']}_pos{$r['pos_no']}"] = $r['expected_cash'];
+    $sales_by_day[$d]["{$r['shift']}_pos{$r['pos_no']}"] = $r['total_amount'];
 }
 $stmt->close();
 

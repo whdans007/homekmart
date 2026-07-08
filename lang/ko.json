@@ -1388,7 +1388,8 @@
     "payment_done": "완료",
     "payment_unpaid": "미결제",
     "view_all": "전체 보기",
-    "total_count_label": "총 {count}건"
+    "total_count_label": "총 {count}건",
+    "total_amount_label": "판매금액 {amount}"
   },
   "add_wholesale_customer": {
     "page_description": "새로운 거래처 정보를 입력해주세요.",

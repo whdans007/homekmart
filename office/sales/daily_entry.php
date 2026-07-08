@@ -136,7 +136,7 @@ $shifts = [
 </div>
 
 <div class="s-card px-5 py-4 flex items-center justify-between" style="background:#16a34a">
-  <div><div class="text-xs" style="color:#bbf7d0">DAY TOTAL <span style="color:#86efac">(deposit + other)</span></div>
+  <div><div class="text-xs" style="color:#bbf7d0">DAY TOTAL <span style="color:#86efac">(deposit + other + expenses + POS credit)</span></div>
     <div id="day_total" class="text-2xl font-bold text-white num">₱ 0.00</div></div>
   <div class="text-xs" style="color:#bbf7d0">6 cells</div>
 </div>
@@ -206,7 +206,7 @@ $shifts = [
         <div class="sec-label"><i class="fa-solid fa-scale-balanced" style="color:#9ca3af;margin-right:4px"></i> 6. Closing check <span class="sub">(vs POS closing +/−)</span></div>
         <div class="ic-card" style="padding:14px">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:9px;background:#f9fafb;margin-bottom:10px">
-            <span class="text-xs text-gray-500">Total</span>
+            <span class="text-xs text-gray-500">Cash Total</span>
             <span class="text-lg font-semibold text-gray-800 num" id="m-chk-total">₱ 0.00</span>
           </div>
           <!-- 참고: 포인트 사용 + POS 등록 외상 (시제에는 미포함, 마감 확인용 표시) -->
@@ -215,6 +215,10 @@ $shifts = [
             <span class="text-xs font-medium" style="color:#6b7280">Over / Short (+/−)</span>
             <span class="text-2xl font-bold num" id="m-diff">—</span>
           </div>
+        </div>
+        <div class="flex items-center justify-between" style="margin-top:10px;padding:10px 14px;border-radius:9px;background:#eff6ff;border:1px solid #bfdbfe">
+          <span class="text-xs font-medium" style="color:#1d4ed8">Sales Total <span style="color:#93c5fd;font-weight:400">(Cash Total + Expenses + POS credit)</span></span>
+          <span class="text-lg font-bold num" style="color:#1d4ed8" id="m-sales-total">₱ 0.00</span>
         </div>
       </div>
 
@@ -249,7 +253,7 @@ $shifts = [
           </tr></tfoot>
         </table>
       </div>
-      <div style="font-size:11px;color:#fb7185;margin:8px 0 16px;padding:0 2px"><i class="fa-solid fa-circle-info" style="margin-right:4px"></i> Points used are excluded from the total</div>
+      <div style="font-size:11px;color:#fb7185;margin:8px 0 16px;padding:0 2px"><i class="fa-solid fa-circle-info" style="margin-right:4px"></i> Total (incl. Points Used) is applied in 6. Closing check</div>
 
       <!-- 3. Other payments -->
       <div class="sec-label"><i class="fa-regular fa-credit-card" style="color:#60a5fa;margin-right:4px"></i> 3. Other payments</div>
@@ -279,7 +283,6 @@ $shifts = [
       <div class="ic-card" style="background:#f8f8ff;border-color:#e0e7ff;padding:12px">
         <div class="flex items-center gap-2">
           <select id="m-ws-select" class="sel" style="flex:1" onchange="addWS()"><option value="">— Select —</option></select>
-          <button type="button" onclick="addWS()" class="px-3 py-2 rounded-lg text-sm text-white" style="background:#4f46e5;border:none;cursor:pointer"><i class="fa-solid fa-plus"></i></button>
         </div>
         <div id="m-ws-list" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
         <div class="flex items-center justify-between" style="margin-top:8px;padding-top:8px;border-top:1px dashed #c7d2fe">
@@ -359,20 +362,15 @@ function allocate(qty){
 }
 
 // ── grid ──
-// 셀 표시 매출 = POS Closing(expected_cash) + Manual DR(거래명세서 credit_doc + Whole Sale)
-function cellManualDR(d){
-  return (d.wholesale||[]).reduce((s,w)=> (w.source_type==='credit_doc'||w.source_type==='wholesale') ? s+(parseFloat(w.amount)||0) : s, 0);
-}
-// 셀 Over/Short = 마감금액(expected_cash) − Total(deposit+other) − Points Used − POS 등록 외상(credit)
+// 셀 표시 매출(그 POS의 총 매출) = r.total_amount (서버 산출: 입금분 + 기타결제 + 지출 합계 + POS 등록 외상)
+// 셀 Over/Short = 마감금액(expected_cash) − 그 POS의 총 매출(total_amount)
 // (모달 6. Closing check 와 동일 산식)
 function cellOverShort(d){
   const r=d.recon||{};
   if(r.expected_cash===null || r.expected_cash===undefined || r.expected_cash==='') return null;
   const pos=parseFloat(r.expected_cash); if(isNaN(pos)) return null;
   const total=parseFloat(r.total_amount)||0;
-  let points=0; (d.expenses||[]).forEach(e=>{ if(e.detail==='포인트 사용') points+=parseFloat(e.amount)||0; });
-  let posCredit=0; (d.wholesale||[]).forEach(w=>{ if(w.source_type==='credit') posCredit+=parseFloat(w.amount)||0; });
-  return Math.round((pos-total-points-posCredit)*100)/100;
+  return Math.round((pos-total)*100)/100;
 }
 function renderGrid(){
   let day=0;
@@ -382,8 +380,7 @@ function renderGrid(){
       const key=sk+'_pos'+p, d=(PRELOAD[key]||{}), r=d.recon;
       const td=document.getElementById('cell_'+key);
       if(r && parseFloat(r.total_amount)>0){
-        const posClosing=parseFloat(r.expected_cash)||0;
-        const tot=Math.round((posClosing+cellManualDR(d))*100)/100; sub+=tot; day+=tot;
+        const tot=Math.round(parseFloat(r.total_amount)*100)/100; sub+=tot; day+=tot;
         let badge='';
         const os=cellOverShort(d);
         if(os!==null){
@@ -511,9 +508,9 @@ function buildExpenses(saved){
     b.appendChild(tr);
   });
 }
-function expTotal(){ // 포인트 사용 제외 합계
+function expTotal(){ // 2. Expenses 전체 합계 (포인트 사용 포함) — 6. Closing check 에서 사용
   let s=0;
-  document.querySelectorAll('.exp-a').forEach(inp=>{ const i=parseInt(inp.dataset.exp); if(EXPENSE_CATS[i] && EXPENSE_CATS[i].isPoint) return; s+=parseFloat(inp.value)||0; });
+  document.querySelectorAll('.exp-a').forEach(inp=>{ s+=parseFloat(inp.value)||0; });
   return Math.round(s*100)/100;
 }
 
@@ -679,15 +676,14 @@ function recalc(){
   document.getElementById('m-grand').textContent=peso(posClosing+mdrTotal);
   document.getElementById('m-chk-total').textContent=peso(total);
 
-  // 6. Closing check 상세: 포인트 사용 + POS 등록 외상 (참고 표시 · 시제 미포함)
-  let pointsUsed=0;
-  document.querySelectorAll('.exp-a').forEach(inp=>{ const i=parseInt(inp.dataset.exp); if(EXPENSE_CATS[i] && EXPENSE_CATS[i].isPoint) pointsUsed+=parseFloat(inp.value)||0; });
+  // 6. Closing check 상세: 2. Expenses 합계(포인트 사용 포함) + POS 등록 외상 (참고 표시 · 시제 미포함)
+  const expAmt=expTotal();
   const posCredits=sccPicked.filter(w=>w.isPos || w.source_type==='credit');
   let detail='';
-  if(pointsUsed>0){
+  if(expAmt>0){
     detail+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 14px">
-        <span class="text-xs" style="color:#b45309"><i class="fa-solid fa-coins" style="margin-right:5px;color:#fbbf24"></i>Points Used</span>
-        <span class="text-sm num" style="color:#b45309">${fmt(pointsUsed)}</span></div>`;
+        <span class="text-xs" style="color:#be123c"><i class="fa-solid fa-receipt" style="margin-right:5px;color:#fb7185"></i>Expenses Total</span>
+        <span class="text-sm num" style="color:#be123c">${fmt(expAmt)}</span></div>`;
   }
   posCredits.forEach(w=>{
     const nm=w.client||w.remark||'—';
@@ -699,12 +695,17 @@ function recalc(){
   detailBox.innerHTML=detail;
   detailBox.style.marginBottom = detail ? '10px' : '0';
 
-  // closing diff = 마감 금액(POS closing) − Total − Points Used − POS 등록 외상 합계
+  // closing diff = 마감 금액(POS closing) − Total − Expenses 합계(2번) − POS 등록 외상 합계
   const posCreditSum=posCredits.reduce((s,w)=>s+(w.amount||0),0);
+
+  // Sales Total(그 POS의 총 매출) = Cash Total(입금분+기타결제) + Expenses 합계 + POS 등록 외상 (서버 total_amount 와 동일 산식)
+  const salesTotal=Math.round((total+expAmt+posCreditSum)*100)/100;
+  document.getElementById('m-sales-total').textContent=peso(salesTotal);
+
   const pos=parseFloat(document.getElementById('m-closing').value);
   const dv=document.getElementById('m-diff'), box=document.getElementById('m-diff-box');
   if(isNaN(pos)){ dv.textContent='—'; dv.style.color='#9ca3af'; box.style.background='#f9fafb'; }
-  else { const diff=Math.round((pos-total-pointsUsed-posCreditSum)*100)/100;
+  else { const diff=Math.round((pos-total-expAmt-posCreditSum)*100)/100;
     if(Math.abs(diff)<0.005){ dv.textContent='₱ 0.00 ✓'; dv.style.color='#15803d'; box.style.background='#f0fdf4'; }
     else if(diff>0){ dv.textContent='+ '+peso(diff); dv.style.color='#2563eb'; box.style.background='#eff6ff'; }
     else { dv.textContent='− '+peso(Math.abs(diff)); dv.style.color='#dc2626'; box.style.background='#fef2f2'; } }

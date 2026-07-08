@@ -43,7 +43,7 @@ $_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '
                     <div class="block mb-2">
                         <img src="<?php echo STORE_WEB_ROOT; ?>/logo/homekmart_logo.png" alt="Home K Mart" style="max-width:150px; width:100%;">
                     </div>
-                    <a href="/"
+                    <a href="<?php echo STORE_WEB_ROOT; ?>/"
                        class="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-semibold rounded-md transition-colors"
                        style="background:#1e40af;color:#ffffff;"
                        onmouseover="this.style.background='#1e3a8a'" onmouseout="this.style.background='#1e40af'">
@@ -90,6 +90,15 @@ $_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '
                             <i class="fas fa-list-alt mr-2 text-xs w-4 text-center"></i>Order History
                         </a>
                     </div>
+
+                    <!-- Requests (amber) -->
+                    <div class="rounded-lg px-1.5 py-2" style="background:#fffbeb;">
+                        <p class="px-2 py-1 mb-1 text-xs font-semibold uppercase tracking-wider rounded" style="background:#fef3c7;color:#92400e;">Requests</p>
+                        <a href="<?php echo STORE_BASE; ?>/requests.php"
+                           class="<?php echo in_array($_sp, ['requests.php','request_new.php','request_detail.php']) ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-comment-dots mr-2 text-xs w-4 text-center"></i>Requests
+                        </a>
+                    </div>
                 </nav>
 
             </div>
@@ -103,7 +112,7 @@ $_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '
         <div class="md:hidden bg-white border-b border-teal-100 px-4 py-3 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <img src="<?php echo STORE_WEB_ROOT; ?>/logo/homekmart_logo.png" alt="Home K Mart" style="height:28px;">
-                <a href="/"
+                <a href="<?php echo STORE_WEB_ROOT; ?>/"
                    class="inline-flex items-center px-2 py-1 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md transition-colors">
                     <i class="fas fa-globe mr-1"></i> MAIN
                 </a>
@@ -117,6 +126,7 @@ $_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '
         <div id="mobile-menu" class="hidden md:hidden bg-white border-b border-gray-200 px-4 py-3 space-y-1">
             <a href="<?php echo STORE_BASE; ?>/order.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Order</a>
             <a href="<?php echo STORE_BASE; ?>/orders.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Order History</a>
+            <a href="<?php echo STORE_BASE; ?>/requests.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Requests</a>
             <div class="border-t border-gray-100 mt-2 pt-2">
                 <div class="px-3 py-1 text-xs text-gray-500"><i class="fas fa-store mr-2"></i><?php echo htmlspecialchars($_sname ?: 'Store'); ?></div>
                 <div class="px-3 py-1 text-sm text-gray-700"><i class="fas fa-circle-user mr-2"></i><?php echo htmlspecialchars($_uname); ?><?php if ($_role_label !== ''): ?> <span class="text-xs text-teal-700">(<?php echo htmlspecialchars($_role_label); ?>)</span><?php endif; ?></div>

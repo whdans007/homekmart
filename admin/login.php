@@ -4,7 +4,7 @@ require_once __DIR__ . '/../lib/lang_helper.php';
 
 // 이미 로그인했다면, 기억된 접근 URL(없으면 메인 허브)로 보냅니다.
 if (isset($_SESSION['user_id'])) {
-    header('Location: ' . get_login_redirect_target('/index.php'));
+    header('Location: ' . get_login_redirect_target('../index.php'));
     exit;
 }
 
@@ -65,7 +65,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 $conn->close();
                 // 원래 접근하려던 URL이 있으면 그곳으로, 없으면 메인 허브로 이동합니다.
-                header('Location: ' . get_login_redirect_target('/index.php'));
+                header('Location: ' . get_login_redirect_target('../index.php'));
                 exit();
             } else {
                 $error_message = t('auth.invalid_credentials');
@@ -217,7 +217,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </div>
 
         <div class="logo-box">
-            <img src="/logo/homekmart_logo.png" alt="HOME K MART">
+            <img src="../logo/homekmart_logo.png" alt="HOME K MART">
             <div class="logo-sub">Management System</div>
         </div>
 

@@ -50,6 +50,7 @@ foreach ((array)($_POST['exp'] ?? []) as $e) {
 // Whole Sale 선택: ws[i][source_type|source_id|client|remark|amount]
 $ws_rows = [];
 $wholesale_total = 0.0;
+$credit_total = 0.0;
 $seen_ws = [];
 foreach ((array)($_POST['ws'] ?? []) as $w) {
     $stype = $w['source_type'] ?? '';
@@ -66,8 +67,10 @@ foreach ((array)($_POST['ws'] ?? []) as $w) {
         'remark' => substr(trim($w['remark'] ?? ''), 0, 255),
         'amount' => $amount,
     ];
-    // 섹션4 신용거래(credit·credit_doc·delivery_k)는 시제 제외 → §5 Whole Sale 만 셀 총액에 합산. 행은 기록용으로 저장.
+    // §5 Whole Sale은 셀 총액(매출)에 합산. 4번 POS 등록 외상(credit)은 총 매출에 합산(신용 판매분).
+    // 거래명세서(credit_doc)·Delivery K는 참고·기록용으로 저장만 하고 매출 계산에서 제외.
     if ($stype === 'wholesale') { $wholesale_total += $amount; }
+    elseif ($stype === 'credit') { $credit_total += $amount; }
 }
 
 // 마감 현금 기대치 (빈 값이면 null)
@@ -75,21 +78,12 @@ $exp_raw       = trim($_POST['expected_cash'] ?? '');
 $expected_cash = ($exp_raw === '') ? null : (float)$exp_raw;
 
 // ── 서버 권위적 정산 재계산 ──────────────────────────────
-$r  = pos_recalc_cell($qty, $other_total, $wholesale_total, $expense_total, $expected_cash);
+$r  = pos_recalc_cell($qty, $other_total, $wholesale_total, $expense_total, $expected_cash, $credit_total);
 $by = (int)($_SESSION['user_id'] ?? 0) ?: null;
 
 $conn = get_db_connection();
 $conn->begin_transaction();
 try {
-    // 저장 전 이 셀의 기존 Whole Sale(wholesale) pick id 확보 — 선택 해제 시 결제상태 되돌림 판단용
-    $old_ws_ids = [];
-    $q0 = $conn->prepare("SELECT source_id FROM sales_pos_wholesale_pick WHERE store_id=? AND sale_date=? AND shift=? AND pos_no=? AND source_type='wholesale'");
-    $q0->bind_param('issi', $store_id, $sale_date, $shift, $pos_no);
-    $q0->execute();
-    $rs0 = $q0->get_result();
-    while ($row = $rs0->fetch_assoc()) { $old_ws_ids[(int)$row['source_id']] = true; }
-    $q0->close();
-
     // 셀 단위 delete-then-insert (4개 상세 테이블)
     foreach (['sales_pos_cash_count','sales_pos_payment','sales_pos_expense','sales_pos_wholesale_pick'] as $tbl) {
         $del = $conn->prepare("DELETE FROM {$tbl} WHERE store_id=? AND sale_date=? AND shift=? AND pos_no=?");
@@ -150,36 +144,9 @@ try {
         $ins->close();
     }
 
-    // ── Whole Sale 선택 → wholesale_sales 결제상태 동기화 ──
-    // 이번 저장에 포함된 wholesale pick = 결제완료(paid), 제거된 것 = (다른 셀에도 없으면) 미결제(unpaid)
-    $new_ws_ids = [];
-    foreach ($ws_rows as $w) { if (($w['stype'] ?? '') === 'wholesale' && (int)$w['sid'] > 0) $new_ws_ids[(int)$w['sid']] = true; }
-
-    if ($new_ws_ids) {
-        $up_paid = $conn->prepare(
-            "UPDATE wholesale_sales SET payment_status='paid', paid_at=NOW(), payment_method='POS', updated_at=NOW()
-             WHERE id=? AND store_id=? AND COALESCE(payment_status,'unpaid') <> 'paid'"
-        );
-        foreach (array_keys($new_ws_ids) as $wid) { $up_paid->bind_param('ii', $wid, $store_id); $up_paid->execute(); }
-        $up_paid->close();
-    }
-
-    $removed_ws = array_diff_key($old_ws_ids, $new_ws_ids);
-    if ($removed_ws) {
-        // 다른 셀에서 아직 선택 중이면 유지, 아무 셀에도 없으면 미결제로 되돌림 (insert 후 현재 상태 기준)
-        $chk = $conn->prepare("SELECT 1 FROM sales_pos_wholesale_pick WHERE source_type='wholesale' AND source_id=? AND store_id=? LIMIT 1");
-        $up_unpaid = $conn->prepare(
-            "UPDATE wholesale_sales SET payment_status='unpaid', paid_at=NULL, payment_method=NULL, updated_at=NOW()
-             WHERE id=? AND store_id=?"
-        );
-        foreach (array_keys($removed_ws) as $wid) {
-            $chk->bind_param('ii', $wid, $store_id); $chk->execute();
-            $still = $chk->get_result()->fetch_row();
-            if (!$still) { $up_unpaid->bind_param('ii', $wid, $store_id); $up_unpaid->execute(); }
-        }
-        $chk->close();
-        $up_unpaid->close();
-    }
+    // 참고: Whole Sale 선택은 셀 집계(§5 소계 · Daybook)에만 반영되며,
+    // wholesale_sales.payment_status는 도매판매 화면의 결제완료 처리 버튼으로만 변경한다
+    // (POS 셀 저장으로 자동 결제완료 처리되지 않도록 함 — 2026-07 사고 이후 제거).
 
     // 정산 요약 upsert
     $up = $conn->prepare(

@@ -206,7 +206,8 @@ try {
                     JOIN lc_inbound ib2 ON inv.inbound_id = ib2.id
                     JOIN lc_inbound_batches bat2 ON ib2.batch_id = bat2.id
                     WHERE inv.product_id = p.id AND inv.unit = 'PCS' AND inv.quantity_remain > 0
-                ), 0) AS pcs_price
+                ), 0) AS pcs_price,
+                MAX(ib.created_at) AS latest_inbound_at
          FROM lc_inventory i
          JOIN lc_products p ON i.product_id = p.id
          JOIN lc_inbound ib ON i.inbound_id = ib.id
@@ -215,7 +216,7 @@ try {
          LEFT JOIN lc_brands b ON p.brand_id = b.id
          WHERE i.quantity_remain > 0 AND p.is_active = 1
          GROUP BY p.id
-         ORDER BY c.name_en ASC, p.name_en ASC"
+         ORDER BY latest_inbound_at DESC, c.name_en ASC, p.name_en ASC"
     )->fetch_all(MYSQLI_ASSOC);
 
     $conn->close();
