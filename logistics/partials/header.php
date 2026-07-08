@@ -30,13 +30,18 @@ $_lc_store_label = $_lc_store_name !== '' ? $_lc_store_name : ($_lc_is_staff ? '
 
 // Order List 배지용 — 처리 대기 주문 수 (pending = "Order Received")
 $_lc_pending_orders = 0;
+// Store Requests 배지용 — 미확인(대기) 요청 수
+// Design Ref: docs/02-design/features/store-request-board.design.md §5
+$_lc_pending_requests = 0;
 if ($_lc_is_staff) {
     try {
         require_once __DIR__ . '/../config/db.php';
+        require_once __DIR__ . '/../../lib/store_request_helper.php';
         $conn = get_lc_db();
-        $_lc_pending_orders = (int)$conn->query("SELECT COUNT(*) FROM lc_orders WHERE status = 'pending'")->fetch_row()[0];
+        $_lc_pending_orders   = (int)$conn->query("SELECT COUNT(*) FROM lc_orders WHERE status = 'pending'")->fetch_row()[0];
+        $_lc_pending_requests = count_pending_store_requests($conn);
         $conn->close();
-    } catch (Exception $e) { /* 조회 실패 시 0 */ }
+    } catch (Throwable $e) { /* 조회 실패 시 0 (마이그레이션 미적용 등 Error도 포함) */ }
 }
 ?>
 <!DOCTYPE html>
@@ -74,7 +79,7 @@ if ($_lc_is_staff) {
                     <div class="block mb-2">
                         <img src="<?php echo LC_WEB_ROOT; ?>/logo/homekmart_logo.png" alt="Home K Mart" style="width:100%;height:auto;display:block;">
                     </div>
-                    <a href="/"
+                    <a href="<?php echo LC_WEB_ROOT; ?>/"
                        class="no-print flex items-center gap-2 w-full px-2 py-1.5 text-xs font-semibold rounded-md transition-colors"
                        style="background:#1e40af;color:#ffffff;"
                        onmouseover="this.style.background='#1e3a8a'" onmouseout="this.style.background='#1e40af'">
@@ -171,6 +176,11 @@ if ($_lc_is_staff) {
                             <i class="fas fa-arrow-up mr-2 text-xs w-4 text-center"></i>
                             Outbound History
                         </a>
+                        <a href="<?php echo LC_BASE; ?>/inbound_damages.php"
+                           class="<?php echo $_lc_page === 'inbound_damages.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-triangle-exclamation mr-2 text-xs w-4 text-center"></i>
+                            Damaged Goods
+                        </a>
                     </div>
 
                     <!-- Order Management 섹션 (amber) -->
@@ -192,6 +202,23 @@ if ($_lc_is_staff) {
                            class="<?php echo in_array($_lc_page, ['branch_outbound.php','branch_outbound_list.php']) ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-dolly mr-2 text-xs w-4 text-center"></i>
                             Branch Outbound
+                        </a>
+                    </div>
+
+                    <!-- Store Requests 섹션 (rose) -->
+                    <div class="rounded-lg px-1.5 py-2 mt-3" style="background:#fff1f2;">
+                        <p class="px-2 py-1 mb-1 text-xs font-semibold text-rose-700 uppercase tracking-wider rounded" style="background:#ffe4e6;">Store Requests</p>
+                        <a href="<?php echo LC_BASE; ?>/requests.php"
+                           class="<?php echo in_array($_lc_page, ['requests.php','request_detail.php']) ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-comment-dots mr-2 text-xs w-4 text-center"></i>
+                            Store Requests
+                            <?php if ($_lc_pending_requests > 0): ?>
+                            <span class="ml-auto inline-flex items-center justify-center font-bold"
+                                  style="background:#dc2626;color:#fff;min-width:1.15rem;height:1.15rem;padding:0 0.3rem;border-radius:9999px;font-size:0.65rem;line-height:1"
+                                  title="<?php echo $_lc_pending_requests; ?> pending request(s)">
+                                <?php echo $_lc_pending_requests > 99 ? '99+' : $_lc_pending_requests; ?>
+                            </span>
+                            <?php endif; ?>
                         </a>
                     </div>
 
@@ -224,7 +251,7 @@ if ($_lc_is_staff) {
         <div class="no-print md:hidden bg-white border-b border-teal-100 px-4 py-3 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <img src="<?php echo LC_WEB_ROOT; ?>/logo/homekmart_logo.png" alt="Home K Mart" style="height:28px;">
-                <a href="/"
+                <a href="<?php echo LC_WEB_ROOT; ?>/"
                    class="inline-flex items-center px-2 py-1 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md transition-colors">
                     <i class="fas fa-globe mr-1"></i> MAIN
                 </a>
@@ -242,11 +269,13 @@ if ($_lc_is_staff) {
             <a href="<?php echo LC_BASE; ?>/inbound.php"   class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Inbound Management</a>
             <a href="<?php echo LC_BASE; ?>/inventory.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Inventory Status</a>
             <a href="<?php echo LC_BASE; ?>/outbound.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Outbound History</a>
+            <a href="<?php echo LC_BASE; ?>/inbound_damages.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Damaged Goods</a>
             <a href="<?php echo LC_BASE; ?>/suppliers.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Suppliers</a>
             <a href="<?php echo LC_BASE; ?>/brand_manage.php"    class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Brand Management</a>
             <a href="<?php echo LC_BASE; ?>/category_manage.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Category Management</a>
             <a href="<?php echo LC_BASE; ?>/orders.php"    class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Order List</a>
             <a href="<?php echo LC_BASE; ?>/branch_outbound_list.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Branch Outbound</a>
+            <a href="<?php echo LC_BASE; ?>/requests.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Store Requests</a>
             <?php else: ?>
             <a href="<?php echo LC_BASE; ?>/order_new.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Place Order</a>
             <a href="<?php echo LC_BASE; ?>/orders.php"    class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">My Orders</a>

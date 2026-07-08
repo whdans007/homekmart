@@ -238,4 +238,123 @@ function getAllFilteredInboundItems($filters = []) {
     }
 }
 
+/**
+ * Design Ref: inbound-damage-registration.design.md §4.1
+ * Get filtered inbound damage records with pagination + summary totals
+ *
+ * @param array $filters - ['search' => '', 'date_from' => '', 'date_to' => '']
+ * @param int $page - Page number (1-indexed)
+ * @param int $limit - Items per page
+ * @return array - ['items'=>[...], 'total'=>N, 'page'=>N, 'total_pages'=>N,
+ *                   'summary'=>['count'=>N, 'total_cost_loss'=>F], 'error'=>null|string]
+ */
+function getFilteredInboundDamages($filters = [], $page = 1, $limit = 20) {
+    $conn = get_lc_db();
+    if (!$conn) {
+        return ['items' => [], 'total' => 0, 'page' => 1, 'total_pages' => 0,
+                 'summary' => ['count' => 0, 'total_cost_loss' => 0], 'error' => 'DB Connection Failed'];
+    }
+
+    $search    = isset($filters['search']) ? trim($filters['search']) : '';
+    $date_from = isset($filters['date_from']) ? trim($filters['date_from']) : '';
+    $date_to   = isset($filters['date_to']) ? trim($filters['date_to']) : '';
+    $page  = max(1, intval($page));
+    $limit = min(100, max(1, intval($limit)));
+
+    $where_parts = [];
+    $params = [];
+    $types = '';
+
+    if (!empty($search)) {
+        $where_parts[] = "(p.name_en LIKE ? OR p.name_ko LIKE ? OR s.name LIKE ?)";
+        $params[] = "%{$search}%";
+        $params[] = "%{$search}%";
+        $params[] = "%{$search}%";
+        $types .= 'sss';
+    }
+    if (!empty($date_from)) {
+        $where_parts[] = "i.inbound_date >= ?";
+        $params[] = $date_from;
+        $types .= 's';
+    }
+    if (!empty($date_to)) {
+        $where_parts[] = "i.inbound_date <= ?";
+        $params[] = $date_to;
+        $types .= 's';
+    }
+
+    $where_clause = !empty($where_parts) ? " AND " . implode(" AND ", $where_parts) : "";
+
+    $base_from = "
+        FROM lc_inbound_damages d
+        JOIN lc_inbound  i ON d.inbound_id = i.id
+        JOIN lc_products p ON d.product_id = p.id
+        LEFT JOIN lc_suppliers s ON d.supplier_id = s.id
+        WHERE 1=1 {$where_clause}
+    ";
+
+    // Count + summary (동일 WHERE 조건)
+    try {
+        $sum_query = "SELECT COUNT(*) AS cnt, COALESCE(SUM(d.cost_loss), 0) AS total_loss {$base_from}";
+        $sum_stmt = $conn->prepare($sum_query);
+        if (!empty($params)) {
+            $sum_stmt->bind_param($types, ...$params);
+        }
+        $sum_stmt->execute();
+        $sum_row = $sum_stmt->get_result()->fetch_assoc();
+        $sum_stmt->close();
+        $total = intval($sum_row['cnt']);
+        $summary = ['count' => $total, 'total_cost_loss' => (float)$sum_row['total_loss']];
+    } catch (Exception $e) {
+        return ['items' => [], 'total' => 0, 'page' => 1, 'total_pages' => 0,
+                 'summary' => ['count' => 0, 'total_cost_loss' => 0], 'error' => $e->getMessage()];
+    }
+
+    $total_pages = max(1, (int)ceil($total / $limit));
+    $offset = ($page - 1) * $limit;
+
+    $query = "
+        SELECT d.id, d.quantity, d.unit, d.cost_loss, d.reason, d.created_at,
+               p.name_en, p.name_ko, COALESCE(s.name, '-') AS supplier_name,
+               i.inbound_date, i.batch_id
+        {$base_from}
+        ORDER BY d.created_at DESC
+        LIMIT ? OFFSET ?
+    ";
+
+    try {
+        $stmt = $conn->prepare($query);
+        if (!empty($params)) {
+            $q_params = $params;
+            $q_types = $types . 'ii';
+            $q_params[] = $limit;
+            $q_params[] = $offset;
+            $stmt->bind_param($q_types, ...$q_params);
+        } else {
+            $stmt->bind_param('ii', $limit, $offset);
+        }
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $items = [];
+        while ($row = $result->fetch_assoc()) {
+            $items[] = $row;
+        }
+        $stmt->close();
+        $conn->close();
+
+        return [
+            'items' => $items,
+            'total' => $total,
+            'page' => $page,
+            'total_pages' => $total_pages,
+            'summary' => $summary,
+            'error' => null
+        ];
+    } catch (Exception $e) {
+        return ['items' => [], 'total' => 0, 'page' => 1, 'total_pages' => 0,
+                 'summary' => $summary, 'error' => $e->getMessage()];
+    }
+}
+
 ?>

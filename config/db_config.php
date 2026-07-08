@@ -3,10 +3,19 @@
  * 데이터베이스 접속 정보
  */
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'sunset');
-define('DB_USER', 'sunset');
-define('DB_PASS', '4x7wh]QLOPtGsNJO');
+define('DB_NAME', 'u622428657_main');
+define('DB_USER', 'u622428657_main');
+define('DB_PASS', '4L0*)5kuwD9Rb/jE');
+
+/**
+define('DB_USER', 'u622428657_main');
+define('DB_PASS', '2Bbq0&2h#');
+*/
+
 define('DB_CHARSET', 'utf8mb4');
+
+// Plan SC: ESP32 출퇴근 API 인증 키 (X-Api-Key 헤더)
+define('ATTENDANCE_API_KEY', 'att_change_this_to_a_strong_32char_secret');
 
 /**
  * 데이터베이스 연결을 생성하고 반환합니다.

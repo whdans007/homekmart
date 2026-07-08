@@ -1322,7 +1322,8 @@
     "payment_done": "Paid",
     "payment_unpaid": "Unpaid",
     "view_all": "View All",
-    "total_count_label": "Total {count}"
+    "total_count_label": "Total {count}",
+    "total_amount_label": "Sales Amount {amount}"
   },
   "add_wholesale_customer": {
     "page_description": "Please enter the new customer information.",

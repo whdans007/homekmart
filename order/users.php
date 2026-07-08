@@ -194,7 +194,7 @@ $conn->close();
 </div>
 
 <script>
-const CSRF_TOKEN = '<?php echo ord_csrf_token(); ?>';
+// CSRF_TOKEN 은 partials/header.php 에서 전역 선언됨 (재선언 시 충돌하므로 여기서 생략)
 
 async function createUser() {
     const errEl = document.getElementById('addUserError');

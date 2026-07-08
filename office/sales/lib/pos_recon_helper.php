@@ -90,22 +90,25 @@ function pos_allocate_starting_money(array $qty): array {
  * @param float      $wholesale_total Whole Sale 선택 합계
  * @param float      $expense_total   지출 합계
  * @param float|null $expected_cash   POS 마감 금액 (Z-reading, null=미입력)
+ * @param float      $credit_total    4번 POS 등록 외상(source_type=credit) 합계
  * @return array 정산 요약 (DB 컬럼 + start_qty/deposit_qty)
  *
- * Design(v10/Daybook v2): 셀 Total(매출/시제) = (현금 − 준비금 10,000) + 기타결제.
+ * Design(v10/Daybook v2): 셀 Total(=그 POS의 총 매출) = (현금 − 준비금 10,000) + 기타결제 + 지출 합계 + POS 등록 외상.
  *   준비금 10,000은 이월 float(매출 아님)이므로 현금에서 차감한 입금분만 매출에 산입.
  *   현금 미입력(0) 셀은 −10,000 환영(phantom)을 막기 위해 현금 매출분 0으로 보정.
- *   섹션4 신용거래·섹션5 도매(wholesale_total)는 매출 제외(참고·기록용) — total 에서 빼되 컬럼엔 보존.
+ *   지출(expense_total)은 등록 시점에 매출에서 현금으로 빠져나간 금액이므로 총 매출에 다시 합산.
+ *   POS 등록 외상(credit_total)은 외상으로 판매된 매출이므로 총 매출에 합산.
+ *   거래명세서(credit_doc)·Delivery K·Whole Sale(wholesale_total)은 매출 제외(참고·기록용) — total 에서 빼되 컬럼엔 보존.
  *   Over/Short = 셀 Total − POS 마감 금액.
  */
 function pos_recalc_cell(array $qty, float $other_total, float $wholesale_total,
-                         float $expense_total, ?float $expected_cash): array {
+                         float $expense_total, ?float $expected_cash, float $credit_total = 0.0): array {
     $a = pos_allocate_starting_money($qty);
 
     // 매출 현금분 = 입금액(현금총액 − 실제 준비금). 현금 미입력/목표 이하 셀은 0.
     $sales_cash   = $a['deposit_cash'];
-    // 셀 Total(매출/시제) = 현금 입금분 + 기타결제만. 도매(wholesale_total)는 매출 제외.
-    $total_amount = round($sales_cash + $other_total, 2);
+    // 셀 Total(=그 POS의 총 매출) = 현금 입금분 + 기타결제 + 지출 합계 + POS 등록 외상. 도매(wholesale_total)는 매출 제외.
+    $total_amount = round($sales_cash + $other_total + $expense_total + $credit_total, 2);
 
     $over_short = ($expected_cash === null)
         ? null

@@ -20,6 +20,10 @@ if (!is_logged_in()) {
 }
 require_office_permission();
 
+// 사이트 루트 경로 계산 (서버 환경에 따라 자동 감지, 예: /sunset)
+$_ofc_pos = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/office/');
+$_office_web_root = ($_ofc_pos !== false) ? substr($_SERVER['SCRIPT_NAME'], 0, $_ofc_pos) : '';
+
 // 현재 사용자 Store 정보
 $_office_store_name = '본점';
 $_office_store_id   = null;
@@ -138,7 +142,7 @@ aside .menu-item { font-size: 11px; padding-top: 4px; padding-bottom: 4px; }
     <div class="flex items-center justify-center text-teal-700 mb-2">
       <span class="font-bold" style="font-size:0.72rem;letter-spacing:0.02em;">OFFICE MANAGEMENT</span>
     </div>
-    <a href="/"
+    <a href="<?php echo $_office_web_root; ?>/"
        class="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-semibold rounded-md transition-colors"
        style="background:#1e40af;color:#ffffff;"
        onmouseover="this.style.background='#1e3a8a'" onmouseout="this.style.background='#1e40af'">

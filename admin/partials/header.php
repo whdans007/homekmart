@@ -8,6 +8,10 @@ ensure_logged_in();
 
 $current_page = basename($_SERVER['PHP_SELF']);
 
+// 사이트 루트 경로 계산 (서버 환경에 따라 자동 감지, 예: /sunset)
+$_adm_pos = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/admin/');
+$_admin_web_root = ($_adm_pos !== false) ? substr($_SERVER['SCRIPT_NAME'], 0, $_adm_pos) : '';
+
 // 현재 사용자의 점포 정보 가져오기
 $current_store_name = '본점';
 $current_store_id = null;
@@ -93,7 +97,7 @@ if ($can_approve_store_changes) {
                     <a href="index.php" class="block mb-2">
                         <img src="../logo/homekmart_logo.png" alt="<?php echo htmlspecialchars(t('company.name')); ?>" style="width:100%;height:auto;display:block;">
                     </a>
-                    <a href="/"
+                    <a href="<?php echo $_admin_web_root; ?>/"
                        class="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-semibold rounded-md transition-colors"
                        style="background:#1e40af;color:#ffffff;"
                        onmouseover="this.style.background='#1e3a8a'" onmouseout="this.style.background='#1e40af'">
@@ -305,7 +309,7 @@ if ($can_approve_store_changes) {
         <div class="md:hidden bg-white border-b border-teal-100 px-4 py-3 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <a href="index.php"><img src="../logo/homekmart_logo.png" alt="HOME K MART" style="height:28px;"></a>
-                <a href="/" class="inline-flex items-center px-2 py-1 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md transition-colors">
+                <a href="<?php echo $_admin_web_root; ?>/" class="inline-flex items-center px-2 py-1 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md transition-colors">
                     <i class="fas fa-globe mr-1"></i> MAIN
                 </a>
             </div>

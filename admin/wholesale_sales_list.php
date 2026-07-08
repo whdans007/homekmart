@@ -23,6 +23,7 @@ $per_page = 20;
 
 $sales = [];
 $total_sales = 0;
+$total_sales_amount = 0;
 $total_pages = 1;
 $errors = [];
 $unpaid_list = [];        // 미결제 내역 (인쇄용)
@@ -81,18 +82,20 @@ try {
 
     $where_clause = implode(" AND ", $where_conditions);
     
-    // 총 개수 조회
+    // 총 개수 + 총 판매금액 조회
     $count_sql = "
-        SELECT COUNT(*) as total
+        SELECT COUNT(*) as total, COALESCE(SUM(ws.final_amount), 0) as total_amount
         FROM wholesale_sales ws
         LEFT JOIN wholesale_customers wc ON ws.customer_id = wc.id
         LEFT JOIN stores s ON ws.store_id = s.id
         WHERE {$where_clause}
     ";
-    
+
     $count_stmt = $pdo->prepare($count_sql);
     $count_stmt->execute($params);
-    $total_sales = $count_stmt->fetchColumn();
+    $count_row = $count_stmt->fetch(PDO::FETCH_ASSOC);
+    $total_sales = (int)$count_row['total'];
+    $total_sales_amount = (float)$count_row['total_amount'];
     $total_pages = max(1, ceil($total_sales / $per_page));
     
     // 현재 페이지가 전체 페이지를 벗어나면 조정
@@ -293,6 +296,7 @@ if (isset($_SESSION['flash'])) {
                         <a href="?<?php echo $time_param; ?>" class="text-xs font-normal text-gray-500 hover:text-gray-700"><i class="fas fa-times-circle mr-0.5"></i><?php echo htmlspecialchars(t('wholesale_sales_list.view_all')); ?></a>
                     <?php endif; ?>
                     <span class="text-sm font-normal text-gray-500">(<?php echo htmlspecialchars(str_replace('{count}', number_format($total_sales), t('wholesale_sales_list.total_count_label'))); ?>)</span>
+                    <span class="text-sm font-semibold text-gray-700"><?php echo htmlspecialchars(str_replace('{amount}', number_format($total_sales_amount, 2), t('wholesale_sales_list.total_amount_label'))); ?></span>
                 </h3>
                 <!-- 기간 네비게이션 -->
                 <div class="flex items-center gap-2 flex-wrap">
@@ -346,6 +350,11 @@ if (isset($_SESSION['flash'])) {
                         미결제 내역 인쇄 (<?php echo count($unpaid_list); ?>)
                     </button>
                     <?php endif; ?>
+                    <button type="button" id="quick-register-btn"
+                       class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200">
+                        <i class="fas fa-bolt mr-2"></i>
+                        빠른등록
+                    </button>
                     <a href="wholesale_sales.php"
                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
                         <i class="fas fa-plus mr-2"></i>
@@ -482,6 +491,39 @@ if (isset($_SESSION['flash'])) {
     </div>
 </div>
 
+<!-- 빠른등록 모달: 품목 없이 거래처+금액만으로 Whole Sale 등록 (daily_entry.php §4 POS 버튼과 동일한 취지) -->
+<div id="quick-register-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:60;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.22);overflow:hidden;">
+    <div style="padding:18px 22px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:15px;font-weight:700;color:#1f2937;"><i class="fas fa-bolt mr-2" style="color:#4f46e5"></i>빠른등록 <span style="font-size:12px;font-weight:400;color:#9ca3af">(품목 없이 거래처+금액)</span></div>
+      <button type="button" onclick="closeQuickRegister()" style="border:none;background:none;color:#9ca3af;cursor:pointer;font-size:16px;"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:20px 22px;">
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">거래처</label>
+        <div style="position:relative;">
+          <input type="text" id="qr-customer-search" autocomplete="off" placeholder="거래처 검색 (등록된 거래처만)" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box;">
+          <div id="qr-customer-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.10);z-index:20;max-height:180px;overflow-y:auto;margin-top:3px;"></div>
+        </div>
+        <input type="hidden" id="qr-customer-id" value="">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">판매 날짜</label>
+        <input type="date" id="qr-sale-date" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:4px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">금액</label>
+        <input type="number" id="qr-amount" min="0" step="0.01" placeholder="0.00" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;text-align:right;box-sizing:border-box;">
+      </div>
+      <div id="qr-msg" style="display:none;margin-top:10px;font-size:13px;font-weight:500;"></div>
+    </div>
+    <div style="padding:14px 22px;background:#fafafa;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;gap:10px;">
+      <button type="button" onclick="closeQuickRegister()" style="padding:8px 16px;border-radius:8px;border:1px solid #d1d5db;background:#fff;font-size:13px;cursor:pointer;">취소</button>
+      <button type="button" onclick="saveQuickRegister()" style="padding:8px 18px;border-radius:8px;border:none;background:#4f46e5;color:#fff;font-size:13px;font-weight:600;cursor:pointer;"><i class="fas fa-check mr-1"></i>등록</button>
+    </div>
+  </div>
+</div>
+
 <?php if (!empty($unpaid_list)): ?>
 <!-- 미결제 내역서 (인쇄용 - 숨김) -->
 <div id="unpaid-print-area" style="display:none;">
@@ -578,6 +620,94 @@ function cancelSale(saleId) {
         });
     }
 }
+</script>
+
+<script>
+// 빠른등록 모달 (품목 없이 거래처+금액만으로 Whole Sale 등록)
+function openQuickRegister(){
+    document.getElementById('qr-customer-search').value = '';
+    document.getElementById('qr-customer-id').value = '';
+    document.getElementById('qr-sale-date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('qr-amount').value = '';
+    document.getElementById('qr-msg').style.display = 'none';
+    document.getElementById('quick-register-modal').style.display = 'flex';
+}
+function closeQuickRegister(){
+    document.getElementById('quick-register-modal').style.display = 'none';
+}
+function saveQuickRegister(){
+    const customerId = document.getElementById('qr-customer-id').value;
+    const saleDate = document.getElementById('qr-sale-date').value;
+    const amount = parseFloat(document.getElementById('qr-amount').value) || 0;
+    const msg = document.getElementById('qr-msg');
+    msg.style.display = 'none';
+
+    if (!customerId) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = '거래처를 검색해서 선택해주세요.'; return; }
+    if (!saleDate) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = '판매 날짜를 입력해주세요.'; return; }
+    if (amount <= 0) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = '금액을 입력해주세요.'; return; }
+
+    fetch('ajax_quick_register_wholesale_sale.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'customer_id=' + encodeURIComponent(customerId) + '&sale_date=' + encodeURIComponent(saleDate) + '&amount=' + encodeURIComponent(amount)
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            window.location.href = 'wholesale_sale_preview.php?id=' + d.sale_id;
+        } else {
+            msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = d.message || '등록 실패';
+        }
+    })
+    .catch(function(){ msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = '네트워크 오류가 발생했습니다.'; });
+}
+document.addEventListener('DOMContentLoaded', function(){
+    const btn = document.getElementById('quick-register-btn');
+    if (btn) btn.addEventListener('click', openQuickRegister);
+
+    let qrSearchTimer = null;
+    const qrInput = document.getElementById('qr-customer-search');
+    const qrResults = document.getElementById('qr-customer-results');
+    if (qrInput) {
+        qrInput.addEventListener('input', function(){
+            document.getElementById('qr-customer-id').value = '';
+            clearTimeout(qrSearchTimer);
+            const q = this.value.trim();
+            if (q.length < 1) { qrResults.style.display = 'none'; qrResults.innerHTML = ''; return; }
+            qrSearchTimer = setTimeout(function(){
+                fetch('ajax_search_wholesale_customers.php?q=' + encodeURIComponent(q) + '&limit=10')
+                    .then(r => r.json())
+                    .then(d => {
+                        const items = (d.success && d.customers) ? d.customers : [];
+                        if (!items.length) {
+                            qrResults.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#9ca3af">검색 결과 없음</div>';
+                        } else {
+                            qrResults.innerHTML = items.map(function(c){
+                                const safeName = String(c.name).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                                const safePhone = c.phone ? String(c.phone).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+                                return '<div class="qr-cust-item" data-id="' + c.id + '" data-name="' + safeName + '" style="padding:8px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid #f3f4f6;">' +
+                                    safeName + (safePhone ? ' <span style="color:#9ca3af;font-size:11px;">' + safePhone + '</span>' : '') +
+                                '</div>';
+                            }).join('');
+                            qrResults.querySelectorAll('.qr-cust-item').forEach(function(el){
+                                el.addEventListener('mousedown', function(){
+                                    qrInput.value = el.dataset.name;
+                                    document.getElementById('qr-customer-id').value = el.dataset.id;
+                                    qrResults.style.display = 'none';
+                                    qrResults.innerHTML = '';
+                                });
+                            });
+                        }
+                        qrResults.style.display = 'block';
+                    })
+                    .catch(function(){ qrResults.style.display = 'none'; });
+            }, 250);
+        });
+        qrInput.addEventListener('blur', function(){
+            setTimeout(function(){ qrResults.style.display = 'none'; }, 150);
+        });
+    }
+});
 </script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
