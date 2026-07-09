@@ -19,6 +19,8 @@ $sale = null;
 $customer = null;
 $store = null;
 $items = [];
+$return_history = [];
+$return_items_by_return = [];
 $errors = [];
 
 // 인쇄 상단 로고 (절대 URL — iframe 인쇄에서도 로드되도록)
@@ -222,7 +224,15 @@ if ($sale_id > 0) {
             } catch (PDOException $e) {
                 $has_new_columns = false;
             }
-            
+
+            // 반품 기능 마이그레이션 적용 여부 확인 (하위 호환, Design Ref: wholesale-sales-return.design.md)
+            try {
+                $has_returned_qty = $pdo->query("SHOW COLUMNS FROM wholesale_sale_items LIKE 'returned_quantity'")->rowCount() > 0;
+            } catch (PDOException $e) {
+                $has_returned_qty = false;
+            }
+            $returned_qty_expr = $has_returned_qty ? "wsi.returned_quantity" : "0 as returned_quantity";
+
             if ($has_new_columns) {
                 // 새로운 스키마 사용 - 도매 상품명 필드가 있는 경우
                 $items_sql = "
@@ -230,6 +240,7 @@ if ($sale_id > 0) {
                         wsi.id,
                         wsi.product_id,
                         wsi.quantity,
+                        {$returned_qty_expr},
                         wsi.unit_price,
                         wsi.total_price,
                         wsi.sale_unit,
@@ -254,6 +265,7 @@ if ($sale_id > 0) {
                         wsi.id,
                         wsi.product_id,
                         wsi.quantity,
+                        {$returned_qty_expr},
                         wsi.unit_price,
                         wsi.total_price,
                         wsi.sale_unit,
@@ -274,6 +286,40 @@ if ($sale_id > 0) {
             }
             
             $items = $items_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // 반품 이력 조회 (Design Ref: wholesale-sales-return.design.md §5.1)
+            try {
+                $returns_stmt = $pdo->prepare("
+                    SELECT wsr.id, wsr.reason, wsr.total_amount, wsr.created_at, u2.full_name as processed_by_name
+                    FROM wholesale_sale_returns wsr
+                    LEFT JOIN users u2 ON wsr.processed_by = u2.id
+                    WHERE wsr.sale_id = ?
+                    ORDER BY wsr.created_at DESC
+                ");
+                $returns_stmt->execute([$sale_id]);
+                $return_history = $returns_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                if (!empty($return_history)) {
+                    $return_ids = array_column($return_history, 'id');
+                    $placeholders = implode(',', array_fill(0, count($return_ids), '?'));
+                    $ri_stmt = $pdo->prepare("
+                        SELECT wsri.return_id, wsri.quantity, wsri.unit_price, wsri.amount,
+                               COALESCE(wsi.custom_product_name, p.name_ko, p.name_en) as product_name
+                        FROM wholesale_sale_return_items wsri
+                        LEFT JOIN wholesale_sale_items wsi ON wsri.sale_item_id = wsi.id
+                        LEFT JOIN products p ON wsi.product_id = p.id
+                        WHERE wsri.return_id IN ($placeholders)
+                        ORDER BY wsri.id ASC
+                    ");
+                    $ri_stmt->execute($return_ids);
+                    foreach ($ri_stmt->fetchAll(PDO::FETCH_ASSOC) as $ri) {
+                        $return_items_by_return[$ri['return_id']][] = $ri;
+                    }
+                }
+            } catch (PDOException $e) {
+                // 반품 기능 마이그레이션 미실행 시 조용히 건너뜀 (하위 호환)
+                $return_history = [];
+            }
         }
 
     } catch (PDOException $e) {
@@ -284,7 +330,13 @@ if ($sale_id > 0) {
     $errors[] = t('wholesale_sale_preview.invalid_sale_id');
 }
 
-// V.A.T / E.W.T 계산용 값 (TOTAL = total_amount, 최종 = TOTAL + VAT - EWT)
+// 상품 소계 — 이 전표에 새로 담긴 상품(wholesale_sale_items)의 합계만 (반품 차감 반영 전)
+$items_subtotal = array_sum(array_column($items, 'total_price'));
+
+// 반품 차감액 — 이 전표에 등록된 반품의 합계 (원본 전표는 영향 없음, wholesale_sales.returned_amount에 저장됨)
+$return_deduction = (float)($sale['returned_amount'] ?? 0);
+
+// V.A.T / E.W.T 계산용 값 (TOTAL = total_amount = 상품소계 - 반품차감액, 최종 = TOTAL + VAT - EWT)
 $base_total  = 0;
 $vat_applied = false;
 $ewt_applied = false;
@@ -353,6 +405,7 @@ if (isset($_SESSION['flash'])) {
                 </div>
                 <!-- 제목 + 액션 버튼 -->
                 <?php $payment_status = $sale['payment_status'] ?? 'unpaid'; $is_paid = ($payment_status === 'paid'); ?>
+                <?php $return_status = $sale['return_status'] ?? 'none'; ?>
                 <div class="flex items-start justify-between mb-6">
                     <div>
                         <h1 class="text-xl font-bold text-gray-900 mb-1">
@@ -361,6 +414,11 @@ if (isset($_SESSION['flash'])) {
                                 <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800 align-middle"><i class="fas fa-check-circle mr-1"></i>결제완료</span>
                             <?php else: ?>
                                 <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800 align-middle"><i class="fas fa-exclamation-circle mr-1"></i>미결제</span>
+                            <?php endif; ?>
+                            <?php if ($return_status === 'partial'): ?>
+                                <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-orange-100 text-orange-800 align-middle"><i class="fas fa-undo mr-1"></i>반품포함</span>
+                            <?php elseif ($return_status === 'full'): ?>
+                                <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-gray-200 text-gray-700 align-middle"><i class="fas fa-undo mr-1"></i>반품전표</span>
                             <?php endif; ?>
                         </h1>
                         <div class="text-sm text-gray-600">
@@ -425,13 +483,13 @@ if (isset($_SESSION['flash'])) {
                     </table>
                 </div>
 
-                <!-- 합계금액 요약 (배달정보와 상품 리스트 사이) -->
+                <!-- 합계금액 요약 (배달정보와 상품 리스트 사이) - 새로 담긴 상품의 소계 (반품 차감 전) -->
                 <div class="mb-6">
                     <table class="summary-total-table w-full border border-gray-200">
                         <tbody>
                             <tr>
                                 <th class="bg-gray-50 px-3 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200 summary-total-label" style="width: 50%;"><?php echo t('wholesale_sale_preview.grand_total'); ?>:</th>
-                                <td class="px-3 py-2 text-right text-lg font-bold text-gray-900 summary-total-value"><?php echo fmt_num($computed_final); ?></td>
+                                <td class="px-3 py-2 text-right text-lg font-bold text-gray-900 summary-total-value"><?php echo fmt_num($items_subtotal); ?></td>
                             </tr>
                         </tbody>
                     </table>
@@ -490,11 +548,58 @@ if (isset($_SESSION['flash'])) {
                         <tfoot class="bg-gray-50 grand-total-row">
                             <tr>
                                 <td colspan="6" class="px-2 py-2 text-right text-sm font-medium text-gray-900 border-t border-gray-200 grand-total-label"><?php echo t('wholesale_sale_preview.grand_total'); ?>:</td>
-                                <td class="px-2 py-2 text-right text-lg font-bold text-gray-900 border-t border-gray-200 grand-total-value"><?php echo fmt_num($base_total); ?></td>
+                                <td class="px-2 py-2 text-right text-lg font-bold text-gray-900 border-t border-gray-200 grand-total-value"><?php echo fmt_num($items_subtotal); ?></td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
+
+                <?php if (!empty($return_history)): ?>
+                <!-- 반품 이력 -->
+                <div id="return-history-box" class="mb-6 print:hidden">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-undo mr-1 text-orange-500"></i>반품 이력</h3>
+                    <div class="space-y-2">
+                        <?php foreach ($return_history as $ret): ?>
+                            <div class="border border-gray-200 rounded-md p-3 bg-orange-50">
+                                <div class="flex items-center justify-between text-sm">
+                                    <div class="text-gray-700">
+                                        <span class="font-medium"><?php echo date('Y-m-d H:i', strtotime($ret['created_at'])); ?></span>
+                                        <span class="text-gray-500 ml-2"><?php echo htmlspecialchars($ret['processed_by_name'] ?? ''); ?></span>
+                                        <?php if (!empty($ret['reason'])): ?>
+                                            <span class="text-gray-500 ml-2">사유: <?php echo htmlspecialchars($ret['reason']); ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="font-semibold text-orange-700"><?php echo fmt_num($ret['total_amount']); ?></div>
+                                </div>
+                                <?php if (!empty($return_items_by_return[$ret['id']])): ?>
+                                    <ul class="mt-2 text-xs text-gray-600 list-disc list-inside">
+                                        <?php foreach ($return_items_by_return[$ret['id']] as $ri): ?>
+                                            <li><?php echo htmlspecialchars($ri['product_name'] ?? '-'); ?> — <?php echo fmt_num($ri['quantity']); ?> × <?php echo fmt_num($ri['unit_price']); ?> = <?php echo fmt_num($ri['amount']); ?></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="mt-3 flex justify-end">
+                        <div class="text-sm font-semibold text-orange-700">반품 합계: -<?php echo fmt_num($return_deduction); ?></div>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- 상품소계 - 반품차감액 = 최종 합계 (VAT/EWT 적용 전) -->
+                <?php if ($return_deduction > 0): ?>
+                <div class="mb-6">
+                    <table class="summary-total-table w-full border border-gray-200">
+                        <tbody>
+                            <tr>
+                                <th class="bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-900 border-r border-gray-200" style="width: 50%;">최종 합계 (상품소계 - 반품차감액):</th>
+                                <td class="px-3 py-2 text-right text-lg font-bold text-gray-900"><?php echo fmt_num($base_total); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <?php endif; ?>
 
                 <!-- V.A.T / E.W.T 계산 (체크박스 선택 시 반영) -->
                 <div id="tax-summary-box" class="mb-6">
@@ -1097,6 +1202,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
 });
 </script>
 

@@ -32,7 +32,19 @@ try {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    
+
+    // 반품 기능 마이그레이션 적용 여부 확인 (하위 호환, Design Ref: wholesale-sales-return.design.md)
+    try {
+        $has_return_status = $pdo->query("SHOW COLUMNS FROM wholesale_sales LIKE 'return_status'")->rowCount() > 0;
+    } catch (PDOException $e) {
+        $has_return_status = false;
+    }
+    try {
+        $has_returned_qty_column = $pdo->query("SHOW COLUMNS FROM wholesale_sale_items LIKE 'returned_quantity'")->rowCount() > 0;
+    } catch (PDOException $e) {
+        $has_returned_qty_column = false;
+    }
+
     // Load existing data in edit mode
     if ($edit_mode && $edit_sale_id > 0) {
         // Join sales info with customer info
@@ -108,14 +120,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $store_id = $current_store_id; // 점포는 접속자 점포로 고정
     $sale_date = $_POST['sale_date'] ?? date('Y-m-d');
     $cart_items = json_decode($_POST['cart_items'] ?? '[]', true);
+    if (!is_array($cart_items)) { $cart_items = []; }
     $is_edit = isset($_POST['edit_sale_id']) && is_numeric($_POST['edit_sale_id']);
     $edit_sale_id_post = $is_edit ? (int)$_POST['edit_sale_id'] : 0;
-    
+
+    // 반품 항목 (신규 등록 시에만 사용 — 예전 전표는 절대 수정하지 않고, 이 신규 전표에서만 차감됨)
+    $return_items = (!$is_edit) ? json_decode($_POST['return_items'] ?? '[]', true) : [];
+    if (!is_array($return_items)) { $return_items = []; }
+    $return_reason = trim($_POST['return_reason'] ?? '');
+
     if (empty($customer_id)) {
         $errors[] = t('wholesale.customer_required_error');
     }
-    
-    if (empty($cart_items)) {
+
+    if (empty($cart_items) && empty($return_items)) {
         $errors[] = t('wholesale.products_required_error');
     }
     
@@ -129,17 +147,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // 수정 모드 - 기존 데이터 업데이트
                 
                 // 권한 확인
-                $check_sql = "SELECT id FROM wholesale_sales WHERE id = ?";
+                $check_sql = "SELECT id" . ($has_return_status ? ", return_status" : "") . " FROM wholesale_sales WHERE id = ?";
                 if ($_SESSION['role'] !== 'super_admin') {
                     $check_sql .= " AND store_id = " . (int)$current_store_id;
                 }
                 $check_stmt = $pdo->prepare($check_sql);
                 $check_stmt->execute([$edit_sale_id_post]);
-                
-                if (!$check_stmt->fetch()) {
+                $check_row = $check_stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$check_row) {
                     throw new Exception('수정 권한이 없습니다.');
                 }
-                
+
+                // FR-09: 반품(차감) 항목이 포함된 전표 자체는 수정 불가 (수정 시 반품 반영분이 유실됨)
+                if ($has_return_status && ($check_row['return_status'] ?? 'none') !== 'none') {
+                    throw new Exception('반품이 포함된 전표는 수정할 수 없습니다.');
+                }
+
+                // FR-09: 이 판매 건의 품목이 이후 다른 전표에서 반품 처리된 경우, 품목이 delete-and-reinsert 되므로 수정 자체를 차단
+                // (반품 이력의 sale_item_id FK가 무효화되는 것을 방지, Design Ref: wholesale-sales-return.design.md §6.2)
+                if ($has_returned_qty_column) {
+                    $ret_check_stmt = $pdo->prepare("SELECT COUNT(*) FROM wholesale_sale_items WHERE sale_id = ? AND returned_quantity > 0");
+                    $ret_check_stmt->execute([$edit_sale_id_post]);
+                    if ((int)$ret_check_stmt->fetchColumn() > 0) {
+                        throw new Exception('이 판매 건의 품목 중 일부가 다른 전표에서 반품 처리되어 수정할 수 없습니다.');
+                    }
+                }
+
                 // Update sale record
                 $update_stmt = $pdo->prepare("
                     UPDATE wholesale_sales 
@@ -185,14 +219,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success_msg = t('wholesale.sale_updated_successfully');
                 
             } else {
-                // Register new sale
+                // Register new sale (반품 항목이 있으면 이 신규 전표에 반품으로 등록되고, 이 전표의 total_amount에서 차감됨.
+                // 예전 판매 전표는 어떤 경우에도 수정하지 않음 — Design Ref: wholesale-sales-return.design.md Revision Note)
+
+                // ── 반품 항목 검증 (원본 품목 잠금 + 잔여수량/거래처/점포 스코프 재검증) ──
+                $return_targets = [];
+                $return_total = 0.0;
+
+                if (!empty($return_items) && $has_return_status && $has_returned_qty_column) {
+                    foreach ($return_items as $req) {
+                        $ret_sale_item_id = (int)($req['sale_item_id'] ?? 0);
+                        $req_qty = round((float)($req['quantity'] ?? 0), 2);
+                        if ($ret_sale_item_id <= 0 || $req_qty <= 0) {
+                            continue;
+                        }
+
+                        $ri_stmt = $pdo->prepare("
+                            SELECT wsi.id, wsi.product_id, wsi.quantity, wsi.returned_quantity, wsi.unit_price, wsi.sale_unit,
+                                   ws.customer_id, ws.store_id,
+                                   p.pieces_per_box
+                            FROM wholesale_sale_items wsi
+                            JOIN wholesale_sales ws ON wsi.sale_id = ws.id
+                            LEFT JOIN products p ON wsi.product_id = p.id
+                            WHERE wsi.id = ?
+                            FOR UPDATE
+                        ");
+                        $ri_stmt->execute([$ret_sale_item_id]);
+                        $ri = $ri_stmt->fetch(PDO::FETCH_ASSOC);
+
+                        if (!$ri) {
+                            throw new Exception('반품 대상 품목을 찾을 수 없습니다.');
+                        }
+                        if ((int)$ri['customer_id'] !== $customer_id) {
+                            throw new Exception('선택한 거래처의 판매 이력이 아닌 품목이 포함되어 있습니다.');
+                        }
+                        if ($_SESSION['role'] !== 'super_admin' && (int)$ri['store_id'] !== (int)$current_store_id) {
+                            throw new Exception('반품 권한이 없습니다.');
+                        }
+                        $remaining = round((float)$ri['quantity'] - (float)$ri['returned_quantity'], 2);
+                        if ($req_qty > $remaining) {
+                            throw new Exception('반품 수량이 반품 가능 수량을 초과했습니다.');
+                        }
+
+                        $amount = round($req_qty * (float)$ri['unit_price'], 2);
+                        $return_total += $amount;
+                        $return_targets[] = [
+                            'sale_item_id' => $ret_sale_item_id,
+                            'quantity' => $req_qty,
+                            'unit_price' => (float)$ri['unit_price'],
+                            'amount' => $amount,
+                            'product_id' => $ri['product_id'],
+                            'sale_unit' => $ri['sale_unit'],
+                            'pieces_per_box' => $ri['pieces_per_box'],
+                            'original_store_id' => $ri['store_id'],
+                        ];
+                    }
+                }
+                $return_total = round($return_total, 2);
+
+                $cart_total = array_sum(array_column($cart_items, 'total_price'));
+                $total_amount = round($cart_total - $return_total, 2);
+                $return_status_value = 'none';
+                if ($return_total > 0) {
+                    // 'partial' = 신규구매+반품 혼합 전표, 'full' = 반품 전용(신규구매 없음) 전표
+                    $return_status_value = empty($cart_items) ? 'full' : 'partial';
+                }
+
+                $sale_cols = "customer_id, store_id, user_id, sale_date, total_amount, final_amount";
+                $sale_placeholders = "?, ?, ?, ?, ?, ?";
+                $sale_params = [$customer_id, $store_id, $_SESSION['user_id'], $sale_date, $total_amount, $total_amount];
+                if ($has_return_status) {
+                    $sale_cols .= ", returned_amount, return_status";
+                    $sale_placeholders .= ", ?, ?";
+                    $sale_params[] = $return_total;
+                    $sale_params[] = $return_status_value;
+                }
+
                 $sale_stmt = $pdo->prepare("
-                    INSERT INTO wholesale_sales (customer_id, store_id, user_id, sale_date, total_amount, final_amount, status, created_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, 'confirmed', NOW())
+                    INSERT INTO wholesale_sales ({$sale_cols}, status, created_at)
+                    VALUES ({$sale_placeholders}, 'confirmed', NOW())
                 ");
-                $sale_stmt->execute([$customer_id, $store_id, $_SESSION['user_id'], $sale_date, $total_amount, $total_amount]);
+                $sale_stmt->execute($sale_params);
                 $sale_id = $pdo->lastInsertId();
-                
+
                 // Add sale items
                 foreach ($cart_items as $sort_index => $item) {
                     $is_manual = empty($item['product_id']);
@@ -221,7 +330,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         (int)$sort_index
                     ]);
                 }
-                
+
+                // ── 반품 항목 등록: 이 신규 전표(sale_id)에 반품 기록을 남기고, 원본 전표는 건드리지 않음 ──
+                if (!empty($return_targets)) {
+                    $return_header_stmt = $pdo->prepare("
+                        INSERT INTO wholesale_sale_returns (sale_id, reason, total_amount, processed_by, created_at)
+                        VALUES (?, ?, ?, ?, NOW())
+                    ");
+                    $return_header_stmt->execute([$sale_id, $return_reason !== '' ? $return_reason : null, $return_total, $_SESSION['user_id']]);
+                    $return_id = $pdo->lastInsertId();
+
+                    $return_item_stmt = $pdo->prepare("
+                        INSERT INTO wholesale_sale_return_items (return_id, sale_item_id, quantity, unit_price, amount, restocked, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, NOW())
+                    ");
+                    // 원본 품목의 반품 누적 수량만 갱신 (원본 전표의 total_amount/final_amount 등은 변경하지 않음)
+                    $update_returned_qty_stmt = $pdo->prepare("
+                        UPDATE wholesale_sale_items SET returned_quantity = returned_quantity + ? WHERE id = ?
+                    ");
+                    $upsert_inventory_stmt = $pdo->prepare("
+                        INSERT INTO inventory (product_id, store_id, quantity)
+                        VALUES (?, ?, ?)
+                        ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
+                    ");
+                    $log_transaction_stmt = $pdo->prepare("
+                        INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks, transaction_date)
+                        SELECT id, ?, '반품', ?, ?, NOW() FROM inventory WHERE product_id = ? AND store_id = ?
+                    ");
+
+                    foreach ($return_targets as $rt) {
+                        $is_registered_product = !empty($rt['product_id']);
+                        $return_item_stmt->execute([
+                            $return_id, $rt['sale_item_id'], $rt['quantity'], $rt['unit_price'], $rt['amount'], $is_registered_product ? 1 : 0
+                        ]);
+                        $update_returned_qty_stmt->execute([$rt['quantity'], $rt['sale_item_id']]);
+
+                        if ($is_registered_product) {
+                            $pieces_per_box = (int)($rt['pieces_per_box'] ?? 1);
+                            if ($pieces_per_box <= 0) { $pieces_per_box = 1; }
+                            $restock_qty = ($rt['sale_unit'] === 'box') ? round($rt['quantity'] * $pieces_per_box) : round($rt['quantity']);
+
+                            $upsert_inventory_stmt->execute([$rt['product_id'], $rt['original_store_id'], $restock_qty]);
+                            $log_transaction_stmt->execute([
+                                $_SESSION['user_id'], $restock_qty,
+                                "신규 판매등록시 반품 처리 (Return ID: {$return_id}, Sale ID: {$sale_id})",
+                                $rt['product_id'], $rt['original_store_id']
+                            ]);
+                        }
+                    }
+                }
+
                 $success_msg = t('wholesale.sale_registered_successfully');
             }
 
@@ -306,6 +464,13 @@ if (isset($_SESSION['flash'])) {
                 <?php echo $edit_mode ? t('wholesale.sales_edit') : t('navigation.wholesale_sales'); ?>
             </h1>
             <div class="flex gap-2">
+                <?php if (!$edit_mode): ?>
+                <button type="button" id="return_register_btn"
+                        class="px-4 py-2 text-sm font-medium bg-orange-500 text-white rounded-md hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed whitespace-nowrap"
+                        disabled>
+                    <i class="fas fa-undo mr-1"></i>반품등록
+                </button>
+                <?php endif; ?>
                 <button type="submit" id="complete_sale_btn"
                         class="px-4 py-2 text-sm font-medium bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed whitespace-nowrap"
                         disabled>
@@ -484,13 +649,41 @@ if (isset($_SESSION['flash'])) {
                     <input type="checkbox" name="save_cust_prices" id="save_cust_prices" value="1" checked class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                     <span><i class="fas fa-tags text-primary-500 mr-1"></i>변경된 단가를 이 거래처 도매가로 저장 <span class="text-gray-400">(기본가와 다른 항목만)</span></span>
                 </label>
-                <div class="text-base font-semibold text-gray-900">
-                    <?php echo t('wholesale.cart_total_label'); ?>: <span id="cart_total" class="text-primary-600">0</span>
+                <div class="text-right">
+                    <div class="text-base font-semibold text-gray-900">
+                        <?php echo t('wholesale.cart_total_label'); ?>: <span id="cart_total" class="text-primary-600">0</span>
+                    </div>
+                    <div id="return_total_row" class="text-sm font-medium text-orange-600 hidden">반품 차감액: -<span id="return_items_total">0</span></div>
+                    <div id="grand_total_row" class="text-base font-bold text-gray-900 hidden">최종 합계: <span id="grand_total_amount" class="text-primary-700">0</span></div>
                 </div>
             </div>
         </div>
 
+        <!-- 반품 항목 (신규 판매등록과 함께 등록하는 반품) -->
+        <div id="return_items_section" class="hidden mt-3 border border-orange-200 rounded-md bg-orange-50 p-3">
+            <h3 class="text-sm font-semibold text-orange-700 mb-2"><i class="fas fa-undo mr-1"></i>반품 항목</h3>
+            <table class="w-full text-sm mb-2">
+                <thead>
+                    <tr>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500">판매일</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500">상품명</th>
+                        <th class="px-2 py-1 text-center text-xs font-medium text-gray-500">반품수량</th>
+                        <th class="px-2 py-1 text-right text-xs font-medium text-gray-500">반품금액</th>
+                        <th class="px-2 py-1 text-center text-xs font-medium text-gray-500"></th>
+                    </tr>
+                </thead>
+                <tbody id="return_items_body"></tbody>
+            </table>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">반품 사유</label>
+                <input type="text" name="return_reason" id="return_reason_input"
+                       class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                       placeholder="예: 고객 단순 변심">
+            </div>
+        </div>
+
         <input type="hidden" name="cart_items" id="cart_items_input" value="">
+        <input type="hidden" name="return_items" id="return_items_input" value="">
         <?php if ($edit_mode): ?>
             <input type="hidden" name="edit_sale_id" value="<?php echo $edit_sale_id; ?>">
         <?php endif; ?>
@@ -673,6 +866,39 @@ if (isset($_SESSION['flash'])) {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 반품등록 모달 (거래처의 최근 판매 이력에서 반품할 품목을 선택 — 실제 반품 등록은 판매등록 저장 시 함께 처리됨) -->
+<div id="return-register-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 class="text-base font-medium text-gray-900"><i class="fas fa-undo mr-2 text-orange-500"></i>반품할 품목 선택<span class="text-sm font-normal text-gray-500 ml-2" id="return-register-customer-name"></span></h3>
+                <button type="button" id="close-return-register-modal" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4">
+                <p class="text-xs text-gray-500 mb-2">선택한 품목은 현재 작성 중인 판매 전표에 반품으로 담기며, 전표 저장 시 함께 등록됩니다. (예전 판매 전표는 수정되지 않습니다)</p>
+                <div id="return-history-loading" class="text-center text-sm text-gray-400 py-6">불러오는 중...</div>
+                <div id="return-history-empty" class="hidden text-center text-sm text-gray-400 py-6">반품 가능한 최근 판매 이력이 없습니다.</div>
+                <table id="return-history-table" class="hidden w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-2 py-2 text-left text-xs font-medium text-gray-500">판매일</th>
+                            <th class="px-2 py-2 text-left text-xs font-medium text-gray-500">SKU</th>
+                            <th class="px-2 py-2 text-left text-xs font-medium text-gray-500">상품명</th>
+                            <th class="px-2 py-2 text-center text-xs font-medium text-gray-500">반품가능</th>
+                            <th class="px-2 py-2 text-center text-xs font-medium text-gray-500">단가</th>
+                            <th class="px-2 py-2 text-center text-xs font-medium text-gray-500"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="return-history-body"></tbody>
+                </table>
+            </div>
+            <div class="p-4 border-t border-gray-200 flex items-center justify-end">
+                <button type="button" id="close-return-register-modal-btn2" class="px-4 py-1.5 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700">닫기</button>
             </div>
         </div>
     </div>
@@ -1770,8 +1996,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const cartCountEl = document.getElementById('cart_count');
             if (cartCountEl) cartCountEl.textContent = cart.length;
         }
-        
+
         cartItemsInput.value = JSON.stringify(cart);
+        if (window.updateGrandTotal) window.updateGrandTotal();
         updateSaleButton();
     }
     
@@ -1847,7 +2074,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function updateSaleButton() {
         const hasCustomer = customerId.value !== '';
-        const hasItems = cart.length > 0;
+        const hasItems = cart.length > 0 || (typeof returnCart !== 'undefined' && returnCart.length > 0);
         completeSaleBtn.disabled = !hasCustomer || !hasItems;
 
         // 거래처를 먼저 선택(등록)해야 상품 검색/추가가 가능하도록 제어
@@ -1855,6 +2082,8 @@ document.addEventListener('DOMContentLoaded', function() {
         productSearchBtn.disabled = !hasCustomer;
         const manualToggleBtn = document.getElementById('toggle_manual_entry');
         if (manualToggleBtn) manualToggleBtn.disabled = !hasCustomer;
+        const returnRegisterBtn = document.getElementById('return_register_btn');
+        if (returnRegisterBtn) returnRegisterBtn.disabled = !hasCustomer;
         const searchHint = document.getElementById('product_search_hint');
         if (searchHint) searchHint.classList.toggle('hidden', hasCustomer);
         if (!hasCustomer) {
@@ -2418,6 +2647,213 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 300);
         }, 3000);
     };
+
+    // ── 반품등록: 거래처 최근 판매이력에서 반품 품목을 선택해 "현재 작성 중인 전표"에 담음 ──
+    // 예전 판매 전표는 절대 수정하지 않으며, 저장 시 이 전표의 total_amount에서 반품 금액이 차감됨
+    const returnRegisterBtn = document.getElementById('return_register_btn');
+    const returnRegisterModal = document.getElementById('return-register-modal');
+    const returnRegisterCustomerName = document.getElementById('return-register-customer-name');
+    const returnHistoryLoading = document.getElementById('return-history-loading');
+    const returnHistoryEmpty = document.getElementById('return-history-empty');
+    const returnHistoryTable = document.getElementById('return-history-table');
+    const returnHistoryBody = document.getElementById('return-history-body');
+    const closeReturnRegisterModalBtn = document.getElementById('close-return-register-modal');
+    const closeReturnRegisterModalBtn2 = document.getElementById('close-return-register-modal-btn2');
+
+    const returnItemsSection = document.getElementById('return_items_section');
+    const returnItemsBody = document.getElementById('return_items_body');
+    const returnItemsTotalEl = document.getElementById('return_items_total');
+    const returnTotalRow = document.getElementById('return_total_row');
+    const grandTotalRow = document.getElementById('grand_total_row');
+    const grandTotalAmountEl = document.getElementById('grand_total_amount');
+    const returnItemsInput = document.getElementById('return_items_input');
+
+    let returnCart = []; // { sale_item_id, sale_id, sale_date, product_name, unit_price, remaining, quantity }
+
+    function fmtReturnRegNum(v) {
+        const n = Number(v) || 0;
+        if (Number.isInteger(n)) return n.toLocaleString();
+        return (Math.round(n * 100) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+
+    function escapeReturnRegHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str == null ? '' : str;
+        return div.innerHTML;
+    }
+
+    function openReturnRegisterModal() {
+        if (!returnRegisterModal || !customerId.value) return;
+        const nameEl = document.getElementById('selected_customer_name');
+        returnRegisterCustomerName.textContent = nameEl ? ('- ' + nameEl.textContent) : '';
+        returnRegisterModal.classList.remove('hidden');
+        loadReturnHistory();
+    }
+
+    function closeReturnRegisterModalFn() {
+        if (returnRegisterModal) returnRegisterModal.classList.add('hidden');
+    }
+
+    function loadReturnHistory() {
+        returnHistoryLoading.classList.remove('hidden');
+        returnHistoryEmpty.classList.add('hidden');
+        returnHistoryTable.classList.add('hidden');
+        returnHistoryBody.innerHTML = '';
+
+        fetch('ajax_search_wholesale_customer_returns.php?customer_id=' + encodeURIComponent(customerId.value))
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                returnHistoryLoading.classList.add('hidden');
+                if (!data.success || !data.items || data.items.length === 0) {
+                    returnHistoryEmpty.classList.remove('hidden');
+                    return;
+                }
+                data.items.forEach(function(item) {
+                    const remaining = Math.round((parseFloat(item.quantity) - parseFloat(item.returned_quantity)) * 100) / 100;
+                    if (remaining <= 0) return;
+                    const saleItemId = parseInt(item.sale_item_id, 10);
+                    const alreadyAdded = returnCart.some(function(c) { return c.sale_item_id === saleItemId; });
+
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b border-gray-100';
+                    tr.innerHTML = `
+                        <td class="px-2 py-2 text-gray-700">${escapeReturnRegHtml(item.sale_date)}</td>
+                        <td class="px-2 py-2 text-gray-700">${escapeReturnRegHtml(item.sku)}</td>
+                        <td class="px-2 py-2 text-gray-900">${escapeReturnRegHtml(item.product_name || '-')}</td>
+                        <td class="px-2 py-2 text-center text-gray-700">${fmtReturnRegNum(remaining)}</td>
+                        <td class="px-2 py-2 text-center text-gray-700">${fmtReturnRegNum(item.unit_price)}</td>
+                        <td class="px-2 py-2 text-center">
+                            <button type="button" class="return-add-btn px-2 py-1 text-xs font-medium rounded-md border ${alreadyAdded ? 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed' : 'text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100'}" ${alreadyAdded ? 'disabled' : ''}>${alreadyAdded ? '담김' : '담기'}</button>
+                        </td>
+                    `;
+                    if (!alreadyAdded) {
+                        tr.querySelector('.return-add-btn').addEventListener('click', function() {
+                            addToReturnCart({
+                                sale_item_id: saleItemId,
+                                sale_id: parseInt(item.sale_id, 10),
+                                sale_date: item.sale_date,
+                                product_name: item.product_name || '-',
+                                unit_price: parseFloat(item.unit_price),
+                                remaining: remaining
+                            });
+                            this.outerHTML = '<button type="button" class="px-2 py-1 text-xs font-medium rounded-md border text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed" disabled>담김</button>';
+                        });
+                    }
+                    returnHistoryBody.appendChild(tr);
+                });
+
+                if (returnHistoryBody.children.length === 0) {
+                    returnHistoryEmpty.classList.remove('hidden');
+                } else {
+                    returnHistoryTable.classList.remove('hidden');
+                }
+            })
+            .catch(function() {
+                returnHistoryLoading.classList.add('hidden');
+                returnHistoryEmpty.classList.remove('hidden');
+            });
+    }
+
+    function addToReturnCart(entry) {
+        entry.quantity = entry.remaining;
+        returnCart.push(entry);
+        renderReturnItemsSection();
+        showNotification('반품 항목에 담겼습니다. 판매 등록 시 함께 반영됩니다.', 'success');
+    }
+
+    function removeFromReturnCart(saleItemId) {
+        returnCart = returnCart.filter(function(c) { return c.sale_item_id !== saleItemId; });
+        renderReturnItemsSection();
+    }
+
+    function renderReturnItemsSection() {
+        returnItemsBody.innerHTML = '';
+
+        if (returnCart.length === 0) {
+            returnItemsSection.classList.add('hidden');
+            returnItemsInput.value = '';
+            updateGrandTotal();
+            updateSaleButton();
+            return;
+        }
+
+        returnItemsSection.classList.remove('hidden');
+
+        returnCart.forEach(function(entry) {
+            const tr = document.createElement('tr');
+            tr.className = 'border-b border-orange-100';
+            tr.innerHTML = `
+                <td class="px-2 py-1 text-gray-700">${escapeReturnRegHtml(entry.sale_date)}</td>
+                <td class="px-2 py-1 text-gray-900">${escapeReturnRegHtml(entry.product_name)}</td>
+                <td class="px-2 py-1 text-center">
+                    <input type="number" class="return-cart-qty-input w-20 px-2 py-1 text-sm border border-gray-300 rounded-md text-right"
+                           min="0.01" max="${entry.remaining}" step="0.01" value="${entry.quantity}">
+                </td>
+                <td class="px-2 py-1 text-right return-cart-amount text-orange-700">-${fmtReturnRegNum(entry.quantity * entry.unit_price)}</td>
+                <td class="px-2 py-1 text-center">
+                    <button type="button" class="return-cart-remove-btn text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+                </td>
+            `;
+            const qtyInput = tr.querySelector('.return-cart-qty-input');
+            qtyInput.addEventListener('input', function() {
+                let qty = parseFloat(qtyInput.value) || 0;
+                if (qty > entry.remaining) qty = entry.remaining;
+                if (qty < 0) qty = 0;
+                entry.quantity = qty;
+                tr.querySelector('.return-cart-amount').textContent = '-' + fmtReturnRegNum(entry.quantity * entry.unit_price);
+                syncReturnItemsInput();
+                updateGrandTotal();
+            });
+            tr.querySelector('.return-cart-remove-btn').addEventListener('click', function() {
+                removeFromReturnCart(entry.sale_item_id);
+            });
+            returnItemsBody.appendChild(tr);
+        });
+
+        syncReturnItemsInput();
+        updateGrandTotal();
+        updateSaleButton();
+    }
+
+    function syncReturnItemsInput() {
+        returnItemsInput.value = JSON.stringify(returnCart.map(function(c) {
+            return { sale_item_id: c.sale_item_id, quantity: c.quantity };
+        }));
+    }
+
+    function returnItemsTotal() {
+        return returnCart.reduce(function(sum, c) { return sum + (c.quantity * c.unit_price); }, 0);
+    }
+
+    // 상품 합계(cart) - 반품 차감액을 반영한 최종 합계 표시. updateCart()에서도 호출됨.
+    window.updateGrandTotal = function updateGrandTotal() {
+        const cartSum = cart.reduce((sum, item) => sum + item.total_price, 0);
+        const returnSum = Math.round(returnItemsTotal() * 100) / 100;
+
+        if (returnSum > 0) {
+            returnTotalRow.classList.remove('hidden');
+            grandTotalRow.classList.remove('hidden');
+            returnItemsTotalEl.textContent = fmtReturnRegNum(returnSum);
+            grandTotalAmountEl.textContent = fmtReturnRegNum(Math.round((cartSum - returnSum) * 100) / 100);
+        } else {
+            returnTotalRow.classList.add('hidden');
+            grandTotalRow.classList.add('hidden');
+        }
+    };
+
+    if (returnRegisterBtn) returnRegisterBtn.addEventListener('click', openReturnRegisterModal);
+    if (closeReturnRegisterModalBtn) closeReturnRegisterModalBtn.addEventListener('click', closeReturnRegisterModalFn);
+    if (closeReturnRegisterModalBtn2) closeReturnRegisterModalBtn2.addEventListener('click', closeReturnRegisterModalFn);
+    if (returnRegisterModal) {
+        returnRegisterModal.addEventListener('click', function(e) {
+            if (e.target === returnRegisterModal) closeReturnRegisterModalFn();
+        });
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && returnRegisterModal && !returnRegisterModal.classList.contains('hidden')) {
+            closeReturnRegisterModalFn();
+        }
+    });
 });
 
 </script>
