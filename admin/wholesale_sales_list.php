@@ -48,7 +48,15 @@ try {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    
+
+    // 반품 기능 마이그레이션 적용 여부 확인 (하위 호환, Design Ref: wholesale-sales-return.design.md)
+    try {
+        $has_return_status = $pdo->query("SHOW COLUMNS FROM wholesale_sales LIKE 'return_status'")->rowCount() > 0;
+    } catch (PDOException $e) {
+        $has_return_status = false;
+    }
+    $return_status_expr = $has_return_status ? "ws.return_status" : "'none' as return_status";
+
     // WHERE 조건 구성
     $where_conditions = ["1=1"];
     $params = [];
@@ -114,6 +122,7 @@ try {
             ws.final_amount,
             ws.status,
             ws.payment_status,
+            {$return_status_expr},
             ws.created_at,
             wc.name as customer_name,
             wc.phone as customer_phone,
@@ -431,6 +440,11 @@ if (isset($_SESSION['flash'])) {
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800"><i class="fas fa-check-circle mr-1"></i><?php echo htmlspecialchars(t('wholesale_sales_list.payment_done')); ?></span>
                                         <?php else: ?>
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800"><i class="fas fa-exclamation-circle mr-1"></i><?php echo htmlspecialchars(t('wholesale_sales_list.payment_unpaid')); ?></span>
+                                        <?php endif; ?>
+                                        <?php if (($sale['return_status'] ?? 'none') === 'partial'): ?>
+                                            <span class="ml-1 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800"><i class="fas fa-undo mr-1"></i>반품포함</span>
+                                        <?php elseif (($sale['return_status'] ?? 'none') === 'full'): ?>
+                                            <span class="ml-1 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700"><i class="fas fa-undo mr-1"></i>반품전표</span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">

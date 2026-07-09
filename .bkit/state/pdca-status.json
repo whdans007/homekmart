@@ -2,6 +2,7 @@
   "version": "3.0",
   "lastUpdated": "2026-06-13T00:00:00.000Z",
   "activeFeatures": [
+    "wholesale-sales-return",
     "pos-payment-detail",
     "admin",
     "homekmart",
@@ -22,8 +23,36 @@
     "box-pcs-unit",
     "pack-unit"
   ],
-  "primaryFeature": "admin",
+  "primaryFeature": "wholesale-sales-return",
   "features": {
+    "wholesale-sales-return": {
+      "phase": "completed",
+      "phaseNumber": 5,
+      "matchRate": 95,
+      "iterationCount": 2,
+      "requirements": [],
+      "documents": {
+        "plan": "docs/01-plan/features/wholesale-sales-return.plan.md",
+        "design": "docs/02-design/features/wholesale-sales-return.design.md",
+        "analysis": "docs/03-analysis/wholesale-sales-return.analysis.md",
+        "report": "docs/04-report/wholesale-sales-return.report.md"
+      },
+      "timestamps": {
+        "started": "2026-07-09T00:00:00.000Z",
+        "lastUpdated": "2026-07-09T00:00:00.000Z"
+      },
+      "lastFile": "W:\\sunset\\admin\\wholesale_sales.php",
+      "architecture": "Option C",
+      "previousPhase": "check",
+      "completedAt": "2026-07-09T00:00:00.000Z",
+      "revisionNote": "v2: 회계 모델 근본 수정 - 원본 전표는 불변, 반품은 현재(신규) 전표에 기록되어 그 전표 금액에서 차감. wholesale_sale_returns.sale_id 의미를 원본판매->신규판매로 재정의. ajax_wholesale_sale_return.php는 미사용 상태(삭제 여부 확인 필요)",
+      "scopeProgress": {
+        "module-1": "done",
+        "module-2": "superseded",
+        "module-3": "revised",
+        "module-4": "done"
+      }
+    },
     "pos-payment-detail": {
       "phase": "completed",
       "phaseNumber": 5,
@@ -3265,6 +3294,12 @@
       "phase": "do",
       "feature": "branch-outbound",
       "createdAt": "2026-06-10T09:46:09.092Z"
+    },
+    {
+      "taskId": "1",
+      "phase": "do",
+      "feature": "wholesale-sales-return",
+      "createdAt": "2026-07-09T00:31:01.418Z"
     }
   ]
 }
