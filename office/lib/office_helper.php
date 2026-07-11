@@ -14,6 +14,7 @@ require_once __DIR__ . '/../../lib/permission_helper.php';
         'photo'           => "ALTER TABLE office_employees ADD COLUMN photo VARCHAR(255) NULL DEFAULT NULL AFTER job_role",
         'inactive_reason' => "ALTER TABLE office_employees ADD COLUMN inactive_reason VARCHAR(255) NULL DEFAULT NULL AFTER status",
         'inactive_date'   => "ALTER TABLE office_employees ADD COLUMN inactive_date DATE NULL DEFAULT NULL AFTER inactive_reason",
+        'agency'          => "ALTER TABLE office_employees ADD COLUMN agency ENUM('STAFF WORKS','GPNC','DIRECT') NULL DEFAULT NULL AFTER job_role",
     ];
     foreach ($cols as $col => $sql) {
         $r = $c->query("SHOW COLUMNS FROM office_employees LIKE '{$col}'");
@@ -55,19 +56,23 @@ function get_job_roles(): array {
     return ['cashier', 'patcher', 'butcher', 'kitchen', 'driver', 'merchandiser', 'supervisor', 'admin'];
 }
 
+function get_agency_options(): array {
+    return ['STAFF WORKS', 'GPNC', 'DIRECT'];
+}
+
 // ── Employee lookup ──────────────────────────────────────────
 
 function get_office_employees(int $store_id, ?string $job_role = null, string $status = 'active'): array {
     $conn = get_db_connection();
     if ($job_role !== null) {
         $stmt = $conn->prepare(
-            "SELECT id, name, job_role, status, inactive_reason, inactive_date, photo FROM office_employees
+            "SELECT id, name, job_role, agency, status, inactive_reason, inactive_date, photo FROM office_employees
              WHERE store_id=? AND job_role=? AND status=? ORDER BY name"
         );
         $stmt->bind_param('iss', $store_id, $job_role, $status);
     } else {
         $stmt = $conn->prepare(
-            "SELECT id, name, job_role, status, inactive_reason, inactive_date, photo FROM office_employees
+            "SELECT id, name, job_role, agency, status, inactive_reason, inactive_date, photo FROM office_employees
              WHERE store_id=? AND status=? ORDER BY job_role, name"
         );
         $stmt->bind_param('is', $store_id, $status);

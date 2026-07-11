@@ -6,6 +6,7 @@ require_once __DIR__ . '/../partials/header.php';
 
 $store_id = get_office_store_id();
 $roles    = get_job_roles();
+$agencies = get_agency_options();
 
 define('EMP_PHOTO_DIR', __DIR__ . '/../../uploads/employees/');
 define('EMP_PHOTO_URL', '../../uploads/employees/');
@@ -40,10 +41,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'add') {
         $name     = post_str('name');
         $job_role = in_array($_POST['job_role'] ?? '', $roles) ? $_POST['job_role'] : '';
+        $agency   = in_array($_POST['agency'] ?? '', $agencies, true) ? $_POST['agency'] : null;
         if ($name && $job_role) {
             $conn = get_db_connection();
-            $stmt = $conn->prepare("INSERT INTO office_employees (store_id, name, job_role) VALUES (?,?,?)");
-            $stmt->bind_param('iss', $store_id, $name, $job_role);
+            $stmt = $conn->prepare("INSERT INTO office_employees (store_id, name, job_role, agency) VALUES (?,?,?,?)");
+            $stmt->bind_param('isss', $store_id, $name, $job_role, $agency);
             $stmt->execute();
             $new_id = $conn->insert_id;
             $stmt->close();
@@ -64,6 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id       = (int)($_POST['id'] ?? 0);
         $name     = post_str('name');
         $job_role = in_array($_POST['job_role'] ?? '', $roles) ? $_POST['job_role'] : '';
+        $agency   = in_array($_POST['agency'] ?? '', $agencies, true) ? $_POST['agency'] : null;
         if ($id && $name && $job_role) {
             $conn = get_db_connection();
 
@@ -81,11 +84,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($new_photo !== null) {
-                $stmt = $conn->prepare("UPDATE office_employees SET name=?, job_role=?, photo=? WHERE id=? AND store_id=?");
-                $stmt->bind_param('sssii', $name, $job_role, $new_photo, $id, $store_id);
+                $stmt = $conn->prepare("UPDATE office_employees SET name=?, job_role=?, agency=?, photo=? WHERE id=? AND store_id=?");
+                $stmt->bind_param('ssssii', $name, $job_role, $agency, $new_photo, $id, $store_id);
             } else {
-                $stmt = $conn->prepare("UPDATE office_employees SET name=?, job_role=? WHERE id=? AND store_id=?");
-                $stmt->bind_param('ssii', $name, $job_role, $id, $store_id);
+                $stmt = $conn->prepare("UPDATE office_employees SET name=?, job_role=?, agency=? WHERE id=? AND store_id=?");
+                $stmt->bind_param('sssii', $name, $job_role, $agency, $id, $store_id);
             }
             $stmt->execute();
             $stmt->close();
@@ -431,7 +434,12 @@ if (!$reset_request) {
             <?php echo htmlspecialchars($emp['name']); ?>
             <span class="text-gray-400 font-normal text-xs">#<?php echo (int)$emp['id']; ?></span>
           </div>
-          <div class="text-xs text-gray-500 mt-0.5"><?php echo get_job_role_label($emp['job_role']); ?></div>
+          <div class="text-xs text-gray-500 mt-0.5">
+            <?php echo get_job_role_label($emp['job_role']); ?>
+            <?php if (!empty($emp['agency'])): ?>
+            <span class="inline-flex items-center ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-600"><?php echo htmlspecialchars($emp['agency']); ?></span>
+            <?php endif; ?>
+          </div>
           <!-- 지문 등록 (지문1 / 지문2) -->
           <div class="flex gap-1 mt-1.5">
             <?php
@@ -476,7 +484,7 @@ if (!$reset_request) {
           </div>
         </div>
         <div class="flex gap-2 mt-2">
-          <button onclick="openEditModal(<?php echo $emp['id']; ?>, '<?php echo htmlspecialchars(addslashes($emp['name'])); ?>', '<?php echo $emp['job_role']; ?>', '<?php echo $photo_url ?? ''; ?>')"
+          <button onclick="openEditModal(<?php echo $emp['id']; ?>, '<?php echo htmlspecialchars(addslashes($emp['name'])); ?>', '<?php echo $emp['job_role']; ?>', '<?php echo htmlspecialchars(addslashes($emp['agency'] ?? '')); ?>', '<?php echo $photo_url ?? ''; ?>')"
                   class="text-xs text-blue-600 hover:underline">Edit</button>
           <span class="text-gray-300">|</span>
           <button onclick="openDeactivateModal(<?php echo $emp['id']; ?>, '<?php echo htmlspecialchars(addslashes($emp['name'])); ?>')"
@@ -513,7 +521,12 @@ if (!$reset_request) {
             <?php echo htmlspecialchars($emp['name']); ?>
             <span class="text-gray-400 font-normal text-xs">#<?php echo (int)$emp['id']; ?></span>
           </div>
-          <div class="text-xs text-gray-400 mt-0.5"><?php echo get_job_role_label($emp['job_role']); ?></div>
+          <div class="text-xs text-gray-400 mt-0.5">
+            <?php echo get_job_role_label($emp['job_role']); ?>
+            <?php if (!empty($emp['agency'])): ?>
+            <span class="inline-flex items-center ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-200 text-gray-500"><?php echo htmlspecialchars($emp['agency']); ?></span>
+            <?php endif; ?>
+          </div>
           <?php if (!empty($emp['inactive_date'])): ?>
           <div class="text-xs text-gray-400 mt-1">
             <i class="fa-solid fa-calendar-xmark mr-0.5"></i><?php echo $emp['inactive_date']; ?>
@@ -610,6 +623,15 @@ if (!$reset_request) {
         </select>
       </div>
       <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">소속 에이전시 <span class="text-gray-400 font-normal">(선택)</span></label>
+        <select name="agency" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500">
+          <option value="">미지정</option>
+          <?php foreach ($agencies as $a): ?>
+          <option value="<?php echo htmlspecialchars($a); ?>"><?php echo htmlspecialchars($a); ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">사진 (선택)</label>
         <div class="flex items-center gap-3">
           <div id="add_preview_wrap" class="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 border border-gray-200">
@@ -654,6 +676,15 @@ if (!$reset_request) {
         </select>
       </div>
       <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">소속 에이전시 <span class="text-gray-400 font-normal">(선택)</span></label>
+        <select name="agency" id="edit_agency" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+          <option value="">미지정</option>
+          <?php foreach ($agencies as $a): ?>
+          <option value="<?php echo htmlspecialchars($a); ?>"><?php echo htmlspecialchars($a); ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">사진 변경 (선택)</label>
         <div class="flex items-center gap-3">
           <div id="edit_preview_wrap" class="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 border border-gray-200">
@@ -685,10 +716,11 @@ function openAddModal() {
 }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-function openEditModal(id, name, role, photoUrl) {
-    document.getElementById('edit_id').value   = id;
-    document.getElementById('edit_name').value = name;
-    document.getElementById('edit_role').value = role;
+function openEditModal(id, name, role, agency, photoUrl) {
+    document.getElementById('edit_id').value     = id;
+    document.getElementById('edit_name').value   = name;
+    document.getElementById('edit_role').value   = role;
+    document.getElementById('edit_agency').value = agency || '';
     setPreview('edit', photoUrl || null);
     document.getElementById('modal_edit').classList.remove('hidden');
 }
