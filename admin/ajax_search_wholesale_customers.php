@@ -49,7 +49,7 @@ try {
     if ($show_all && empty($search_term)) {
         // 전체 목록 요청
         $sql = "
-            SELECT id, name, phone, address
+            SELECT id, name, phone, address, discount_rate
             FROM wholesale_customers
             WHERE is_active = 1
             " . ($store_id ? "AND store_id = ?" : "") . "
@@ -61,7 +61,7 @@ try {
     } else {
         // 검색 요청
         $sql = "
-            SELECT id, name, phone, address
+            SELECT id, name, phone, address, discount_rate
             FROM wholesale_customers
             WHERE is_active = 1
             " . ($store_id ? "AND store_id = ?" : "") . "

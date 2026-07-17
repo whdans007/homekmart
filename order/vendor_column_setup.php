@@ -64,10 +64,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
         try {
             if ($colMap) {
                 $stmt = $conn->prepare("UPDATE order_vendor_column_maps SET sheet_index=?,sheet_name=?,header_row=?,product_name_col=?,product_name_en_col=?,quantity_col=?,unit_price_col=?,unit_price_pcs_col=?,order_unit_col=?,unit_qty_col=?,brand_col=?,remark_col=?,expiry_col=?,notes=? WHERE vendor_id=?");
-                $stmt->bind_param('iissssssssssssi', $data['sheet_index'], $data['sheet_name'], $data['header_row'], $data['product_name_col'], $data['product_name_en_col'], $data['quantity_col'], $data['unit_price_col'], $data['unit_price_pcs_col'], $data['order_unit_col'], $data['unit_qty_col'], $data['brand_col'], $data['remark_col'], $data['expiry_col'], $data['notes'], $vendorId);
+                $stmt->bind_param('isisssssssssssi', $data['sheet_index'], $data['sheet_name'], $data['header_row'], $data['product_name_col'], $data['product_name_en_col'], $data['quantity_col'], $data['unit_price_col'], $data['unit_price_pcs_col'], $data['order_unit_col'], $data['unit_qty_col'], $data['brand_col'], $data['remark_col'], $data['expiry_col'], $data['notes'], $vendorId);
             } else {
                 $stmt = $conn->prepare("INSERT INTO order_vendor_column_maps (vendor_id,sheet_index,sheet_name,header_row,product_name_col,product_name_en_col,quantity_col,unit_price_col,unit_price_pcs_col,order_unit_col,unit_qty_col,brand_col,remark_col,expiry_col,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-                $stmt->bind_param('iiissssssssssss', $vendorId, $data['sheet_index'], $data['sheet_name'], $data['header_row'], $data['product_name_col'], $data['product_name_en_col'], $data['quantity_col'], $data['unit_price_col'], $data['unit_price_pcs_col'], $data['order_unit_col'], $data['unit_qty_col'], $data['brand_col'], $data['remark_col'], $data['expiry_col'], $data['notes']);
+                $stmt->bind_param('iisisssssssssss', $vendorId, $data['sheet_index'], $data['sheet_name'], $data['header_row'], $data['product_name_col'], $data['product_name_en_col'], $data['quantity_col'], $data['unit_price_col'], $data['unit_price_pcs_col'], $data['order_unit_col'], $data['unit_qty_col'], $data['brand_col'], $data['remark_col'], $data['expiry_col'], $data['notes']);
             }
             $stmt->execute();
             $stmt->close();

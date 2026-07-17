@@ -8,7 +8,6 @@ $_sn_active = $sales_tab ?? 'pos';
 
 $_tabs = [
     ['key'=>'pos',      'href'=>"daily_entry.php?date={$_sn_t}",                 'icon'=>'fa-cash-register',         'label'=>'POS Entry',    'color'=>'green'],
-    ['key'=>'pos2',     'href'=>"pos2_entry.php?date={$_sn_t}",                  'icon'=>'fa-keyboard',              'label'=>'POS 2',        'color'=>'green'],
     ['key'=>'dk',       'href'=>"dk_entry.php?year={$_sn_y}&month={$_sn_m}",     'icon'=>'fa-motorcycle',            'label'=>'Delivery K',   'color'=>'blue'],
     ['key'=>'ws',       'href'=>"ws_entry.php?year={$_sn_y}&month={$_sn_m}",     'icon'=>'fa-boxes-stacked',         'label'=>'Whole Sale',   'color'=>'indigo'],
     ['key'=>'credit',   'href'=>"credit_entry.php?year={$_sn_y}&month={$_sn_m}", 'icon'=>'fa-file-invoice-dollar',   'label'=>'Credit Sale',  'color'=>'amber'],

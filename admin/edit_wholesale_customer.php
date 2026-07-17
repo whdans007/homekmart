@@ -108,11 +108,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = trim($_POST['phone'] ?? '');
     $address = trim($_POST['address'] ?? '');
     $memo = trim($_POST['memo'] ?? '');
-    
+    $bank_account = trim($_POST['bank_account'] ?? '');
+    $discount_rate_input = trim($_POST['discount_rate'] ?? '');
+
     if (empty($name)) {
         $errors[] = '거래처명을 입력해주세요.';
     }
-    
+
+    if ($discount_rate_input === '' || !is_numeric($discount_rate_input)) {
+        $errors[] = '할인율을 입력해주세요.';
+    } elseif ($discount_rate_input < 0 || $discount_rate_input > 100) {
+        $errors[] = '할인율은 0~100 사이의 값이어야 합니다.';
+    } else {
+        $discount_rate = round((float)$discount_rate_input, 2);
+    }
+
     if (empty($errors)) {
         try {
             // 다른 거래처와의 중복명 확인 (자기 제외, 현재 점포 내에서)
@@ -124,12 +134,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // 거래처 수정
                 $stmt = $pdo->prepare("
-                    UPDATE wholesale_customers 
-                    SET name = ?, phone = ?, address = ?, memo = ?, updated_at = NOW()
+                    UPDATE wholesale_customers
+                    SET name = ?, phone = ?, address = ?, memo = ?, bank_account = ?, discount_rate = ?, updated_at = NOW()
                     WHERE id = ?
                 ");
-                
-                if ($stmt->execute([$name, $phone, $address, $memo, $customer_id])) {
+
+                if ($stmt->execute([$name, $phone, $address, $memo, $bank_account, $discount_rate, $customer_id])) {
                     $_SESSION['flash'] = [
                         'type' => 'success',
                         'message' => '거래처 정보가 성공적으로 수정되었습니다.'
@@ -150,6 +160,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customer['phone'] = $phone;
     $customer['address'] = $address;
     $customer['memo'] = $memo;
+    $customer['bank_account'] = $bank_account;
+    $customer['discount_rate'] = $discount_rate_input;
 }
 
 // 플래시 메시지 표시
@@ -261,6 +273,30 @@ if (isset($_SESSION['flash'])) {
                         <textarea name="memo" id="memo" rows="4"
                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                                   placeholder="기타 메모사항을 입력하세요"><?php echo htmlspecialchars($customer['memo'] ?? ''); ?></textarea>
+                    </div>
+
+                    <div>
+                        <label for="bank_account" class="block text-sm font-medium text-gray-700">
+                            계좌번호
+                        </label>
+                        <input type="text" name="bank_account" id="bank_account"
+                               value="<?php echo htmlspecialchars($customer['bank_account'] ?? ''); ?>"
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                               placeholder="은행명 및 계좌번호를 입력하세요">
+                    </div>
+
+                    <div>
+                        <label for="discount_rate" class="block text-sm font-medium text-gray-700">
+                            할인율 (%) <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-1 relative rounded-md shadow-sm w-40">
+                            <input type="number" name="discount_rate" id="discount_rate" required
+                                   min="0" max="100" step="0.01"
+                                   value="<?php echo htmlspecialchars($customer['discount_rate'] ?? '15.00'); ?>"
+                                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 pr-8">
+                            <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 text-sm">%</span>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-400">기본 할인율은 15%이며, 거래처별로 수정할 수 있습니다.</p>
                     </div>
 
                     <div class="bg-gray-50 rounded-md p-4">

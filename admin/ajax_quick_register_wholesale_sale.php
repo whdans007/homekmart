@@ -20,6 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $customer_id = (int)($_POST['customer_id'] ?? 0);
 $sale_date   = $_POST['sale_date'] ?? date('Y-m-d');
 $amount      = (float)($_POST['amount'] ?? 0);
+$cost_amount = (float)($_POST['cost_amount'] ?? 0);
+$cost_param  = $cost_amount > 0 ? $cost_amount : null;
 
 if ($customer_id <= 0) {
     echo json_encode(['success' => false, 'message' => '거래처를 선택해주세요.']);
@@ -59,11 +61,22 @@ try {
         exit;
     }
 
-    $stmt = $pdo->prepare("
-        INSERT INTO wholesale_sales (customer_id, store_id, user_id, sale_date, total_amount, final_amount, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'confirmed', NOW())
-    ");
-    $stmt->execute([$customer_id, $current_store_id, $_SESSION['user_id'], $sale_date, $amount, $amount]);
+    // cost_amount 컬럼 존재 여부 확인 (마이그레이션 전 하위 호환)
+    $has_cost_amount = $pdo->query("SHOW COLUMNS FROM wholesale_sales LIKE 'cost_amount'")->rowCount() > 0;
+
+    if ($has_cost_amount) {
+        $stmt = $pdo->prepare("
+            INSERT INTO wholesale_sales (customer_id, store_id, user_id, sale_date, total_amount, final_amount, cost_amount, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'confirmed', NOW())
+        ");
+        $stmt->execute([$customer_id, $current_store_id, $_SESSION['user_id'], $sale_date, $amount, $amount, $cost_param]);
+    } else {
+        $stmt = $pdo->prepare("
+            INSERT INTO wholesale_sales (customer_id, store_id, user_id, sale_date, total_amount, final_amount, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'confirmed', NOW())
+        ");
+        $stmt->execute([$customer_id, $current_store_id, $_SESSION['user_id'], $sale_date, $amount, $amount]);
+    }
     $sale_id = $pdo->lastInsertId();
 
     echo json_encode(['success' => true, 'sale_id' => $sale_id]);

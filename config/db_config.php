@@ -2,6 +2,10 @@
 /*
  * 데이터베이스 접속 정보
  */
+
+// 매장 운영 기준 시간대: 필리핀 (UTC+8)
+date_default_timezone_set('Asia/Manila');
+
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'u622428657_main');
 define('DB_USER', 'u622428657_main');
@@ -35,6 +39,7 @@ function get_db_connection() {
     }
 
     $conn->set_charset(DB_CHARSET);
+    $conn->query("SET time_zone = '+08:00'");
 
     return $conn;
 }

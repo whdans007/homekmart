@@ -229,7 +229,7 @@ $low_zero_count = count($low_zero);
                     <i class="fas fa-ban mr-2"></i>Out of Stock Products
                     <span class="text-xs font-normal ml-1">(Stock 0)</span>
                 </h3>
-                <a href="<?php echo LC_BASE; ?>/inventory.php?filter=low" class="text-xs text-red-600 hover:underline">View All →</a>
+                <a href="<?php echo LC_BASE; ?>/inventory.php?filter=out" class="text-xs text-red-600 hover:underline">View All →</a>
             </div>
             <?php if (!empty($low_zero)): ?>
             <div class="overflow-x-auto dash-scroll dash-scroll-low">

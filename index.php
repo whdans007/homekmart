@@ -1,6 +1,7 @@
 <?php
 // 세션을 읽어 super_admin 여부를 확인합니다 (관리자 카드 노출용)
 require_once __DIR__ . '/lib/session_helper.php';
+require_once __DIR__ . '/lib/permission_helper.php';
 
 // 로그인하지 않은 사용자는 허브 메뉴를 볼 수 없습니다.
 // 세션이 없으면 remember_me 쿠키로 자동 로그인을 시도하고, 그래도 안 되면 로그인 페이지로 보냅니다.
@@ -15,6 +16,8 @@ if (!is_logged_in()) {
 }
 
 $is_super_admin = (($_SESSION['role'] ?? '') === 'super_admin');
+$current_user_info = get_user_info();
+$current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '';
 ?>
 <!DOCTYPE html>
 <html lang="ko">
@@ -34,6 +37,7 @@ $is_super_admin = (($_SESSION['role'] ?? '') === 'super_admin');
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
         .main-container {
+            position: relative;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -111,6 +115,7 @@ $is_super_admin = (($_SESSION['role'] ?? '') === 'super_admin');
         .card-icon.store    { background: linear-gradient(135deg, #d97706, #f59e0b); }
         .card-icon.logistics { background: linear-gradient(135deg, #7c3aed, #8b5cf6); }
         .card-icon.order     { background: linear-gradient(135deg, #0891b2, #06b6d4); }
+        .card-icon.lookup    { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
         .card-icon.system    { background: linear-gradient(135deg, #475569, #64748b); }
         .card-label {
             font-size: 1.1rem;
@@ -128,16 +133,80 @@ $is_super_admin = (($_SESSION['role'] ?? '') === 'super_admin');
             font-size: 0.8rem;
             text-align: center;
         }
+        .user-bar {
+            position: absolute;
+            top: 1.25rem;
+            right: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 999px;
+            padding: 0.45rem 0.6rem 0.45rem 1rem;
+            color: #ffffff;
+        }
+        .user-bar .user-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .user-bar .user-meta {
+            font-size: 0.72rem;
+            color: rgba(255,255,255,0.6);
+        }
+        .user-bar .role-badge {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #ccfbf1;
+            background: rgba(13, 148, 136, 0.35);
+            border-radius: 0.4rem;
+            padding: 0.2rem 0.5rem;
+            white-space: nowrap;
+        }
+        .user-bar .logout-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #fca5a5;
+            background: rgba(220, 38, 38, 0.15);
+            border-radius: 0.4rem;
+            padding: 0.35rem 0.6rem;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background 0.15s;
+        }
+        .user-bar .logout-btn:hover {
+            background: rgba(220, 38, 38, 0.3);
+            color: #fecaca;
+        }
         @media (max-width: 600px) {
             .menu-grid { gap: 1rem; }
             .menu-card { width: calc(50% - 0.5rem); padding: 1.5rem 1rem; }
             .card-icon { width: 52px; height: 52px; font-size: 1.4rem; }
             .card-label { font-size: 1rem; }
+            .user-bar { position: static; margin-bottom: 1.5rem; align-self: center; }
         }
     </style>
 </head>
 <body>
     <div class="main-container">
+        <div class="user-bar">
+            <i class="fas fa-circle-user" style="font-size:1.4rem;color:rgba(255,255,255,0.85);"></i>
+            <div>
+                <div class="user-name"><?php echo htmlspecialchars($current_user_info['full_name'] ?? $_SESSION['full_name'] ?? $_SESSION['username'] ?? ''); ?></div>
+                <div class="user-meta"><?php echo htmlspecialchars($current_user_info['store_name'] ?? ''); ?></div>
+            </div>
+            <?php if ($current_role_label !== ''): ?>
+            <span class="role-badge"><?php echo htmlspecialchars($current_role_label); ?></span>
+            <?php endif; ?>
+            <a href="admin/logout.php" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </div>
+
         <div class="logo-section">
             <img src="logo/homekmart_logo.png" alt="HOME K MART" style="max-width: 280px; width: 100%; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.35));">
             <div class="logo-subtitle">Management System</div>
@@ -201,6 +270,16 @@ $is_super_admin = (($_SESSION['role'] ?? '') === 'super_admin');
                 <div>
                     <div class="card-label">재고리스트 주문</div>
                     <div class="card-desc">Stock List / Orders<br>Inventory Management</div>
+                </div>
+            </a>
+
+            <a href="admin/price_lookup.php" class="menu-card">
+                <div class="card-icon lookup">
+                    <i class="fas fa-magnifying-glass-dollar"></i>
+                </div>
+                <div>
+                    <div class="card-label">전점포 가격조회</div>
+                    <div class="card-desc">All-Store Price Lookup<br>원가 / 판매가 조회</div>
                 </div>
             </a>
 

@@ -12,7 +12,7 @@ $sales_tab = 'transfer';
 $days_in_month = (int)date('t', mktime(0,0,0,$month,1,$year));
 $month_label   = date('F Y', mktime(0,0,0,$month,1,$year));
 $days_en       = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-$categories    = ['grocery'=>'Grocery','meat'=>'Meat','seafood'=>'Seafood','fruit'=>'Fruit'];
+$categories    = ['grocery'=>'Grocery','meat'=>'Meat','seafood'=>'Seafood','fruit'=>'Fruit','transfer'=>'Transfer (Auto)'];
 
 $conn = get_db_connection();
 
@@ -38,6 +38,8 @@ $stmt->bind_param('iii', $store_id, $year, $month);
 $stmt->execute();
 $in_rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
+foreach ($in_rows as &$r) { $r['source'] = 'manual'; }
+unset($r);
 
 // ── OUT: 현재 점포가 보낸 이동 (store_transfers, auto) ───────────────────
 $stmt2 = $conn->prepare(
@@ -52,10 +54,35 @@ $stmt2->bind_param('iii', $store_id, $year, $month);
 $stmt2->execute();
 $out_rows = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt2->close();
+
+// ── IN (자동): 현재 점포가 받은 점간이동 (store_transfers, auto) ─────────
+// The Village → Sunset 처럼 다른 점포가 등록한 정식 점간이동은
+// 발신 점포엔 OUT으로, 수신 점포엔 자동으로 IN(Transfer 카테고리)으로 반영된다.
+$stmt3 = $conn->prepare(
+    "SELECT st.id, st.transfer_date, st.from_store_id AS other_store_id,
+            st.final_amount AS amount, st.notes
+     FROM store_transfers st
+     WHERE st.to_store_id=? AND st.status != 'cancelled'
+       AND YEAR(st.transfer_date)=? AND MONTH(st.transfer_date)=?
+     ORDER BY st.transfer_date, st.id"
+);
+$stmt3->bind_param('iii', $store_id, $year, $month);
+$stmt3->execute();
+$transfer_in_rows = $stmt3->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt3->close();
 $conn->close();
 
+foreach ($transfer_in_rows as &$tr) {
+    $tr['category']  = 'transfer';
+    $tr['file_path'] = null;
+    $tr['file_mime'] = null;
+    $tr['source']    = 'auto';
+}
+unset($tr);
+$in_rows = array_merge($in_rows, $transfer_in_rows);
+
 // 카테고리별 전체 합계 (모든 지점 합산)
-$cat_totals = ['grocery'=>0,'meat'=>0,'seafood'=>0,'fruit'=>0];
+$cat_totals = array_fill_keys(array_keys($categories), 0);
 foreach ($in_rows as $r) {
     $cat = in_array($r['category']??'', array_keys($cat_totals)) ? $r['category'] : 'grocery';
     $cat_totals[$cat] += (float)$r['amount'];
@@ -268,6 +295,23 @@ for ($i = 0; $i < 12; $i++) {
   </div>
 </div>
 
+<!-- Store Transfer Items Modal (정식 점간이동 상세) -->
+<div class="modal fade" id="stItemsModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header border-b border-gray-100 px-4 py-3">
+        <h5 id="st_items_title" class="modal-title text-sm font-semibold text-gray-800">
+          <i class="fa-solid fa-truck-fast mr-1 text-indigo-500"></i>Store Transfer Detail
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body px-4 py-3" id="st_items_body">
+        <div class="text-center text-gray-400 text-sm py-8">Loading...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 헤더 -->
 <div class="flex items-center justify-between mb-4">
   <h2 class="text-lg font-bold text-gray-800">
@@ -306,17 +350,16 @@ for ($i = 0; $i < 12; $i++) {
     <tr>
       <th rowspan="2" class="day-cell">Date</th>
       <?php foreach ($branches as $b): ?>
-      <th colspan="6" class="branch-hd"><?php echo htmlspecialchars($b['name']); ?></th>
+      <th colspan="<?php echo count($categories)+2; ?>" class="branch-hd"><?php echo htmlspecialchars($b['name']); ?></th>
       <?php endforeach; ?>
       <th rowspan="2" class="row-total" style="background:#f0fdf4;min-width:70px">Total</th>
     </tr>
     <!-- 카테고리 + OUT 헤더 -->
     <tr>
       <?php foreach ($branches as $b): ?>
-      <th class="in-hd">Grocery</th>
-      <th class="in-hd">Meat</th>
-      <th class="in-hd">Seafood</th>
-      <th class="in-hd">Fruit</th>
+      <?php foreach ($categories as $ck => $cl): ?>
+      <th class="in-hd"<?php echo $ck==='transfer' ? ' style="background:#eef2ff;color:#4338ca"' : ''; ?>><?php echo htmlspecialchars($cl); ?></th>
+      <?php endforeach; ?>
       <th class="in-hd" style="background:#e0f2fe;color:#0369a1;font-weight:700">Total IN</th>
       <th class="out-hd"><i class="fa-solid fa-arrow-up text-red-400 mr-1"></i>OUT</th>
       <?php endforeach; ?>
@@ -443,6 +486,7 @@ for ($i = 0; $i < 12; $i++) {
         'meat'    => ['bg'=>'bg-red-50',    'border'=>'border-red-200',    'text'=>'text-red-700',    'icon'=>'fa-drumstick-bite'],
         'seafood' => ['bg'=>'bg-blue-50',   'border'=>'border-blue-200',   'text'=>'text-blue-700',   'icon'=>'fa-fish'],
         'fruit'   => ['bg'=>'bg-orange-50', 'border'=>'border-orange-200', 'text'=>'text-orange-700', 'icon'=>'fa-apple-whole'],
+        'transfer'=> ['bg'=>'bg-indigo-50', 'border'=>'border-indigo-200', 'text'=>'text-indigo-700', 'icon'=>'fa-truck-fast'],
     ];
     foreach ($categories as $catKey => $catLabel):
         $c = $cat_colors[$catKey];
@@ -480,7 +524,7 @@ for ($i = 0; $i < 12; $i++) {
 $branch_monthly = [];
 foreach ($branches as $b) {
     $bid = (int)$b['id'];
-    $row = ['name'=>$b['name'], 'grocery'=>0, 'meat'=>0, 'seafood'=>0, 'fruit'=>0, 'in_total'=>0, 'out_total'=>0];
+    $row = array_merge(['name'=>$b['name']], array_fill_keys(array_keys($categories), 0), ['in_total'=>0, 'out_total'=>0]);
     foreach ($in_rows as $r) {
         if ((int)$r['other_store_id'] === $bid) {
             $cat = in_array($r['category']??'', array_keys($categories)) ? $r['category'] : 'grocery';
@@ -504,10 +548,9 @@ foreach ($branches as $b) {
     <thead>
       <tr>
         <th class="branch-hd" style="min-width:120px">Branch</th>
-        <th class="in-hd">Grocery</th>
-        <th class="in-hd">Meat</th>
-        <th class="in-hd">Seafood</th>
-        <th class="in-hd">Fruit</th>
+        <?php foreach ($categories as $ck => $cl): ?>
+        <th class="in-hd"<?php echo $ck==='transfer' ? ' style="background:#eef2ff;color:#4338ca"' : ''; ?>><?php echo htmlspecialchars($cl); ?></th>
+        <?php endforeach; ?>
         <th class="in-hd" style="background:#e0f2fe;color:#0369a1;font-weight:700">Total IN</th>
         <th class="out-hd"><i class="fa-solid fa-arrow-up text-red-400 mr-1"></i>OUT</th>
         <th class="row-total" style="background:#f0fdf4;min-width:80px">Net</th>
@@ -517,10 +560,9 @@ foreach ($branches as $b) {
     <?php foreach ($branch_monthly as $brow): ?>
     <tr>
       <td class="branch-hd" style="font-weight:600"><?php echo htmlspecialchars($brow['name']); ?></td>
-      <td class="col-total" style="color:#15803d"><?php echo $brow['grocery']>0 ? '₱'.number_format($brow['grocery'],2) : ''; ?></td>
-      <td class="col-total" style="color:#15803d"><?php echo $brow['meat']>0    ? '₱'.number_format($brow['meat'],2)    : ''; ?></td>
-      <td class="col-total" style="color:#15803d"><?php echo $brow['seafood']>0 ? '₱'.number_format($brow['seafood'],2) : ''; ?></td>
-      <td class="col-total" style="color:#15803d"><?php echo $brow['fruit']>0   ? '₱'.number_format($brow['fruit'],2)   : ''; ?></td>
+      <?php foreach ($categories as $ck => $cl): ?>
+      <td class="col-total" style="color:#15803d"><?php echo $brow[$ck]>0 ? '₱'.number_format($brow[$ck],2) : ''; ?></td>
+      <?php endforeach; ?>
       <td class="col-total" style="background:#e0f2fe;color:#0369a1;font-weight:700"><?php echo $brow['in_total']>0 ? '₱'.number_format($brow['in_total'],2) : ''; ?></td>
       <td class="col-total" style="color:#b91c1c"><?php echo $brow['out_total']>0 ? '₱'.number_format($brow['out_total'],2) : ''; ?></td>
       <td class="row-total"><?php echo ($brow['in_total']+$brow['out_total'])>0 ? '₱'.number_format($brow['in_total']+$brow['out_total'],2) : ''; ?></td>
@@ -546,7 +588,7 @@ const YEAR    = <?php echo $year; ?>;
 const MONTH   = <?php echo $month; ?>;
 const IN_ROWS = <?php echo json_encode($in_rows, JSON_UNESCAPED_UNICODE); ?>;
 const OUT_ROWS= <?php echo json_encode($out_rows, JSON_UNESCAPED_UNICODE); ?>;
-const CAT_LABELS = {grocery:'Grocery',meat:'Meat',seafood:'Seafood',fruit:'Fruit'};
+const CAT_LABELS = {grocery:'Grocery',meat:'Meat',seafood:'Seafood',fruit:'Fruit',transfer:'Transfer (Auto)'};
 const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 function syncYear(){
@@ -578,6 +620,7 @@ function showInDetailCat(day, branchId, catKey, branchName, catLabel) {
     let total = 0;
     entries.forEach(r => {
         total += parseFloat(r.amount||0);
+        const isAuto = r.source === 'auto';
         const proof = r.file_path
             ? `<button type="button"
                   data-id="${r.id}" data-mime="${esc(r.file_mime||'')}" data-title="${esc(r.notes||'Transfer Proof')}"
@@ -586,12 +629,12 @@ function showInDetailCat(day, branchId, catKey, branchName, catLabel) {
                  <i class="fa-solid fa-${r.file_mime==='application/pdf'?'file-pdf':'image'} mr-1"></i>View
                </button>`
             : '—';
-        html += `<tr class="border-b border-gray-100">
-            <td class="px-3 py-2 font-mono font-semibold text-right">${fmt(r.amount)}</td>
-            <td class="px-3 py-2 text-gray-500">${r.notes||'—'}</td>
-            <td class="px-3 py-2 text-center">${proof}</td>
-            <td class="px-2 py-2 text-center" style="white-space:nowrap">
-              <button onclick="openEdit(${r.id},'${r.transfer_date}',${r.amount},'${r.category||'grocery'}','${(r.notes||'').replace(/'/g,'&apos;')}')"
+        const actions = isAuto
+            ? `<button type="button" onclick="showStoreTransferItems(${r.id})"
+                  class="text-indigo-400 hover:text-indigo-600" title="View transfer items">
+                 <i class="fa-solid fa-list-ul text-xs"></i>
+               </button>`
+            : `<button onclick="openEdit(${r.id},'${r.transfer_date}',${r.amount},'${r.category||'grocery'}','${(r.notes||'').replace(/'/g,'&apos;')}')"
                       class="text-indigo-400 hover:text-indigo-600 mr-1">
                 <i class="fa-solid fa-pen-to-square text-xs"></i>
               </button>
@@ -600,8 +643,13 @@ function showInDetailCat(day, branchId, catKey, branchName, catLabel) {
                 <input type="hidden" name="year" value="${YEAR}">
                 <input type="hidden" name="month" value="${MONTH}">
                 <button type="submit" class="text-gray-300 hover:text-red-500"><i class="fa-solid fa-trash-can text-xs"></i></button>
-              </form>
-            </td></tr>`;
+              </form>`;
+        const notes = (r.notes||'—') + (isAuto ? ' <span class="text-[10px] text-indigo-400">(Auto · Store Transfer)</span>' : '');
+        html += `<tr class="border-b border-gray-100">
+            <td class="px-3 py-2 font-mono font-semibold text-right">${fmt(r.amount)}</td>
+            <td class="px-3 py-2 text-gray-500">${notes}</td>
+            <td class="px-3 py-2 text-center">${proof}</td>
+            <td class="px-2 py-2 text-center" style="white-space:nowrap">${actions}</td></tr>`;
     });
     html += `</tbody><tfoot><tr class="bg-green-50">
         <td class="px-3 py-2 font-bold text-right text-green-700">${fmt(total)}</td>
@@ -621,20 +669,97 @@ function showOutDetail(day, branchId, branchName) {
 
     let html = '<table class="w-full text-xs border-collapse">'
              + '<thead><tr class="bg-gray-50"><th class="border border-gray-200 px-3 py-2 text-right">Amount</th>'
-             + '<th class="border border-gray-200 px-3 py-2 text-left">Notes</th></tr></thead><tbody>';
+             + '<th class="border border-gray-200 px-3 py-2 text-left">Notes</th>'
+             + '<th class="border border-gray-200 px-2 py-2 w-8"></th></tr></thead><tbody>';
     entries.forEach(r => {
         html += `<tr class="border-b border-gray-100">
             <td class="px-3 py-2 font-mono font-semibold text-right">${fmt(r.amount)}</td>
-            <td class="px-3 py-2 text-gray-500">${r.notes||'—'}</td></tr>`;
+            <td class="px-3 py-2 text-gray-500">${r.notes||'—'}</td>
+            <td class="px-2 py-2 text-center">
+              <button type="button" onclick="showStoreTransferItems(${r.id})"
+                      class="text-indigo-400 hover:text-indigo-600" title="View transfer items">
+                <i class="fa-solid fa-list-ul text-xs"></i>
+              </button>
+            </td></tr>`;
     });
     const total = entries.reduce((s,r)=>s+parseFloat(r.amount||0),0);
     html += `</tbody><tfoot><tr class="bg-red-50">
         <td class="px-3 py-2 font-bold text-right text-red-700">${fmt(total)}</td>
-        <td class="px-3 py-2 text-xs text-gray-400">${entries.length}건 (Auto)</td>
+        <td class="px-3 py-2 text-xs text-gray-400" colspan="2">${entries.length}건 (Auto)</td>
     </tr></tfoot></table>`;
 
     document.getElementById('detail_body').innerHTML = html;
     new bootstrap.Modal(document.getElementById('detailModal')).show();
+}
+
+// ── 점간이동(store_transfers) 품목 상세 팝업 ───────────────────
+async function showStoreTransferItems(transferId) {
+    const titleEl = document.getElementById('st_items_title');
+    const bodyEl  = document.getElementById('st_items_body');
+    titleEl.innerHTML = '<i class="fa-solid fa-truck-fast mr-1 text-indigo-500"></i>Store Transfer Detail';
+    bodyEl.innerHTML = '<div class="text-center text-gray-400 text-sm py-8">Loading...</div>';
+    new bootstrap.Modal(document.getElementById('stItemsModal')).show();
+
+    try {
+        const res  = await fetch('ajax_get_store_transfer.php?id=' + transferId);
+        const data = await res.json();
+        if (!data.success) {
+            bodyEl.innerHTML = `<div class="text-center text-red-500 text-sm py-8">${esc(data.error||'Failed to load')}</div>`;
+            return;
+        }
+        const t = data.transfer;
+        const status_labels = {draft:'Draft', confirmed:'Confirmed', cancelled:'Cancelled'};
+        const status_classes = {draft:'bg-yellow-100 text-yellow-800', confirmed:'bg-green-100 text-green-800', cancelled:'bg-red-100 text-red-800'};
+
+        titleEl.innerHTML = `<i class="fa-solid fa-truck-fast mr-1 text-indigo-500"></i>`
+            + `Store Transfer #${String(t.id).padStart(6,'0')} — `
+            + `<span class="text-red-600">${esc(t.from_store_name)}</span>`
+            + ` <i class="fa-solid fa-arrow-right mx-1 text-gray-400"></i> `
+            + `<span class="text-blue-600">${esc(t.to_store_name)}</span>`;
+
+        let rows = '';
+        data.items.forEach(it => {
+            const name = [it.name_en, it.name_ko].filter(Boolean).join(' / ') || '—';
+            rows += `<tr class="border-b border-gray-100">
+                <td class="px-2 py-2 text-xs font-mono text-gray-600">${esc(it.sku||'')}</td>
+                <td class="px-3 py-2 text-sm text-gray-800">${esc(name)}</td>
+                <td class="px-3 py-2 text-center text-sm text-gray-700">${it.pieces_per_box ? Number(it.pieces_per_box).toLocaleString() : '-'}</td>
+                <td class="px-3 py-2 text-center text-sm text-gray-700">${fmt(it.unit_cost_price)}</td>
+                <td class="px-3 py-2 text-center text-sm font-medium text-gray-900">${Number(it.quantity).toLocaleString()}</td>
+                <td class="px-3 py-2 text-right text-sm font-medium text-teal-700">${fmt(it.total_price)}</td>
+                <td class="px-3 py-2 text-sm text-gray-500">${esc(it.remarks||'')}</td>
+            </tr>`;
+        });
+
+        bodyEl.innerHTML = `
+            <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-600 mb-3">
+                <span><i class="fa-regular fa-calendar mr-1"></i>${esc(t.transfer_date)}</span>
+                <span><i class="fa-regular fa-user mr-1"></i>${esc(t.user_name||'—')}</span>
+                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${status_classes[t.status]||'bg-gray-100 text-gray-800'}">${status_labels[t.status]||esc(t.status)}</span>
+                ${t.notes ? `<span><i class="fa-regular fa-note-sticky mr-1"></i>${esc(t.notes)}</span>` : ''}
+            </div>
+            <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                <table class="w-full text-xs border-collapse">
+                    <thead><tr class="bg-gray-50">
+                        <th class="border-b border-gray-200 px-2 py-2 text-left">SKU</th>
+                        <th class="border-b border-gray-200 px-3 py-2 text-left">Product</th>
+                        <th class="border-b border-gray-200 px-3 py-2 text-center">Pcs/Box</th>
+                        <th class="border-b border-gray-200 px-3 py-2 text-center">Unit Cost</th>
+                        <th class="border-b border-gray-200 px-3 py-2 text-center">Qty</th>
+                        <th class="border-b border-gray-200 px-3 py-2 text-right">Total</th>
+                        <th class="border-b border-gray-200 px-3 py-2 text-left">Remarks</th>
+                    </tr></thead>
+                    <tbody>${rows || '<tr><td colspan="7" class="px-3 py-6 text-center text-gray-400">No items</td></tr>'}</tbody>
+                    <tfoot><tr class="bg-teal-50">
+                        <td colspan="5" class="px-3 py-2 text-right text-xs text-gray-500">${data.items.length} items · Total</td>
+                        <td class="px-3 py-2 text-right font-bold text-teal-700">${fmt(t.final_amount)}</td>
+                        <td></td>
+                    </tr></tfoot>
+                </table>
+            </div>`;
+    } catch (e) {
+        bodyEl.innerHTML = `<div class="text-center text-red-500 text-sm py-8">Error: ${esc(e.message||e)}</div>`;
+    }
 }
 
 // ── Edit ─────────────────────────────────────────────────────

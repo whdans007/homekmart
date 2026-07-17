@@ -210,6 +210,9 @@ if ($can_approve_store_changes) {
                         <a href="wholesale_product_management.php" class="<?php echo in_array($current_page, ['wholesale_product_management.php', 'add_wholesale_product.php', 'edit_wholesale_product.php']) ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-box-open mr-2 text-xs w-4 text-center"></i><?php echo t('navigation.wholesale_product_management'); ?>
                         </a>
+                        <a href="wholesale_profit_report.php" class="<?php echo ($current_page == 'wholesale_profit_report.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-chart-pie mr-2 text-xs w-4 text-center"></i><?php echo t('navigation.wholesale_profit_report'); ?>
+                        </a>
                     </div>
                     <?php endif; ?>
 
@@ -284,7 +287,7 @@ if ($can_approve_store_changes) {
                     <?php endif; ?>
                     <?php endif; ?>
 
-                    <!-- 발령 승인 (teal, 점장 이상) -->
+                    <!-- 발령 승인 / 내 지점 정보 (teal, 점장 이상) -->
                     <?php if ($can_approve_store_changes): ?>
                     <div class="rounded-lg px-1.5 py-2 mt-1.5" style="background:#f0fdfa;">
                         <p class="px-2 py-1 mb-1 text-xs font-semibold uppercase tracking-wider rounded" style="background:#99f6e4;color:#115e59;"><?php echo t('navigation.store_change_approval_section'); ?></p>
@@ -294,6 +297,11 @@ if ($can_approve_store_changes) {
                             <span class="ml-2 inline-flex items-center justify-center px-1.5 py-0.5 font-bold leading-none text-white rounded-full" style="font-size:10px;background:#dc2626;"><?php echo $pending_store_change_count; ?></span>
                             <?php endif; ?>
                         </a>
+                        <?php if (!in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                        <a href="my_store.php" class="<?php echo ($current_page == 'my_store.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-store mr-2 text-xs w-4 text-center"></i>내 지점 정보
+                        </a>
+                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
 
@@ -332,6 +340,7 @@ if ($can_approve_store_changes) {
             <a href="wholesale_sales_list.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('navigation.wholesale_sales_list'); ?></a>
             <a href="wholesale_customer_management.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('navigation.wholesale_customer_management'); ?></a>
             <a href="wholesale_product_management.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('navigation.wholesale_product_management'); ?></a>
+            <a href="wholesale_profit_report.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('navigation.wholesale_profit_report'); ?></a>
             <?php endif; ?>
             <?php if (has_permission('store_transfer_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
             <p class="px-2 pt-2 text-xs font-semibold uppercase tracking-wider" style="color:#7e22ce;"><?php echo t('navigation.store_transfer_section'); ?></p>
@@ -350,6 +359,9 @@ if ($can_approve_store_changes) {
             <?php if ($can_approve_store_changes): ?>
             <p class="px-2 pt-2 text-xs font-semibold uppercase tracking-wider" style="color:#115e59;"><?php echo t('navigation.store_change_approval_section'); ?></p>
             <a href="store_change_requests.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('navigation.store_change_request'); ?><?php if ($pending_store_change_count > 0): ?> <span class="inline-flex items-center justify-center px-1.5 py-0.5 font-bold leading-none text-white rounded-full" style="font-size:10px;background:#dc2626;"><?php echo $pending_store_change_count; ?></span><?php endif; ?></a>
+            <?php if (!in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+            <a href="my_store.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md">내 지점 정보</a>
+            <?php endif; ?>
             <?php endif; ?>
             <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
             <p class="px-2 pt-2 text-xs font-semibold uppercase tracking-wider" style="color:#1d4ed8;"><?php echo t('navigation.product_management_section'); ?></p>

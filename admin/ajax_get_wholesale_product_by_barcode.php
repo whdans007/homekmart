@@ -201,6 +201,25 @@ try {
         } catch (PDOException $e) { /* 예외가 미적용 — 기본가 유지 */ }
     }
 
+    // 이 거래처에 대한 과거 납품 이력 (취소 제외, 최신 1건) — 검색/스캔 결과에 바로 노출용
+    $last_sale_date = null;
+    $last_sale_price = null;
+    if ($customer_id > 0) {
+        $ls_stmt = $pdo->prepare("
+            SELECT ws.sale_date, wsi.unit_price
+            FROM wholesale_sale_items wsi
+            JOIN wholesale_sales ws ON wsi.sale_id = ws.id
+            WHERE wsi.product_id = ? AND ws.customer_id = ? AND ws.status != 'cancelled'
+            ORDER BY ws.sale_date DESC, ws.id DESC
+            LIMIT 1
+        ");
+        $ls_stmt->execute([$product['product_id'], $customer_id]);
+        if ($ls_row = $ls_stmt->fetch(PDO::FETCH_ASSOC)) {
+            $last_sale_date = $ls_row['sale_date'];
+            $last_sale_price = (float)$ls_row['unit_price'];
+        }
+    }
+
     // 도매 SKU들 처리
     $display_skus = $product['sku'];
     if ($is_registered && $product['wholesale_skus']) {
@@ -229,7 +248,9 @@ try {
             'min_quantity' => $product['min_quantity'] ?: 1,
             'status' => $product['status'],
             'is_registered' => $is_registered,
-            'margin_rate' => $margin_rate
+            'margin_rate' => $margin_rate,
+            'last_sale_date' => $last_sale_date,
+            'last_sale_price' => $last_sale_price
         ]
     ]);
 

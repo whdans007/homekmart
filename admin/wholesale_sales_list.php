@@ -57,6 +57,14 @@ try {
     }
     $return_status_expr = $has_return_status ? "ws.return_status" : "'none' as return_status";
 
+    // 원가 입력 기능 마이그레이션 적용 여부 확인 (하위 호환)
+    try {
+        $has_cost_amount = $pdo->query("SHOW COLUMNS FROM wholesale_sales LIKE 'cost_amount'")->rowCount() > 0;
+    } catch (PDOException $e) {
+        $has_cost_amount = false;
+    }
+    $cost_amount_expr = $has_cost_amount ? "ws.cost_amount" : "NULL as cost_amount";
+
     // WHERE 조건 구성
     $where_conditions = ["1=1"];
     $params = [];
@@ -123,6 +131,7 @@ try {
             ws.status,
             ws.payment_status,
             {$return_status_expr},
+            {$cost_amount_expr},
             ws.created_at,
             wc.name as customer_name,
             wc.phone as customer_phone,
@@ -249,9 +258,13 @@ if (isset($_SESSION['flash'])) {
         <!-- 좌측: 거래처 사이드바 -->
         <aside class="w-72 flex-shrink-0">
             <div class="bg-white shadow rounded-lg ring-1 ring-gray-300 overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 text-sm font-semibold text-gray-800">
-                    <i class="fas fa-store mr-1 text-primary-600"></i><?php echo htmlspecialchars(t('wholesale_sales_list.sidebar_customers')); ?>
-                    <span class="text-xs font-normal text-gray-400">(<?php echo number_format(count($sale_customers)); ?>)</span>
+                <div class="px-4 py-3 border-b border-gray-200 bg-gray-50 text-sm font-semibold text-gray-800 flex items-center justify-between">
+                    <span><i class="fas fa-store mr-1 text-primary-600"></i><?php echo htmlspecialchars(t('wholesale_sales_list.sidebar_customers')); ?>
+                    <span class="text-xs font-normal text-gray-400">(<?php echo number_format(count($sale_customers)); ?>)</span></span>
+                    <label class="inline-flex items-center gap-1 text-xs font-normal text-gray-600 cursor-pointer select-none">
+                        <input type="checkbox" id="unpaid-only-toggle" class="rounded border-gray-300 text-red-600 focus:ring-red-500">
+                        <span class="text-red-600 font-medium">미결제만</span>
+                    </label>
                 </div>
                 <div class="overflow-y-auto" style="max-height:72vh">
                     <?php
@@ -260,7 +273,7 @@ if (isset($_SESSION['flash'])) {
                     $all_count  = array_sum(array_column($sale_customers, 'sale_count'));
                     ?>
                     <!-- 전체 -->
-                    <a href="?<?php echo $time_param; ?>" class="block px-4 py-2.5 border-b border-gray-100 hover:bg-gray-50 <?php echo $filter_customer_id === 0 ? 'bg-primary-50' : ''; ?>">
+                    <a href="?<?php echo $time_param; ?>" class="customer-row block px-4 py-2.5 border-b border-gray-100 hover:bg-gray-50 <?php echo $filter_customer_id === 0 ? 'bg-primary-50' : ''; ?>" data-unpaid="<?php echo $all_unpaid > 0 ? '1' : '0'; ?>">
                         <div class="flex items-center justify-between">
                             <span class="text-sm <?php echo $filter_customer_id === 0 ? 'text-primary-700 font-semibold' : 'text-gray-800 font-medium'; ?>"><i class="fas fa-list mr-1.5 text-gray-400"></i><?php echo htmlspecialchars(t('wholesale_sales_list.sidebar_all')); ?></span>
                             <span class="text-xs <?php echo $filter_customer_id === 0 ? 'text-primary-500' : 'text-gray-400'; ?>"><?php echo number_format($all_count) . htmlspecialchars(t('wholesale_sales_list.count_suffix')); ?></span>
@@ -273,7 +286,7 @@ if (isset($_SESSION['flash'])) {
                     <?php foreach ($sale_customers as $c): ?>
                         <?php $is_sel = $filter_customer_id === (int)$c['id']; $unpaid = (float)$c['unpaid_amount']; ?>
                         <a href="?customer_id=<?php echo (int)$c['id']; ?><?php echo $time_param !== '' ? '&' . $time_param : ''; ?>"
-                           class="block px-4 py-2.5 border-b border-gray-100 hover:bg-gray-50 <?php echo $is_sel ? 'bg-primary-50' : ''; ?>">
+                           class="customer-row block px-4 py-2.5 border-b border-gray-100 hover:bg-gray-50 <?php echo $is_sel ? 'bg-primary-50' : ''; ?>" data-unpaid="<?php echo $unpaid > 0 ? '1' : '0'; ?>">
                             <div class="flex items-center justify-between">
                                 <span class="text-sm truncate mr-2 <?php echo $is_sel ? 'text-primary-700 font-semibold' : 'text-gray-800 font-medium'; ?>" title="<?php echo htmlspecialchars($c['name']); ?>"><?php echo htmlspecialchars($c['name']); ?></span>
                                 <span class="text-xs flex-shrink-0 <?php echo $is_sel ? 'text-primary-500' : 'text-gray-400'; ?>"><?php echo number_format($c['sale_count']) . htmlspecialchars(t('wholesale_sales_list.count_suffix')); ?></span>
@@ -287,6 +300,7 @@ if (isset($_SESSION['flash'])) {
                     <?php if (empty($sale_customers)): ?>
                         <div class="px-4 py-6 text-center text-sm text-gray-400"><?php echo htmlspecialchars(t('wholesale_sales_list.sidebar_no_customers')); ?></div>
                     <?php endif; ?>
+                    <div id="unpaid-only-empty" class="px-4 py-6 text-center text-sm text-gray-400" style="display:none;">미결제 거래처가 없습니다.</div>
                 </div>
             </div>
         </aside>
@@ -295,7 +309,8 @@ if (isset($_SESSION['flash'])) {
         <div class="flex-1 min-w-0">
         <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
             <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center gap-3 flex-wrap">
-                <div class="flex items-center gap-3 flex-wrap">
+                <div class="flex items-start gap-3 flex-wrap">
+                <div class="flex flex-col gap-1">
                 <h3 class="text-lg leading-6 font-semibold text-gray-900 flex items-center gap-2 flex-wrap">
                     <?php echo htmlspecialchars(t('wholesale_sales_list.title')); ?>
                     <?php if ($filter_customer_id > 0 && $filter_customer_name !== ''): ?>
@@ -305,8 +320,9 @@ if (isset($_SESSION['flash'])) {
                         <a href="?<?php echo $time_param; ?>" class="text-xs font-normal text-gray-500 hover:text-gray-700"><i class="fas fa-times-circle mr-0.5"></i><?php echo htmlspecialchars(t('wholesale_sales_list.view_all')); ?></a>
                     <?php endif; ?>
                     <span class="text-sm font-normal text-gray-500">(<?php echo htmlspecialchars(str_replace('{count}', number_format($total_sales), t('wholesale_sales_list.total_count_label'))); ?>)</span>
-                    <span class="text-sm font-semibold text-gray-700"><?php echo htmlspecialchars(str_replace('{amount}', number_format($total_sales_amount, 2), t('wholesale_sales_list.total_amount_label'))); ?></span>
                 </h3>
+                <div class="text-sm font-semibold text-gray-700"><?php echo htmlspecialchars(str_replace('{amount}', number_format($total_sales_amount, 2), t('wholesale_sales_list.total_amount_label'))); ?></div>
+                </div>
                 <!-- 기간 네비게이션 -->
                 <div class="flex items-center gap-2 flex-wrap">
                     <!-- 범위 버튼 -->
@@ -352,6 +368,11 @@ if (isset($_SESSION['flash'])) {
                 </div>
                 </div>
                 <div class="flex items-center gap-2">
+                    <button type="button" id="bulk-pay-btn" disabled
+                       class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors duration-200">
+                        <i class="fas fa-money-check-alt mr-2"></i>
+                        선택 결제하기 (<span id="bulk-pay-count">0</span>)
+                    </button>
                     <?php if (!empty($unpaid_list)): ?>
                     <button type="button" id="unpaid-print-btn"
                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors duration-200">
@@ -391,33 +412,41 @@ if (isset($_SESSION['flash'])) {
                     <table class="min-w-full">
                         <thead class="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <th scope="col" class="px-3 py-1.5 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                    <input type="checkbox" id="select-all-checkbox" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                                </th>
+                                <th scope="col" class="px-6 py-1.5 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo htmlspecialchars(t('wholesale_sales_list.table_sale_date')); ?>
                                 </th>
-                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-1.5 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo htmlspecialchars(t('wholesale_sales_list.table_customer')); ?>
                                 </th>
-                                <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-1.5 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo htmlspecialchars(t('wholesale_sales_list.table_item_count')); ?>
                                 </th>
-                                <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-1.5 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo htmlspecialchars(t('wholesale_sales_list.table_sale_amount')); ?>
                                 </th>
-                                <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-1.5 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo htmlspecialchars(t('wholesale_sales_list.payment_header')); ?>
                                 </th>
-                                <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                <th scope="col" class="px-6 py-1.5 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                     <?php echo htmlspecialchars(t('wholesale_sales_list.table_seller')); ?>
                                 </th>
                             </tr>
                         </thead>
                         <tbody class="bg-white">
                             <?php foreach ($sales as $sale): ?>
+                                <?php $row_unpaid = (($sale['payment_status'] ?? 'unpaid') !== 'paid'); ?>
                                 <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="window.location.href='wholesale_sale_preview.php?id=<?php echo $sale['id']; ?>'">
-                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-medium">
+                                    <td class="px-3 py-1 whitespace-nowrap text-center" onclick="event.stopPropagation()">
+                                        <input type="checkbox" class="sale-select-checkbox rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                               value="<?php echo (int)$sale['id']; ?>" <?php echo $row_unpaid ? '' : 'disabled'; ?>>
+                                    </td>
+                                    <td class="px-6 py-1 whitespace-nowrap text-center text-sm text-gray-900 font-medium">
                                         <?php echo date('Y-m-d', strtotime($sale['sale_date'])); ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
+                                    <td class="px-6 py-1 whitespace-nowrap">
                                         <div class="text-sm font-medium text-gray-900">
                                             <?php echo htmlspecialchars($sale['customer_name']); ?>
                                         </div>
@@ -427,15 +456,21 @@ if (isset($_SESSION['flash'])) {
                                             </div>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                                    <td class="px-6 py-1 whitespace-nowrap text-center text-sm text-gray-900">
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                             <?php echo number_format($sale['item_count']); ?>
                                         </span>
+                                        <?php if ((int)$sale['item_count'] === 0): ?>
+                                        <button type="button" onclick="event.stopPropagation(); openCostEdit(<?php echo (int)$sale['id']; ?>, <?php echo json_encode($sale['cost_amount'] !== null ? (float)$sale['cost_amount'] : null); ?>)"
+                                                class="ml-1 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium <?php echo $sale['cost_amount'] !== null ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-700'; ?> hover:opacity-75">
+                                            <i class="fas fa-<?php echo $sale['cost_amount'] !== null ? 'pen' : 'coins'; ?> mr-1"></i><?php echo $sale['cost_amount'] !== null ? fmt_num($sale['cost_amount']) : '원가입력'; ?>
+                                        </button>
+                                        <?php endif; ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
+                                    <td class="px-6 py-1 whitespace-nowrap text-right text-sm font-medium text-gray-900">
                                         <?php echo fmt_num($sale['final_amount']); ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <td class="px-6 py-1 whitespace-nowrap text-center">
                                         <?php if (($sale['payment_status'] ?? 'unpaid') === 'paid'): ?>
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800"><i class="fas fa-check-circle mr-1"></i><?php echo htmlspecialchars(t('wholesale_sales_list.payment_done')); ?></span>
                                         <?php else: ?>
@@ -447,7 +482,7 @@ if (isset($_SESSION['flash'])) {
                                             <span class="ml-1 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700"><i class="fas fa-undo mr-1"></i>반품전표</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                                    <td class="px-6 py-1 whitespace-nowrap text-center text-sm text-gray-900">
                                         <?php echo htmlspecialchars($sale['user_name']); ?>
                                     </td>
                                 </tr>
@@ -525,15 +560,70 @@ if (isset($_SESSION['flash'])) {
         <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">판매 날짜</label>
         <input type="date" id="qr-sale-date" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box;">
       </div>
-      <div style="margin-bottom:4px;">
+      <div style="margin-bottom:14px;">
         <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">금액</label>
         <input type="number" id="qr-amount" min="0" step="0.01" placeholder="0.00" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;text-align:right;box-sizing:border-box;">
+      </div>
+      <div style="margin-bottom:4px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">원가 <span style="font-weight:400;color:#9ca3af">(선택, 이익 계산용)</span></label>
+        <input type="number" id="qr-cost" min="0" step="0.01" placeholder="0.00" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;text-align:right;box-sizing:border-box;">
       </div>
       <div id="qr-msg" style="display:none;margin-top:10px;font-size:13px;font-weight:500;"></div>
     </div>
     <div style="padding:14px 22px;background:#fafafa;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;gap:10px;">
       <button type="button" onclick="closeQuickRegister()" style="padding:8px 16px;border-radius:8px;border:1px solid #d1d5db;background:#fff;font-size:13px;cursor:pointer;">취소</button>
       <button type="button" onclick="saveQuickRegister()" style="padding:8px 18px;border-radius:8px;border:none;background:#4f46e5;color:#fff;font-size:13px;font-weight:600;cursor:pointer;"><i class="fas fa-check mr-1"></i>등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 원가 입력/수정 모달 (빠른등록 판매 전용, 품목이 없는 판매의 원가를 이익 계산용으로 입력) -->
+<div id="cost-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:60;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.22);overflow:hidden;">
+    <div style="padding:18px 22px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:15px;font-weight:700;color:#1f2937;"><i class="fas fa-coins mr-2" style="color:#d97706"></i>원가 입력</div>
+      <button type="button" onclick="closeCostEdit()" style="border:none;background:none;color:#9ca3af;cursor:pointer;font-size:16px;"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:20px 22px;">
+      <div style="font-size:12px;color:#9ca3af;margin-bottom:10px;">품목 없이 빠른등록한 판매의 이익 계산을 위한 원가입니다.</div>
+      <input type="hidden" id="ce-sale-id" value="">
+      <div style="margin-bottom:4px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">원가</label>
+        <input type="number" id="ce-cost" min="0" step="0.01" placeholder="0.00" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;text-align:right;box-sizing:border-box;">
+      </div>
+      <div id="ce-msg" style="display:none;margin-top:10px;font-size:13px;font-weight:500;"></div>
+    </div>
+    <div style="padding:14px 22px;background:#fafafa;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;gap:10px;">
+      <button type="button" onclick="closeCostEdit()" style="padding:8px 16px;border-radius:8px;border:1px solid #d1d5db;background:#fff;font-size:13px;cursor:pointer;">취소</button>
+      <button type="button" onclick="saveCostEdit()" style="padding:8px 18px;border-radius:8px;border:none;background:#d97706;color:#fff;font-size:13px;font-weight:600;cursor:pointer;"><i class="fas fa-check mr-1"></i>저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 선택 결제하기 모달 -->
+<div id="bulk-pay-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:60;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.22);overflow:hidden;">
+    <div style="padding:18px 22px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:15px;font-weight:700;color:#1f2937;"><i class="fas fa-money-check-alt mr-2" style="color:#059669"></i>선택 항목 결제완료 처리</div>
+      <button type="button" onclick="closeBulkPay()" style="border:none;background:none;color:#9ca3af;cursor:pointer;font-size:16px;"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:20px 22px;">
+      <div style="font-size:13px;color:#374151;margin-bottom:14px;">선택한 <strong id="bulk-pay-modal-count">0</strong>건을 결제완료로 처리합니다.</div>
+      <div style="margin-bottom:4px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">결제 수단</label>
+        <select id="bulk-pay-method" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box;">
+          <option value="현금">현금</option>
+          <option value="계좌이체">계좌이체</option>
+          <option value="카드">카드</option>
+          <option value="수표">수표</option>
+          <option value="기타">기타</option>
+        </select>
+      </div>
+      <div id="bulk-pay-msg" style="display:none;margin-top:10px;font-size:13px;font-weight:500;"></div>
+    </div>
+    <div style="padding:14px 22px;background:#fafafa;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;gap:10px;">
+      <button type="button" onclick="closeBulkPay()" style="padding:8px 16px;border-radius:8px;border:1px solid #d1d5db;background:#fff;font-size:13px;cursor:pointer;">취소</button>
+      <button type="button" id="bulk-pay-confirm-btn" onclick="confirmBulkPay()" style="padding:8px 18px;border-radius:8px;border:none;background:#059669;color:#fff;font-size:13px;font-weight:600;cursor:pointer;"><i class="fas fa-check mr-1"></i>결제완료 처리</button>
     </div>
   </div>
 </div>
@@ -581,6 +671,32 @@ if (isset($_SESSION['flash'])) {
 <?php endif; ?>
 
 <script>
+// 거래처 사이드바: 미결제 거래처만 보기 토글 (localStorage에 상태 유지)
+document.addEventListener('DOMContentLoaded', function() {
+    var toggle = document.getElementById('unpaid-only-toggle');
+    if (!toggle) return;
+    var rows = document.querySelectorAll('.customer-row');
+    var emptyMsg = document.getElementById('unpaid-only-empty');
+
+    function applyFilter() {
+        var onlyUnpaid = toggle.checked;
+        var visibleCount = 0;
+        rows.forEach(function(row) {
+            var show = !onlyUnpaid || row.dataset.unpaid === '1';
+            row.style.display = show ? '' : 'none';
+            if (show) visibleCount++;
+        });
+        if (emptyMsg) emptyMsg.style.display = (onlyUnpaid && visibleCount === 0) ? '' : 'none';
+        try { localStorage.setItem('wholesale_unpaid_only', onlyUnpaid ? '1' : '0'); } catch (e) {}
+    }
+
+    toggle.checked = (function() {
+        try { return localStorage.getItem('wholesale_unpaid_only') === '1'; } catch (e) { return false; }
+    })();
+    applyFilter();
+    toggle.addEventListener('change', applyFilter);
+});
+
 // 미결제 내역 인쇄
 document.addEventListener('DOMContentLoaded', function() {
     const unpaidBtn = document.getElementById('unpaid-print-btn');
@@ -609,6 +725,81 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     });
 });
+
+// 선택해서 결제하기
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCb = document.getElementById('select-all-checkbox');
+    const bulkBtn = document.getElementById('bulk-pay-btn');
+    const bulkCount = document.getElementById('bulk-pay-count');
+    const rowCheckboxes = document.querySelectorAll('.sale-select-checkbox');
+
+    function updateBulkButton() {
+        const checked = document.querySelectorAll('.sale-select-checkbox:checked');
+        bulkCount.textContent = checked.length;
+        bulkBtn.disabled = checked.length === 0;
+    }
+
+    if (selectAllCb) {
+        selectAllCb.addEventListener('change', function() {
+            document.querySelectorAll('.sale-select-checkbox:not(:disabled)').forEach(function(cb) {
+                cb.checked = selectAllCb.checked;
+            });
+            updateBulkButton();
+        });
+    }
+    rowCheckboxes.forEach(function(cb) {
+        cb.addEventListener('change', updateBulkButton);
+    });
+    updateBulkButton();
+
+    if (bulkBtn) {
+        bulkBtn.addEventListener('click', function() {
+            const checked = document.querySelectorAll('.sale-select-checkbox:checked');
+            if (!checked.length) return;
+            document.getElementById('bulk-pay-modal-count').textContent = checked.length;
+            document.getElementById('bulk-pay-msg').style.display = 'none';
+            document.getElementById('bulk-pay-modal').style.display = 'flex';
+        });
+    }
+});
+
+function closeBulkPay() {
+    document.getElementById('bulk-pay-modal').style.display = 'none';
+}
+
+function confirmBulkPay() {
+    const checked = Array.from(document.querySelectorAll('.sale-select-checkbox:checked')).map(function(cb) { return cb.value; });
+    if (!checked.length) { closeBulkPay(); return; }
+
+    const method = document.getElementById('bulk-pay-method').value;
+    const msg = document.getElementById('bulk-pay-msg');
+    const confirmBtn = document.getElementById('bulk-pay-confirm-btn');
+    msg.style.display = 'none';
+    confirmBtn.disabled = true;
+
+    const params = new URLSearchParams();
+    checked.forEach(function(id) { params.append('sale_ids[]', id); });
+    params.append('payment_method', method);
+
+    fetch('ajax_bulk_pay_wholesale_sales.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString()
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if (d.success) {
+            location.reload();
+        } else {
+            confirmBtn.disabled = false;
+            msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = d.message || '처리 실패';
+        }
+    })
+    .catch(function() {
+        confirmBtn.disabled = false;
+        msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = '네트워크 오류가 발생했습니다.';
+    });
+}
 
 function cancelSale(saleId) {
     if (confirm('<?php echo addslashes(t('wholesale_sales_list.js_cancel_confirm')); ?>')) {
@@ -643,6 +834,7 @@ function openQuickRegister(){
     document.getElementById('qr-customer-id').value = '';
     document.getElementById('qr-sale-date').value = new Date().toISOString().slice(0,10);
     document.getElementById('qr-amount').value = '';
+    document.getElementById('qr-cost').value = '';
     document.getElementById('qr-msg').style.display = 'none';
     document.getElementById('quick-register-modal').style.display = 'flex';
 }
@@ -653,6 +845,7 @@ function saveQuickRegister(){
     const customerId = document.getElementById('qr-customer-id').value;
     const saleDate = document.getElementById('qr-sale-date').value;
     const amount = parseFloat(document.getElementById('qr-amount').value) || 0;
+    const cost = parseFloat(document.getElementById('qr-cost').value) || 0;
     const msg = document.getElementById('qr-msg');
     msg.style.display = 'none';
 
@@ -663,7 +856,7 @@ function saveQuickRegister(){
     fetch('ajax_quick_register_wholesale_sale.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'customer_id=' + encodeURIComponent(customerId) + '&sale_date=' + encodeURIComponent(saleDate) + '&amount=' + encodeURIComponent(amount)
+        body: 'customer_id=' + encodeURIComponent(customerId) + '&sale_date=' + encodeURIComponent(saleDate) + '&amount=' + encodeURIComponent(amount) + '&cost_amount=' + encodeURIComponent(cost)
     })
     .then(r => r.json())
     .then(d => {
@@ -675,6 +868,38 @@ function saveQuickRegister(){
     })
     .catch(function(){ msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = '네트워크 오류가 발생했습니다.'; });
 }
+// 원가 입력/수정 모달 (빠른등록 판매의 이익 계산용 원가)
+function openCostEdit(saleId, currentCost){
+    document.getElementById('ce-sale-id').value = saleId;
+    document.getElementById('ce-cost').value = currentCost !== null ? currentCost : '';
+    document.getElementById('ce-msg').style.display = 'none';
+    document.getElementById('cost-edit-modal').style.display = 'flex';
+}
+function closeCostEdit(){
+    document.getElementById('cost-edit-modal').style.display = 'none';
+}
+function saveCostEdit(){
+    const saleId = document.getElementById('ce-sale-id').value;
+    const cost = parseFloat(document.getElementById('ce-cost').value) || 0;
+    const msg = document.getElementById('ce-msg');
+    msg.style.display = 'none';
+
+    fetch('ajax_update_wholesale_sale_cost.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'sale_id=' + encodeURIComponent(saleId) + '&cost_amount=' + encodeURIComponent(cost)
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            location.reload();
+        } else {
+            msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = d.message || '저장 실패';
+        }
+    })
+    .catch(function(){ msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = '네트워크 오류가 발생했습니다.'; });
+}
+
 document.addEventListener('DOMContentLoaded', function(){
     const btn = document.getElementById('quick-register-btn');
     if (btn) btn.addEventListener('click', openQuickRegister);

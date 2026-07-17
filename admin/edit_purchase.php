@@ -1627,11 +1627,13 @@ tr[id^="row-"] td:first-child:hover {
                 목록
             </a>
             <h2 class="text-base font-semibold text-gray-900">매입 #<?php echo htmlspecialchars($purchase_id); ?></h2>
-            <a href="add_purchase.php?edit_purchase_id=<?php echo $purchase_id; ?>"
+            <?php if (!($purchase['is_confirmed'] ?? false)): ?>
+            <a href="mobile_purchase_add.php?edit_purchase_id=<?php echo $purchase_id; ?>"
                class="inline-flex items-center px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
-                <i class="fas fa-plus mr-1"></i>
+                <i class="fas fa-camera mr-1"></i>
                 상품추가
             </a>
+            <?php endif; ?>
         </div>
         <!-- 데스크톱 헤더 -->
         <div class="hidden md:flex justify-between items-center">

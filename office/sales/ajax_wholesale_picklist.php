@@ -24,7 +24,7 @@ $conn  = get_db_connection();
 // → 중복 입력 방지를 위해 후보 목록에서 제외 (FR: 사용된 항목은 다른 입력에서 나오면 안 됨)
 $used_elsewhere = [];
 $sql = "SELECT source_type, source_id FROM sales_pos_wholesale_pick
-        WHERE store_id=? AND sale_date=? AND source_type IN ('wholesale','credit_doc')";
+        WHERE store_id=? AND sale_date=? AND source_type IN ('wholesale','credit_doc','delivery_k')";
 if ($has_cur) $sql .= " AND NOT (shift=? AND pos_no=?)";
 $stmt = $conn->prepare($sql);
 if ($has_cur) {
@@ -58,6 +58,28 @@ while ($row = $res->fetch_assoc()) {
         'client'      => $row['customer_name'] ?? '',
         'remark'      => 'Whole Sale',
         'amount'      => (float)$row['final_amount'],
+    ];
+}
+$stmt->close();
+
+// ①-2 Delivery K 매출 (sales_daily_items, item_type='delivery_k') → §5 Whole Sale 선택 후보에 합류
+$stmt = $conn->prepare(
+    "SELECT id, description, amount
+     FROM sales_daily_items
+     WHERE store_id=? AND sale_date=? AND item_type='delivery_k'
+     ORDER BY id"
+);
+$stmt->bind_param('is', $store_id, $date);
+$stmt->execute();
+$res = $stmt->get_result();
+while ($row = $res->fetch_assoc()) {
+    if (isset($used_elsewhere['delivery_k:' . $row['id']])) continue; // 다른 셀에서 이미 사용 중 → 중복 입력 방지
+    $items[] = [
+        'source_type' => 'delivery_k',
+        'source_id'   => (int)$row['id'],
+        'client'      => '',
+        'remark'      => $row['description'] !== '' ? $row['description'] : 'Delivery K',
+        'amount'      => (float)$row['amount'],
     ];
 }
 $stmt->close();

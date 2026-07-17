@@ -41,23 +41,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
             $pdo = new PDO($dsn, DB_USER, DB_PASS);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-            $check_sql = "SELECT id FROM credit_transactions WHERE id = ?";
+            $check_sql = "SELECT id, customer_id, transaction_date, final_amount FROM credit_transactions WHERE id = ?";
             if ($_SESSION['role'] !== 'super_admin') {
                 $check_sql .= " AND store_id = " . (int)$current_store_id;
             }
             $check = $pdo->prepare($check_sql);
             $check->execute([$del_id]);
+            $del_tx = $check->fetch(PDO::FETCH_ASSOC);
 
-            if (!$check->fetch()) {
+            if (!$del_tx) {
                 $_SESSION['flash'] = ['type' => 'error', 'message' => '삭제 권한이 없습니다.'];
             } else {
-                $pdo->beginTransaction();
-                $pdo->prepare("DELETE FROM credit_transaction_items WHERE transaction_id = ?")->execute([$del_id]);
-                $pdo->prepare("DELETE FROM credit_transactions WHERE id = ?")->execute([$del_id]);
-                $pdo->commit();
-                $_SESSION['flash'] = ['type' => 'success', 'message' => '외상거래가 삭제되었습니다.'];
-                header('Location: credit_transactions.php');
-                exit;
+                // 이 거래에 수금이 충당되어 있는지 확인 (FIFO 기준, credit_transaction_preview.php 메인 로직과 동일한 계산)
+                $paid_stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM credit_payments WHERE customer_id = ?");
+                $paid_stmt->execute([$del_tx['customer_id']]);
+                $total_paid_check = (float)$paid_stmt->fetchColumn();
+
+                $older_stmt = $pdo->prepare("
+                    SELECT COALESCE(SUM(final_amount),0) FROM credit_transactions
+                    WHERE customer_id = ? AND status = 'confirmed'
+                      AND (transaction_date < ? OR (transaction_date = ? AND id < ?))
+                ");
+                $older_stmt->execute([$del_tx['customer_id'], $del_tx['transaction_date'], $del_tx['transaction_date'], $del_id]);
+                $older_sum_check = (float)$older_stmt->fetchColumn();
+                $tx_amount_check = (float)$del_tx['final_amount'];
+                $tx_applied_check = max(0, min($tx_amount_check, $total_paid_check - $older_sum_check));
+
+                if ($tx_applied_check > 0.005) {
+                    $_SESSION['flash'] = [
+                        'type' => 'error',
+                        'message' => '이 거래는 이미 ' . number_format($tx_applied_check, 2) . '의 수금이 충당되어 있어 삭제할 수 없습니다. 먼저 거래처의 수금 기록을 확인하고 정리한 후 다시 시도해주세요.'
+                    ];
+                } else {
+                    $pdo->beginTransaction();
+                    $pdo->prepare("DELETE FROM credit_transaction_items WHERE transaction_id = ?")->execute([$del_id]);
+                    $pdo->prepare("DELETE FROM credit_transactions WHERE id = ?")->execute([$del_id]);
+                    $pdo->commit();
+                    $_SESSION['flash'] = ['type' => 'success', 'message' => '외상거래가 삭제되었습니다.'];
+                    header('Location: credit_transactions.php');
+                    exit;
+                }
             }
         } catch (Exception $e) {
             if (isset($pdo) && $pdo->inTransaction()) $pdo->rollback();
@@ -76,7 +99,7 @@ if ($tx_id > 0) {
 
         $sql = "
             SELECT ct.*, cc.name AS customer_name, cc.phone AS customer_phone, cc.address AS customer_address,
-                   s.name AS store_name, u.full_name AS user_name
+                   s.name AS store_name, s.phone AS store_phone, s.address AS store_address, s.bank_account AS store_bank_account, u.full_name AS user_name
             FROM credit_transactions ct
             LEFT JOIN credit_customers cc ON ct.customer_id = cc.id
             LEFT JOIN stores s ON ct.store_id = s.id
@@ -172,16 +195,15 @@ if (isset($_SESSION['flash'])) {
                 <div class="flex items-start justify-between mb-6">
                     <div>
                         <h1 class="text-xl font-bold text-gray-900 mb-1">
-                            외상 거래명세서
+                            <span id="invoice-title-text">외상 거래명세서</span>
                             <?php if ($tx_pay_status === 'paid'): ?>
                                 <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800 align-middle"><i class="fas fa-check-circle mr-1"></i>완납</span>
                             <?php elseif ($tx_pay_status === 'partial'): ?>
                                 <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-amber-100 text-amber-800 align-middle"><i class="fas fa-adjust mr-1"></i>부분수금</span>
                             <?php else: ?>
-                                <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800 align-middle"><i class="fas fa-exclamation-circle mr-1"></i>미수</span>
+                                <span id="unpaid-status-badge" class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800 align-middle"><i class="fas fa-exclamation-circle mr-1"></i>미수</span>
                             <?php endif; ?>
                         </h1>
-                        <div class="text-sm text-gray-600"><div><?php echo htmlspecialchars($tx['store_name'] ?? ''); ?></div></div>
                     </div>
                     <div id="preview-action-buttons" class="flex gap-2 flex-shrink-0 print:hidden">
                         <a href="add_credit_transaction.php?edit=<?php echo $tx_id; ?>" class="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"><i class="fas fa-edit mr-1.5"></i>수정</a>
@@ -196,22 +218,24 @@ if (isset($_SESSION['flash'])) {
                     <table class="info-table w-full border border-gray-200 mb-4">
                         <tbody>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">거래처</th>
-                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200 font-medium"><?php echo htmlspecialchars($tx['customer_name']); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">거래일자</th>
-                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo date('Y-m-d', strtotime($tx['transaction_date'])); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" style="width:45%;">
+                                    <span class="text-gray-500">거래처</span>
+                                    <span class="cust-name font-bold text-base ml-2"><?php echo htmlspecialchars($tx['customer_name']); ?></span>
+                                </td>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" style="width:27.5%;">
+                                    <span class="text-gray-500">전화번호</span>
+                                    <span class="ml-2"><?php echo htmlspecialchars($tx['customer_phone'] ?: '-'); ?></span>
+                                </td>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200" style="width:27.5%;">
+                                    <span class="text-gray-500">거래일자</span>
+                                    <span class="ml-2"><?php echo date('Y-m-d', strtotime($tx['transaction_date'])); ?></span>
+                                </td>
                             </tr>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">전화번호</th>
-                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200"><?php echo htmlspecialchars($tx['customer_phone'] ?: '-'); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">담당자</th>
-                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($tx['user_name']); ?></td>
-                            </tr>
-                            <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">주소</th>
-                                <td class="px-3 py-2 text-sm text-gray-900 border-r border-gray-200"><?php echo htmlspecialchars($tx['customer_address'] ?: '-'); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">거래번호</th>
-                                <td class="px-3 py-2 text-sm text-gray-900">#<?php echo str_pad($tx['id'], 6, '0', STR_PAD_LEFT); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900" colspan="3">
+                                    <span class="text-gray-500">주소</span>
+                                    <span class="ml-2"><?php echo htmlspecialchars($tx['customer_address'] ?: '-'); ?></span>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -302,8 +326,9 @@ if (isset($_SESSION['flash'])) {
                     <table class="payment-table w-full border border-gray-300" style="table-layout: fixed;">
                         <thead>
                             <tr class="bg-gray-50">
-                                <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300" style="width: 50%;">작성자 (Prepared by)</th>
-                                <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300" style="width: 50%;">인수자 (Received by)</th>
+                                <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300" style="width: 33.33%;">작성자 (Prepared by)</th>
+                                <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300" style="width: 33.33%;">인수자 (Received by)</th>
+                                <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300" style="width: 33.34%;">Cashier</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -313,8 +338,13 @@ if (isset($_SESSION['flash'])) {
                                     <div class="sign-space" style="height: 50px;"></div>
                                     <div style="text-align: right;">서명: _____________________</div>
                                 </td>
-                                <td class="px-3 py-2 text-sm text-gray-900" style="vertical-align: top;">
+                                <td class="px-3 py-2 text-sm text-gray-900 border-r border-gray-300" style="vertical-align: top;">
                                     <div>성명: <?php echo htmlspecialchars($tx['customer_name']); ?></div>
+                                    <div class="sign-space" style="height: 50px;"></div>
+                                    <div style="text-align: right;">서명: _____________________</div>
+                                </td>
+                                <td class="px-3 py-2 text-sm text-gray-900" style="vertical-align: top;">
+                                    <div>성명: _____________________</div>
                                     <div class="sign-space" style="height: 50px;"></div>
                                     <div style="text-align: right;">서명: _____________________</div>
                                 </td>
@@ -323,9 +353,28 @@ if (isset($_SESSION['flash'])) {
                     </table>
                 </div>
 
-                <div class="text-center text-xs text-gray-500 mt-8 border-t border-gray-200 pt-4">
-                    <div>발행: <?php echo date('Y-m-d H:i'); ?></div>
-                    <div class="mt-1"><?php echo htmlspecialchars(t('company.name')); ?> - 외상 거래명세서</div>
+                <!-- 점포 정보 -->
+                <div class="mb-6">
+                    <table class="info-table w-full border border-gray-200">
+                        <tbody>
+                            <tr>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200" style="width:12%;">점포명</th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" style="width:23%;"><?php echo htmlspecialchars($tx['store_name'] ?: '-'); ?></td>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200" style="width:12%;">전화</th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" style="width:18%;"><?php echo htmlspecialchars($tx['store_phone'] ?: '-'); ?></td>
+                                <td class="px-3 py-2 text-xs text-gray-500 border-b border-gray-200" style="width:35%; vertical-align: middle;">판매가격은 구매 시점에 따라 변경 될 수 있습니다.</td>
+                            </tr>
+                            <tr>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">주소</th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" colspan="3"><?php echo htmlspecialchars($tx['store_address'] ?: '-'); ?></td>
+                                <td class="px-3 py-2 text-xs text-gray-500 border-b border-gray-200" style="vertical-align: middle;">계산대에서 개별 구매시 가격은 일치 하지 않습니다.</td>
+                            </tr>
+                            <tr>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">계좌번호</th>
+                                <td class="px-3 py-2 text-sm text-gray-900" colspan="4"><?php echo htmlspecialchars($tx['store_bank_account'] ?: '-'); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         <?php endif; ?>
@@ -343,13 +392,22 @@ if (isset($_SESSION['flash'])) {
                 <div class="text-center">
                     <h3 class="text-lg font-medium text-gray-900 mb-2">외상거래 삭제</h3>
                     <div class="text-sm text-gray-500 mb-4">
-                        <p>이 외상거래를 삭제하시겠습니까?</p>
-                        <p class="font-semibold text-red-600 mt-2">삭제된 데이터는 복구할 수 없습니다.</p>
+                        <?php if (($tx_pay_status ?? 'unpaid') !== 'unpaid'): ?>
+                            <p class="font-semibold text-red-600">이 거래는 이미 <?php echo number_format($tx_applied ?? 0, 2); ?>의 수금이 충당되어 있어 삭제할 수 없습니다.</p>
+                            <p class="mt-2">먼저 거래처의 수금 기록을 확인하고 정리한 후 다시 시도해주세요.</p>
+                        <?php else: ?>
+                            <p>이 외상거래를 삭제하시겠습니까?</p>
+                            <p class="font-semibold text-red-600 mt-2">삭제된 데이터는 복구할 수 없습니다.</p>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="flex space-x-3 justify-center">
-                    <button id="cancel-delete" type="button" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">취소</button>
-                    <button id="confirm-delete" type="button" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">삭제</button>
+                    <?php if (($tx_pay_status ?? 'unpaid') !== 'unpaid'): ?>
+                        <button id="cancel-delete" type="button" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">확인</button>
+                    <?php else: ?>
+                        <button id="cancel-delete" type="button" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">취소</button>
+                        <button id="confirm-delete" type="button" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">삭제</button>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -410,6 +468,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // 거래처 외상 잔액 요약은 인쇄/미리보기에서 제외
             const balanceBlock = clone.querySelector('#balance-summary');
             if (balanceBlock) balanceBlock.remove();
+            // '미수' 상태 배지는 인쇄/미리보기에서 제외 (화면에서는 계속 표시)
+            const unpaidBadge = clone.querySelector('#unpaid-status-badge');
+            if (unpaidBadge) unpaidBadge.remove();
+            // 명세서 제목("외상 거래명세서")은 인쇄/미리보기에서 제외 (화면에서는 계속 표시)
+            const titleText = clone.querySelector('#invoice-title-text');
+            if (titleText) titleText.remove();
             printPreviewContent.innerHTML = clone.outerHTML;
             printModal.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
