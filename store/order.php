@@ -20,7 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach ($product_ids as $i => $pid) {
         $pid  = (int)$pid;
         $qty  = (int)($quantities[$i] ?? 0);
-        $unit = (strtoupper(trim($order_units[$i] ?? '')) === 'BOX') ? 'BOX' : 'PCS';
+        $unit = strtoupper(trim($order_units[$i] ?? ''));
+        $unit = in_array($unit, ['BOX', 'PACK', 'PCS'], true) ? $unit : 'PCS';
         if ($pid > 0 && $qty > 0) {
             $items[] = [
                 'product_id' => $pid,
@@ -60,19 +61,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $errors[] = "'{$item['pname']}' Insufficient {$item['order_unit']} stock (Current: " . number_format($stock) . " {$item['order_unit']})";
                 }
 
-                if ($item['order_unit'] === 'BOX') {
+                if ($item['order_unit'] === 'PCS') {
+                    $price_sql =
+                        "SELECT COALESCE(SUM(inv.quantity_remain * IF(ib.inbound_unit IN ('BOX','PACK'), ib.cost_price_pcs, ib.cost_price)) / NULLIF(SUM(inv.quantity_remain),0), 0)
+                         FROM lc_inventory inv JOIN lc_inbound ib ON inv.inbound_id = ib.id
+                         WHERE inv.product_id = ? AND inv.unit = 'PCS' AND inv.quantity_remain > 0";
+                    $st = $conn->prepare($price_sql);
+                    $st->bind_param('i', $item['product_id']);
+                } else {
+                    // BOX/PACK: 묶음 단위는 입고 원가를 그대로 사용
                     $price_sql =
                         "SELECT COALESCE(SUM(inv.quantity_remain * ib.cost_price) / NULLIF(SUM(inv.quantity_remain),0), 0)
                          FROM lc_inventory inv JOIN lc_inbound ib ON inv.inbound_id = ib.id
-                         WHERE inv.product_id = ? AND inv.unit = 'BOX' AND inv.quantity_remain > 0 AND ib.cost_price > 0";
-                } else {
-                    $price_sql =
-                        "SELECT COALESCE(SUM(inv.quantity_remain * IF(ib.inbound_unit='BOX', ib.cost_price_pcs, ib.cost_price)) / NULLIF(SUM(inv.quantity_remain),0), 0)
-                         FROM lc_inventory inv JOIN lc_inbound ib ON inv.inbound_id = ib.id
-                         WHERE inv.product_id = ? AND inv.unit = 'PCS' AND inv.quantity_remain > 0";
+                         WHERE inv.product_id = ? AND inv.unit = ? AND inv.quantity_remain > 0 AND ib.cost_price > 0";
+                    $st = $conn->prepare($price_sql);
+                    $st->bind_param('is', $item['product_id'], $item['order_unit']);
                 }
-                $st = $conn->prepare($price_sql);
-                $st->bind_param('i', $item['product_id']); $st->execute();
+                $st->execute();
                 $item['unit_price'] = (float)$st->get_result()->fetch_row()[0]; $st->close();
             }
             unset($item);
@@ -191,7 +196,9 @@ try {
                 p.category_id, c.name_en AS cat_name,
                 b.name_en AS brand_name, b.name_ko AS brand_name_ko,
                 SUM(CASE WHEN i.unit = 'BOX' THEN i.quantity_remain ELSE 0 END) AS box_stock,
+                SUM(CASE WHEN i.unit = 'PACK' THEN i.quantity_remain ELSE 0 END) AS pack_stock,
                 SUM(CASE WHEN i.unit = 'PCS' THEN i.quantity_remain ELSE 0 END) AS pcs_stock,
+                MIN(ib.expiry_date) AS earliest_expiry,
                 COALESCE((
                     SELECT SUM(inv.quantity_remain * ib2.cost_price) / NULLIF(SUM(inv.quantity_remain), 0)
                     FROM lc_inventory inv
@@ -200,7 +207,14 @@ try {
                     WHERE inv.product_id = p.id AND inv.unit = 'BOX' AND inv.quantity_remain > 0 AND ib2.cost_price > 0
                 ), 0) AS box_price,
                 COALESCE((
-                    SELECT SUM(inv.quantity_remain * IF(ib2.inbound_unit = 'BOX', ib2.cost_price_pcs, ib2.cost_price))
+                    SELECT SUM(inv.quantity_remain * ib2.cost_price) / NULLIF(SUM(inv.quantity_remain), 0)
+                    FROM lc_inventory inv
+                    JOIN lc_inbound ib2 ON inv.inbound_id = ib2.id
+                    JOIN lc_inbound_batches bat2 ON ib2.batch_id = bat2.id
+                    WHERE inv.product_id = p.id AND inv.unit = 'PACK' AND inv.quantity_remain > 0 AND ib2.cost_price > 0
+                ), 0) AS pack_price,
+                COALESCE((
+                    SELECT SUM(inv.quantity_remain * IF(ib2.inbound_unit IN ('BOX','PACK'), ib2.cost_price_pcs, ib2.cost_price))
                            / NULLIF(SUM(inv.quantity_remain), 0)
                     FROM lc_inventory inv
                     JOIN lc_inbound ib2 ON inv.inbound_id = ib2.id
@@ -216,11 +230,12 @@ try {
          LEFT JOIN lc_brands b ON p.brand_id = b.id
          WHERE i.quantity_remain > 0 AND p.is_active = 1
          GROUP BY p.id
-         ORDER BY latest_inbound_at DESC, c.name_en ASC, p.name_en ASC"
+         ORDER BY (MIN(ib.expiry_date) IS NULL) ASC, MIN(ib.expiry_date) ASC, latest_inbound_at DESC, c.name_en ASC, p.name_en ASC"
     )->fetch_all(MYSQLI_ASSOC);
 
     $conn->close();
 } catch (Exception $e) {
+    error_log('store/order.php product list query failed: ' . $e->getMessage());
     $products = []; $categories = [];
 }
 
@@ -228,7 +243,8 @@ try {
 $prev = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach (($_POST['product_id'] ?? []) as $i => $pid) {
-        $unit = (strtoupper(trim($_POST['order_unit'][$i] ?? '')) === 'BOX') ? 'BOX' : 'PCS';
+        $unit = strtoupper(trim($_POST['order_unit'][$i] ?? ''));
+        $unit = in_array($unit, ['BOX', 'PACK', 'PCS'], true) ? $unit : 'PCS';
         $prev[(int)$pid] = ['qty' => (int)($_POST['quantity'][$i] ?? 0), 'unit' => $unit];
     }
 } elseif ($edit_order_id > 0) {
@@ -256,7 +272,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $st->bind_param('i', $edit_order_id);
         $st->execute();
         foreach ($st->get_result()->fetch_all(MYSQLI_ASSOC) as $r) {
-            $unit = in_array($r['order_unit'] ?? '', ['BOX', 'PCS'], true) ? $r['order_unit'] : 'PCS';
+            $unit = in_array($r['order_unit'] ?? '', ['BOX', 'PACK', 'PCS'], true) ? $r['order_unit'] : 'PCS';
             $prev[(int)$r['product_id']] = ['qty' => (int)$r['quantity'], 'unit' => $unit];
         }
         $st->close();
@@ -274,7 +290,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $st->bind_param('ii', $from_order_id, $store_id);
         $st->execute();
         foreach ($st->get_result()->fetch_all(MYSQLI_ASSOC) as $r) {
-            $unit = in_array($r['order_unit'] ?? '', ['BOX', 'PCS'], true) ? $r['order_unit'] : 'PCS';
+            $unit = in_array($r['order_unit'] ?? '', ['BOX', 'PACK', 'PCS'], true) ? $r['order_unit'] : 'PCS';
             $prev[(int)$r['product_id']] = ['qty' => (int)$r['quantity'], 'unit' => $unit];
         }
         $st->close();
@@ -368,8 +384,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium w-28">Brand</th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-16">PKG</th>
+                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium w-24">Expiry</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-24">PCS Price</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-24">Box Price</th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-24">Pack Price</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-28">Stock</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-24">Subtotal</th>
                 <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium w-36">Quantity</th>
@@ -377,23 +395,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </thead>
         <tbody class="divide-y divide-gray-200" id="productBody">
         <?php foreach ($products as $p):
-            $boxStock = (int)$p['box_stock'];
-            $pcsStock = (int)$p['pcs_stock'];
+            $boxStock  = (int)$p['box_stock'];
+            $packStock = (int)$p['pack_stock'];
+            $pcsStock  = (int)$p['pcs_stock'];
+            $stockByUnit = ['BOX' => $boxStock, 'PACK' => $packStock, 'PCS' => $pcsStock];
+            $priceByUnit = ['BOX' => (float)$p['box_price'], 'PACK' => (float)$p['pack_price'], 'PCS' => (float)$p['pcs_price']];
             $unitOpts = [];
-            if ($boxStock > 0) $unitOpts[] = 'BOX';
-            if ($pcsStock > 0) $unitOpts[] = 'PCS';
+            foreach (['BOX', 'PACK', 'PCS'] as $u) { if ($stockByUnit[$u] > 0) $unitOpts[] = $u; }
             if (empty($unitOpts)) continue;
 
             $prevItem = $prev[$p['id']] ?? null;
             if ($prevItem && in_array($prevItem['unit'], $unitOpts, true)) {
                 $defaultUnit = $prevItem['unit'];
             } else {
-                $norm = (strtoupper(trim((string)$p['unit'])) === 'BOX' || strtoupper(trim((string)$p['unit'])) === '박스') ? 'BOX' : 'PCS';
+                $rawUnit = strtoupper(trim((string)$p['unit']));
+                if ($rawUnit === 'BOX' || $rawUnit === '박스')        $norm = 'BOX';
+                elseif ($rawUnit === 'PACK' || $rawUnit === '팩')     $norm = 'PACK';
+                else                                                  $norm = 'PCS';
                 $defaultUnit = in_array($norm, $unitOpts, true) ? $norm : $unitOpts[0];
             }
             $qty          = ($prevItem && $prevItem['unit'] === $defaultUnit) ? $prevItem['qty'] : 0;
-            $defaultMax   = $defaultUnit === 'BOX' ? $boxStock : $pcsStock;
-            $defaultPrice = $defaultUnit === 'BOX' ? (float)$p['box_price'] : (float)$p['pcs_price'];
+            $defaultMax   = $stockByUnit[$defaultUnit];
+            $defaultPrice = $priceByUnit[$defaultUnit];
         ?>
         <tr class="product-row hover:bg-teal-50 transition-colors"
             data-cat="<?php echo $p['category_id'] ?? ''; ?>"
@@ -443,15 +466,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <td class="px-4 py-3 text-right text-xs text-gray-500">
                 <?php echo (int)$p['pieces_per_box'] > 1 ? number_format($p['pieces_per_box']) : '-'; ?>
             </td>
+            <td class="px-4 py-3 text-center text-xs whitespace-nowrap">
+                <?php if (!empty($p['earliest_expiry'])):
+                    $daysLeft = (int)floor((strtotime($p['earliest_expiry']) - strtotime(date('Y-m-d'))) / 86400);
+                    if ($daysLeft < 0)       $expClass = 'text-red-600 font-semibold';
+                    elseif ($daysLeft <= 7)  $expClass = 'text-red-500 font-semibold';
+                    elseif ($daysLeft <= 30) $expClass = 'text-amber-600';
+                    else                     $expClass = 'text-gray-500';
+                ?>
+                <span class="<?php echo $expClass; ?>"><?php echo date('Y-m-d', strtotime($p['earliest_expiry'])); ?></span>
+                <?php else: ?>
+                <span class="text-gray-300">-</span>
+                <?php endif; ?>
+            </td>
             <td class="px-4 py-3 text-right text-xs text-gray-500 font-mono">
                 <?php echo $p['pcs_price'] > 0 ? number_format($p['pcs_price'], 2) : '-'; ?>
             </td>
             <td class="px-4 py-3 text-right text-xs text-gray-500 font-mono">
                 <?php echo $p['box_price'] > 0 ? number_format($p['box_price'], 2) : '-'; ?>
             </td>
+            <td class="px-4 py-3 text-right text-xs text-gray-500 font-mono">
+                <?php echo $p['pack_price'] > 0 ? number_format($p['pack_price'], 2) : '-'; ?>
+            </td>
             <td class="px-4 py-3 text-right text-xs">
                 <?php if ($boxStock > 0): ?>
                 <div><span class="font-semibold text-gray-700"><?php echo number_format($boxStock); ?></span> <span class="text-gray-400">BOX</span></div>
+                <?php endif; ?>
+                <?php if ($packStock > 0): ?>
+                <div><span class="font-semibold text-gray-700"><?php echo number_format($packStock); ?></span> <span class="text-gray-400">PACK</span></div>
                 <?php endif; ?>
                 <?php if ($pcsStock > 0): ?>
                 <div><span class="font-semibold text-gray-700"><?php echo number_format($pcsStock); ?></span> <span class="text-gray-400">PCS</span></div>
@@ -464,8 +506,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="flex items-center justify-center gap-1.5">
                     <?php if (count($unitOpts) > 1): ?>
                     <select name="order_unit[]" onchange="onUnitChange(this)"
-                            data-box-stock="<?php echo $boxStock; ?>" data-pcs-stock="<?php echo $pcsStock; ?>"
-                            data-box-price="<?php echo (float)$p['box_price']; ?>" data-pcs-price="<?php echo (float)$p['pcs_price']; ?>"
+                            data-box-stock="<?php echo $boxStock; ?>" data-pack-stock="<?php echo $packStock; ?>" data-pcs-stock="<?php echo $pcsStock; ?>"
+                            data-box-price="<?php echo (float)$p['box_price']; ?>" data-pack-price="<?php echo (float)$p['pack_price']; ?>" data-pcs-price="<?php echo (float)$p['pcs_price']; ?>"
                             class="border border-gray-300 rounded-md px-1 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500">
                         <?php foreach ($unitOpts as $u): ?>
                         <option value="<?php echo $u; ?>" <?php echo $u === $defaultUnit ? 'selected' : ''; ?>><?php echo $u; ?></option>
@@ -638,8 +680,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         var unit  = sel.value;
         var row   = sel.closest('tr');
         var input = row.querySelector('.qty-input');
-        var max   = parseInt(unit === 'BOX' ? sel.dataset.boxStock : sel.dataset.pcsStock) || 0;
-        var price = parseFloat(unit === 'BOX' ? sel.dataset.boxPrice : sel.dataset.pcsPrice) || 0;
+        var stockMap = { BOX: sel.dataset.boxStock, PACK: sel.dataset.packStock, PCS: sel.dataset.pcsStock };
+        var priceMap = { BOX: sel.dataset.boxPrice, PACK: sel.dataset.packPrice, PCS: sel.dataset.pcsPrice };
+        var max   = parseInt(stockMap[unit]) || 0;
+        var price = parseFloat(priceMap[unit]) || 0;
         input.max = max;
         input.dataset.price = price;
         if ((parseInt(input.value) || 0) > max) input.value = max;

@@ -60,7 +60,7 @@ try {
 
     // 거래처 목록 가져오기 (최신 등록순)
     $sql = "
-        SELECT id, name, phone, address, memo, created_at
+        SELECT id, name, phone, address, memo, discount_rate, created_at
         FROM wholesale_customers
         " . $where_clause . "
         ORDER BY created_at DESC, id DESC
@@ -172,6 +172,9 @@ try {
                             <?php echo t('wholesale.customer_address'); ?>
                         </th>
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            할인율
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                             <?php echo htmlspecialchars(t('common.registered_date')); ?>
                         </th>
                     </tr>
@@ -197,6 +200,9 @@ try {
                             <div class="text-sm text-gray-900">
                                 <?php echo htmlspecialchars($customer['address'] ?: '-'); ?>
                             </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <?php echo isset($customer['discount_rate']) ? htmlspecialchars(number_format((float)$customer['discount_rate'], 2)) . '%' : '-'; ?>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <?php echo date('Y-m-d', strtotime($customer['created_at'])); ?>

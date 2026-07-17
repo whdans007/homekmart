@@ -239,6 +239,10 @@ if (isset($_SESSION['flash'])) {
             <i class="fas fa-file-invoice-dollar text-yellow-600 mr-2"></i><?php echo htmlspecialchars(t('credit_transactions.title')); ?>
         </h1>
         <div class="flex gap-2">
+            <button type="button" id="tx-bulk-pay-btn" disabled
+               class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                <i class="fas fa-money-check-alt mr-2"></i>선택 결제하기 (<span id="tx-bulk-pay-count">0</span>)
+            </button>
             <button type="button" id="open-payment-modal" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
                 <i class="fas fa-hand-holding-usd mr-2"></i><?php echo htmlspecialchars(t('credit_transactions.btn_payment')); ?>
             </button>
@@ -387,6 +391,12 @@ if (isset($_SESSION['flash'])) {
                                         data-balance="<?php echo (float)$cb['balance']; ?>">
                                     <i class="fas fa-hand-holding-usd mr-1"></i><?php echo htmlspecialchars(t('credit_transactions.btn_collect')); ?>
                                 </button>
+                                <a href="credit_payment_history.php?customer_id=<?php echo $cb['id']; ?>"
+                                   onclick="event.stopPropagation()"
+                                   title="수금 내역 관리"
+                                   class="inline-flex items-center justify-center px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                                    <i class="fas fa-list-ul"></i>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -428,6 +438,9 @@ if (isset($_SESSION['flash'])) {
                 <table class="min-w-full">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
+                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
+                                <input type="checkbox" id="tx-select-all-checkbox" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                            </th>
                             <th class="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase"><?php echo htmlspecialchars(t('credit_transactions.th_date')); ?></th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase"><?php echo htmlspecialchars(t('credit_transactions.th_customer')); ?></th>
                             <th class="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase"><?php echo htmlspecialchars(t('credit_transactions.th_item_count')); ?></th>
@@ -438,7 +451,23 @@ if (isset($_SESSION['flash'])) {
                     </thead>
                     <tbody class="bg-white">
                         <?php foreach ($transactions as $t): $isPos = ($t['source'] === 'pos'); ?>
+                            <?php
+                                $row_amount = (float)$t['amount'];
+                                $row_applied = (float)($t['applied'] ?? 0);
+                                $row_remaining = round($row_amount - $row_applied, 2);
+                                $row_payable = ($t['customer_id'] !== null && $row_remaining > 0.005);
+                            ?>
                             <tr class="border-b border-gray-100 <?php echo $isPos ? '' : 'hover:bg-gray-50 cursor-pointer'; ?>" <?php echo $isPos ? '' : "onclick=\"window.location.href='credit_transaction_preview.php?id=" . (int)$t['id'] . "'\""; ?>>
+                                <td class="px-3 py-4 whitespace-nowrap text-center" onclick="event.stopPropagation()">
+                                    <?php if ($row_payable): ?>
+                                        <input type="checkbox" class="tx-select-checkbox rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                               data-customer-id="<?php echo (int)$t['customer_id']; ?>"
+                                               data-customer-name="<?php echo htmlspecialchars($t['customer_name'] ?? '', ENT_QUOTES); ?>"
+                                               data-remaining="<?php echo $row_remaining; ?>">
+                                    <?php else: ?>
+                                        <input type="checkbox" class="rounded border-gray-300" disabled>
+                                    <?php endif; ?>
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-medium"><?php echo date('Y-m-d', strtotime($t['tdate'])); ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="mb-1">
@@ -511,7 +540,7 @@ if (isset($_SESSION['flash'])) {
 <!-- 수금 입력 모달 -->
 <div id="payment-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
     <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full">
             <div class="flex items-center justify-between p-4 border-b border-gray-200">
                 <h3 class="text-base font-medium text-gray-900"><i class="fas fa-hand-holding-usd mr-2 text-blue-500"></i><?php echo htmlspecialchars(t('credit_transactions.modal_title')); ?></h3>
                 <button type="button" id="close-payment-modal" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-lg"></i></button>
@@ -528,6 +557,21 @@ if (isset($_SESSION['flash'])) {
                         <input type="hidden" id="pay_customer_id" value="">
                         <div id="pay_selected_balance" class="hidden text-xs text-gray-600 mt-1"></div>
                     </div>
+
+                    <!-- 미결제 내역 체크리스트 (선택한 건만 수금 처리) -->
+                    <div id="pay_unpaid_loading" class="hidden text-xs text-gray-400 px-1"><i class="fas fa-spinner fa-spin mr-1"></i>불러오는 중...</div>
+                    <div id="pay_unpaid_empty" class="hidden text-xs text-gray-400 px-1">미결제 내역이 없습니다.</div>
+                    <div id="pay_unpaid_wrap" class="hidden border border-gray-200 rounded-md overflow-hidden">
+                        <div class="flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b border-gray-200">
+                            <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer select-none">
+                                <input type="checkbox" id="pay_select_all" checked class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                                전체 선택
+                            </label>
+                            <span class="text-xs text-gray-400">미결제 내역 (체크한 건만 수금)</span>
+                        </div>
+                        <div id="pay_unpaid_list" class="max-h-40 overflow-y-auto divide-y divide-gray-100"></div>
+                    </div>
+
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('credit_transactions.modal_date')); ?> <span class="text-red-500">*</span></label>
@@ -562,6 +606,40 @@ if (isset($_SESSION['flash'])) {
     </div>
 </div>
 
+<!-- 선택 결제하기 확인 모달 -->
+<div id="tx-bulk-pay-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:60;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.22);overflow:hidden;">
+    <div style="padding:18px 22px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:15px;font-weight:700;color:#1f2937;"><i class="fas fa-money-check-alt mr-2" style="color:#059669"></i>선택 항목 수금 처리</div>
+      <button type="button" onclick="closeTxBulkPay()" style="border:none;background:none;color:#9ca3af;cursor:pointer;font-size:16px;"><i class="fas fa-times"></i></button>
+    </div>
+    <div style="padding:20px 22px;">
+      <div id="tx-bulk-pay-summary" style="font-size:13px;color:#374151;margin-bottom:14px;max-height:160px;overflow-y:auto;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">수금 날짜</label>
+          <input type="date" id="tx-bulk-pay-date" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">결제 수단</label>
+          <select id="tx-bulk-pay-method" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box;">
+            <option value="현금">현금</option>
+            <option value="계좌이체">계좌이체</option>
+            <option value="카드">카드</option>
+            <option value="수표">수표</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+      </div>
+      <div id="tx-bulk-pay-msg" style="display:none;margin-top:10px;font-size:13px;font-weight:500;"></div>
+    </div>
+    <div style="padding:14px 22px;background:#fafafa;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;gap:10px;">
+      <button type="button" onclick="closeTxBulkPay()" style="padding:8px 16px;border-radius:8px;border:1px solid #d1d5db;background:#fff;font-size:13px;cursor:pointer;">취소</button>
+      <button type="button" id="tx-bulk-pay-confirm-btn" onclick="confirmTxBulkPay()" style="padding:8px 18px;border-radius:8px;border:none;background:#059669;color:#fff;font-size:13px;font-weight:600;cursor:pointer;"><i class="fas fa-check mr-1"></i>수금 처리</button>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const modal = document.getElementById('payment-modal');
@@ -575,18 +653,93 @@ document.addEventListener('DOMContentLoaded', function() {
     const custResults = document.getElementById('pay_customer_results');
     const custId = document.getElementById('pay_customer_id');
     const balanceHint = document.getElementById('pay_selected_balance');
+    const payAmount = document.getElementById('pay_amount');
+    const unpaidLoading = document.getElementById('pay_unpaid_loading');
+    const unpaidEmpty = document.getElementById('pay_unpaid_empty');
+    const unpaidWrap = document.getElementById('pay_unpaid_wrap');
+    const unpaidList = document.getElementById('pay_unpaid_list');
+    const selectAllCb = document.getElementById('pay_select_all');
+    const SEL_MONTH = '<?php echo addslashes($sel_month); ?>';
     let searchTimer;
+
+    function fmtNum(v) {
+        const n = Number(v) || 0;
+        return Number.isInteger(n) ? n.toLocaleString() : (Math.round(n * 100) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+
+    function resetUnpaidSection() {
+        unpaidLoading.classList.add('hidden');
+        unpaidEmpty.classList.add('hidden');
+        unpaidWrap.classList.add('hidden');
+        unpaidList.innerHTML = '';
+        selectAllCb.checked = true;
+    }
+
+    function recalcAmountFromSelection() {
+        const boxes = unpaidList.querySelectorAll('.unpaid-item-cb');
+        let sum = 0, checkedCount = 0;
+        boxes.forEach(function(cb) { if (cb.checked) { sum += parseFloat(cb.dataset.remaining) || 0; checkedCount++; } });
+        payAmount.value = sum > 0 ? (Math.round(sum * 100) / 100) : '';
+        selectAllCb.checked = boxes.length > 0 && checkedCount === boxes.length;
+        balanceHint.textContent = '<?php echo addslashes(t('credit_transactions.js_current_balance')); ?>' + fmtNum(sum);
+        balanceHint.classList.remove('hidden');
+    }
+
+    function renderUnpaidList(items) {
+        if (!items.length) {
+            unpaidEmpty.classList.remove('hidden');
+            unpaidWrap.classList.add('hidden');
+            payAmount.value = '';
+            return;
+        }
+        unpaidWrap.classList.remove('hidden');
+        unpaidEmpty.classList.add('hidden');
+        unpaidList.innerHTML = items.map(function(item) {
+            const badge = item.source === 'pos'
+                ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">POS</span>'
+                : '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">거래명세서</span>';
+            const label = item.label ? `<span class="text-gray-400 ml-1">${escapeHtml(item.label)}</span>` : '';
+            return `<label class="flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 cursor-pointer">
+                <input type="checkbox" class="unpaid-item-cb rounded border-gray-300 text-primary-600 focus:ring-primary-500" data-remaining="${item.remaining}" checked>
+                <span class="flex-1 min-w-0 truncate">${badge}<span class="text-gray-700 ml-1">${escapeHtml(item.tdate)}</span>${label}</span>
+                <span class="text-right font-mono text-red-600 flex-shrink-0">${fmtNum(item.remaining)}</span>
+            </label>`;
+        }).join('');
+        recalcAmountFromSelection();
+    }
+
+    function loadUnpaidList(customerId) {
+        resetUnpaidSection();
+        if (!customerId) return;
+        unpaidLoading.classList.remove('hidden');
+        fetch('ajax_credit_customer_unpaid.php?customer_id=' + encodeURIComponent(customerId) + '&month=' + encodeURIComponent(SEL_MONTH))
+            .then(r => r.json())
+            .then(data => {
+                unpaidLoading.classList.add('hidden');
+                if (!data.success) { unpaidEmpty.textContent = data.message || '미결제 내역을 불러오지 못했습니다.'; unpaidEmpty.classList.remove('hidden'); return; }
+                renderUnpaidList(data.items || []);
+            })
+            .catch(() => { unpaidLoading.classList.add('hidden'); unpaidEmpty.textContent = '미결제 내역을 불러오지 못했습니다.'; unpaidEmpty.classList.remove('hidden'); });
+    }
+
+    unpaidList.addEventListener('change', function(e) {
+        if (e.target.classList.contains('unpaid-item-cb')) recalcAmountFromSelection();
+    });
+    selectAllCb.addEventListener('change', function() {
+        unpaidList.querySelectorAll('.unpaid-item-cb').forEach(function(cb) { cb.checked = selectAllCb.checked; });
+        recalcAmountFromSelection();
+    });
 
     function openModal(preId, preName, preBalance) {
         errBox.classList.add('hidden');
         custId.value = preId || '';
         custSearch.value = preName || '';
         custResults.classList.add('hidden');
-        document.getElementById('pay_amount').value = '';
+        payAmount.value = '';
         document.getElementById('pay_notes').value = '';
+        resetUnpaidSection();
         if (preId) {
-            balanceHint.textContent = '<?php echo addslashes(t('credit_transactions.js_current_balance')); ?>' + Number(preBalance || 0).toLocaleString();
-            balanceHint.classList.remove('hidden');
+            loadUnpaidList(preId);
         } else {
             balanceHint.classList.add('hidden');
         }
@@ -612,6 +765,7 @@ document.addEventListener('DOMContentLoaded', function() {
     custSearch.addEventListener('input', function() {
         custId.value = '';
         balanceHint.classList.add('hidden');
+        resetUnpaidSection();
         const q = this.value.trim();
         clearTimeout(searchTimer);
         if (q.length < 1) { custResults.classList.add('hidden'); return; }
@@ -636,6 +790,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             custId.value = this.dataset.id;
                             custSearch.value = this.dataset.name;
                             custResults.classList.add('hidden');
+                            loadUnpaidList(this.dataset.id);
                         });
                     });
                 } else {
@@ -678,6 +833,109 @@ document.addEventListener('DOMContentLoaded', function() {
     function showErr(msg) { errBox.textContent = msg; errBox.classList.remove('hidden'); }
     function escapeHtml(str) { return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 });
+
+// 선택해서 결제하기 (외상거래 목록 - 체크박스로 여러 건을 골라 수금 처리)
+document.addEventListener('DOMContentLoaded', function() {
+    const txSelectAll = document.getElementById('tx-select-all-checkbox');
+    const txBulkBtn = document.getElementById('tx-bulk-pay-btn');
+    const txBulkCount = document.getElementById('tx-bulk-pay-count');
+    if (!txBulkBtn) return;
+
+    function updateTxBulkButton() {
+        const checked = document.querySelectorAll('.tx-select-checkbox:checked');
+        txBulkCount.textContent = checked.length;
+        txBulkBtn.disabled = checked.length === 0;
+    }
+
+    if (txSelectAll) {
+        txSelectAll.addEventListener('change', function() {
+            document.querySelectorAll('.tx-select-checkbox').forEach(function(cb) { cb.checked = txSelectAll.checked; });
+            updateTxBulkButton();
+        });
+    }
+    document.querySelectorAll('.tx-select-checkbox').forEach(function(cb) {
+        cb.addEventListener('change', updateTxBulkButton);
+    });
+    updateTxBulkButton();
+
+    txBulkBtn.addEventListener('click', function() {
+        const checked = document.querySelectorAll('.tx-select-checkbox:checked');
+        if (!checked.length) return;
+
+        // 거래처별로 선택한 항목의 잔액을 합산 (수금은 거래처 단위로 한 건씩 등록됨)
+        const groups = {};
+        checked.forEach(function(cb) {
+            const cid = cb.dataset.customerId;
+            if (!groups[cid]) groups[cid] = { name: cb.dataset.customerName, total: 0 };
+            groups[cid].total += parseFloat(cb.dataset.remaining) || 0;
+        });
+
+        const esc = function(str) { return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+        let html = '';
+        Object.keys(groups).forEach(function(cid) {
+            const g = groups[cid];
+            const total = Math.round(g.total * 100) / 100;
+            html += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f3f4f6;">' +
+                '<span>' + esc(g.name || ('#' + cid)) + '</span>' +
+                '<span style="font-weight:600;">' + total.toLocaleString() + '</span></div>';
+        });
+        document.getElementById('tx-bulk-pay-summary').innerHTML = html;
+        document.getElementById('tx-bulk-pay-date').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('tx-bulk-pay-msg').style.display = 'none';
+        document.getElementById('tx-bulk-pay-modal').style.display = 'flex';
+    });
+});
+
+function closeTxBulkPay() {
+    document.getElementById('tx-bulk-pay-modal').style.display = 'none';
+}
+
+function confirmTxBulkPay() {
+    const checked = document.querySelectorAll('.tx-select-checkbox:checked');
+    if (!checked.length) { closeTxBulkPay(); return; }
+
+    const groups = {};
+    checked.forEach(function(cb) {
+        const cid = cb.dataset.customerId;
+        groups[cid] = (groups[cid] || 0) + (parseFloat(cb.dataset.remaining) || 0);
+    });
+
+    const date = document.getElementById('tx-bulk-pay-date').value;
+    const method = document.getElementById('tx-bulk-pay-method').value;
+    const msg = document.getElementById('tx-bulk-pay-msg');
+    const confirmBtn = document.getElementById('tx-bulk-pay-confirm-btn');
+    msg.style.display = 'none';
+    confirmBtn.disabled = true;
+
+    const requests = Object.keys(groups).map(function(cid) {
+        const amount = Math.round(groups[cid] * 100) / 100;
+        const params = 'customer_id=' + encodeURIComponent(cid) +
+            '&amount=' + encodeURIComponent(amount) +
+            '&payment_date=' + encodeURIComponent(date) +
+            '&method=' + encodeURIComponent(method) +
+            '&notes=' + encodeURIComponent('선택 결제하기 일괄 처리');
+        return fetch('ajax_save_credit_payment.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params
+        }).then(function(r) { return r.json(); });
+    });
+
+    Promise.all(requests).then(function(results) {
+        const failed = results.filter(function(r) { return !r.success; });
+        if (failed.length === 0) {
+            location.reload();
+        } else {
+            confirmBtn.disabled = false;
+            msg.style.display = 'block'; msg.style.color = '#dc2626';
+            msg.textContent = failed.length + '건 처리 실패: ' + (failed[0].message || '오류');
+        }
+    })
+    .catch(function() {
+        confirmBtn.disabled = false;
+        msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = '네트워크 오류가 발생했습니다.';
+    });
+}
 </script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

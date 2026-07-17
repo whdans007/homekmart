@@ -143,6 +143,66 @@ try {
         ];
     }
 
+    // ── 물류센터(logistics) 상품 정보 + 원가 ──
+    // 바코드(SKU) 기준으로 lc_products 매칭 (단품/박스/물류코드 3종 교차 검색)
+    $logistics = null;
+    $lcStmt = $pdo->prepare("
+        SELECT id, name_en, name_ko, capacity, pieces_per_box, unit
+        FROM lc_products
+        WHERE barcode_unit = ? OR barcode_box = ? OR barcode_logistics = ?
+        LIMIT 1
+    ");
+    $lcStmt->execute([$product['sku'], $product['sku'], $product['sku']]);
+    $lcProduct = $lcStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($lcProduct) {
+        $piecesPerBox = max(1, (int)$lcProduct['pieces_per_box']);
+
+        // 물류센터 원가: 여러 배치가 있어도 가중평균 대신 "마지막 입고 배치"의 원가를 그대로 사용
+        // (PCS 환산 원가 cost_price_pcs 는 BOX/PCS 입고 여부와 무관하게 낱개 단가이므로
+        //  현재 박스포장수량을 곱해 "박스 원가" 기준으로 통일)
+        $costStmt = $pdo->prepare("
+            SELECT cost_price_pcs
+            FROM lc_inbound
+            WHERE product_id = ?
+            ORDER BY inbound_date DESC, id DESC
+            LIMIT 1
+        ");
+        $costStmt->execute([$lcProduct['id']]);
+        $lastCostPcs = (float)($costStmt->fetch(PDO::FETCH_ASSOC)['cost_price_pcs'] ?? 0);
+
+        $isEstimated = false;
+        $cost = $lastCostPcs * $piecesPerBox;
+
+        // 입고 이력이 없어 원가가 0인 경우: 킴스몰(지점명 KIMS%) 원가 × 박스포장수량으로 추정
+        if ($cost <= 0) {
+            $kimsCost = null;
+            foreach ($stores as $s) {
+                if ($s['cost_price_raw'] !== null && stripos($s['store_name'], 'KIMS') === 0) {
+                    $kimsCost = $s['cost_price_raw'];
+                    break;
+                }
+            }
+            if ($kimsCost !== null) {
+                $cost = $kimsCost * $piecesPerBox;
+                $isEstimated = true;
+            }
+        }
+
+        $logistics = [
+            'found'           => true,
+            'name_ko'         => $lcProduct['name_ko'] ?? '',
+            'name_en'         => $lcProduct['name_en'] ?? '',
+            'capacity'        => $lcProduct['capacity'] ?? '',
+            'pieces_per_box'  => $piecesPerBox,
+            'cost_price'      => $cost > 0 ? number_format($cost, 2) : '-',
+            'cost_price_raw'  => $cost,
+            'is_estimated'    => $isEstimated,
+        ];
+    } else {
+        $logistics = ['found' => false];
+    }
+
     echo json_encode([
         'success' => true,
         'product' => [
@@ -151,7 +211,8 @@ try {
             'name_ko'    => $product['name_ko'] ?? '',
             'name_en'    => $product['name_en'] ?? '',
         ],
-        'stores' => $stores,
+        'stores'     => $stores,
+        'logistics'  => $logistics,
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (Throwable $e) {

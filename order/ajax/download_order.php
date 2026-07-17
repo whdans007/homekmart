@@ -68,7 +68,18 @@ try {
 
     // 이력 저장
     if ($saveHistory) {
+        // 엑셀 파일의 인코딩 문제로 유효하지 않은 UTF-8 바이트가 섞여 들어오면
+        // json_encode()가 false를 반환해 items_json(JSON 컬럼)에 빈 문자열이 저장되며
+        // "Invalid JSON text" SQL 에러로 이어지므로 사전에 정리한다.
+        array_walk_recursive($cartItems, function (&$v) {
+            if (is_string($v) && !mb_check_encoding($v, 'UTF-8')) {
+                $v = iconv('UTF-8', 'UTF-8//IGNORE', $v);
+            }
+        });
         $itemsJson = json_encode($cartItems, JSON_UNESCAPED_UNICODE);
+        if ($itemsJson === false) {
+            throw new Exception('주문 내역을 JSON으로 변환하지 못했습니다 (원인: ' . json_last_error_msg() . '). 재고 파일의 문자 인코딩을 확인해주세요.');
+        }
         $itemCount = count($cartItems);
         $invId     = (int)$inv['id'];
         $userId    = ord_current_user_id();

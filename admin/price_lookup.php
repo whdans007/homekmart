@@ -8,13 +8,6 @@ require_once __DIR__ . '/../lib/session_helper.php';
 require_once __DIR__ . '/../lib/lang_helper.php';
 
 ensure_logged_in();
-
-// super_admin 전용 (시스템 관리 메뉴와 동일 권한)
-if (($_SESSION['role'] ?? '') !== 'super_admin') {
-    $_SESSION['flash'] = ['type' => 'error', 'message' => t('messages.permission_denied')];
-    header('Location: index.php');
-    exit;
-}
 ?>
 <!DOCTYPE html>
 <html lang="ko">
@@ -100,6 +93,25 @@ if (($_SESSION['role'] ?? '') !== 'super_admin') {
             display:inline-block; background: rgba(14,165,233,0.12); border:1px solid rgba(14,165,233,0.3);
             color:#7dd3fc; font-size:0.78rem; padding:0.25rem 0.6rem; border-radius:0.4rem; margin-left:0.4rem;
         }
+        .logi-title {
+            font-size: 0.95rem; font-weight: 700; color: #fff;
+            border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 0.6rem; margin-bottom: 0.75rem;
+        }
+        .logi-title i { color: #fb923c; margin-right: 0.4rem; }
+        .logi-name-ko { font-size: 1.05rem; font-weight: 700; color: #fff; }
+        .logi-capacity { color: rgba(255,255,255,0.5); font-weight: 500; font-size: 0.85rem; }
+        .logi-name-en { color: rgba(255,255,255,0.6); font-size: 0.9rem; margin-top: 0.15rem; }
+        .logi-stats { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+        .logi-item { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.6rem; padding: 0.6rem 0.75rem; min-width: 7rem; }
+        .logi-label { font-size: 0.7rem; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; }
+        .logi-value { font-size: 0.95rem; color: #f1f5f9; font-weight: 600; }
+        .logi-cost { color: #fbbf24; font-variant-numeric: tabular-nums; }
+        .logi-cost.copyable { cursor: pointer; }
+        .logi-cost.copyable:hover { text-decoration: underline dotted; }
+        .logi-estimated-badge {
+            display:inline-block; background: rgba(251,146,60,0.15); border:1px solid rgba(251,146,60,0.4);
+            color:#fdba74; font-size:0.68rem; padding:0.1rem 0.4rem; border-radius:0.3rem; margin-left:0.4rem;
+        }
     </style>
 </head>
 <body>
@@ -131,6 +143,8 @@ if (($_SESSION['role'] ?? '') !== 'super_admin') {
         <div id="productHead" class="product-head"></div>
         <div id="storeResult"></div>
     </div>
+
+    <div id="logisticsPanel" class="panel mt-3" style="display:none;"></div>
 
     <div id="emptyMsg" class="msg"><i class="fas fa-store-slash me-1"></i>상품을 검색하면 전 점포의 원가·판매가가 표시됩니다.</div>
 </div>
@@ -187,6 +201,7 @@ async function loadStorePrices(params) {
     $('resultPanel').style.display = 'block';
     $('productHead').innerHTML = '<div class="msg"><i class="fas fa-spinner fa-spin me-1"></i>조회 중…</div>';
     $('storeResult').innerHTML = '';
+    $('logisticsPanel').style.display = 'none';
     try {
         const res = await fetch('ajax_all_store_prices.php?action=detail&' + qs);
         const data = await res.json();
@@ -195,9 +210,48 @@ async function loadStorePrices(params) {
             return;
         }
         renderResult(data.product, data.stores);
+        renderLogistics(data.logistics);
     } catch (e) {
         $('productHead').innerHTML = '<div class="msg" style="color:#f87171">네트워크 오류: ' + escapeHtml(e.message) + '</div>';
+        $('logisticsPanel').style.display = 'none';
     }
+}
+
+function renderLogistics(logi) {
+    const panel = $('logisticsPanel');
+    panel.style.display = 'block';
+
+    if (!logi || !logi.found) {
+        panel.innerHTML = `
+            <div class="logi-title"><i class="fas fa-warehouse"></i>물류센터 (Logistics Center)</div>
+            <div class="msg">상품이 없음</div>`;
+        return;
+    }
+
+    const estimatedBadge = logi.is_estimated
+        ? '<span class="logi-estimated-badge">킴스몰 원가 × 박스포장수량 추정</span>' : '';
+    const capacityHtml = logi.capacity ? ` <span class="logi-capacity">(${escapeHtml(logi.capacity)})</span>` : '';
+
+    panel.innerHTML = `
+        <div class="logi-title"><i class="fas fa-warehouse"></i>물류센터 (Logistics Center)</div>
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+                <div class="logi-name-ko">${escapeHtml(logi.name_ko || '-')}${capacityHtml}</div>
+                ${logi.name_en ? `<div class="logi-name-en">${escapeHtml(logi.name_en)}</div>` : ''}
+            </div>
+            <div class="logi-stats">
+                <div class="logi-item">
+                    <div class="logi-label">박스포장수량</div>
+                    <div class="logi-value">${logi.pieces_per_box}</div>
+                </div>
+                <div class="logi-item">
+                    <div class="logi-label">원가${estimatedBadge}</div>
+                    <div class="logi-value logi-cost${logi.cost_price_raw > 0 ? ' copyable' : ''}"
+                         ${logi.cost_price_raw > 0 ? `title="클릭하여 복사" onclick="copyCostValue(this, '${logi.cost_price_raw}')"` : ''}>${logi.cost_price}</div>
+                </div>
+            </div>
+        </div>`;
+    panel.style.display = 'block';
 }
 
 function renderResult(product, stores) {
@@ -272,6 +326,15 @@ function highlight(items) {
 document.addEventListener('click', (e) => {
     if (!suggestBox.contains(e.target) && e.target !== searchInput) hideSuggest();
 });
+
+function copyCostValue(el, value) {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(String(value)).then(() => {
+        const original = el.textContent;
+        el.textContent = '복사됨!';
+        setTimeout(() => { el.textContent = original; }, 900);
+    });
+}
 
 function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));

@@ -4,6 +4,11 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 require_once __DIR__ . '/../lib/lang_helper.php';
+require_once __DIR__ . '/../lib/mobile_detect.php';
+
+// 모바일 기기에서는 전용 매입 목록 화면으로 리다이렉트
+redirect_if_mobile('mobile_purchase_list.php', true);
+
 $page_title = t('purchase.list') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
@@ -458,30 +463,30 @@ th[data-column="actions"] { min-width: 150px !important; }
     <!-- 디버그: 데이터 <?php echo $data_count; ?>개 -->
     <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
         <!-- 테이블 헤더 -->
-        <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
+        <div class="px-4 sm:px-6 py-4 border-b border-gray-200 bg-white flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             <h3 class="text-lg leading-6 font-semibold text-gray-900">
                 <?php echo t('purchase.list'); ?>
             </h3>
-            <div class="flex items-center space-x-3">
+            <div class="flex items-center">
                 <!-- 거래처명 검색 -->
-                <form method="get" action="purchase_management.php" class="flex items-center">
-                    <div class="relative">
+                <form method="get" action="purchase_management.php" class="flex items-center w-full">
+                    <div class="relative flex-1 sm:flex-none">
                         <input type="text" name="search" value="<?php echo htmlspecialchars($search_term); ?>"
                                placeholder="거래처명 검색"
-                               class="pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 w-48">
+                               class="pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 w-full sm:w-48">
                         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
                     </div>
-                    <button type="submit" class="ml-2 inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <button type="submit" class="ml-2 flex-shrink-0 inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                         검색
                     </button>
                     <?php if ($search_term !== ''): ?>
-                    <a href="purchase_management.php" class="ml-2 inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
+                    <a href="purchase_management.php" class="ml-2 flex-shrink-0 inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
                         <i class="fas fa-times mr-1"></i>초기화
                     </a>
                     <?php endif; ?>
                 </form>
             </div>
-            <div class="flex space-x-3">
+            <div class="flex flex-wrap gap-3">
                 <?php if (!$has_deleted_at): ?>
                 <a href="setup_soft_delete_purchases.php" class="inline-flex items-center px-4 py-2 border border-yellow-300 rounded-md shadow-sm text-sm font-medium text-yellow-700 bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
                     <i class="fas fa-database mr-2"></i>

@@ -36,7 +36,7 @@ $conn->close();
         </div>
 
         <!-- 검색 결과 -->
-        <div style="display:flex; flex-direction:row; gap:1rem; align-items:flex-start;">
+        <div style="display:flex; flex-direction:row; gap:1rem; align-items:stretch;">
             <div id="searchResults" class="bg-white rounded-xl shadow-sm border border-gray-200 min-h-48 overflow-hidden" style="flex:1.6; min-width:0;">
                 <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                     <span class="text-sm font-medium text-gray-600">검색 결과 <span id="resultCount" class="text-indigo-600">—</span></span>
@@ -65,28 +65,53 @@ $conn->close();
                 <div id="pagination" class="px-4 py-3 border-t border-gray-100 flex justify-center gap-2"></div>
             </div>
 
-            <!-- 입고 히스토리 (전 점포) -->
-            <div id="historyPanel" class="bg-white rounded-xl shadow-sm border border-gray-200 min-h-24 overflow-hidden" style="flex:1; min-width:0;">
-                <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <span class="text-sm font-medium text-gray-600">
-                        <i class="fas fa-clock-rotate-left mr-1 text-gray-400"></i>입고 히스토리 (전 점포)
-                        <span id="historyCount" class="text-indigo-600 ml-1"></span>
-                    </span>
+            <div style="flex:1.1; min-width:0; max-width:540px; height:1000px; display:flex; flex-direction:column; gap:1rem;">
+                <!-- 입고 히스토리 (전 점포) -->
+                <div id="historyPanel" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
+                    <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
+                        <span class="text-sm font-medium text-gray-600">
+                            <i class="fas fa-clock-rotate-left mr-1 text-gray-400"></i>입고 히스토리 (전 점포)
+                            <span id="historyCount" class="text-indigo-600 ml-1"></span>
+                        </span>
+                    </div>
+                    <div class="overflow-auto flex-1 min-h-0">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">날짜</th>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">업체명 / 품명</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">입고가</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyBody" class="divide-y divide-gray-50">
+                                <tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 전 점포의 입고 이력이 표시됩니다.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-gray-50 border-b border-gray-100">
-                            <tr>
-                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">날짜</th>
-                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">업체명</th>
-                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">품명</th>
-                                <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">입고가</th>
-                            </tr>
-                        </thead>
-                        <tbody id="historyBody" class="divide-y divide-gray-50">
-                            <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 전 점포의 입고 이력이 표시됩니다.</td></tr>
-                        </tbody>
-                    </table>
+
+                <!-- 물류센터 재고 -->
+                <div id="logisticsPanel" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
+                    <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
+                        <span class="text-sm font-medium text-gray-600">
+                            <i class="fas fa-warehouse mr-1 text-gray-400"></i>물류센터
+                            <span id="logisticsCount" class="text-indigo-600 ml-1"></span>
+                        </span>
+                    </div>
+                    <div class="overflow-auto flex-1 min-h-0">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">브랜드 / 품명</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">재고</th>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">유통기한</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logisticsBody" class="divide-y divide-gray-50">
+                                <tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 물류센터 재고가 표시됩니다.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -136,17 +161,18 @@ function doSearch(page = 1) {
     .catch(() => showFlash('error', '검색 중 오류가 발생했습니다.'));
 
     loadPurchaseHistory(keyword);
+    loadLogisticsStock(keyword);
 }
 
 function loadPurchaseHistory(keyword) {
     const body = document.getElementById('historyBody');
     const countEl = document.getElementById('historyCount');
     if (!keyword) {
-        body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 전 점포의 입고 이력이 표시됩니다.</td></tr>';
+        body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 전 점포의 입고 이력이 표시됩니다.</td></tr>';
         countEl.textContent = '';
         return;
     }
-    body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-1"></i>불러오는 중...</td></tr>';
+    body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-1"></i>불러오는 중...</td></tr>';
 
     fetch(ORD_BASE + '/ajax/purchase_history.php', {
         method: 'POST',
@@ -155,10 +181,10 @@ function loadPurchaseHistory(keyword) {
     })
     .then(r => r.json())
     .then(res => {
-        if (!res.success) { body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-red-400 text-sm">이력을 불러오지 못했습니다.</td></tr>'; return; }
+        if (!res.success) { body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-red-400 text-sm">이력을 불러오지 못했습니다.</td></tr>'; return; }
         renderHistory(res.data);
     })
-    .catch(() => { body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-red-400 text-sm">이력을 불러오지 못했습니다.</td></tr>'; });
+    .catch(() => { body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-red-400 text-sm">이력을 불러오지 못했습니다.</td></tr>'; });
 }
 
 function renderHistory(items) {
@@ -166,20 +192,78 @@ function renderHistory(items) {
     const countEl = document.getElementById('historyCount');
     countEl.textContent = items.length ? items.length + '건' : '';
     if (!items.length) {
-        body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm">입고 이력이 없습니다.</td></tr>';
+        body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm">입고 이력이 없습니다.</td></tr>';
         return;
     }
     const fmt = v => Number(v).toLocaleString('ko-KR', {minimumFractionDigits: 2});
     body.innerHTML = items.map(h => `
         <tr class="hover:bg-gray-50">
             <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">${escHtml(h.purchase_date)}</td>
-            <td class="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">${escHtml(h.vendor_name)}</td>
-            <td class="px-3 py-2 text-sm text-gray-800">${escHtml(h.product_name)}</td>
+            <td class="px-3 py-2">
+                <div class="text-xs text-gray-500 whitespace-nowrap">${escHtml(h.vendor_name)}</div>
+                <div class="text-sm text-gray-800 whitespace-nowrap">${escHtml(h.product_name)}</div>
+            </td>
             <td class="px-3 py-2 text-xs text-right text-indigo-600 font-mono whitespace-nowrap">
                 ${fmt(h.unit_price)}<span class="text-gray-400 ml-1">(${h.purchase_type === 'box' ? '박스' : '낱개'})</span>
             </td>
         </tr>
     `).join('');
+}
+
+function loadLogisticsStock(keyword) {
+    const body = document.getElementById('logisticsBody');
+    const countEl = document.getElementById('logisticsCount');
+    if (!keyword) {
+        body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 물류센터 재고가 표시됩니다.</td></tr>';
+        countEl.textContent = '';
+        return;
+    }
+    body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-1"></i>불러오는 중...</td></tr>';
+
+    fetch(ORD_BASE + '/ajax/logistics_search.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({keyword, csrf_token: CSRF_TOKEN})
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) { body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-red-400 text-sm">재고를 불러오지 못했습니다.</td></tr>'; return; }
+        renderLogistics(res.data);
+    })
+    .catch(() => { body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-red-400 text-sm">재고를 불러오지 못했습니다.</td></tr>'; });
+}
+
+function renderLogistics(items) {
+    const body = document.getElementById('logisticsBody');
+    const countEl = document.getElementById('logisticsCount');
+    countEl.textContent = items.length ? items.length + '건' : '';
+    if (!items.length) {
+        body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm">물류센터에 재고가 없습니다.</td></tr>';
+        return;
+    }
+    body.innerHTML = items.map(item => {
+        let expiryHtml = '<span class="text-gray-400">-</span>';
+        if (item.earliest_expiry) {
+            const days = item.days_left;
+            let cls = 'text-gray-500';
+            if (days !== null) {
+                if (days < 0) cls = 'text-red-600 font-semibold';
+                else if (days <= 30) cls = 'text-orange-500';
+                else if (days <= 90) cls = 'text-yellow-600';
+            }
+            expiryHtml = `<span class="${cls}">${escHtml(item.earliest_expiry)}${days !== null ? ' (D-' + days + ')' : ''}</span>`;
+        }
+        return `
+        <tr class="hover:bg-gray-50">
+            <td class="px-3 py-2">
+                <div class="text-xs text-gray-500 whitespace-nowrap">${escHtml(item.brand_name)}</div>
+                <div class="text-sm text-gray-800 whitespace-nowrap">${escHtml(item.product_name)}</div>
+            </td>
+            <td class="px-3 py-2 text-xs text-right text-teal-700 font-mono whitespace-nowrap">${escHtml(item.stock_display)}</td>
+            <td class="px-3 py-2 text-xs whitespace-nowrap">${expiryHtml}</td>
+        </tr>
+    `;
+    }).join('');
 }
 
 function renderResults(items) {

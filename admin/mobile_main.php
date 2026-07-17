@@ -133,7 +133,7 @@ if (!empty($_SESSION['user_id'])) {
     
     .cards-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 1rem;
         margin-bottom: 2rem;
     }
@@ -230,77 +230,20 @@ if (!empty($_SESSION['user_id'])) {
     }
     
     /* 각 카드별 색상 - 더 진하고 선명하게 */
-    .card-price-label {
-        background: linear-gradient(135deg, #1e40af, #1e3a8a);
-        border: 2px solid rgba(59, 130, 246, 0.3);
-    }
-    
-    .card-price-label::before {
-        background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    }
-    
-    .card-price-label .card-icon {
-        color: white;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    }
-    
-    .card-purchase {
-        background: linear-gradient(135deg, #047857, #065f46);
-        border: 2px solid rgba(16, 185, 129, 0.3);
-    }
-    
-    .card-purchase::before {
-        background: linear-gradient(135deg, #059669, #047857);
-    }
-    
-    .card-purchase .card-icon {
-        color: white;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    }
-    
     .card-wholesale {
         background: linear-gradient(135deg, #d97706, #b45309);
         border: 2px solid rgba(245, 158, 11, 0.3);
     }
-    
+
     .card-wholesale::before {
         background: linear-gradient(135deg, #f59e0b, #d97706);
     }
-    
+
     .card-wholesale .card-icon {
         color: white;
         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
-    
-    .card-transfer {
-        background: linear-gradient(135deg, #dc2626, #b91c1c);
-        border: 2px solid rgba(239, 68, 68, 0.3);
-    }
 
-    .card-transfer::before {
-        background: linear-gradient(135deg, #ef4444, #dc2626);
-    }
-
-    .card-transfer .card-icon {
-        color: white;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    }
-
-    /* 점간 이동 카드 - 보라색 */
-    .card-store-transfer {
-        background: linear-gradient(135deg, #7c3aed, #6d28d9);
-        border: 2px solid rgba(139, 92, 246, 0.3);
-    }
-
-    .card-store-transfer::before {
-        background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-    }
-
-    .card-store-transfer .card-icon {
-        color: white;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    }
-    
     /* 비활성화된 카드 스타일 */
     .disabled-card {
         background: linear-gradient(135deg, #6b7280, #4b5563) !important;
@@ -400,7 +343,7 @@ if (!empty($_SESSION['user_id'])) {
         }
         
         .cards-grid {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 1.5rem;
         }
         
@@ -434,34 +377,12 @@ if (!empty($_SESSION['user_id'])) {
 
         <!-- 주요 기능 카드 -->
         <div class="cards-grid">
-            <!-- 가격표 출력 -->
-            <?php
-            $has_price_permission = has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
-            if ($has_price_permission):
-            ?>
-            <a href="price_label_lists.php?desktop=1" class="function-card card-purchase">
-                <i class="fas fa-tags card-icon"></i>
-                <div class="card-title">
-                    가격표 출력
-                    <span class="card-title-en">Price Labels</span>
-                </div>
-            </a>
-            <?php else: ?>
-            <div class="function-card card-purchase disabled-card">
-                <i class="fas fa-tags card-icon"></i>
-                <div class="card-title">
-                    권한 없음
-                    <span class="card-title-en">No Permission</span>
-                </div>
-            </div>
-            <?php endif; ?>
-            
             <!-- 매입 관리 -->
             <?php
             $has_purchase_permission = has_permission('purchase_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
             if ($has_purchase_permission):
             ?>
-            <a href="purchase_management.php?desktop=1" class="function-card card-wholesale">
+            <a href="mobile_purchase_list.php" class="function-card card-wholesale">
                 <i class="fas fa-shopping-cart card-icon"></i>
                 <div class="card-title">
                     매입 관리
@@ -471,50 +392,6 @@ if (!empty($_SESSION['user_id'])) {
             <?php else: ?>
             <div class="function-card card-wholesale disabled-card">
                 <i class="fas fa-shopping-cart card-icon"></i>
-                <div class="card-title">
-                    권한 없음
-                    <span class="card-title-en">No Permission</span>
-                </div>
-            </div>
-            <?php endif; ?>
-            
-            <!-- 도매 판매 -->
-            <?php
-            $has_wholesale_permission = has_permission('wholesale_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
-            if ($has_wholesale_permission):
-            ?>
-            <a href="wholesale_sales_list.php?desktop=1" class="function-card card-transfer">
-                <i class="fas fa-handshake card-icon"></i>
-                <div class="card-title">
-                    도매 판매
-                    <span class="card-title-en">Wholesale</span>
-                </div>
-            </a>
-            <?php else: ?>
-            <div class="function-card card-transfer disabled-card">
-                <i class="fas fa-handshake card-icon"></i>
-                <div class="card-title">
-                    권한 없음
-                    <span class="card-title-en">No Permission</span>
-                </div>
-            </div>
-            <?php endif; ?>
-            
-            <!-- 점간 이동 -->
-            <?php
-            $has_transfer_permission = has_permission('store_transfer_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin']);
-            if ($has_transfer_permission):
-            ?>
-            <a href="store_transfers_list.php?desktop=1" class="function-card card-store-transfer">
-                <i class="fas fa-exchange-alt card-icon"></i>
-                <div class="card-title">
-                    점간 이동
-                    <span class="card-title-en">Transfer</span>
-                </div>
-            </a>
-            <?php else: ?>
-            <div class="function-card card-store-transfer disabled-card">
-                <i class="fas fa-exchange-alt card-icon"></i>
                 <div class="card-title">
                     권한 없음
                     <span class="card-title-en">No Permission</span>
@@ -614,10 +491,7 @@ if (!empty($_SESSION['user_id'])) {
         
         // 권한 체크 결과 (디버깅)
         const permissions = {
-            product_management: <?php echo has_permission('product_management') ? 'true' : 'false'; ?>,
-            purchase_management: <?php echo has_permission('purchase_management') ? 'true' : 'false'; ?>,
-            wholesale_management: <?php echo has_permission('wholesale_management') ? 'true' : 'false'; ?>,
-            store_transfer_management: <?php echo has_permission('store_transfer_management') ? 'true' : 'false'; ?>
+            purchase_management: <?php echo has_permission('purchase_management') ? 'true' : 'false'; ?>
         };
         console.log('사용자 권한:', permissions);
     });

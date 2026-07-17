@@ -15,5 +15,6 @@ function get_store_db(): mysqli {
         throw new Exception('Database connection failed.');
     }
     $conn->set_charset(DB_CHARSET);
+    $conn->query("SET time_zone = '+08:00'");
     return $conn;
 }

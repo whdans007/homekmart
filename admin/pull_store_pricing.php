@@ -10,7 +10,7 @@
  *  - HTTPS(443) 아웃바운드만 사용 (공유호스팅에서 허용). MySQL 3306 직접접속 안 함.
  *  - 접속 타임아웃 짧게 (연결 3초 / 전체 25초) → 지점이 안 닿아도 즉시 실패, 사이트 영향 없음.
  *
- * super_admin 전용.
+ * 로그인한 모든 사용자 사용 가능.
  */
 require_once __DIR__ . '/../lib/session_helper.php';
 require_once __DIR__ . '/../lib/lang_helper.php';
@@ -18,11 +18,6 @@ require_once __DIR__ . '/../config/db_config.php';
 require_once __DIR__ . '/../config/remote_stores.php';
 
 ensure_logged_in();
-if (($_SESSION['role'] ?? '') !== 'super_admin') {
-    $_SESSION['flash'] = ['type' => 'error', 'message' => t('messages.permission_denied')];
-    header('Location: index.php');
-    exit;
-}
 
 /** stores.name LIKE 패턴으로 점포 ID 탐지 (단일 점포뿐이면 그 점포로 폴백) */
 function resolve_store_id_by_pattern(mysqli $conn, string $pattern): ?int {

@@ -202,6 +202,9 @@ if ($sale_id > 0) {
                 wc.phone as customer_phone,
                 wc.address as customer_address,
                 s.name as store_name,
+                s.phone as store_phone,
+                s.address as store_address,
+                s.bank_account as store_bank_account,
                 u.full_name as user_name
             FROM wholesale_sales ws
             LEFT JOIN wholesale_customers wc ON ws.customer_id = wc.id
@@ -246,6 +249,7 @@ if ($sale_id > 0) {
                         wsi.sale_unit,
                         wsi.remarks,
                         wsi.custom_product_name,
+                        wsi.custom_cost_price,
                         COALESCE(p.sku, '수기') as sku,
                         COALESCE(wp.wholesale_name_ko, p.name_ko, wsi.custom_product_name) as name_ko,
                         COALESCE(wp.wholesale_name_en, p.name_en, wsi.custom_product_name) as name_en,
@@ -271,6 +275,7 @@ if ($sale_id > 0) {
                         wsi.sale_unit,
                         wsi.remarks,
                         NULL as custom_product_name,
+                        wsi.custom_cost_price,
                         COALESCE(p.sku, '수기') as sku,
                         p.name_ko,
                         p.name_en,
@@ -332,6 +337,15 @@ if ($sale_id > 0) {
 
 // 상품 소계 — 이 전표에 새로 담긴 상품(wholesale_sale_items)의 합계만 (반품 차감 반영 전)
 $items_subtotal = array_sum(array_column($items, 'total_price'));
+
+// 원가 합계 (화면 전용 — 원가가 저장되지 않은 품목은 0으로 집계)
+$items_cost_subtotal = 0;
+foreach ($items as $__ci) {
+    if ($__ci['custom_cost_price'] !== null) {
+        $items_cost_subtotal += (float)$__ci['quantity'] * (float)$__ci['custom_cost_price'];
+    }
+}
+unset($__ci);
 
 // 반품 차감액 — 이 전표에 등록된 반품의 합계 (원본 전표는 영향 없음, wholesale_sales.returned_amount에 저장됨)
 $return_deduction = (float)($sale['returned_amount'] ?? 0);
@@ -409,11 +423,11 @@ if (isset($_SESSION['flash'])) {
                 <div class="flex items-start justify-between mb-6">
                     <div>
                         <h1 class="text-xl font-bold text-gray-900 mb-1">
-                            <?php echo t('wholesale_sale_preview.transaction_title'); ?>
+                            <span id="invoice-title-text"><?php echo t('wholesale_sale_preview.transaction_title'); ?></span>
                             <?php if ($is_paid): ?>
                                 <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800 align-middle"><i class="fas fa-check-circle mr-1"></i>결제완료</span>
                             <?php else: ?>
-                                <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800 align-middle"><i class="fas fa-exclamation-circle mr-1"></i>미결제</span>
+                                <span id="unpaid-status-badge" class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800 align-middle"><i class="fas fa-exclamation-circle mr-1"></i>미결제</span>
                             <?php endif; ?>
                             <?php if ($return_status === 'partial'): ?>
                                 <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-orange-100 text-orange-800 align-middle"><i class="fas fa-undo mr-1"></i>반품포함</span>
@@ -422,7 +436,6 @@ if (isset($_SESSION['flash'])) {
                             <?php endif; ?>
                         </h1>
                         <div class="text-sm text-gray-600">
-                            <div><?php echo htmlspecialchars($sale['store_name'] ?? ''); ?></div>
                             <?php if ($is_paid): ?>
                                 <div class="text-green-700 mt-1">
                                     <i class="fas fa-money-bill-wave mr-1"></i>
@@ -459,25 +472,27 @@ if (isset($_SESSION['flash'])) {
 
                 <!-- 거래처 및 날짜 정보 테이블 -->
                 <div class="mb-6">
-                    <table class="info-table w-full border border-gray-200 mb-4">
+                    <table id="customer-info-table" class="info-table w-full border border-gray-200 mb-4">
                         <tbody>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200"><?php echo t('wholesale_sale_preview.customer_label'); ?></th>
-                                <td class="cust-name px-3 py-2 text-base text-gray-900 border-b border-r border-gray-200 font-bold"><?php echo htmlspecialchars($sale['customer_name']); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200"><?php echo t('wholesale_sale_preview.date_label'); ?></th>
-                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo date('Y-m-d', strtotime($sale['sale_date'])); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" style="width:45%;">
+                                    <span class="text-gray-500"><?php echo t('wholesale_sale_preview.customer_label'); ?></span>
+                                    <span class="cust-name font-bold text-base ml-2"><?php echo htmlspecialchars($sale['customer_name']); ?></span>
+                                </td>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" style="width:27.5%;">
+                                    <span class="text-gray-500"><?php echo t('wholesale_sale_preview.phone_label'); ?></span>
+                                    <span class="ml-2"><?php echo htmlspecialchars($sale['customer_phone'] ?: '-'); ?></span>
+                                </td>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200" style="width:27.5%;">
+                                    <span class="text-gray-500"><?php echo t('wholesale_sale_preview.date_label'); ?></span>
+                                    <span class="ml-2"><?php echo date('Y-m-d', strtotime($sale['sale_date'])); ?></span>
+                                </td>
                             </tr>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200"><?php echo t('wholesale_sale_preview.phone_label'); ?></th>
-                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200"><?php echo htmlspecialchars($sale['customer_phone'] ?: '-'); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200"><?php echo t('wholesale_sale_preview.salesperson_label'); ?></th>
-                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($sale['user_name']); ?></td>
-                            </tr>
-                            <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200"><?php echo t('wholesale_sale_preview.address_label'); ?></th>
-                                <td class="px-3 py-2 text-sm text-gray-900 border-r border-gray-200"><?php echo htmlspecialchars($sale['customer_address'] ?: '-'); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200"><?php echo t('wholesale_sale_preview.sale_no_label'); ?></th>
-                                <td class="px-3 py-2 text-sm text-gray-900">#<?php echo str_pad($sale['id'], 6, '0', STR_PAD_LEFT); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900" colspan="3">
+                                    <span class="text-gray-500"><?php echo t('wholesale_sale_preview.address_label'); ?></span>
+                                    <span class="ml-2"><?php echo htmlspecialchars($sale['customer_address'] ?: '-'); ?></span>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -506,6 +521,7 @@ if (isset($_SESSION['flash'])) {
                                 <?php $unit_header = t('wholesale_sale_preview.unit_header'); if ($unit_header === 'wholesale_sale_preview.unit_header') { $unit_header = '단위'; } ?>
                                 <th class="unit-cell px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200"><?php echo htmlspecialchars($unit_header); ?></th>
                                 <th class="qty-cell px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200"><?php echo t('wholesale_sale_preview.qty_label'); ?></th>
+                                <th class="cost-col print:hidden px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">Cost</th>
                                 <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200"><?php echo t('wholesale_sale_preview.unit_price_label'); ?></th>
                                 <th class="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200"><?php echo t('wholesale_sale_preview.total_label'); ?></th>
                             </tr>
@@ -539,6 +555,7 @@ if (isset($_SESSION['flash'])) {
                                         ?>
                                         <td class="unit-cell px-2 py-2 text-sm text-gray-900 text-center border-b border-gray-200"><?php echo $unit_label; ?></td>
                                         <td class="qty-cell px-2 py-2 text-sm text-gray-900 text-center border-b border-gray-200"><?php echo fmt_num($item['quantity']); ?></td>
+                                        <td class="cost-col print:hidden px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo $item['custom_cost_price'] !== null ? fmt_num($item['custom_cost_price']) : '-'; ?></td>
                                         <td class="px-2 py-2 text-sm text-gray-900 text-right border-b border-gray-200"><?php echo fmt_num($item['unit_price']); ?></td>
                                         <td class="px-2 py-2 text-sm text-gray-900 text-right font-medium border-b border-gray-200"><?php echo fmt_num($item['total_price']); ?></td>
                                     </tr>
@@ -547,7 +564,9 @@ if (isset($_SESSION['flash'])) {
                         </tbody>
                         <tfoot class="bg-gray-50 grand-total-row">
                             <tr>
-                                <td colspan="6" class="px-2 py-2 text-right text-sm font-medium text-gray-900 border-t border-gray-200 grand-total-label"><?php echo t('wholesale_sale_preview.grand_total'); ?>:</td>
+                                <td colspan="5" class="px-2 py-2 text-right text-sm font-medium text-gray-900 border-t border-gray-200 grand-total-label"><?php echo t('wholesale_sale_preview.grand_total'); ?>:</td>
+                                <td class="cost-col print:hidden px-2 py-2 text-right text-sm font-semibold text-gray-900 border-t border-gray-200"><?php echo fmt_num($items_cost_subtotal); ?></td>
+                                <td class="px-2 py-2 border-t border-gray-200"></td>
                                 <td class="px-2 py-2 text-right text-lg font-bold text-gray-900 border-t border-gray-200 grand-total-value"><?php echo fmt_num($items_subtotal); ?></td>
                             </tr>
                         </tfoot>
@@ -653,8 +672,9 @@ if (isset($_SESSION['flash'])) {
                     <table class="payment-table w-full border border-gray-300" style="table-layout: fixed;">
                         <thead>
                             <tr class="bg-gray-50">
-                                <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300" style="width: 50%;"><?php echo t('wholesale_sale_preview.prepared_by_label'); ?></th>
-                                <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300" style="width: 50%;"><?php echo t('wholesale_sale_preview.received_by_label'); ?></th>
+                                <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300" style="width: 33.33%;"><?php echo t('wholesale_sale_preview.prepared_by_label'); ?></th>
+                                <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-r border-gray-300" style="width: 33.33%;"><?php echo t('wholesale_sale_preview.received_by_label'); ?></th>
+                                <th class="px-3 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300" style="width: 33.34%;"><?php echo t('wholesale_sale_preview.cashier_label'); ?></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -664,8 +684,13 @@ if (isset($_SESSION['flash'])) {
                                     <div class="sign-space" style="height: 50px;"></div>
                                     <div style="text-align: right;"><?php echo t('wholesale_sale_preview.signature_label'); ?>: _____________________</div>
                                 </td>
-                                <td class="px-3 py-2 text-sm text-gray-900" style="vertical-align: top;">
+                                <td class="px-3 py-2 text-sm text-gray-900 border-r border-gray-300" style="vertical-align: top;">
                                     <div><?php echo t('wholesale_sale_preview.name_label'); ?>: <?php echo htmlspecialchars($sale['customer_name']); ?></div>
+                                    <div class="sign-space" style="height: 50px;"></div>
+                                    <div style="text-align: right;"><?php echo t('wholesale_sale_preview.signature_label'); ?>: _____________________</div>
+                                </td>
+                                <td class="px-3 py-2 text-sm text-gray-900" style="vertical-align: top;">
+                                    <div><?php echo t('wholesale_sale_preview.name_label'); ?>: _____________________</div>
                                     <div class="sign-space" style="height: 50px;"></div>
                                     <div style="text-align: right;"><?php echo t('wholesale_sale_preview.signature_label'); ?>: _____________________</div>
                                 </td>
@@ -674,10 +699,28 @@ if (isset($_SESSION['flash'])) {
                     </table>
                 </div>
 
-                <!-- 푸터 -->
-                <div class="text-center text-xs text-gray-500 mt-8 border-t border-gray-200 pt-4">
-                    <div><?php echo t('wholesale_sale_preview.issued_label'); ?>: <?php echo date('Y-m-d H:i'); ?></div>
-                    <div class="mt-1"><?php echo htmlspecialchars(t('company.name')); ?> - <?php echo t('wholesale_sale_preview.transaction_title'); ?></div>
+                <!-- 점포 정보 -->
+                <div class="mb-6">
+                    <table class="info-table w-full border border-gray-200">
+                        <tbody>
+                            <tr>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200" style="width:12%;">점포명</th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" style="width:23%;"><?php echo htmlspecialchars($sale['store_name'] ?: '-'); ?></td>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200" style="width:12%;">전화</th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" style="width:18%;"><?php echo htmlspecialchars($sale['store_phone'] ?: '-'); ?></td>
+                                <td class="px-3 py-2 text-xs text-gray-500 border-b border-gray-200" style="width:35%; vertical-align: middle;">판매가격은 구매 시점에 따라 변경 될 수 있습니다.</td>
+                            </tr>
+                            <tr>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">주소</th>
+                                <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" colspan="3"><?php echo htmlspecialchars($sale['store_address'] ?: '-'); ?></td>
+                                <td class="px-3 py-2 text-xs text-gray-500 border-b border-gray-200" style="vertical-align: middle;">계산대에서 개별 구매시 가격은 일치 하지 않습니다.</td>
+                            </tr>
+                            <tr>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">계좌번호</th>
+                                <td class="px-3 py-2 text-sm text-gray-900" colspan="4"><?php echo htmlspecialchars($sale['store_bank_account'] ?: '-'); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         <?php endif; ?>
@@ -859,7 +902,7 @@ if (isset($_SESSION['flash'])) {
     padding: 3px 5px !important;
 }
 /* 거래처명 강조 (다른 셀 9px 대비 +2px, 볼드) */
-.print-preview-wrapper .info-table td.cust-name {
+.print-preview-wrapper .info-table .cust-name {
     font-size: 11px !important;
     font-weight: 700 !important;
 }
@@ -940,6 +983,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 // VAT/EWT 체크박스 컨트롤은 미리보기/인쇄에서 제외 (계산 결과 행은 유지)
                 const taxControls = clone.querySelector('.tax-controls');
                 if (taxControls) taxControls.remove();
+                // '미결제' 상태 배지는 인쇄/미리보기에서 제외 (화면에서는 계속 표시)
+                const unpaidBadge = clone.querySelector('#unpaid-status-badge');
+                if (unpaidBadge) unpaidBadge.remove();
+                // 명세서 제목(Transaction Statement)은 인쇄/미리보기에서 제외 (화면에서는 계속 표시)
+                const titleText = clone.querySelector('#invoice-title-text');
+                if (titleText) titleText.remove();
+                // 원가 열은 화면 전용 — 인쇄/미리보기에서는 제외
+                clone.querySelectorAll('.cost-col').forEach(function(el) { el.remove(); });
                 printPreviewContent.innerHTML = clone.outerHTML;
                 printModal.classList.remove('hidden');
                 document.body.style.overflow = 'hidden';
@@ -1135,7 +1186,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         table th { font-size: 9px !important; padding: 3px 5px !important; }
                         table td { font-size: 9px !important; padding: 3px 5px !important; }
                         .info-table th, .info-table td { font-size: 9px !important; padding: 3px 5px !important; }
-                        .info-table td.cust-name { font-size: 11px !important; font-weight: 700 !important; }
+                        .info-table .cust-name { font-size: 11px !important; font-weight: 700 !important; }
                         .invoice-logo { text-align: center !important; margin-bottom: 8px !important; }
                         .invoice-logo img { height: 55px !important; display: inline-block !important; }
                         .payment-table { width: 100% !important; table-layout: fixed !important; }
@@ -1355,7 +1406,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /* 거래처명 강조 (+2px, 볼드) */
-    .info-table td.cust-name {
+    .info-table .cust-name {
         font-size: 11px !important;
         font-weight: 700 !important;
     }
@@ -1369,16 +1420,6 @@ document.addEventListener('DOMContentLoaded', function() {
         height: 55px !important;
         display: inline-block !important;
     }
-    
-    /* 정보 테이블 컬럼 너비 고정 */
-    .info-table th:nth-child(1),
-    .info-table td:nth-child(1) { width: 10% !important; } /* 거래처 */
-    .info-table th:nth-child(2),
-    .info-table td:nth-child(2) { width: 40% !important; } /* 거래처명 */
-    .info-table th:nth-child(3),
-    .info-table td:nth-child(3) { width: 10% !important; } /* 거래일자 */
-    .info-table th:nth-child(4),
-    .info-table td:nth-child(4) { width: 40% !important; } /* 날짜 */
     
     /* 푸터 */
     #invoice-content .text-center.text-xs {

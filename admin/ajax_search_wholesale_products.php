@@ -105,6 +105,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } else {
                 // 검색 요청 - 도매상품 + 미등록 일반상품
+                // 거래처의 해당 상품 최근 납품 이력 (취소 제외, 최신 1건)
+                $last_sale_date_expr = "
+                    (SELECT ws_ls.sale_date FROM wholesale_sale_items wsi_ls
+                     JOIN wholesale_sales ws_ls ON wsi_ls.sale_id = ws_ls.id
+                     WHERE wsi_ls.product_id = p.id AND ws_ls.customer_id = ? AND ws_ls.status != 'cancelled'
+                     ORDER BY ws_ls.sale_date DESC, ws_ls.id DESC LIMIT 1)";
+                $last_sale_price_expr = "
+                    (SELECT wsi_ls.unit_price FROM wholesale_sale_items wsi_ls
+                     JOIN wholesale_sales ws_ls ON wsi_ls.sale_id = ws_ls.id
+                     WHERE wsi_ls.product_id = p.id AND ws_ls.customer_id = ? AND ws_ls.status != 'cancelled'
+                     ORDER BY ws_ls.sale_date DESC, ws_ls.id DESC LIMIT 1)";
+
                 $sql = "
                     (
                         SELECT DISTINCT
@@ -128,7 +140,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             i.cost_price,
                             i.selling_price,
                             p.pieces_per_box as product_pieces_per_box,
-                            1 as sort_priority
+                            1 as sort_priority,
+                            {$last_sale_date_expr} as last_sale_date,
+                            {$last_sale_price_expr} as last_sale_price
                         FROM wholesale_products wp
                         INNER JOIN products p ON p.id = wp.product_id
                         LEFT JOIN inventory i ON wp.product_id = i.product_id AND wp.store_id = i.store_id
@@ -137,8 +151,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             AND p.is_active = 1
                             " . ($store_id ? "AND wp.store_id = ?" : "") . "
                             AND (
-                                p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ? 
-                                OR wp.wholesale_name_ko LIKE ? OR wp.wholesale_name_en LIKE ? 
+                                p.sku LIKE ? OR p.name_ko LIKE ? OR p.name_en LIKE ?
+                                OR wp.wholesale_name_ko LIKE ? OR wp.wholesale_name_en LIKE ?
                                 OR wp.wholesale_skus LIKE ?
                             )
                     )
@@ -165,7 +179,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             MAX(i.cost_price) as cost_price,
                             MAX(i.selling_price) as selling_price,
                             p.pieces_per_box as product_pieces_per_box,
-                            2 as sort_priority
+                            2 as sort_priority,
+                            {$last_sale_date_expr} as last_sale_date,
+                            {$last_sale_price_expr} as last_sale_price
                         FROM products p
                         LEFT JOIN inventory i ON p.id = i.product_id" . ($store_id ? " AND i.store_id = ?" : "") . "
                         WHERE p.is_active = 1
@@ -178,20 +194,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             )
                         GROUP BY p.id, p.sku, p.name_ko, p.name_en, p.pieces_per_box
                     )
-                    ORDER BY 
+                    ORDER BY
                         sort_priority ASC,
-                        CASE 
-                            WHEN sku LIKE ? THEN 1 
-                            WHEN display_name_en LIKE ? THEN 2 
-                            WHEN display_name_ko LIKE ? THEN 3 
-                            ELSE 4 
+                        CASE
+                            WHEN sku LIKE ? THEN 1
+                            WHEN display_name_en LIKE ? THEN 2
+                            WHEN display_name_ko LIKE ? THEN 3
+                            ELSE 4
                         END,
-                        display_name_en ASC, 
+                        display_name_en ASC,
                         display_name_ko ASC
                     LIMIT " . (int)$limit . "
                 ";
-                
+
                 $params = [];
+                $params[] = $customer_id; // 첫 SELECT 의 last_sale_date 서브쿼리
+                $params[] = $customer_id; // 첫 SELECT 의 last_sale_price 서브쿼리
                 if ($use_cust) {
                     $params[] = $customer_id; // 첫 SELECT 의 wcp JOIN
                 }
@@ -202,6 +220,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $search_query, $search_query, $search_query, // 등록된 도매상품 검색 - 기본 상품
                     $search_query, $search_query, $search_query, // 등록된 도매상품 검색 - 도매 상품
                 ]);
+                $params[] = $customer_id; // 두번째 SELECT 의 last_sale_date 서브쿼리
+                $params[] = $customer_id; // 두번째 SELECT 의 last_sale_price 서브쿼리
                 if ($store_id) {
                     $params[] = $store_id; // 미등록 상품 inventory JOIN store_id
                 }

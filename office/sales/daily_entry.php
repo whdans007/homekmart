@@ -21,6 +21,20 @@ $stmt->execute();
 $existing = $stmt->get_result()->fetch_assoc() ?? [];
 $stmt->close();
 $preload = pos_preload_date($conn, $store_id, $date);
+
+// 그 날짜의 전체 매출: Whole Sale(도매) + Delivery K — POS 셀 선택 여부와 무관하게 등록된 전체 합계
+$stmt = $conn->prepare("SELECT COALESCE(SUM(final_amount),0) AS t FROM wholesale_sales WHERE store_id=? AND sale_date=? AND status != 'cancelled'");
+$stmt->bind_param('is', $store_id, $date);
+$stmt->execute();
+$wholesale_day_total = (float)($stmt->get_result()->fetch_assoc()['t'] ?? 0);
+$stmt->close();
+
+$stmt = $conn->prepare("SELECT COALESCE(SUM(amount),0) AS t FROM sales_daily_items WHERE store_id=? AND sale_date=? AND item_type='delivery_k'");
+$stmt->bind_param('is', $store_id, $date);
+$stmt->execute();
+$delivery_k_day_total = (float)($stmt->get_result()->fetch_assoc()['t'] ?? 0);
+$stmt->close();
+
 $conn->close();
 
 $saved    = !empty($existing);
@@ -135,10 +149,24 @@ $shifts = [
   </table>
 </div>
 
-<div class="s-card px-5 py-4 flex items-center justify-between" style="background:#16a34a">
-  <div><div class="text-xs" style="color:#bbf7d0">DAY TOTAL <span style="color:#86efac">(deposit + other + expenses + POS credit)</span></div>
-    <div id="day_total" class="text-2xl font-bold text-white num">₱ 0.00</div></div>
-  <div class="text-xs" style="color:#bbf7d0">6 cells</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+  <div class="s-card px-5 py-4 flex items-center justify-between" style="background:#16a34a">
+    <div><div class="text-xs" style="color:#bbf7d0">POS TOTAL <span style="color:#86efac">(deposit + other + expenses + POS credit)</span></div>
+      <div id="day_total" class="text-2xl font-bold text-white num">₱ 0.00</div></div>
+    <div class="text-xs" style="color:#bbf7d0">6 cells</div>
+  </div>
+  <div class="s-card px-5 py-4" style="background:#4338ca">
+    <div class="text-xs" style="color:#c7d2fe">WHOLE SALE <span style="color:#a5b4fc">(그 날 전체)</span></div>
+    <div id="ws_day_total" class="text-2xl font-bold text-white num">₱ 0.00</div>
+  </div>
+  <div class="s-card px-5 py-4" style="background:#1d4ed8">
+    <div class="text-xs" style="color:#bfdbfe">DELIVERY K <span style="color:#93c5fd">(그 날 전체)</span></div>
+    <div id="dk_day_total" class="text-2xl font-bold text-white num">₱ 0.00</div>
+  </div>
+</div>
+<div class="s-card px-5 py-4 flex items-center justify-between mb-4" style="background:#0f172a">
+  <div><div class="text-xs" style="color:#94a3b8">GRAND TOTAL <span style="color:#64748b">(POS + Whole Sale + Delivery K)</span></div>
+    <div id="grand_day_total" class="text-2xl font-bold text-white num">₱ 0.00</div></div>
 </div>
 
 <!-- ===== MODAL (v10) ===== -->
@@ -308,13 +336,14 @@ const DENOMS = [1000,500,200,100,50,20,10,5,1];
 const RETAIN_PRIORITY = [100,50,20,10,5,1,200,500,1000];
 const START_TARGET = 10000;
 const METHODS = [
-  {key:'card',        label:'Credit/Debit Card', icon:'fa-solid fa-credit-card',     bg:'#eff6ff', fg:'#2563eb'},
+  {key:'credit_card', label:'Credit Card', icon:'fa-solid fa-credit-card',           bg:'#eff6ff', fg:'#2563eb'},
+  {key:'debit_card',  label:'Debit Card',  icon:'fa-solid fa-credit-card',           bg:'#eff6ff', fg:'#0284c7'},
   {key:'gcash',       label:'Gcash',       icon:'fa-solid fa-mobile-screen-button',  bg:'#eef2ff', fg:'#4f46e5'},
   {key:'paymaya',     label:'PayMaya',     icon:'fa-solid fa-wallet',                bg:'#f0fdfa', fg:'#0d9488'},
   {key:'phqr',        label:'PhQR',        icon:'fa-solid fa-qrcode',                bg:'#f5f3ff', fg:'#7c3aed'}
 ];
-// 과거 저장분 하위호환: credit_card/debit_card 로 저장된 기존 데이터를 합쳐진 'card' 항목으로 매핑
-const METHOD_KEY_ALIAS = {credit_card:'card', debit_card:'card'};
+// 과거 저장분 하위호환: 합쳐진 'card' 로 저장된 기존 데이터는 Credit Card 항목으로 표시.
+const METHOD_KEY_ALIAS = {card:'credit_card'};
 // Expenses 고정 카테고리. key = DB 저장 detail(변경 금지·기존 데이터 호환), label = 화면/인쇄 영문 표기.
 const EXPENSE_CATS = [
   {key:'반품', label:'Returns'},
@@ -333,6 +362,8 @@ const EXPENSE_CATS = [
 const SHIFT_LABEL = {gy:'GY', morning:'Morning', mid:'Mid'};
 const SHIFT_TIME  = {gy:'12AM–8AM', morning:'8AM–5PM', mid:'5PM–12AM'};
 let PRELOAD = <?php echo json_encode($preload, JSON_UNESCAPED_UNICODE); ?>;
+const WHOLESALE_DAY_TOTAL   = <?php echo json_encode($wholesale_day_total); ?>;
+const DELIVERY_K_DAY_TOTAL  = <?php echo json_encode($delivery_k_day_total); ?>;
 let CUR = null;
 let WS_CAND = null;          // 후보 캐시 (거래명세서 credit_doc + wholesale 혼합)
 let CREDIT_COMPANIES = [];   // [POS] 버튼 외상 등록용 거래처 목록 (credit_customers)
@@ -388,7 +419,13 @@ function renderGrid(){
           const sign=os>0?'+':(os<0?'−':'');
           badge=`<div class="badge-os ${cls}">${sign}${fmt(Math.abs(os))}</div>`;
         }
-        td.innerHTML=`<button class="cell-btn filled" onclick="openCell('${sk}',${p})"><div class="cell-total">${peso(tot)}</div>${badge}<div style="font-size:10px;color:#94a3b8;margin-top:2px">Edit · <i class="fa-solid fa-print"></i></div></button>`;
+        // 그 셀에 실제 선택(pick)된 Whole Sale / Delivery K 금액 — 참고 표시(POS 총 매출에는 미포함)
+        const wsAmt=(d.wholesale||[]).filter(w=>w.source_type==='wholesale').reduce((s,w)=>s+(parseFloat(w.amount)||0),0);
+        const dkAmt=(d.wholesale||[]).filter(w=>w.source_type==='delivery_k').reduce((s,w)=>s+(parseFloat(w.amount)||0),0);
+        let extra='';
+        if(wsAmt>0) extra+=`<div style="font-size:10px;color:#4338ca;margin-top:2px">WS ${fmt(wsAmt)}</div>`;
+        if(dkAmt>0) extra+=`<div style="font-size:10px;color:#1d4ed8;margin-top:1px">DK ${fmt(dkAmt)}</div>`;
+        td.innerHTML=`<button class="cell-btn filled" onclick="openCell('${sk}',${p})"><div class="cell-total">${peso(tot)}</div>${badge}${extra}<div style="font-size:10px;color:#94a3b8;margin-top:2px">Edit · <i class="fa-solid fa-print"></i></div></button>`;
       } else {
         td.innerHTML=`<button class="cell-btn" onclick="openCell('${sk}',${p})"><div class="cell-empty"><i class="fa-solid fa-plus"></i> Enter</div></button>`;
       }
@@ -396,6 +433,9 @@ function renderGrid(){
     document.getElementById('sub_'+sk).textContent=fmt(sub);
   }
   document.getElementById('day_total').textContent=peso(day);
+  document.getElementById('ws_day_total').textContent=peso(WHOLESALE_DAY_TOTAL);
+  document.getElementById('dk_day_total').textContent=peso(DELIVERY_K_DAY_TOTAL);
+  document.getElementById('grand_day_total').textContent=peso(day+WHOLESALE_DAY_TOTAL+DELIVERY_K_DAY_TOTAL);
 }
 
 // ── open ──
@@ -416,7 +456,7 @@ function openCell(shift,pos){
   });
   document.getElementById('m-cash-body').innerHTML=body;
 
-  // payments → entries (과거 credit_card/debit_card 저장분은 병합된 'card' 항목으로 합산)
+  // payments → entries (과거 병합 'card' 저장분은 Credit Card 항목으로 표시)
   entries={}; METHODS.forEach(m=>entries[m.key]=[]);
   (d.payments||[]).forEach(p=>{
     const key=METHOD_KEY_ALIAS[p.method]||p.method;
@@ -439,7 +479,7 @@ function openCell(shift,pos){
     const sid=String(w.source_id);
     const obj={source_type:w.source_type, source_id:sid, client:w.client||'', remark:w.remark||'', amount:parseFloat(w.amount)||0,
                isDoc:isDoc, isPos:isCredit};
-    if(w.source_type==='wholesale') wsPicked.push(obj); else sccPicked.push(obj); // credit/credit_doc/delivery_k → 섹션4
+    if(w.source_type==='wholesale' || w.source_type==='delivery_k') wsPicked.push(obj); else sccPicked.push(obj); // credit/credit_doc → 섹션4
   });
   loadWSOptions();
 
@@ -521,9 +561,10 @@ function buildSelects(){
   const wsSel =document.getElementById('m-ws-select');  wsSel.innerHTML ='<option value="">— Select —</option>';
   items.forEach((it,idx)=>{
     const k=it.source_type+':'+it.source_id;
-    if(it.source_type==='wholesale'){
+    if(it.source_type==='wholesale' || it.source_type==='delivery_k'){
       if(wsPicked.some(w=>w.source_type+':'+w.source_id===k)) return;
-      const o=document.createElement('option'); o.value=idx; o.textContent=(it.client||it.remark||'Whole Sale')+' — '+peso(it.amount); wsSel.appendChild(o);
+      const label=it.source_type==='delivery_k' ? 'Delivery K: '+(it.remark||'Delivery K') : (it.client||it.remark||'Whole Sale');
+      const o=document.createElement('option'); o.value=idx; o.textContent=label+' — '+peso(it.amount); wsSel.appendChild(o);
     } else if(it.source_type==='credit_doc'){ // admin 거래명세서 → 섹션4 (금액 preset)
       if(sccPicked.some(w=>w.source_type+':'+w.source_id===k)) return;
       const o=document.createElement('option'); o.value=idx; o.textContent=(it.client||it.remark||'Credit')+' — '+peso(it.amount); sccSel.appendChild(o);
@@ -610,7 +651,10 @@ function renderWS(){
   if(!wsPicked.length){ list.innerHTML='<div style="font-size:12px;color:#cbd5e1;font-style:italic;padding:2px">No items selected</div>'; }
   wsPicked.forEach(w=>{
     const row=document.createElement('div'); row.className='ws-row';
-    row.innerHTML=`<span class="chip" style="background:#e0e7ff;color:#4338ca">Whole Sale</span>
+    const chip=w.source_type==='delivery_k'
+      ? '<span class="chip" style="background:#dbeafe;color:#1d4ed8">Delivery K</span>'
+      : '<span class="chip" style="background:#e0e7ff;color:#4338ca">Whole Sale</span>';
+    row.innerHTML=`${chip}
       <span style="flex:1;color:#374151">${esc(w.client||w.remark||'—')}</span>
       <span class="num font-medium text-gray-800">${peso(w.amount)}</span>
       <button class="mini" onclick="removeWS('${w.source_type}:${w.source_id}')"><i class="fa-solid fa-xmark"></i></button>`;
@@ -663,7 +707,9 @@ function recalc(){
   // 7. Manual DR = 4번 거래명세서(credit_doc) + 5번 Whole Sale (참고·기록용, 시제 매출과 별도 합산)
   const mdrItems=sccPicked.filter(w=>w.isDoc)
       .map(w=>({tag:'거래명세서',bg:'#dcfce7',fg:'#166534',name:w.client||w.remark||'—',amount:w.amount||0}))
-    .concat(wsPicked.map(w=>({tag:'Whole Sale',bg:'#e0e7ff',fg:'#4338ca',name:w.client||w.remark||'—',amount:w.amount||0})));
+    .concat(wsPicked.map(w=>w.source_type==='delivery_k'
+      ? {tag:'Delivery K',bg:'#dbeafe',fg:'#1d4ed8',name:w.client||w.remark||'—',amount:w.amount||0}
+      : {tag:'Whole Sale',bg:'#e0e7ff',fg:'#4338ca',name:w.client||w.remark||'—',amount:w.amount||0}));
   let mdrHtml='';
   if(!mdrItems.length){ mdrHtml='<div style="font-size:12px;color:#cbd5e1;font-style:italic;padding:2px">No items</div>'; }
   else mdrItems.forEach(it=>{ mdrHtml+=`<div class="ws-row"><span class="chip" style="background:${it.bg};color:${it.fg}">${it.tag}</span><span style="flex:1;color:#374151">${esc(it.name)}</span><span class="num font-medium text-gray-800">${peso(it.amount)}</span></div>`; });

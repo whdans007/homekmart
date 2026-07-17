@@ -44,6 +44,9 @@ try {
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $store['name'] = trim($_POST['name'] ?? '');
     $store['company_name'] = trim($_POST['company_name'] ?? '');
+    $store['phone'] = trim($_POST['phone'] ?? '');
+    $store['address'] = trim($_POST['address'] ?? '');
+    $store['bank_account'] = trim($_POST['bank_account'] ?? '');
 
     if (empty($store['name'])) {
         $errors[] = "지점명을 입력해주세요.";
@@ -56,8 +59,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if ($stmt->fetch()) {
                 $errors[] = "이미 존재하는 지점명입니다.";
             } else {
-                $update_stmt = $pdo->prepare("UPDATE stores SET name = ?, company_name = ? WHERE id = ?");
-                $update_stmt->execute([$store['name'], $store['company_name'] !== '' ? $store['company_name'] : null, $store_id]);
+                $update_stmt = $pdo->prepare("UPDATE stores SET name = ?, company_name = ?, phone = ?, address = ?, bank_account = ? WHERE id = ?");
+                $update_stmt->execute([
+                    $store['name'],
+                    $store['company_name'] !== '' ? $store['company_name'] : null,
+                    $store['phone'] !== '' ? $store['phone'] : null,
+                    $store['address'] !== '' ? $store['address'] : null,
+                    $store['bank_account'] !== '' ? $store['bank_account'] : null,
+                    $store_id,
+                ]);
 
                 $_SESSION['flash'] = ['type' => 'success', 'message' => "지점 정보가 성공적으로 수정되었습니다."];
                 header("Location: store_management.php");
@@ -111,6 +121,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <label for="company_name" class="block text-sm font-medium text-gray-700">실제 회사명 (상호)</label>
             <input type="text" id="company_name" name="company_name" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" value="<?php echo htmlspecialchars($store['company_name'] ?? ''); ?>" placeholder="사업자등록상 상호 / 법인명">
             <p class="mt-1 text-xs text-gray-500">세금계산서 등에 사용되는 실제 회사명을 입력하세요.</p>
+        </div>
+        <div class="mt-6">
+            <label for="phone" class="block text-sm font-medium text-gray-700">전화번호</label>
+            <input type="text" id="phone" name="phone" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" value="<?php echo htmlspecialchars($store['phone'] ?? ''); ?>" placeholder="지점 전화번호">
+        </div>
+        <div class="mt-6">
+            <label for="address" class="block text-sm font-medium text-gray-700">주소</label>
+            <input type="text" id="address" name="address" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" value="<?php echo htmlspecialchars($store['address'] ?? ''); ?>" placeholder="지점 주소">
+        </div>
+        <div class="mt-6">
+            <label for="bank_account" class="block text-sm font-medium text-gray-700">계좌번호</label>
+            <input type="text" id="bank_account" name="bank_account" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" value="<?php echo htmlspecialchars($store['bank_account'] ?? ''); ?>" placeholder="은행명 및 계좌번호">
         </div>
     </div>
 

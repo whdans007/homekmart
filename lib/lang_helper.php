@@ -10,7 +10,7 @@
 
 // 기본 언어 설정
 if (!isset($_SESSION['language'])) {
-    $_SESSION['language'] = 'ko';
+    $_SESSION['language'] = 'en';
 }
 
 // 번역 캐시
@@ -114,7 +114,7 @@ function t($key, $params = []) {
  * @return string 언어 코드
  */
 function get_language() {
-    return $_SESSION['language'] ?? 'ko';
+    return $_SESSION['language'] ?? 'en';
 }
 
 /**

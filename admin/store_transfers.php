@@ -1137,10 +1137,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         <!-- 수량 -->
                         <td class="px-2 py-3 text-center">
-                            <input type="number" 
-                                   class="w-20 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
+                            <input type="number"
+                                   class="w-20 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                                    value="${item.quantity}"
-                                   min="1"
+                                   min="0.01"
+                                   step="0.01"
                                    onchange="updateQuantityDirect(${index}, this.value)"
                                    onblur="updateQuantityDirect(${index}, this.value)">
                         </td>
@@ -1224,8 +1225,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 수량 직접 입력
     window.updateQuantityDirect = function(index, value) {
-        const newQuantity = parseInt(value) || 1;
-        
+        const newQuantity = Math.round((parseFloat(value) || 0) * 100) / 100;
+
         if (newQuantity <= 0) {
             cart.splice(index, 1);
         } else {
@@ -1434,7 +1435,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     name_en: item.name_en,
                     unit_cost_price: parseFloat(item.unit_cost_price),
                     price_type: item.price_type || 'box',
-                    quantity: parseInt(item.quantity),
+                    quantity: parseFloat(item.quantity),
                     pieces_per_box: parseInt(item.pieces_per_box) || 1,
                     total_price: parseFloat(item.total_price),
                     remarks: item.remarks || ''
