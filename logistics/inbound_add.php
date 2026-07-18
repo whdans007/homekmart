@@ -3,6 +3,7 @@ $page_title = 'Register Inbound - Logistics Center';
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/unit_helper.php'; // Design Ref: box-pcs-unit §4.3
+require_once __DIR__ . '/lib/inventory_helper.php'; // 신규 입고 시 음수 LOT 재조정용
 
 lc_require_staff();
 
@@ -250,6 +251,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 $st2->execute();
                 $st2->close();
+
+                // 신규 재고가 들어왔으니 과거에 재고 부족으로 음수 처리된 LOT이 있다면 재조정
+                if ($sellable_qty > 0) {
+                    lc_rebalance_negative_lots($conn, $item['product_id']);
+                }
 
                 // Design Ref: inbound-damage-registration.design.md §3.3 — 파손 이력 기록
                 if ($item['damaged_qty'] > 0) {
