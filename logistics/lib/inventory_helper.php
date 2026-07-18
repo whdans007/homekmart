@@ -337,6 +337,65 @@ function lc_fefo_preview_allow_negative(mysqli $conn, int $product_id, int $qty_
 }
 
 /**
+ * Design Ref: 음수 LOT 자동 재조정 — 신규 입고 등록 직후 호출.
+ * lc_fifo_ship_allow_negative()는 재고 부족분을 당시 존재하던 LOT에 음수로 기록하는데,
+ * 그 뒤 새 입고가 들어와도 과거 음수는 저절로 정리되지 않아 LOT별 화면에 마이너스 재고가
+ * 영구히 남는다. 새 입고가 등록될 때마다 상품의 음수 LOT들을 찾아 quantity_out을
+ * FEFO 순서(유통기한 ASC, id ASC)로 다른 양수 LOT에 이전한다.
+ * quantity_in은 건드리지 않고 LOT 간 quantity_out만 옮기므로 상품 전체 재고 합계는 불변.
+ * 반드시 트랜잭션 내에서, 신규 lc_inventory 행 삽입 직후 호출할 것.
+ */
+function lc_rebalance_negative_lots(mysqli $conn, int $product_id): void {
+    $stmt = $conn->prepare(
+        "SELECT id, quantity_remain FROM lc_inventory
+         WHERE product_id = ? AND quantity_remain < 0
+         ORDER BY expiry_date ASC, id ASC
+         FOR UPDATE"
+    );
+    $stmt->bind_param('i', $product_id);
+    $stmt->execute();
+    $negatives = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    if (!$negatives) return;
+
+    foreach ($negatives as $neg) {
+        $shortfall = -(int)$neg['quantity_remain'];
+        if ($shortfall <= 0) continue;
+        $neg_id = (int)$neg['id'];
+
+        $stmt = $conn->prepare(
+            "SELECT id, quantity_remain FROM lc_inventory
+             WHERE product_id = ? AND id <> ? AND quantity_remain > 0
+             ORDER BY expiry_date ASC, id ASC
+             FOR UPDATE"
+        );
+        $stmt->bind_param('ii', $product_id, $neg_id);
+        $stmt->execute();
+        $positives = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+
+        $remaining = $shortfall;
+        foreach ($positives as $pos) {
+            if ($remaining <= 0) break;
+            $move = min($remaining, (int)$pos['quantity_remain']);
+            $pos_id = (int)$pos['id'];
+
+            $u1 = $conn->prepare("UPDATE lc_inventory SET quantity_out = quantity_out - ? WHERE id = ?");
+            $u1->bind_param('ii', $move, $neg_id);
+            $u1->execute();
+            $u1->close();
+
+            $u2 = $conn->prepare("UPDATE lc_inventory SET quantity_out = quantity_out + ? WHERE id = ?");
+            $u2->bind_param('ii', $move, $pos_id);
+            $u2->execute();
+            $u2->close();
+
+            $remaining -= $move;
+        }
+    }
+}
+
+/**
  * 상품별 재고 합계.
  */
 function lc_get_stock(mysqli $conn, int $product_id): int {
