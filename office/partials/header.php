@@ -186,7 +186,6 @@ aside .menu-item { font-size: 11px; padding-top: 4px; padding-bottom: 4px; }
       <p class="menu-section-header flex items-center justify-between px-2 py-1 mb-1 text-xs font-semibold uppercase tracking-wider rounded cursor-pointer" data-section="sales" style="background:#dbeafe;color:#1d4ed8;" title="Click to toggle">Sales <span class="menu-toggle-icon font-bold text-sm">-</span></p>
       <?php nav_link($office_nav_base.'sales/monthly_report.php', 'fa-solid fa-chart-bar', 'Sales Report', $is_sales && !$is_pos && !$is_pos2 && !$is_dk && !$is_ws && !$is_credit && !$is_transfer, 'sales'); ?>
       <?php nav_link($office_nav_base.'sales/daily_entry.php?date='.$_nav_today, 'fa-solid fa-cash-register', 'POS', $is_pos, 'sales'); ?>
-      <?php nav_link($office_nav_base.'sales/pos2_entry.php?date='.$_nav_today, 'fa-solid fa-keyboard', 'POS 2', $is_pos2, 'sales'); ?>
       <?php nav_link($office_nav_base.'sales/dk_entry.php?date='.$_nav_today, 'fa-solid fa-motorcycle', 'Delivery K', $is_dk, 'sales'); ?>
       <?php nav_link($office_nav_base.'sales/ws_entry.php?date='.$_nav_today, 'fa-solid fa-boxes-stacked', 'Whole Sale', $is_ws, 'sales'); ?>
       <?php nav_link($office_nav_base.'sales/credit_entry.php?year='.$_nav_year.'&month='.$_nav_month, 'fa-solid fa-file-invoice-dollar', 'Credit Sale', $is_credit, 'sales'); ?>

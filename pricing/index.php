@@ -1,21 +1,44 @@
 <?php
+require_once __DIR__ . '/../lib/session_helper.php';
 require_once __DIR__ . '/../config/db_config.php';
 
 $stores = [];
+// 로그인한 사용자의 소속 점포 (헤더와 동일한 조회 패턴: users.store_id → stores)
+$sessionStoreId = 0;
 try {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
     $pdo = new PDO($dsn, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
     // is_active 컬럼이 없는 환경도 안전하게 처리 (다른 admin 페이지와 동일한 쿼리 패턴)
     $stores = $pdo->query("SELECT id, name FROM stores ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
+    if (is_logged_in()) {
+        $st = $pdo->prepare("SELECT store_id FROM users WHERE id = ?");
+        $st->execute([$_SESSION['user_id']]);
+        $sessionStoreId = (int)($st->fetchColumn() ?: 0);
+        if ($sessionStoreId) {
+            // 세션 store_id를 DB 값으로 강제 동기화 (변조 방지, office 헤더와 동일 패턴)
+            $_SESSION['store_id'] = $sessionStoreId;
+        }
+    }
 } catch (Throwable $e) {
     error_log('pricing/index.php stores query error: ' . $e->getMessage());
 }
-// id > 0 인 첫 번째 점포를 기본값으로 (id=0 방어)
+
+// 기본 점포: 로그인 사용자의 소속 점포 우선, 없으면 id > 0 인 첫 번째 점포 (id=0 방어)
 $defaultStore = 0;
-foreach ($stores as $s) {
-    if ((int)$s['id'] > 0) { $defaultStore = (int)$s['id']; break; }
+if ($sessionStoreId) {
+    foreach ($stores as $s) {
+        if ((int)$s['id'] === $sessionStoreId) { $defaultStore = $sessionStoreId; break; }
+    }
+}
+if (!$defaultStore) {
+    foreach ($stores as $s) {
+        if ((int)$s['id'] > 0) { $defaultStore = (int)$s['id']; break; }
+    }
 }
 if (!$defaultStore) $defaultStore = 1;
+// 로그인 사용자의 점포가 유효하게 반영된 경우, 클라이언트에서 저장된 점포 선택을 무시하고 항상 이 점포를 사용
+$forceSessionStore = ($sessionStoreId > 0 && $defaultStore === $sessionStoreId);
 ?><!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -24,10 +47,11 @@ if (!$defaultStore) $defaultStore = 1;
   <title>가격 조회 / 라벨 출력</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.2.1/umd/zxing-browser.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; overflow: hidden; }
-    body { display: flex; flex-direction: column; background: #0f172a; font-family: 'Segoe UI', Arial, 'Malgun Gothic', sans-serif; }
+    body { display: flex; flex-direction: column; background: #0f172a; font-family: 'Segoe UI', Arial, 'Malgun Gothic', sans-serif; word-break: keep-all; overflow-wrap: break-word; }
 
     /* ── 헤더 ── */
     #appHeader {
@@ -236,6 +260,41 @@ if (!$defaultStore) $defaultStore = 1;
       transition: background 0.15s;
     }
     .lookup-search-btn:hover { background: #0284c7; }
+    /* 카메라 바코드 스캔 버튼 (모바일 전용) */
+    .lookup-scan-btn {
+      display: none; background: #16a34a; color: #fff; border: none; border-radius: 8px;
+      width: 42px; height: 42px; align-items: center; justify-content: center;
+      font-size: 17px; cursor: pointer; transition: background 0.15s; flex-shrink: 0;
+    }
+    .lookup-scan-btn:hover { background: #15803d; }
+
+    /* ── 카메라 바코드 스캐너 모달 ── */
+    #scannerOverlay {
+      display: none; position: fixed; inset: 0; z-index: 6000; background: #000;
+    }
+    #scannerOverlay.open { display: block; }
+    #scannerVideo {
+      width: 100%; height: 100%; object-fit: cover; background: #000;
+    }
+    .scanner-frame {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 78%; max-width: 420px; height: 130px;
+      border: 3px solid #38bdf8; border-radius: 14px;
+      box-shadow: 0 0 0 2000px rgba(0,0,0,0.45);
+      pointer-events: none;
+    }
+    .scanner-close-btn {
+      position: absolute; top: max(16px, env(safe-area-inset-top)); right: 16px;
+      width: 42px; height: 42px; border-radius: 50%;
+      background: rgba(15,23,42,0.75); border: 1px solid #334155; color: #f1f5f9;
+      font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      z-index: 2;
+    }
+    #scannerStatus {
+      position: absolute; left: 0; right: 0; bottom: max(28px, env(safe-area-inset-bottom));
+      text-align: center; color: #f1f5f9; font-size: 14px; font-weight: 600;
+      padding: 0 24px; text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    }
 
     /* 가격 표시 영역 */
     #lookupDisplay {
@@ -512,6 +571,78 @@ if (!$defaultStore) $defaultStore = 1;
     #printScreen .suggest-item .si-name-ko { color: #94a3b8; }
     #printScreen .suggest-item .si-price { color: #38bdf8; }
     #printScreen .suggest-empty { color: #475569; }
+
+    /* ══════════ 모바일 반응형 ══════════ */
+    @media (max-width: 768px) {
+      #appHeader {
+        height: auto; min-height: 56px;
+        flex-direction: column; align-items: stretch;
+        padding: 10px 12px; gap: 8px;
+      }
+      .header-brand { font-size: 20px; text-align: center; order: 1; }
+      .header-center {
+        position: static !important; left: auto !important; transform: none !important;
+        order: 2; width: 100%; justify-content: center; gap: 8px;
+      }
+      .header-right {
+        order: 3; margin-left: 0; width: 100%;
+        justify-content: center; flex-wrap: wrap; gap: 8px;
+      }
+      .mode-btn {
+        flex: 1 1 0; min-width: 0; padding: 10px 8px; font-size: 13px;
+        border-radius: 8px; white-space: nowrap; word-break: keep-all;
+      }
+      .lang-toggle { margin-right: 0; }
+      .lang-btn { padding: 6px 10px; font-size: 11px; white-space: nowrap; }
+      #storeDisplay { font-size: 11px; padding: 5px 8px !important; gap: 4px !important; white-space: nowrap; }
+      #settingsBtn { padding: 6px 10px; font-size: 12px; margin-left: 0 !important; white-space: nowrap; }
+
+      /* 가격 조회 화면 */
+      #lookupInputBar { padding: 10px 12px; }
+      #lookupInput { font-size: 16px; padding: 10px 12px; }
+      .lookup-scan-btn { display: flex; }
+      #lookupResult { max-width: 100%; border-radius: 14px; }
+      #lookupResult .result-top { padding: 18px 20px 14px; }
+      #lookupResult .result-name-en { font-size: 22px; }
+      #lookupResult .result-name-ko { font-size: 14px; }
+      #lookupResult .result-bottom { padding: 18px 20px; }
+      #lookupResult .result-price { font-size: 44px; letter-spacing: -1px; }
+      #lookupResult .result-price.no-price { font-size: 26px; }
+      #lookupResult .result-currency { font-size: 18px; padding-bottom: 8px; }
+      #lookupIdle .idle-icon { font-size: 56px; margin-bottom: 10px; }
+      #lookupIdle .idle-text { font-size: 17px; }
+      #lookupIdle .idle-sub { font-size: 12px; }
+
+      /* 가격표 출력 화면 */
+      #printScreen .ps-inner { padding: 12px 14px; }
+      .ps-card { padding: 14px; border-radius: 12px; margin-bottom: 12px; }
+      .toggle-group button { padding: 6px 12px; font-size: 12px; }
+      .discount-sticker-btn { padding: 6px 10px; font-size: 12px; }
+      #printInput { font-size: 16px; }
+      .ps-table th, .ps-table td { padding: 6px 8px; font-size: 12px; }
+      .qty-inp { width: 36px; }
+
+      /* 환경설정 모달 */
+      #settingsModal { width: 96vw; }
+      .sm-tabs { flex-wrap: wrap; gap: 4px; padding: 10px 16px 0; }
+      .sm-body { padding: 16px; }
+      .sm-input { font-size: 16px; }
+
+      /* 히든 원가조회 / 핀 모달 */
+      #staffModal { width: 94%; padding: 24px 20px; }
+      #staffInput { font-size: 16px; }
+      #pinModal { width: 90vw; max-width: 320px; }
+    }
+
+    @media (max-width: 420px) {
+      .header-brand { font-size: 17px; }
+      .mode-btn { padding: 8px 14px; font-size: 12px; }
+      .mode-btn span { display: none; }
+      .mode-btn i { margin-right: 0 !important; font-size: 16px; }
+      #settingsBtn span { display: none; }
+      #lookupResult .result-price { font-size: 36px; }
+      #lookupResult .result-name-en { font-size: 19px; }
+    }
   </style>
 </head>
 <body>
@@ -766,6 +897,17 @@ if (!$defaultStore) $defaultStore = 1;
     <button class="lookup-search-btn" onclick="doLookup()" style="flex-shrink:0">
       <i class="fas fa-search"></i>
     </button>
+    <button class="lookup-scan-btn" onclick="openBarcodeScanner()" title="카메라로 바코드 스캔">
+      <i class="fas fa-camera"></i>
+    </button>
+  </div>
+
+  <!-- 카메라 바코드 스캐너 -->
+  <div id="scannerOverlay">
+    <video id="scannerVideo" autoplay playsinline muted></video>
+    <div class="scanner-frame"></div>
+    <button class="scanner-close-btn" onclick="closeBarcodeScanner()"><i class="fas fa-times"></i></button>
+    <div id="scannerStatus" data-i18n="scanner.status">바코드를 사각형 안에 비춰주세요</div>
   </div>
 
   <!-- 결과 표시 영역 -->
@@ -972,6 +1114,74 @@ function doLookup() {
       showLookupResult(data.product);
     })
     .catch(() => showLookupState('error', tl('error.network')));
+}
+
+// ── 카메라 바코드 스캔 ──
+let scannerReader = null;
+let scannerControls = null;
+let scannerActive = false;
+
+function openBarcodeScanner() {
+  const overlay = document.getElementById('scannerOverlay');
+  const statusEl = document.getElementById('scannerStatus');
+  overlay.classList.add('open');
+  statusEl.removeAttribute('data-i18n');
+  statusEl.textContent = tl('scanner.status');
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    statusEl.textContent = tl('scanner.unsupported');
+    return;
+  }
+  if (!window.ZXingBrowser) {
+    statusEl.textContent = tl('scanner.lib_error');
+    return;
+  }
+
+  scannerActive = true;
+  scannerReader = new ZXingBrowser.BrowserMultiFormatReader();
+  scannerReader.decodeFromConstraints(
+    {
+      video: {
+        facingMode: { ideal: 'environment' },
+        // 저해상도 스트림은 1D 바코드(EAN/UPC)를 인식하지 못하는 주 원인이라 고해상도를 요청
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 }
+      }
+    },
+    'scannerVideo',
+    (result, err) => {
+      if (!scannerActive) return;
+      if (result) {
+        const text = result.getText();
+        closeBarcodeScanner();
+        const input = document.getElementById('lookupInput');
+        input.value = text;
+        doLookup();
+      }
+      // NotFoundException은 매 프레임 스캔 실패 시 계속 발생하는 정상 흐름이므로 무시
+    }
+  ).then(controls => {
+    scannerControls = controls;
+    // 연속 자동초점 시도 (지원 기기에서만 적용되며, 미지원 기기는 조용히 무시됨)
+    if (scannerActive && controls.streamVideoConstraintsApply) {
+      try { controls.streamVideoConstraintsApply({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+    }
+  }).catch(err => {
+    statusEl.textContent = tl('scanner.camera_error') + (err && err.message ? ' (' + err.message + ')' : '');
+  });
+}
+
+function closeBarcodeScanner() {
+  scannerActive = false;
+  document.getElementById('scannerOverlay').classList.remove('open');
+  if (scannerControls) {
+    try { scannerControls.stop(); } catch (e) {}
+    scannerControls = null;
+  }
+  if (scannerReader) {
+    try { scannerReader.reset(); } catch (e) {}
+    scannerReader = null;
+  }
 }
 
 function showLookupState(state, msg, barcode) {
@@ -1844,9 +2054,14 @@ function hideSettingsMsg(id) {
 (function init(){
   const savedType   = localStorage.getItem('pricing_printType') || 'pricing';
   const savedScreen = localStorage.getItem('pricing_screen')    || 'lookup';
-  const savedStore  = (parseInt(localStorage.getItem('pricing_storeId') || '') || 0) > 0
-                      ? parseInt(localStorage.getItem('pricing_storeId'))
-                      : <?php echo $defaultStore; ?>;
+  // 로그인 사용자의 소속 점포가 확인된 경우, 저장된(다른) 점포 선택은 무시하고 항상 내 점포를 사용
+  const forceSessionStore = <?php echo $forceSessionStore ? 'true' : 'false'; ?>;
+  const savedStore  = forceSessionStore
+                      ? <?php echo $defaultStore; ?>
+                      : ((parseInt(localStorage.getItem('pricing_storeId') || '') || 0) > 0
+                        ? parseInt(localStorage.getItem('pricing_storeId'))
+                        : <?php echo $defaultStore; ?>);
+  if (forceSessionStore) localStorage.setItem('pricing_storeId', savedStore);
 
   // 점포 복원
   const matchedItem = document.querySelector(`.sm-store-item[data-id="${savedStore}"]`);
@@ -1935,6 +2150,10 @@ const i18n = {
     'lookup.error_not_found': '상품을 찾을 수 없습니다',
     'lookup.scanned_code': '스캔한 코드: ',
     'lookup.no_price': '가격 없음',
+    'scanner.status': '바코드를 사각형 안에 비춰주세요',
+    'scanner.unsupported': '이 브라우저에서는 카메라 스캔을 지원하지 않습니다',
+    'scanner.lib_error': '스캐너 라이브러리를 불러오지 못했습니다',
+    'scanner.camera_error': '카메라를 사용할 수 없습니다',
     'print.mode_label': '출력 모드',
     'print.mode_auto': '자동',
     'print.mode_manual': '수동',
@@ -2000,6 +2219,10 @@ const i18n = {
     'lookup.error_not_found': 'Product not found',
     'lookup.scanned_code': 'Scanned code: ',
     'lookup.no_price': 'No Price',
+    'scanner.status': 'Point the camera at a barcode',
+    'scanner.unsupported': 'Camera scanning is not supported on this browser',
+    'scanner.lib_error': 'Failed to load the scanner library',
+    'scanner.camera_error': 'Camera unavailable',
     'print.mode_label': 'Print Mode',
     'print.mode_auto': 'Auto',
     'print.mode_manual': 'Manual',
