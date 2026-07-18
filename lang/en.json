@@ -71,7 +71,13 @@
     "forgot_password": "Forgot Password?",
     "login_required": "Login Required",
     "invalid_credentials": "Invalid username or password",
-    "logout_success": "Successfully logged out"
+    "logout_success": "Successfully logged out",
+    "register_subtitle": "Create a new account",
+    "have_account": "Already have an account?",
+    "login_now": "Log in",
+    "store_optional": "Store (Optional)",
+    "create_account": "Create Account",
+    "register_success": "Registration complete. Redirecting to the login page in 3 seconds."
   },
   "user": {
     "management": "User Management",
@@ -739,7 +745,8 @@
     "full_name_required": "Please enter full name",
     "invalid_store": "Invalid store selected",
     "duplicate_user": "Username or email already exists",
-    "errors_occurred": "Some issues occurred"
+    "errors_occurred": "Some issues occurred",
+    "password_complexity": "Password must be at least 8 characters and include letters and numbers."
   },
   "customer": {
     "management": "Customer Management",

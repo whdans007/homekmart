@@ -9,12 +9,13 @@ require_once __DIR__ . '/../../lib/permission_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../lib/office_helper.php';
 
-// 미로그인 시 오피스 전용 Login 이동
+// 미로그인 시 admin 통합 Login 이동 (로그인 후 원래 페이지로 복귀)
 if (!is_logged_in()) {
     $pos = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/office/');
     $login_url = ($pos !== false)
-        ? substr($_SERVER['SCRIPT_NAME'], 0, $pos) . '/office/login.php'
-        : '/office/login.php';
+        ? substr($_SERVER['SCRIPT_NAME'], 0, $pos) . '/admin/login.php'
+        : '/admin/login.php';
+    $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '';
     header('Location: ' . $login_url);
     exit;
 }

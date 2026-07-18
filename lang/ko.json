@@ -71,7 +71,13 @@
     "forgot_password": "비밀번호를 잊으셨나요?",
     "login_required": "로그인이 필요합니다",
     "invalid_credentials": "아이디 또는 비밀번호가 올바르지 않습니다",
-    "logout_success": "성공적으로 로그아웃되었습니다"
+    "logout_success": "성공적으로 로그아웃되었습니다",
+    "register_subtitle": "새로운 계정을 등록하세요",
+    "have_account": "이미 계정이 있으신가요?",
+    "login_now": "로그인하기",
+    "store_optional": "소속 지점 (선택)",
+    "create_account": "계정 만들기",
+    "register_success": "회원가입이 완료되었습니다. 3초 후 로그인 페이지로 이동합니다."
   },
   "user": {
     "management": "회원관리",
@@ -770,7 +776,8 @@
     "full_name_required": "이름을 입력해주세요",
     "invalid_store": "유효하지 않은 지점입니다",
     "duplicate_user": "이미 사용 중인 아이디 또는 이메일입니다",
-    "errors_occurred": "문제가 발생했습니다"
+    "errors_occurred": "문제가 발생했습니다",
+    "password_complexity": "비밀번호는 8자 이상의 영문, 숫자를 포함해야 합니다."
   },
   "customer": {
     "management": "고객 관리",
