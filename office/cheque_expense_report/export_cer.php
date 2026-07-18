@@ -14,6 +14,27 @@ $year  = date('Y', $ts);
 $month = date('n', $ts);
 $day   = date('j', $ts);
 
+// 인쇄 제목에 사용할 실제 회사명(상호) — stores.company_name 우선, 없으면 점포명으로 대체
+$company_display = '';
+$store_id = get_office_store_id();
+if ($store_id > 0) {
+    $conn = get_db_connection();
+    $stmt = $conn->prepare("SELECT company_name, name FROM stores WHERE id = ?");
+    $stmt->bind_param('i', $store_id);
+    $stmt->execute();
+    $store_row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $conn->close();
+    $company_display = trim($store_row['company_name'] ?? '') ?: trim($store_row['name'] ?? '');
+}
+if ($company_display === '') {
+    $company_display = trim($_SESSION['store_name'] ?? '') ?: 'HOME K MART';
+}
+
+// PREPARED: 현재 접속자 / APPROVED: 해당 점포 점장(branch_manager)
+$prepared_by = trim($_SESSION['full_name'] ?? '') ?: trim($_SESSION['username'] ?? '') ?: '-';
+$approved_by = get_store_manager_name($store_id) ?: '-';
+
 function xe($s) { return htmlspecialchars((string)($s ?? ''), ENT_XML1, 'UTF-8'); }
 function xn($n) { return number_format((float)$n, 2, '.', ''); }
 function fmtD2($s) {
@@ -72,14 +93,14 @@ echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
 
   <!-- Row 1: Title (merged 2 rows × 5 cols) + PREPARED + APPROVED -->
   <Row ss:Height="30">
-    <Cell ss:MergeAcross="4" ss:MergeDown="1" ss:StyleID="title"><Data ss:Type="String">CHEQUE EXPENSE REPORT&#10;(HOME K MART <?php echo xe(strtoupper($_SESSION['store_name'] ?? 'SUNSET')); ?> CORPORATION)</Data></Cell>
+    <Cell ss:MergeAcross="4" ss:MergeDown="1" ss:StyleID="title"><Data ss:Type="String">CHEQUE EXPENSE REPORT&#10;(<?php echo xe(strtoupper($company_display)); ?>)</Data></Cell>
     <Cell ss:StyleID="prep"><Data ss:Type="String">PREPARED</Data></Cell>
     <Cell ss:StyleID="prep"><Data ss:Type="String">APPROVED</Data></Cell>
   </Row>
   <!-- Row 2: (Title continues cols 1-5) + LIZA + SIR MIN -->
   <Row ss:Height="18">
-    <Cell ss:Index="6" ss:StyleID="name"><Data ss:Type="String">LIZA</Data></Cell>
-    <Cell ss:StyleID="name"><Data ss:Type="String">SIR MIN</Data></Cell>
+    <Cell ss:Index="6" ss:StyleID="name"><Data ss:Type="String"><?php echo xe($prepared_by); ?></Data></Cell>
+    <Cell ss:StyleID="name"><Data ss:Type="String"><?php echo xe($approved_by); ?></Data></Cell>
   </Row>
   <!-- Row 3: Year / Month / Day -->
   <Row ss:Height="14">

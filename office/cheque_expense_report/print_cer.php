@@ -18,6 +18,27 @@ $year  = date('Y', $ts);
 $month = date('n', $ts);
 $day   = date('j', $ts);
 
+// 인쇄 제목에 사용할 실제 회사명(상호) — stores.company_name 우선, 없으면 점포명으로 대체
+$company_display = '';
+$store_id = get_office_store_id();
+if ($store_id > 0) {
+    $conn = get_db_connection();
+    $stmt = $conn->prepare("SELECT company_name, name FROM stores WHERE id = ?");
+    $stmt->bind_param('i', $store_id);
+    $stmt->execute();
+    $store_row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $conn->close();
+    $company_display = trim($store_row['company_name'] ?? '') ?: trim($store_row['name'] ?? '');
+}
+if ($company_display === '') {
+    $company_display = trim($_SESSION['store_name'] ?? '') ?: 'HOME K MART';
+}
+
+// PREPARED: 현재 접속자 / APPROVED: 해당 점포 점장(branch_manager)
+$prepared_by = trim($_SESSION['full_name'] ?? '') ?: trim($_SESSION['username'] ?? '') ?: '-';
+$approved_by = get_store_manager_name($store_id) ?: '-';
+
 function e($s) { return htmlspecialchars((string)($s ?? ''), ENT_QUOTES, 'UTF-8'); }
 function a($n) { return $n != 0 ? number_format((float)$n, 2) : ''; }
 function aT($n) { return number_format((float)$n, 2); }
@@ -116,6 +137,7 @@ td, th {
 .n            { text-align:center; color:#333; }
 .ctr          { text-align:center; }
 .r            { text-align:right; font-family:'Courier New',monospace; white-space:nowrap; }
+.amt-big      { font-weight:bold; font-size:8pt; }
 .dr.ret-row   { background:#fff1f2; }
 .dr.rei-row   { background:#eff6ff; border-left:2pt solid #3b82f6; }
 .reissued     { color:#7c3aed; font-weight:bold; }
@@ -144,11 +166,11 @@ td, th {
 <colgroup>
   <col style="width:45pt">  <!-- 1: Section label -->
   <col style="width:20pt">  <!-- 2: NO. -->
-  <col style="width:85pt">  <!-- 3: CHECK NUMBER -->
-  <col style="width:112pt"> <!-- 4: SUPPLIER A -->
-  <col style="width:112pt"> <!-- 5: SUPPLIER B -->
-  <col style="width:48pt">  <!-- 6: DATE -->
-  <col style="width:72pt">  <!-- 7: SALES INVOICE -->
+  <col style="width:68pt">    <!-- 3: CHECK NUMBER (-20%) -->
+  <col style="width:89.6pt">  <!-- 4: SUPPLIER A (-20%) -->
+  <col style="width:89.6pt">  <!-- 5: SUPPLIER B (-20%) -->
+  <col style="width:48pt">    <!-- 6: DATE -->
+  <col style="width:133.8pt"> <!-- 7: SALES INVOICE (+61.8pt = 줄어든 폭만큼 증가) -->
   <col style="width:112pt"> <!-- 8: PARTICULAR A -->
   <col style="width:65pt">  <!-- 9: PARTICULAR B -->
   <col style="width:65pt">  <!-- 10: AMOUNT -->
@@ -158,14 +180,14 @@ td, th {
 <tr>
   <td colspan="8" rowspan="2" class="title-main">
     CHEQUE EXPENSE REPORT<br>
-    <span style="font-size:13pt;font-weight:bold">(HOME K MART <?php echo e(strtoupper($_SESSION['store_name'] ?? 'SUNSET')); ?> CORPORATION)</span>
+    <span style="font-size:13pt;font-weight:bold">(<?php echo e(strtoupper($company_display)); ?>)</span>
   </td>
   <td class="title-prep">PREPARED</td>
   <td class="title-prep">APPROVED</td>
 </tr>
 <tr>
-  <td class="title-prep" rowspan="2">LIZA</td>
-  <td class="title-prep" rowspan="2">SIR MIN</td>
+  <td class="title-prep" rowspan="2"><?php echo e($prepared_by); ?></td>
+  <td class="title-prep" rowspan="2"><?php echo e($approved_by); ?></td>
 </tr>
 
 <!-- ── META ROW: 날짜 병합 표시 ── -->
@@ -227,7 +249,8 @@ foreach ($section_config as $sec_key => $sc):
   <td class="ctr"><?php echo $row ? fmtD($row['date'] ?? '') : '&nbsp;'; ?></td>
   <td class="ctr"><?php echo $row ? e($row['sales_invoice'] ?? '') : '&nbsp;'; ?></td>
   <td colspan="2"><?php echo $row ? e($row['particular'] ?? '') : '&nbsp;'; ?></td>
-  <td class="r"><?php echo $row ? ($is_ret ? '' : a($row['amount'] ?? 0)) : '&nbsp;'; ?></td>
+  <?php $is_big = $row && !$is_ret && (float)($row['amount'] ?? 0) >= 50000; ?>
+  <td class="r<?php echo $is_big ? ' amt-big' : ''; ?>"><?php echo $row ? ($is_ret ? '' : a($row['amount'] ?? 0)) : '&nbsp;'; ?></td>
 </tr>
 <?php
     endfor;
