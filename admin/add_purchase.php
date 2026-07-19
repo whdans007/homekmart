@@ -16,6 +16,9 @@ if (!is_logged_in() || !has_permission('purchase_management')) {
     exit;
 }
 
+// 포장수량(pieces_per_box) 변경 권한: 매니저(level 40) 이상만 허용
+$can_edit_pieces = current_user_level() >= get_role_level('manager');
+
 $conn = get_db_connection();
 
 // 현재 로그인된 사용자의 점포 정보 조회
@@ -2693,9 +2696,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const cancelPiecesPerBoxBtn = document.getElementById('cancel-pieces-per-box-btn');
     const confirmPiecesPerBoxBtn = document.getElementById('confirm-pieces-per-box-btn');
     let currentPiecesPerBoxInput = null; // 현재 수정 중인 input 요소
-    const currentUserRole = '<?php echo $_SESSION['role'] ?? ''; ?>';
-    // 포장수량(pieces_per_box) 변경 가능 역할: 수퍼관리자, 점장(branch_manager)
-    const canEditPiecesPerBox = (currentUserRole === 'super_admin' || currentUserRole === 'branch_manager');
+    // 포장수량(pieces_per_box) 변경 가능 권한: 매니저(level 40) 이상
+    const canEditPiecesPerBox = <?php echo $can_edit_pieces ? 'true' : 'false'; ?>;
 
     // 포장수량 필드 클릭 이벤트 (이벤트 위임 사용)
     document.addEventListener('click', function(e) {
