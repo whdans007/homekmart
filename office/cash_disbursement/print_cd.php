@@ -1,5 +1,5 @@
 <?php
-// Design Ref: §7.1 — Cash Disbursement print — 2 pages (1.KOREAN+2.LOCAL / 3~5), full-width columns, page number footer
+// Design Ref: §7.1 — Cash Disbursement print — 1 page, 2 tables (1.KOREAN+2.LOCAL / 3.FIXED+4.OTHERS, each with its own 결제란), 8 lines per section
 ob_start();
 require_once __DIR__ . '/../lib/office_helper.php';
 require_office_permission();
@@ -9,11 +9,11 @@ ob_end_clean();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['data'])) {
     $payload  = json_decode($_POST['data'], true);
     $date_str = preg_match('/^\d{4}-\d{2}-\d{2}$/', $payload['date'] ?? '') ? $payload['date'] : date('Y-m-d');
-    $secs     = $payload['sections'] ?? ['korean'=>[],'local'=>[],'fixed'=>[],'maintenance'=>[],'others'=>[]];
+    $secs     = $payload['sections'] ?? ['korean'=>[],'local'=>[],'fixed'=>[],'others'=>[]];
 } else {
     // Blank form preview (GET access for testing)
     $date_str = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'] ?? '') ? $_GET['date'] : date('Y-m-d');
-    $secs     = ['korean'=>[],'local'=>[],'fixed'=>[],'maintenance'=>[],'others'=>[]];
+    $secs     = ['korean'=>[],'local'=>[],'fixed'=>[],'others'=>[]];
 }
 
 $ts    = strtotime($date_str);
@@ -23,7 +23,24 @@ $day   = date('j', $ts);
 
 // PREPARED = 현재 로그인 사용자, APPROVED = 점포 점장(센터장)
 $prepared_by = trim($_SESSION['full_name'] ?? $_SESSION['username'] ?? '');
-$approved_by = get_store_manager_name(get_office_store_id());
+$office_store_id = get_office_store_id();
+$approved_by = get_store_manager_name($office_store_id);
+
+// 제목에 사용할 실제 회사명(상호) — stores.company_name 우선, 없으면 점포명으로 대체
+$company_display = '';
+if ($office_store_id > 0) {
+    $conn = get_db_connection();
+    $store_stmt = $conn->prepare("SELECT company_name, name FROM stores WHERE id = ?");
+    $store_stmt->bind_param('i', $office_store_id);
+    $store_stmt->execute();
+    $store_row = $store_stmt->get_result()->fetch_assoc();
+    $store_stmt->close();
+    $conn->close();
+    $company_display = trim($store_row['company_name'] ?? '') ?: trim($store_row['name'] ?? '');
+}
+if ($company_display === '') {
+    $company_display = trim($_SESSION['store_name'] ?? '') ?: 'HOME K MART';
+}
 
 function e($s) { return htmlspecialchars((string)($s ?? ''), ENT_QUOTES, 'UTF-8'); }
 function a($n) { return $n != 0 ? number_format((float)$n, 2) : ''; }
@@ -34,54 +51,36 @@ $labels = [
     'korean'      => '1. KOREAN',
     'local'       => '2. LOCAL',
     'fixed'       => '3. FIXED EXPENSES',
-    'maintenance' => '4. MAINTENANCE',
-    'others'      => '5. OTHERS',
+    'others'      => '4. OTHERS',
 ];
 
 // ── Totals ──
 $sum      = fn($s) => array_sum(array_column($secs[$s] ?? [], 'amount'));
-$k=$sum('korean'); $l=$sum('local'); $f=$sum('fixed'); $m=$sum('maintenance'); $o=$sum('others');
+$k=$sum('korean'); $l=$sum('local'); $f=$sum('fixed'); $o=$sum('others');
 $supplier = $k + $l;
-$other_e  = $f + $m + $o;
+$other_e  = $f + $o;
 $grand    = $supplier + $other_e;
 
-// ── Page definitions ──
-// Page 1: 1.KOREAN + 2.LOCAL (= SUPPLIER)     Page 2: 3.FIXED + 4.MAINTENANCE + 5.OTHERS (= OTHER EXPENSES)
-$pages = [
+// ── Table definitions ──
+// 한 페이지에 별도의 테이블 2개: 1.KOREAN+2.LOCAL (결제란 1) / 3.FIXED+4.OTHERS (결제란 2) — 섹션당 8라인씩
+$tables = [
     [
         'sections' => ['korean', 'local'],
-        'target'   => 38,   // blank rows filled up to this many to fill the A4 page
+        'target'   => 8,   // 섹션별 최소 출력 라인 수 (항목이 더 많으면 그만큼 늘어남)
         'totals'   => [ ['SUPPLIER TOTAL', $supplier] ],
     ],
     [
-        'sections' => ['fixed', 'maintenance', 'others'],
-        'target'   => 36,
+        'sections' => ['fixed', 'others'],
+        'target'   => 8,
         'totals'   => [ ['OTHER EXPENSES', $other_e], ['GRAND TOTAL', $grand] ],
     ],
 ];
-$page_total = count($pages);
 
-// Distribute blank rows across a page's sections up to the target row count.
+// 섹션별로 최소 $target 라인을 확보하고, 실제 항목 수가 더 많으면 그만큼 출력한다.
 function alloc_rows($sec_keys, $secs, $target) {
-    $item_counts = [];
-    $total_items = 0;
+    $rows = [];
     foreach ($sec_keys as $key) {
-        $item_counts[$key] = count($secs[$key] ?? []);
-        $total_items += $item_counts[$key];
-    }
-    $spare = $target - $total_items;
-    $n     = count($sec_keys);
-    $rows  = [];
-    if ($spare <= 0) {
-        foreach ($sec_keys as $key) { $rows[$key] = max($item_counts[$key], 1); }
-    } else {
-        $base = intdiv($spare, $n);
-        $rem  = $spare % $n;
-        $i = 0;
-        foreach ($sec_keys as $key) {
-            $rows[$key] = $item_counts[$key] + $base + ($i < $rem ? 1 : 0);
-            $i++;
-        }
+        $rows[$key] = max(count($secs[$key] ?? []), $target);
     }
     return $rows;
 }
@@ -98,9 +97,8 @@ body { font-family:Arial,sans-serif; font-size:7.5pt; background:#ddd; }
 @media print {
     body { background:white; }
     .no-print { display:none !important; }
-    /* 각 시트를 개별 페이지로 강제 */
-    .sheet { page-break-after:always; }
-    .sheet:last-child { page-break-after:auto; }
+    /* 두 테이블 모두 한 페이지 안에 출력 — 표 중간이 페이지 경계에서 잘리지 않도록만 방지 */
+    .sheet { page-break-inside:avoid; }
 }
 .no-print {
     text-align:center; padding:8px; background:#fef3c7;
@@ -114,7 +112,7 @@ body { font-family:Arial,sans-serif; font-size:7.5pt; background:#ddd; }
 .btn-cl { background:#6b7280; }
 
 /* 시트: 페이지 폭을 꽉 채움 */
-.sheet { width:100%; max-width:198mm; margin:0 auto 8mm; background:white; padding:0; }
+.sheet { width:100%; max-width:190mm; margin:0 auto 8mm; background:white; padding:0; }
 
 /* ── Table base ── */
 table { border-collapse:collapse; width:100%; table-layout:fixed; }
@@ -167,16 +165,11 @@ td, th {
 .dr .n      { text-align:center; color:#333; font-size:7pt; }
 .dr .c      { text-align:center; font-size:7pt; }
 .dr .r      { text-align:right; font-family:'Courier New',monospace; font-size:7pt; white-space:nowrap; }
+.amt-big    { font-weight:bold; }
 
 /* ── Totals ── */
 .tot-lbl    { text-align:right; font-weight:bold; font-size:7.5pt; height:14pt; }
 .tot-val    { text-align:right; font-family:'Courier New',monospace; font-weight:bold; font-size:7.5pt; white-space:nowrap; }
-
-/* ── Page number footer ── */
-.page-num {
-    text-align:center; font-size:7.5pt; color:#444;
-    margin-top:4pt; padding:2pt 0;
-}
 </style>
 </head>
 <body>
@@ -187,11 +180,9 @@ td, th {
 </div>
 
 <?php
-$page_no = 0;
-foreach ($pages as $page):
-    $page_no++;
-    $sec_keys  = $page['sections'];
-    $row_alloc = alloc_rows($sec_keys, $secs, $page['target']);
+foreach ($tables as $table):
+    $sec_keys  = $table['sections'];
+    $row_alloc = alloc_rows($sec_keys, $secs, $table['target']);
 ?>
 <div class="sheet">
 <table>
@@ -209,11 +200,11 @@ foreach ($pages as $page):
   <col style="width:16%"><!-- 9: AMOUNT -->
 </colgroup>
 
-<!-- ── TITLE + 결제란 (PREPARED | APPROVED) — 매 페이지 반복 ── -->
+<!-- ── TITLE + 결제란 (PREPARED | APPROVED) — 테이블마다 반복 ── -->
 <tr>
   <td colspan="7" rowspan="2" class="title-main">
     Cash Disbursement<br>
-    <span style="font-size:8.5pt;font-weight:bold">(Home Plus Sunset Corporation)</span>
+    <span style="font-size:8.5pt;font-weight:bold">(<?php echo e($company_display); ?>)</span>
   </td>
   <td class="title-prep">PREPARED</td>
   <td class="title-prep">APPROVED</td>
@@ -233,7 +224,7 @@ foreach ($pages as $page):
   <td class="meta"><?php echo e($day); ?></td>
 </tr>
 
-<!-- ── COLUMN HEADERS — 매 페이지 반복 ── -->
+<!-- ── COLUMN HEADERS — 테이블마다 반복 ── -->
 <tr>
   <th class="colhdr"></th>
   <th class="colhdr">NO.</th>
@@ -270,7 +261,8 @@ foreach ($sec_keys as $sec_key):
   <td class="c"><?php echo $item ? e($item['date'] ?? '') : '&nbsp;'; ?></td>
   <td colspan="2"><?php echo $item ? e(strtoupper($item['supplier'] ?? '')) : '&nbsp;'; ?></td>
   <td colspan="2"><?php echo $item ? e(strtoupper($item['details'] ?? '')) : '&nbsp;'; ?></td>
-  <td class="r"><?php echo $item ? a($item['amount'] ?? 0) : '&nbsp;'; ?></td>
+  <?php $is_big = $item && (float)($item['amount'] ?? 0) >= 50000; ?>
+  <td class="r<?php echo $is_big ? ' amt-big' : ''; ?>"><?php echo $item ? a($item['amount'] ?? 0) : '&nbsp;'; ?></td>
 </tr>
 <?php
     endfor;
@@ -278,7 +270,7 @@ endforeach;
 ?>
 
 <!-- ── TOTAL ROWS ── -->
-<?php foreach ($page['totals'] as $tot): ?>
+<?php foreach ($table['totals'] as $tot): ?>
 <tr>
   <td colspan="8" class="tot-lbl"><?php echo e($tot[0]); ?>:</td>
   <td class="tot-val"><?php echo aT($tot[1]); ?></td>
@@ -286,7 +278,6 @@ endforeach;
 <?php endforeach; ?>
 
 </table>
-<div class="page-num">Page <?php echo $page_no; ?> of <?php echo $page_total; ?></div>
 </div>
 <?php endforeach; ?>
 

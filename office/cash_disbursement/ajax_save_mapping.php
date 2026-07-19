@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); exit; }
 
 $store_id      = get_office_store_id();
 $supplier_name = post_str('supplier_name');
-$section       = in_array($_POST['section'] ?? '', ['korean','local','fixed','maintenance','others'])
+$section       = in_array($_POST['section'] ?? '', ['korean','local','fixed','others'])
                  ? $_POST['section'] : null;
 
 if (!$supplier_name || !$section) {

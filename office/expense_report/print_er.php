@@ -19,7 +19,22 @@ $date_label = date('M j, Y ', $ts) . '(' . $days_en[date('w', $ts)] . ')';
 
 // PREPARED BY = 현재 로그인 사용자, APPROVED = 점포 점장(센터장)
 $prepared_by = trim($_SESSION['full_name'] ?? $_SESSION['username'] ?? '');
-$approved_by = get_store_manager_name(get_office_store_id());
+$office_store_id = get_office_store_id();
+$approved_by = get_store_manager_name($office_store_id);
+
+// 제목에 사용할 실제 회사명(상호) — stores.company_name 우선, 없으면 점포명으로 대체
+$store_name = '';
+if ($office_store_id > 0) {
+    $conn = get_db_connection();
+    $store_stmt = $conn->prepare("SELECT company_name, name FROM stores WHERE id = ?");
+    $store_stmt->bind_param('i', $office_store_id);
+    $store_stmt->execute();
+    $store_row = $store_stmt->get_result()->fetch_assoc();
+    $store_stmt->close();
+    $conn->close();
+    $store_name = trim($store_row['company_name'] ?? '') ?: trim($store_row['name'] ?? '');
+}
+if ($store_name === '') $store_name = 'SUNSET';
 
 // State JSON → 기존 형식에 맞는 배열로 변환
 $cash_rows            = $secs['selling']          ?? [];
@@ -177,12 +192,12 @@ window.addEventListener('load', function () {
 
 <!-- Row 1: 제목 + 이름 -->
 <tr>
-  <td colspan="3" rowspan="2" class="h-title bg-teal">HOME PLUS (SUNSET)</td>
+  <td colspan="3" rowspan="2" class="h-title bg-teal"><?php echo esc(strtoupper($store_name)); ?></td>
   <td colspan="2" class="h-hdr">PREPARED BY:</td>
   <td colspan="2" class="h-hdr">CHECKED:</td>
   <td colspan="2" class="h-hdr">APPROVED:</td>
   <td class="gap"></td>
-  <td colspan="3" rowspan="2" class="h-title bg-teal">HOME PLUS (SUNSET)</td>
+  <td colspan="3" rowspan="2" class="h-title bg-teal"><?php echo esc(strtoupper($store_name)); ?></td>
   <td colspan="2" class="h-hdr">PREPARED BY:</td>
   <td colspan="2" class="h-hdr">CHECKED:</td>
   <td colspan="2" class="h-hdr">APPROVED:</td>
@@ -259,12 +274,12 @@ window.addEventListener('load', function () {
   <td class="ctr"><?php echo $lft ? esc($lft['cv_no'] ?? '') : ''; ?></td>
   <td colspan="3" class="ctr"><?php echo $lft ? esc(strtoupper($lft['supplier'] ?? '')) : ''; ?></td>
   <td colspan="3" class="ctr"><?php echo $lft ? strtoupper(row_details($lft, $date_str)) : ''; ?></td>
-  <td colspan="2" class="rgt mono"><?php echo $lft ? fmt($lft['amount']) : ''; ?></td>
+  <td colspan="2" class="rgt mono<?php echo ($lft && (float)$lft['amount'] >= 50000) ? ' bold' : ''; ?>"><?php echo $lft ? fmt($lft['amount']) : ''; ?></td>
   <td class="gap"></td>
   <td class="ctr"><?php echo $rgt ? esc($rgt['cv_no'] ?? '') : ''; ?></td>
   <td colspan="3" class="ctr"><?php echo $rgt ? esc(strtoupper($rgt['supplier'] ?? '')) : ''; ?></td>
   <td colspan="3" class="ctr"><?php echo $rgt ? strtoupper(row_details($rgt, $date_str)) : ''; ?></td>
-  <td colspan="2" class="rgt mono"><?php echo $rgt ? fmt($rgt['amount']) : ''; ?></td>
+  <td colspan="2" class="rgt mono<?php echo ($rgt && (float)$rgt['amount'] >= 50000) ? ' bold' : ''; ?>"><?php echo $rgt ? fmt($rgt['amount']) : ''; ?></td>
 </tr>
 <?php endfor; ?>
 
@@ -305,7 +320,7 @@ window.addEventListener('load', function () {
   <td class="ctr"><?php echo $chk ? esc($chk['cv_no'] ?? '') : ''; ?></td>
   <td colspan="3" class="ctr"><?php echo $chk ? esc(strtoupper($chk['supplier'] ?? '')) : ''; ?></td>
   <td colspan="3" class="ctr"><?php echo $chk ? strtoupper(row_details($chk, $date_str)) : ''; ?></td>
-  <td colspan="2" class="rgt mono"><?php echo $chk ? fmt($chk['amount']) : ''; ?></td>
+  <td colspan="2" class="rgt mono<?php echo ($chk && (float)$chk['amount'] >= 50000) ? ' bold' : ''; ?>"><?php echo $chk ? fmt($chk['amount']) : ''; ?></td>
   <td class="gap"></td>
   <!-- RIGHT: other expenses (sub-header / subtotal / data) -->
   <?php if ($rt === 'hdr'): ?>
@@ -317,7 +332,7 @@ window.addEventListener('load', function () {
   <td class="ctr"><?php echo $ri ? esc($ri['cv_no'] ?? '') : ''; ?></td>
   <td colspan="3" class="ctr"><?php echo $ri ? esc(strtoupper($ri['supplier'] ?? '')) : ''; ?></td>
   <td colspan="3" class="ctr"><?php echo $ri ? strtoupper(row_details($ri, $date_str)) : ''; ?></td>
-  <td colspan="2" class="rgt mono"><?php echo $ri ? fmt($ri['amount']) : ''; ?></td>
+  <td colspan="2" class="rgt mono<?php echo ($ri && (float)($ri['amount'] ?? 0) >= 50000) ? ' bold' : ''; ?>"><?php echo $ri ? fmt($ri['amount']) : ''; ?></td>
   <?php endif; ?>
 </tr>
 <?php endfor; ?>

@@ -417,7 +417,7 @@ function renderSection(secKey) {
             <span class="er-drag"><i class="fa-solid fa-grip-lines"></i></span>
             <span class="text-gray-800 text-xs font-medium truncate" title="${esc(row.supplier)}">${esc(row.supplier)}</span>
             <span class="text-gray-500 text-xs truncate" title="${esc(row.details)}">${dateBadge} ${esc(row.details)}</span>
-            <span class="text-right font-mono text-gray-800 text-xs">₱${fmt(row.amount)}</span>
+            <span class="text-right font-mono text-gray-800 text-xs${(parseFloat(row.amount)||0) >= 50000 ? ' font-bold' : ''}">₱${fmt(row.amount)}</span>
             <button onclick="removeRow('${secKey}','${row.id}')" class="text-gray-300 hover:text-red-500 text-xs">×</button>
         `;
         zone.appendChild(div);
