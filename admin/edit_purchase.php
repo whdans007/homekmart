@@ -292,6 +292,8 @@ if (!is_logged_in() || !has_permission('purchase_management')) {
 // 포장수량(pieces_per_box) 변경 권한: 매니저(level 40) 이상만 허용
 require_once __DIR__ . '/../lib/permission_helper.php';
 $can_edit_pieces = current_user_level() >= get_role_level('manager');
+// 거래처 변경 권한: 점장(branch_manager, level 50) 이상만 허용
+$can_edit_supplier = current_user_level() >= get_role_level('branch_manager');
 
 $purchase_id = $_GET['id'] ?? null;
 if (!$purchase_id) {
@@ -1399,9 +1401,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// 거래처 변경 처리 (슈퍼어드민만)
+// 거래처 변경 처리 (점장 이상만)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_supplier') {
-    if ($_SESSION['role'] === 'super_admin') {
+    if ($can_edit_supplier) {
         $new_supplier_id = (int)$_POST['supplier_id'];
 
         if ($new_supplier_id > 0) {
@@ -1446,9 +1448,9 @@ $purchase_result = $stmt->get_result();
 $purchase = $purchase_result->fetch_assoc();
 $stmt->close();
 
-// 슈퍼어드민인 경우 거래처 목록 조회
+// 거래처 변경 권한이 있는 경우 거래처 목록 조회
 $suppliers = [];
-if ($_SESSION['role'] === 'super_admin') {
+if ($can_edit_supplier) {
     $suppliers_stmt = $conn->prepare("SELECT id, name FROM suppliers ORDER BY name");
     $suppliers_stmt->execute();
     $suppliers_result = $suppliers_stmt->get_result();
@@ -1701,7 +1703,7 @@ tr[id^="row-"] td:first-child:hover {
                     </div>
                     <div class="flex items-center space-x-2">
                         <span class="text-sm font-medium text-gray-600"><?php echo t('purchase.supplier'); ?>:</span>
-                        <?php if ($_SESSION['role'] === 'super_admin'): ?>
+                        <?php if ($can_edit_supplier): ?>
                             <span class="text-base font-semibold text-gray-900" id="current-supplier-name"><?php echo htmlspecialchars($purchase['supplier_name']); ?></span>
                             <button type="button" id="change-supplier-btn"
                                     class="inline-flex items-center px-2 py-1 border border-blue-300 rounded text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500">
@@ -2131,7 +2133,7 @@ tr[id^="row-"] td:first-child:hover {
 </div>
 
 <!-- 거래처 변경 모달 -->
-<?php if ($_SESSION['role'] === 'super_admin'): ?>
+<?php if ($can_edit_supplier): ?>
 <div id="supplier-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50" style="display: none;">
     <div class="relative top-20 mx-auto p-5 border shadow-lg rounded-md bg-white" style="max-width: 600px; width: 90%;">
         <!-- 모달 헤더 -->
