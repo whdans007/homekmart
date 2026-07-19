@@ -136,10 +136,10 @@ $_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '
 
         <!-- 플래시 메시지 -->
         <?php if ($_sf): ?>
-        <div class="mx-4 mt-4 px-4 py-3 rounded-md text-sm flex items-center
-            <?php echo $_sf['type'] === 'error' ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'; ?>">
-            <i class="fas <?php echo $_sf['type'] === 'error' ? 'fa-exclamation-circle text-red-400' : 'fa-check-circle text-green-400'; ?> mr-2"></i>
-            <?php echo htmlspecialchars($_sf['message']); ?>
+        <div class="mx-4 mt-4 px-4 py-3 rounded-md text-sm flex items-start
+            <?php echo $_sf['type'] === 'error' ? 'bg-red-50 text-red-800 border border-red-200' : ($_sf['type'] === 'warning' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-green-50 text-green-800 border border-green-200'); ?>">
+            <i class="fas <?php echo $_sf['type'] === 'error' ? 'fa-exclamation-circle text-red-400' : ($_sf['type'] === 'warning' ? 'fa-triangle-exclamation text-amber-500' : 'fa-check-circle text-green-400'); ?> mr-2 mt-0.5"></i>
+            <span><?php echo nl2br(htmlspecialchars($_sf['message'])); ?></span>
         </div>
         <?php endif; ?>
 

@@ -40,7 +40,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn = get_store_db();
 
             // 상품 정보 + 단위별 재고/단가 검증
-            foreach ($items as &$item) {
+            // 다른 점포가 먼저 주문/승인되어 재고가 모자란 경우 주문 전체를 막지 않고
+            // 남은 재고 수량만큼만 자동으로 조정해서 주문을 진행한다 (완전 품절 품목만 제외).
+            $stock_notices = [];
+            $checked_items = [];
+            foreach ($items as $item) {
                 $st = $conn->prepare(
                     "SELECT CONCAT(name_en, IFNULL(CONCAT(' (',name_ko,')'),'')) AS pname,
                             GREATEST(1, IFNULL(pieces_per_box,1)) AS ppb
@@ -57,8 +61,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 $st->bind_param('is', $item['product_id'], $item['order_unit']); $st->execute();
                 $stock = (int)$st->get_result()->fetch_row()[0]; $st->close();
+
+                if ($stock <= 0) {
+                    $stock_notices[] = "'{$item['pname']}' is out of {$item['order_unit']} stock and was removed from the order.";
+                    continue;
+                }
                 if ($stock < $item['quantity']) {
-                    $errors[] = "'{$item['pname']}' Insufficient {$item['order_unit']} stock (Current: " . number_format($stock) . " {$item['order_unit']})";
+                    $stock_notices[] = "'{$item['pname']}' quantity adjusted from {$item['quantity']} to {$stock} {$item['order_unit']} (limited stock).";
+                    $item['quantity'] = $stock;
                 }
 
                 if ($item['order_unit'] === 'PCS') {
@@ -79,8 +89,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $st->execute();
                 $item['unit_price'] = (float)$st->get_result()->fetch_row()[0]; $st->close();
+
+                $checked_items[] = $item;
             }
-            unset($item);
+            $items = $checked_items;
+
+            if (empty($items)) {
+                $errors[] = 'All selected products are currently out of stock. Please refresh the page and try again.';
+            }
 
             if (empty($errors) && $edit_order_id > 0) {
                 // ── 편집 모드: pending 주문 품목 교체 ──────────────────
@@ -121,7 +137,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $st2->close();
 
                     $conn->commit(); $conn->close();
-                    store_set_flash('success', 'Order #' . str_pad($edit_order_id, 4, '0', STR_PAD_LEFT) . ' has been updated.');
+                    $flash_msg = 'Order #' . str_pad($edit_order_id, 4, '0', STR_PAD_LEFT) . ' has been updated.';
+                    if (!empty($stock_notices)) $flash_msg .= "\n" . implode("\n", $stock_notices);
+                    store_set_flash(empty($stock_notices) ? 'success' : 'warning', $flash_msg);
                     header('Location: ' . STORE_BASE . '/order_detail.php?id=' . $edit_order_id);
                     exit;
                 }
@@ -151,7 +169,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st2->close();
 
                 $conn->commit(); $conn->close();
-                store_set_flash('success', 'Order #' . str_pad($order_id, 4, '0', STR_PAD_LEFT) . ' has been received.');
+                $flash_msg = 'Order #' . str_pad($order_id, 4, '0', STR_PAD_LEFT) . ' has been received.';
+                if (!empty($stock_notices)) $flash_msg .= "\n" . implode("\n", $stock_notices);
+                store_set_flash(empty($stock_notices) ? 'success' : 'warning', $flash_msg);
                 header('Location: ' . STORE_BASE . '/orders.php');
                 exit;
             } else {
