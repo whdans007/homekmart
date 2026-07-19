@@ -149,14 +149,12 @@ $is_future = $next_date > $today;
           'korean'      => ['label'=>'1. KOREAN',         'color'=>'blue'],
           'local'       => ['label'=>'2. LOCAL',           'color'=>'green'],
           'fixed'       => ['label'=>'3. FIXED EXPENSES',  'color'=>'orange'],
-          'maintenance' => ['label'=>'4. MAINTENANCE',     'color'=>'teal'],
-          'others'      => ['label'=>'5. OTHERS',          'color'=>'purple'],
+          'others'      => ['label'=>'4. OTHERS',          'color'=>'purple'],
       ];
       $color_map = [
           'blue'   => ['bg'=>'#eff6ff','border'=>'#bfdbfe','text'=>'#1d4ed8'],
           'green'  => ['bg'=>'#f0fdf4','border'=>'#bbf7d0','text'=>'#15803d'],
           'orange' => ['bg'=>'#fff7ed','border'=>'#fed7aa','text'=>'#c2410c'],
-          'teal'   => ['bg'=>'#f0fdfa','border'=>'#99f6e4','text'=>'#0f766e'],
           'purple' => ['bg'=>'#faf5ff','border'=>'#e9d5ff','text'=>'#7e22ce'],
       ];
       foreach ($sections as $sec_key => $sec):
@@ -191,14 +189,20 @@ const STORE_ID = <?php echo (int)$store_id; ?>;
 const STATE_KEY = () => 'cd_draft_' + STORE_ID + '_' + document.getElementById('cd_date').value;
 
 let allItems   = [];
-let sections   = { korean:[], local:[], fixed:[], maintenance:[], others:[] };
+let sections   = { korean:[], local:[], fixed:[], others:[] };
 let placedIds  = new Set();
 let rowCounter = 0;
 let isDirty    = false;
 
 // ── 섹션 키 보완 (구버전 저장 데이터 호환) ──────────────────
+// 4. MAINTENANCE 섹션 폐지 — 예전에 저장된 데이터에 남아있는 maintenance 항목은
+// OTHERS로 합쳐서 데이터 유실 없이 표시한다.
 function ensureAllSections(s) {
-    ['korean','local','fixed','maintenance','others'].forEach(k => {
+    if (Array.isArray(s.maintenance) && s.maintenance.length) {
+        s.others = (s.others || []).concat(s.maintenance);
+    }
+    delete s.maintenance;
+    ['korean','local','fixed','others'].forEach(k => {
         if (!Array.isArray(s[k])) s[k] = [];
     });
 }
@@ -206,7 +210,7 @@ function ensureAllSections(s) {
 // ── placedIds 재계산 ─────────────────────────────────────────
 function rebuildPlacedIds() {
     placedIds = new Set();
-    ['korean','local','fixed','maintenance','others'].forEach(sec => {
+    ['korean','local','fixed','others'].forEach(sec => {
         (sections[sec] || []).forEach(r => { if (r.item_id) placedIds.add(r.item_id); });
     });
 }
@@ -214,7 +218,7 @@ function rebuildPlacedIds() {
 // ── rowCounter를 기존 row ID 최댓값에 맞춰 동기화 ──────────
 function syncRowCounter() {
     let max = 0;
-    ['korean','local','fixed','maintenance','others'].forEach(sec => {
+    ['korean','local','fixed','others'].forEach(sec => {
         (sections[sec] || []).forEach(row => {
             const n = parseInt((row.id || '').replace('row_', ''), 10);
             if (!isNaN(n) && n > max) max = n;
@@ -227,7 +231,7 @@ function syncRowCounter() {
 // syncRowCounter() 호출 후 실행해야 rowCounter가 충분히 큰 값을 가짐
 function deduplicateRowIds() {
     const seen = new Set();
-    ['korean','local','fixed','maintenance','others'].forEach(sec => {
+    ['korean','local','fixed','others'].forEach(sec => {
         (sections[sec] || []).forEach(row => {
             while (!row.id || seen.has(row.id)) {
                 row.id = 'row_' + (++rowCounter);
@@ -297,7 +301,7 @@ const sourceSort = Sortable.create(document.getElementById('source_list'), {
     chosenClass:'sortable-chosen'
 });
 
-['korean','local','fixed','maintenance','others'].forEach(s => {
+['korean','local','fixed','others'].forEach(s => {
     Sortable.create(document.getElementById('section_' + s), sortableOptions(s));
 });
 
@@ -325,7 +329,7 @@ function loadPurchases(date) {
     setSaveStatus('loading');
 
     // Reset
-    sections  = { korean:[], local:[], fixed:[], maintenance:[], others:[] };
+    sections  = { korean:[], local:[], fixed:[], others:[] };
     placedIds = new Set();
     allItems  = [];
 
@@ -339,6 +343,10 @@ function loadPurchases(date) {
             return;
         }
         allItems = d.items;
+        // 폐지된 maintenance 매핑이 남아있으면 others로 대체 (구 cd_supplier_section_map 데이터 호환)
+        allItems.forEach(item => {
+            if (item.auto_section === 'maintenance') item.auto_section = 'others';
+        });
         if (d.er_found === false) {
             document.getElementById('load_status').innerHTML =
                 '<span class="text-orange-500">⚠ 해당 날짜의 Expense Report가 없습니다. ER을 먼저 작성해 주세요.</span>';
@@ -444,7 +452,7 @@ function renderSection(secKey) {
 
 function renderAll() {
     renderSourceList();
-    ['korean','local','fixed','maintenance','others'].forEach(renderSection);
+    ['korean','local','fixed','others'].forEach(renderSection);
     calcTotals();
 }
 
@@ -558,14 +566,13 @@ function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'
 
 function calcTotals() {
     const sum = (sec) => (sections[sec] || []).reduce((t,r) => t + (parseFloat(r.amount)||0), 0);
-    const k = sum('korean'), l = sum('local'), f = sum('fixed'), m = sum('maintenance'), o = sum('others');
+    const k = sum('korean'), l = sum('local'), f = sum('fixed'), o = sum('others');
     const supplier  = k + l;
-    const other_exp = f + m + o;
+    const other_exp = f + o;
     const grand     = supplier + other_exp;
     document.getElementById('total_korean').textContent       = '₱ ' + fmt(k);
     document.getElementById('total_local').textContent        = '₱ ' + fmt(l);
     document.getElementById('total_fixed').textContent        = '₱ ' + fmt(f);
-    document.getElementById('total_maintenance').textContent  = '₱ ' + fmt(m);
     document.getElementById('total_others').textContent       = '₱ ' + fmt(o);
     document.getElementById('total_supplier').textContent     = '₱ ' + fmt(supplier);
     document.getElementById('total_other_exp').textContent    = '₱ ' + fmt(other_exp);

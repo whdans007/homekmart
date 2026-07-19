@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_POST['data'])) {
 
 $payload  = json_decode($_POST['data'], true);
 $date_str = preg_match('/^\d{4}-\d{2}-\d{2}$/', $payload['date'] ?? '') ? $payload['date'] : date('Y-m-d');
-$sections = $payload['sections'] ?? ['korean'=>[],'local'=>[],'fixed'=>[],'maintenance'=>[],'others'=>[]];
+$sections = $payload['sections'] ?? ['korean'=>[],'local'=>[],'fixed'=>[],'others'=>[]];
 
 $ts    = strtotime($date_str);
 $year  = date('Y', $ts);
@@ -30,17 +30,16 @@ function xcell($v, $sid, $ma=0, $type='String') {
 
 $sum = fn($sec) => array_sum(array_column($sections[$sec] ?? [], 'amount'));
 $k = $sum('korean'); $l = $sum('local');
-$f = $sum('fixed');  $m = $sum('maintenance'); $o = $sum('others');
+$f = $sum('fixed');  $o = $sum('others');
 $supplier_total = $k + $l;
-$other_exp      = $f + $m + $o;
+$other_exp      = $f + $o;
 $grand_total    = $supplier_total + $other_exp;
 
 $section_labels = [
     'korean'      => '1. KOREAN',
     'local'       => '2. LOCAL',
     'fixed'       => '3. FIXED EXPENSES',
-    'maintenance' => '4. MAINTENANCE',
-    'others'      => '5. OTHERS',
+    'others'      => '4. OTHERS',
 ];
 
 header('Content-Type: application/vnd.ms-excel');
@@ -128,7 +127,7 @@ foreach ($section_labels as $sec_key => $sec_label) {
 // Totals
 $xml .= xrow(14, xcell('TOTAL:', 's_total', 4) . xcell(fa($grand_total), 's_total'));
 $xml .= xrow(13, xcell('SUPPLIER (KOREAN + LOCAL):', 's_total', 4) . xcell(fa($supplier_total), 's_total'));
-$xml .= xrow(14, xcell('OTHER EXPENSES (FIXED + MAINTENANCE + OTHERS):', 's_grand', 4) . xcell(fa($other_exp), 's_grand'));
+$xml .= xrow(14, xcell('OTHER EXPENSES (FIXED + OTHERS):', 's_grand', 4) . xcell(fa($other_exp), 's_grand'));
 
 $xml .= '</Table>'."\n";
 $xml .= '<WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">'."\n";
