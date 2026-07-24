@@ -1106,7 +1106,7 @@ function loadSelectedPrintData(date) {
             // 인쇄용 헤더 추가 (선택된 항목 표시)
             const printHeader = `
                 <div class="text-center mb-6 pb-4 border-b-2 border-gray-800">
-                    <h2 class="text-lg font-bold">Price Change History (Selected Items)</h2>
+                    <h2 class="text-lg font-bold">Input Server & Print Price Label</h2>
                     <p class="text-sm text-gray-600">Date: ${date} | Selected Items: ${selectedIds.length} | Print Time: ${new Date().toLocaleString('en-US')}</p>
                 </div>
             `;

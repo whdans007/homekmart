@@ -1,9 +1,10 @@
 <?php
 require_once __DIR__ . '/../lib/session_helper.php';
 ensure_logged_in();
+require_once __DIR__ . '/../lib/permission_helper.php';
 
-// 접근 권한 확인 (총괄관리자 또는 관리자)
-if (!in_array($_SESSION['role'], ['super_admin', 'admin'])) {
+// 접근 권한 확인 (점장 이상: 점장/센터장, 관리자, 총괄관리자)
+if (current_user_level() < LEVEL_BRANCH_MANAGER) {
     $_SESSION['flash'] = ['type' => 'error', 'message' => '삭제할 권한이 없습니다.'];
     header("Location: product_management.php");
     exit;

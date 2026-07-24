@@ -19,7 +19,7 @@ $conn = get_db_connection();
 // super_admin만 다른 점포 조회 가능 (Design §7 — store 스코프 강제)
 $store_list = [];
 if ($is_super_admin) {
-    $res = $conn->query("SELECT id, COALESCE(company_name, name) AS label FROM stores WHERE is_active=1 ORDER BY label");
+    $res = $conn->query("SELECT id, name AS label FROM stores WHERE is_active=1 ORDER BY label");
     $store_list = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
     $req_store_id = (int)($_GET['store_id'] ?? 0);
     if ($req_store_id > 0 && in_array($req_store_id, array_column($store_list, 'id'), true)) {
@@ -27,7 +27,7 @@ if ($is_super_admin) {
     }
 }
 
-$store_stmt = $conn->prepare("SELECT COALESCE(company_name, name) AS label FROM stores WHERE id=?");
+$store_stmt = $conn->prepare("SELECT name AS label FROM stores WHERE id=?");
 $store_stmt->bind_param('i', $store_id);
 $store_stmt->execute();
 $store_row = $store_stmt->get_result()->fetch_assoc();
@@ -40,6 +40,20 @@ $purchase      = get_daily_purchase_summary($conn, $store_id, $date);
 $ar            = get_daily_ar_summary($conn, $store_id, $date);
 $wholesale     = get_daily_wholesale_summary($conn, $store_id, $date);
 $other_exp     = get_daily_other_expense_categories($conn, $store_id, $date);
+
+// 수수료 코너 — 마이그레이션 전이면 등록 UI 대신 안내만 표시
+$commission_tbl = $conn->query("SHOW TABLES LIKE 'daily_report_commission_companies'");
+$commission_tbl_ready = $commission_tbl && $commission_tbl->num_rows > 0;
+$commission = $commission_tbl_ready ? get_daily_commission_summary($conn, $store_id, $date) : ['rows' => [], 'total' => 0.0];
+
+$supplier_res  = $conn->query(
+    "SELECT DISTINCT supplier FROM pos_sales_data
+     WHERE upload_id IN (SELECT id FROM pos_sales_uploads WHERE store_id={$store_id})
+       AND supplier IS NOT NULL AND supplier != ''
+     ORDER BY supplier ASC"
+);
+$supplier_list = $supplier_res ? array_column($supplier_res->fetch_all(MYSQLI_ASSOC), 'supplier') : [];
+
 $conn->close();
 
 $grand_sales    = $pos_summary['totals']['total'] + $ar['credit_sales_total'];
@@ -187,26 +201,60 @@ function esc($s) { return htmlspecialchars((string)($s ?? '')); }
     </table>
   </div>
 
-  <!-- 수수료 코너 (플레이스홀더, 서식만 유지 — Plan §4.2 Out of Scope) -->
+  <!-- 수수료 코너 — 등록된 입점업체의 pos_sales_data(SUPPLIER 일치) NET SALES 자동 집계 -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
     <div class="px-3 py-2 bg-yellow-50 border-b border-yellow-100 font-semibold text-sm text-yellow-800">수수료 코너</div>
+    <?php if (!$commission_tbl_ready): ?>
+    <div class="px-3 py-4 text-xs text-amber-800 bg-amber-50">
+      <i class="fa-solid fa-triangle-exclamation mr-1"></i>DB 테이블이 없습니다.
+      <a href="run_commission_migration.php" class="underline font-medium">마이그레이션 실행</a> 후 다시 시도하세요.
+    </div>
+    <?php else: ?>
     <table class="w-full text-xs">
       <thead>
         <tr class="bg-gray-50 text-gray-500">
           <th class="px-2 py-1 text-left">업체명</th>
           <th class="px-2 py-1 text-right">매출</th>
+          <th class="px-2 py-1 w-6"></th>
         </tr>
       </thead>
-      <tbody>
-        <tr><td colspan="2" class="px-2 py-4 text-center text-gray-400">수수료 코너 데이터는 별도 입력 기능이 아직 없습니다.</td></tr>
+      <tbody id="dr-commission-tbody">
+        <?php if (empty($commission['rows'])): ?>
+        <tr><td colspan="3" class="px-2 py-4 text-center text-gray-400">등록된 업체가 없습니다.</td></tr>
+        <?php endif; ?>
+        <?php foreach ($commission['rows'] as $row): ?>
+        <tr class="border-t border-gray-100">
+          <td class="px-2 py-1"><?php echo esc($row['supplier_name']); ?></td>
+          <td class="px-2 py-1 text-right"><?php echo $row['amount'] > 0 ? fmt2($row['amount']) : '-'; ?></td>
+          <td class="px-2 py-1 text-right">
+            <button type="button" class="dr-commission-del text-gray-300 hover:text-red-500" data-id="<?php echo $row['id']; ?>" title="삭제">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </td>
+        </tr>
+        <?php endforeach; ?>
       </tbody>
       <tfoot>
         <tr class="border-t-2 border-gray-200 font-bold bg-gray-50">
           <td class="px-2 py-1">합계</td>
-          <td class="px-2 py-1 text-right">-</td>
+          <td class="px-2 py-1 text-right"><?php echo fmt2($commission['total']); ?></td>
+          <td></td>
         </tr>
       </tfoot>
     </table>
+    <form id="dr-commission-form" class="px-3 py-2 border-t border-gray-100 flex gap-1.5">
+      <input type="text" id="dr-commission-input" list="dr-commission-suppliers" placeholder="업체명 (SUPPLIER와 정확히 일치)"
+             class="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-yellow-400">
+      <datalist id="dr-commission-suppliers">
+        <?php foreach ($supplier_list as $s): ?>
+        <option value="<?php echo esc($s); ?>">
+        <?php endforeach; ?>
+      </datalist>
+      <button type="submit" class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs font-medium">
+        <i class="fa-solid fa-plus mr-1"></i>등록
+      </button>
+    </form>
+    <?php endif; ?>
   </div>
 
   <!-- 기타지출 요약 (상세 드래그앤드롭 편집은 하단 "기타지출 분류" 섹션 참고 — Design §5.3) -->
@@ -442,6 +490,6 @@ function esc($s) { return htmlspecialchars((string)($s ?? '')); }
   </div>
 </div>
 
-<script src="daily-report.js"></script>
+<script src="daily-report.js?v=<?php echo filemtime(__DIR__ . '/daily-report.js'); ?>"></script>
 
 <?php require_once __DIR__ . '/../partials/footer.php'; ?>

@@ -203,29 +203,138 @@ function get_daily_ar_summary(mysqli $conn, int $store_id, string $date): array 
 }
 
 // Plan SC: 도매 판매(거래명세서) / Delivery K
+// 소스 2개를 합산: (1) 레거시 수동입력(sales_daily_items — dk_entry.php/ws_entry.php),
+// (2) daily_entry.php POS 셀 4/5번 섹션에서 선택한 항목(sales_pos_wholesale_pick).
+// Delivery K는 상세내용 없이 "DELIVERY K"만, Whole Sale은 거래처명(client)을 표시한다.
 function get_daily_wholesale_summary(mysqli $conn, int $store_id, string $date): array {
+    $out = ['delivery_k' => [], 'whole_sale' => [], 'total' => 0.0];
+
+    // 1) 레거시 수동입력
+    // delivery_k 항목 중 daily_entry.php POS 셀에서 이미 선택(pick)된 건은 제외 —
+    // 그렇지 않으면 아래 2)의 sales_pos_wholesale_pick 조회와 합쳐질 때 같은 건이 두 번 출력됨.
     $stmt = $conn->prepare(
-        "SELECT item_type, description, amount
-         FROM sales_daily_items
-         WHERE store_id=? AND sale_date=? AND item_type IN ('delivery_k','whole_sale')
-         ORDER BY id"
+        "SELECT si.item_type, si.description, si.amount
+         FROM sales_daily_items si
+         WHERE si.store_id=? AND si.sale_date=? AND si.item_type IN ('delivery_k','whole_sale')
+           AND NOT (si.item_type='delivery_k' AND EXISTS (
+               SELECT 1 FROM sales_pos_wholesale_pick p
+               WHERE p.store_id=si.store_id AND p.sale_date=si.sale_date
+                 AND p.source_type='delivery_k' AND p.source_id=si.id
+           ))
+         ORDER BY si.id"
     );
     $stmt->bind_param('is', $store_id, $date);
     $stmt->execute();
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 
-    $fallback_label = ['delivery_k' => 'DK DELIVERY', 'whole_sale' => 'WHOLE SALE'];
-    $out = ['delivery_k' => [], 'whole_sale' => [], 'total' => 0.0];
     foreach ($rows as $row) {
         $type = $row['item_type'];
-        $out[$type][] = [
-            'customer' => trim((string)$row['description']) !== '' ? $row['description'] : $fallback_label[$type],
-            'amount'   => (float)$row['amount'],
-        ];
+        $label = $type === 'delivery_k'
+            ? 'DELIVERY K'
+            : (trim((string)$row['description']) !== '' ? $row['description'] : 'WHOLE SALE');
+        $out[$type][] = ['customer' => $label, 'amount' => (float)$row['amount']];
+        $out['total'] += (float)$row['amount'];
+    }
+
+    // 2) daily_entry.php POS 셀에서 선택된 Whole Sale / Delivery K
+    $stmt2 = $conn->prepare(
+        "SELECT source_type, client, remark, amount
+         FROM sales_pos_wholesale_pick
+         WHERE store_id=? AND sale_date=? AND source_type IN ('wholesale','delivery_k')
+         ORDER BY id"
+    );
+    $stmt2->bind_param('is', $store_id, $date);
+    $stmt2->execute();
+    $rows2 = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt2->close();
+
+    foreach ($rows2 as $row) {
+        $type = $row['source_type'] === 'wholesale' ? 'whole_sale' : 'delivery_k';
+        if ($type === 'delivery_k') {
+            $label = 'DELIVERY K';
+        } else {
+            $client = trim((string)$row['client']);
+            $remark = trim((string)$row['remark']);
+            $label = $client !== '' ? $client : ($remark !== '' ? $remark : 'WHOLE SALE');
+        }
+        $out[$type][] = ['customer' => $label, 'amount' => (float)$row['amount']];
         $out['total'] += (float)$row['amount'];
     }
     return $out;
+}
+
+// 수수료 코너 — 점포별로 등록해둔 입점업체 목록과, 그 업체명이 pos_sales_data.supplier와
+// 정확히 일치하는 해당 날짜의 NET SALES 합계를 반환한다. (Plan §4.2 Out of Scope 재검토 — 등록 UI 추가)
+function get_daily_commission_summary(mysqli $conn, int $store_id, string $date): array {
+    $out = ['rows' => [], 'total' => 0.0];
+
+    $stmt = $conn->prepare(
+        "SELECT id, supplier_name FROM daily_report_commission_companies
+         WHERE store_id=? ORDER BY id ASC"
+    );
+    $stmt->bind_param('i', $store_id);
+    $stmt->execute();
+    $companies = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    if (empty($companies)) return $out;
+
+    // pos_sales_data.sale_date는 업로드 파일마다 저장 포맷이 다를 수 있어(Y-m-d, m/d/Y 등)
+    // 샘플 1건으로 포맷을 감지한 뒤, 조회 날짜($date, 항상 Y-m-d)를 동일 포맷 문자열로 변환해 매칭한다.
+    $sample = $conn->query(
+        "SELECT sale_date FROM pos_sales_data
+         WHERE upload_id IN (SELECT id FROM pos_sales_uploads WHERE store_id={$store_id}) LIMIT 1"
+    )->fetch_assoc();
+    $match_date = pos_sales_date_to_stored_format($sample['sale_date'] ?? '', $date);
+
+    $names        = array_column($companies, 'supplier_name');
+    $placeholders = implode(',', array_fill(0, count($names), '?'));
+    $stmt2 = $conn->prepare(
+        "SELECT d.supplier, SUM(d.net_sales) AS total
+         FROM pos_sales_data d
+         WHERE d.upload_id IN (SELECT id FROM pos_sales_uploads WHERE store_id=?)
+           AND d.sale_date=?
+           AND d.supplier IN ({$placeholders})
+         GROUP BY d.supplier"
+    );
+    $types  = 'is' . str_repeat('s', count($names));
+    $params = array_merge([$store_id, $match_date], $names);
+    $stmt2->bind_param($types, ...$params);
+    $stmt2->execute();
+    $sales_by_supplier = [];
+    foreach ($stmt2->get_result()->fetch_all(MYSQLI_ASSOC) as $r) {
+        $sales_by_supplier[$r['supplier']] = (float)$r['total'];
+    }
+    $stmt2->close();
+
+    foreach ($companies as $c) {
+        $amount = $sales_by_supplier[$c['supplier_name']] ?? 0.0;
+        $out['rows'][] = ['id' => (int)$c['id'], 'supplier_name' => $c['supplier_name'], 'amount' => $amount];
+        $out['total'] += $amount;
+    }
+    return $out;
+}
+
+// pos_sales_data.sale_date 저장 포맷 감지 규칙 — office/pos_data/report.php의
+// detect_date_format()과 유사하되, 월/일 자리수가 항상 zero-pad라고 가정하지 않고
+// 샘플에서 실제 관측된 자리수(1자리 vs 2자리)를 그대로 따라간다.
+// (예: 샘플이 "07-23-2026"이면 zero-pad 유지, "7/23/2026"이면 zero 제거)
+function pos_sales_date_to_stored_format(string $sample, string $ymd): string {
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $sample)) return $ymd;
+    [$y, $m, $d] = explode('-', $ymd); // 항상 Y, 2자리 m, 2자리 d
+
+    if (preg_match('#^(\d{1,2})/(\d{1,2})/\d{4}$#', $sample, $mm)) {
+        $mo = strlen($mm[1]) === 2 ? $m : ltrim($m, '0');
+        $da = strlen($mm[2]) === 2 ? $d : ltrim($d, '0');
+        return $mo . '/' . $da . '/' . $y;
+    }
+    if (preg_match('#^(\d{1,2})-(\d{1,2})-\d{4}$#', $sample, $mm)) {
+        $mo = strlen($mm[1]) === 2 ? $m : ltrim($m, '0');
+        $da = strlen($mm[2]) === 2 ? $d : ltrim($d, '0');
+        return $mo . '-' . $da . '-' . $y;
+    }
+    return $ymd;
 }
 
 // Plan SC: 기타지출 12개 카테고리 — expense_report 기배치 항목(er_saved_state)을 소스로 사용

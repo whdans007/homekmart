@@ -8,6 +8,46 @@
   const STORE_ID = board.dataset.storeId;
   const SOURCE_KEY = '__source__';
 
+  // ── 수수료 코너: 업체 등록/삭제 ──────────────────────────────
+  // 아래 드래그앤드롭(Sortable.js, 외부 CDN) 초기화가 실패해도 이 핸들러는 영향받지 않도록 최상단에서 먼저 연결한다.
+  const commissionForm = document.getElementById('dr-commission-form');
+  if (commissionForm) {
+    commissionForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('dr-commission-input');
+      const name = input.value.trim();
+      if (!name) return;
+      const fd = new FormData();
+      fd.append('action', 'add');
+      fd.append('supplier_name', name);
+      if (STORE_ID) fd.append('store_id', STORE_ID);
+      fetch('ajax_commission_company.php', { method: 'POST', body: fd })
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.success) location.reload();
+          else alert(res.error || '등록 실패');
+        })
+        .catch(() => alert('등록 실패'));
+    });
+  }
+
+  document.querySelectorAll('.dr-commission-del').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!confirm('이 업체를 수수료 코너에서 삭제할까요?')) return;
+      const fd = new FormData();
+      fd.append('action', 'delete');
+      fd.append('id', btn.dataset.id);
+      if (STORE_ID) fd.append('store_id', STORE_ID);
+      fetch('ajax_commission_company.php', { method: 'POST', body: fd })
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.success) location.reload();
+          else alert(res.error || '삭제 실패');
+        })
+        .catch(() => alert('삭제 실패'));
+    });
+  });
+
   function fmt2(n) {
     return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
@@ -94,7 +134,12 @@
     });
   }
 
-  document.querySelectorAll('.dr-zone').forEach(initSortable);
+  // Sortable.js는 외부 CDN에서 로드됨 — 네트워크 문제로 로드 실패해도 나머지 기능(수수료 코너 등)은 정상 동작해야 함
+  if (typeof Sortable === 'undefined') {
+    console.error('Sortable.js를 불러오지 못했습니다. 기타지출 드래그앤드롭이 비활성화됩니다.');
+  } else {
+    document.querySelectorAll('.dr-zone').forEach(initSortable);
+  }
 
   // ── 초기 로드 ──────────────────────────────────────────
   const qs = new URLSearchParams({ date: DATE });
