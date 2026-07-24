@@ -121,6 +121,23 @@ echo "<h3>10) get_daily_pos_summary() 실제 반환값</h3>";
 $rsresult = get_daily_pos_summary($conn, $store_id, $date);
 echo "<pre>" . htmlspecialchars(json_encode($rsresult, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) . "</pre>";
 
+echo "<h3>11) sales_daily_items + sales_pos_wholesale_pick 원본 (도매판매/Delivery K)</h3>";
+$wstmt = $conn->prepare("SELECT item_type, description, amount FROM sales_daily_items WHERE store_id=? AND sale_date=? AND item_type IN ('delivery_k','whole_sale')");
+$wstmt->bind_param('is', $store_id, $date);
+$wstmt->execute();
+echo "<b>sales_daily_items</b><pre>" . htmlspecialchars(json_encode($wstmt->get_result()->fetch_all(MYSQLI_ASSOC), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) . "</pre>";
+$wstmt->close();
+
+$wstmt2 = $conn->prepare("SELECT shift, pos_no, source_type, client, remark, amount FROM sales_pos_wholesale_pick WHERE store_id=? AND sale_date=?");
+$wstmt2->bind_param('is', $store_id, $date);
+$wstmt2->execute();
+echo "<b>sales_pos_wholesale_pick</b><pre>" . htmlspecialchars(json_encode($wstmt2->get_result()->fetch_all(MYSQLI_ASSOC), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) . "</pre>";
+$wstmt2->close();
+
+echo "<h3>12) get_daily_wholesale_summary() 실제 반환값</h3>";
+$wresult = get_daily_wholesale_summary($conn, $store_id, $date);
+echo "<pre>" . htmlspecialchars(json_encode($wresult, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) . "</pre>";
+
 $conn->close();
 
 echo "<h3>6) 서버가 실제로 읽고 있는 daily_report_helper.php 원본 (디스크 직접 읽기)</h3>";

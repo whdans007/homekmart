@@ -21,7 +21,7 @@ if ($is_super_admin) {
 
 $conn = get_db_connection();
 
-$store_stmt = $conn->prepare("SELECT COALESCE(company_name, name) AS label FROM stores WHERE id=?");
+$store_stmt = $conn->prepare("SELECT name AS label FROM stores WHERE id=?");
 $store_stmt->bind_param('i', $store_id);
 $store_stmt->execute();
 $store_label = $store_stmt->get_result()->fetch_assoc()['label'] ?? 'SUNSET';

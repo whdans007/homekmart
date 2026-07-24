@@ -567,6 +567,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </div>
 
+<!-- 페이지 나눔 (All 탭에서만 표시; 카테고리 선택 시 전체 표시) -->
+<div id="paginationBar" class="hidden items-center justify-between gap-3 mb-4 px-1">
+    <button type="button" id="prevPageBtn" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
+        <i class="fas fa-chevron-left mr-1"></i>Prev
+    </button>
+    <span id="pageInfo" class="text-sm text-gray-500"></span>
+    <button type="button" id="nextPageBtn" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
+        Next<i class="fas fa-chevron-right ml-1"></i>
+    </button>
+</div>
+
 <!-- 비고 -->
 <div class="bg-white rounded-xl border border-gray-200 p-4 mb-4">
     <label class="block text-sm font-medium text-gray-700 mb-2">Notes <span class="text-xs text-gray-400 font-normal">(Delivery requests, etc.)</span></label>
@@ -644,7 +655,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             this.classList.add('bg-teal-600', 'text-white', 'border-teal-600');
             this.classList.remove('bg-white', 'text-gray-600', 'border-gray-300');
             deactivateSelectedToggle();
-            filterRows();
+            filterRows(true);
         });
     });
 
@@ -659,19 +670,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         this.style.background  = '#f59e0b';
         this.style.color       = '#fff';
         this.style.borderColor = '#f59e0b';
-        filterRows();
+        filterRows(true);
     });
 
     // ── 검색 ──────────────────────────────────────────────────────
     document.getElementById('searchInput').addEventListener('input', function() {
         searchVal = this.value.trim().toLowerCase();
-        filterRows();
+        filterRows(true);
     });
 
-    function filterRows() {
-        var rows    = document.querySelectorAll('.product-row');
-        var selMode = activeCat === '__selected__';
-        var visible = 0;
+    // ── 페이지 나눔: "All" 탭에서만 적용, 카테고리를 선택하면 전체 표시 ──
+    var PAGE_SIZE   = 60;
+    var currentPage = 1;
+    var pagBar      = document.getElementById('paginationBar');
+    var prevPageBtn = document.getElementById('prevPageBtn');
+    var nextPageBtn = document.getElementById('nextPageBtn');
+    var pageInfo    = document.getElementById('pageInfo');
+
+    function filterRows(resetPage) {
+        if (resetPage) currentPage = 1;
+
+        var rows     = document.querySelectorAll('.product-row');
+        var selMode  = activeCat === '__selected__';
+        var paginate = activeCat === 'all';
+        var matched  = [];
+
         rows.forEach(function(row) {
             var catMatch;
             if (selMode) {
@@ -681,11 +704,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 catMatch = activeCat === 'all' || row.dataset.cat == activeCat;
             }
             var nameMatch = !searchVal || row.dataset.name.includes(searchVal);
-            if (catMatch && nameMatch) { row.classList.remove('hidden'); visible++; }
-            else                       { row.classList.add('hidden'); }
+            if (catMatch && nameMatch) matched.push(row);
+            row.classList.add('hidden');
         });
-        document.getElementById('noResult').classList.toggle('hidden', visible > 0);
+
+        var totalPages = 1, pageRows = matched;
+        if (paginate) {
+            totalPages = Math.max(1, Math.ceil(matched.length / PAGE_SIZE));
+            if (currentPage > totalPages) currentPage = totalPages;
+            var start = (currentPage - 1) * PAGE_SIZE;
+            pageRows = matched.slice(start, start + PAGE_SIZE);
+        }
+
+        pageRows.forEach(function(row) { row.classList.remove('hidden'); });
+        document.getElementById('noResult').classList.toggle('hidden', matched.length > 0);
+
+        if (paginate && matched.length > 0) {
+            pagBar.classList.remove('hidden');
+            pagBar.classList.add('flex');
+            pageInfo.textContent = 'Page ' + currentPage + ' / ' + totalPages + ' (' + matched.length + ' items)';
+            prevPageBtn.disabled = currentPage <= 1;
+            nextPageBtn.disabled = currentPage >= totalPages;
+        } else {
+            pagBar.classList.add('hidden');
+            pagBar.classList.remove('flex');
+        }
     }
+
+    prevPageBtn.addEventListener('click', function() {
+        if (currentPage <= 1) return;
+        currentPage--;
+        filterRows(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    nextPageBtn.addEventListener('click', function() {
+        currentPage++;
+        filterRows(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
 
     // ── 행에서 현재 선택된 단위(BOX/PCS) 가져오기 ─────────────────
     function getRowUnit(row) {
@@ -910,6 +966,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 초기 카트 상태 반영 후 draft 복원 (onQtyChange 정의 이후)
     updateCart();
     restoreDraft();
+    filterRows(true);
 
 })();
 </script>

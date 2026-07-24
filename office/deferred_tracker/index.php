@@ -772,10 +772,24 @@ async function saveEntry(){
     const fileEl=document.getElementById('a_file');
     if(fileEl.files.length) fd.append('dtr_file', fileEl.files[0]);
 
-    const res=await fetch('ajax_save_dtr.php',{method:'POST',body:fd});
-    const data=await res.json();
-    if(data.success){ location.href='index.php?year='+YEAR+'&month='+MONTH; }
-    else{ err.textContent=data.error||'Save failed.'; err.classList.remove('hidden'); }
+    try {
+        const res  = await fetch('ajax_save_dtr.php',{method:'POST',body:fd});
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); }
+        catch(parseErr) {
+            console.error('Non-JSON response from ajax_save_dtr.php:', text);
+            err.textContent = 'Save failed: unexpected server response (HTTP '+res.status+'). Check console for details.';
+            err.classList.remove('hidden');
+            return;
+        }
+        if(data.success){ location.href='index.php?year='+YEAR+'&month='+MONTH; }
+        else{ err.textContent=data.error||'Save failed.'; err.classList.remove('hidden'); }
+    } catch(e) {
+        console.error('saveEntry() network error:', e);
+        err.textContent = 'Save failed: network error. Please try again.';
+        err.classList.remove('hidden');
+    }
 }
 
 // ── Edit ─────────────────────────────────────────────────────

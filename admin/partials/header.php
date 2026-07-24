@@ -61,6 +61,20 @@ if ($can_approve_store_changes) {
         }
     }
 }
+
+// 유통기한 임박(알림 기준일 이내) 로트 건수 — 점검기록 메뉴 배지
+// Design Ref: docs/02-design/features/expiry-management.design.md §2.2, §5.4 네비게이션
+$expiry_alert_count = 0;
+if ((has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])) && !empty($current_store_id)) {
+    require_once __DIR__ . '/../../lib/expiry_helper.php';
+    try {
+        $expiry_conn = get_db_connection();
+        $expiry_alert_count = get_expiry_alert_count($expiry_conn, $current_store_id);
+        $expiry_conn->close();
+    } catch (Exception $e) {
+        error_log("Expiry alert count error: " . $e->getMessage());
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="ko" class="h-full">
@@ -242,6 +256,25 @@ if ($can_approve_store_changes) {
                     </div>
                     <?php endif; ?>
 
+                    <!-- 유통기한 관리 (amber) -->
+                    <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                    <div class="rounded-lg px-1.5 py-2 mt-1.5" style="background:#fffbeb;">
+                        <p class="px-2 py-1 mb-1 text-xs font-semibold uppercase tracking-wider rounded" style="background:#fde68a;color:#92400e;">유통기한 관리</p>
+                        <a href="expiry_inspection.php" class="<?php echo ($current_page == 'expiry_inspection.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center justify-between px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <span><i class="fas fa-calendar-times mr-2 text-xs w-4 text-center"></i>점검기록</span>
+                            <?php if ($expiry_alert_count > 0): ?>
+                            <span class="ml-2 inline-flex items-center justify-center px-1.5 py-0.5 font-bold leading-none text-white rounded-full" style="font-size:10px;background:#dc2626;"><?php echo $expiry_alert_count; ?></span>
+                            <?php endif; ?>
+                        </a>
+                        <a href="expiry_disposal.php" class="<?php echo ($current_page == 'expiry_disposal.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-trash-alt mr-2 text-xs w-4 text-center"></i>폐기등록
+                        </a>
+                        <a href="expiry_disposal_report.php" class="<?php echo ($current_page == 'expiry_disposal_report.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-chart-bar mr-2 text-xs w-4 text-center"></i>폐기통계
+                        </a>
+                    </div>
+                    <?php endif; ?>
+
                     <!-- 바코드 (red) -->
                     <?php if (has_permission('barcode_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
                     <div class="rounded-lg px-1.5 py-2 mt-1.5" style="background:#fef2f2;">
@@ -345,6 +378,12 @@ if ($can_approve_store_changes) {
             <?php if (has_permission('store_transfer_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
             <p class="px-2 pt-2 text-xs font-semibold uppercase tracking-wider" style="color:#7e22ce;"><?php echo t('navigation.store_transfer_section'); ?></p>
             <a href="store_transfers_list.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('navigation.store_transfer_section'); ?></a>
+            <?php endif; ?>
+            <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+            <p class="px-2 pt-2 text-xs font-semibold uppercase tracking-wider" style="color:#92400e;">유통기한 관리</p>
+            <a href="expiry_inspection.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md">점검기록<?php if ($expiry_alert_count > 0): ?> <span class="inline-flex items-center justify-center px-1.5 py-0.5 font-bold leading-none text-white rounded-full" style="font-size:10px;background:#dc2626;"><?php echo $expiry_alert_count; ?></span><?php endif; ?></a>
+            <a href="expiry_disposal.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md">폐기등록</a>
+            <a href="expiry_disposal_report.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md">폐기통계</a>
             <?php endif; ?>
             <?php if (has_permission('barcode_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
             <p class="px-2 pt-2 text-xs font-semibold uppercase tracking-wider" style="color:#b91c1c;"><?php echo t('navigation.barcode_section'); ?></p>

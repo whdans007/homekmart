@@ -19,7 +19,9 @@ if ($printMode === 'logo') {
         $logoSrc = 'data:image/png;base64,' . base64_encode(file_get_contents($logoFile));
     }
 }
-$discount  = preg_replace('/[^0-9+%]/', '', $_GET['discount'] ?? '');
+$rawDiscount = trim($_GET['discount'] ?? '');
+$isPeso    = (strtoupper($rawDiscount) === 'P');
+$discount  = $isPeso ? 'P' : preg_replace('/[^0-9+%]/', '', $rawDiscount);
 $autoPrint = ($_GET['autoprint'] ?? '0') === '1';
 $storeId   = (int)($_GET['store_id'] ?? 1);
 
@@ -162,6 +164,16 @@ function validateEanCheckDigit(string $code): bool {
     .label-discount .disc-1plus1 {
       font-size: 26pt; font-weight: 900; color: #000; line-height: 1;
     }
+    .label-discount .disc-peso {
+      display: flex; align-items: baseline; gap: 2mm;
+    }
+    .label-discount .disc-peso-symbol {
+      font-size: 26pt; font-weight: 900; color: #000; line-height: 1;
+    }
+    .label-discount .disc-peso-line {
+      display: inline-block; width: 20mm; height: 0; border-bottom: 2px solid #000;
+      margin-bottom: 1mm;
+    }
 
     /* ===== 로고스티커 모드 (1장에 2x2 = 로고 4개, 각 칸 70x30) ===== */
     .logo-sheet {
@@ -206,13 +218,12 @@ function validateEanCheckDigit(string $code): bool {
 
   <div class="grid" id="labels">
     <?php if ($printMode === 'discount'): ?>
-    <?php
-      $is1plus1  = ($discount === '1+1');
-      $rateLabel = $is1plus1 ? '1+1' : $discount . '%';
-    ?>
+    <?php $is1plus1 = ($discount === '1+1'); ?>
     <div class="label-discount">
       <div class="disc-half">
-        <?php if ($is1plus1): ?>
+        <?php if ($isPeso): ?>
+        <div class="disc-peso"><span class="disc-peso-symbol">₱</span><span class="disc-peso-line"></span></div>
+        <?php elseif ($is1plus1): ?>
         <div class="disc-1plus1">1+1</div>
         <?php else: ?>
         <div class="disc-rate"><?php echo htmlspecialchars($discount); ?>%</div>
@@ -220,7 +231,9 @@ function validateEanCheckDigit(string $code): bool {
         <?php endif; ?>
       </div>
       <div class="disc-half">
-        <?php if ($is1plus1): ?>
+        <?php if ($isPeso): ?>
+        <div class="disc-peso"><span class="disc-peso-symbol">₱</span><span class="disc-peso-line"></span></div>
+        <?php elseif ($is1plus1): ?>
         <div class="disc-1plus1">1+1</div>
         <?php else: ?>
         <div class="disc-rate"><?php echo htmlspecialchars($discount); ?>%</div>

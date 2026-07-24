@@ -16,7 +16,7 @@ if ($is_super_admin) {
 
 $conn = get_db_connection();
 
-$store_stmt = $conn->prepare("SELECT COALESCE(company_name, name) AS label FROM stores WHERE id=?");
+$store_stmt = $conn->prepare("SELECT name AS label FROM stores WHERE id=?");
 $store_stmt->bind_param('i', $store_id);
 $store_stmt->execute();
 $store_label = $store_stmt->get_result()->fetch_assoc()['label'] ?? 'SUNSET';
@@ -28,6 +28,12 @@ $purchase      = get_daily_purchase_summary($conn, $store_id, $date);
 $ar            = get_daily_ar_summary($conn, $store_id, $date);
 $wholesale     = get_daily_wholesale_summary($conn, $store_id, $date);
 $other_exp     = get_daily_other_expense_categories($conn, $store_id, $date);
+
+$commission_tbl = $conn->query("SHOW TABLES LIKE 'daily_report_commission_companies'");
+$commission = ($commission_tbl && $commission_tbl->num_rows > 0)
+    ? get_daily_commission_summary($conn, $store_id, $date)
+    : ['rows' => [], 'total' => 0.0];
+
 $conn->close();
 
 $grand_sales    = $pos_summary['totals']['total'] + $ar['credit_sales_total'];
@@ -108,7 +114,7 @@ td, th { border: 0.4pt solid #444; padding: 2pt 3pt; font-size: 7.5pt; vertical-
   <td class="h-date"><?php echo esc($date_label); ?></td>
   <td class="h-val"><?php echo fmt2($pos_summary['totals']['total']); ?></td>
   <td class="h-val"><?php echo $ar['credit_sales_total'] > 0 ? fmt2($ar['credit_sales_total']) : '-'; ?></td>
-  <td class="h-val">-</td>
+  <td class="h-val"><?php echo $commission['total'] > 0 ? fmt2($commission['total']) : '-'; ?></td>
   <td class="h-val"><?php echo fmt2($purchase['totals']['cash']); ?></td>
   <td class="h-val"><?php echo fmt2($purchase['totals']['check']); ?></td>
   <td class="h-val"><?php echo fmt2($grand_expense); ?></td>
@@ -132,11 +138,12 @@ td, th { border: 0.4pt solid #444; padding: 2pt 3pt; font-size: 7.5pt; vertical-
 <?php
 $categories = array_values($other_exp['categories']);
 $cat_keys   = array_keys($other_exp['categories']);
-$top_rows   = max(count($pos_summary['rows']), count($categories));
+$top_rows   = max(count($pos_summary['rows']), count($categories), count($commission['rows']));
 for ($i = 0; $i < $top_rows; $i++):
     $pos = $pos_summary['rows'][$i] ?? null;
     $cat_key = $cat_keys[$i] ?? null;
     $cat_amt = $cat_key !== null ? $other_exp['by_category'][$cat_key] : null;
+    $com = $commission['rows'][$i] ?? null;
 ?>
 <tr>
   <td><?php echo $pos ? esc($pos['label']) : ''; ?></td>
@@ -145,14 +152,16 @@ for ($i = 0; $i < $top_rows; $i++):
   <td class="amt"><?php echo ($pos && $pos['delivery_slip'] > 0) ? fmt2($pos['delivery_slip']) : ''; ?></td>
   <td class="amt"><?php echo $pos ? fmt2($pos['total']) : ''; ?></td>
   <td class="gap-col"></td>
-  <td></td><td class="amt"></td><td class="gap-col"></td>
+  <td><?php echo $com ? esc($com['supplier_name']) : ''; ?></td>
+  <td class="amt"><?php echo ($com && $com['amount'] > 0) ? fmt2($com['amount']) : ''; ?></td>
+  <td class="gap-col"></td>
   <td><?php echo $cat_key !== null ? esc($categories[$i]) : ''; ?></td>
   <td class="amt"><?php echo ($cat_key !== null && $cat_amt > 0) ? fmt2($cat_amt) : ''; ?></td>
 </tr>
 <?php endfor; ?>
 <tr>
   <td class="total-row" colspan="4">합계</td><td class="total-amt"><?php echo fmt2($pos_summary['totals']['total']); ?></td><td class="gap-col"></td>
-  <td class="total-row">합계</td><td class="total-amt"></td><td class="gap-col"></td>
+  <td class="total-row">합계</td><td class="total-amt"><?php echo fmt2($commission['total']); ?></td><td class="gap-col"></td>
   <td class="total-row">합계</td><td class="total-amt"><?php echo fmt2($other_exp['total_placed']); ?></td>
 </tr>
 <?php if ($other_exp['unplaced_count'] > 0): ?>
