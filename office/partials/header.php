@@ -117,6 +117,7 @@ $is_pos_item_edit   = str_contains($uri, '/pos_data/item_edit.php');
 $is_pos_report      = str_contains($uri, '/pos_data/report.php');
 $is_purchase_report = str_contains($uri, '/product_purchase/monthly_report');
 $is_monthly_closing = str_contains($uri, '/product_purchase/monthly_closing');
+$is_daily_report    = str_contains($uri, '/daily_report/');
 
 function nav_link($href, $icon, $label, $active, $section = '') {
     $cls = $active
@@ -214,7 +215,8 @@ aside .menu-item { font-size: 11px; padding-top: 4px; padding-bottom: 4px; }
 
     <!-- Monthly Report 섹션 (purple) -->
     <div class="rounded-lg px-1.5 py-2 mt-1.5" style="background:#faf5ff;">
-      <p class="menu-section-header flex items-center justify-between px-2 py-1 mb-1 text-xs font-semibold uppercase tracking-wider rounded cursor-pointer" data-section="monthly-report" style="background:#f3e8ff;color:#7e22ce;" title="Click to toggle">Monthly Report <span class="menu-toggle-icon font-bold text-sm">+</span></p>
+      <p class="menu-section-header flex items-center justify-between px-2 py-1 mb-1 text-xs font-semibold uppercase tracking-wider rounded cursor-pointer" data-section="monthly-report" style="background:#f3e8ff;color:#7e22ce;" title="Click to toggle">Report <span class="menu-toggle-icon font-bold text-sm">+</span></p>
+      <?php nav_link($office_nav_base.'daily_report/index.php', 'fa-solid fa-file-invoice', 'Daily Report', $is_daily_report, 'monthly-report'); ?>
       <?php nav_link($office_nav_base.'product_purchase/monthly_report.php', 'fa-solid fa-file-invoice-dollar', '업체별 월간 매입', $is_purchase_report, 'monthly-report'); ?>
       <?php nav_link($office_nav_base.'product_purchase/monthly_closing.php', 'fa-solid fa-flag-checkered', '월마감 REPORT', $is_monthly_closing, 'monthly-report'); ?>
       <?php nav_link($office_nav_base.'cash_disbursement/fixed_expenses.php', 'fa-solid fa-file-lines', 'Fixed Expenses', $is_fixed_exp, 'monthly-report'); ?>
