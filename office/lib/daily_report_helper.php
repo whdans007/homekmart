@@ -3,22 +3,23 @@
 // index.php / export_daily_report.php / export_daily_report_monthly.php / print_daily_report.php는
 // 이 파일의 함수를 통해서만 데이터에 접근한다. 직접 SQL을 작성하지 않는다.
 require_once __DIR__ . '/office_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 
-// ── 기타지출 12개 고정 카테고리 (참고 이미지 서식 순서 그대로) ──────────────
+// ── 기타지출 12개 고정 카테고리 (참고 이미지 서식 순서/키는 고정, 표시 텍스트만 언어별 번역) ──
 function get_daily_report_categories(): array {
     return [
-        'return'         => '반품',
-        'payroll'        => '인건비 (SSS,PAG-IBIG,PHIL HEALTH)',
-        'utilities'      => '전기세 & 관리비 & CDC & BIR',
-        'pldt_lpg'       => 'PLDT & LPG & 방역',
-        'office_supply'  => '사무실(비품) & 판매소품',
-        'produce'        => '농산 축산 수산 키친',
-        'vehicle'        => '차량 유지비',
-        'discount5'      => '일반할인 5%',
-        'koreanchamber5' => '한인회 5%',
-        'maintenance'    => 'MAINTENANCE',
-        'other'          => '기타 (공병 보증금, PLASTIC CONTAINER, MEDICAL)',
-        'points'         => '포인트 사용',
+        'return'         => t('daily_report.cat_return'),
+        'payroll'        => t('daily_report.cat_payroll'),
+        'utilities'      => t('daily_report.cat_utilities'),
+        'pldt_lpg'       => t('daily_report.cat_pldt_lpg'),
+        'office_supply'  => t('daily_report.cat_office_supply'),
+        'produce'        => t('daily_report.cat_produce'),
+        'vehicle'        => t('daily_report.cat_vehicle'),
+        'discount5'      => t('daily_report.cat_discount5'),
+        'koreanchamber5' => t('daily_report.cat_koreanchamber5'),
+        'maintenance'    => t('daily_report.cat_maintenance'),
+        'other'          => t('daily_report.cat_other'),
+        'points'         => t('daily_report.cat_points'),
     ];
 }
 

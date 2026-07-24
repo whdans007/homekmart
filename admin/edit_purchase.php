@@ -4,6 +4,7 @@
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'reorder_item') {
     session_start();
     require_once __DIR__ . '/../config/db_config.php';
+    require_once __DIR__ . '/../lib/lang_helper.php';
 
     header('Content-Type: application/json');
 
@@ -12,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $new_order  = (int)($_POST['new_sort_order'] ?? 0);
 
     if (!$item_id || !$purchase_id || $new_order < 1) {
-        echo json_encode(['success' => false, 'error' => '필수 데이터가 누락되었습니다.']);
+        echo json_encode(['success' => false, 'error' => t('purchase.js_missing_data')]);
         exit;
     }
 
@@ -26,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $p = $chk->get_result()->fetch_assoc();
         $chk->close();
         if ($p && $p['is_confirmed']) {
-            echo json_encode(['success' => false, 'error' => '확정된 매입은 순번을 변경할 수 없습니다.']);
+            echo json_encode(['success' => false, 'error' => t('purchase.js_confirmed_no_reorder')]);
             exit;
         }
 
@@ -37,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $cur_row = $cur_stmt->get_result()->fetch_assoc();
         $cur_stmt->close();
         if (!$cur_row) {
-            echo json_encode(['success' => false, 'error' => '상품을 찾을 수 없습니다.']);
+            echo json_encode(['success' => false, 'error' => t('purchase.item_not_found')]);
             exit;
         }
         $current_order = (int)$cur_row['sort_order'];
@@ -54,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if ($new_order > $max_order) $new_order = $max_order;
 
         if ($new_order === $current_order) {
-            echo json_encode(['success' => true, 'message' => '변경 없음']);
+            echo json_encode(['success' => true, 'message' => t('purchase.js_no_change')]);
             exit;
         }
 
@@ -87,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $conn->commit();
         $conn->close();
 
-        echo json_encode(['success' => true, 'message' => "순번이 {$current_order}번에서 {$new_order}번으로 변경되었습니다."]);
+        echo json_encode(['success' => true, 'message' => t('purchase.js_reorder_success_detail', ['from' => $current_order, 'to' => $new_order])]);
     } catch (Exception $e) {
         if (isset($conn)) { $conn->rollback(); $conn->close(); }
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -99,6 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_sort_order') {
     session_start();
     require_once __DIR__ . '/../config/db_config.php';
+    require_once __DIR__ . '/../lib/lang_helper.php';
 
     header('Content-Type: application/json');
 
@@ -106,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $order_data_json = $_POST['order_data'] ?? null;
 
     if (!$purchase_id || !$order_data_json) {
-        echo json_encode(['success' => false, 'error' => '필수 데이터가 누락되었습니다.']);
+        echo json_encode(['success' => false, 'error' => t('purchase.js_missing_data')]);
         exit;
     }
 
@@ -123,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         if ($purchase && $purchase['is_confirmed']) {
             $conn->close();
-            echo json_encode(['success' => false, 'error' => '확정된 매입은 순번을 변경할 수 없습니다.']);
+            echo json_encode(['success' => false, 'error' => t('purchase.js_confirmed_no_reorder')]);
             exit;
         }
 
@@ -132,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         if (!$order_data || !is_array($order_data)) {
             $conn->close();
-            echo json_encode(['success' => false, 'error' => 'JSON 파싱 실패: ' . json_last_error_msg()]);
+            echo json_encode(['success' => false, 'error' => t('purchase.js_json_parse_failed') . json_last_error_msg()]);
             exit;
         }
 
@@ -158,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         echo json_encode([
             'success' => true,
-            'message' => '순번이 성공적으로 변경되었습니다.',
+            'message' => t('purchase.js_reorder_success'),
             'updated_count' => $updated_count
         ]);
 
@@ -177,6 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_product_name') {
     session_start();
     require_once __DIR__ . '/../config/db_config.php';
+    require_once __DIR__ . '/../lib/lang_helper.php';
 
     header('Content-Type: application/json');
 
@@ -188,13 +191,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     // 입력 검증
     if (empty($new_name)) {
-        $error_msg = $field_type === 'en' ? '영문 상품명을 입력해주세요.' : '상품명을 입력해주세요.';
+        $error_msg = $field_type === 'en' ? t('purchase.js_enter_product_name_en') : t('purchase.js_enter_product_name');
         echo json_encode(['success' => false, 'error' => $error_msg]);
         exit;
     }
 
     if (strlen($new_name) > 255) {
-        $error_msg = $field_type === 'en' ? '영문 상품명이 너무 깁니다. (최대 255자)' : '상품명이 너무 깁니다. (최대 255자)';
+        $error_msg = $field_type === 'en' ? t('purchase.js_product_name_too_long_en') : t('purchase.js_product_name_too_long');
         echo json_encode(['success' => false, 'error' => $error_msg]);
         exit;
     }
@@ -216,7 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $auth_stmt->close();
 
         if ($auth_result->num_rows === 0) {
-            throw new Exception('권한이 없습니다.');
+            throw new Exception(t('purchase.js_no_permission'));
         }
 
         // 기존 상품명 조회 (이력 기록용)
@@ -259,11 +262,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             $conn->commit();
             $conn->close();
-            $success_msg = $field_type === 'en' ? '영문 상품명이 성공적으로 수정되었습니다.' : '상품명이 성공적으로 수정되었습니다.';
+            $success_msg = $field_type === 'en' ? t('purchase.js_name_updated_en') : t('purchase.js_name_updated');
             echo json_encode(['success' => true, 'message' => $success_msg]);
         } else {
             $update_stmt->close();
-            $error_msg = $field_type === 'en' ? '영문 상품명 업데이트에 실패했습니다.' : '상품명 업데이트에 실패했습니다.';
+            $error_msg = $field_type === 'en' ? t('purchase.js_name_update_failed_en') : t('purchase.js_name_update_failed');
             throw new Exception($error_msg);
         }
 
@@ -445,7 +448,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             $inv_stmt->bind_param("iii", $new_quantity, $item['product_id'], $user_info['store_id']);
                             
                             if (!$inv_stmt->execute()) {
-                                throw new Exception("재고 업데이트 실패 - Product ID: {$item['product_id']}, Error: " . $inv_stmt->error);
+                                throw new Exception(t('purchase.js_inventory_update_failed') . " - Product ID: {$item['product_id']}, Error: " . $inv_stmt->error);
                             }
                             $inv_stmt->close();
                             
@@ -465,7 +468,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         }
                     }
                 } catch (Exception $item_error) {
-                    throw new Exception("아이템 #{$item_count} 처리 중 오류: " . $item_error->getMessage());
+                    throw new Exception(t('purchase.js_item_process_error_prefix', ['n' => $item_count]) . $item_error->getMessage());
                 }
             }
             $items_stmt->close();
@@ -498,7 +501,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $soft_delete_stmt = $conn->prepare("UPDATE purchases SET deleted_at = NOW() WHERE purchase_id = ?");
                 $soft_delete_stmt->bind_param("i", $purchase_id);
             } else {
-                throw new Exception('deleted_at 컬럼을 생성할 수 없습니다.');
+                throw new Exception(t('purchase.js_deleted_at_column_failed'));
             }
             $soft_delete_stmt->execute();
             $soft_delete_stmt->close();
@@ -511,17 +514,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             header('Location: purchase_management.php?message=' . urlencode($message));
             exit();
         } else {
-            throw new Exception('사용자 정보를 찾을 수 없습니다.');
+            throw new Exception(t('purchase.js_user_info_not_found'));
         }
     } catch (Exception $e) {
         $conn->rollback();
         $error_msg = $e->getMessage();
         
         // 사용자에게 더 자세한 오류 정보 제공
-        if (strpos($error_msg, '아이템') !== false) {
-            $message = t('purchase.js_delete_error') . ': ' . $error_msg;
-        } else if (strpos($error_msg, 'deleted_at') !== false) {
-            $message = '데이터베이스 구조 오류입니다. Soft Delete 설정을 다시 실행해 주세요.';
+        if (strpos($error_msg, 'deleted_at') !== false) {
+            $message = t('purchase.js_db_structure_error');
         } else {
             $message = t('purchase.js_delete_error') . ': ' . $error_msg;
         }
@@ -635,7 +636,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     
                     $updated_count++;
                 } else {
-                    $errors[] = "상품 ID {$item_id}를 찾을 수 없습니다.";
+                    $errors[] = t('purchase.js_product_id_not_found', ['id' => $item_id]);
                 }
             }
             
@@ -653,15 +654,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $conn->commit();
             
             if (count($errors) > 0) {
-                $message = "{$updated_count}개 상품이 수정되었습니다. 오류: " . implode(", ", $errors);
+                $message = t('purchase.js_items_updated_with_errors', ['n' => $updated_count]) . implode(", ", $errors);
                 $message_type = 'warning';
             } else {
-                $message = "{$updated_count}개 상품이 성공적으로 수정되었습니다.";
+                $message = t('purchase.js_items_updated_success', ['n' => $updated_count]);
                 $message_type = 'success';
             }
         } catch (Exception $e) {
             $conn->rollback();
-            $message = '상품 일괄 수정에 실패했습니다: ' . $e->getMessage();
+            $message = t('purchase.js_bulk_update_failed') . $e->getMessage();
             $message_type = 'error';
         }
     }
@@ -672,7 +673,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $item_ids = isset($_POST['item_ids']) ? array_map('intval', (array)$_POST['item_ids']) : [];
 
     if (empty($item_ids)) {
-        $message = '삭제할 항목을 선택해주세요.';
+        $message = t('purchase.js_select_items_to_delete');
         $message_type = 'error';
     } else {
         try {
@@ -772,12 +773,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
                 $conn->commit();
                 $deleted_count = count($item_ids);
-                $message = "{$deleted_count}개 항목이 삭제되었습니다.";
+                $message = t('purchase.js_items_deleted_count', ['n' => $deleted_count]);
                 $message_type = 'success';
             }
         } catch (Exception $e) {
             $conn->rollback();
-            $message = '삭제 오류: ' . $e->getMessage();
+            $message = t('purchase.js_delete_error') . ': ' . $e->getMessage();
             $message_type = 'error';
         }
     }
@@ -886,7 +887,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $soft_delete_stmt = $conn->prepare("UPDATE purchases SET deleted_at = NOW() WHERE purchase_id = ?");
                         $soft_delete_stmt->bind_param("i", $purchase_id);
                     } else {
-                        throw new Exception('deleted_at 컬럼을 생성할 수 없습니다.');
+                        throw new Exception(t('purchase.js_deleted_at_column_failed'));
                     }
                     $soft_delete_stmt->execute();
                     $soft_delete_stmt->close();
@@ -1038,14 +1039,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $update_stmt->close();
                 
                 $conn->commit();
-                $message = '매입 상품이 성공적으로 수정되었습니다.';
+                $message = t('purchase.js_item_update_success');
                 $message_type = 'success';
             } else {
-                throw new Exception('수정할 상품을 찾을 수 없습니다.');
+                throw new Exception(t('purchase.js_item_to_update_not_found'));
             }
         } catch (Exception $e) {
             $conn->rollback();
-            $message = '상품 수정에 실패했습니다: ' . $e->getMessage();
+            $message = t('purchase.js_item_update_failed') . $e->getMessage();
             $message_type = 'error';
         }
     }
@@ -1133,7 +1134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         $skipped_count++; // VAT 비적용 상품은 건너뜀
                     }
                 } else {
-                    $errors[] = "상품 ID {$item_id}를 찾을 수 없습니다.";
+                    $errors[] = t('purchase.js_product_id_not_found', ['id' => $item_id]);
                 }
             }
             
@@ -1150,27 +1151,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $conn->commit();
             
             if ($updated_count > 0) {
-                $message = "{$updated_count}개 상품에 VAT가 적용되었습니다.";
+                $message = t('purchase.js_vat_applied_count', ['n' => $updated_count]);
                 if ($skipped_count > 0) {
-                    $message .= " ({$skipped_count}개는 VAT 비적용 상품으로 제외되었습니다.)";
+                    $message .= t('purchase.js_vat_skipped_count', ['n' => $skipped_count]);
                 }
                 $message_type = 'success';
             } else {
-                $message = 'VAT를 적용할 수 있는 상품이 없습니다.';
+                $message = t('purchase.js_no_vat_applicable_items');
                 $message_type = 'warning';
             }
             
             if (!empty($errors)) {
-                $message .= " 오류: " . implode(", ", $errors);
+                $message .= ' ' . t('purchase.js_error') . ': ' . implode(", ", $errors);
             }
             
         } catch (Exception $e) {
             $conn->rollback();
-            $message = 'VAT 적용에 실패했습니다: ' . $e->getMessage();
+            $message = t('purchase.js_vat_apply_failed') . $e->getMessage();
             $message_type = 'error';
         }
     } else {
-        $message = '선택된 상품이 없습니다.';
+        $message = t('purchase.js_no_items_selected');
         $message_type = 'warning';
     }
 }
@@ -1319,7 +1320,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $stmt_item = $conn->prepare("INSERT INTO purchase_items (purchase_id, product_id, purchase_type, quantity, unit_price, vat_included, original_unit_price, vat_amount, discount_rate, discounted_unit_price, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt_item->bind_param("iisiddddddi", $purchase_id, $product_id, $purchase_type, $quantity, $final_unit_price, $vat_included, $original_unit_price, $vat_amount, $discount_rate, $discounted_unit_price, $next_sort_order);
             if (!$stmt_item->execute()) {
-                throw new Exception("매입 상세 저장 실패: " . $stmt_item->error);
+                throw new Exception(t('purchase.js_item_save_failed_prefix') . $stmt_item->error);
             }
             $stmt_item->close();
 
@@ -1351,7 +1352,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 ");
                 $inv_insert_stmt->bind_param("iididi", $product_id, $store_id, $actual_quantity, $final_unit_price, $actual_quantity, $final_unit_price);
                 if (!$inv_insert_stmt->execute()) {
-                    throw new Exception("재고 업데이트 실패: " . $inv_insert_stmt->error);
+                    throw new Exception(t('purchase.js_inventory_update_failed') . ": " . $inv_insert_stmt->error);
                 }
                 $inv_insert_stmt->close();
 
@@ -1363,7 +1364,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 if ($inv_id_row = $inv_id_result->fetch_assoc()) {
                     $inventory_id = $inv_id_row['id'];
                 } else {
-                    throw new Exception("재고 레코드 조회 실패");
+                    throw new Exception(t('purchase.js_inventory_record_lookup_failed'));
                 }
                 $inv_id_stmt->close();
 
@@ -1372,7 +1373,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $remarks = "매입 상품 추가 (Purchase ID: {$purchase_id})";
                 $transaction_stmt->bind_param("iiis", $inventory_id, $_SESSION['user_id'], $actual_quantity, $remarks);
                 if (!$transaction_stmt->execute()) {
-                    throw new Exception("재고 거래 로그 저장 실패: " . $transaction_stmt->error);
+                    throw new Exception(t('purchase.js_transaction_log_save_failed') . $transaction_stmt->error);
                 }
                 $transaction_stmt->close();
             }
@@ -1387,12 +1388,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $update_stmt->close();
             
             $conn->commit();
-            $message = '새로운 상품이 매입 내역에 성공적으로 추가되었습니다.';
+            $message = t('purchase.js_item_added_success');
             $message_type = 'success';
             
         } catch (Exception $e) {
             $conn->rollback();
-            $message = '상품 추가에 실패했습니다: ' . $e->getMessage();
+            $message = t('purchase.js_item_add_failed') . $e->getMessage();
             $message_type = 'error';
         }
     } else {
@@ -1412,22 +1413,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $update_supplier_stmt->bind_param("ii", $new_supplier_id, $purchase_id);
 
                 if ($update_supplier_stmt->execute()) {
-                    $message = '거래처가 성공적으로 변경되었습니다.';
+                    $message = t('purchase.js_supplier_change_success');
                     $message_type = 'success';
                 } else {
-                    throw new Exception('거래처 변경에 실패했습니다.');
+                    throw new Exception(t('purchase.js_supplier_change_failed'));
                 }
                 $update_supplier_stmt->close();
             } catch (Exception $e) {
-                $message = '거래처 변경 오류: ' . $e->getMessage();
+                $message = t('purchase.js_supplier_change_error') . $e->getMessage();
                 $message_type = 'error';
             }
         } else {
-            $message = '유효한 거래처를 선택해주세요.';
+            $message = t('purchase.js_select_valid_supplier');
             $message_type = 'error';
         }
     } else {
-        $message = '권한이 없습니다.';
+        $message = t('purchase.js_no_permission');
         $message_type = 'error';
     }
 }
@@ -1461,8 +1462,8 @@ if ($can_edit_supplier) {
 }
 
 if (!$purchase) {
-    echo "<div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4'>매입 내역을 찾을 수 없습니다.</div>";
-    echo "<a href='purchase_management.php' class='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded'>매입 리스트로 돌아가기</a>";
+    echo "<div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4'>" . t('purchase.purchase_not_found') . "</div>";
+    echo "<a href='purchase_management.php' class='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded'>" . t('purchase.back_to_management') . "</a>";
     require_once __DIR__ . '/partials/footer.php';
     exit;
 }
@@ -1626,20 +1627,20 @@ tr[id^="row-"] td:first-child:hover {
         <div class="flex md:hidden justify-between items-center">
             <a href="purchase_management.php" class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                 <i class="fas fa-arrow-left mr-1"></i>
-                목록
+                <?php echo t('purchase.list_short'); ?>
             </a>
-            <h2 class="text-base font-semibold text-gray-900">매입 #<?php echo htmlspecialchars($purchase_id); ?></h2>
+            <h2 class="text-base font-semibold text-gray-900"><?php echo t('purchase.purchase_prefix'); ?> #<?php echo htmlspecialchars($purchase_id); ?></h2>
             <?php if (!($purchase['is_confirmed'] ?? false)): ?>
             <a href="mobile_purchase_add.php?edit_purchase_id=<?php echo $purchase_id; ?>"
                class="inline-flex items-center px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
                 <i class="fas fa-camera mr-1"></i>
-                상품추가
+                <?php echo t('purchase.mobile_add_product'); ?>
             </a>
             <?php endif; ?>
         </div>
         <!-- 데스크톱 헤더 -->
         <div class="hidden md:flex justify-between items-center">
-            <h2 class="text-lg font-medium text-gray-900">매입 상세내역</h2>
+            <h2 class="text-lg font-medium text-gray-900"><?php echo t('purchase.purchase_detail_title'); ?></h2>
             <div class="flex space-x-3">
                 <?php if ($has_deleted_at): ?>
                 <button type="button" id="delete-purchase-btn" class="inline-flex items-center justify-center rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 shadow-sm hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
@@ -1649,7 +1650,7 @@ tr[id^="row-"] td:first-child:hover {
                 <?php else: ?>
                 <a href="setup_soft_delete_purchases.php" class="inline-flex items-center justify-center rounded-md border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700 shadow-sm hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2">
                     <i class="fas fa-database mr-2"></i>
-                    Soft Delete 설정 필요
+                    <?php echo t('purchase.soft_delete_setup_needed'); ?>
                 </a>
                 <?php endif; ?>
 
@@ -1658,29 +1659,29 @@ tr[id^="row-"] td:first-child:hover {
                     <?php if (current_user_level() >= LEVEL_BRANCH_MANAGER): // 점장 이상 확정 취소 가능 ?>
                     <button type="button" id="cancel-confirm-btn" data-purchase-id="<?php echo htmlspecialchars($purchase_id); ?>" class="inline-flex items-center justify-center rounded-md border border-orange-300 bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700 shadow-sm hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
                         <i class="fas fa-undo mr-2"></i>
-                        확정 취소
+                        <?php echo t('purchase.cancel_confirmation'); ?>
                     </button>
                     <?php endif; ?>
                 <?php else: ?>
                     <button type="button" id="confirm-purchase-btn" data-purchase-id="<?php echo htmlspecialchars($purchase_id); ?>" class="inline-flex items-center justify-center rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 shadow-sm hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
                         <i class="fas fa-check mr-2"></i>
-                        매입 확정
+                        <?php echo t('purchase.confirm_purchase'); ?>
                     </button>
                 <?php endif; ?>
 
                 <a href="purchase_price_change.php?purchase_id=<?php echo htmlspecialchars($purchase_id); ?>" class="inline-flex items-center justify-center rounded-md border border-purple-300 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-700 shadow-sm hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
                     <i class="fas fa-chart-line mr-2"></i>
-                    가격변동 확인
+                    <?php echo t('purchase.price_change'); ?> <?php echo t('purchase.modal_confirm'); ?>
                 </a>
 
                 <button type="button" onclick="openPrintModal()" class="inline-flex items-center justify-center rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                     <i class="fas fa-print mr-2"></i>
-                    인쇄 미리보기
+                    <?php echo t('common.print_preview'); ?>
                 </button>
 
                 <a href="purchase_management.php" class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
                     <i class="fas fa-arrow-left mr-2"></i>
-                    매입 관리로 돌아가기
+                    <?php echo t('purchase.back_to_management'); ?>
                 </a>
             </div>
         </div>
@@ -1693,7 +1694,7 @@ tr[id^="row-"] td:first-child:hover {
                         <i class="fas fa-hashtag text-purple-500 mr-2"></i>
                     </div>
                     <div>
-                        <span class="text-sm font-medium text-gray-600">거래번호:</span>
+                        <span class="text-sm font-medium text-gray-600"><?php echo t('purchase.purchase_number'); ?>:</span>
                         <span class="text-base font-semibold text-gray-900 ml-2"><?php echo htmlspecialchars($purchase_id); ?></span>
                     </div>
                 </div>
@@ -1708,7 +1709,7 @@ tr[id^="row-"] td:first-child:hover {
                             <button type="button" id="change-supplier-btn"
                                     class="inline-flex items-center px-2 py-1 border border-blue-300 rounded text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500">
                                 <i class="fas fa-edit mr-1"></i>
-                                변경
+                                <?php echo t('common.edit'); ?>
                             </button>
                             <form method="POST" id="supplier-form" class="hidden">
                                 <input type="hidden" name="action" value="update_supplier">
@@ -1747,15 +1748,15 @@ tr[id^="row-"] td:first-child:hover {
                     <?php if (isset($purchase['is_confirmed']) && $purchase['is_confirmed']): ?>
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             <i class="fas fa-check-circle mr-1"></i>
-                            매입확정
+                            <?php echo t('purchase.confirmed_status'); ?>
                         </span>
                         <?php if ($purchase['confirmed_at']): ?>
-                            <span class="text-xs text-gray-500">확정일시: <?php echo date('Y-m-d H:i', strtotime($purchase['confirmed_at'])); ?></span>
+                            <span class="text-xs text-gray-500"><?php echo t('purchase.confirmed_at'); ?>: <?php echo date('Y-m-d H:i', strtotime($purchase['confirmed_at'])); ?></span>
                         <?php endif; ?>
                     <?php else: ?>
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                             <i class="fas fa-clock mr-1"></i>
-                            미확정
+                            <?php echo t('purchase.unconfirmed_status'); ?>
                         </span>
                     <?php endif; ?>
                 </div>
@@ -1764,14 +1765,14 @@ tr[id^="row-"] td:first-child:hover {
                     <a href="add_purchase.php?edit_purchase_id=<?php echo $purchase_id; ?>"
                        class="hidden md:flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         <i class="fas fa-plus-circle mr-2"></i>
-                        상품 추가하기
+                        <?php echo t('purchase.add_items_button'); ?>
                     </a>
                     <?php if (!($purchase['is_confirmed'] ?? false)): ?>
                     <button type="button" id="delete-selected-btn"
                             class="hidden md:flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled>
                         <i class="fas fa-trash-alt mr-2"></i>
-                        선택 삭제 (<span id="selected-delete-count">0</span>)
+                        <?php echo t('purchase.delete_selected_prefix'); ?><span id="selected-delete-count">0</span>)
                     </button>
                     <?php endif; ?>
                     <!-- 저장 버튼은 화면 하단 고정 바로 이동했습니다 (#fixed-save-bar) -->
@@ -1809,20 +1810,20 @@ tr[id^="row-"] td:first-child:hover {
                     <th class="col-mobile-hide w-8 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <input type="checkbox" id="select-all" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" <?php echo ($purchase['is_confirmed'] ?? false) ? 'disabled' : ''; ?>>
                     </th>
-                    <th class="col-mobile-hide w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">순번</th>
+                    <th class="col-mobile-hide w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.item_number'); ?></th>
                     <th class="w-20 px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
                     <th class="w-48 px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.product_name'); ?></th>
                     <th class="col-mobile-hide w-20 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit'); ?></th>
                     <th class="col-mobile-hide w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.quantity'); ?></th>
                     <th class="col-mobile-hide w-12 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.pieces_per_box'); ?></th>
                     <th class="col-mobile-hide w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.unit_price'); ?></th>
-                    <th class="col-mobile-hide w-14 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">VAT 구분</th>
+                    <th class="col-mobile-hide w-14 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">VAT</th>
                     <th class="col-mobile-hide w-14 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.piece_price'); ?></th>
                     <th class="col-mobile-hide w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total_pieces'); ?></th>
                     <th class="col-mobile-hide w-10 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.discount_rate'); ?></th>
-                    <th class="col-mobile-hide w-16 px-1 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">할인된 단가</th>
-                    <th class="col-mobile-hide w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">합계</th>
-                    <th class="col-mobile-hide w-24 px-1 py-2 text-center text-xs font-medium text-green-700 uppercase tracking-wider">유통기한</th>
+                    <th class="col-mobile-hide w-16 px-1 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider"><?php echo t('purchase.discounted_total'); ?></th>
+                    <th class="col-mobile-hide w-16 px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.total'); ?></th>
+                    <th class="col-mobile-hide w-24 px-1 py-2 text-center text-xs font-medium text-green-700 uppercase tracking-wider"><?php echo t('purchase.expiration_date'); ?></th>
                     <th class="col-mobile-hide w-10 px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.delete'); ?></th>
                 </tr>
             </thead>
@@ -1853,7 +1854,7 @@ tr[id^="row-"] td:first-child:hover {
                                     </td>
                                     <td class="col-mobile-hide w-10 px-1 py-3 text-center">
                                         <div class="flex items-center justify-center">
-                                            <i class="fas fa-grip-vertical text-gray-400 cursor-move drag-handle mr-1" title="드래그하여 순번 변경"></i>
+                                            <i class="fas fa-grip-vertical text-gray-400 cursor-move drag-handle mr-1" title="<?php echo t('purchase.drag_reorder_hint'); ?>"></i>
                                             <span class="text-xs font-medium text-gray-700"><?php echo $item['sort_order']; ?></span>
                                         </div>
                                     </td>
@@ -1867,7 +1868,7 @@ tr[id^="row-"] td:first-child:hover {
                                                  data-product-id="<?php echo $item['product_id']; ?>"
                                                  data-item-id="<?php echo $item['item_id']; ?>"
                                                  data-original-name="<?php echo htmlspecialchars($item['product_name']); ?>"
-                                                 title="클릭하여 상품명 수정"><?php echo htmlspecialchars($item['product_name']); ?></div>
+                                                 title="<?php echo t('purchase.click_to_edit_name'); ?>"><?php echo htmlspecialchars($item['product_name']); ?></div>
                                         </div>
                                         <?php if (!empty($item['product_name_en'])): ?>
                                         <div class="flex items-center">
@@ -1876,7 +1877,7 @@ tr[id^="row-"] td:first-child:hover {
                                                  data-product-id="<?php echo $item['product_id']; ?>"
                                                  data-item-id="<?php echo $item['item_id']; ?>"
                                                  data-original-name="<?php echo htmlspecialchars($item['product_name_en']); ?>"
-                                                 title="클릭하여 영문 상품명 수정"><?php echo htmlspecialchars($item['product_name_en']); ?></div>
+                                                 title="<?php echo t('purchase.click_to_edit_name_en'); ?>"><?php echo htmlspecialchars($item['product_name_en']); ?></div>
                                         </div>
                                         <?php endif; ?>
                                     </td>
@@ -1933,20 +1934,20 @@ tr[id^="row-"] td:first-child:hover {
                                         $vat_excluded_price = $item['unit_price'] / 1.12;
                                         ?>
                                         <div class="text-xs text-gray-500 mt-1">
-                                            미포함: <?php echo number_format($vat_excluded_price, 2); ?>
+                                            <?php echo t('purchase.vat_excluded_label'); ?>: <?php echo number_format($vat_excluded_price, 2); ?>
                                         </div>
                                     </td>
                                     <!-- VAT 구분 컬럼 -->
                                     <td class="col-mobile-hide w-14 px-1 py-3 text-center">
                                         <?php if ($item['vat_included'] == 1): ?>
                                             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
-                                                  title="VAT 포함 상품&#10;저장가격: <?php echo number_format($item['unit_price'], 2); ?>원">
-                                                🟢 포함
+                                                  title="<?php echo t('purchase.tooltip_vat_included'); ?>&#10;<?php echo t('purchase.tooltip_saved_price'); ?>: <?php echo number_format($item['unit_price'], 2); ?>원">
+                                                🟢 <?php echo t('purchase.vat_included_label'); ?>
                                             </span>
                                         <?php else: ?>
                                             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"
-                                                  title="VAT 미포함 상품&#10;입력가격: <?php echo number_format($item['original_unit_price'] ?? $item['unit_price'], 2); ?>원&#10;저장가격: <?php echo number_format($item['unit_price'], 2); ?>원 (VAT 12% 포함)&#10;VAT 금액: <?php echo number_format($item['vat_amount'], 2); ?>원">
-                                                🟡 미포함
+                                                  title="<?php echo t('purchase.tooltip_vat_excluded'); ?>&#10;<?php echo t('purchase.tooltip_input_price'); ?>: <?php echo number_format($item['original_unit_price'] ?? $item['unit_price'], 2); ?>원&#10;<?php echo t('purchase.tooltip_saved_price'); ?>: <?php echo number_format($item['unit_price'], 2); ?>원 <?php echo t('purchase.tooltip_vat_included_note'); ?>&#10;<?php echo t('purchase.tooltip_vat_amount'); ?>: <?php echo number_format($item['vat_amount'], 2); ?>원">
+                                                🟡 <?php echo t('purchase.vat_excluded_label'); ?>
                                             </span>
                                         <?php endif; ?>
                                         <?php
@@ -2010,26 +2011,26 @@ tr[id^="row-"] td:first-child:hover {
         <div class="mt-4 bg-orange-50 border border-orange-200 rounded-lg p-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
-                    <label class="text-sm font-medium text-gray-700">VAT 일괄 적용:</label>
-                    <span class="text-sm text-gray-600">선택된 VAT 적용 상품의 단가에 12%를 추가합니다</span>
+                    <label class="text-sm font-medium text-gray-700"><?php echo t('purchase.vat_bulk_apply_label'); ?></label>
+                    <span class="text-sm text-gray-600"><?php echo t('purchase.vat_bulk_apply_desc'); ?></span>
                 </div>
                 <button type="button" id="apply-bulk-vat" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled <?php echo ($purchase['is_confirmed'] ?? false) ? 'data-confirmed="true"' : ''; ?>>
                     <i class="fas fa-plus-circle mr-2"></i>
-                    선택 항목 VAT 포함하기
+                    <?php echo t('purchase.select_items_vat_button'); ?>
                 </button>
             </div>
             <p class="mt-2 text-xs text-gray-500">
-                <strong>주의:</strong> VAT 미포함 단가로 입력된 상품을 VAT 포함 단가로 변환할 때 사용하세요. (예: 1000원 → 1120원)
+                <strong><?php echo t('purchase.note_label'); ?></strong> <?php echo t('purchase.vat_note_desc'); ?>
             </p>
         </div>
-        
+
         <!-- 상품 추가 섹션 -->
         <div class="mt-6 space-y-4">
             <!-- 물류바코드 스캔 -->
             <div class="bg-gradient-to-r from-indigo-50 to-blue-50 p-6 rounded-lg border border-indigo-200">
                 <label for="logistics_barcode_quick" class="block text-sm font-semibold text-gray-700 mb-3">
                     <i class="fas fa-barcode mr-2 text-indigo-600"></i>
-                    박스상품 물류바코드 빠른 스캔
+                    <?php echo t('purchase.logistics_barcode_scan_title'); ?>
                 </label>
                 <div class="flex gap-3">
                     <div class="flex-1 relative">
@@ -2039,12 +2040,12 @@ tr[id^="row-"] td:first-child:hover {
                         <input type="text"
                                id="logistics_barcode_quick"
                                class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                               placeholder="물류바코드를 스캔하면 자동으로 상품이 추가됩니다">
+                               placeholder="<?php echo t('purchase.logistics_barcode_placeholder'); ?>">
                     </div>
                 </div>
                 <p class="mt-2 text-xs text-gray-600">
                     <i class="fas fa-info-circle mr-1"></i>
-                    박스 물류바코드를 스캔하면 자동으로 매입 목록에 추가됩니다
+                    <?php echo t('purchase.logistics_barcode_hint'); ?>
                 </p>
             </div>
 
@@ -2065,13 +2066,13 @@ tr[id^="row-"] td:first-child:hover {
                             <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700 border-r border-gray-200">
                                 <div class="flex items-center justify-center mb-2">
                                     <i class="fas fa-boxes text-purple-600 text-lg mr-2"></i>
-                                    총 품목 수
+                                    <?php echo t('purchase.total_kinds_label'); ?>
                                 </div>
                             </th>
                             <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700 border-r border-gray-200">
                                 <div class="flex items-center justify-center mb-2">
                                     <i class="fas fa-cube text-orange-600 text-lg mr-2"></i>
-                                    총 아이템 수
+                                    <?php echo t('purchase.total_units_label'); ?>
                                 </div>
                             </th>
                             <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700 border-r border-gray-200">
@@ -2083,7 +2084,7 @@ tr[id^="row-"] td:first-child:hover {
                             <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">
                                 <div class="flex items-center justify-center mb-2">
                                     <span class="text-green-600 text-lg mr-2 font-bold">₱</span>
-                                    총 매입금액
+                                    <?php echo t('purchase.total_amount_label'); ?>
                                 </div>
                             </th>
                         </tr>
@@ -2092,15 +2093,15 @@ tr[id^="row-"] td:first-child:hover {
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-6 whitespace-nowrap text-center border-r border-gray-200">
                                 <div class="text-3xl font-bold text-purple-600 mb-1"><?php echo number_format($total_products); ?></div>
-                                <div class="text-sm text-gray-500">종</div>
+                                <div class="text-sm text-gray-500"><?php echo t('purchase.kinds'); ?></div>
                             </td>
                             <td class="px-6 py-6 whitespace-nowrap text-center border-r border-gray-200">
                                 <div class="text-3xl font-bold text-orange-600 mb-1"><?php echo number_format($total_items); ?></div>
-                                <div class="text-sm text-gray-500">개</div>
+                                <div class="text-sm text-gray-500"><?php echo t('common.piece'); ?></div>
                             </td>
                             <td class="px-6 py-6 whitespace-nowrap text-center border-r border-gray-200">
                                 <div class="text-3xl font-bold text-blue-600 mb-1"><?php echo number_format($total_pieces); ?></div>
-                                <div class="text-sm text-gray-500">개</div>
+                                <div class="text-sm text-gray-500"><?php echo t('common.piece'); ?></div>
                             </td>
                             <td class="px-6 py-6 whitespace-nowrap text-center">
                                 <div class="text-3xl font-bold text-green-600 mb-1"><?php echo number_format($purchase['total_amount'], 2); ?></div>
@@ -2140,7 +2141,7 @@ tr[id^="row-"] td:first-child:hover {
         <div class="flex items-center justify-between pb-3 border-b border-gray-200">
             <h3 class="text-xl font-semibold text-gray-900">
                 <i class="fas fa-building mr-2 text-blue-500"></i>
-                거래처 선택
+                <?php echo t('purchase.select_supplier_modal_title'); ?>
             </h3>
             <button type="button" id="close-modal-btn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">
                 <i class="fas fa-times"></i>
@@ -2152,7 +2153,7 @@ tr[id^="row-"] td:first-child:hover {
             <div class="relative">
                 <input type="text" id="supplier-search"
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                       placeholder="거래처명으로 검색...">
+                       placeholder="<?php echo t('purchase.supplier_search_placeholder'); ?>">
                 <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                     <i class="fas fa-search text-gray-400"></i>
                 </div>
@@ -2164,8 +2165,8 @@ tr[id^="row-"] td:first-child:hover {
             <table class="w-full">
                 <thead class="bg-gray-50 sticky top-0">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">거래처명</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">선택</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><?php echo t('purchase.supplier_name'); ?></th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24"><?php echo t('purchase.select_button'); ?></th>
                     </tr>
                 </thead>
                 <tbody id="supplier-list" class="bg-white divide-y divide-gray-200">
@@ -2178,13 +2179,13 @@ tr[id^="row-"] td:first-child:hover {
                                 <?php if ($supplier['id'] == $purchase['supplier_id']): ?>
                                     <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500 text-white">
                                         <i class="fas fa-check mr-1"></i>
-                                        현재
+                                        <?php echo t('purchase.current_label'); ?>
                                     </span>
                                 <?php endif; ?>
                             </td>
                             <td class="px-4 py-3 text-center">
                                 <button type="button" class="select-supplier-btn px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" style="min-width: 80px; width: 80px; white-space: nowrap;">
-                                    <i class="fas fa-check mr-2"></i>선택
+                                    <i class="fas fa-check mr-2"></i><?php echo t('purchase.select_button'); ?>
                                 </button>
                             </td>
                         </tr>
@@ -2198,7 +2199,7 @@ tr[id^="row-"] td:first-child:hover {
             <button type="button" id="cancel-modal-btn"
                     class="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
                 <i class="fas fa-times mr-1"></i>
-                취소
+                <?php echo t('purchase.modal_cancel'); ?>
             </button>
         </div>
     </div>
@@ -2334,7 +2335,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 모든 변경사항 저장 함수
     function saveAllChanges() {
         if (changedItems.size === 0) {
-            showNotification('변경된 항목이 없습니다.', 'info');
+            showNotification(t('purchase.js_no_changes'), 'info');
             return;
         }
         
@@ -2356,7 +2357,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.expirationDate) {
                 const yearPart = data.expirationDate.split('-')[0];
                 if (yearPart && yearPart.length !== 4) {
-                    showNotification('유통기한 년도는 4자리로 입력해주세요. (예: 2026-12-31)', 'error');
+                    showNotification(t('purchase.js_expiry_year_4digits'), 'error');
                     hasError = true;
                 }
             }
@@ -2458,7 +2459,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // 년도가 4자리 초과 시 앞 4자리만 사용
                     const fixedYear = parts[0].slice(0, 4);
                     input.value = [fixedYear, parts[1], parts[2]].join('-');
-                    showNotification('유통기한 년도는 4자리만 입력 가능합니다. 자동으로 수정되었습니다.', 'warning');
+                    showNotification(t('purchase.js_expiry_year_auto_corrected'), 'warning');
                 }
             }
             const itemId = input.dataset.itemId;
@@ -2627,7 +2628,7 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmPurchaseBtn.addEventListener('click', function(e) {
             e.preventDefault();
 
-            if (confirm('매입을 확정하시겠습니까?\n\n확정 후에는 수정이 불가능하며, 각 상품의 박스단가가 업데이트됩니다.')) {
+            if (confirm(t('purchase.js_confirm_purchase_message'))) {
                 const purchaseId = this.dataset.purchaseId;
                 handlePurchaseConfirmation(purchaseId, 'confirm');
             }
@@ -2638,7 +2639,7 @@ document.addEventListener('DOMContentLoaded', function() {
         cancelConfirmBtn.addEventListener('click', function(e) {
             e.preventDefault();
 
-            if (confirm('매입 확정을 취소하시겠습니까?\n\n확정을 취소하면 다시 수정이 가능합니다.')) {
+            if (confirm(t('purchase.js_cancel_confirmation_message'))) {
                 const purchaseId = this.dataset.purchaseId;
                 handlePurchaseConfirmation(purchaseId, 'cancel');
             }
@@ -2652,7 +2653,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 버튼 비활성화 및 로딩 상태 표시
         button.disabled = true;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + (action === 'confirm' ? '확정 중...' : '취소 중...');
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + (action === 'confirm' ? t('purchase.confirming') + '...' : t('purchase.canceling') + '...');
 
         // AJAX 요청
         fetch('ajax_confirm_purchase.php', {
@@ -2670,7 +2671,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.location.reload();
             } else {
                 // 실패 시 오류 메시지 표시
-                alert('오류: ' + data.message);
+                alert(t('purchase.js_error') + ': ' + data.message);
 
                 // 버튼 복원
                 button.disabled = false;
@@ -2679,7 +2680,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('네트워크 오류:', error);
-            alert('네트워크 오류가 발생했습니다. 다시 시도해주세요.');
+            alert(t('purchase.js_network_error_occurred'));
 
             // 버튼 복원
             button.disabled = false;
@@ -2787,9 +2788,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (itemIds.length === 0) return;
 
             const totalRows = document.querySelectorAll('tr[id^="row-"]').length;
-            let confirmMsg = `선택한 ${itemIds.length}개 항목을 삭제하시겠습니까?`;
+            let confirmMsg = t('purchase.js_confirm_bulk_delete', { n: itemIds.length });
             if (itemIds.length >= totalRows) {
-                confirmMsg += '\n\n모든 항목이 삭제되면 매입 전체가 삭제됩니다.';
+                confirmMsg += '\n\n' + t('purchase.js_all_items_deleted_warning');
             }
 
             if (!confirm(confirmMsg)) return;
@@ -2889,14 +2890,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const checkedItems = document.querySelectorAll('.item-checkbox:checked');
             
             if (checkedItems.length === 0) {
-                alert('선택된 상품이 없습니다.');
+                alert(t('purchase.js_no_items_selected'));
                 return;
             }
             
             // 선택된 아이템 ID 배열 생성
             const selectedItems = Array.from(checkedItems).map(cb => cb.value);
             
-            const confirmMessage = `선택된 ${checkedItems.length}개 상품에 VAT(12%)를 적용하시겠습니까?\n\n예시: 1,000원 → 1,120원\n\n주의: VAT 비적용 상품(쌀 등)은 자동으로 제외됩니다.`;
+            const confirmMessage = t('purchase.js_confirm_bulk_vat', { n: checkedItems.length });
             
             if (confirm(confirmMessage)) {
                 // 서버로 데이터 전송
@@ -3177,18 +3178,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         nameDiv.classList.remove('editing');
                         
                         // 성공 피드백
-                        const successMessage = isEnglish ? '영문 상품명이 성공적으로 수정되었습니다.' : '상품명이 성공적으로 수정되었습니다.';
+                        const successMessage = isEnglish ? t('purchase.js_name_updated_en') : t('purchase.js_name_updated');
                         showFeedback(successMessage, 'success');
                     } else {
                         // 실패 시 원래 값으로 복원
                         cancelEdit();
-                        showFeedback(data.error || '상품명 수정에 실패했습니다.', 'error');
+                        showFeedback(data.error || t('purchase.js_name_update_failed'), 'error');
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     cancelEdit();
-                    showFeedback('서버 통신 오류가 발생했습니다.', 'error');
+                    showFeedback(t('purchase.js_communication_error'), 'error');
                 });
             }
             
@@ -3317,7 +3318,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const tbody = document.getElementById('supplier-list');
                 const tr = document.createElement('tr');
                 tr.id = 'no-results-row';
-                tr.innerHTML = '<td colspan="2" class="px-4 py-8 text-center text-gray-500"><i class="fas fa-search mr-2"></i>검색 결과가 없습니다.</td>';
+                tr.innerHTML = '<td colspan="2" class="px-4 py-8 text-center text-gray-500"><i class="fas fa-search mr-2"></i>' + t('purchase.no_search_results') + '</td>';
                 tbody.appendChild(tr);
             }
         } else {
@@ -3335,7 +3336,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const supplierId = row.dataset.supplierId;
             const supplierName = row.dataset.supplierName;
 
-            if (confirm(`거래처를 "${supplierName}"(으)로 변경하시겠습니까?`)) {
+            if (confirm(t('purchase.js_confirm_supplier_change', { name: supplierName }))) {
                 // Hidden input에 선택된 거래처 ID 설정
                 document.getElementById('selected-supplier-id').value = supplierId;
 
@@ -3351,7 +3352,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const supplierId = this.dataset.supplierId;
             const supplierName = this.dataset.supplierName;
 
-            if (confirm(`거래처를 "${supplierName}"(으)로 변경하시겠습니까?`)) {
+            if (confirm(t('purchase.js_confirm_supplier_change', { name: supplierName }))) {
                 document.getElementById('selected-supplier-id').value = supplierId;
                 document.getElementById('supplier-form').submit();
             }
@@ -3371,7 +3372,7 @@ function closePrintModal() {
 
 function loadPrintData() {
     const container = document.getElementById('modalPrintContent');
-    container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i><p class="mt-2 text-gray-600">데이터를 불러오는 중...</p></div>';
+    container.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i><p class="mt-2 text-gray-600">' + t('purchase.js_loading_data') + '</p></div>';
 
     fetch('ajax_print_purchase.php?purchase_id=<?php echo $purchase_id; ?>')
         .then(response => response.text())
@@ -3379,7 +3380,7 @@ function loadPrintData() {
             container.innerHTML = html;
         })
         .catch(error => {
-            container.innerHTML = '<div class="text-center py-8 text-red-600">로딩 실패: ' + error.message + '</div>';
+            container.innerHTML = '<div class="text-center py-8 text-red-600">' + t('purchase.js_loading_failed_prefix') + error.message + '</div>';
         });
 }
 
@@ -3389,7 +3390,7 @@ function printModalContent() {
     printWindow.document.write(`
         <html>
         <head>
-            <title>매입 상세 - Purchase ID: <?php echo $purchase_id; ?></title>
+            <title><?php echo t('purchase.purchase_detail_title'); ?> - Purchase ID: <?php echo $purchase_id; ?></title>
             <style>
                 body { font-family: Arial, sans-serif; margin: 20px; }
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -3452,7 +3453,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             // 매니저 이상만 포장수량 변경 가능
             if (!canEditPieces) {
-                alert('매니저 이상만 포장수량을 변경할 수 있습니다.');
+                alert(t('purchase.js_manager_only_pieces'));
                 return;
             }
 
@@ -3554,7 +3555,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="relative top-20 mx-auto p-5 border w-11/12 shadow-lg rounded-md bg-white">
         <div class="mt-3">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-900">인쇄 미리보기</h3>
+                <h3 class="text-lg font-bold text-gray-900"><?php echo t('common.print_preview'); ?></h3>
                 <button onclick="closePrintModal()" class="text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times text-xl"></i>
                 </button>
@@ -3562,7 +3563,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             <div class="flex items-center justify-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
                 <button onclick="printModalContent()" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">
-                    <i class="fas fa-print mr-2"></i>인쇄하기
+                    <i class="fas fa-print mr-2"></i><?php echo t('common.print'); ?>
                 </button>
             </div>
 
@@ -3570,7 +3571,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div id="modalPrintContent" class="border rounded-lg p-4 bg-white" style="max-height: 600px; overflow-y: auto;">
                 <div class="text-center py-8">
                     <i class="fas fa-spinner fa-spin text-2xl text-gray-400"></i>
-                    <p class="mt-2 text-gray-600">데이터를 불러오는 중...</p>
+                    <p class="mt-2 text-gray-600"><?php echo t('purchase.js_loading_data'); ?></p>
                 </div>
             </div>
         </div>
@@ -3651,16 +3652,16 @@ window.addEventListener('load', function() {
                             location.reload();
                         }, 500);
                     } else {
-                        alert('순번 변경 중 오류가 발생했습니다: ' + data.error);
+                        alert(t('purchase.js_reorder_error_prefix') + data.error);
                         location.reload();
                     }
                 } catch (e) {
-                    alert('서버 응답 처리 중 오류가 발생했습니다.');
+                    alert(t('purchase.js_server_response_error'));
                     location.reload();
                 }
             })
             .catch(error => {
-                alert('순번 변경 중 오류가 발생했습니다.');
+                alert(t('purchase.js_reorder_generic_error'));
                 location.reload();
             });
         }
@@ -3718,10 +3719,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (data.success) {
                         location.reload();
                     } else {
-                        alert('순번 변경 실패: ' + data.error);
+                        alert(t('purchase.js_reorder_failed_prefix') + data.error);
                     }
                 })
-                .catch(() => alert('순번 변경 중 오류가 발생했습니다.'));
+                .catch(() => alert(t('purchase.js_reorder_generic_error')));
         }
 
         input.addEventListener('keydown', function(e) {
@@ -3788,7 +3789,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }, 1000);
 
                         // 힌트 정보가 있으면 함께 표시
-                        let errorMsg = data.message || '물류바코드에 해당하는 상품을 찾을 수 없습니다.';
+                        let errorMsg = data.message || t('purchase.js_logistics_barcode_not_found');
                         if (data.hint) {
                             errorMsg += '\n\n' + data.hint;
                         }
@@ -3797,7 +3798,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch(error => {
                     console.error('물류바코드 분석 오류:', error);
-                    alert('물류바코드 분석 중 오류가 발생했습니다.');
+                    alert(t('purchase.js_logistics_barcode_error'));
                     logisticsBarcodeInput.value = '';
                 });
         }, 100); // 100ms 디바운스
