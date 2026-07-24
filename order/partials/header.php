@@ -25,8 +25,10 @@ try {
 
 $navItems = [
     ['file' => 'index.php',            'label' => '검색 / 발주',  'icon' => 'fa-search'],
-    ['file' => 'upload_inventory.php', 'label' => '재고리스트 업로드', 'icon' => 'fa-upload', 'also' => 'upload_excel.php'],
     ['file' => 'order_history.php',    'label' => '발주 이력',    'icon' => 'fa-history'],
+];
+$uploadItems = [
+    ['file' => 'upload_inventory.php', 'label' => '재고리스트 업로드', 'icon' => 'fa-upload', 'also' => 'upload_excel.php'],
 ];
 $adminItems = [];
 if (ord_is_admin()) {
@@ -112,6 +114,18 @@ if (ord_is_admin()) {
                     <?php echo $_ord_cart_count; ?>
                 </span>
                 <?php endif; ?>
+            </a>
+            <?php endforeach; ?>
+
+            <div class="pt-3 pb-1">
+                <p class="px-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">재고 관리</p>
+            </div>
+            <?php foreach ($uploadItems as $nav): ?>
+            <?php $active = $_ord_page === $nav['file'] || $_ord_page === ($nav['also'] ?? ''); ?>
+            <a href="<?php echo ORD_BASE . '/' . $nav['file']; ?>"
+               class="<?php echo $active ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                <i class="fas <?php echo $nav['icon']; ?> mr-2 text-xs w-4 text-center"></i>
+                <?php echo $nav['label']; ?>
             </a>
             <?php endforeach; ?>
 

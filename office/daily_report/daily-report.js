@@ -25,15 +25,15 @@
         .then((r) => r.json())
         .then((res) => {
           if (res.success) location.reload();
-          else alert(res.error || '등록 실패');
+          else alert(res.error || t('daily_report.register_failed'));
         })
-        .catch(() => alert('등록 실패'));
+        .catch(() => alert(t('daily_report.register_failed')));
     });
   }
 
   document.querySelectorAll('.dr-commission-del').forEach((btn) => {
     btn.addEventListener('click', () => {
-      if (!confirm('이 업체를 수수료 코너에서 삭제할까요?')) return;
+      if (!confirm(t('daily_report.confirm_delete_company'))) return;
       const fd = new FormData();
       fd.append('action', 'delete');
       fd.append('id', btn.dataset.id);
@@ -42,9 +42,9 @@
         .then((r) => r.json())
         .then((res) => {
           if (res.success) location.reload();
-          else alert(res.error || '삭제 실패');
+          else alert(res.error || t('daily_report.delete_failed'));
         })
-        .catch(() => alert('삭제 실패'));
+        .catch(() => alert(t('daily_report.delete_failed')));
     });
   });
 
@@ -58,7 +58,7 @@
     el.draggable = true;
     el.dataset.itemId = item.source_item_id;
     el.dataset.amount = item.amount;
-    const label = [item.supplier, item.details].filter(Boolean).join(' — ') || '(내역 없음)';
+    const label = [item.supplier, item.details].filter(Boolean).join(' — ') || t('daily_report.no_detail');
     el.innerHTML = `<div class="dr-card-label">${escapeHtml(label)}</div><div class="dr-card-amount">₱ ${fmt2(item.amount)}</div>`;
     return el;
   }
@@ -93,7 +93,7 @@
     const badge = document.getElementById('dr-unplaced-badge');
     if (badge) {
       if (unplacedCount > 0) {
-        badge.textContent = '미분류 ' + unplacedCount + '건';
+        badge.textContent = t('daily_report.unclassified_count', { n: unplacedCount });
         badge.classList.remove('hidden');
       } else {
         badge.classList.add('hidden');
@@ -149,7 +149,7 @@
     .then((r) => r.json())
     .then((res) => {
       if (!res.success) {
-        board.innerHTML = '<div class="text-sm text-red-600 p-3">기타지출 데이터를 불러오지 못했습니다.</div>';
+        board.innerHTML = '<div class="text-sm text-red-600 p-3">' + t('daily_report.expense_load_failed') + '</div>';
         return;
       }
       res.items.forEach((item) => {
@@ -160,6 +160,6 @@
       recalcAll();
     })
     .catch(() => {
-      board.innerHTML = '<div class="text-sm text-red-600 p-3">기타지출 데이터를 불러오지 못했습니다.</div>';
+      board.innerHTML = '<div class="text-sm text-red-600 p-3">' + t('daily_report.expense_load_failed') + '</div>';
     });
 })();
