@@ -60,6 +60,11 @@ $is_future = $next_date > $today;
     padding:2px 4px; font-size:11px; font-family:monospace;
     text-align:center; color:#b91c1c;
 }
+.amount-input {
+    width:100%; border:1px solid #d1d5db; border-radius:4px;
+    padding:2px 4px; font-size:11px; font-family:monospace;
+    text-align:right;
+}
 .returned-cb-wrap {
     display:flex; flex-direction:column; align-items:center; gap:1px;
     font-size:9px; color:#6b7280;
@@ -437,10 +442,36 @@ function loadCheques(date) {
                 setSaveStatus('unsaved');
             }
         }
+        ensureKimTaeHyunRow();
         renderAll();
         calcTotals();
     })
     .catch(() => { document.getElementById('load_status').textContent = 'Error'; setSaveStatus('error'); });
+}
+
+// KIM TAE HYUN — 매일 반복되는 CASH OUT 항목. 저장 여부와 무관하게 1. KOREAN 섹션에
+// 항상 존재를 보장한다 (이월 아님: 매번 AMOUNT/체크번호는 빈 채로 새로 추가됨).
+const KIM_TAE_HYUN_SUPPLIER   = 'KIM TAE HYUN';
+const KIM_TAE_HYUN_PARTICULAR = 'CASH OUT TOTAL EXPENSE';
+
+function ensureKimTaeHyunRow() {
+    const exists = (sections.korean || []).some(r => r.supplier === KIM_TAE_HYUN_SUPPLIER);
+    if (exists) return;
+    sections.korean.push({
+        id:            'row_' + (++rowCounter),
+        item_id:       null,
+        check_no:      '',
+        date:          document.getElementById('cer_date').value,
+        supplier:      KIM_TAE_HYUN_SUPPLIER,
+        sales_invoice: '',
+        particular:    KIM_TAE_HYUN_PARTICULAR,
+        amount:        '',
+        returned:      false,
+        new_check_no:  '',
+        editable_amount: true
+    });
+    rebuildPlacedIds();
+    markDirty();
 }
 
 // ── Render Source List ────────────────────────────────────
@@ -537,7 +568,11 @@ function renderSection(secKey) {
             <span class="text-gray-500 text-xs text-center">${fmtDate(row.date)}</span>
             <span class="text-gray-500 text-xs truncate" title="${esc(row.sales_invoice)}">${esc(row.sales_invoice)}</span>
             <span class="text-gray-600 text-xs truncate" title="${esc(row.particular)}">${esc(row.particular)}</span>
-            <span class="text-right font-mono text-xs font-medium${row.returned ? ' line-through text-gray-400' : ' text-gray-800'}">₱${fmt(row.amount)}</span>
+            ${row.editable_amount
+              ? `<input type="number" step="0.01" min="0" class="amount-cell amount-input"
+                        value="${row.amount === '' || row.amount === null || row.amount === undefined ? '' : row.amount}" placeholder="0.00">`
+              : `<span class="amount-cell text-right font-mono text-xs font-medium${row.returned ? ' line-through text-gray-400' : ' text-gray-800'}">₱${fmt(row.amount)}</span>`
+            }
             <div class="returned-cb-wrap">
               <input type="checkbox" class="returned-cb" ${row.returned ? 'checked' : ''} title="Mark as Returned">
               <span>RTN</span>
@@ -551,6 +586,7 @@ function renderSection(secKey) {
         const newCheckInput = div.querySelector('.new-check-input');
         const returnedCb    = div.querySelector('.returned-cb');
         const newWrap       = div.querySelector('.new-check-wrap');
+        const amountInput   = div.querySelector('input.amount-input');
 
         checkInput.addEventListener('input', e => {
             row.check_no = e.target.value;
@@ -560,15 +596,23 @@ function renderSection(secKey) {
 
         newCheckInput.addEventListener('input', e => { row.new_check_no = e.target.value; markDirty(); });
 
+        if (amountInput) {
+            amountInput.addEventListener('input', e => {
+                row.amount = e.target.value === '' ? '' : (parseFloat(e.target.value) || 0);
+                markDirty();
+                calcTotals();
+            });
+        }
+
         returnedCb.addEventListener('change', e => {
             row.returned = e.target.checked;
             div.classList.toggle('returned-row', row.returned);
             checkInput.classList.toggle('is-returned', row.returned);
             if (newWrap) newWrap.classList.toggle('visible', row.returned);
-            const amtSpan = div.querySelectorAll('span')[5];
-            if (amtSpan) {
-                amtSpan.classList.toggle('line-through', row.returned);
-                amtSpan.classList.toggle('text-gray-400', row.returned);
+            const amtCell = div.querySelector('.amount-cell');
+            if (amtCell) {
+                amtCell.classList.toggle('line-through', row.returned);
+                amtCell.classList.toggle('text-gray-400', row.returned);
             }
             if (!row.returned) { row.new_check_no = ''; newCheckInput.value = ''; }
             markDirty();
