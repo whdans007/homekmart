@@ -746,8 +746,29 @@ try {
                     <span class="text-gray-300">-</span>
                     <?php endif; ?>
                 </td>
-                <td class="px-4 py-3 text-right text-gray-600"><?php echo number_format($item['unit_price'], 2); ?></td>
-                <td class="px-4 py-3 text-right font-bold"><?php echo number_format($item['unit_price'] * $item['quantity'], 2); ?></td>
+                <td class="px-4 py-3 text-right text-gray-600">
+                    <?php if ($expiry_rows): ?>
+                    <div class="space-y-1">
+                        <?php foreach ($expiry_rows as $row): ?>
+                        <div><?php echo number_format($row['cost_price'], 2); ?></div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php else: ?>
+                    <?php echo number_format($item['unit_price'], 2); ?>
+                    <?php endif; ?>
+                </td>
+                <td class="px-4 py-3 text-right font-bold">
+                    <?php if ($expiry_rows): ?>
+                    <div class="space-y-1">
+                        <?php foreach ($expiry_rows as $row): ?>
+                        <div><?php echo number_format($row['cost_price'] * $row['quantity'], 2); ?></div>
+                        <?php endforeach; ?>
+                        <div class="border-t border-gray-200 pt-1 mt-1"><?php echo number_format(array_sum(array_map(fn($r) => $r['cost_price'] * $r['quantity'], $expiry_rows)), 2); ?></div>
+                    </div>
+                    <?php else: ?>
+                    <?php echo number_format($item['unit_price'] * $item['quantity'], 2); ?>
+                    <?php endif; ?>
+                </td>
             </tr>
             <?php endforeach; ?>
             <tr class="bg-gray-50">
