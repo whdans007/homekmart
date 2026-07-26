@@ -1,0 +1,264 @@
+<?php
+$page_title = "Place Order - KIM'S MALL WAREHOUSE";
+require_once __DIR__ . '/partials/header.php';
+require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/lib/inventory_helper.php';
+require_once __DIR__ . '/lib/unit_helper.php';
+
+kw_require_login();
+
+// 점포 담당자 또는 관리자만 주문 가능
+$store_id = kw_current_store_id();
+if (!$store_id) {
+    kw_set_flash('error', 'No store information found. Please contact administrator.');
+    header('Location: ' . LC_BASE . '/index.php');
+    exit;
+}
+
+$errors = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    kw_verify_csrf();
+
+    $product_ids = $_POST['product_id'] ?? [];
+    $quantities  = $_POST['quantity'] ?? [];
+    $order_units = $_POST['order_unit'] ?? [];
+    $notes       = trim($_POST['notes'] ?? '');
+
+    // 유효한 주문 항목 추출 (Design Ref: box-pcs-unit §5.4 — 단위는 서버에서 재검증)
+    $items = [];
+    foreach ($product_ids as $i => $pid) {
+        $pid = (int)$pid;
+        $qty = (int)($quantities[$i] ?? 0);
+        if ($pid > 0 && $qty > 0) {
+            $items[] = [
+                'product_id' => $pid,
+                'quantity'   => $qty,
+                'unit'       => kw_valid_unit($order_units[$i] ?? '', LC_UNIT_PCS),
+            ];
+        }
+    }
+
+    if (empty($items)) {
+        $errors[] = 'Please enter products and quantities to order.';
+    }
+
+    if (empty($errors)) {
+        try {
+            $conn = get_lc_db();
+
+            // 재고 확인 및 단가 조회 — 단위별 재고 기준 (Design Ref: box-pcs-unit §5.4)
+            $total_amount = 0;
+            foreach ($items as &$item) {
+                $stock_by_unit = kw_get_stock_by_unit($conn, $item['product_id']);
+                $stock = $stock_by_unit[$item['unit']];
+                if ($stock < $item['quantity']) {
+                    $st = $conn->prepare("SELECT CONCAT(name_en, IFNULL(CONCAT(' (', name_ko, ')'), '')) FROM kw_products WHERE id = ?");
+                    $st->bind_param('i', $item['product_id']);
+                    $st->execute();
+                    $pname = $st->get_result()->fetch_row()[0] ?? "#{$item['product_id']}";
+                    $st->close();
+                    $errors[] = "'{$pname}' Insufficient {$item['unit']} stock (Current: {$stock} {$item['unit']})";
+                }
+                $price = 0.00; // 단가는 입고 시 결정
+                $item['unit_price']   = $price;
+                $total_amount += $price * $item['quantity'];
+            }
+            unset($item);
+
+            if (empty($errors)) {
+                $conn->autocommit(false);
+
+                $uid = kw_current_user_id();
+                $today = date('Y-m-d');
+
+                // 주문 헤더
+                $st = $conn->prepare(
+                    "INSERT INTO kw_orders (order_date, store_id, status, total_amount, notes, created_by)
+                     VALUES (?, ?, 'pending', ?, ?, ?)"
+                );
+                $st->bind_param('ssdsi', $today, $store_id, $total_amount, $notes, $uid);
+                $st->execute();
+                $order_id = $conn->insert_id;
+                $st->close();
+
+                // 주문 상세 — order_unit + ppb 스냅샷 기록 (Design Ref: box-pcs-unit §3.1, FR-09)
+                $ppb_map = [];
+                $pid_in = implode(',', array_unique(array_map(fn($it) => (int)$it['product_id'], $items)));
+                $res = $conn->query("SELECT id, GREATEST(1, IFNULL(pieces_per_box, 1)) AS ppb FROM kw_products WHERE id IN ($pid_in)");
+                foreach ($res->fetch_all(MYSQLI_ASSOC) as $r) $ppb_map[(int)$r['id']] = (int)$r['ppb'];
+
+                $st2 = $conn->prepare(
+                    "INSERT INTO kw_order_items (order_id, product_id, quantity, order_unit, pieces_per_box, unit_price) VALUES (?,?,?,?,?,?)"
+                );
+                foreach ($items as $item) {
+                    $ppb = $ppb_map[$item['product_id']] ?? 1;
+                    $st2->bind_param('iiisid', $order_id, $item['product_id'], $item['quantity'], $item['unit'], $ppb, $item['unit_price']);
+                    $st2->execute();
+                }
+                $st2->close();
+
+                $conn->commit();
+                $conn->close();
+
+                kw_set_flash('success', "Order #" . str_pad($order_id, 4, '0', STR_PAD_LEFT) . " has been placed.");
+                header('Location: ' . LC_BASE . '/orders.php');
+                exit;
+            }
+            $conn->close();
+        } catch (Exception $e) {
+            if (isset($conn)) { $conn->rollback(); $conn->close(); }
+            $errors[] = 'DB Error: ' . $e->getMessage();
+        }
+    }
+}
+
+// 재고 있는 상품 목록
+try {
+    $conn = get_lc_db();
+    // Design Ref: pack-unit §5.1 — 단위별(BOX/PACK/PCS) 재고 분리 집계
+    $available = $conn->query(
+        "SELECT p.id, CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS name, p.unit, 0 AS selling_price,
+                c.name_en AS category,
+                SUM(CASE WHEN i.unit = 'BOX'  THEN i.quantity_remain ELSE 0 END) AS box_stock,
+                SUM(CASE WHEN i.unit = 'PACK' THEN i.quantity_remain ELSE 0 END) AS pack_stock,
+                SUM(CASE WHEN i.unit = 'PCS'  THEN i.quantity_remain ELSE 0 END) AS pcs_stock
+         FROM kw_inventory i
+         JOIN kw_products p ON i.product_id = p.id
+         JOIN kw_categories c ON p.category_id = c.id
+         WHERE i.quantity_remain > 0 AND p.is_active = 1
+         GROUP BY p.id
+         ORDER BY c.name_en ASC, p.name_en ASC"
+    )->fetch_all(MYSQLI_ASSOC);
+    $conn->close();
+} catch (Exception $e) {
+    $available = [];
+}
+?>
+
+<div class="flex items-center gap-3 mb-6">
+    <a href="<?php echo LC_BASE; ?>/orders.php" class="text-gray-400 hover:text-gray-600"><i class="fas fa-arrow-left"></i></a>
+    <h2 class="text-xl font-bold text-gray-900">Place Order</h2>
+</div>
+
+<?php if (!empty($errors)): ?>
+<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+    <?php foreach ($errors as $e): ?><p class="text-sm text-red-700"><i class="fas fa-exclamation-circle mr-1"></i><?php echo htmlspecialchars($e); ?></p><?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<?php if (empty($available)): ?>
+<div class="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400">
+    <i class="fas fa-box-open text-4xl mb-3 block"></i>
+    <p>No orderable stock available.</p>
+</div>
+<?php else: ?>
+
+<form method="post" id="order-form">
+    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(kw_csrf_token()); ?>">
+
+    <!-- Product List -->
+    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
+        <div class="px-4 py-3 border-b border-gray-100">
+            <h3 class="text-sm font-semibold text-gray-700">Select Order Items</h3>
+            <p class="text-xs text-gray-400 mt-1">Only products with available stock are shown. Enter quantity to add to order.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50"><tr>
+                    <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
+                    <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Category</th>
+                    <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Current Stock</th>
+                    <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Selling Price</th>
+                    <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Order Quantity</th>
+                </tr></thead>
+                <tbody class="divide-y divide-gray-100">
+                <?php foreach ($available as $idx => $p):
+                    // Design Ref: pack-unit §5.1 — 단위 select + 단위별 max (BOX/PACK/PCS)
+                    $boxStock  = (int)$p['box_stock'];
+                    $packStock = (int)$p['pack_stock'];
+                    $pcsStock  = (int)$p['pcs_stock'];
+                    $stockByUnit = [LC_UNIT_BOX => $boxStock, LC_UNIT_PACK => $packStock, LC_UNIT_PCS => $pcsStock];
+                    $unitOpts = [];
+                    foreach (LC_ALL_UNITS as $u) { if ($stockByUnit[$u] > 0) $unitOpts[] = $u; }
+                    if (empty($unitOpts)) continue;
+                    $defaultUnit = in_array(kw_normalize_unit($p['unit']), $unitOpts, true)
+                        ? kw_normalize_unit($p['unit']) : $unitOpts[0];
+                    $defaultMax = $stockByUnit[$defaultUnit];
+                ?>
+                <tr class="hover:bg-gray-50" id="row-<?php echo $idx; ?>">
+                    <td class="px-4 py-3 font-medium text-gray-900"><?php echo htmlspecialchars($p['name']); ?></td>
+                    <td class="px-4 py-3 text-gray-500 text-xs"><?php echo htmlspecialchars($p['category'] ?? '-'); ?></td>
+                    <td class="px-4 py-3 text-right font-semibold text-teal-700">
+                        <?php echo htmlspecialchars(kw_format_stock($stockByUnit)); ?>
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-700"><?php echo "-"; ?></td>
+                    <td class="px-4 py-3 text-center">
+                        <input type="hidden" name="product_id[]" value="<?php echo $p['id']; ?>">
+                        <div class="inline-flex items-center gap-1.5">
+                            <select name="order_unit[]"
+                                    data-box-stock="<?php echo $boxStock; ?>" data-pack-stock="<?php echo $packStock; ?>" data-pcs-stock="<?php echo $pcsStock; ?>"
+                                    onchange="onUnitChange(this)"
+                                    class="border border-gray-300 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 <?php echo count($unitOpts) === 1 ? 'bg-gray-50 text-gray-500' : ''; ?>">
+                                <?php foreach ($unitOpts as $u): ?>
+                                <option value="<?php echo $u; ?>" <?php echo $u === $defaultUnit ? 'selected' : ''; ?>><?php echo $u; ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <input type="number" name="quantity[]" min="0" max="<?php echo $defaultMax; ?>"
+                                   value="0" data-price="0"
+                                   oninput="updateTotal()"
+                                   class="w-20 border border-gray-300 rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        </div>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Notes and Total -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+            <textarea name="notes" rows="3" placeholder="Special notes, delivery requests, etc."
+                      class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"></textarea>
+        </div>
+        <div class="bg-teal-50 rounded-lg border border-teal-200 p-4 flex flex-col justify-between">
+            <div>
+                <p class="text-sm text-teal-700 font-medium">Order Total</p>
+                <p class="text-3xl font-bold text-teal-800 mt-2" id="total-display">0.00</p>
+            </div>
+            <button type="submit"
+                    onclick="return confirm('Do you want to place this order?')"
+                    class="w-full py-3 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors mt-4">
+                <i class="fas fa-paper-plane mr-2"></i>Place Order
+            </button>
+        </div>
+    </div>
+</form>
+
+<script>
+// Design Ref: pack-unit §5.1 — 단위 변경 시 max를 해당 단위(BOX/PACK/PCS) 재고로 갱신
+function onUnitChange(sel) {
+    var input = sel.parentElement.querySelector('input[name="quantity[]"]');
+    var stockMap = { BOX: parseInt(sel.dataset.boxStock), PACK: parseInt(sel.dataset.packStock), PCS: parseInt(sel.dataset.pcsStock) };
+    var max = stockMap[sel.value] || 0;
+    input.max = max;
+    if ((parseInt(input.value) || 0) > max) input.value = max;
+    updateTotal();
+}
+
+function updateTotal() {
+    let total = 0;
+    document.querySelectorAll('input[name="quantity[]"]').forEach(input => {
+        const qty = parseInt(input.value) || 0;
+        const price = parseFloat(input.dataset.price) || 0;
+        total += qty * price;
+    });
+    document.getElementById('total-display').textContent = total.toLocaleString('ko-KR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+</script>
+<?php endif; ?>
+
+<?php require_once __DIR__ . '/partials/footer.php'; ?>

@@ -342,6 +342,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400">
     <i class="fas fa-box-open text-4xl mb-3 block"></i>
     <p>No orderable stock available.</p>
+    <a href="<?php echo STORE_BASE; ?>/kimsmall_stock.php"
+       class="mt-4 inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-pink-300 text-pink-700 bg-pink-50 hover:bg-pink-100">
+        <i class="fas fa-warehouse"></i> KIM'S MALL WHEREHOUSE 재고 확인
+    </a>
 </div>
 <?php else: ?>
 
@@ -361,12 +365,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php endif; ?>
 
 <!-- 검색 -->
-<div class="mb-3">
-    <div class="flex items-center w-full border border-gray-300 rounded-lg px-3 bg-white focus-within:ring-2 focus-within:ring-teal-500">
+<div class="mb-3 flex items-center gap-2">
+    <div class="flex-1 flex items-center w-full border border-gray-300 rounded-lg px-3 bg-white focus-within:ring-2 focus-within:ring-teal-500">
         <i class="fas fa-search text-gray-400 text-sm mr-2 flex-shrink-0"></i>
         <input type="text" id="searchInput" placeholder="Search product name..."
                class="flex-1 min-w-0 py-2.5 text-sm border-0 focus:outline-none focus:ring-0 bg-transparent">
     </div>
+    <a href="<?php echo STORE_BASE; ?>/kimsmall_stock.php"
+       class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-lg border border-pink-300 text-pink-700 bg-pink-50 hover:bg-pink-100 whitespace-nowrap">
+        <i class="fas fa-warehouse"></i> KIM'S MALL WHEREHOUSE 재고 확인
+    </a>
 </div>
 
 <!-- 카테고리 탭 -->
@@ -1013,4 +1021,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </script>
 
 <?php endif; ?>
+
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
