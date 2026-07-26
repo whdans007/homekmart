@@ -99,6 +99,15 @@ $_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '
                             <i class="fas fa-comment-dots mr-2 text-xs w-4 text-center"></i>Requests
                         </a>
                     </div>
+
+                    <!-- Warehouse (pink) -->
+                    <div class="rounded-lg px-1.5 py-2" style="background:#fdf2f8;">
+                        <p class="px-2 py-1 mb-1 text-xs font-semibold uppercase tracking-wider rounded" style="background:#fce7f3;color:#9d174d;">Warehouse</p>
+                        <a href="<?php echo STORE_BASE; ?>/kimsmall_stock.php"
+                           class="<?php echo $_sp === 'kimsmall_stock.php' ? 'bg-pink-100 text-pink-800' : 'text-gray-600 hover:bg-pink-50 hover:text-pink-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-warehouse mr-2 text-xs w-4 text-center"></i>KIM'S MALL WHEREHOUSE 재고 확인
+                        </a>
+                    </div>
                 </nav>
 
             </div>
@@ -127,6 +136,7 @@ $_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '
             <a href="<?php echo STORE_BASE; ?>/order.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Order</a>
             <a href="<?php echo STORE_BASE; ?>/orders.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Order History</a>
             <a href="<?php echo STORE_BASE; ?>/requests.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Requests</a>
+            <a href="<?php echo STORE_BASE; ?>/kimsmall_stock.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-pink-50 rounded-md"><i class="fas fa-warehouse mr-2"></i>KIM'S MALL WHEREHOUSE 재고 확인</a>
             <div class="border-t border-gray-100 mt-2 pt-2">
                 <div class="px-3 py-1 text-xs text-gray-500"><i class="fas fa-store mr-2"></i><?php echo htmlspecialchars($_sname ?: 'Store'); ?></div>
                 <div class="px-3 py-1 text-sm text-gray-700"><i class="fas fa-circle-user mr-2"></i><?php echo htmlspecialchars($_uname); ?><?php if ($_role_label !== ''): ?> <span class="text-xs text-teal-700">(<?php echo htmlspecialchars($_role_label); ?>)</span><?php endif; ?></div>

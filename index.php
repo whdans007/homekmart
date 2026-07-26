@@ -114,6 +114,7 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
         .card-icon.pricing  { background: linear-gradient(135deg, #dc2626, #ef4444); }
         .card-icon.store    { background: linear-gradient(135deg, #d97706, #f59e0b); }
         .card-icon.logistics { background: linear-gradient(135deg, #7c3aed, #8b5cf6); }
+        .card-icon.kimsmall  { background: linear-gradient(135deg, #be185d, #ec4899); }
         .card-icon.order     { background: linear-gradient(135deg, #0891b2, #06b6d4); }
         .card-icon.lookup    { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
         .card-icon.system    { background: linear-gradient(135deg, #475569, #64748b); }
@@ -258,7 +259,17 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
                     <i class="fas fa-truck"></i>
                 </div>
                 <div>
-                    <div class="card-label">물류센터</div>
+                    <div class="card-label">M TOWN 물류센터</div>
+                    <div class="card-desc">Inbound / Outbound<br>Warehouse Management</div>
+                </div>
+            </a>
+
+            <a href="kimsmall_wherehouse/" class="menu-card">
+                <div class="card-icon kimsmall">
+                    <i class="fas fa-warehouse"></i>
+                </div>
+                <div>
+                    <div class="card-label">KIM'S MALL 창고</div>
                     <div class="card-desc">Inbound / Outbound<br>Warehouse Management</div>
                 </div>
             </a>
