@@ -687,6 +687,19 @@ function syncYear(){
     s.form.submit();
 }
 function fmt(n){ return '₱'+parseFloat(n||0).toLocaleString('en',{minimumFractionDigits:2}); }
+// 업체명에 아포스트로피(')가 들어있으면(예: "JEN'S FRUIT") 일부 호스팅 WAF가 SQL 인젝션으로
+// 오탐지해 요청을 403으로 차단하는 사례가 있어, supplier/notes는 base64로 감싸서 전송한다.
+// (서버는 office_b64_decode()로 복원)
+function b64u(str){ return btoa(unescape(encodeURIComponent(str||''))); }
+// 첨부파일의 원본 파일명(예: "jen's receipt.pdf")은 브라우저가 멀티파트 요청에 그대로 실어
+// 보내서 b64u()로 감쌀 수 없다 — 아포스트로피 등이 들어있으면 supplier와 같은 이유로 WAF가
+// 차단하므로, 업로드 직전에 확장자만 남기고 영文/숫자로 치환한 안전한 이름으로 바꿔 보낸다.
+function safeFileName(name){
+    const parts = String(name||'file').split('.');
+    const ext   = parts.length > 1 ? '.' + parts.pop().replace(/[^A-Za-z0-9]/g,'') : '';
+    const base  = parts.join('.').replace(/[^A-Za-z0-9._-]/g,'_') || 'file';
+    return base + ext;
+}
 
 // ── 셀 상세 팝업 ──────────────────────────────────────────────
 function showDetail(day, supplier) {
@@ -766,11 +779,11 @@ async function saveEntry(){
     }
     const fd=new FormData();
     fd.append('entry_date', document.getElementById('a_date').value);
-    fd.append('supplier',   supplier);
+    fd.append('supplier',   b64u(supplier));
     fd.append('amount',     document.getElementById('a_amount').value);
-    fd.append('notes',      document.getElementById('a_notes').value);
+    fd.append('notes',      b64u(document.getElementById('a_notes').value));
     const fileEl=document.getElementById('a_file');
-    if(fileEl.files.length) fd.append('dtr_file', fileEl.files[0]);
+    if(fileEl.files.length) fd.append('dtr_file', fileEl.files[0], safeFileName(fileEl.files[0].name));
 
     try {
         const res  = await fetch('ajax_save_dtr.php',{method:'POST',body:fd});
@@ -850,13 +863,13 @@ async function submitEdit(){
     const fd=new FormData();
     fd.append('id',          document.getElementById('e_id').value);
     fd.append('entry_date',  document.getElementById('e_date').value);
-    fd.append('supplier',    document.getElementById('e_supplier').value.trim());
+    fd.append('supplier',    b64u(document.getElementById('e_supplier').value.trim()));
     fd.append('amount',      document.getElementById('e_amount').value);
-    fd.append('notes',       document.getElementById('e_notes').value);
+    fd.append('notes',       b64u(document.getElementById('e_notes').value));
     fd.append('status',      document.getElementById('e_status').value);
     fd.append('remove_file', document.getElementById('e_remove_file').value);
     const fileEl = document.getElementById('e_file');
-    if (fileEl.files.length) fd.append('dtr_file', fileEl.files[0]);
+    if (fileEl.files.length) fd.append('dtr_file', fileEl.files[0], safeFileName(fileEl.files[0].name));
 
     const res=await fetch('ajax_edit_dtr.php',{method:'POST',body:fd});
     const data=await res.json();
@@ -943,7 +956,7 @@ function loadPayPreview() {
 
     const fd = new FormData();
     fd.append('action', 'preview');
-    fd.append('supplier', _paySupplier);
+    fd.append('supplier', b64u(_paySupplier));
     fd.append('pay_date', date);
     fetch('ajax_pay_dtr.php', {method:'POST', body:fd})
     .then(r => r.json())
@@ -978,7 +991,7 @@ async function confirmPayment() {
 
     const fd = new FormData();
     fd.append('action', 'pay');
-    fd.append('supplier', _paySupplier);
+    fd.append('supplier', b64u(_paySupplier));
     fd.append('pay_date', date);
 
     const res  = await fetch('ajax_pay_dtr.php', {method:'POST', body:fd});
@@ -1005,7 +1018,7 @@ function openCancelModal(supplier) {
 
     const fd = new FormData();
     fd.append('action', 'preview');
-    fd.append('supplier', supplier);
+    fd.append('supplier', b64u(supplier));
     fd.append('year', YEAR);
     fd.append('month', MONTH);
     fetch('ajax_cancel_dtr.php', {method:'POST', body:fd})
@@ -1240,7 +1253,7 @@ async function confirmCancelBatch(ids, btn) {
 
     const fd = new FormData();
     fd.append('action', 'cancel');
-    fd.append('supplier', _cancelSupplier);
+    fd.append('supplier', b64u(_cancelSupplier));
     fd.append('year', YEAR);
     fd.append('month', MONTH);
     fd.append('ids', JSON.stringify(ids));

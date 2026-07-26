@@ -1,17 +1,24 @@
 <?php
 ob_start();
 require_once __DIR__ . '/../lib/office_helper.php';
-require_office_permission();
 ob_end_clean();
 
 header('Content-Type: application/json; charset=utf-8');
+
+// require_office_permission()은 권한 없을 시 HTML로 리다이렉트하는데, fetch()가 이를 그대로
+// 받으면 JSON.parse가 깨져 "unexpected server response"로 보임 — JSON 오류로 명확히 응답한다.
+if (!has_office_permission()) {
+    echo json_encode(['success'=>false,'error'=>'You do not have permission to add deferred entries. Please contact an administrator.']);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { echo json_encode(['success'=>false]); exit; }
 
 $store_id = get_office_store_id();
 $date     = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['entry_date']??'') ? $_POST['entry_date'] : null;
-$supplier = trim($_POST['supplier'] ?? '');
+$supplier = trim(office_b64_decode($_POST['supplier'] ?? ''));
 $amount   = max(0.01, (float)($_POST['amount'] ?? 0));
-$notes    = trim($_POST['notes'] ?? '');
+$notes    = trim(office_b64_decode($_POST['notes'] ?? ''));
 
 if (!$date || !$supplier) {
     echo json_encode(['success'=>false,'error'=>'Date and Supplier are required.']); exit;

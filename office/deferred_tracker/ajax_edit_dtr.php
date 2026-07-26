@@ -1,18 +1,23 @@
 <?php
 ob_start();
 require_once __DIR__ . '/../lib/office_helper.php';
-require_office_permission();
 ob_end_clean();
 
 header('Content-Type: application/json; charset=utf-8');
+
+if (!has_office_permission()) {
+    echo json_encode(['success'=>false,'error'=>'You do not have permission to edit deferred entries. Please contact an administrator.']);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { echo json_encode(['success'=>false]); exit; }
 
 $store_id    = get_office_store_id();
 $id          = (int)($_POST['id'] ?? 0);
 $date        = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['entry_date']??'') ? $_POST['entry_date'] : null;
-$supplier    = trim($_POST['supplier'] ?? '');
+$supplier    = trim(office_b64_decode($_POST['supplier'] ?? ''));
 $amount      = max(0.01, (float)($_POST['amount'] ?? 0));
-$notes       = trim($_POST['notes'] ?? '');
+$notes       = trim(office_b64_decode($_POST['notes'] ?? ''));
 $status      = in_array($_POST['status']??'', ['pending','paid']) ? $_POST['status'] : 'pending';
 $remove_file = ($_POST['remove_file'] ?? '0') === '1';
 

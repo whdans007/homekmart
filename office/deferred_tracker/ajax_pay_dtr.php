@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') { echo json_encode(['success'=>false]
 
 $store_id = get_office_store_id();
 $action   = $_POST['action'] ?? '';
-$supplier = trim($_POST['supplier'] ?? '');
+$supplier = trim(office_b64_decode($_POST['supplier'] ?? ''));
 $pay_date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['pay_date'] ?? '') ? $_POST['pay_date'] : null;
 
 if (!$supplier || !$pay_date) {
