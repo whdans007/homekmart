@@ -24,9 +24,27 @@ require_once __DIR__ . '/../../lib/permission_helper.php';
 })();
 
 // Plan SC: office_staff + super_admin 만 접근 허용
+// 리다이렉트 없는 boolean 버전 — ajax_*.php에서 JSON 오류로 응답해야 할 때 사용.
+// (require_office_permission()의 HTML 리다이렉트를 fetch()가 그대로 받으면 JSON.parse가
+//  깨져 "unexpected server response"처럼 원인을 알 수 없는 에러로 보임 — office/deferred_tracker
+//  ajax_save_dtr.php에서 실제로 발생한 사례)
+function has_office_permission(): bool {
+    if (in_array($_SESSION['role'] ?? '', ['super_admin', 'admin', 'office_staff'])) return true;
+    return has_permission('accounting_management');
+}
+
+// 아포스트로피(')가 포함된 값(예: "JEN'S FRUIT")을 POST로 그대로 보내면 일부 호스팅사의
+// WAF/ModSecurity가 SQL 인젝션으로 오탐지해 요청 자체를 403으로 차단하는 사례가 확인됨
+// (office/deferred_tracker Add/Edit Entry). 클라이언트에서 base64로 감싸 보내고 여기서 복원한다.
+// 구버전 캐시 JS가 원문 그대로 보내는 과도기 대응: base64 디코드 실패 시 원문을 그대로 사용.
+function office_b64_decode(string $v): string {
+    if ($v === '') return '';
+    $decoded = base64_decode($v, true);
+    return $decoded !== false ? $decoded : $v;
+}
+
 function require_office_permission(): void {
-    if (in_array($_SESSION['role'] ?? '', ['super_admin', 'admin', 'office_staff'])) return;
-    if (has_permission('accounting_management')) return;
+    if (has_office_permission()) return;
     // office/ 깊이에 무관하게 admin 루트로 리다이렉트
     $pos = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/office/');
     $admin_url = ($pos !== false)

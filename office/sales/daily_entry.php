@@ -262,7 +262,7 @@ $shifts = [
 
       <!-- Total (deposit + other + Manual DR) -->
       <div class="flex items-center justify-between" style="margin-top:16px;padding:14px 18px;border-radius:12px;background:#16a34a">
-        <div class="text-xs font-medium" style="color:#dcfce7">Total Amount <span style="color:#bbf7d0">(POS closing + manual DR)</span></div>
+        <div class="text-xs font-medium" style="color:#dcfce7">Total Amount <span style="color:#bbf7d0">(Sales Total + manual DR)</span></div>
         <div id="m-grand" class="text-2xl font-bold text-white num">₱ 0.00</div>
       </div>
     </div>
@@ -394,14 +394,14 @@ function allocate(qty){
 
 // ── grid ──
 // 셀 표시 매출(그 POS의 총 매출) = r.total_amount (서버 산출: 입금분 + 기타결제 + 지출 합계 + POS 등록 외상)
-// 셀 Over/Short = 마감금액(expected_cash) − 그 POS의 총 매출(total_amount)
-// (모달 6. Closing check 와 동일 산식)
+// 셀 Over/Short = 그 POS의 총 매출(total_amount) − 마감금액(expected_cash)
+// (Over/Short 관례: 실제가 신고액보다 많으면 +Over, 적으면 −Short · 모달 6. Closing check 와 동일 산식)
 function cellOverShort(d){
   const r=d.recon||{};
   if(r.expected_cash===null || r.expected_cash===undefined || r.expected_cash==='') return null;
   const pos=parseFloat(r.expected_cash); if(isNaN(pos)) return null;
   const total=parseFloat(r.total_amount)||0;
-  return Math.round((pos-total)*100)/100;
+  return Math.round((total-pos)*100)/100;
 }
 function renderGrid(){
   let day=0;
@@ -703,23 +703,6 @@ function recalc(){
   // 섹션4 신용거래(credits)·섹션5 도매(WS)는 매출에서 제외(참고·기록용).
   const salesCash = a.deposit;
   const total=Math.round((salesCash+other)*100)/100;
-
-  // 7. Manual DR = 4번 거래명세서(credit_doc) + 5번 Whole Sale (참고·기록용, 시제 매출과 별도 합산)
-  const mdrItems=sccPicked.filter(w=>w.isDoc)
-      .map(w=>({tag:'거래명세서',bg:'#dcfce7',fg:'#166534',name:w.client||w.remark||'—',amount:w.amount||0}))
-    .concat(wsPicked.map(w=>w.source_type==='delivery_k'
-      ? {tag:'Delivery K',bg:'#dbeafe',fg:'#1d4ed8',name:w.client||w.remark||'—',amount:w.amount||0}
-      : {tag:'Whole Sale',bg:'#e0e7ff',fg:'#4338ca',name:w.client||w.remark||'—',amount:w.amount||0}));
-  let mdrHtml='';
-  if(!mdrItems.length){ mdrHtml='<div style="font-size:12px;color:#cbd5e1;font-style:italic;padding:2px">No items</div>'; }
-  else mdrItems.forEach(it=>{ mdrHtml+=`<div class="ws-row"><span class="chip" style="background:${it.bg};color:${it.fg}">${it.tag}</span><span style="flex:1;color:#374151">${esc(it.name)}</span><span class="num font-medium text-gray-800">${peso(it.amount)}</span></div>`; });
-  document.getElementById('m-mdr-list').innerHTML=mdrHtml;
-  const mdrTotal=Math.round(mdrItems.reduce((s,it)=>s+it.amount,0)*100)/100;
-  document.getElementById('m-mdr-total').textContent=peso(mdrTotal);
-
-  // Total Amount = POS Closing Amount(마감 금액) + Manual DR 합계
-  const posClosing=parseFloat(document.getElementById('m-closing').value)||0;
-  document.getElementById('m-grand').textContent=peso(posClosing+mdrTotal);
   document.getElementById('m-chk-total').textContent=peso(total);
 
   // 6. Closing check 상세: 2. Expenses 합계(포인트 사용 포함) + POS 등록 외상 (참고 표시 · 시제 미포함)
@@ -741,17 +724,34 @@ function recalc(){
   detailBox.innerHTML=detail;
   detailBox.style.marginBottom = detail ? '10px' : '0';
 
-  // closing diff = 마감 금액(POS closing) − Total − Expenses 합계(2번) − POS 등록 외상 합계
+  // closing diff = 실제 정산 합계(Total + Expenses 합계(2번) + POS 등록 외상 합계) − 마감 금액(POS closing)
+  // (Over/Short 관례: 실제가 신고액보다 많으면 +Over, 적으면 −Short)
   const posCreditSum=posCredits.reduce((s,w)=>s+(w.amount||0),0);
 
   // Sales Total(그 POS의 총 매출) = Cash Total(입금분+기타결제) + Expenses 합계 + POS 등록 외상 (서버 total_amount 와 동일 산식)
   const salesTotal=Math.round((total+expAmt+posCreditSum)*100)/100;
   document.getElementById('m-sales-total').textContent=peso(salesTotal);
 
+  // 7. Manual DR = 4번 거래명세서(credit_doc) + 5번 Whole Sale (참고·기록용, 시제 매출과 별도 합산)
+  const mdrItems=sccPicked.filter(w=>w.isDoc)
+      .map(w=>({tag:'거래명세서',bg:'#dcfce7',fg:'#166534',name:w.client||w.remark||'—',amount:w.amount||0}))
+    .concat(wsPicked.map(w=>w.source_type==='delivery_k'
+      ? {tag:'Delivery K',bg:'#dbeafe',fg:'#1d4ed8',name:w.client||w.remark||'—',amount:w.amount||0}
+      : {tag:'Whole Sale',bg:'#e0e7ff',fg:'#4338ca',name:w.client||w.remark||'—',amount:w.amount||0}));
+  let mdrHtml='';
+  if(!mdrItems.length){ mdrHtml='<div style="font-size:12px;color:#cbd5e1;font-style:italic;padding:2px">No items</div>'; }
+  else mdrItems.forEach(it=>{ mdrHtml+=`<div class="ws-row"><span class="chip" style="background:${it.bg};color:${it.fg}">${it.tag}</span><span style="flex:1;color:#374151">${esc(it.name)}</span><span class="num font-medium text-gray-800">${peso(it.amount)}</span></div>`; });
+  document.getElementById('m-mdr-list').innerHTML=mdrHtml;
+  const mdrTotal=Math.round(mdrItems.reduce((s,it)=>s+it.amount,0)*100)/100;
+  document.getElementById('m-mdr-total').textContent=peso(mdrTotal);
+
+  // Total Amount = 6. Closing check의 Sales Total + Manual DR 합계
+  document.getElementById('m-grand').textContent=peso(salesTotal+mdrTotal);
+
   const pos=parseFloat(document.getElementById('m-closing').value);
   const dv=document.getElementById('m-diff'), box=document.getElementById('m-diff-box');
   if(isNaN(pos)){ dv.textContent='—'; dv.style.color='#9ca3af'; box.style.background='#f9fafb'; }
-  else { const diff=Math.round((pos-total-expAmt-posCreditSum)*100)/100;
+  else { const diff=Math.round((salesTotal-pos)*100)/100;
     if(Math.abs(diff)<0.005){ dv.textContent='₱ 0.00 ✓'; dv.style.color='#15803d'; box.style.background='#f0fdf4'; }
     else if(diff>0){ dv.textContent='+ '+peso(diff); dv.style.color='#2563eb'; box.style.background='#eff6ff'; }
     else { dv.textContent='− '+peso(Math.abs(diff)); dv.style.color='#dc2626'; box.style.background='#fef2f2'; } }

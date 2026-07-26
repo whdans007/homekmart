@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') { echo json_encode(['success'=>false]
 
 $store_id = get_office_store_id();
 $action   = $_POST['action'] ?? '';
-$supplier = trim($_POST['supplier'] ?? '');
+$supplier = trim(office_b64_decode($_POST['supplier'] ?? ''));
 $year     = (int)($_POST['year']  ?? date('Y'));
 $month    = (int)($_POST['month'] ?? date('n'));
 
