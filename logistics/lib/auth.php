@@ -17,7 +17,7 @@ function lc_require_login(): void {
         header('Location: ' . LC_BASE . '/login.php');
         exit;
     }
-    if (($_SESSION['role'] ?? '') !== 'super_admin' && !is_logistics_department()) {
+    if (($_SESSION['role'] ?? '') !== 'super_admin' && !is_logistics_department() && !current_role_at_least_label('물류센터')) {
         header('Location: ' . LC_WEB_ROOT . '/store/index.php');
         exit;
     }
@@ -25,6 +25,7 @@ function lc_require_login(): void {
 
 // 물류직원 또는 관리자 여부
 // Design Ref: role-permission-management - logistics_* 권한 보유 역할은 물류 직원 메뉴 노출
+// '물류센터' 역할 이상(level 기준)이면 소속 점포와 무관하게 직원으로 인정
 function lc_is_staff(): bool {
     lc_session_start();
     if (in_array($_SESSION['role'] ?? '', ['super_admin', 'admin'])) {
@@ -33,6 +34,9 @@ function lc_is_staff(): bool {
     if (has_permission('logistics_purchase_management')
         || has_permission('logistics_outbound_management')
         || has_permission('logistics_inventory_management')) {
+        return true;
+    }
+    if (current_role_at_least_label('물류센터')) {
         return true;
     }
     return is_logistics_department();
@@ -69,7 +73,10 @@ function lc_current_role(): string {
 // 관리자(super_admin/admin/branch_manager) 여부 — 배치/주문 등 삭제 권한 판단용
 // Design Ref: role-permission-management - 점장(branch_manager)은 물류센터 전체 권한 보유
 function lc_is_admin(): bool {
-    return in_array(lc_current_role(), ['super_admin', 'admin', 'branch_manager'], true);
+    if (in_array(lc_current_role(), ['super_admin', 'admin', 'branch_manager'], true)) {
+        return true;
+    }
+    return current_role_at_least_label('물류센터');
 }
 
 // CSRF 토큰 생성/검증

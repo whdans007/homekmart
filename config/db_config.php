@@ -9,7 +9,7 @@ date_default_timezone_set('Asia/Manila');
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'u622428657_main');
 define('DB_USER', 'u622428657_main');
-define('DB_PASS', '4L0*)5kuwD9Rb/jE');
+define('DB_PASS', '2Bbq0&2h#');
 
 /**
 define('DB_USER', 'u622428657_main');

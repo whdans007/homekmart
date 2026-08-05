@@ -16,6 +16,9 @@ if (!$supplier || !$pay_date) {
     echo json_encode(['success'=>false,'error'=>'필수 값이 누락되었습니다.']); exit;
 }
 
+// 실제 결제 등록일은 항상 오늘 날짜 (pay_date는 미결 항목을 선택하는 기준일로만 사용)
+$paid_today = date('Y-m-d');
+
 $conn = get_db_connection();
 
 // paid_date, receipt_id 컬럼 자동 추가
@@ -81,7 +84,7 @@ if ($action === 'pay') {
              (store_id, supplier_name, description, amount, receipt_date, created_by)
              VALUES (?,?,?,?,?,?)"
         );
-        $stmt->bind_param('issdsi', $store_id, $supplier, $description, $total, $pay_date, $by);
+        $stmt->bind_param('issdsi', $store_id, $supplier, $description, $total, $paid_today, $by);
         $stmt->execute();
         $receipt_id = $conn->insert_id;
         $stmt->close();
@@ -94,7 +97,7 @@ if ($action === 'pay') {
              SET status='paid', paid_date=?, receipt_id=?
              WHERE id IN ({$placeholders})"
         );
-        $params = array_merge([$pay_date, $receipt_id], $ids);
+        $params = array_merge([$paid_today, $receipt_id], $ids);
         $stmt2->bind_param('si' . str_repeat('i', count($ids)), ...$params);
         $stmt2->execute();
         $stmt2->close();

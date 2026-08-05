@@ -1,13 +1,27 @@
 <?php
 ob_start();
 require_once __DIR__ . '/../lib/office_helper.php';
-require_office_permission();
+
+// Design Ref: main-office-reports — 메인 오피스(전 점포 열람)에서 mo_store_id로 특정 점포를
+// 지정해 조회하는 경우, 쓰기 권한(office_permission) 없이도 main_office_admin 이상이면 읽기 전용 접근 허용.
+$mo_store_id = (int)($_GET['mo_store_id'] ?? 0);
+$is_mo_view  = $mo_store_id > 0 && is_main_office_admin();
+
+if (!$is_mo_view) {
+    require_office_permission();
+}
 ob_end_clean();
 
-if (empty($_POST['data'])) { http_response_code(400); exit; }
-$payload  = json_decode($_POST['data'], true);
-$date_str = preg_match('/^\d{4}-\d{2}-\d{2}$/', $payload['date']??'') ? $payload['date'] : date('Y-m-d');
-$secs     = $payload['sections'] ?? [];
+if ($is_mo_view) {
+    $date_str = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'] ?? '') ? $_GET['date'] : date('Y-m-d');
+    $mo_state = get_saved_report_state('er_saved_state', $mo_store_id, $date_str);
+    $secs     = $mo_state['sections'] ?? [];
+} else {
+    if (empty($_POST['data'])) { http_response_code(400); exit; }
+    $payload  = json_decode($_POST['data'], true);
+    $date_str = preg_match('/^\d{4}-\d{2}-\d{2}$/', $payload['date']??'') ? $payload['date'] : date('Y-m-d');
+    $secs     = $payload['sections'] ?? [];
+}
 
 $ts       = strtotime($date_str);
 $days_en  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];

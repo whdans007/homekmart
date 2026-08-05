@@ -5,6 +5,114 @@
  */
 
 /**
+ * 권한 조회 전용 PDO 커넥션을 요청 단위로 1개만 생성해 재사용합니다.
+ *
+ * 이전에는 권한 관련 함수가 호출될 때마다 new PDO 로 새 커넥션을 열었습니다.
+ * admin 헤더 한 번 렌더링에 has_permission() 이 33회 호출되고, 각 호출이
+ * get_role_permissions() 를 통해 커넥션을 하나 더 열어 페이지 1회 요청에
+ * 40~70개의 커넥션이 생성/해제되었습니다. 그 결과 호스팅의 연결 제한에
+ * 걸려 요청 후반부의 get_db_connection() 이 "Operation not permitted" 로
+ * 실패했습니다. (admin 대시보드 통계 조회 실패의 직접 원인)
+ *
+ * @return PDO
+ * @throws PDOException 연결 실패 시 (호출측 폴백 로직이 처리)
+ */
+function permission_pdo() {
+    static $pdo = null;
+    static $connect_error = null;
+
+    if ($pdo instanceof PDO) {
+        return $pdo;
+    }
+
+    // 같은 요청 안에서 이미 연결에 실패했다면 재시도하지 않습니다.
+    // (DB 장애 시 한 요청이 수십 번 연결을 시도해 제한을 더 압박하는 것을 방지)
+    if ($connect_error !== null) {
+        throw $connect_error;
+    }
+
+    require_once __DIR__ . '/../config/db_config.php';
+    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+
+    try {
+        $pdo = new PDO($dsn, DB_USER, DB_PASS);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        return $pdo;
+    } catch (PDOException $e) {
+        $connect_error = $e;
+        throw $e;
+    }
+}
+
+/**
+ * 요청 단위 권한 캐시 저장소입니다. (참조 반환)
+ * @return array
+ */
+function &permission_cache_store() {
+    static $store = [
+        'user'    => [],   // user_id => 사용자 행(role, permissions)
+        'role'    => [],   // role_key => 권한 배열
+        'label'   => [],   // role_key => 라벨
+        'has_col' => null, // users.permissions 컬럼 존재 여부
+    ];
+    return $store;
+}
+
+/**
+ * 권한 캐시를 비웁니다. 권한/역할을 변경한 직후에 호출합니다.
+ * @return void
+ */
+function permission_cache_reset() {
+    $store = &permission_cache_store();
+    $store = ['user' => [], 'role' => [], 'label' => [], 'has_col' => null];
+}
+
+/**
+ * users 테이블에 permissions 컬럼이 있는지 확인합니다. (요청당 1회만 조회)
+ * @return bool
+ */
+function permission_users_has_permissions_column() {
+    $store = &permission_cache_store();
+    if ($store['has_col'] !== null) {
+        return $store['has_col'];
+    }
+
+    $check = permission_pdo()->prepare("SHOW COLUMNS FROM users LIKE 'permissions'");
+    $check->execute();
+
+    return $store['has_col'] = (bool)$check->fetch();
+}
+
+/**
+ * 권한 판정에 쓰이는 사용자 행을 조회합니다. (요청당 사용자별 1회만 조회)
+ * @param int $user_id 사용자 ID
+ * @return array|null role, permissions 키를 가진 배열 (없으면 null)
+ */
+function permission_user_row($user_id) {
+    $store = &permission_cache_store();
+    if (array_key_exists($user_id, $store['user'])) {
+        return $store['user'][$user_id];
+    }
+
+    if (permission_users_has_permissions_column()) {
+        $stmt = permission_pdo()->prepare("SELECT role, permissions FROM users WHERE id = ?");
+    } else {
+        $stmt = permission_pdo()->prepare("SELECT role FROM users WHERE id = ?");
+    }
+    $stmt->execute([$user_id]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$user) {
+        return $store['user'][$user_id] = null;
+    }
+
+    // permissions 컬럼이 없는 스키마에서도 키가 항상 존재하도록 보정
+    $user['permissions'] = $user['permissions'] ?? null;
+
+    return $store['user'][$user_id] = $user;
+}
+
+/**
  * 사용자의 특정 권한을 확인합니다.
  * @param string $permission 확인할 권한명
  * @param int|null $user_id 사용자 ID (null이면 현재 세션 사용자)
@@ -24,35 +132,19 @@ function has_permission($permission, $user_id = null) {
     }
     
     try {
-        require_once __DIR__ . '/../config/db_config.php';
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
-        // permissions 컬럼 존재 여부 확인
-        $column_check = $pdo->prepare("SHOW COLUMNS FROM users LIKE 'permissions'");
-        $column_check->execute();
-        $has_permissions_column = $column_check->fetch();
-        
-        if ($has_permissions_column) {
-            $stmt = $pdo->prepare("SELECT role, permissions FROM users WHERE id = ?");
-        } else {
-            $stmt = $pdo->prepare("SELECT role FROM users WHERE id = ?");
-        }
-        $stmt->execute([$user_id]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+        $user = permission_user_row($user_id);
+
         if (!$user) {
             return false;
         }
-        
+
         // super_admin은 항상 모든 권한 보유
         if ($user['role'] === 'super_admin') {
             return true;
         }
-        
+
         // permissions 컬럼이 있고 JSON 데이터가 있는 경우
-        if ($has_permissions_column && !empty($user['permissions'])) {
+        if (!empty($user['permissions'])) {
             $permissions = json_decode($user['permissions'], true);
             if (is_array($permissions) && isset($permissions[$permission])) {
                 return (bool)$permissions[$permission];
@@ -127,19 +219,12 @@ function get_user_permissions($user_id = null) {
     }
     
     try {
-        require_once __DIR__ . '/../config/db_config.php';
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
-        $stmt = $pdo->prepare("SELECT role, permissions FROM users WHERE id = ?");
-        $stmt->execute([$user_id]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+        $user = permission_user_row($user_id);
+
         if (!$user) {
             return [];
         }
-        
+
         // super_admin은 모든 권한
         if ($user['role'] === 'super_admin') {
             return [
@@ -204,28 +289,29 @@ function get_all_permission_keys() {
  * @return array 권한 배열 (permission_key => bool)
  */
 function get_role_permissions($role) {
-    try {
-        require_once __DIR__ . '/../config/db_config.php';
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $store = &permission_cache_store();
+    if (array_key_exists($role, $store['role'])) {
+        return $store['role'][$role];
+    }
 
-        $stmt = $pdo->prepare("SELECT permission_key, enabled FROM role_permissions WHERE role_key = ?");
+    try {
+        $stmt = permission_pdo()->prepare("SELECT permission_key, enabled FROM role_permissions WHERE role_key = ?");
         $stmt->execute([$role]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (empty($rows)) {
-            return get_legacy_default_permissions($role);
+            return $store['role'][$role] = get_legacy_default_permissions($role);
         }
 
         $permissions = [];
         foreach ($rows as $row) {
             $permissions[$row['permission_key']] = (bool)$row['enabled'];
         }
-        return $permissions;
+        return $store['role'][$role] = $permissions;
 
     } catch (Exception $e) {
         error_log("Get role permissions error: " . $e->getMessage());
+        // 조회 실패는 캐시하지 않습니다. (일시적 장애 후 정상 값 복구를 위해)
         return get_legacy_default_permissions($role);
     }
 }
@@ -401,15 +487,15 @@ function get_permission_label($permission) {
  */
 function update_user_permissions($user_id, $permissions) {
     try {
-        require_once __DIR__ . '/../config/db_config.php';
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo = permission_pdo();
         
         $permissions_json = json_encode($permissions);
         $stmt = $pdo->prepare("UPDATE users SET permissions = ? WHERE id = ?");
-        return $stmt->execute([$permissions_json, $user_id]);
-        
+        $result = $stmt->execute([$permissions_json, $user_id]);
+
+        permission_cache_reset(); // 변경 직후 같은 요청에서 옛 권한이 쓰이지 않도록
+        return $result;
+
     } catch (PDOException $e) {
         error_log("Update permissions error: " . $e->getMessage());
         return false;
@@ -477,10 +563,7 @@ function is_logistics_department() {
     }
 
     try {
-        require_once __DIR__ . '/../config/db_config.php';
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo = permission_pdo();
 
         $stmt = $pdo->prepare(
             "SELECT s.name AS store_name
@@ -536,10 +619,7 @@ function get_assignable_roles($current_role_key) {
  */
 function get_all_roles() {
     try {
-        require_once __DIR__ . '/../config/db_config.php';
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo = permission_pdo();
 
         $stmt = $pdo->query("SELECT role_key, label, level, is_system FROM roles ORDER BY level ASC");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -556,17 +636,19 @@ function get_all_roles() {
  * @return string 역할 라벨 (찾지 못하면 role_key 그대로 반환)
  */
 function get_role_label($role_key) {
+    $store = &permission_cache_store();
+    if (array_key_exists($role_key, $store['label'])) {
+        return $store['label'][$role_key];
+    }
+
     try {
-        require_once __DIR__ . '/../config/db_config.php';
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo = permission_pdo();
 
         $stmt = $pdo->prepare("SELECT label FROM roles WHERE role_key = ?");
         $stmt->execute([$role_key]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return $row ? $row['label'] : $role_key;
+        return $store['label'][$role_key] = ($row ? $row['label'] : $role_key);
 
     } catch (Exception $e) {
         error_log("Get role label error: " . $e->getMessage());
@@ -584,10 +666,7 @@ function get_role_label($role_key) {
  */
 function update_role_permissions($role_key, $permissions, $changed_by = null) {
     try {
-        require_once __DIR__ . '/../config/db_config.php';
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo = permission_pdo();
 
         $pdo->beginTransaction();
 
@@ -614,6 +693,7 @@ function update_role_permissions($role_key, $permissions, $changed_by = null) {
         }
 
         $pdo->commit();
+        permission_cache_reset(); // 변경 직후 같은 요청에서 옛 권한이 쓰이지 않도록
         return true;
 
     } catch (Exception $e) {
@@ -639,10 +719,7 @@ function create_role($role_key, $label, $level) {
     }
 
     try {
-        require_once __DIR__ . '/../config/db_config.php';
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo = permission_pdo();
 
         $check = $pdo->prepare("SELECT role_key FROM roles WHERE role_key = ?");
         $check->execute([$role_key]);
@@ -662,6 +739,7 @@ function create_role($role_key, $label, $level) {
         }
 
         $pdo->commit();
+        permission_cache_reset();
         return true;
 
     } catch (Exception $e) {
@@ -683,14 +761,12 @@ function create_role($role_key, $label, $level) {
  */
 function update_role($role_key, $label, $level) {
     try {
-        require_once __DIR__ . '/../config/db_config.php';
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo = permission_pdo();
 
         $stmt = $pdo->prepare("UPDATE roles SET label = ?, level = ? WHERE role_key = ?");
         $stmt->execute([$label, $level, $role_key]);
 
+        permission_cache_reset();
         return true;
 
     } catch (Exception $e) {
@@ -707,10 +783,7 @@ function update_role($role_key, $label, $level) {
  */
 function delete_role($role_key) {
     try {
-        require_once __DIR__ . '/../config/db_config.php';
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo = permission_pdo();
 
         $stmt = $pdo->prepare("SELECT is_system FROM roles WHERE role_key = ?");
         $stmt->execute([$role_key]);
@@ -733,6 +806,8 @@ function delete_role($role_key) {
 
         $stmt = $pdo->prepare("DELETE FROM roles WHERE role_key = ?");
         $stmt->execute([$role_key]);
+
+        permission_cache_reset();
         return true;
 
     } catch (Exception $e) {
@@ -821,4 +896,58 @@ function can_approve_store_change($to_store_id = null) {
     }
     return false;
 }
-?>
+
+/**
+ * 현재 로그인 사용자가 main_office_admin 역할 이상인지 확인합니다.
+ * 메인 오피스(전 점포 입력 자료 열람) 접근 권한 판정에 사용합니다.
+ * super_admin은 level=100으로 항상 최상위이므로 별도 분기 없이 포함됩니다.
+ * @return bool
+ */
+function is_main_office_admin() {
+    $required = get_role_level('main_office_admin');
+    // 역할이 아직 정의되지 않아 level을 알 수 없으면(0) 안전하게 차단(fail-closed)
+    if ($required <= 0) {
+        return false;
+    }
+    return current_user_level() >= $required;
+}
+
+/**
+ * 라벨로 역할의 level을 조회합니다 ('물류센터'처럼 role_key를 모르는 커스텀 역할용).
+ * roles 테이블에 해당 라벨이 없으면 null을 반환합니다.
+ * @param string $label 역할 라벨 (한글 표시명)
+ * @return int|null
+ */
+function get_role_level_by_label($label) {
+    static $cache = [];
+    if (array_key_exists($label, $cache)) {
+        return $cache[$label];
+    }
+    try {
+        $pdo = permission_pdo();
+
+        $stmt = $pdo->prepare("SELECT level FROM roles WHERE label = ? LIMIT 1");
+        $stmt->execute([$label]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $cache[$label] = ($row ? (int)$row['level'] : null);
+    } catch (Exception $e) {
+        error_log("get_role_level_by_label error: " . $e->getMessage());
+        return $cache[$label] = null;
+    }
+}
+
+/**
+ * 현재 로그인 사용자의 역할 level이 주어진 라벨의 역할 level 이상인지 확인합니다.
+ * 라벨에 해당하는 역할이 없으면 false를 반환합니다.
+ * @param string $label 기준 역할 라벨 (예: '물류센터')
+ * @return bool
+ */
+function current_role_at_least_label($label) {
+    $required = get_role_level_by_label($label);
+    if ($required === null) {
+        return false;
+    }
+    return current_user_level() >= $required;
+}
+?>

@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"git stash push -m \\\"permission_helper 커넥션 재사용 + db_config 재시도 (장애로 임시 보관)\\\" -- lib/permission_helper.php config/db_config.php 2>&1; echo \\\"=== 결과 ===\\\"; git status --short -- lib/permissio...",
+  "error": "Exit code 143\nCommand timed out after 1m 50s",
+  "timestamp": "2026-07-29T01:08:02.086Z",
+  "retry_count": 1
+}

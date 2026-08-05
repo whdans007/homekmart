@@ -6,8 +6,9 @@ require_once __DIR__ . '/../partials/header.php';
 
 $store_id = get_office_store_id();
 
-$year  = (int)($_GET['year']  ?? date('Y'));
-$month = (int)($_GET['month'] ?? date('n'));
+$default_ts = strtotime('first day of last month');
+$year  = (int)($_GET['year']  ?? date('Y', $default_ts));
+$month = (int)($_GET['month'] ?? date('n', $default_ts));
 
 $prev_ts = mktime(0, 0, 0, $month - 1, 1, $year);
 $next_ts = mktime(0, 0, 0, $month + 1, 1, $year);
@@ -33,6 +34,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS office_monthly_fixed (
 $sf = $conn->prepare("SELECT korean_salary, monthly_rent FROM office_monthly_fixed WHERE store_id=? AND year=? AND month=?");
 $sf->bind_param('iii', $store_id, $year, $month); $sf->execute();
 $sf_row = $sf->get_result()->fetch_assoc(); $sf->close();
+$rent_saved = (bool)$sf_row;
 if ($sf_row) { $korean_salary = (float)$sf_row['korean_salary']; $monthly_rent = (float)$sf_row['monthly_rent']; }
 
 // ── 1. 총 물품구매액 ──────────────────────────────────────────
@@ -104,11 +106,13 @@ $s->bind_param('iii', $store_id, $year, $month); $s->execute();
 $total_equip = (float)$s->get_result()->fetch_row()[0]; $s->close();
 
 // ── ER other_exp 섹션 수집 ────────────────────────────────────
-$salary_kws   = ['월급','salary','salari','wage','급여','인건비','labor'];
-$electric_kws = ['전기','electric','elec','meralco','power'];
+$salary_kws   = ['월급','salary','salari','wage','급여','인건비','labor','pay','sss','pag-ibig','pag ibig','pagibig','philhealth','staffworks','manpower'];
+$electric_kws = ['전기','electric','elec','meralco','power bill','power corp','power co.','assoc. fee','assoc fee','association fee','assoc dues','association dues'];
+$rent_kws     = ['월세','rent','rental','임대','lease'];
 
 $total_salary    = 0.0; // 현지 직원 인건비
 $total_electric  = 0.0; // 전기세
+$total_rent      = 0.0; // 월세 (ER 기준 자동 감지)
 $total_other_exp = 0.0; // ER other_exp 전체 합계
 
 $tbl = $conn->query("SHOW TABLES LIKE 'er_saved_state'");
@@ -145,9 +149,14 @@ if ($tbl && $tbl->num_rows > 0) {
                 $amt = (float)($row['amount'] ?? 0);
                 if ($amt <= 0) continue;
                 $total_other_exp += $amt;
-                $d = strtolower($row['details'] ?? '');
-                foreach ($salary_kws   as $kw) { if (str_contains($d, $kw)) { $total_salary   += $amt; break; } }
-                foreach ($electric_kws as $kw) { if (str_contains($d, $kw)) { $total_electric += $amt; break; } }
+                $d = strtolower(trim(($row['supplier'] ?? '') . ' ' . ($row['details'] ?? '')));
+                if (array_filter($electric_kws, fn($kw) => str_contains($d, $kw))) {
+                    $total_electric += $amt;
+                } elseif (array_filter($salary_kws, fn($kw) => str_contains($d, $kw))) {
+                    $total_salary += $amt;
+                } elseif (array_filter($rent_kws, fn($kw) => str_contains($d, $kw))) {
+                    $total_rent += $amt;
+                }
             }
         }
     }
@@ -156,10 +165,13 @@ if ($tbl && $tbl->num_rows > 0) {
 
 $conn->close();
 
-// 사무실 경비 = STORE EXP 전체 - 현지 직원 인건비 - 전기세
+// 저장된 월세 값이 없으면 ER 기준 자동 감지 금액을 기본값으로 사용
+if (!$rent_saved) { $monthly_rent = $total_rent; }
+
+// 사무실 경비 = STORE EXP 전체 - 현지 직원 인건비 - 전기세 - 월세 (세금은 사무실 경비에 포함)
 // STORE EXP = office_equipment_purchases(not_selling) + ER other_exp 전체
 $total_store_exp = $total_equip + $total_other_exp;
-$total_office    = $total_store_exp - $total_salary - $total_electric;
+$total_office    = $total_store_exp - $total_salary - $total_electric - $total_rent;
 
 // ── 항목 정의 ─────────────────────────────────────────────────
 $total_purchase_with_transfer = $total_purchase + $total_tr_in - $total_tr_out;

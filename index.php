@@ -16,6 +16,7 @@ if (!is_logged_in()) {
 }
 
 $is_super_admin = (($_SESSION['role'] ?? '') === 'super_admin');
+$is_main_office_admin = is_main_office_admin();
 $current_user_info = get_user_info();
 $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '';
 ?>
@@ -117,6 +118,7 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
         .card-icon.kimsmall  { background: linear-gradient(135deg, #be185d, #ec4899); }
         .card-icon.order     { background: linear-gradient(135deg, #0891b2, #06b6d4); }
         .card-icon.lookup    { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
+        .card-icon.mainoffice { background: linear-gradient(135deg, #4f46e5, #6366f1); }
         .card-icon.system    { background: linear-gradient(135deg, #475569, #64748b); }
         .card-label {
             font-size: 1.1rem;
@@ -293,6 +295,18 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
                     <div class="card-desc">All-Store Price Lookup<br>원가 / 판매가 조회</div>
                 </div>
             </a>
+
+            <?php if ($is_main_office_admin): ?>
+            <a href="main_office/" class="menu-card">
+                <div class="card-icon mainoffice">
+                    <i class="fas fa-building-columns"></i>
+                </div>
+                <div>
+                    <div class="card-label">메인 오피스</div>
+                    <div class="card-desc">전 점포 입력 자료 열람<br>All-Store Data Lookup</div>
+                </div>
+            </a>
+            <?php endif; ?>
 
             <?php if ($is_super_admin): ?>
             <a href="admin/system_management.php" class="menu-card">

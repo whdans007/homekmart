@@ -26,8 +26,10 @@ $_ofc_pos = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/office/');
 $_office_web_root = ($_ofc_pos !== false) ? substr($_SERVER['SCRIPT_NAME'], 0, $_ofc_pos) : '';
 
 // 현재 사용자 Store 정보
-$_office_store_name = '본점';
-$_office_store_id   = null;
+$_office_store_name     = '본점';
+$_office_store_id       = null;
+$_office_is_super_admin = (($_SESSION['role'] ?? '') === 'super_admin');
+$_office_all_stores     = [];
 if (!empty($_SESSION['user_id'])) {
     try {
         $conn = get_db_connection();
@@ -40,7 +42,28 @@ if (!empty($_SESSION['user_id'])) {
             $_office_store_id   = $sr['sid'];
         }
         $st->close();
+
+        // 슈퍼어드민이 다른 점포를 선택(override)한 경우 조회 대상 점포를 그 점포로 전환
+        if ($_office_is_super_admin && !empty($_SESSION['office_store_override_id'])) {
+            $ov = $conn->prepare("SELECT id, name FROM stores WHERE id=?");
+            $ov->bind_param('i', $_SESSION['office_store_override_id']);
+            $ov->execute();
+            $ov_row = $ov->get_result()->fetch_assoc();
+            $ov->close();
+            if ($ov_row) {
+                $_office_store_id   = (int)$ov_row['id'];
+                $_office_store_name = $ov_row['name'];
+            } else {
+                unset($_SESSION['office_store_override_id']);
+            }
+        }
+
         $conn->close();
+
+        // 슈퍼어드민 점포 선택 드롭다운용 전체 점포 목록
+        if ($_office_is_super_admin) {
+            $_office_all_stores = get_all_stores();
+        }
     } catch (Exception $e) {
         error_log('Office store info error: ' . $e->getMessage());
     }
@@ -156,7 +179,18 @@ aside .menu-item { font-size: 11px; padding-top: 4px; padding-bottom: 4px; }
   <div class="flex-shrink-0 mx-2 mb-1.5" style="border:1px solid #ccfbf1;border-radius:0.6rem;background:linear-gradient(135deg,#f0fdfa 0%,#ecfdf5 100%);overflow:hidden;">
     <div style="display:flex;align-items:center;gap:0.35rem;padding:0.5rem 0.55rem;background:#0d9488;color:#fff;">
       <i class="fa-solid fa-store" style="font-size:0.8rem;flex-shrink:0;"></i>
+      <?php if ($_office_is_super_admin && !empty($_office_all_stores)): ?>
+      <select id="office_store_switch" onchange="switchOfficeStore(this.value)"
+              style="flex:1;min-width:0;font-weight:600;font-size:0.75rem;line-height:1.15;background:#0d9488;color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:0.3rem;padding:0.15rem 0.25rem;">
+        <?php foreach ($_office_all_stores as $s): ?>
+        <option value="<?php echo (int)$s['id']; ?>" <?php echo ((int)$s['id'] === (int)$_office_store_id) ? 'selected' : ''; ?>>
+          <?php echo htmlspecialchars($s['name']); ?>
+        </option>
+        <?php endforeach; ?>
+      </select>
+      <?php else: ?>
       <span style="font-weight:600;font-size:0.78rem;line-height:1.15;"><?php echo htmlspecialchars($_office_store_name); ?></span>
+      <?php endif; ?>
     </div>
     <div style="padding:0.5rem 0.55rem;">
       <div style="display:flex;align-items:center;gap:0.35rem;color:#334155;font-size:11px;margin-bottom:0.5rem;">

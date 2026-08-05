@@ -2,11 +2,23 @@
 // Design Ref: §7.1 — Cash Disbursement print — 1 page, 2 tables (1.KOREAN+2.LOCAL / 3.FIXED+4.OTHERS, each with its own 결제란), 8 lines per section
 ob_start();
 require_once __DIR__ . '/../lib/office_helper.php';
-require_office_permission();
+
+// Design Ref: main-office-reports — 메인 오피스(전 점포 열람)에서 mo_store_id로 특정 점포를
+// 지정해 조회하는 경우, 쓰기 권한(office_permission) 없이도 main_office_admin 이상이면 읽기 전용 접근 허용.
+$mo_store_id = (int)($_GET['mo_store_id'] ?? 0);
+$is_mo_view  = $mo_store_id > 0 && is_main_office_admin();
+
+if (!$is_mo_view) {
+    require_office_permission();
+}
 ob_end_clean();
 
-// Support both POST (from Print button) and GET (direct test access)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['data'])) {
+// Support POST (from Print button), main_office cross-store view, and GET (direct test access)
+if ($is_mo_view) {
+    $date_str = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'] ?? '') ? $_GET['date'] : date('Y-m-d');
+    $mo_state = get_saved_report_state('cd_saved_state', $mo_store_id, $date_str);
+    $secs     = $mo_state['sections'] ?? ['korean'=>[],'local'=>[],'fixed'=>[],'others'=>[]];
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['data'])) {
     $payload  = json_decode($_POST['data'], true);
     $date_str = preg_match('/^\d{4}-\d{2}-\d{2}$/', $payload['date'] ?? '') ? $payload['date'] : date('Y-m-d');
     $secs     = $payload['sections'] ?? ['korean'=>[],'local'=>[],'fixed'=>[],'others'=>[]];
@@ -23,7 +35,7 @@ $day   = date('j', $ts);
 
 // PREPARED = 현재 로그인 사용자, APPROVED = 점포 점장(센터장)
 $prepared_by = trim($_SESSION['full_name'] ?? $_SESSION['username'] ?? '');
-$office_store_id = get_office_store_id();
+$office_store_id = $is_mo_view ? $mo_store_id : get_office_store_id();
 $approved_by = get_store_manager_name($office_store_id);
 
 // 제목에 사용할 실제 회사명(상호) — stores.company_name 우선, 없으면 점포명으로 대체

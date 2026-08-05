@@ -44,11 +44,12 @@ $cd_rows = [];
 
 // ── 카테고리 자동 분류 ────────────────────────────────────────
 $CATEGORIES = [
-    'Electricity' => ['전기', 'electric', 'elec', 'meralco', 'power'],
-    'Salary'      => ['월급', 'salary', 'salari', 'wage', '급여', 'pay'],
+    'Electricity' => ['전기', 'electric', 'elec', 'meralco', 'power bill', 'power corp', 'power co.', 'assoc. fee', 'assoc fee', 'association fee', 'assoc dues', 'association dues'],
+    'Salary'      => ['월급', 'salary', 'salari', 'wage', '급여', 'pay', 'sss', 'pag-ibig', 'pag ibig', 'pagibig', 'philhealth', 'staffworks', 'manpower'],
     'Internet'    => ['인터넷', 'internet', 'wifi', 'broadband', 'pldt', 'globe'],
     'Rent'        => ['월세', 'rent', 'rental', '임대', 'lease'],
     'Water'       => ['수도', 'water', 'maynilad'],
+    'Tax'         => ['bir', 'cdc', 'clark development'],
     'Others'      => [],
 ];
 
@@ -78,7 +79,8 @@ function collect_items(array $raw_rows, string $source_label, array $section_key
             $items = $state['sections'][$sec_key] ?? [];
             foreach ($items as $item) {
                 $amt = (float)($item['amount'] ?? 0);
-                $cat = classify_details($item['details'] ?? '', $CATEGORIES);
+                $classify_text = trim(($item['supplier'] ?? '') . ' ' . ($item['details'] ?? ''));
+                $cat = classify_details($classify_text, $CATEGORIES);
                 $all_items[] = [
                     'date'     => $row['save_date'],
                     'source'   => $src,
@@ -186,7 +188,7 @@ $month_label = date('F Y', strtotime($month_start));
 </div>
 
 <!-- 카테고리별 요약 카드 -->
-<div class="grid grid-cols-2 gap-3 mb-4 sm:grid-cols-3 lg:grid-cols-7">
+<div class="grid grid-cols-2 gap-3 mb-4 sm:grid-cols-3 lg:grid-cols-8">
   <?php
   $cat_colors = [
     'Electricity' => ['bg'=>'bg-yellow-50','border'=>'border-yellow-200','text'=>'text-yellow-700','icon'=>'fa-bolt'],
@@ -194,6 +196,7 @@ $month_label = date('F Y', strtotime($month_start));
     'Internet'    => ['bg'=>'bg-indigo-50','border'=>'border-indigo-200','text'=>'text-indigo-700','icon'=>'fa-wifi'],
     'Rent'        => ['bg'=>'bg-green-50', 'border'=>'border-green-200', 'text'=>'text-green-700', 'icon'=>'fa-building'],
     'Water'       => ['bg'=>'bg-cyan-50',  'border'=>'border-cyan-200',  'text'=>'text-cyan-700',  'icon'=>'fa-droplet'],
+    'Tax'         => ['bg'=>'bg-red-50',   'border'=>'border-red-200',   'text'=>'text-red-700',   'icon'=>'fa-file-invoice'],
     'Others'      => ['bg'=>'bg-gray-50',  'border'=>'border-gray-200',  'text'=>'text-gray-700',  'icon'=>'fa-ellipsis'],
   ];
   foreach ($CATEGORIES as $cat => $kws):
@@ -269,6 +272,7 @@ $month_label = date('F Y', strtotime($month_start));
             'Internet'    => 'bg-indigo-100 text-indigo-700',
             'Rent'        => 'bg-green-100 text-green-700',
             'Water'       => 'bg-cyan-100 text-cyan-700',
+            'Tax'         => 'bg-red-100 text-red-700',
             'Others'      => 'bg-gray-100 text-gray-600',
         ];
         $src_badge = [

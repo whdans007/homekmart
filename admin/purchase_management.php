@@ -26,6 +26,32 @@ if (!has_permission('purchase_management')) {
 
 $conn = get_db_connection();
 
+// 물류센터 배송완료 후 매입등록 대기 중인 건수 (converted_purchase_id 컬럼 없으면 0 처리)
+// 배지는 "당일 미등록 건"만 카운트 — 지난 미등록 건은 목록에서 계속 처리 가능하지만 배지에는 반영하지 않는다.
+$logistics_pending_count = 0;
+$chk_conv_col = $conn->query("SHOW COLUMNS FROM lc_orders LIKE 'converted_purchase_id'");
+if ($chk_conv_col && $chk_conv_col->num_rows > 0) {
+    $pending_where = "status = 'delivered' AND converted_purchase_id IS NULL AND DATE(delivered_at) = CURDATE()";
+    if ($_SESSION['role'] !== 'super_admin') {
+        $pending_where .= !empty($current_store_id) ? " AND store_id = " . (int)$current_store_id : " AND 1 = 0";
+    }
+    $pending_row = $conn->query("SELECT COUNT(*) AS cnt FROM lc_orders WHERE {$pending_where}")->fetch_assoc();
+    $logistics_pending_count = (int)($pending_row['cnt'] ?? 0);
+}
+
+// 타점 이동(확정) 후 매입등록 대기 중인 건수 (converted_purchase_id 컬럼 없으면 0 처리)
+// 배지는 "당일 미등록 건"만 카운트 — 지난 미등록 건은 목록에서 계속 처리 가능하지만 배지에는 반영하지 않는다.
+$store_transfer_pending_count = 0;
+$chk_st_conv_col = $conn->query("SHOW COLUMNS FROM store_transfers LIKE 'converted_purchase_id'");
+if ($chk_st_conv_col && $chk_st_conv_col->num_rows > 0) {
+    $st_pending_where = "status = 'confirmed' AND converted_purchase_id IS NULL AND transfer_date = CURDATE()";
+    if ($_SESSION['role'] !== 'super_admin') {
+        $st_pending_where .= !empty($current_store_id) ? " AND to_store_id = " . (int)$current_store_id : " AND 1 = 0";
+    }
+    $st_pending_row = $conn->query("SELECT COUNT(*) AS cnt FROM store_transfers WHERE {$st_pending_where}")->fetch_assoc();
+    $store_transfer_pending_count = (int)($st_pending_row['cnt'] ?? 0);
+}
+
 // 페이지네이션 변수
 $current_page = max(1, (int)($_GET['page'] ?? 1));
 $items_per_page = 20;
@@ -493,6 +519,20 @@ th[data-column="actions"] { min-width: 150px !important; }
                     <?php echo t('purchase.soft_delete_setup'); ?>
                 </a>
                 <?php endif; ?>
+                <a href="purchase_from_logistics.php" class="relative inline-flex items-center px-4 py-2 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <i class="fas fa-truck-loading mr-2"></i>
+                    물류센터 입고분 매입등록
+                    <?php if ($logistics_pending_count > 0): ?>
+                    <span class="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white"><?php echo $logistics_pending_count; ?></span>
+                    <?php endif; ?>
+                </a>
+                <a href="purchase_from_store_transfer.php" class="relative inline-flex items-center px-4 py-2 border border-teal-300 rounded-md shadow-sm text-sm font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
+                    <i class="fas fa-right-left mr-2"></i>
+                    타점 이동 매입등록
+                    <?php if ($store_transfer_pending_count > 0): ?>
+                    <span class="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white"><?php echo $store_transfer_pending_count; ?></span>
+                    <?php endif; ?>
+                </a>
                 <a href="add_purchase.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                     <i class="fas fa-plus mr-2"></i>
                     <?php echo t('purchase.new_purchase'); ?>
