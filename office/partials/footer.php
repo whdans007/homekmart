@@ -103,6 +103,26 @@
 })();
 </script>
 
+<script>
+// Design Ref: office 슈퍼어드민 점포 선택 — 헤더의 점포 드롭다운에서 호출
+function switchOfficeStore(storeId) {
+    fetch('<?php echo $office_nav_base; ?>ajax_switch_store.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'store_id=' + encodeURIComponent(storeId)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('점포 전환에 실패했습니다.');
+        }
+    })
+    .catch(() => alert('점포 전환 중 오류가 발생했습니다.'));
+}
+</script>
+
 <?php if (!empty($extra_js)): ?>
 <script>
 <?php echo $extra_js; ?>

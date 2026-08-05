@@ -26,7 +26,8 @@ if (!empty($_SESSION['store_id'])) {
 // 현재 사용자 이름 / 등급(역할) 라벨
 $_lc_user_name  = $_SESSION['full_name'] ?? $_SESSION['username'] ?? '';
 $_lc_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '';
-$_lc_store_label = $_lc_store_name !== '' ? $_lc_store_name : ($_lc_is_staff ? "KIM'S MALL WAREHOUSE" : 'Store');
+// 직원(staff)은 실제 소속 점포와 무관하게 항상 "Kim's mall wherehouse"로 표시
+$_lc_store_label = $_lc_is_staff ? "Kim's mall wherehouse" : ($_lc_store_name !== '' ? $_lc_store_name : 'Store');
 
 // Order List 배지용 — 처리 대기 주문 수 (pending = "Order Received")
 $_lc_pending_orders = 0;

@@ -70,7 +70,6 @@ $stmt3->bind_param('iii', $store_id, $year, $month);
 $stmt3->execute();
 $transfer_in_rows = $stmt3->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt3->close();
-$conn->close();
 
 foreach ($transfer_in_rows as &$tr) {
     $tr['category']  = 'transfer';
@@ -79,6 +78,44 @@ foreach ($transfer_in_rows as &$tr) {
     $tr['source']    = 'auto';
 }
 unset($tr);
+
+// ── IN (자동): CENTER(물류센터)에서 실제 배송 완료(수령 확인)된 물류 주문 ──────
+// store/orders.php의 "수령했습니다" 버튼으로 lc_orders.status가 'delivered'로
+// 확정된 건만 반영한다 (수기 입력 아님 — 실제 배송 완료 데이터 기준).
+$center_row      = $conn->query("SELECT id FROM stores WHERE name='CENTER (물류센터)' LIMIT 1")->fetch_assoc();
+$center_store_id = $center_row ? (int)$center_row['id'] : 0;
+
+$lc_order_rows = [];
+if ($center_store_id > 0) {
+    // total_amount는 lc_order_items 합계로 직접 계산한다 (lc_orders.total_amount 캐시값에 의존하지 않음 — Ref: logistics/order_detail.php 동일 계산식)
+    $stmt4 = $conn->prepare(
+        "SELECT o.id, o.delivered_at,
+                COALESCE((SELECT SUM(oi.total_amount) FROM lc_order_items oi WHERE oi.order_id = o.id), 0) AS total_amount
+         FROM lc_orders o
+         WHERE o.store_id=? AND o.status='delivered'
+           AND YEAR(o.delivered_at)=? AND MONTH(o.delivered_at)=?
+         ORDER BY o.delivered_at, o.id"
+    );
+    $stmt4->bind_param('iii', $store_id, $year, $month);
+    $stmt4->execute();
+    $lc_order_rows = $stmt4->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt4->close();
+}
+$conn->close();
+
+foreach ($lc_order_rows as $lo) {
+    $transfer_in_rows[] = [
+        'id'             => $lo['id'],
+        'transfer_date'  => date('Y-m-d', strtotime($lo['delivered_at'])),
+        'other_store_id' => $center_store_id,
+        'amount'         => (float)$lo['total_amount'],
+        'category'       => 'transfer',
+        'notes'          => '물류센터 주문 #' . str_pad($lo['id'], 4, '0', STR_PAD_LEFT) . ' 배송완료',
+        'file_path'      => null,
+        'file_mime'      => null,
+        'source'         => 'lc_order',
+    ];
+}
 $in_rows = array_merge($in_rows, $transfer_in_rows);
 
 // 카테고리별 전체 합계 (모든 지점 합산)
@@ -255,14 +292,24 @@ for ($i = 0; $i < 12; $i++) {
                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right">
           </div>
         </div>
-        <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Category</label>
-          <select id="edit_category" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-            <option value="grocery">Grocery (그로서리)</option>
-            <option value="meat">Meat (미트)</option>
-            <option value="seafood">Seafood (씨푸드)</option>
-            <option value="fruit">Fruit (과일)</option>
-          </select>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">From Store</label>
+            <select id="edit_store_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              <?php foreach ($all_branches as $s): ?>
+              <option value="<?php echo $s['id']; ?>"><?php echo htmlspecialchars($s['name']); ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Category</label>
+            <select id="edit_category" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              <option value="grocery">Grocery (그로서리)</option>
+              <option value="meat">Meat (미트)</option>
+              <option value="seafood">Seafood (씨푸드)</option>
+              <option value="fruit">Fruit (과일)</option>
+            </select>
+          </div>
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-700 mb-1">Notes</label>
@@ -621,6 +668,7 @@ function showInDetailCat(day, branchId, catKey, branchName, catLabel) {
     entries.forEach(r => {
         total += parseFloat(r.amount||0);
         const isAuto = r.source === 'auto';
+        const isLcOrder = r.source === 'lc_order';
         const proof = r.file_path
             ? `<button type="button"
                   data-id="${r.id}" data-mime="${esc(r.file_mime||'')}" data-title="${esc(r.notes||'Transfer Proof')}"
@@ -634,7 +682,12 @@ function showInDetailCat(day, branchId, catKey, branchName, catLabel) {
                   class="text-indigo-400 hover:text-indigo-600" title="View transfer items">
                  <i class="fa-solid fa-list-ul text-xs"></i>
                </button>`
-            : `<button onclick="openEdit(${r.id},'${r.transfer_date}',${r.amount},'${r.category||'grocery'}','${(r.notes||'').replace(/'/g,'&apos;')}')"
+            : isLcOrder
+            ? `<button type="button" onclick="showLcOrderItems(${r.id})"
+                  class="text-indigo-400 hover:text-indigo-600" title="View order items">
+                 <i class="fa-solid fa-list-ul text-xs"></i>
+               </button>`
+            : `<button onclick="openEdit(${r.id},'${r.transfer_date}',${r.amount},'${r.category||'grocery'}','${(r.notes||'').replace(/'/g,'&apos;')}',${r.other_store_id})"
                       class="text-indigo-400 hover:text-indigo-600 mr-1">
                 <i class="fa-solid fa-pen-to-square text-xs"></i>
               </button>
@@ -644,7 +697,9 @@ function showInDetailCat(day, branchId, catKey, branchName, catLabel) {
                 <input type="hidden" name="month" value="${MONTH}">
                 <button type="submit" class="text-gray-300 hover:text-red-500"><i class="fa-solid fa-trash-can text-xs"></i></button>
               </form>`;
-        const notes = (r.notes||'—') + (isAuto ? ' <span class="text-[10px] text-indigo-400">(Auto · Store Transfer)</span>' : '');
+        const notes = (r.notes||'—')
+            + (isAuto ? ' <span class="text-[10px] text-indigo-400">(Auto · Store Transfer)</span>' : '')
+            + (isLcOrder ? ' <span class="text-[10px] text-indigo-400">(Auto · 물류센터 배송완료)</span>' : '');
         html += `<tr class="border-b border-gray-100">
             <td class="px-3 py-2 font-mono font-semibold text-right">${fmt(r.amount)}</td>
             <td class="px-3 py-2 text-gray-500">${notes}</td>
@@ -762,13 +817,74 @@ async function showStoreTransferItems(transferId) {
     }
 }
 
+// ── 물류센터(lc_orders) 배송완료 주문 품목 상세 팝업 ─────────────
+async function showLcOrderItems(orderId) {
+    const titleEl = document.getElementById('st_items_title');
+    const bodyEl  = document.getElementById('st_items_body');
+    titleEl.innerHTML = '<i class="fa-solid fa-truck-fast mr-1 text-indigo-500"></i>물류센터 주문 상세';
+    bodyEl.innerHTML = '<div class="text-center text-gray-400 text-sm py-8">Loading...</div>';
+    new bootstrap.Modal(document.getElementById('stItemsModal')).show();
+
+    try {
+        const res  = await fetch('ajax_get_lc_order.php?id=' + orderId);
+        const data = await res.json();
+        if (!data.success) {
+            bodyEl.innerHTML = `<div class="text-center text-red-500 text-sm py-8">${esc(data.error||'Failed to load')}</div>`;
+            return;
+        }
+        const o = data.order;
+
+        titleEl.innerHTML = `<i class="fa-solid fa-truck-fast mr-1 text-indigo-500"></i>`
+            + `물류센터 주문 #${String(o.id).padStart(4,'0')} — 배송완료`;
+
+        let rows = '';
+        let total = 0;
+        data.items.forEach(it => {
+            const name = [it.name_en, it.name_ko].filter(Boolean).join(' / ') || '—';
+            total += parseFloat(it.total_amount||0);
+            rows += `<tr class="border-b border-gray-100">
+                <td class="px-3 py-2 text-sm text-gray-800">${esc(name)}</td>
+                <td class="px-3 py-2 text-center text-sm text-gray-700">${esc(it.order_unit||'')}</td>
+                <td class="px-3 py-2 text-center text-sm font-medium text-gray-900">${Number(it.quantity).toLocaleString()}</td>
+                <td class="px-3 py-2 text-center text-sm text-gray-700">${fmt(it.unit_price)}</td>
+                <td class="px-3 py-2 text-right text-sm font-medium text-teal-700">${fmt(it.total_amount)}</td>
+            </tr>`;
+        });
+
+        bodyEl.innerHTML = `
+            <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-600 mb-3">
+                <span><i class="fa-regular fa-calendar mr-1"></i>${esc(o.delivered_at)}</span>
+                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">배송완료</span>
+            </div>
+            <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                <table class="w-full text-xs border-collapse">
+                    <thead><tr class="bg-gray-50">
+                        <th class="border-b border-gray-200 px-3 py-2 text-left">Product</th>
+                        <th class="border-b border-gray-200 px-3 py-2 text-center">Unit</th>
+                        <th class="border-b border-gray-200 px-3 py-2 text-center">Qty</th>
+                        <th class="border-b border-gray-200 px-3 py-2 text-center">Unit Price</th>
+                        <th class="border-b border-gray-200 px-3 py-2 text-right">Total</th>
+                    </tr></thead>
+                    <tbody>${rows || '<tr><td colspan="5" class="px-3 py-6 text-center text-gray-400">No items</td></tr>'}</tbody>
+                    <tfoot><tr class="bg-teal-50">
+                        <td colspan="4" class="px-3 py-2 text-right text-xs text-gray-500">${data.items.length} items · Total</td>
+                        <td class="px-3 py-2 text-right font-bold text-teal-700">${fmt(total)}</td>
+                    </tr></tfoot>
+                </table>
+            </div>`;
+    } catch (e) {
+        bodyEl.innerHTML = `<div class="text-center text-red-500 text-sm py-8">Error: ${esc(e.message||e)}</div>`;
+    }
+}
+
 // ── Edit ─────────────────────────────────────────────────────
-function openEdit(id, date, amount, category, notes) {
+function openEdit(id, date, amount, category, notes, storeId) {
     bootstrap.Modal.getInstance(document.getElementById('detailModal'))?.hide();
     document.getElementById('edit_id').value       = id;
     document.getElementById('edit_date').value     = date;
     document.getElementById('edit_amount').value   = parseFloat(amount).toFixed(2);
     document.getElementById('edit_category').value = category;
+    document.getElementById('edit_store_id').value = storeId;
     document.getElementById('edit_notes').value    = notes;
     document.getElementById('edit_error').classList.add('hidden');
     new bootstrap.Modal(document.getElementById('editModal')).show();
@@ -785,11 +901,12 @@ async function submitEdit() {
     }
 
     const fd = new FormData();
-    fd.append('id',            id);
-    fd.append('transfer_date', document.getElementById('edit_date').value);
-    fd.append('amount',        amt);
-    fd.append('category',      document.getElementById('edit_category').value);
-    fd.append('notes',         document.getElementById('edit_notes').value);
+    fd.append('id',             id);
+    fd.append('transfer_date',  document.getElementById('edit_date').value);
+    fd.append('amount',         amt);
+    fd.append('category',       document.getElementById('edit_category').value);
+    fd.append('other_store_id', document.getElementById('edit_store_id').value);
+    fd.append('notes',          document.getElementById('edit_notes').value);
 
     const res  = await fetch('ajax_edit_transfer.php', {method:'POST', body:fd});
     const data = await res.json();

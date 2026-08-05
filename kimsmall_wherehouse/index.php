@@ -3,6 +3,13 @@
 require_once __DIR__ . '/lib/auth.php';
 kw_require_staff();
 
+// 대시보드는 물류센터(level 55) 이상만 열람 가능 (branch_manager=50 초과, ceo=60 미만)
+if (current_user_level() < 55) {
+    kw_set_flash('error', 'Dashboard access is limited to warehouse level and above.');
+    header('Location: ' . LC_BASE . '/order_new.php');
+    exit;
+}
+
 $page_title = "Dashboard - KIM'S MALL WAREHOUSE";
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';

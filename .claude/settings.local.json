@@ -49,7 +49,18 @@
       "Read(//usr/local/bin/**)",
       "Bash(curl -s \"http://192.168.1.116/sunset/logistics/login.php\")",
       "Bash(curl *)",
-      "PowerShell(wsl -d Ubuntu -- echo \"WSL is working\" 2>&1)"
+      "PowerShell(wsl -d Ubuntu -- echo \"WSL is working\" 2>&1)",
+      "Bash(/Applications/XAMPP/bin/php -l office/sales/transfer.php)",
+      "Bash(/Applications/XAMPP/bin/php -l office/sales/ajax_edit_transfer.php)",
+      "Bash(/Applications/XAMPP/bin/php /private/tmp/claude-501/-Volumes-web-sunset/fc5e3134-673e-4113-a9b2-fc83937abb77/scratchpad/verify_permission_cache.php)",
+      "Bash(git --no-pager diff --stat)",
+      "Bash(git --no-pager diff config/db_config.php)",
+      "Bash(git --no-pager stash list)",
+      "Bash(/Applications/XAMPP/bin/php -l config/db_config.php)",
+      "Bash(git --no-pager diff --stat -- lib/permission_helper.php config/db_config.php)",
+      "Bash(/Applications/XAMPP/bin/php -l lib/permission_helper.php)",
+      "Bash(ping -c 2 -t 5 100.92.253.50)",
+      "Bash(perl -0777 -i -pe 's/\\\\?>\\\\r\\\\n\\\\?>\\\\r\\\\z/?>\\\\r\\\\n/' lib/permission_helper.php)"
     ],
     "deny": [],
     "ask": []

@@ -18,20 +18,32 @@ $category = in_array($_POST['category']??'', ['grocery','meat','seafood','fruit'
 $notes    = trim($_POST['notes'] ?? '');
 $date     = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['transfer_date']??'')
             ? $_POST['transfer_date'] : null;
+$other_store_id = (int)($_POST['other_store_id'] ?? 0);
 
-if (!$id || !$category || !$date) {
+if (!$id || !$category || !$date || !$other_store_id) {
     echo json_encode(['success'=>false,'error'=>'Invalid params']); exit;
 }
 
 $conn = get_db_connection();
 
+// 업체명(other_store_id)이 실제 존재하는 점포인지 검증
+$chk = $conn->prepare("SELECT id FROM stores WHERE id=?");
+$chk->bind_param('i', $other_store_id);
+$chk->execute();
+$chk->store_result();
+$valid_store = $chk->num_rows > 0;
+$chk->close();
+if (!$valid_store) {
+    echo json_encode(['success'=>false,'error'=>'Invalid store']); $conn->close(); exit;
+}
+
 // 본인 점포 항목만 수정 가능
 $stmt = $conn->prepare(
     "UPDATE sales_transfers
-     SET amount=?, category=?, notes=?, transfer_date=?
+     SET amount=?, category=?, notes=?, transfer_date=?, other_store_id=?
      WHERE id=? AND store_id=? AND direction='in'"
 );
-$stmt->bind_param('dsssii', $amount, $category, $notes, $date, $id, $store_id);
+$stmt->bind_param('dsssiii', $amount, $category, $notes, $date, $other_store_id, $id, $store_id);
 $ok = $stmt->execute();
 $affected = $stmt->affected_rows;
 $stmt->close();

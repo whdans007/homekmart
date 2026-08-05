@@ -21,6 +21,12 @@ function kw_is_logistics_department(): bool {
         return (bool)$_SESSION['kw_is_logistics'];
     }
 
+    // '물류센터' 역할 이상(level 기준)이면 소속 점포와 무관하게 접근 허용
+    if (current_role_at_least_label('물류센터')) {
+        $_SESSION['kw_is_logistics'] = true;
+        return true;
+    }
+
     try {
         require_once __DIR__ . '/../../config/db_config.php';
         $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
@@ -101,7 +107,10 @@ function kw_current_role(): string {
 // 관리자(super_admin/admin/branch_manager) 여부 — 배치/주문 등 삭제 권한 판단용
 // Design Ref: role-permission-management - 점장(branch_manager)은 KIM'S MALL 창고 전체 권한 보유
 function kw_is_admin(): bool {
-    return in_array(kw_current_role(), ['super_admin', 'admin', 'branch_manager'], true);
+    if (in_array(kw_current_role(), ['super_admin', 'admin', 'branch_manager'], true)) {
+        return true;
+    }
+    return current_role_at_least_label('물류센터');
 }
 
 // CSRF 토큰 생성/검증

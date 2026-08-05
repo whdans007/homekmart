@@ -15,11 +15,49 @@ require_once __DIR__ . '/../../lib/permission_helper.php';
         'inactive_reason' => "ALTER TABLE office_employees ADD COLUMN inactive_reason VARCHAR(255) NULL DEFAULT NULL AFTER status",
         'inactive_date'   => "ALTER TABLE office_employees ADD COLUMN inactive_date DATE NULL DEFAULT NULL AFTER inactive_reason",
         'agency'          => "ALTER TABLE office_employees ADD COLUMN agency ENUM('STAFF WORKS','GPNC','DIRECT') NULL DEFAULT NULL AFTER job_role",
+        'hire_date'       => "ALTER TABLE office_employees ADD COLUMN hire_date DATE NULL DEFAULT NULL AFTER job_role",
     ];
     foreach ($cols as $col => $sql) {
         $r = $c->query("SHOW COLUMNS FROM office_employees LIKE '{$col}'");
         if ($r && $r->num_rows === 0) $c->query($sql);
     }
+
+    // Design Ref: §2.1 — 발령 이력 로그 (append-only)
+    $c->query(
+        "CREATE TABLE IF NOT EXISTS office_employee_history (
+            id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            employee_id INT UNSIGNED NOT NULL,
+            store_id    INT UNSIGNED NOT NULL,
+            event_type  ENUM('hire','transfer','role_change','promotion','note') NOT NULL DEFAULT 'note',
+            content     VARCHAR(500) NOT NULL,
+            event_date  DATE NOT NULL,
+            created_by  INT UNSIGNED NULL,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_employee_date (employee_id, event_date),
+            FOREIGN KEY (employee_id) REFERENCES office_employees(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
+    // Design Ref: §2.1 — 점포 전입 승인 요청
+    $c->query(
+        "CREATE TABLE IF NOT EXISTS office_employee_transfers (
+            id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            employee_id    INT UNSIGNED NOT NULL,
+            from_store_id  INT UNSIGNED NOT NULL,
+            to_store_id    INT UNSIGNED NOT NULL,
+            reason         VARCHAR(500) NULL,
+            status         ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+            requested_by   INT UNSIGNED NULL,
+            approved_by    INT UNSIGNED NULL,
+            decision_note  VARCHAR(500) NULL,
+            decided_at     TIMESTAMP NULL DEFAULT NULL,
+            created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_status_to_store (status, to_store_id),
+            INDEX idx_employee (employee_id),
+            FOREIGN KEY (employee_id) REFERENCES office_employees(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
     $c->close();
 })();
 
@@ -84,13 +122,13 @@ function get_office_employees(int $store_id, ?string $job_role = null, string $s
     $conn = get_db_connection();
     if ($job_role !== null) {
         $stmt = $conn->prepare(
-            "SELECT id, name, job_role, agency, status, inactive_reason, inactive_date, photo FROM office_employees
+            "SELECT id, name, job_role, agency, status, inactive_reason, inactive_date, photo, hire_date FROM office_employees
              WHERE store_id=? AND job_role=? AND status=? ORDER BY name"
         );
         $stmt->bind_param('iss', $store_id, $job_role, $status);
     } else {
         $stmt = $conn->prepare(
-            "SELECT id, name, job_role, agency, status, inactive_reason, inactive_date, photo FROM office_employees
+            "SELECT id, name, job_role, agency, status, inactive_reason, inactive_date, photo, hire_date FROM office_employees
              WHERE store_id=? AND status=? ORDER BY job_role, name"
         );
         $stmt->bind_param('is', $store_id, $status);
@@ -107,34 +145,39 @@ function get_office_employees(int $store_id, ?string $job_role = null, string $s
 function get_purchase_monthly_total(int $store_id, int $year, int $month): array {
     $conn = get_db_connection();
 
+    // 현금 매입: payment_date 기준
     $stmt = $conn->prepare(
-        "SELECT payment_type, SUM(amount) AS total
-         FROM office_product_purchases
-         WHERE store_id=? AND YEAR(payment_date)=? AND MONTH(payment_date)=?
-         GROUP BY payment_type"
+        "SELECT SUM(amount) AS total FROM office_product_purchases
+         WHERE store_id=? AND payment_type='cash' AND YEAR(payment_date)=? AND MONTH(payment_date)=?"
     );
     $stmt->bind_param('iii', $store_id, $year, $month);
     $stmt->execute();
-    $result = $stmt->get_result();
-    $product = ['cash' => 0.0, 'check' => 0.0];
-    while ($row = $result->fetch_assoc()) {
-        $product[$row['payment_type']] = (float)$row['total'];
-    }
+    $cash_row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
+    // 수표 매입: check_issued_date 기준 (payment_date와 달라질 수 있음 — Ref: sales_report_helper.php §2b)
     $stmt2 = $conn->prepare(
-        "SELECT SUM(amount) AS total FROM office_equipment_purchases
-         WHERE store_id=? AND YEAR(payment_date)=? AND MONTH(payment_date)=?"
+        "SELECT SUM(amount) AS total FROM office_product_purchases
+         WHERE store_id=? AND payment_type='check' AND YEAR(check_issued_date)=? AND MONTH(check_issued_date)=?"
     );
     $stmt2->bind_param('iii', $store_id, $year, $month);
     $stmt2->execute();
-    $eq_row = $stmt2->get_result()->fetch_assoc();
+    $check_row = $stmt2->get_result()->fetch_assoc();
     $stmt2->close();
+
+    $stmt3 = $conn->prepare(
+        "SELECT SUM(amount) AS total FROM office_equipment_purchases
+         WHERE store_id=? AND YEAR(payment_date)=? AND MONTH(payment_date)=?"
+    );
+    $stmt3->bind_param('iii', $store_id, $year, $month);
+    $stmt3->execute();
+    $eq_row = $stmt3->get_result()->fetch_assoc();
+    $stmt3->close();
     $conn->close();
 
     return [
-        'product_cash'  => $product['cash'],
-        'product_check' => $product['check'],
+        'product_cash'  => (float)($cash_row['total'] ?? 0),
+        'product_check' => (float)($check_row['total'] ?? 0),
         'equipment'     => (float)($eq_row['total'] ?? 0),
     ];
 }
@@ -226,6 +269,46 @@ function get_office_store_id(): int {
 
 function format_amount(float $amount): string {
     return '₱ ' . number_format($amount, 2);
+}
+
+// ── 저장된 리포트 상태(state_json) 조회 — main_office 읽기 전용 열람용 ──────────
+// er_saved_state / cd_saved_state / cer_saved_state 는 모두 동일 스키마
+// (store_id, save_date, state_json, saved_at)를 쓰므로 테이블명만 바꿔 재사용한다.
+// $table은 화이트리스트로만 허용 (SQL Injection 방지 — 테이블명은 바인딩 불가).
+function get_saved_report_state(string $table, int $store_id, string $date): ?array {
+    $allowed = ['er_saved_state', 'cd_saved_state', 'cer_saved_state'];
+    if (!in_array($table, $allowed, true)) {
+        return null;
+    }
+
+    $conn = get_db_connection();
+    $tbl_check = $conn->query("SHOW TABLES LIKE '{$table}'");
+    if (!$tbl_check || $tbl_check->num_rows === 0) {
+        $conn->close();
+        return null;
+    }
+
+    $stmt = $conn->prepare(
+        "SELECT state_json, DATE_FORMAT(saved_at,'%Y-%m-%d %H:%i') AS saved_at
+         FROM {$table} WHERE store_id=? AND save_date=?"
+    );
+    $stmt->bind_param('is', $store_id, $date);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $conn->close();
+
+    if (!$row) {
+        return null;
+    }
+
+    $decoded = json_decode($row['state_json'], true);
+    if (!is_array($decoded)) {
+        return null;
+    }
+
+    $decoded['saved_at'] = $row['saved_at'];
+    return $decoded;
 }
 
 // ── 점포 점장(센터장) 조회 ──────────────────────────────────────
@@ -544,4 +627,191 @@ function calc_work_summary(array $events): array {
         'regular_minutes'  => (int)$regular,
         'overtime_minutes' => (int)$ot,
     ];
+}
+
+// ── 발령 이력 / 점포 전입 (Design Ref: docs/02-design/features/employee-hire-transfer.design.md §2.2) ──
+
+// 해당 점포 소속 직원 전원의 발령 이력을 employee_id 기준으로 일괄 조회 (N+1 방지)
+function get_employee_history_by_store(int $store_id): array {
+    $conn = get_db_connection();
+    $stmt = $conn->prepare(
+        "SELECT h.* FROM office_employee_history h
+         JOIN office_employees e ON h.employee_id = e.id
+         WHERE e.store_id = ?
+         ORDER BY h.event_date DESC, h.id DESC"
+    );
+    $stmt->bind_param('i', $store_id);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    $conn->close();
+
+    $by_emp = [];
+    foreach ($rows as $row) {
+        $by_emp[$row['employee_id']][] = $row;
+    }
+    return $by_emp;
+}
+
+// 발령 이력 1건 추가
+function add_employee_history(int $employee_id, int $store_id, string $event_type, string $content, string $event_date, ?int $created_by): bool {
+    $conn = get_db_connection();
+    $stmt = $conn->prepare(
+        "INSERT INTO office_employee_history (employee_id, store_id, event_type, content, event_date, created_by)
+         VALUES (?,?,?,?,?,?)"
+    );
+    $stmt->bind_param('iisssi', $employee_id, $store_id, $event_type, $content, $event_date, $created_by);
+    $ok = $stmt->execute();
+    $stmt->close();
+    $conn->close();
+    return $ok;
+}
+
+// 전입 대상 점포 select용 전체 점포 목록
+function get_all_stores(): array {
+    $conn = get_db_connection();
+    $r = $conn->query("SELECT id, name FROM stores ORDER BY name ASC");
+    $rows = $r ? $r->fetch_all(MYSQLI_ASSOC) : [];
+    $conn->close();
+    return $rows;
+}
+
+// 현재 점포 소속 직원 중 본인이 신청한 처리 대기중 전입 요청이 있는 employee_id 목록
+// (정보모달의 "전입 요청" 버튼 비활성화 판단용)
+function get_employee_ids_with_pending_transfer(int $store_id): array {
+    $conn = get_db_connection();
+    $stmt = $conn->prepare("SELECT employee_id FROM office_employee_transfers WHERE status='pending' AND from_store_id=?");
+    $stmt->bind_param('i', $store_id);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    $conn->close();
+    return array_map('intval', array_column($rows, 'employee_id'));
+}
+
+// 해당 직원의 처리 대기중 전입 요청 1건 (중복 요청 방지용)
+function get_employee_pending_transfer(int $employee_id): ?array {
+    $conn = get_db_connection();
+    $stmt = $conn->prepare(
+        "SELECT * FROM office_employee_transfers WHERE employee_id=? AND status='pending' ORDER BY id DESC LIMIT 1"
+    );
+    $stmt->bind_param('i', $employee_id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $conn->close();
+    return $row ?: null;
+}
+
+// 전입 요청 생성. 성공 시 true, 실패 시 오류 메시지 문자열 반환
+function create_employee_transfer_request(int $employee_id, int $from_store_id, int $to_store_id, ?string $reason, ?int $requested_by) {
+    if ($from_store_id === $to_store_id) {
+        return '현재 소속과 동일한 점포입니다.';
+    }
+    if (get_employee_pending_transfer($employee_id)) {
+        return '이미 처리 대기중인 전입 요청이 있습니다.';
+    }
+    $conn = get_db_connection();
+    $stmt = $conn->prepare(
+        "INSERT INTO office_employee_transfers (employee_id, from_store_id, to_store_id, reason, status, requested_by)
+         VALUES (?,?,?,?,'pending',?)"
+    );
+    $reason_val = ($reason !== null && $reason !== '') ? $reason : null;
+    $stmt->bind_param('iiisi', $employee_id, $from_store_id, $to_store_id, $reason_val, $requested_by);
+    $ok = $stmt->execute();
+    $stmt->close();
+    $conn->close();
+    return $ok ? true : '요청 생성 중 오류가 발생했습니다.';
+}
+
+// 특정 점포로 들어오는(목적지) 처리 대기중 전입 요청 목록 (직원 정보 JOIN)
+function get_pending_transfers_to_store(int $store_id): array {
+    $conn = get_db_connection();
+    $stmt = $conn->prepare(
+        "SELECT t.id, t.employee_id, t.from_store_id, t.to_store_id, t.reason, t.created_at,
+                e.name AS employee_name, e.job_role, e.photo,
+                fs.name AS from_store_name
+         FROM office_employee_transfers t
+         JOIN office_employees e ON t.employee_id = e.id
+         LEFT JOIN stores fs ON t.from_store_id = fs.id
+         WHERE t.status = 'pending' AND t.to_store_id = ?
+         ORDER BY t.created_at ASC"
+    );
+    $stmt->bind_param('i', $store_id);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    $conn->close();
+    return $rows;
+}
+
+// 전입 요청 승인/반려. $current_store_id(처리자의 현재 세션 점포)가 요청의 to_store_id와
+// 일치하는지 반드시 재검증한다 — 이 검증이 없으면 다른 점포 스태프가 임의로 승인할 수 있다.
+function decide_employee_transfer(int $request_id, bool $approve, int $current_store_id, int $approver_id, string $note) {
+    $conn = get_db_connection();
+    $conn->begin_transaction();
+    try {
+        $stmt = $conn->prepare("SELECT * FROM office_employee_transfers WHERE id=? FOR UPDATE");
+        $stmt->bind_param('i', $request_id);
+        $stmt->execute();
+        $req = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$req || $req['status'] !== 'pending') {
+            $conn->rollback();
+            $conn->close();
+            return '이미 처리되었거나 존재하지 않는 요청입니다.';
+        }
+        if ((int)$req['to_store_id'] !== $current_store_id) {
+            $conn->rollback();
+            $conn->close();
+            return '이 요청을 처리할 권한이 없습니다.';
+        }
+
+        if ($approve) {
+            $upd = $conn->prepare("UPDATE office_employees SET store_id=? WHERE id=?");
+            $upd->bind_param('ii', $req['to_store_id'], $req['employee_id']);
+            $upd->execute();
+            $upd->close();
+
+            $stores = $conn->prepare("SELECT id, name FROM stores WHERE id IN (?,?)");
+            $stores->bind_param('ii', $req['from_store_id'], $req['to_store_id']);
+            $stores->execute();
+            $store_names = [];
+            foreach ($stores->get_result()->fetch_all(MYSQLI_ASSOC) as $s) {
+                $store_names[$s['id']] = $s['name'];
+            }
+            $stores->close();
+            $from_name = $store_names[$req['from_store_id']] ?? ('#' . $req['from_store_id']);
+            $to_name   = $store_names[$req['to_store_id']] ?? ('#' . $req['to_store_id']);
+
+            $content = $from_name . ' → ' . $to_name . ' 전입';
+            $today = date('Y-m-d');
+            $hist = $conn->prepare(
+                "INSERT INTO office_employee_history (employee_id, store_id, event_type, content, event_date, created_by)
+                 VALUES (?,?,'transfer',?,?,?)"
+            );
+            $hist->bind_param('iissi', $req['employee_id'], $req['to_store_id'], $content, $today, $approver_id);
+            $hist->execute();
+            $hist->close();
+        }
+
+        $status = $approve ? 'approved' : 'rejected';
+        $note_val = ($note !== '') ? $note : null;
+        $u = $conn->prepare(
+            "UPDATE office_employee_transfers SET status=?, approved_by=?, decision_note=?, decided_at=NOW() WHERE id=?"
+        );
+        $u->bind_param('sisi', $status, $approver_id, $note_val, $request_id);
+        $u->execute();
+        $u->close();
+
+        $conn->commit();
+        $conn->close();
+        return true;
+    } catch (Throwable $e) {
+        $conn->rollback();
+        $conn->close();
+        error_log("decide_employee_transfer error: " . $e->getMessage());
+        return '처리 중 오류가 발생했습니다.';
+    }
 }

@@ -171,9 +171,14 @@ try {
                         <span class="text-sm font-normal text-gray-500">(총 <?php echo number_format($total_products); ?>개)</span>
                     <?php endif; ?>
                 </h3>
-                <a href="add_product.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
-                    <i class="fas fa-plus mr-2"></i><?php echo t('product.add_new_product'); ?>
-                </a>
+                <div class="flex items-center space-x-2">
+                    <button type="button" id="open-export-modal-btn" class="inline-flex items-center px-4 py-2 border border-green-600 rounded-md shadow-sm text-sm font-medium text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">
+                        <i class="fas fa-file-excel mr-2"></i>엑셀 다운로드
+                    </button>
+                    <a href="add_product.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-200">
+                        <i class="fas fa-plus mr-2"></i><?php echo t('product.add_new_product'); ?>
+                    </a>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full">
@@ -317,6 +322,64 @@ try {
             </nav>
         <?php endif; ?>
     <?php endif; ?>
+</div>
+
+<!-- 엑셀 다운로드 컬럼 선택 Modal -->
+<div id="export-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center p-4">
+    <div class="relative w-full max-w-lg bg-white rounded-lg shadow-xl">
+        <div class="flex justify-between items-center p-4 border-b rounded-t-lg">
+            <h3 class="text-lg font-semibold text-gray-800">
+                <i class="fas fa-file-excel text-green-600 mr-2"></i>엑셀 다운로드 — 컬럼 선택
+            </h3>
+            <button type="button" id="close-export-modal-btn" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div class="p-4">
+            <p class="text-sm text-gray-500 mb-3">
+                내려받을 컬럼을 선택하세요.
+                <?php if (!empty($search_term)): ?>
+                    <span class="text-blue-600">(현재 검색 "<?php echo htmlspecialchars($search_term); ?>" 결과 전체)</span>
+                <?php else: ?>
+                    (전체 상품)
+                <?php endif; ?>
+            </p>
+            <div class="flex items-center justify-between mb-2">
+                <label class="inline-flex items-center text-sm font-medium text-gray-700">
+                    <input type="checkbox" id="export-check-all" class="rounded border-gray-300 text-green-600 focus:ring-green-500 mr-2" checked>
+                    전체 선택
+                </label>
+            </div>
+            <div id="export-columns" class="grid grid-cols-2 gap-2 border rounded-md p-3 max-h-64 overflow-y-auto">
+                <?php
+                $export_columns = [
+                    'sku'            => 'SKU',
+                    'name_ko'        => '상품명(한글)',
+                    'name_en'        => '상품명(영어)',
+                    'brand_ko'       => '브랜드(한글)',
+                    'brand_en'       => '브랜드(영어)',
+                    'category'       => '카테고리',
+                    'pieces_per_box' => '박스당 개수',
+                    'vat'            => 'VAT 적용',
+                    'status'         => '상태',
+                    'created_at'     => '등록일',
+                    'updated_at'     => '수정일',
+                ];
+                foreach ($export_columns as $ckey => $clabel): ?>
+                    <label class="inline-flex items-center text-sm text-gray-700 py-1">
+                        <input type="checkbox" name="export-col" value="<?php echo $ckey; ?>" class="export-col-check rounded border-gray-300 text-green-600 focus:ring-green-500 mr-2" checked>
+                        <?php echo $clabel; ?>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+            <div class="flex justify-end space-x-3 mt-4">
+                <button type="button" id="cancel-export-btn" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">취소</button>
+                <button type="button" id="do-export-btn" class="px-4 py-2 text-sm text-white bg-green-600 rounded-md hover:bg-green-700">
+                    <i class="fas fa-download mr-1"></i>다운로드
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- 상품 상세 정보 Modal -->
@@ -610,7 +673,45 @@ document.addEventListener('DOMContentLoaded', function() {
     // 현재 점포 정보
     const currentStoreId = <?php echo json_encode($current_store_id); ?>;
     const currentStoreName = <?php echo json_encode($current_store_name); ?>;
-    
+
+    // ── 엑셀 다운로드 (컬럼 선택) ────────────────────────────
+    (function initExport() {
+        const exportModal   = document.getElementById('export-modal');
+        const openBtn       = document.getElementById('open-export-modal-btn');
+        const closeBtn      = document.getElementById('close-export-modal-btn');
+        const cancelBtn     = document.getElementById('cancel-export-btn');
+        const doBtn         = document.getElementById('do-export-btn');
+        const checkAll      = document.getElementById('export-check-all');
+        const currentSearch = <?php echo json_encode($search_term); ?>;
+        if (!exportModal || !openBtn) return;
+
+        const colChecks = () => Array.from(document.querySelectorAll('.export-col-check'));
+        const openExport  = () => exportModal.classList.remove('hidden');
+        const closeExport = () => exportModal.classList.add('hidden');
+
+        openBtn.addEventListener('click', openExport);
+        closeBtn.addEventListener('click', closeExport);
+        cancelBtn.addEventListener('click', closeExport);
+        exportModal.addEventListener('click', (e) => { if (e.target === exportModal) closeExport(); });
+
+        checkAll.addEventListener('change', () => {
+            colChecks().forEach(c => { c.checked = checkAll.checked; });
+        });
+        colChecks().forEach(c => c.addEventListener('change', () => {
+            checkAll.checked = colChecks().every(x => x.checked);
+        }));
+
+        doBtn.addEventListener('click', () => {
+            const cols = colChecks().filter(c => c.checked).map(c => c.value);
+            if (cols.length === 0) { alert('최소 1개 이상의 컬럼을 선택하세요.'); return; }
+            const params = new URLSearchParams();
+            if (currentSearch) params.append('search', currentSearch);
+            cols.forEach(c => params.append('cols[]', c));
+            window.location.href = 'export_products.php?' + params.toString();
+            closeExport();
+        });
+    })();
+
     const modal = document.getElementById('product-details-modal');
     const closeModalBtn = document.getElementById('close-modal-btn');
     const productRows = document.querySelectorAll('.product-row');
