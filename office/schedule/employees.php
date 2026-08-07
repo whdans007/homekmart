@@ -1,4 +1,14 @@
 ﻿<?php
+// 임시 진단용: 500 에러 시 호스팅(LiteSpeed)이 자체 에러 페이지로 응답 본문을 가로채는 것으로 보여,
+// 화면 출력 대신 별도 로그 파일에 직접 기록한다. 원인 파악 후 이 블록과 로그 파일은 즉시 제거할 예정.
+register_shutdown_function(function () {
+    $e = error_get_last();
+    if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        $line = '[' . date('Y-m-d H:i:s') . '] ' . $e['message'] . ' in ' . $e['file'] . ':' . $e['line'] . "\n";
+        @file_put_contents(__DIR__ . '/_debug_error.txt', $line, FILE_APPEND);
+    }
+});
+
 $page_title      = '직원휴무관리 — 직원등록';
 $css_base        = '../../admin/';
 $office_nav_base = '../';
@@ -28,9 +38,62 @@ function save_employee_photo(array $file, int $store_id, int $emp_id): ?string {
     return $filename;
 }
 
+// 입사일 -> 근속기간 문자열 ("N년 M개월" / 1년 미만은 "M개월" / 1개월 미만은 "N일")
+// 재직 중이면 오늘, 퇴사자면 inactive_date 기준으로 계산
+function calc_tenure_label(string $hire_date, ?string $end_date = null): string {
+    try {
+        $start = new DateTime($hire_date);
+        $end   = $end_date ? new DateTime($end_date) : new DateTime();
+    } catch (Exception $e) {
+        return '';
+    }
+    if ($start > $end) return '';
+
+    $diff = $start->diff($end);
+    if ($diff->y === 0 && $diff->m === 0) {
+        return $diff->d . '일';
+    }
+    $parts = [];
+    if ($diff->y > 0) $parts[] = $diff->y . '년';
+    if ($diff->m > 0) $parts[] = $diff->m . '개월';
+    return implode(' ', $parts);
+}
+
 function delete_employee_photo(?string $filename): void {
     if ($filename && file_exists(EMP_PHOTO_DIR . $filename)) {
         unlink(EMP_PHOTO_DIR . $filename);
+    }
+}
+
+// Design Ref: employee-hr-records.design.md §4.2 — 인사기록 첨부 이미지 여러 장 저장 (save_employee_photo 패턴 확장)
+define('EMP_RECORD_DIR', __DIR__ . '/../../uploads/employees/records/');
+define('EMP_RECORD_URL', '../../uploads/employees/records/');
+
+function save_employee_record_files(array $files, int $store_id, int $employee_id): array {
+    $allowed = ['jpg' => 1, 'jpeg' => 1, 'png' => 1, 'gif' => 1, 'webp' => 1];
+    if (!is_dir(EMP_RECORD_DIR)) mkdir(EMP_RECORD_DIR, 0755, true);
+
+    $saved = [];
+    $count = is_array($files['name'] ?? null) ? count($files['name']) : 0;
+    for ($i = 0; $i < $count; $i++) {
+        if (($files['error'][$i] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) continue;
+        $ext = strtolower(pathinfo($files['name'][$i], PATHINFO_EXTENSION));
+        if (!isset($allowed[$ext])) continue;
+        if ($files['size'][$i] > 5 * 1024 * 1024) continue;
+
+        $filename = 'rec_' . $store_id . '_' . $employee_id . '_' . time() . '_' . $i . '_' . mt_rand(1000, 9999) . '.' . $ext;
+        if (move_uploaded_file($files['tmp_name'][$i], EMP_RECORD_DIR . $filename)) {
+            $saved[] = $filename;
+        }
+    }
+    return $saved;
+}
+
+function delete_employee_record_files(array $filenames): void {
+    foreach ($filenames as $f) {
+        if ($f && file_exists(EMP_RECORD_DIR . $f)) {
+            unlink(EMP_RECORD_DIR . $f);
+        }
     }
 }
 
@@ -45,11 +108,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $hire_date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['hire_date'] ?? '') ? $_POST['hire_date'] : null;
         if ($name && $job_role) {
             $conn = get_db_connection();
-            $stmt = $conn->prepare("INSERT INTO office_employees (store_id, name, job_role, agency, hire_date) VALUES (?,?,?,?,?)");
-            $stmt->bind_param('issss', $store_id, $name, $job_role, $agency, $hire_date);
-            $stmt->execute();
-            $new_id = $conn->insert_id;
-            $stmt->close();
+            // Design Ref: employee-no-numbering — 사번(입사연도+회사코드+순번) 발급, 동시등록 충돌 시 최대 3회 재시도
+            $new_id = 0;
+            for ($attempt = 0; $attempt < 3; $attempt++) {
+                $employee_no = generate_employee_no($hire_date);
+                $stmt = $conn->prepare("INSERT INTO office_employees (store_id, name, job_role, agency, hire_date, employee_no) VALUES (?,?,?,?,?,?)");
+                $stmt->bind_param('isssss', $store_id, $name, $job_role, $agency, $hire_date, $employee_no);
+                if ($stmt->execute()) {
+                    $new_id = $conn->insert_id;
+                    $stmt->close();
+                    break;
+                }
+                $is_duplicate = ($conn->errno === 1062);
+                $stmt->close();
+                if (!$is_duplicate) break;
+            }
 
             if ($new_id && !empty($_FILES['photo']['name']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
                 $filename = save_employee_photo($_FILES['photo'], $store_id, $new_id);
@@ -78,25 +151,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id && $name && $job_role) {
             $conn = get_db_connection();
 
+            // Design Ref: employee-no-numbering — 사번 수정 (입사일을 나중에 입력/정정한 경우 사번도 맞춰 수정 가능하도록)
+            // 현재 값 조회 후, 유효(7자리 숫자)하고 다른 직원과 중복되지 않는 값만 반영. 그 외엔 기존 값 유지(조용히 무시).
+            $cur = $conn->prepare("SELECT photo, employee_no FROM office_employees WHERE id=? AND store_id=?");
+            $cur->bind_param('ii', $id, $store_id);
+            $cur->execute();
+            $cur_row = $cur->get_result()->fetch_assoc();
+            $cur->close();
+
+            $employee_no = $cur_row['employee_no'] ?? null;
+            $employee_no_input = trim($_POST['employee_no'] ?? '');
+            // Design Ref: employee-no-numbering — 사번 수정은 super_admin만 가능 (권한 없는 값은 조용히 무시)
+            $can_edit_employee_no = (($_SESSION['role'] ?? '') === 'super_admin');
+            if ($can_edit_employee_no && $employee_no_input !== '' && preg_match('/^\d{7}$/', $employee_no_input) && $employee_no_input !== $employee_no) {
+                $dup = $conn->prepare("SELECT id FROM office_employees WHERE employee_no=? AND id<>?");
+                $dup->bind_param('si', $employee_no_input, $id);
+                $dup->execute();
+                if (!$dup->get_result()->fetch_assoc()) {
+                    $employee_no = $employee_no_input;
+                }
+                $dup->close();
+            }
+
             $new_photo = null;
             if (!empty($_FILES['photo']['name']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
-                // 기존 사진 파일명 조회 후 삭제
-                $old = $conn->prepare("SELECT photo FROM office_employees WHERE id=? AND store_id=?");
-                $old->bind_param('ii', $id, $store_id);
-                $old->execute();
-                $old_row = $old->get_result()->fetch_assoc();
-                $old->close();
-                delete_employee_photo($old_row['photo'] ?? null);
-
+                delete_employee_photo($cur_row['photo'] ?? null);
                 $new_photo = save_employee_photo($_FILES['photo'], $store_id, $id);
             }
 
             if ($new_photo !== null) {
-                $stmt = $conn->prepare("UPDATE office_employees SET name=?, job_role=?, agency=?, hire_date=?, photo=? WHERE id=? AND store_id=?");
-                $stmt->bind_param('sssssii', $name, $job_role, $agency, $hire_date, $new_photo, $id, $store_id);
+                $stmt = $conn->prepare("UPDATE office_employees SET name=?, job_role=?, agency=?, hire_date=?, photo=?, employee_no=? WHERE id=? AND store_id=?");
+                $stmt->bind_param('ssssssii', $name, $job_role, $agency, $hire_date, $new_photo, $employee_no, $id, $store_id);
             } else {
-                $stmt = $conn->prepare("UPDATE office_employees SET name=?, job_role=?, agency=?, hire_date=? WHERE id=? AND store_id=?");
-                $stmt->bind_param('ssssii', $name, $job_role, $agency, $hire_date, $id, $store_id);
+                $stmt = $conn->prepare("UPDATE office_employees SET name=?, job_role=?, agency=?, hire_date=?, employee_no=? WHERE id=? AND store_id=?");
+                $stmt->bind_param('sssssii', $name, $job_role, $agency, $hire_date, $employee_no, $id, $store_id);
             }
             $stmt->execute();
             $stmt->close();
@@ -121,6 +209,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($owned) {
                 $by = (int)($_SESSION['user_id'] ?? 0) ?: null;
                 add_employee_history($employee_id, $store_id, $event_type, $content, $event_date, $by);
+            }
+        }
+
+    } elseif ($action === 'record_add') {
+        // Design Ref: employee-hr-records.design.md §4.2 — 인사기록(경고장 등) 등록
+        $employee_id = (int)($_POST['employee_id'] ?? 0);
+        $event_type  = in_array($_POST['event_type'] ?? '', ['warning', 'late', 'absence', 'other'], true) ? $_POST['event_type'] : 'warning';
+        $category    = post_str('category');
+        $content     = post_str('content');
+        $points      = (int)($_POST['points'] ?? 0);
+        if ($employee_id) {
+            $conn = get_db_connection();
+            $chk = $conn->prepare("SELECT id FROM office_employees WHERE id=? AND store_id=?");
+            $chk->bind_param('ii', $employee_id, $store_id);
+            $chk->execute();
+            $owned = $chk->get_result()->fetch_assoc();
+            $chk->close();
+            $conn->close();
+
+            if ($owned) {
+                $files = [];
+                if (!empty($_FILES['files']['name'][0])) {
+                    $files = save_employee_record_files($_FILES['files'], $store_id, $employee_id);
+                }
+                $by = (int)($_SESSION['user_id'] ?? 0) ?: null;
+                add_employee_record($employee_id, $store_id, $event_type, $category ?: null, $content ?: null, $points, $files, $by);
+            }
+        }
+
+    } elseif ($action === 'record_edit') {
+        // Design Ref: employee-hr-records.design.md §4.2 — 인사기록 수정 (신규 첨부는 기존 파일에 추가)
+        $id          = (int)($_POST['id'] ?? 0);
+        $employee_id = (int)($_POST['employee_id'] ?? 0);
+        $event_type  = in_array($_POST['event_type'] ?? '', ['warning', 'late', 'absence', 'other'], true) ? $_POST['event_type'] : 'warning';
+        $category    = post_str('category');
+        $content     = post_str('content');
+        $points      = (int)($_POST['points'] ?? 0);
+        if ($id && $employee_id) {
+            $files = [];
+            if (!empty($_FILES['files']['name'][0])) {
+                $files = save_employee_record_files($_FILES['files'], $store_id, $employee_id);
+            }
+            $remove_files = array_filter((array)($_POST['remove_files'] ?? []), fn($f) => is_string($f) && $f !== '');
+            $result = update_employee_record($id, $store_id, $event_type, $category ?: null, $content ?: null, $points, $files, $remove_files);
+            if (!empty($result['removed'])) {
+                delete_employee_record_files($result['removed']);
+            }
+        }
+
+    } elseif ($action === 'record_delete') {
+        // Design Ref: employee-hr-records.design.md §4.2 — 인사기록 삭제 (첨부 이미지도 함께 삭제)
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id) {
+            $removed_files = delete_employee_record($id, $store_id);
+            if ($removed_files !== null) {
+                delete_employee_record_files($removed_files);
             }
         }
 
@@ -346,6 +490,7 @@ $fp_by_emp   = get_fingerprints_by_employee($store_id);
 
 // 발령 이력 / 점포 전입 (Design Ref: employee-hire-transfer.design.md §2.2)
 $employee_history          = get_employee_history_by_store($store_id);
+$employee_records          = get_employee_records_by_store($store_id); // Design Ref: employee-hr-records.design.md §2.2
 $pending_transfers_in      = get_pending_transfers_to_store($store_id);
 $employee_ids_with_pending = get_employee_ids_with_pending_transfer($store_id);
 $transfer_target_stores    = array_values(array_filter(get_all_stores(), fn($s) => (int)$s['id'] !== $store_id));
@@ -394,7 +539,13 @@ foreach (array_merge($employees, $inactive) as $e) {
         'inactiveReason'  => $e['inactive_reason'] ?? '',
         'fpSlots'         => implode(', ', $e_fp_slots),
         'hireDate'        => $e['hire_date'] ?? '',
+        'tenure'          => !empty($e['hire_date']) ? calc_tenure_label($e['hire_date'], $e['status'] === 'inactive' ? ($e['inactive_date'] ?? null) : null) : '',
+        'employeeNo'      => $e['employee_no'] ?? '',
         'history'         => $employee_history[$e['id']] ?? [],
+        'records'         => array_map(function ($r) {
+            $r['fileUrls'] = array_map(fn($f) => EMP_RECORD_URL . $f, $r['attachment_files']);
+            return $r;
+        }, $employee_records[$e['id']] ?? []), // Design Ref: employee-hr-records.design.md §2.2
         'hasPendingTransfer' => in_array((int)$e['id'], $employee_ids_with_pending, true),
     ];
 }
@@ -544,7 +695,7 @@ $history_type_labels = ['hire' => '입사', 'transfer' => '전입', 'role_change
         <div>
           <div class="font-semibold text-gray-800 text-sm truncate">
             <?php echo htmlspecialchars($emp['name']); ?>
-            <span class="text-gray-400 font-normal text-xs">#<?php echo (int)$emp['id']; ?></span>
+            <span class="text-gray-400 font-normal text-xs"><?php echo !empty($emp['employee_no']) ? htmlspecialchars($emp['employee_no']) : ('#' . (int)$emp['id']); ?></span>
           </div>
           <div class="text-xs text-gray-500 mt-0.5">
             <?php echo get_job_role_label($emp['job_role']); ?>
@@ -552,6 +703,12 @@ $history_type_labels = ['hire' => '입사', 'transfer' => '전입', 'role_change
             <span class="inline-flex items-center ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-600"><?php echo htmlspecialchars($emp['agency']); ?></span>
             <?php endif; ?>
           </div>
+          <?php if (!empty($emp['hire_date'])): ?>
+          <div class="text-xs text-gray-400 mt-0.5">
+            <i class="fa-solid fa-calendar-check mr-0.5"></i><?php echo htmlspecialchars($emp['hire_date']); ?>
+            <span class="text-gray-300">·</span> 근속 <?php echo htmlspecialchars(calc_tenure_label($emp['hire_date'])); ?>
+          </div>
+          <?php endif; ?>
           <!-- 지문 등록 (지문1 / 지문2) -->
           <div class="flex gap-1 mt-1.5">
             <?php
@@ -596,7 +753,7 @@ $history_type_labels = ['hire' => '입사', 'transfer' => '전입', 'role_change
           </div>
         </div>
         <div class="flex gap-2 mt-2">
-          <button onclick="openEditModal(<?php echo $emp['id']; ?>, '<?php echo htmlspecialchars(addslashes($emp['name'])); ?>', '<?php echo $emp['job_role']; ?>', '<?php echo htmlspecialchars(addslashes($emp['agency'] ?? '')); ?>', '<?php echo $photo_url ?? ''; ?>', '<?php echo htmlspecialchars(addslashes($emp['hire_date'] ?? '')); ?>')"
+          <button onclick="openEditModal(<?php echo $emp['id']; ?>, '<?php echo htmlspecialchars(addslashes($emp['name'])); ?>', '<?php echo $emp['job_role']; ?>', '<?php echo htmlspecialchars(addslashes($emp['agency'] ?? '')); ?>', '<?php echo $photo_url ?? ''; ?>', '<?php echo htmlspecialchars(addslashes($emp['hire_date'] ?? '')); ?>', '<?php echo htmlspecialchars(addslashes($emp['employee_no'] ?? '')); ?>')"
                   class="text-xs text-blue-600 hover:underline">Edit</button>
           <span class="text-gray-300">|</span>
           <button onclick="openDeactivateModal(<?php echo $emp['id']; ?>, '<?php echo htmlspecialchars(addslashes($emp['name'])); ?>')"
@@ -636,7 +793,7 @@ $history_type_labels = ['hire' => '입사', 'transfer' => '전입', 'role_change
         <div>
           <div class="font-semibold text-gray-500 text-sm truncate">
             <?php echo htmlspecialchars($emp['name']); ?>
-            <span class="text-gray-400 font-normal text-xs">#<?php echo (int)$emp['id']; ?></span>
+            <span class="text-gray-400 font-normal text-xs"><?php echo !empty($emp['employee_no']) ? htmlspecialchars($emp['employee_no']) : ('#' . (int)$emp['id']); ?></span>
           </div>
           <div class="text-xs text-gray-400 mt-0.5">
             <?php echo get_job_role_label($emp['job_role']); ?>
@@ -644,6 +801,12 @@ $history_type_labels = ['hire' => '입사', 'transfer' => '전입', 'role_change
             <span class="inline-flex items-center ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-200 text-gray-500"><?php echo htmlspecialchars($emp['agency']); ?></span>
             <?php endif; ?>
           </div>
+          <?php if (!empty($emp['hire_date'])): ?>
+          <div class="text-xs text-gray-400 mt-0.5">
+            <i class="fa-solid fa-calendar-check mr-0.5"></i><?php echo htmlspecialchars($emp['hire_date']); ?>
+            <span class="text-gray-300">·</span> 근속 <?php echo htmlspecialchars(calc_tenure_label($emp['hire_date'], $emp['inactive_date'] ?? null)); ?>
+          </div>
+          <?php endif; ?>
           <?php if (!empty($emp['inactive_date'])): ?>
           <div class="text-xs text-gray-400 mt-1">
             <i class="fa-solid fa-calendar-xmark mr-0.5"></i><?php echo $emp['inactive_date']; ?>
@@ -811,6 +974,17 @@ $history_type_labels = ['hire' => '입사', 'transfer' => '전입', 'role_change
         <input type="date" name="hire_date" id="edit_hire_date"
                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
       </div>
+      <?php if ($_office_is_super_admin): ?>
+      <div>
+        <!-- Design Ref: employee-no-numbering — 입사일을 나중에 입력/정정한 경우 사번도 함께 수정 가능. super_admin 전용 -->
+        <label class="block text-sm font-medium text-gray-700 mb-1">사번 <span class="text-gray-400 font-normal">(YY+01+순번 7자리, 예: 2601059)</span></label>
+        <input type="text" name="employee_no" id="edit_employee_no" pattern="\d{7}" maxlength="7" placeholder="예: 2601059"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+        <p class="text-xs text-gray-400 mt-1">7자리 숫자가 아니거나 다른 직원과 중복되면 기존 사번이 유지됩니다.</p>
+      </div>
+      <?php else: ?>
+      <input type="hidden" name="employee_no" id="edit_employee_no" value="">
+      <?php endif; ?>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">사진 변경 (선택)</label>
         <div class="flex items-center gap-3">
@@ -844,7 +1018,7 @@ $history_type_labels = ['hire' => '입사', 'transfer' => '전입', 'role_change
         <img id="info_photo_img" class="w-full h-full object-cover hidden">
       </div>
       <div class="min-w-0">
-        <div class="text-lg font-bold text-gray-800 truncate"><span id="info_name"></span> <span class="text-gray-400 font-normal text-sm">#<span id="info_id"></span></span></div>
+        <div class="text-lg font-bold text-gray-800 truncate"><span id="info_name"></span> <span class="text-gray-400 font-normal text-sm" id="info_id"></span></div>
         <span id="info_status" class="inline-block mt-1 px-2 py-0.5 rounded-full text-[11px] font-medium"></span>
       </div>
     </div>
@@ -864,6 +1038,10 @@ $history_type_labels = ['hire' => '입사', 'transfer' => '전입', 'role_change
       <div class="flex justify-between border-b border-gray-100 pb-2">
         <span class="text-gray-400">입사일자</span>
         <span id="info_hire_date" class="text-gray-700 font-medium"></span>
+      </div>
+      <div class="flex justify-between border-b border-gray-100 pb-2">
+        <span class="text-gray-400">근속기간</span>
+        <span id="info_tenure" class="text-gray-700 font-medium"></span>
       </div>
       <div id="info_inactive_wrap" class="hidden">
         <div class="flex justify-between border-b border-gray-100 pb-2 pt-2">
@@ -885,6 +1063,17 @@ $history_type_labels = ['hire' => '입사', 'transfer' => '전입', 'role_change
         </button>
       </div>
       <div id="info_history_list" class="space-y-1.5 max-h-40 overflow-y-auto text-xs"></div>
+    </div>
+
+    <!-- Design Ref: employee-hr-records.design.md §5.1 — 인사기록(경고장 등) -->
+    <div class="pt-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-semibold text-gray-600">인사기록</span>
+        <button type="button" onclick="openRecordAddModal()" class="text-xs text-red-600 hover:underline">
+          <i class="fa-solid fa-plus mr-0.5"></i>추가
+        </button>
+      </div>
+      <div id="info_records_list" class="space-y-2 max-h-48 overflow-y-auto text-xs"></div>
     </div>
 
     <div class="pt-5 flex gap-3">
@@ -929,6 +1118,60 @@ $history_type_labels = ['hire' => '입사', 'transfer' => '전입', 'role_change
     </form>
   </div>
 </div>
+
+<!-- 인사기록 등록/수정 모달 — Design Ref: employee-hr-records.design.md §5.1 -->
+<div id="modal_record_add" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+    <h3 id="record_modal_title" class="text-lg font-bold text-gray-800 mb-5">인사기록 추가</h3>
+    <form method="POST" enctype="multipart/form-data" class="space-y-4" onsubmit="buildRemoveFilesInputs(this)">
+      <input type="hidden" name="action" id="record_form_action" value="record_add">
+      <input type="hidden" name="employee_id" id="record_employee_id">
+      <input type="hidden" name="id" id="record_id">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">유형</label>
+        <select name="event_type" id="record_event_type" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500">
+          <option value="warning">경고장</option>
+          <option value="other">기타</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">사유/카테고리</label>
+        <input type="text" name="category" id="record_category" maxlength="100" placeholder="예: 지각, 근태불량, 고객컴플레인"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">상세 내용</label>
+        <textarea name="content" id="record_content" rows="3"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 resize-none"></textarea>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">점수(감점)</label>
+        <input type="number" name="points" id="record_points" value="0" step="1"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500">
+      </div>
+      <div id="record_existing_files_wrap" class="hidden">
+        <label class="block text-sm font-medium text-gray-700 mb-1">기존 첨부 이미지 (클릭해서 제거 표시)</label>
+        <div id="record_existing_files" class="flex gap-2 flex-wrap"></div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">첨부 이미지 추가 (여러 장 선택 가능)</label>
+        <input type="file" name="files[]" multiple accept="image/*"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-sm font-medium">저장</button>
+        <button type="button" onclick="closeModal('modal_record_add')"
+                class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 인사기록 삭제용 히든 폼 -->
+<form method="POST" id="record_delete_form" class="hidden">
+  <input type="hidden" name="action" value="record_delete">
+  <input type="hidden" name="id" id="record_delete_id">
+</form>
 
 <!-- 전입 요청 모달 -->
 <div id="modal_transfer_request" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
@@ -1018,12 +1261,14 @@ function openInfoModal(id) {
     if (!d) return;
     CURRENT_INFO_ID = id;
 
-    document.getElementById('info_id').textContent   = id;
+    // Design Ref: employee-no-numbering — 사번(입사연도+회사코드+순번) 우선 표시, 없으면 내부 id로 폴백
+    document.getElementById('info_id').textContent = d.employeeNo ? ('사번 ' + d.employeeNo) : ('#' + id);
     document.getElementById('info_name').textContent = d.name;
     document.getElementById('info_role').textContent = d.roleLabel;
     document.getElementById('info_agency').textContent = d.agency || '미지정';
     document.getElementById('info_fp').textContent = d.fpSlots ? ('슬롯 ' + d.fpSlots) : '미등록';
     document.getElementById('info_hire_date').textContent = d.hireDate || '미입력';
+    document.getElementById('info_tenure').textContent = d.tenure || '-';
 
     const img  = document.getElementById('info_photo_img');
     const icon = document.getElementById('info_photo_icon');
@@ -1073,6 +1318,35 @@ function openInfoModal(id) {
         }).join('');
     }
 
+    // Design Ref: employee-hr-records.design.md §5.1 — 인사기록(경고장 등) 목록 렌더링
+    const recordsList = document.getElementById('info_records_list');
+    const recordTypeLabels = { warning: '경고장', late: '지각', absence: '결근', other: '기타' };
+    if (!d.records || d.records.length === 0) {
+        recordsList.innerHTML = '<p class="text-gray-400 text-center py-2">인사기록 없음</p>';
+    } else {
+        recordsList.innerHTML = d.records.map(r => {
+            const label = recordTypeLabels[r.event_type] || r.event_type;
+            const thumbs = (r.fileUrls || []).map(u =>
+                '<a href="' + u + '" target="_blank" rel="noopener"><img src="' + u + '" class="w-10 h-10 object-cover rounded border border-gray-200"></a>'
+            ).join('');
+            return '<div class="border border-gray-100 rounded-lg p-2">' +
+                   '<div class="flex items-center justify-between">' +
+                   '<div class="flex items-center gap-1.5 flex-wrap">' +
+                   '<span class="text-gray-400">' + (r.created_at || '').slice(0, 10) + '</span>' +
+                   '<span class="px-1.5 py-0 rounded bg-red-50 text-red-600">' + label + '</span>' +
+                   (r.category ? '<span class="text-gray-600">' + escapeHtml(r.category) + '</span>' : '') +
+                   (r.points ? '<span class="text-red-500 font-medium">' + r.points + '점</span>' : '') +
+                   '</div>' +
+                   '<div class="flex items-center gap-2 flex-shrink-0">' +
+                   '<button type="button" onclick="openRecordEditModal(' + r.id + ')" class="text-blue-500 hover:underline">수정</button>' +
+                   '<button type="button" onclick="submitRecordDelete(' + r.id + ')" class="text-red-500 hover:underline">삭제</button>' +
+                   '</div></div>' +
+                   (r.content ? '<div class="text-gray-600 mt-1 break-words">' + escapeHtml(r.content) + '</div>' : '') +
+                   (thumbs ? '<div class="flex gap-1.5 mt-1.5 flex-wrap">' + thumbs + '</div>' : '') +
+                   '</div>';
+        }).join('');
+    }
+
     const transferBtn = document.getElementById('info_transfer_btn');
     if (d.hasPendingTransfer) {
         transferBtn.textContent = '전입 대기중';
@@ -1100,6 +1374,90 @@ function openHistoryAddModal() {
     document.getElementById('modal_history_add').classList.remove('hidden');
 }
 
+// Design Ref: employee-hr-records.design.md §5.2 — 인사기록 등록/수정/삭제
+// 기존 첨부 이미지 제거 표시 상태 (파일명 => 제거여부)
+let RECORD_REMOVE_STATE = {};
+
+function renderRecordExistingFiles(rec) {
+    const wrap = document.getElementById('record_existing_files_wrap');
+    const list = document.getElementById('record_existing_files');
+    RECORD_REMOVE_STATE = {};
+    const attachments = (rec && rec.attachment_files) ? rec.attachment_files : [];
+    const urls = (rec && rec.fileUrls) ? rec.fileUrls : [];
+    if (!attachments.length) {
+        wrap.classList.add('hidden');
+        list.innerHTML = '';
+        return;
+    }
+    wrap.classList.remove('hidden');
+    list.innerHTML = attachments.map((fname, i) => {
+        RECORD_REMOVE_STATE[fname] = false;
+        return '<div class="relative" data-fname="' + escapeHtml(fname) + '">' +
+               '<img src="' + urls[i] + '" class="w-14 h-14 object-cover rounded border border-gray-200 cursor-pointer" onclick="toggleRecordFileRemove(this)">' +
+               '</div>';
+    }).join('');
+}
+
+function toggleRecordFileRemove(imgEl) {
+    const wrapDiv = imgEl.parentElement;
+    const fname = wrapDiv.dataset.fname;
+    RECORD_REMOVE_STATE[fname] = !RECORD_REMOVE_STATE[fname];
+    if (RECORD_REMOVE_STATE[fname]) {
+        imgEl.classList.add('opacity-30', 'ring-2', 'ring-red-500');
+    } else {
+        imgEl.classList.remove('opacity-30', 'ring-2', 'ring-red-500');
+    }
+}
+
+function buildRemoveFilesInputs(form) {
+    form.querySelectorAll('input[name="remove_files[]"]').forEach(el => el.remove());
+    Object.keys(RECORD_REMOVE_STATE).forEach(fname => {
+        if (!RECORD_REMOVE_STATE[fname]) return;
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'remove_files[]';
+        input.value = fname;
+        form.appendChild(input);
+    });
+}
+
+function openRecordAddModal() {
+    if (!CURRENT_INFO_ID) return;
+    document.getElementById('record_modal_title').textContent = '인사기록 추가';
+    document.getElementById('record_form_action').value = 'record_add';
+    document.getElementById('record_id').value = '';
+    document.getElementById('record_employee_id').value = CURRENT_INFO_ID;
+    document.getElementById('record_event_type').value = 'warning';
+    document.getElementById('record_category').value = '';
+    document.getElementById('record_content').value = '';
+    document.getElementById('record_points').value = 0;
+    renderRecordExistingFiles(null);
+    document.getElementById('modal_record_add').classList.remove('hidden');
+}
+
+function openRecordEditModal(recordId) {
+    if (!CURRENT_INFO_ID) return;
+    const d = EMP_DATA[CURRENT_INFO_ID];
+    const rec = (d.records || []).find(r => r.id == recordId);
+    if (!rec) return;
+    document.getElementById('record_modal_title').textContent = '인사기록 수정';
+    document.getElementById('record_form_action').value = 'record_edit';
+    document.getElementById('record_id').value = rec.id;
+    document.getElementById('record_employee_id').value = CURRENT_INFO_ID;
+    document.getElementById('record_event_type').value = rec.event_type;
+    document.getElementById('record_category').value = rec.category || '';
+    document.getElementById('record_content').value = rec.content || '';
+    document.getElementById('record_points').value = rec.points || 0;
+    renderRecordExistingFiles(rec);
+    document.getElementById('modal_record_add').classList.remove('hidden');
+}
+
+function submitRecordDelete(recordId) {
+    if (!confirm('이 인사기록을 삭제하시겠습니까? 첨부된 이미지도 함께 삭제됩니다.')) return;
+    document.getElementById('record_delete_id').value = recordId;
+    document.getElementById('record_delete_form').submit();
+}
+
 function openTransferRequestModal() {
     if (!CURRENT_INFO_ID) return;
     const d = EMP_DATA[CURRENT_INFO_ID];
@@ -1120,12 +1478,13 @@ function openAddModal() {
 }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-function openEditModal(id, name, role, agency, photoUrl, hireDate) {
+function openEditModal(id, name, role, agency, photoUrl, hireDate, employeeNo) {
     document.getElementById('edit_id').value        = id;
     document.getElementById('edit_name').value      = name;
     document.getElementById('edit_role').value      = role;
     document.getElementById('edit_agency').value    = agency || '';
     document.getElementById('edit_hire_date').value = hireDate || '';
+    document.getElementById('edit_employee_no').value = employeeNo || '';
     setPreview('edit', photoUrl || null);
     document.getElementById('modal_edit').classList.remove('hidden');
 }
@@ -1166,7 +1525,7 @@ function openDeactivateModal(id, name) {
 }
 
 // 모달 외부 클릭 닫기
-['modal_add','modal_edit','modal_deactivate','modal_delete','modal_info','modal_history_add','modal_transfer_request','modal_transfers_incoming'].forEach(id => {
+['modal_add','modal_edit','modal_deactivate','modal_delete','modal_info','modal_history_add','modal_record_add','modal_transfer_request','modal_transfers_incoming'].forEach(id => {
     document.getElementById(id).addEventListener('click', function(e) {
         if (e.target === this) closeModal(id);
     });

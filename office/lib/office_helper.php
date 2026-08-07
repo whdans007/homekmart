@@ -16,10 +16,17 @@ require_once __DIR__ . '/../../lib/permission_helper.php';
         'inactive_date'   => "ALTER TABLE office_employees ADD COLUMN inactive_date DATE NULL DEFAULT NULL AFTER inactive_reason",
         'agency'          => "ALTER TABLE office_employees ADD COLUMN agency ENUM('STAFF WORKS','GPNC','DIRECT') NULL DEFAULT NULL AFTER job_role",
         'hire_date'       => "ALTER TABLE office_employees ADD COLUMN hire_date DATE NULL DEFAULT NULL AFTER job_role",
+        // Design Ref: employee-no-numbering — 사번(YY+회사코드01+순번3자리, 예: 2601059)
+        'employee_no'     => "ALTER TABLE office_employees ADD COLUMN employee_no VARCHAR(7) NULL DEFAULT NULL AFTER hire_date",
     ];
     foreach ($cols as $col => $sql) {
         $r = $c->query("SHOW COLUMNS FROM office_employees LIKE '{$col}'");
         if ($r && $r->num_rows === 0) $c->query($sql);
+    }
+    // employee_no 고유 인덱스 (컬럼 추가 후 별도 확인 — 중복 방지)
+    $idx = $c->query("SHOW INDEX FROM office_employees WHERE Key_name = 'uniq_employee_no'");
+    if ($idx && $idx->num_rows === 0) {
+        $c->query("ALTER TABLE office_employees ADD UNIQUE INDEX uniq_employee_no (employee_no)");
     }
 
     // Design Ref: §2.1 — 발령 이력 로그 (append-only)
@@ -58,6 +65,26 @@ require_once __DIR__ . '/../../lib/permission_helper.php';
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
 
+    // Design Ref: employee-hr-records.design.md §3.3 — 인사기록(경고장 등, 향후 지각/결근 점수제 확장 가능)
+    $c->query(
+        "CREATE TABLE IF NOT EXISTS office_employee_records (
+            id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            employee_id       INT UNSIGNED NOT NULL,
+            store_id          INT UNSIGNED NOT NULL,
+            event_type        ENUM('warning','late','absence','other') NOT NULL DEFAULT 'warning',
+            category          VARCHAR(100) NULL,
+            content           VARCHAR(500) NULL,
+            points            INT NOT NULL DEFAULT 0,
+            attachment_files  JSON NULL,
+            created_by        INT UNSIGNED NULL,
+            created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_employee_created (employee_id, created_at),
+            INDEX idx_store_type (store_id, event_type),
+            FOREIGN KEY (employee_id) REFERENCES office_employees(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
     $c->close();
 })();
 
@@ -92,6 +119,28 @@ function require_office_permission(): void {
     exit;
 }
 
+// ── 사번 발급 ────────────────────────────────────────────────────
+// 사번 형식: 입사년도 2자리 + 회사코드 2자리(고정) + 순번 3자리 (예: 2026년 59번째 입사자 → "2601059")
+// 순번은 전체 회사(모든 점포 합산) 기준, 입사연도별로 매년 001부터 다시 시작.
+// Design Ref: employee-no-numbering (2026-08-06 요청)
+if (!defined('OFFICE_COMPANY_CODE')) define('OFFICE_COMPANY_CODE', '01');
+
+function generate_employee_no(?string $hire_date): string {
+    $year = $hire_date ? date('y', strtotime($hire_date)) : date('y');
+    $prefix = $year . OFFICE_COMPANY_CODE;
+
+    $conn = get_db_connection();
+    $like = $prefix . '%';
+    $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM office_employees WHERE employee_no LIKE ?");
+    $stmt->bind_param('s', $like);
+    $stmt->execute();
+    $count = (int)($stmt->get_result()->fetch_assoc()['c'] ?? 0);
+    $stmt->close();
+    $conn->close();
+
+    return $prefix . sprintf('%03d', $count + 1);
+}
+
 // ── Job role functions ──────────────────────────────────────────
 
 function get_job_role_label(string $role): string {
@@ -122,13 +171,13 @@ function get_office_employees(int $store_id, ?string $job_role = null, string $s
     $conn = get_db_connection();
     if ($job_role !== null) {
         $stmt = $conn->prepare(
-            "SELECT id, name, job_role, agency, status, inactive_reason, inactive_date, photo, hire_date FROM office_employees
+            "SELECT id, name, job_role, agency, status, inactive_reason, inactive_date, photo, hire_date, employee_no FROM office_employees
              WHERE store_id=? AND job_role=? AND status=? ORDER BY name"
         );
         $stmt->bind_param('iss', $store_id, $job_role, $status);
     } else {
         $stmt = $conn->prepare(
-            "SELECT id, name, job_role, agency, status, inactive_reason, inactive_date, photo, hire_date FROM office_employees
+            "SELECT id, name, job_role, agency, status, inactive_reason, inactive_date, photo, hire_date, employee_no FROM office_employees
              WHERE store_id=? AND status=? ORDER BY job_role, name"
         );
         $stmt->bind_param('is', $store_id, $status);
@@ -195,6 +244,68 @@ function get_pending_checks_count(int $store_id): int {
     $stmt->close();
     $conn->close();
     return (int)($row['cnt'] ?? 0);
+}
+
+// 전 점포 매입 합계 + 미결제 수표 건수를 한 번에 조회 (main_office/index.php 대시보드용)
+// get_purchase_monthly_total()/get_pending_checks_count()를 점포 수만큼 반복 호출하면
+// 점포당 커넥션이 2개씩 열려(총 2N+1개) 공유호스팅 커넥션 제한에 걸리는 문제가 있었음
+// (Design Ref: main_office 커넥션 버스트 문제, permission_pdo()와 동일한 유형 — lib/permission_helper.php 참고)
+// @return array store_id => ['product_cash'=>float, 'product_check'=>float, 'equipment'=>float, 'pending_checks'=>int]
+function get_main_office_store_summaries(int $year, int $month): array {
+    $conn = get_db_connection();
+    $summaries = [];
+    $blank = ['product_cash' => 0.0, 'product_check' => 0.0, 'equipment' => 0.0, 'pending_checks' => 0];
+
+    // 현금/수표 매입 합계 (기준 날짜 컬럼이 서로 달라 CASE WHEN으로 한 번에 집계)
+    $stmt = $conn->prepare(
+        "SELECT store_id,
+                SUM(CASE WHEN payment_type='cash' AND YEAR(payment_date)=? AND MONTH(payment_date)=? THEN amount ELSE 0 END) AS cash_total,
+                SUM(CASE WHEN payment_type='check' AND YEAR(check_issued_date)=? AND MONTH(check_issued_date)=? THEN amount ELSE 0 END) AS check_total
+         FROM office_product_purchases
+         GROUP BY store_id"
+    );
+    $stmt->bind_param('iiii', $year, $month, $year, $month);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) {
+        $sid = (int)$row['store_id'];
+        if (!isset($summaries[$sid])) $summaries[$sid] = $blank;
+        $summaries[$sid]['product_cash']  = (float)($row['cash_total'] ?? 0);
+        $summaries[$sid]['product_check'] = (float)($row['check_total'] ?? 0);
+    }
+    $stmt->close();
+
+    // 장비 매입 합계
+    $stmt2 = $conn->prepare(
+        "SELECT store_id, SUM(amount) AS eq_total FROM office_equipment_purchases
+         WHERE YEAR(payment_date)=? AND MONTH(payment_date)=? GROUP BY store_id"
+    );
+    $stmt2->bind_param('ii', $year, $month);
+    $stmt2->execute();
+    $res2 = $stmt2->get_result();
+    while ($row = $res2->fetch_assoc()) {
+        $sid = (int)$row['store_id'];
+        if (!isset($summaries[$sid])) $summaries[$sid] = $blank;
+        $summaries[$sid]['equipment'] = (float)($row['eq_total'] ?? 0);
+    }
+    $stmt2->close();
+
+    // 미결제 수표 건수 (payment_date >= 오늘)
+    $stmt3 = $conn->prepare(
+        "SELECT store_id, COUNT(*) AS cnt FROM office_product_purchases
+         WHERE payment_type='check' AND payment_date >= CURDATE() GROUP BY store_id"
+    );
+    $stmt3->execute();
+    $res3 = $stmt3->get_result();
+    while ($row = $res3->fetch_assoc()) {
+        $sid = (int)$row['store_id'];
+        if (!isset($summaries[$sid])) $summaries[$sid] = $blank;
+        $summaries[$sid]['pending_checks'] = (int)($row['cnt'] ?? 0);
+    }
+    $stmt3->close();
+
+    $conn->close();
+    return $summaries;
 }
 
 // 6-month combined expense trend for Chart.js
@@ -321,6 +432,24 @@ function get_store_manager_name(int $store_id): string {
         "SELECT full_name FROM users
          WHERE store_id=? AND role='branch_manager'
          ORDER BY id LIMIT 1"
+    );
+    $stmt->bind_param('i', $store_id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $conn->close();
+    return trim($row['full_name'] ?? '');
+}
+
+// 점포가 admin/my_store.php에서 지정한 오피스 대표 직원 이름 (결제란 PREPARED 표시용)
+// Design Ref: main_office 결제란(PREPARED) 대표직원 지정 기능 — stores.representative_user_id
+function get_store_representative_name(int $store_id): string {
+    if ($store_id <= 0) return '';
+    $conn = get_db_connection();
+    $stmt = $conn->prepare(
+        "SELECT u.full_name FROM stores s
+         JOIN users u ON u.id = s.representative_user_id
+         WHERE s.id = ?"
     );
     $stmt->bind_param('i', $store_id);
     $stmt->execute();
@@ -665,6 +794,103 @@ function add_employee_history(int $employee_id, int $store_id, string $event_typ
     $stmt->close();
     $conn->close();
     return $ok;
+}
+
+// ── Employee HR records (경고장 등 인사기록) ──────────────────────
+// Design Ref: employee-hr-records.design.md §2.0 (Option A) — employee_history와 동일한 헬퍼 패턴
+
+function get_employee_records_by_store(int $store_id): array {
+    $conn = get_db_connection();
+    $stmt = $conn->prepare(
+        "SELECT r.* FROM office_employee_records r
+         JOIN office_employees e ON r.employee_id = e.id
+         WHERE e.store_id = ?
+         ORDER BY r.created_at DESC, r.id DESC"
+    );
+    $stmt->bind_param('i', $store_id);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    $conn->close();
+
+    $by_emp = [];
+    foreach ($rows as $row) {
+        $row['attachment_files'] = $row['attachment_files'] ? (json_decode($row['attachment_files'], true) ?: []) : [];
+        $by_emp[$row['employee_id']][] = $row;
+    }
+    return $by_emp;
+}
+
+function add_employee_record(int $employee_id, int $store_id, string $event_type, ?string $category, ?string $content, int $points, array $attachment_files, ?int $created_by): bool {
+    $conn = get_db_connection();
+    $files_json = json_encode(array_values($attachment_files));
+    $stmt = $conn->prepare(
+        "INSERT INTO office_employee_records (employee_id, store_id, event_type, category, content, points, attachment_files, created_by)
+         VALUES (?,?,?,?,?,?,?,?)"
+    );
+    $stmt->bind_param('iisssisi', $employee_id, $store_id, $event_type, $category, $content, $points, $files_json, $created_by);
+    $ok = $stmt->execute();
+    $stmt->close();
+    $conn->close();
+    return $ok;
+}
+
+// $new_files는 기존 첨부에 추가로 합쳐질 새 파일명 배열, $removed_files는 기존 첨부 중 제거할 파일명 배열 (둘 다 없으면 [])
+// Design Ref: employee-hr-records.design.md §4.2 — 이미지 추가·제거 (analysis.md §9.1 이미지 개별삭제 보완)
+// 반환값: 성공 시 ['ok' => true, 'removed' => 실제로 지워진 파일명 배열], 실패(소유권 불일치) 시 ['ok' => false, 'removed' => []]
+function update_employee_record(int $id, int $store_id, string $event_type, ?string $category, ?string $content, int $points, array $new_files, array $removed_files = []): array {
+    $conn = get_db_connection();
+
+    $chk = $conn->prepare(
+        "SELECT r.id, r.attachment_files FROM office_employee_records r
+         JOIN office_employees e ON r.employee_id = e.id
+         WHERE r.id = ? AND e.store_id = ?"
+    );
+    $chk->bind_param('ii', $id, $store_id);
+    $chk->execute();
+    $row = $chk->get_result()->fetch_assoc();
+    $chk->close();
+    if (!$row) { $conn->close(); return ['ok' => false, 'removed' => []]; }
+
+    $existing = $row['attachment_files'] ? (json_decode($row['attachment_files'], true) ?: []) : [];
+    $after_removal = array_values(array_diff($existing, $removed_files));
+    $actually_removed = array_values(array_diff($existing, $after_removal));
+    $merged = array_values(array_merge($after_removal, $new_files));
+    $files_json = json_encode($merged);
+
+    $stmt = $conn->prepare(
+        "UPDATE office_employee_records SET event_type=?, category=?, content=?, points=?, attachment_files=? WHERE id=?"
+    );
+    $stmt->bind_param('sssisi', $event_type, $category, $content, $points, $files_json, $id);
+    $ok = $stmt->execute();
+    $stmt->close();
+    $conn->close();
+    return ['ok' => $ok, 'removed' => $actually_removed];
+}
+
+// 반환값: 삭제 성공 시 실제 디스크에서 지워야 할 첨부파일명 배열, 실패(소유권 불일치 등) 시 null
+function delete_employee_record(int $id, int $store_id): ?array {
+    $conn = get_db_connection();
+
+    $chk = $conn->prepare(
+        "SELECT r.id, r.attachment_files FROM office_employee_records r
+         JOIN office_employees e ON r.employee_id = e.id
+         WHERE r.id = ? AND e.store_id = ?"
+    );
+    $chk->bind_param('ii', $id, $store_id);
+    $chk->execute();
+    $row = $chk->get_result()->fetch_assoc();
+    $chk->close();
+    if (!$row) { $conn->close(); return null; }
+
+    $files = $row['attachment_files'] ? (json_decode($row['attachment_files'], true) ?: []) : [];
+
+    $del = $conn->prepare("DELETE FROM office_employee_records WHERE id = ?");
+    $del->bind_param('i', $id);
+    $del->execute();
+    $del->close();
+    $conn->close();
+    return $files;
 }
 
 // 전입 대상 점포 select용 전체 점포 목록
