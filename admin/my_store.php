@@ -45,12 +45,37 @@ if ($store_id <= 0) {
     }
 }
 
+// 대표직원 후보 목록 — 이 지점 소속 사용자 계정 (Design Ref: main_office 결제란 PREPARED 대표직원 지정 기능)
+$store_users = [];
+if ($store) {
+    try {
+        $u_stmt = $pdo->prepare("SELECT id, full_name, username FROM users WHERE store_id = ? ORDER BY full_name, username");
+        $u_stmt->execute([$store_id]);
+        $store_users = $u_stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        // 대표직원 목록 조회 실패는 페이지 전체를 막지 않음
+        error_log('my_store.php store_users error: ' . $e->getMessage());
+    }
+}
+
 if ($store && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $store['name'] = trim($_POST['name'] ?? '');
     $store['company_name'] = trim($_POST['company_name'] ?? '');
     $store['phone'] = trim($_POST['phone'] ?? '');
     $store['address'] = trim($_POST['address'] ?? '');
     $store['bank_account'] = trim($_POST['bank_account'] ?? '');
+
+    // 대표직원(오피스 대표, 결제란 PREPARED에 사용) — 이 지점 소속 사용자 중에서만 선택 가능
+    $rep_user_id_input = (int)($_POST['representative_user_id'] ?? 0);
+    $store['representative_user_id'] = null;
+    if ($rep_user_id_input > 0) {
+        foreach ($store_users as $su) {
+            if ((int)$su['id'] === $rep_user_id_input) {
+                $store['representative_user_id'] = $rep_user_id_input;
+                break;
+            }
+        }
+    }
 
     if (empty($store['name'])) {
         $errors[] = "지점명을 입력해주세요.";
@@ -63,13 +88,14 @@ if ($store && $_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($stmt->fetch()) {
                 $errors[] = "이미 존재하는 지점명입니다.";
             } else {
-                $update_stmt = $pdo->prepare("UPDATE stores SET name = ?, company_name = ?, phone = ?, address = ?, bank_account = ? WHERE id = ?");
+                $update_stmt = $pdo->prepare("UPDATE stores SET name = ?, company_name = ?, phone = ?, address = ?, bank_account = ?, representative_user_id = ? WHERE id = ?");
                 $update_stmt->execute([
                     $store['name'],
                     $store['company_name'] !== '' ? $store['company_name'] : null,
                     $store['phone'] !== '' ? $store['phone'] : null,
                     $store['address'] !== '' ? $store['address'] : null,
                     $store['bank_account'] !== '' ? $store['bank_account'] : null,
+                    $store['representative_user_id'],
                     $store_id,
                 ]);
 
@@ -161,6 +187,19 @@ if (isset($_SESSION['flash'])) {
             <div class="mt-6">
                 <label for="bank_account" class="block text-sm font-medium text-gray-700">계좌번호</label>
                 <input type="text" id="bank_account" name="bank_account" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm" value="<?php echo htmlspecialchars($store['bank_account'] ?? ''); ?>" placeholder="은행명 및 계좌번호">
+            </div>
+            <div class="mt-6">
+                <!-- Design Ref: main_office 결제란 PREPARED 대표직원 지정 기능 -->
+                <label for="representative_user_id" class="block text-sm font-medium text-gray-700">오피스 대표 직원</label>
+                <select id="representative_user_id" name="representative_user_id" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm">
+                    <option value="">미지정</option>
+                    <?php foreach ($store_users as $su): ?>
+                    <option value="<?php echo (int)$su['id']; ?>" <?php echo ((int)($store['representative_user_id'] ?? 0) === (int)$su['id']) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($su['full_name'] ?: $su['username']); ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <p class="mt-1 text-xs text-gray-500">메인 오피스에서 이 지점의 결제란(PREPARED)을 열람할 때 표시되는 담당자입니다.</p>
             </div>
         </div>
 

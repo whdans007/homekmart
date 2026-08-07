@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/db_config.php';
 require_once __DIR__ . '/../lib/session_helper.php';
 require_once __DIR__ . '/../lib/permission_helper.php';
+require_once __DIR__ . '/../lib/wholesale_pricing_helper.php'; // Design Ref: wholesale-cost-price-fix.design.md §4.2
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -47,6 +48,12 @@ try {
     $check_columns = $pdo->query("SHOW COLUMNS FROM wholesale_products LIKE 'wholesale_name_ko'");
     $has_wholesale_name_columns = $check_columns->rowCount() > 0;
 
+    // 박스/낱개 원가 표현식 (Design Ref: wholesale-cost-price-fix.design.md §4.2 — 버그 수정 A)
+    // 현재 점포 원가가 0(또는 없음)이면 KIMS MALL(store_id=6) 지점 원가로 폴백 — ajax_search_wholesale_products.php와 동일 규칙
+    $kims_store_id = 6;
+    $cost_box_expr = "COALESCE(NULLIF(wp.cost_price,0), (SELECT kb.cost_price FROM wholesale_products kb WHERE kb.product_id = wp.product_id AND kb.store_id = {$kims_store_id} AND kb.is_active = 1 LIMIT 1), 0)";
+    $cost_piece_expr = "COALESCE(NULLIF(wp.cost_price_piece,0), (SELECT kp.cost_price_piece FROM wholesale_products kp WHERE kp.product_id = wp.product_id AND kp.store_id = {$kims_store_id} AND kp.is_active = 1 LIMIT 1), 0)";
+
     // 바코드로 상품 조회 - 도매상품 우선, 미등록 상품도 반환
     // 1차 시도: 기본 SKU로 검색
     if ($has_wholesale_name_columns) {
@@ -64,6 +71,8 @@ try {
                 COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
                 wp.wholesale_price,
                 COALESCE(wp.wholesale_price_piece, 0) as wholesale_price_piece,
+                {$cost_box_expr} as wp_cost_box,
+                {$cost_piece_expr} as wp_cost_piece,
                 COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
                 wp.wholesale_skus,
                 CASE
@@ -91,6 +100,8 @@ try {
                 p.name_en as display_name_en,
                 wp.wholesale_price,
                 COALESCE(wp.wholesale_price_piece, 0) as wholesale_price_piece,
+                {$cost_box_expr} as wp_cost_box,
+                {$cost_piece_expr} as wp_cost_piece,
                 COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
                 NULL as wholesale_skus,
                 CASE
@@ -124,6 +135,8 @@ try {
                 COALESCE(wp.wholesale_name_en, p.name_en) as display_name_en,
                 wp.wholesale_price,
                 COALESCE(wp.wholesale_price_piece, 0) as wholesale_price_piece,
+                {$cost_box_expr} as wp_cost_box,
+                {$cost_piece_expr} as wp_cost_piece,
                 COALESCE(p.pieces_per_box, wp.min_quantity, 1) as min_quantity,
                 wp.wholesale_skus,
                 'registered' as status
@@ -184,6 +197,12 @@ try {
         }
 
         $unit_price_piece = 0; // 미등록 상품은 낱개가 없음
+
+        // 미등록 상품은 원가가 낱개(inventory.cost_price) 기준 1개 값으로만 존재하므로,
+        // 박스원가는 박스당 개수를 곱해 계산한다. (버그: 이전에는 이 낱개원가가 그대로 "박스원가" 자리에 채워졌음)
+        // Design Ref: wholesale-cost-price-fix.design.md §3.1 원가 계산 원칙
+        $product['wp_cost_piece'] = $cost_price;
+        $product['wp_cost_box'] = $cost_price * (float)($product['min_quantity'] ?: 1);
     }
 
     // 거래처(업체)별 예외가 적용 — 등록 도매상품 + 거래처 선택 시
@@ -201,24 +220,23 @@ try {
         } catch (PDOException $e) { /* 예외가 미적용 — 기본가 유지 */ }
     }
 
-    // 이 거래처에 대한 과거 납품 이력 (취소 제외, 최신 1건) — 검색/스캔 결과에 바로 노출용
-    $last_sale_date = null;
-    $last_sale_price = null;
-    if ($customer_id > 0) {
-        $ls_stmt = $pdo->prepare("
-            SELECT ws.sale_date, wsi.unit_price
-            FROM wholesale_sale_items wsi
-            JOIN wholesale_sales ws ON wsi.sale_id = ws.id
-            WHERE wsi.product_id = ? AND ws.customer_id = ? AND ws.status != 'cancelled'
-            ORDER BY ws.sale_date DESC, ws.id DESC
-            LIMIT 1
-        ");
-        $ls_stmt->execute([$product['product_id'], $customer_id]);
-        if ($ls_row = $ls_stmt->fetch(PDO::FETCH_ASSOC)) {
-            $last_sale_date = $ls_row['sale_date'];
-            $last_sale_price = (float)$ls_row['unit_price'];
-        }
-    }
+    // 정상도매가/기존판매가(판매단위별)/도매등록가 3종 참고가 계산
+    // Design Ref: wholesale-cost-price-fix.design.md §4.2, §4.3
+    $price_ref = wp_build_price_ref(
+        $pdo,
+        $product['product_id'],
+        $customer_id,
+        $product['wp_cost_box'] ?? 0,
+        $product['wp_cost_piece'] ?? 0,
+        $product['selling_price'] ?? 0,
+        $margin_rate,
+        $product['wholesale_price'] ?? null,
+        $product['wholesale_price_piece'] ?? null
+    );
+
+    // 이 거래처에 대한 과거 납품 이력 (취소 제외, 최신) — 검색/스캔 결과에 바로 노출용 (하위 호환 필드, box 우선)
+    $last_sale_date = $price_ref['existing']['sale_date'];
+    $last_sale_price = $price_ref['existing']['box'] ?? $price_ref['existing']['piece'];
 
     // 도매 SKU들 처리
     $display_skus = $product['sku'];
@@ -242,6 +260,8 @@ try {
             'name_ko' => $product['display_name_ko'],
             'name_en' => $product['display_name_en'],
             'cost_price' => $product['cost_price'],
+            'cost_box' => (float)($product['wp_cost_box'] ?? 0),   // Design Ref: wholesale-cost-price-fix.design.md §4.2 — 원가(박스)
+            'cost_piece' => (float)($product['wp_cost_piece'] ?? 0), // Design Ref: wholesale-cost-price-fix.design.md §4.2 — 원가(낱개)
             'selling_price' => $product['selling_price'],
             'wholesale_price' => $unit_price,
             'wholesale_price_piece' => $unit_price_piece,
@@ -250,7 +270,8 @@ try {
             'is_registered' => $is_registered,
             'margin_rate' => $margin_rate,
             'last_sale_date' => $last_sale_date,
-            'last_sale_price' => $last_sale_price
+            'last_sale_price' => $last_sale_price,
+            'price_ref' => $price_ref // Design Ref: wholesale-cost-price-fix.design.md §3.1 — 정상도매가/기존판매가/도매등록가
         ]
     ]);
 

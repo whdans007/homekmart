@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../lib/session_helper.php';
 require_once __DIR__ . '/../lib/permission_helper.php';
 require_once __DIR__ . '/../config/db_config.php';
+require_once __DIR__ . '/../lib/wholesale_pricing_helper.php'; // Design Ref: wholesale-cost-price-fix.design.md §4.2
 
 // 세션 및 권한 확인
 ensure_logged_in();
@@ -19,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $query = trim($_POST['q'] ?? '');
     $limit = min(max(1, (int)($_POST['limit'] ?? 10)), 100); // 1-100 범위로 제한
     $show_all = $_POST['show_all'] ?? '';
+    $margin_rate = (float)($_POST['margin_rate'] ?? 15.0); // Design Ref: wholesale-cost-price-fix.design.md §4.2 — 정상도매가 계산용
     
     // 전체 목록 요청이 아니고 검색어가 너무 짧으면 종료
     if (!$show_all && strlen($query) < 2) {
@@ -312,10 +314,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
-        
+
         $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        
+
+        // 정상도매가/기존판매가/도매등록가 3종 참고가 계산 — 검색 결과(전체목록 아님)에만 적용
+        // Design Ref: wholesale-cost-price-fix.design.md §4.2, §11.2 (module-2)
+        if (!($show_all && empty($query))) {
+            foreach ($products as &$__p) {
+                // 미등록 일반상품은 원가가 낱개(inventory.cost_price) 기준 1개 값으로만 존재하므로,
+                // 박스원가는 박스당 개수를 곱해 계산한다 (버그: 이전에는 낱개원가가 그대로 박스원가 자리에 채워졌음)
+                // Design Ref: wholesale-cost-price-fix.design.md §3.1 원가 계산 원칙
+                if (($__p['status'] ?? '') === 'unregistered') {
+                    $piece_cost = (float)($__p['cost_price'] ?? 0);
+                    $pieces_per_box = (float)($__p['product_pieces_per_box'] ?? $__p['min_quantity'] ?? 1) ?: 1;
+                    $__p['wp_cost_piece'] = $piece_cost;
+                    $__p['wp_cost_box'] = $piece_cost * $pieces_per_box;
+                }
+
+                $__p['price_ref'] = wp_build_price_ref(
+                    $pdo,
+                    $__p['id'] ?? 0,
+                    $customer_id,
+                    $__p['wp_cost_box'] ?? 0,
+                    $__p['wp_cost_piece'] ?? 0,
+                    $__p['selling_price'] ?? 0,
+                    $margin_rate,
+                    $__p['wholesale_price'] ?? null,
+                    $__p['wholesale_price_piece'] ?? null
+                );
+            }
+            unset($__p);
+        }
+
         if (!empty($products)) {
             $response['success'] = true;
             $response['products'] = $products;

@@ -24,6 +24,10 @@ for ($i = 0; $i < 12; $i++) {
     $ts = mktime(0, 0, 0, date('n') - $i, 1, date('Y'));
     $month_options[] = ['y' => (int)date('Y', $ts), 'm' => (int)date('n', $ts), 'label' => date('F Y', $ts)];
 }
+
+// 점포별로 반복 호출하면 점포당 2개씩 커넥션이 열려(총 2N+1개) 공유호스팅 커넥션 제한에 걸리던 문제 수정
+// — 전 점포 합계를 단일 커넥션으로 한 번에 조회 (Design Ref: main_office 커넥션 버스트 문제)
+$store_summaries = get_main_office_store_summaries($year, $month);
 ?>
 
 <form method="GET" class="d-flex align-items-center gap-2 mb-4 flex-wrap">
@@ -41,9 +45,9 @@ for ($i = 0; $i < 12; $i++) {
 
 <div class="row g-3">
 <?php foreach ($stores as $store):
-    $sid    = (int)$store['id'];
-    $totals = get_purchase_monthly_total($sid, $year, $month);
-    $pending = get_pending_checks_count($sid);
+    $sid     = (int)$store['id'];
+    $totals  = $store_summaries[$sid] ?? ['product_cash' => 0.0, 'product_check' => 0.0, 'equipment' => 0.0, 'pending_checks' => 0];
+    $pending = $totals['pending_checks'];
     $total_sum = $totals['product_cash'] + $totals['product_check'] + $totals['equipment'];
 ?>
   <div class="col-12 col-md-6 col-lg-4">

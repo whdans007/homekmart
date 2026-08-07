@@ -33,9 +33,12 @@ $year  = date('Y', $ts);
 $month = date('n', $ts);
 $day   = date('j', $ts);
 
-// PREPARED = 현재 로그인 사용자, APPROVED = 점포 점장(센터장)
-$prepared_by = trim($_SESSION['full_name'] ?? $_SESSION['username'] ?? '');
+// PREPARED = 현재 로그인 사용자(단, main_office 열람 시엔 그 점포의 대표직원), APPROVED = 점포 점장(센터장)
+// Design Ref: main_office 결제란(PREPARED) 대표직원 지정 기능
 $office_store_id = $is_mo_view ? $mo_store_id : get_office_store_id();
+$prepared_by = $is_mo_view
+    ? (get_store_representative_name($office_store_id) ?: trim($_SESSION['full_name'] ?? $_SESSION['username'] ?? ''))
+    : trim($_SESSION['full_name'] ?? $_SESSION['username'] ?? '');
 $approved_by = get_store_manager_name($office_store_id);
 
 // 제목에 사용할 실제 회사명(상호) — stores.company_name 우선, 없으면 점포명으로 대체

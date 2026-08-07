@@ -47,8 +47,11 @@ if ($company_display === '') {
     $company_display = trim($_SESSION['store_name'] ?? '') ?: 'HOME K MART';
 }
 
-// PREPARED: 현재 접속자 / APPROVED: 해당 점포 점장(branch_manager)
-$prepared_by = trim($_SESSION['full_name'] ?? '') ?: trim($_SESSION['username'] ?? '') ?: '-';
+// PREPARED: 현재 접속자(단, main_office 열람 시엔 그 점포의 대표직원) / APPROVED: 해당 점포 점장(branch_manager)
+// Design Ref: main_office 결제란(PREPARED) 대표직원 지정 기능
+$prepared_by = $is_mo_view
+    ? (get_store_representative_name($store_id) ?: (trim($_SESSION['full_name'] ?? '') ?: trim($_SESSION['username'] ?? '') ?: '-'))
+    : (trim($_SESSION['full_name'] ?? '') ?: trim($_SESSION['username'] ?? '') ?: '-');
 $approved_by = get_store_manager_name($store_id) ?: '-';
 
 function e($s) { return htmlspecialchars((string)($s ?? ''), ENT_QUOTES, 'UTF-8'); }
