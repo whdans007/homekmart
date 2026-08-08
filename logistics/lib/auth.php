@@ -79,6 +79,11 @@ function lc_is_admin(): bool {
     return current_role_at_least_label('물류센터');
 }
 
+// 슈퍼어드민 여부 — 배달 완료(delivered) 주문의 단품 수정/삭제 등 최고 권한 작업 판단용
+function lc_is_super_admin(): bool {
+    return lc_current_role() === 'super_admin';
+}
+
 // CSRF 토큰 생성/검증
 function lc_csrf_token(): string {
     lc_session_start();

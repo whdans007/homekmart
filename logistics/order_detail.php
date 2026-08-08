@@ -62,23 +62,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $st->close();
 
         } elseif ($action === 'edit_items') {
-            // 승인 상태 주문의 단가/수량 수정 (출고 전)
+            // 배달 완료(delivered) 전(pending/approved/shipped) 주문은 물류센터 직원이 단가/수량 수정 가능.
+            // 슈퍼어드민은 배달 완료 후에도 단품별 수정/삭제 가능 (재고 오차 보정 등)
             $st = $conn->prepare("SELECT status FROM lc_orders WHERE id = ?");
             $st->bind_param('i', $id); $st->execute();
             $cur = $st->get_result()->fetch_assoc(); $st->close();
 
-            if (!$cur || !in_array($cur['status'], ['pending', 'approved'], true)) {
-                lc_set_flash('error', 'Only received (pending) or approved orders can be modified.');
+            $editable = $cur && (
+                in_array($cur['status'], ['pending', 'approved', 'shipped'], true)
+                || (lc_is_super_admin() && $cur['status'] === 'delivered')
+            );
+
+            if (!$editable) {
+                lc_set_flash('error', 'Only orders before delivery can be modified (super admins can also modify delivered orders).');
             } else {
-                $is_approved = $cur['status'] === 'approved';
+                // pending: 재고 미차감. approved/shipped/delivered: 승인 시 이미 차감된 상태 → 복원 후 재차감.
+                $stock_deducted = $cur['status'] !== 'pending';
                 $item_ids  = $_POST['item_id']  ?? [];
                 $quantities = $_POST['item_qty'] ?? [];
                 $prices    = $_POST['item_price'] ?? [];
                 $units     = $_POST['item_unit'] ?? [];
 
                 $conn->autocommit(false);
-                // 승인 상태만: 기존 차감(예약)을 복원 후 재차감. pending(Received)은 재고 미차감이라 생략.
-                if ($is_approved) { lc_restore_order_stock($conn, $id); }
+                if ($stock_deducted) { lc_restore_order_stock($conn, $id); }
                 $has_items = false;
                 $upd = $conn->prepare("UPDATE lc_order_items SET quantity = ?, unit_price = ?, order_unit = ? WHERE id = ? AND order_id = ?");
                 $del = $conn->prepare("DELETE FROM lc_order_items WHERE id = ? AND order_id = ?");
@@ -104,8 +110,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $conn->rollback();
                     lc_set_flash('error', 'At least 1 product must remain. Use order cancellation for full cancellation.');
                 } else {
-                    // 승인 상태만: 변경된 수량으로 재차감(단가는 수동 입력값 유지 → $set_cost=false)
-                    if ($is_approved) { lc_allocate_order_stock($conn, $id, false); }
+                    // 재고 차감 상태였던 주문만: 변경된 수량으로 재차감(단가는 수동 입력값 유지 → $set_cost=false)
+                    if ($stock_deducted) { lc_allocate_order_stock($conn, $id, false); }
                     $conn->query(
                         "UPDATE lc_orders SET total_amount =
                          (SELECT COALESCE(SUM(total_amount),0) FROM lc_order_items WHERE order_id = $id)
@@ -616,8 +622,12 @@ try {
 
 <!-- Order Items -->
 <?php
-    // 단가/수량 수정 가능 여부 (Received(pending) 또는 승인 상태, 물류직원/관리자만)
-    $can_edit_items = in_array($order['status'], ['pending', 'approved'], true) && lc_is_staff();
+    // 단가/수량 수정 가능 여부: 물류직원/관리자는 배달 완료(delivered) 전까지, 슈퍼어드민은 배달 완료 후에도 가능
+    // (재고 실사 오차 등으로 이미 배달된 주문의 단품을 사후 정정해야 하는 경우 대응)
+    $can_edit_items = lc_is_staff() && empty($order['deleted_at']) && (
+        in_array($order['status'], ['pending', 'approved', 'shipped'], true)
+        || (lc_is_super_admin() && $order['status'] === 'delivered')
+    );
 ?>
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
     <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
@@ -859,7 +869,12 @@ try {
                 </tbody>
             </table>
             <div class="px-4 py-3 border-t border-amber-100 bg-amber-50 flex items-center gap-3">
-                <p class="text-xs text-amber-700 flex-1"><i class="fas fa-info-circle mr-1"></i>Quantity 0 or delete: Remove that product. At least 1 item must remain.</p>
+                <p class="text-xs text-amber-700 flex-1">
+                    <i class="fas fa-info-circle mr-1"></i>Quantity 0 or delete: Remove that product. At least 1 item must remain.
+                    <?php if (in_array($order['status'], ['shipped', 'delivered'], true)): ?>
+                    <br><i class="fas fa-triangle-exclamation mr-1"></i>This order was already <?php echo $order['status']; ?>. Saving will re-adjust already-deducted inventory to match the new quantities.
+                    <?php endif; ?>
+                </p>
                 <button type="button" onclick="toggleItemEdit()"
                         class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50">
                     Cancel
