@@ -39,6 +39,38 @@ if (!$defaultStore) {
 if (!$defaultStore) $defaultStore = 1;
 // 로그인 사용자의 점포가 유효하게 반영된 경우, 클라이언트에서 저장된 점포 선택을 무시하고 항상 이 점포를 사용
 $forceSessionStore = ($sessionStoreId > 0 && $defaultStore === $sessionStoreId);
+
+// 마스터 파일 업로드 컬럼 매핑 프리셋 (기본값 하드코딩 → DB(settings)에 저장된 값이 있으면 그것으로 덮어씀)
+// 이렇게 해야 코드 배포 없이도 프리셋 값을 즉시 수정/저장할 수 있음
+define('COLMAP_PRESETS_SETTING_KEY', 'pricing_colmap_presets');
+$colMapPresets = [
+    'kimsmall' => ['label' => 'kimsmall (A/C/J/E)', 'col_sku' => 'A', 'col_name' => 'C', 'col_cost' => 'J', 'col_price' => 'E', 'header_row' => 1],
+    'posco'    => ['label' => 'POSCO (SKU:B / 상품명:C / 원가:G / 판매가:H)', 'col_sku' => 'B', 'col_name' => 'C', 'col_cost' => 'G', 'col_price' => 'H', 'header_row' => 1],
+    'village'  => ['label' => 'THE VILLAGE (SKU:A / 상품명:B / 원가:E / 판매가:C)', 'col_sku' => 'A', 'col_name' => 'B', 'col_cost' => 'E', 'col_price' => 'C', 'header_row' => 1],
+    'default'  => ['label' => '기본형 (A/B/C/D)', 'col_sku' => 'A', 'col_name' => 'B', 'col_cost' => 'C', 'col_price' => 'D', 'header_row' => 1],
+];
+$colMapPresetsSource = 'fallback(하드코딩)'; // 진단용: DB 값이 실제로 반영됐는지 페이지 소스에서 확인 가능
+try {
+    if (isset($pdo)) {
+        require_once __DIR__ . '/../lib/settings_helper.php';
+        $stored = settings_get($pdo, COLMAP_PRESETS_SETTING_KEY);
+        if ($stored) {
+            $decoded = json_decode($stored, true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $k => $v) { $colMapPresets[$k] = $v; }
+                $colMapPresetsSource = 'DB(settings.' . COLMAP_PRESETS_SETTING_KEY . ')';
+            }
+        } else {
+            $colMapPresetsSource = 'fallback(DB에 저장된 값 없음)';
+        }
+    } else {
+        $colMapPresetsSource = 'fallback(DB 연결 실패)';
+    }
+} catch (Throwable $e) {
+    error_log('pricing/index.php colmap presets query error: ' . $e->getMessage());
+    $colMapPresetsSource = 'fallback(오류: ' . $e->getMessage() . ')';
+}
+$colMapPresetsJson = json_encode($colMapPresets, JSON_UNESCAPED_UNICODE);
 ?><!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -714,9 +746,16 @@ $forceSessionStore = ($sessionStoreId > 0 && $defaultStore === $sessionStoreId);
 
       <!-- ② 마스터 파일 업로드 -->
       <div class="sm-pane" id="paneUpload">
-        <!-- 대상 점포 -->
-        <div style="background:#162032;border:1px solid #1e3a5f;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#93c5fd">
-          <i class="fas fa-store" style="margin-right:6px"></i>업로드 대상 점포: <strong id="uploadStoreLabel" style="color:#38bdf8">-</strong>
+        <!-- 대상 점포 (조회용 점포 선택과 무관하게 독립적으로 유지됨) -->
+        <div style="background:#162032;border:1px solid #1e3a5f;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#93c5fd;display:flex;align-items:center;gap:8px">
+          <i class="fas fa-store" style="flex-shrink:0"></i>
+          <span style="flex-shrink:0">업로드/컬럼매핑 대상 점포:</span>
+          <select id="uploadStoreSelect" onchange="onUploadStoreChange(this)"
+                  style="flex:1;background:#0f172a;border:1px solid #38bdf8;border-radius:6px;color:#38bdf8;font-weight:700;font-size:13px;padding:5px 8px">
+            <?php foreach ($stores as $s): ?>
+            <option value="<?php echo (int)$s['id']; ?>"><?php echo htmlspecialchars($s['name']); ?></option>
+            <?php endforeach; ?>
+          </select>
         </div>
 
         <!-- 소스 선택 탭 -->
@@ -799,44 +838,45 @@ $forceSessionStore = ($sessionStoreId > 0 && $defaultStore === $sessionStoreId);
             <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.6">
               각 데이터가 있는 <strong style="color:#94a3b8">엑셀 열 문자</strong>를 입력하세요 (예: A, B, C…). 헤더가 없으면 헤더행=0.
             </div>
-            <div style="display:flex;gap:6px;margin-bottom:10px">
-              <button onclick="applyPreset('kimsmall')" style="flex:1;background:#0f172a;border:1px solid #0ea5e9;border-radius:6px;color:#0ea5e9;font-size:12px;font-weight:700;padding:6px 0;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#0ea5e9';this.style.color='#fff'" onmouseout="this.style.background='#0f172a';this.style.color='#0ea5e9'">
+            <div style="display:flex;gap:6px;margin-bottom:4px">
+              <button class="cm-preset-btn" data-preset="kimsmall" onclick="applyPreset('kimsmall')" style="flex:1;background:#0f172a;border:1px solid #0ea5e9;border-radius:6px;color:#0ea5e9;font-size:12px;font-weight:700;padding:6px 0;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#0ea5e9';this.style.color='#fff'" onmouseout="this.style.background='#0f172a';this.style.color='#0ea5e9'">
                 <i class="fas fa-store" style="margin-right:4px"></i>kimsmall 프리셋
               </button>
-              <button onclick="applyPreset('posco')" style="flex:1;background:#0f172a;border:1px solid #f59e0b;border-radius:6px;color:#f59e0b;font-size:12px;font-weight:700;padding:6px 0;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#f59e0b';this.style.color='#fff'" onmouseout="this.style.background='#0f172a';this.style.color='#f59e0b'">
+              <button class="cm-preset-btn" data-preset="posco" onclick="applyPreset('posco')" style="flex:1;background:#0f172a;border:1px solid #f59e0b;border-radius:6px;color:#f59e0b;font-size:12px;font-weight:700;padding:6px 0;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#f59e0b';this.style.color='#fff'" onmouseout="this.style.background='#0f172a';this.style.color='#f59e0b'">
                 <i class="fas fa-store" style="margin-right:4px"></i>POSCO 프리셋
               </button>
-              <button onclick="applyPreset('village')" style="flex:1;background:#0f172a;border:1px solid #22c55e;border-radius:6px;color:#22c55e;font-size:12px;font-weight:700;padding:6px 0;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#22c55e';this.style.color='#fff'" onmouseout="this.style.background='#0f172a';this.style.color='#22c55e'">
+              <button class="cm-preset-btn" data-preset="village" onclick="applyPreset('village')" style="flex:1;background:#0f172a;border:1px solid #22c55e;border-radius:6px;color:#22c55e;font-size:12px;font-weight:700;padding:6px 0;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#22c55e';this.style.color='#fff'" onmouseout="this.style.background='#0f172a';this.style.color='#22c55e'">
                 <i class="fas fa-store" style="margin-right:4px"></i>THE VILLAGE 프리셋
               </button>
-              <button onclick="applyPreset('default')" style="flex:1;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#64748b;font-size:12px;font-weight:700;padding:6px 0;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#1e293b';this.style.color='#94a3b8'" onmouseout="this.style.background='#0f172a';this.style.color='#64748b'">
+              <button class="cm-preset-btn" data-preset="default" onclick="applyPreset('default')" style="flex:1;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#64748b;font-size:12px;font-weight:700;padding:6px 0;cursor:pointer;transition:all 0.15s" onmouseover="this.style.background='#1e293b';this.style.color='#94a3b8'" onmouseout="this.style.background='#0f172a';this.style.color='#64748b'">
                 <i class="fas fa-undo" style="margin-right:4px"></i>기본형
               </button>
             </div>
+            <div id="presetEditHint" style="display:none;font-size:11px;color:#38bdf8;margin-bottom:10px"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
               <div>
                 <div class="sm-label" style="margin-bottom:4px">SKU/바코드 열</div>
-                <input id="cmColSku" type="text" maxlength="3" value="A" class="sm-input" style="text-transform:uppercase;font-size:18px;font-weight:700;text-align:center;padding:8px" oninput="this.value=this.value.toUpperCase()">
+                <input id="cmColSku" type="text" maxlength="3" value="A" class="sm-input" style="text-transform:uppercase;font-size:18px;font-weight:700;text-align:center;padding:8px" oninput="this.value=this.value.toUpperCase();colMapTouched()">
               </div>
               <div>
                 <div class="sm-label" style="margin-bottom:4px">상품명 열</div>
-                <input id="cmColName" type="text" maxlength="3" value="B" class="sm-input" style="text-transform:uppercase;font-size:18px;font-weight:700;text-align:center;padding:8px" oninput="this.value=this.value.toUpperCase()">
+                <input id="cmColName" type="text" maxlength="3" value="B" class="sm-input" style="text-transform:uppercase;font-size:18px;font-weight:700;text-align:center;padding:8px" oninput="this.value=this.value.toUpperCase();colMapTouched()">
               </div>
               <div>
                 <div class="sm-label" style="margin-bottom:4px">원가 열</div>
-                <input id="cmColCost" type="text" maxlength="3" value="C" class="sm-input" style="text-transform:uppercase;font-size:18px;font-weight:700;text-align:center;padding:8px" oninput="this.value=this.value.toUpperCase()">
+                <input id="cmColCost" type="text" maxlength="3" value="C" class="sm-input" style="text-transform:uppercase;font-size:18px;font-weight:700;text-align:center;padding:8px" oninput="this.value=this.value.toUpperCase();colMapTouched()">
               </div>
               <div>
                 <div class="sm-label" style="margin-bottom:4px">판매가 열</div>
-                <input id="cmColPrice" type="text" maxlength="3" value="D" class="sm-input" style="text-transform:uppercase;font-size:18px;font-weight:700;text-align:center;padding:8px" oninput="this.value=this.value.toUpperCase()">
+                <input id="cmColPrice" type="text" maxlength="3" value="D" class="sm-input" style="text-transform:uppercase;font-size:18px;font-weight:700;text-align:center;padding:8px" oninput="this.value=this.value.toUpperCase();colMapTouched()">
               </div>
             </div>
             <div style="margin-top:8px">
               <div class="sm-label" style="margin-bottom:4px">헤더 행 번호 <span style="color:#475569;font-weight:400">(데이터는 다음 행부터)</span></div>
-              <input id="cmHeaderRow" type="number" min="0" max="10" value="1" class="sm-input" style="width:80px;font-size:16px;font-weight:700;text-align:center;padding:8px">
+              <input id="cmHeaderRow" type="number" min="0" max="10" value="1" oninput="colMapTouched()" class="sm-input" style="width:80px;font-size:16px;font-weight:700;text-align:center;padding:8px">
             </div>
             <button onclick="saveColMap()" style="margin-top:10px;width:100%;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:9px 0;font-size:13px;font-weight:700;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='#6d28d9'" onmouseout="this.style.background='#7c3aed'">
-              <i class="fas fa-save" style="margin-right:5px"></i>이 점포의 설정 저장
+              <i class="fas fa-save" style="margin-right:5px"></i>저장 (점포 설정 + 선택한 프리셋)
             </button>
             <div id="colMapMsg" style="margin-top:6px;font-size:12px;font-weight:600;min-height:16px;color:#4ade80"></div>
           </div>
@@ -1055,6 +1095,10 @@ let currentScreen = 'lookup';
 let printMode = 'auto';
 let printType = 'pricing';
 let storeId = <?php echo $defaultStore; ?>;
+// 업로드/컬럼매핑 대상 점포: 가격조회용 storeId(로그인 계정 소속 점포로 새로고침마다 강제 복원됨)와
+// 완전히 분리된 값. 그렇지 않으면 관리자가 다른 점포를 골라 컬럼매핑을 저장해도
+// 새로고침 시 storeId가 내 점포로 되돌아가면서 설정이 "초기화된 것처럼" 보이는 문제가 있었음.
+let uploadStoreId = parseInt(localStorage.getItem('pricing_uploadStoreId') || '') || <?php echo $defaultStore; ?>;
 let currentProduct = null;
 let printItems = [];
 let printHistory = [];
@@ -1647,9 +1691,15 @@ function openSettings() {
 }
 
 function syncUploadStoreLabel() {
-  const label = document.getElementById('storeNameLabel');
-  const el = document.getElementById('uploadStoreLabel');
-  if (el) el.textContent = label ? label.textContent.trim() : '-';
+  const sel = document.getElementById('uploadStoreSelect');
+  if (sel) sel.value = uploadStoreId;
+}
+
+// 업로드/컬럼매핑 대상 점포 변경 (가격조회용 storeId와 무관, 새로고침해도 유지됨)
+function onUploadStoreChange(sel) {
+  uploadStoreId = parseInt(sel.value) || uploadStoreId;
+  localStorage.setItem('pricing_uploadStoreId', uploadStoreId);
+  loadColMap();
 }
 
 function closeSettings() {
@@ -1875,31 +1925,100 @@ function deleteNasFile(name) {
 }
 
 // ── 컬럼 매핑 설정 ──
-const PRESETS = {
-  kimsmall: { col_sku: 'B', col_name: 'C', col_cost: 'J', col_price: 'E', header_row: 1 },
-  posco:    { col_sku: 'B', col_name: 'C', col_cost: 'G', col_price: 'H', header_row: 1 },
-  village:  { col_sku: 'A', col_name: 'B', col_cost: 'E', col_price: 'C', header_row: 1 },
-  default:  { col_sku: 'A', col_name: 'B', col_cost: 'C', col_price: 'D', header_row: 1 },
-};
-const PRESET_LABELS = {
-  kimsmall: 'kimsmall (B/C/J/E)',
-  posco:    'POSCO (SKU:B / 상품명:C / 원가:G / 판매가:H)',
-  village:  'THE VILLAGE (SKU:A / 상품명:B / 원가:E / 판매가:C)',
-  default:  '기본형 (A/B/C/D)',
-};
+// 프리셋 값은 DB(settings 테이블)에서 로드됨 — 코드 배포 없이 값 수정/저장 가능 (아래 savePresetDefinition 참고)
+// 프리셋 출처: <?php echo htmlspecialchars($colMapPresetsSource, ENT_QUOTES); ?> (진단용 — 페이지 소스에서 이 줄로 확인)
+let PRESETS = <?php echo $colMapPresetsJson; ?>;
+const PRESETS_SOURCE = <?php echo json_encode($colMapPresetsSource, JSON_UNESCAPED_UNICODE); ?>;
+let lastAppliedPreset = null;
+
+let presetLoadSeq = 0;
+
+// 프리셋 버튼 클릭 → 항상 DB에서 최신 프리셋을 직접 읽어와 적용한다.
+// (페이지 로드 시 PHP가 주입한 PRESETS 값에만 의존하면, 서버 캐시나 배포 시점 차이로
+//  예전 값이 그대로 적용되는 문제가 있어 클릭 시점에 서버에서 다시 확인한다)
 function applyPreset(name) {
-  const p = PRESETS[name];
-  if (!p) return;
-  document.getElementById('cmColSku').value    = p.col_sku;
-  document.getElementById('cmColName').value   = p.col_name;
-  document.getElementById('cmColCost').value   = p.col_cost;
-  document.getElementById('cmColPrice').value  = p.col_price;
-  document.getElementById('cmHeaderRow').value = p.header_row;
+  colMapTouched();            // 진행 중인 loadColMap() 응답이 덮어쓰지 못하게 무효화
+  lastAppliedPreset = name;
+
   const msg = document.getElementById('colMapMsg');
-  const label = PRESET_LABELS[name] || name;
-  msg.textContent = '✔ ' + label + ' 프리셋 적용됨 — 저장하려면 아래 버튼을 누르세요';
   msg.style.color = '#38bdf8';
-  setTimeout(() => { msg.textContent = ''; msg.style.color = '#4ade80'; }, 3000);
+  msg.textContent = 'DB에서 프리셋 불러오는 중...';
+
+  const mySeq = ++presetLoadSeq;
+  fetch('ajax_colmap.php?action=load_presets', { cache: 'no-store' })
+    .then(r => r.json())
+    .then(data => {
+      if (mySeq !== presetLoadSeq) return;   // 더 최근 클릭이 있으면 무시
+      if (data.success && data.presets) {
+        PRESETS = Object.assign({}, PRESETS, data.presets);
+        applyPresetValues(name, 'DB');
+      } else {
+        applyPresetValues(name, '기본값(DB에 저장된 프리셋 없음)');
+      }
+    })
+    .catch(() => {
+      if (mySeq !== presetLoadSeq) return;
+      applyPresetValues(name, '기본값(서버 통신 실패)');
+    });
+}
+
+function applyPresetValues(name, source) {
+  const p = PRESETS[name];
+  const msg = document.getElementById('colMapMsg');
+  if (!p) {
+    msg.style.color = '#f87171';
+    msg.textContent = '❌ "' + name + '" 프리셋을 찾을 수 없습니다.';
+    return;
+  }
+  colMapTouched();
+  applyColMapToInputs(p);
+  refreshPresetButtonLabels();
+  updatePresetEditHint();
+  msg.style.color = '#38bdf8';
+  msg.textContent = '✔ ' + (p.label || name) + ' 적용됨 [' + source + '] — 저장하려면 아래 버튼을 누르세요';
+  setTimeout(() => { msg.textContent = ''; msg.style.color = '#4ade80'; }, 4000);
+}
+
+// 프리셋 정의 자체를 DB에 저장 (프리셋 버튼을 누르면 이 값이 적용됨)
+function savePresetDefinition(name, map) {
+  const baseLabel = (PRESETS[name] && PRESETS[name].label ? PRESETS[name].label.split(' (')[0] : name);
+  const label = baseLabel + ' (' + map.col_sku + '/' + map.col_name + '/' + map.col_cost + '/' + map.col_price + ')';
+
+  const fd = new FormData();
+  fd.append('action', 'save_preset');
+  fd.append('preset_name', name);
+  fd.append('label', label);
+  Object.keys(map).forEach(k => fd.append(k, map[k]));
+
+  return fetch('ajax_colmap.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success && data.presets) {
+        PRESETS = data.presets;           // 서버가 저장 직후 재조회한 값 = 실제 DB 내용
+        refreshPresetButtonLabels();
+        updatePresetEditHint();
+      }
+      return data;
+    });
+}
+
+function refreshPresetButtonLabels() {
+  document.querySelectorAll('.cm-preset-btn').forEach(btn => {
+    const name = btn.dataset.preset;
+    if (PRESETS[name]) btn.title = PRESETS[name].label;
+  });
+}
+
+function updatePresetEditHint() {
+  const hint = document.getElementById('presetEditHint');
+  if (!hint) return;
+  if (lastAppliedPreset && PRESETS[lastAppliedPreset]) {
+    hint.textContent = '"' + (PRESETS[lastAppliedPreset].label || lastAppliedPreset)
+                     + '" 편집 중 — 저장하면 이 프리셋에도 함께 반영됩니다';
+    hint.style.display = '';
+  } else {
+    hint.style.display = 'none';
+  }
 }
 
 function toggleColMap() {
@@ -1913,45 +2032,113 @@ function toggleColMap() {
 
 function colMapKey(sid) { return 'pricing_colmap_' + sid; }
 
-function loadColMap() {
-  const sid = storeId;
-  const saved = JSON.parse(localStorage.getItem(colMapKey(sid)) || '{}');
-  document.getElementById('cmColSku').value   = saved.col_sku    || 'A';
-  document.getElementById('cmColName').value  = saved.col_name   || 'B';
-  document.getElementById('cmColCost').value  = saved.col_cost   || 'C';
-  document.getElementById('cmColPrice').value = saved.col_price  || 'D';
-  document.getElementById('cmHeaderRow').value = saved.header_row != null ? saved.header_row : 1;
+function applyColMapToInputs(map) {
+  document.getElementById('cmColSku').value   = map.col_sku    || 'A';
+  document.getElementById('cmColName').value  = map.col_name   || 'B';
+  document.getElementById('cmColCost').value  = map.col_cost   || 'C';
+  document.getElementById('cmColPrice').value = map.col_price  || 'D';
+  document.getElementById('cmHeaderRow').value = map.header_row != null ? map.header_row : 1;
 }
 
+// loadColMap()의 비동기 응답이 "사용자가 그 사이에 한 조작"을 덮어쓰지 않도록 하는 세대 번호.
+// (프리셋 버튼 클릭/직접 입력이 있으면 진행 중이던 불러오기 결과는 버린다)
+let colMapLoadSeq = 0;
+
+// 사용자가 입력칸을 건드렸음을 표시 — 진행 중인 불러오기 응답을 무효화한다.
+function colMapTouched() { colMapLoadSeq++; }
+
+function loadColMap() {
+  const sid = uploadStoreId;
+  const mySeq = ++colMapLoadSeq;
+
+  // 1) 즉시 표시: 로컬 캐시(localStorage)로 우선 채움
+  const cached = JSON.parse(localStorage.getItem(colMapKey(sid)) || '{}');
+  applyColMapToInputs(cached);
+
+  // 2) 서버(DB)의 저장값으로 동기화 — 다른 기기/브라우저에서 저장한 설정도 반영
+  fetch('ajax_colmap.php?action=load&store_id=' + sid)
+    .then(r => r.json())
+    .then(data => {
+      // 응답이 늦게 도착한 사이 사용자가 프리셋을 누르거나 값을 고쳤다면 덮어쓰지 않는다
+      if (mySeq !== colMapLoadSeq) return;
+      if (data.success && data.colmap) {
+        applyColMapToInputs(data.colmap);
+        localStorage.setItem(colMapKey(sid), JSON.stringify(data.colmap));
+      }
+    })
+    .catch(() => { /* 서버 조회 실패 시 로컬 캐시 값 유지 */ });
+}
+
+// 저장 = ① 이 점포의 매핑 + ② (프리셋 버튼을 눌러 편집 중이면) 그 프리셋 정의 를 함께 DB에 저장.
+// 프리셋 버튼을 눌러 값을 고친 뒤 저장했는데 프리셋을 다시 누르면 예전 값이 나오던 문제를 없애기 위해
+// 두 곳을 한 번에 갱신한다.
 function saveColMap() {
-  const sid = storeId;
-  const map = {
+  const sid  = uploadStoreId;
+  const map  = getColMap();
+  const name = lastAppliedPreset;               // 프리셋 버튼을 눌렀다면 그 프리셋도 같이 갱신
+  const msg  = document.getElementById('colMapMsg');
+  msg.style.color = '#4ade80';
+  msg.textContent = '저장 중...';
+
+  const fd = new FormData();
+  fd.append('action', 'save');
+  fd.append('store_id', sid);
+  Object.keys(map).forEach(k => fd.append(k, map[k]));
+
+  fetch('ajax_colmap.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(storeRes => {
+      if (!storeRes.success) throw new Error(storeRes.message || '알 수 없는 오류');
+      localStorage.setItem(colMapKey(sid), JSON.stringify(map));
+
+      if (!name) return { storeRes, presetRes: null };
+      return savePresetDefinition(name, map).then(presetRes => ({ storeRes, presetRes }));
+    })
+    .then(({ presetRes }) => {
+      const storeLabel = uploadStoreName();
+      if (!name) {
+        msg.style.color = '#4ade80';
+        msg.textContent = '✅ 저장됨 — 점포: ' + storeLabel;
+      } else if (presetRes && presetRes.success) {
+        msg.style.color = '#4ade80';
+        msg.textContent = '✅ 저장됨 — 점포: ' + storeLabel + ' / 프리셋: ' + name;
+      } else {
+        msg.style.color = '#fbbf24';
+        msg.textContent = '⚠ 점포 설정은 저장됨. 프리셋 저장 실패: '
+                        + ((presetRes && presetRes.message) || '알 수 없는 오류');
+      }
+      setTimeout(() => { msg.textContent = ''; }, 4000);
+    })
+    .catch(err => {
+      msg.style.color = '#f87171';
+      msg.textContent = '❌ 저장 실패: ' + (err && err.message ? err.message : '서버와 통신할 수 없습니다.');
+      setTimeout(() => { msg.textContent = ''; }, 4000);
+    });
+}
+
+function uploadStoreName() {
+  const sel = document.getElementById('uploadStoreSelect');
+  if (sel && sel.selectedIndex >= 0) return sel.options[sel.selectedIndex].text;
+  return '점포 ' + uploadStoreId;
+}
+
+// 업로드 시 사용할 컬럼 매핑 — 화면 입력칸 값을 그대로 사용한다.
+// (입력칸은 loadColMap()이 DB에서 불러온 값으로 채워둠. 예전엔 localStorage만 읽어서
+//  다른 PC/브라우저에서는 DB에 저장해둔 매핑이 무시되고 하드코딩 기본값 A/B/C/D가 쓰이던 문제가 있었음)
+// 서버(ajax_import_master.php)도 DB 값을 우선 적용하므로 최종적으로는 DB가 기준이 됨.
+function getColMap() {
+  return {
     col_sku:    document.getElementById('cmColSku').value.toUpperCase().trim()   || 'A',
     col_name:   document.getElementById('cmColName').value.toUpperCase().trim()  || 'B',
     col_cost:   document.getElementById('cmColCost').value.toUpperCase().trim()  || 'C',
     col_price:  document.getElementById('cmColPrice').value.toUpperCase().trim() || 'D',
     header_row: parseInt(document.getElementById('cmHeaderRow').value) || 1,
   };
-  localStorage.setItem(colMapKey(sid), JSON.stringify(map));
-  const msg = document.getElementById('colMapMsg');
-  msg.textContent = '✅ 저장됨 (점포 ID: ' + sid + ')';
-  setTimeout(() => { msg.textContent = ''; }, 2000);
-}
-
-function getColMap() {
-  const saved = JSON.parse(localStorage.getItem(colMapKey(storeId)) || '{}');
-  return {
-    col_sku:    saved.col_sku    || 'A',
-    col_name:   saved.col_name   || 'B',
-    col_cost:   saved.col_cost   || 'C',
-    col_price:  saved.col_price  || 'D',
-    header_row: saved.header_row != null ? saved.header_row : 1,
-  };
 }
 
 function uploadMasterFile(src) {
   if (src) uploadSource = src;
-  if (!storeId || storeId <= 0) {
+  if (!uploadStoreId || uploadStoreId <= 0) {
     alert(tl('error.store_not_selected'));
     return;
   }
@@ -1961,7 +2148,7 @@ function uploadMasterFile(src) {
   const colMap   = getColMap();
 
   const fd = new FormData();
-  fd.append('store_id',   storeId);
+  fd.append('store_id',   uploadStoreId);
   fd.append('action',     'import');
   fd.append('col_sku',    colMap.col_sku);
   fd.append('col_name',   colMap.col_name);
@@ -2086,6 +2273,10 @@ function hideSettingsMsg(id) {
   setPrintType(savedType);
   setScreen(savedScreen);
   syncSettingsStoreHighlight();
+  // 업로드 대상 점포 드롭다운 + 컬럼 매핑을 DB에서 미리 불러와 입력칸에 채워둠
+  // (환경설정 탭을 열지 않고 바로 업로드해도 DB에 저장된 매핑이 적용되도록)
+  syncUploadStoreLabel();
+  loadColMap();
 
   // ── 포커스 자동 복귀 (클릭해도 입력란에 포커스 유지) ──
   document.addEventListener('mousedown', function(e) {
