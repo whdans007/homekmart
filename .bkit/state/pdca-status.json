@@ -3300,6 +3300,42 @@
       "phase": "do",
       "feature": "wholesale-sales-return",
       "createdAt": "2026-07-09T00:31:01.418Z"
+    },
+    {
+      "taskId": "1",
+      "phase": "do",
+      "feature": "wholesale-cost-price-fix module-1: 원가 표시 버그 수정",
+      "createdAt": "2026-08-05T08:46:24.911Z"
+    },
+    {
+      "taskId": "2",
+      "phase": "do",
+      "feature": "wholesale-cost-price-fix module-2: 가격 헬퍼 + API 확장",
+      "createdAt": "2026-08-05T08:46:27.176Z"
+    },
+    {
+      "taskId": "3",
+      "phase": "do",
+      "feature": "wholesale-cost-price-fix module-3: 가격 칩 UI",
+      "createdAt": "2026-08-05T08:46:28.413Z"
+    },
+    {
+      "taskId": "4",
+      "phase": "do",
+      "feature": "employee-hr-records module-1: DB + CRUD 헬퍼",
+      "createdAt": "2026-08-06T00:08:16.095Z"
+    },
+    {
+      "taskId": "5",
+      "phase": "do",
+      "feature": "employee-hr-records module-2: POST 액션 + 파일업로드",
+      "createdAt": "2026-08-06T00:08:17.181Z"
+    },
+    {
+      "taskId": "6",
+      "phase": "do",
+      "feature": "employee-hr-records module-3: 모달 UI",
+      "createdAt": "2026-08-06T00:08:18.167Z"
     }
   ]
 }

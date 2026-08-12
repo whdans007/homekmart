@@ -154,11 +154,36 @@ if (!$store_id) {
 }
 
 // ── 컬럼 매핑 파라미터 ──
-$col_sku   = strtoupper(trim($_POST['col_sku']   ?? 'A')) ?: 'A';
-$col_name  = strtoupper(trim($_POST['col_name']  ?? 'B')) ?: 'B';
-$col_cost  = strtoupper(trim($_POST['col_cost']  ?? 'C')) ?: 'C';
-$col_price = strtoupper(trim($_POST['col_price'] ?? 'D')) ?: 'D';
-$header_row = max(1, (int)($_POST['header_row'] ?? 1));
+// 우선순위: DB(settings)에 저장된 이 점포의 매핑 → POST 파라미터 → 하드코딩 기본값
+// DB를 기준으로 삼아야 다른 PC/브라우저에서 업로드해도 저장해둔 매핑이 그대로 적용됨
+$db_colmap = [];
+try {
+    require_once __DIR__ . '/../lib/settings_helper.php';
+    $cm_dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+    $cm_pdo = new PDO($cm_dsn, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $cm_stored = settings_get($cm_pdo, 'pricing_colmap_' . $store_id);
+    if ($cm_stored) {
+        $decoded = json_decode($cm_stored, true);
+        if (is_array($decoded)) $db_colmap = $decoded;
+    }
+    unset($cm_pdo);
+} catch (Throwable $e) {
+    error_log('ajax_import_master.php: colmap load failed: ' . $e->getMessage());
+}
+
+function pim_pick_col(array $db_colmap, string $key, string $fallback): string {
+    if (!empty($db_colmap[$key])) return strtoupper(trim((string)$db_colmap[$key]));
+    $posted = strtoupper(trim((string)($_POST[$key] ?? '')));
+    return $posted !== '' ? $posted : $fallback;
+}
+
+$col_sku   = pim_pick_col($db_colmap, 'col_sku',   'A');
+$col_name  = pim_pick_col($db_colmap, 'col_name',  'B');
+$col_cost  = pim_pick_col($db_colmap, 'col_cost',  'C');
+$col_price = pim_pick_col($db_colmap, 'col_price', 'D');
+$header_row = isset($db_colmap['header_row'])
+    ? max(1, (int)$db_colmap['header_row'])
+    : max(1, (int)($_POST['header_row'] ?? 1));
 $data_start = $header_row + 1;
 
 // 매핑된 컬럼 문자 → 필드명

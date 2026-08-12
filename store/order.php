@@ -392,6 +392,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </button>
     <?php endforeach; ?>
 
+    <!-- 최근 입고순 정렬 -->
+    <button type="button" id="sortToggle"
+            class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors whitespace-nowrap"
+            style="background:#fff;color:#0d9488;border-color:#5eead4;">
+        <i class="fas fa-clock-rotate-left mr-1"></i>최근 입고순
+    </button>
+
     <!-- 내가 체크한 주문만 보기 -->
     <button type="button" id="selectedToggle"
             class="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors whitespace-nowrap"
@@ -422,7 +429,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200" id="productBody">
-        <?php foreach ($products as $p):
+        <?php $__row_idx = 0; foreach ($products as $p):
             $boxStock  = (int)$p['box_stock'];
             $packStock = (int)$p['pack_stock'];
             $pcsStock  = (int)$p['pcs_stock'];
@@ -448,6 +455,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ?>
         <tr class="product-row hover:bg-teal-50 transition-colors"
             data-cat="<?php echo $p['category_id'] ?? ''; ?>"
+            data-orig-idx="<?php echo $__row_idx++; ?>"
+            data-inbound="<?php echo !empty($p['latest_inbound_at']) ? strtotime($p['latest_inbound_at']) : 0; ?>"
             data-name="<?php echo strtolower(($p['name_en'] ?? '') . ' ' . ($p['name_ko'] ?? '') . ' ' . ($p['brand_name'] ?? '') . ' ' . ($p['brand_name_ko'] ?? '') . ' ' . ($p['barcode'] ?? '')); ?>">
             <td class="px-4 py-3 text-center">
                 <?php if (!empty($p['image_path'])): $img_url = STORE_WEB_ROOT . '/logistics/' . $p['image_path']; ?>
@@ -645,12 +654,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     var searchVal = '';
 
     var selectedToggle = document.getElementById('selectedToggle');
+    var sortToggle      = document.getElementById('sortToggle');
+    var sortMode         = 'default'; // 'default'(유통기한순) | 'inbound'(최근입고순)
 
     function deactivateSelectedToggle() {
         selectedToggle.style.background  = '#fff';
         selectedToggle.style.color       = '#d97706';
         selectedToggle.style.borderColor = '#fbbf24';
     }
+
+    // ── 최근 입고순 / 기본(유통기한순) 정렬 토글 ─────────────────
+    function applySort() {
+        var tbody = document.getElementById('productBody');
+        var rows  = Array.prototype.slice.call(tbody.querySelectorAll('.product-row'));
+        rows.sort(function(a, b) {
+            if (sortMode === 'inbound') {
+                return (parseInt(b.dataset.inbound) || 0) - (parseInt(a.dataset.inbound) || 0);
+            }
+            return (parseInt(a.dataset.origIdx) || 0) - (parseInt(b.dataset.origIdx) || 0);
+        });
+        rows.forEach(function(row) { tbody.appendChild(row); });
+    }
+
+    sortToggle.addEventListener('click', function() {
+        sortMode = sortMode === 'default' ? 'inbound' : 'default';
+        if (sortMode === 'inbound') {
+            sortToggle.style.background  = '#0d9488';
+            sortToggle.style.color       = '#fff';
+            sortToggle.style.borderColor = '#0d9488';
+        } else {
+            sortToggle.style.background  = '#fff';
+            sortToggle.style.color       = '#0d9488';
+            sortToggle.style.borderColor = '#5eead4';
+        }
+        applySort();
+        filterRows(true);
+    });
 
     // ── 카테고리 탭 ───────────────────────────────────────────────
     document.querySelectorAll('.cat-tab').forEach(function(btn) {
