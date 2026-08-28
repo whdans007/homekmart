@@ -19,9 +19,9 @@ try {
     $params = [];
     $types  = '';
     if ($search) {
-        $where .= " AND (p.name_en LIKE ? OR s.name LIKE ?)";
-        $params = ["%$search%", "%$search%"];
-        $types  = 'ss';
+        $where .= " AND (p.name_en LIKE ? OR p.name_ko LIKE ? OR p.barcode_unit LIKE ? OR p.barcode_box LIKE ? OR p.barcode_logistics LIKE ? OR s.name LIKE ?)";
+        $params = ["%$search%", "%$search%", "%$search%", "%$search%", "%$search%", "%$search%"];
+        $types  = 'ssssss';
     }
 
     $cnt = $conn->prepare(
@@ -89,7 +89,7 @@ main { overflow: hidden !important; }
 <form method="get" class="bg-white rounded-lg border border-gray-200 px-3 py-2 shrink-0">
     <div class="flex flex-wrap items-center gap-2">
         <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>"
-               placeholder="Search product or store name"
+               placeholder="Search barcode, product or store name"
                class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-64">
         <button type="submit" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700">
             <i class="fas fa-search mr-1"></i>Search
