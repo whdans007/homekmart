@@ -23,16 +23,11 @@ $stmt->close();
 $conn->close();
 
 $page_title = '위시리스트';
+$mall_show_back = true;
+$show_bottom_nav = true;
+$active_nav = 'my';
 require_once __DIR__ . '/../partials/header.php';
 ?>
-
-<h1 style="font-size:1.2rem;font-weight:800;margin-bottom:1rem;">위시리스트</h1>
-
-<div style="display:flex;gap:1rem;margin-bottom:1rem;font-size:0.85rem;">
-    <a href="/mall/mypage/orders.php" style="color:#6b7280;">주문내역</a>
-    <a href="/mall/mypage/wishlist.php" style="font-weight:700;">위시리스트</a>
-    <a href="/mall/mypage/profile.php" style="color:#6b7280;">회원정보수정</a>
-</div>
 
 <?php if (empty($items)): ?>
     <p style="text-align:center;color:#9ca3af;padding:3rem 0;">위시리스트가 비어있습니다.</p>

@@ -1,16 +1,47 @@
 <?php
 require_once __DIR__ . '/lib/auth.php';
+require_once __DIR__ . '/lib/cart.php';
 
 if (mall_is_logged_in()) {
     header('Location: ' . mall_get_login_redirect_target());
     exit;
 }
 
+mall_session_start();
+// 로그인/회원가입 화면의 구글 버튼(ajax/google_auth.php)이 기존 계정을 못 찾으면 구글 프로필을
+// 여기 세션에 잠깐 담아두고 이 화면으로 보낸다 — 이메일/비밀번호 없이 회원유형만 골라 가입을 끝낸다.
+$google_pending = ($_GET['google'] ?? '') === '1' ? ($_SESSION['mall_pending_google'] ?? null) : null;
+
 $error_message = '';
 $success_message = '';
 $member_type = $_POST['member_type'] ?? 'retail';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['google_pending'] ?? '') === '1') {
+    $member_type = in_array($_POST['member_type'] ?? '', ['retail', 'wholesale'], true) ? $_POST['member_type'] : 'retail';
+    $business_name = trim($_POST['business_name'] ?? '');
+    $business_reg_no = trim($_POST['business_reg_no'] ?? '');
+    $google = $_SESSION['mall_pending_google'] ?? null;
+
+    if (!$google) {
+        $error_message = '구글 인증 정보가 만료되었습니다. 다시 시도해주세요.';
+    } elseif ($member_type === 'wholesale' && $business_name === '') {
+        $error_message = '사업자 회원은 상호명을 입력해야 합니다.';
+        $google_pending = $google;
+    } else {
+        $guest_token_before_login = mall_guest_token();
+        $result = mall_google_signup($google, $member_type, $business_name, $business_reg_no);
+        if ($result['success']) {
+            unset($_SESSION['mall_pending_google']);
+            mall_cart_merge_guest_into_member($result['member']['id'], $guest_token_before_login);
+            header('Location: ' . mall_get_login_redirect_target());
+            exit;
+        }
+        $error_message = $result['error'] === 'ALREADY_REGISTERED'
+            ? '이미 가입된 계정입니다. 로그인해주세요.'
+            : '가입 처리 중 오류가 발생했습니다.';
+        $google_pending = $google;
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $member_type = in_array($_POST['member_type'] ?? '', ['retail', 'wholesale'], true) ? $_POST['member_type'] : 'retail';
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -119,6 +150,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .wholesale-fields.active { display: block; }
         .login-row { margin-top: var(--space-5); text-align: center; font: var(--t-caption1) var(--font-sans); color: var(--label-alternative); }
         .login-row a { color: var(--primary-normal); font-weight: 700; }
+        .auth-divider { display: flex; align-items: center; gap: 10px; margin: var(--space-5) 0; color: var(--label-assistive); font: var(--t-caption1) var(--font-sans); }
+        .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--line-alternative); }
+        .google-btn-wrap { display: flex; justify-content: center; }
+        .google-profile-box { display: flex; align-items: center; gap: 10px; background: var(--bg-alternative); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-5); font: var(--t-label2) var(--font-sans); }
     </style>
 </head>
 <body>
@@ -132,7 +167,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="alert-success"><i class="fas fa-check-circle"></i><span><?php echo htmlspecialchars($success_message); ?></span></div>
             <?php endif; ?>
 
-            <?php if (!$success_message): ?>
+            <?php if (!$success_message && $google_pending): ?>
+            <div class="google-profile-box"><i class="fab fa-google"></i> <span><?php echo htmlspecialchars($google_pending['name']); ?> (<?php echo htmlspecialchars($google_pending['email']); ?>)</span></div>
+            <form action="signup.php?google=1" method="post" id="signup-form">
+                <input type="hidden" name="google_pending" value="1">
+                <div class="type-toggle">
+                    <label><input type="radio" name="member_type" value="retail" <?php echo $member_type === 'retail' ? 'checked' : ''; ?>><span>소매 회원</span></label>
+                    <label><input type="radio" name="member_type" value="wholesale" <?php echo $member_type === 'wholesale' ? 'checked' : ''; ?>><span>사업자(도매) 회원</span></label>
+                </div>
+
+                <div class="wholesale-fields <?php echo $member_type === 'wholesale' ? 'active' : ''; ?>" id="wholesale-fields">
+                    <div class="auth-field">
+                        <label for="business_name">사업자 상호</label>
+                        <input id="business_name" name="business_name" type="text" value="<?php echo htmlspecialchars($_POST['business_name'] ?? ''); ?>">
+                    </div>
+                    <div class="auth-field">
+                        <label for="business_reg_no">사업자등록번호</label>
+                        <input id="business_reg_no" name="business_reg_no" type="text" value="<?php echo htmlspecialchars($_POST['business_reg_no'] ?? ''); ?>">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-user-plus"></i> 가입 완료</button>
+            </form>
+            <?php elseif (!$success_message): ?>
             <form action="signup.php" method="post" id="signup-form">
                 <div class="type-toggle">
                     <label><input type="radio" name="member_type" value="retail" <?php echo $member_type === 'retail' ? 'checked' : ''; ?>><span>소매 회원</span></label>
@@ -173,18 +230,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-user-plus"></i> 가입하기</button>
             </form>
+
+            <div class="auth-divider">또는</div>
+            <div class="google-btn-wrap">
+                <div id="g_id_onload"
+                     data-client_id="<?php echo htmlspecialchars(MALL_GOOGLE_CLIENT_ID); ?>"
+                     data-callback="mallHandleGoogleCredential">
+                </div>
+                <div class="g_id_signin" data-type="standard" data-shape="pill" data-width="320" data-text="signup_with"></div>
+            </div>
             <?php endif; ?>
 
             <div class="login-row">이미 계정이 있으신가요? <a href="login.php">로그인</a></div>
         </div>
     </div>
 
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
         document.querySelectorAll('input[name="member_type"]').forEach(function (radio) {
             radio.addEventListener('change', function () {
                 document.getElementById('wholesale-fields').classList.toggle('active', this.value === 'wholesale');
             });
         });
+
+        function mallHandleGoogleCredential(response) {
+            const params = new URLSearchParams();
+            params.set('credential', response.credential);
+            fetch('/mall/ajax/google_auth.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = data.data.redirect;
+                    } else if (data.error?.code === 'NEEDS_SIGNUP') {
+                        window.location.href = '/mall/signup.php?google=1';
+                    } else {
+                        alert(data.error?.message || '구글 로그인에 실패했습니다');
+                    }
+                })
+                .catch(() => alert('구글 로그인 중 오류가 발생했습니다'));
+        }
     </script>
 </body>
 </html>

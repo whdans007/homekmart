@@ -2,6 +2,7 @@
 require_once __DIR__ . '/lib/auth.php';
 require_once __DIR__ . '/lib/cart.php';
 require_once __DIR__ . '/lib/csrf.php';
+require_once __DIR__ . '/lib/address.php';
 
 mall_require_login('/mall/login.php');
 $member = mall_current_member();
@@ -10,7 +11,11 @@ $csrf_token = mall_csrf_token();
 $summary = mall_cart_get_summary($member['id'], null, $member);
 $channel = ($member['member_type'] === 'wholesale') ? 'wholesale' : 'retail';
 
+$addresses = mall_address_list($member['id']);
+$default_address = $addresses[0] ?? null; // mall_address_list()가 is_default DESC로 정렬해 첫 번째가 기본 배송지
+
 $mall_redesigned = true;
+$show_bottom_nav = true;
 $page_title = '주문서 작성';
 require_once __DIR__ . '/partials/header.php';
 ?>
@@ -35,10 +40,23 @@ require_once __DIR__ . '/partials/header.php';
 <div id="checkout-form-area">
     <div class="co-card">
         <h2>배송지</h2>
+        <?php if ($default_address): ?>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+            <div style="font:var(--t-label2) var(--font-sans);color:var(--label-normal);">
+                <div style="font-weight:700;"><?php echo htmlspecialchars($default_address['recipient_name']); ?> · <?php echo htmlspecialchars($default_address['phone']); ?></div>
+                <div style="color:var(--label-alternative);margin-top:2px;">
+                    <?php echo htmlspecialchars(trim(implode(' ', array_filter([$default_address['region'], $default_address['city'], $default_address['barangay'], $default_address['detail_address']])))); ?><br>
+                    랜드마크: <?php echo htmlspecialchars($default_address['landmark']); ?>
+                </div>
+            </div>
+            <a href="/mall/address.php" style="font:700 13px var(--font-sans);color:var(--primary-normal);flex-shrink:0;">변경</a>
+        </div>
+        <?php else: ?>
         <div style="display:flex;align-items:center;justify-content:space-between;">
             <div style="font:var(--t-label2) var(--font-sans);color:var(--label-assistive);">등록된 배송지가 없습니다</div>
-            <a href="/mall/address.php" style="font:700 13px var(--font-sans);color:var(--primary-normal);">배송지 추가</a>
+            <a href="/mall/address.php?add=1" style="font:700 13px var(--font-sans);color:var(--primary-normal);">배송지 추가</a>
         </div>
+        <?php endif; ?>
     </div>
 
     <div class="co-card">

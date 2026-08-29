@@ -20,6 +20,7 @@ $conn->close();
 if (!$product) {
     http_response_code(404);
     $page_title = '상품을 찾을 수 없습니다';
+    $show_bottom_nav = true;
     require_once __DIR__ . '/partials/header.php';
     echo '<p class="empty-state">상품을 찾을 수 없습니다.</p>';
     require_once __DIR__ . '/partials/footer.php';
@@ -27,6 +28,7 @@ if (!$product) {
 }
 
 $page_title = '리뷰';
+$show_bottom_nav = true;
 require_once __DIR__ . '/partials/header.php';
 
 $display_name = ($mall_lang === 'en' && !empty($product['display_name_en'])) ? $product['display_name_en'] : $product['display_name'];

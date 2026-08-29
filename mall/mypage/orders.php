@@ -34,6 +34,9 @@ $status_labels = ['pending' => '접수대기', 'confirmed' => '확인됨', 'prep
 $status_stage = ['pending' => 1, 'confirmed' => 2, 'preparing' => 2, 'ready' => 3, 'completed' => 4]; // cancelled은 트래커 없음
 
 $mall_redesigned = true;
+$mall_show_back = true;
+$show_bottom_nav = true;
+$active_nav = 'my';
 $page_title = '주문내역';
 require_once __DIR__ . '/../partials/header.php';
 ?>
@@ -51,8 +54,6 @@ require_once __DIR__ . '/../partials/header.php';
 .order-tracker .step.active .label { color: var(--label-normal); font-weight: 700; }
 .order-card .foot { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4); background: var(--bg-alternative); }
 </style>
-
-<h1 style="font:var(--t-heading2) var(--font-sans);padding:var(--space-4) var(--space-5) 0;">주문내역</h1>
 
 <?php if (empty($orders)): ?>
     <p class="empty-state">주문 내역이 없습니다.</p>

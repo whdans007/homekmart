@@ -23,6 +23,7 @@ $stmt->close();
 if (!$product) {
     http_response_code(404);
     $page_title = '상품을 찾을 수 없습니다';
+    $show_bottom_nav = true;
     require_once __DIR__ . '/partials/header.php';
     echo '<p class="empty-state">상품을 찾을 수 없습니다.</p>';
     require_once __DIR__ . '/partials/footer.php';
@@ -37,6 +38,7 @@ $images_stmt->close();
 $conn->close();
 
 $page_title = $product['display_name'];
+$show_bottom_nav = true;
 require_once __DIR__ . '/partials/header.php';
 
 // 상세페이지는 디자인 원본처럼 한글명(주)+영문명(부제) 둘 다 항상 보여준다(목록/카드류는 언어 설정에 따라 하나만 표시).

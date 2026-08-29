@@ -17,6 +17,20 @@ define('MALL_SESSION_NAME', 'MALLSESSID');
 // CLI(php recalc_tiers.php) 실행 시에는 이 키가 필요 없다. 운영 전 반드시 강력한 값으로 교체할 것.
 define('MALL_BATCH_API_KEY', 'mallbatch_change_this_to_a_strong_32char_secret');
 
+// 구글 로그인(Sign in with Google) OAuth 클라이언트 ID.
+// Google Cloud Console(console.cloud.google.com) > API 및 서비스 > 사용자 인증 정보에서
+// "OAuth 클라이언트 ID"(유형: 웹 애플리케이션)를 발급받아 아래 값을 교체한다.
+// 승인된 자바스크립트 원본(Authorized JavaScript origins)에 https://homekmart.net 등록 필요.
+// ID 토큰만 검증하는 방식이라 클라이언트 시크릿은 필요 없다(공개해도 안전한 값).
+define('MALL_GOOGLE_CLIENT_ID', '502848247391-99k1krmshe9el3408l7itpc1nd8hrni4.apps.googleusercontent.com');
+
+// 배송지 지도 핀 입력(mall/address.php)에 쓰는 구글 지도 API 키.
+// Google Cloud Console > API 및 서비스 > 사용자 인증 정보 > "API 키" 생성 후,
+// Maps JavaScript API + Geocoding API를 활성화하고 아래 값을 교체한다.
+// 결제수단(빌링) 등록이 필요하며, 키를 HTTP 리퍼러 제한(https://homekmart.net/*)으로 반드시 제한할 것
+// — 이 키는 프론트엔드 <script> 태그에 그대로 노출되므로 리퍼러 제한이 없으면 다른 사이트에서 도용될 수 있다.
+define('MALL_GOOGLE_MAPS_API_KEY', 'AIzaSyDikJKww3XN6xmh2F0NSL7eGZqbKkDiAEk');
+
 // 장바구니 화면의 무료배송 진행바 표시 전용 상수(참고용 안내일 뿐, 실제 배송비 부과 로직은
 // 체크아웃 재설계 범위에서 다룬다 — 이번 범위에는 포함되지 않음).
 define('MALL_FREE_SHIPPING_THRESHOLD', 1200);

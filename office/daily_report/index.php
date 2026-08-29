@@ -24,7 +24,7 @@ $store_list = [];
 if ($is_super_admin) {
     $res = $conn->query(
         "SELECT id, name AS label FROM stores
-         WHERE is_active=1 AND name NOT IN ('CENTER (물류센터)', 'KIMS MALL WHEREHOUSE (킴스몰 창고)')
+         WHERE name NOT IN ('CENTER (물류센터)', 'KIMS MALL WHEREHOUSE (킴스몰 창고)')
          ORDER BY label"
     );
     $store_list = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];

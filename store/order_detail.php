@@ -28,9 +28,11 @@ try {
     $st = $conn->prepare(
         "SELECT oi.*, CONCAT(p.name_en, IFNULL(CONCAT(' (',p.name_ko,')'),'')) AS product_name,
                 p.name_en, p.name_ko, p.unit, p.capacity, p.pieces_per_box AS product_ppb,
-                COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode
+                COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
+                b.name_en AS brand_name, b.name_ko AS brand_name_ko
          FROM lc_order_items oi
          JOIN lc_products p ON oi.product_id = p.id
+         LEFT JOIN lc_brands b ON p.brand_id = b.id
          WHERE oi.order_id = ?"
     );
     $st->bind_param('i', $id); $st->execute();
@@ -184,6 +186,7 @@ $current_idx  = array_search($order['status'], $status_order);
             <thead class="bg-gray-50"><tr>
                 <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:36px;white-space:nowrap;">#</th>
                 <th class="px-3 py-3 text-center text-xs text-gray-500 font-medium" style="width:130px;">Barcode</th>
+                <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium" style="width:96px;">Brand</th>
                 <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
                 <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium whitespace-nowrap" style="width:62px;">Capacity</th>
                 <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:44px;">Qty</th>
@@ -205,6 +208,18 @@ $current_idx  = array_search($order['status'], $status_order);
                     <?php if (!empty($item['barcode'])): $bc = trim((string)$item['barcode']); ?>
                     <svg class="barcode-svg" data-sku="<?php echo htmlspecialchars($bc); ?>" style="display:block;margin:0 auto;max-width:100%;"></svg>
                     <div class="font-mono text-xs text-gray-600" style="margin-top:2px;line-height:1;"><?php echo htmlspecialchars($bc); ?></div>
+                    <?php else: ?>
+                    <span class="text-gray-300">-</span>
+                    <?php endif; ?>
+                </td>
+                <td class="px-3 py-2 text-xs" style="line-height:1.2;">
+                    <?php if (!empty($item['brand_name']) || !empty($item['brand_name_ko'])): ?>
+                    <?php if (!empty($item['brand_name_ko'])): ?>
+                    <div class="text-gray-900 font-semibold"><?php echo htmlspecialchars($item['brand_name_ko']); ?></div>
+                    <?php endif; ?>
+                    <?php if (!empty($item['brand_name'])): ?>
+                    <div class="text-gray-500"><?php echo htmlspecialchars($item['brand_name']); ?></div>
+                    <?php endif; ?>
                     <?php else: ?>
                     <span class="text-gray-300">-</span>
                     <?php endif; ?>
@@ -240,7 +255,7 @@ $current_idx  = array_search($order['status'], $status_order);
             </tr>
             <?php endforeach; ?>
             <tr class="bg-gray-50">
-                <td colspan="9" class="px-3 py-3 text-right text-sm font-semibold text-gray-700">Total</td>
+                <td colspan="10" class="px-3 py-3 text-right text-sm font-semibold text-gray-700">Total</td>
                 <td class="px-3 py-3 text-right text-base font-bold text-gray-900"><?php echo number_format($order['total_amount'] ?? array_sum(array_map(fn($i) => $i['unit_price'] * $i['quantity'], $items)), 2); ?></td>
             </tr>
             </tbody>

@@ -60,6 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .auth-field input:focus { outline: none; border-color: var(--primary-normal); }
         .auth-links { margin-top: var(--space-4); display: flex; justify-content: space-between; font: var(--t-caption1) var(--font-sans); color: var(--label-alternative); }
         .auth-links a { color: var(--primary-normal); font-weight: 700; }
+        .auth-divider { display: flex; align-items: center; gap: 10px; margin: var(--space-5) 0; color: var(--label-assistive); font: var(--t-caption1) var(--font-sans); }
+        .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--line-alternative); }
+        .google-btn-wrap { display: flex; justify-content: center; }
     </style>
 </head>
 <body>
@@ -85,11 +88,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-sign-in-alt"></i> 로그인</button>
             </form>
 
+            <div class="auth-divider">또는</div>
+            <div class="google-btn-wrap">
+                <div id="g_id_onload"
+                     data-client_id="<?php echo htmlspecialchars(MALL_GOOGLE_CLIENT_ID); ?>"
+                     data-callback="mallHandleGoogleCredential">
+                </div>
+                <div class="g_id_signin" data-type="standard" data-shape="pill" data-width="320"></div>
+            </div>
+
             <div class="auth-links">
                 <a href="signup.php">회원가입</a>
                 <a href="forgot_password.php">비밀번호 찾기</a>
             </div>
         </div>
     </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        function mallHandleGoogleCredential(response) {
+            const params = new URLSearchParams();
+            params.set('credential', response.credential);
+            fetch('/mall/ajax/google_auth.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = data.data.redirect;
+                    } else if (data.error?.code === 'NEEDS_SIGNUP') {
+                        window.location.href = '/mall/signup.php?google=1';
+                    } else {
+                        alert(data.error?.message || '구글 로그인에 실패했습니다');
+                    }
+                })
+                .catch(() => alert('구글 로그인 중 오류가 발생했습니다'));
+        }
+    </script>
 </body>
 </html>

@@ -48,7 +48,7 @@ if ($member) {
 <?php if (!$member): ?>
 <div class="guest-card">
     <div style="font:var(--t-headline1) var(--font-sans);margin-bottom:6px;">로그인하고 더 많은 혜택을 받아보세요</div>
-    <div style="font:var(--t-caption1) var(--font-sans);color:var(--label-alternative);margin-bottom:var(--space-5);">주문내역, 위시리스트, 정기배송 관리를 이용하려면 로그인이 필요해요.</div>
+    <div style="font:var(--t-caption1) var(--font-sans);color:var(--label-alternative);margin-bottom:var(--space-5);">주문내역, 위시리스트 관리를 이용하려면 로그인이 필요해요.</div>
     <div style="display:flex;gap:8px;">
         <a href="/mall/login.php" class="btn" style="flex:1;background:var(--fill-strong);color:var(--label-normal);">로그인</a>
         <a href="/mall/signup.php" class="btn btn-primary" style="flex:1;">회원가입</a>
@@ -85,7 +85,6 @@ if ($member) {
 <div class="my-menu">
     <a href="/mall/mypage/profile.php">회원정보수정 <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg></a>
     <a href="/mall/address.php">배송지 관리 <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg></a>
-    <a href="/mall/subscribe.php">정기배송 <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg></a>
     <a href="/mall/settings.php">환경설정 <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg></a>
     <div class="menu-row disabled">고객센터 <span class="tag-soon">준비중</span></div>
     <div class="menu-row disabled">알림설정 <span class="tag-soon">준비중</span></div>
