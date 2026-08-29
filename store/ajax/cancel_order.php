@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/auth.php';
+require_once __DIR__ . '/../../logistics/lib/inventory_helper.php';
 header('Content-Type: application/json; charset=utf-8');
 
 store_require_store_user();
@@ -37,12 +38,24 @@ try {
     }
 
     if ($order['status'] === 'pending') {
-        // 대기 중 → 즉시 취소
+        // 대기 중 → 즉시 취소 + 주문 접수 시 차감했던 재고 복원
+        $conn->autocommit(false);
         $st = $conn->prepare("UPDATE lc_orders SET status = 'cancelled' WHERE id = ? AND status = 'pending'");
         $st->bind_param('i', $order_id);
         $st->execute();
-        $conn->close();
-        echo json_encode(['success' => true, 'mode' => 'direct']);
+        $affected = $st->affected_rows;
+        $st->close();
+
+        if ($affected > 0) {
+            lc_restore_order_stock($conn, $order_id);
+            $conn->commit();
+            $conn->close();
+            echo json_encode(['success' => true, 'mode' => 'direct']);
+        } else {
+            $conn->rollback();
+            $conn->close();
+            echo json_encode(['success' => false, 'message' => 'Cannot cancel in current status.']);
+        }
 
     } elseif ($order['status'] === 'approved') {
         // 승인됨 → 취소 요청 (물류 승인 필요)
@@ -56,6 +69,7 @@ try {
         $conn->close();
         echo json_encode(['success' => false, 'message' => 'Cannot cancel in current status.']);
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    if (isset($conn)) { $conn->rollback(); $conn->close(); }
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }

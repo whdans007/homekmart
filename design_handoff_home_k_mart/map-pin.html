@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>배송지 설정 · HOME K MART</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="wanted-tokens.css">
+<style>
+  :root{--brand-red:#C8102E;--on-brand-red:#fff;--sheet:#fff;--tile-filter:none}
+  html.dark{
+    --bg-normal:#17181A;--bg-alternative:#0F1012;--label-normal:#F2F3F5;--label-neutral:rgba(242,243,245,.88);
+    --label-alternative:rgba(233,236,242,.60);--label-assistive:rgba(233,236,242,.34);
+    --line-normal:rgba(160,168,184,.24);--line-alternative:rgba(160,168,184,.14);
+    --line-strong:rgba(160,168,184,.40);
+    --fill-normal:rgba(160,168,184,.10);--fill-strong:rgba(160,168,184,.20);
+    --primary-normal:#4D8FFF;--primary-strong:#7FB0FF;--primary-bg:rgba(77,143,255,.18);
+    --brand-red:#FF7A85;--on-brand-red:#17181A;--sheet:#17181A;
+    --tile-filter:invert(1) hue-rotate(185deg) brightness(.86) contrast(.92) saturate(.7);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg-normal);font-family:"Pretendard JP","Pretendard",-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+  a{color:var(--primary-normal);text-decoration:none}
+  a:hover{color:var(--primary-strong)}
+  button,input{font-family:inherit}
+  #shell{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg-normal)}
+  #map{position:absolute;inset:0}
+  .leaflet-container{background:var(--bg-alternative);font-family:inherit}
+  .leaflet-tile-pane{filter:var(--tile-filter)}
+  .leaflet-control-attribution{font:400 9px/1.4 var(--font-sans);background:rgba(255,255,255,.78)}
+  html.dark .leaflet-control-attribution{background:rgba(15,16,18,.8);color:var(--label-alternative)}
+  html.dark .leaflet-control-attribution a{color:var(--label-alternative)}
+  .leaflet-control-zoom{display:none}
+  .fld{width:100%;height:48px;padding:0 13px;border-radius:12px;border:1.5px solid var(--line-normal);background:var(--bg-normal);font:500 15px/1 var(--font-sans);color:var(--label-normal)}
+  .fld:focus{outline:none;border-color:var(--primary-normal)}
+  .fld::placeholder{color:var(--label-assistive)}
+  .lab{display:block;font:700 12px/1.3 var(--font-sans);color:var(--label-alternative);margin:0 0 6px 2px}
+  .err{font:500 12px/1.4 var(--font-sans);color:var(--brand-red);margin:6px 0 0 2px;display:none}
+  .row{margin-bottom:14px;position:relative}
+  .acbox{position:absolute;left:0;right:0;top:100%;margin-top:6px;z-index:900;background:var(--bg-normal);border:1px solid var(--line-normal);border-radius:12px;overflow:hidden;box-shadow:0 10px 28px rgba(0,0,0,.16);display:none;max-height:210px;overflow-y:auto}
+  .acbox button{display:block;width:100%;text-align:left;border:none;border-bottom:1px solid var(--line-alternative);background:var(--bg-normal);padding:12px 14px;cursor:pointer}
+  .acbox button:hover{background:var(--fill-normal)}
+</style>
+</head>
+<body>
+<div id="shell">
+
+  <div style="position:relative;z-index:700;padding:52px 10px 0;background:var(--bg-normal)">
+    <div style="display:flex;align-items:center;gap:4px">
+      <button id="back" aria-label="뒤로" style="width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--label-normal)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><g transform="rotate(180 12 12)"><path transform="translate(7.6 3.099)" d="M 0.264 0.264 C -0.088 0.615 -0.088 1.185 0.264 1.536 L 7.627 8.9 L 0.264 16.264 C -0.088 16.615 -0.088 17.185 0.264 17.536 C 0.615 17.888 1.185 17.888 1.536 17.536 L 9.536 9.536 C 9.888 9.185 9.888 8.615 9.536 8.264 L 1.536 0.264 C 1.185 -0.088 0.615 -0.088 0.264 0.264 Z"></path></g></svg>
+      </button>
+      <div style="flex:1;min-width:0">
+        <div style="font:700 17px/1.3 var(--font-sans);color:var(--label-normal)">배송지 설정</div>
+        <div style="font:500 12px/1.3 var(--font-sans);color:var(--label-alternative);margin-top:1px">Delivery address</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;padding:12px 6px 12px">
+      <button id="tabMap" style="flex:1;height:42px;border-radius:10px;border:1.5px solid var(--primary-normal);background:var(--primary-bg);color:var(--primary-strong);font:700 14px/1 var(--font-sans);cursor:pointer">지도에서 핀</button>
+      <button id="tabForm" style="flex:1;height:42px;border-radius:10px;border:1.5px solid var(--line-normal);background:var(--bg-normal);color:var(--label-normal);font:700 14px/1 var(--font-sans);cursor:pointer">주소 입력</button>
+    </div>
+  </div>
+
+  <!-- ================= MAP MODE ================= -->
+  <div id="mapMode" style="flex:1;min-height:0;display:flex;flex-direction:column">
+    <div style="position:relative;z-index:600;padding:0 16px 14px;background:var(--bg-normal);border-bottom:1px solid var(--line-normal)">
+      <div style="display:flex;align-items:center;gap:8px;height:46px;padding:0 13px;border-radius:12px;background:var(--fill-normal)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--label-alternative)" style="flex:none"><g transform="translate(2.35 2.35)"><path d="M 7.9 0 C 3.537 0 0 3.537 0 7.9 C 0 12.263 3.537 15.8 7.9 15.8 C 9.757 15.8 11.465 15.159 12.814 14.086 L 17.764 19.036 C 18.115 19.388 18.685 19.388 19.036 19.036 C 19.388 18.685 19.388 18.115 19.036 17.764 L 14.086 12.813 C 15.159 11.465 15.8 9.757 15.8 7.9 C 15.8 3.537 12.263 0 7.9 0 Z M 1.8 7.9 C 1.8 4.531 4.531 1.8 7.9 1.8 C 11.269 1.8 14 4.531 14 7.9 C 14 11.269 11.269 14 7.9 14 C 4.531 14 1.8 11.269 1.8 7.9 Z" fill-rule="evenodd"></path></g></svg>
+        <input id="q" placeholder="바랑가이 · 건물 · 랜드마크 검색" style="flex:1;border:none;background:none;font:500 15px/1.4 var(--font-sans);color:var(--label-normal);min-width:0;outline:none">
+      </div>
+      <div id="sugg" class="acbox" style="left:16px;right:16px"></div>
+    </div>
+
+    <div style="position:relative;flex:1;min-height:190px">
+      <div id="map"></div>
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);z-index:500;pointer-events:none;display:flex;flex-direction:column;align-items:center">
+        <div id="pinBubble" style="margin-bottom:6px;background:var(--label-normal);color:var(--bg-normal);font:700 12px/1 var(--font-sans);padding:7px 10px;border-radius:8px;white-space:nowrap">여기로 배송</div>
+        <svg width="34" height="42" viewBox="0 0 34 42" style="filter:drop-shadow(0 6px 10px rgba(0,0,0,.28))">
+          <path d="M17 1c8.284 0 15 6.716 15 15 0 9.6-11.25 20.4-13.62 22.56a2 2 0 0 1-2.76 0C13.25 36.4 2 25.6 2 16 2 7.716 8.716 1 17 1Z" fill="var(--primary-normal)"/>
+          <circle cx="17" cy="16" r="5.4" fill="#fff"/>
+        </svg>
+        <div style="width:8px;height:8px;border-radius:999px;background:rgba(0,0,0,.35);margin-top:-3px"></div>
+      </div>
+      <button id="locate" style="position:absolute;right:14px;bottom:16px;z-index:500;width:46px;height:46px;border-radius:14px;border:1px solid var(--line-normal);background:var(--bg-normal);color:var(--primary-normal);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.14)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(3.6 1.976)"><path d="M 12.803 16.53 C 11.83 17.555 10.86 18.393 10.134 18.974 C 9.735 19.294 9.328 19.608 8.904 19.896 C 8.604 20.099 8.194 20.098 7.894 19.895 C 7.471 19.608 7.065 19.293 6.666 18.974 C 5.94 18.393 4.97 17.555 3.997 16.53 C 2.091 14.521 0 11.613 0 8.4 C 0 3.761 3.761 0 8.4 0 C 13.039 0 16.8 3.761 16.8 8.4 C 16.8 11.613 14.709 14.521 12.803 16.53 Z M 8.4 1.8 C 4.755 1.8 1.8 4.755 1.8 8.4 C 1.8 10.881 3.459 13.348 5.303 15.291 C 6.514 16.567 7.736 17.544 8.4 18.041 C 9.064 17.544 10.286 16.567 11.497 15.291 C 13.341 13.348 15 10.881 15 8.4 C 15 4.755 12.045 1.8 8.4 1.8 Z" fill-rule="evenodd"></path><path d="M 8.4 4.75 C 6.384 4.75 4.75 6.384 4.75 8.4 C 4.75 10.416 6.384 12.05 8.4 12.05 C 10.416 12.05 12.05 10.416 12.05 8.4 C 12.05 6.384 10.416 4.75 8.4 4.75 Z M 6.55 8.4 C 6.55 7.378 7.378 6.55 8.4 6.55 C 9.422 6.55 10.25 7.378 10.25 8.4 C 10.25 9.422 9.422 10.25 8.4 10.25 C 7.378 10.25 6.55 9.422 6.55 8.4 Z" fill-rule="evenodd"></path></g></svg>
+      </button>
+    </div>
+
+    <div style="position:relative;z-index:600;background:var(--sheet);border-top:1px solid var(--line-normal);border-radius:20px 20px 0 0;margin-top:-20px;padding:16px 20px 30px;box-shadow:0 -8px 28px rgba(0,0,0,.14);max-height:56%;overflow-y:auto">
+      <div style="width:40px;height:4px;border-radius:99px;background:var(--fill-strong);margin:0 auto 14px"></div>
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px">
+        <div style="flex:1;min-width:0">
+          <div style="font:700 12px/1.3 var(--font-sans);color:var(--label-alternative);margin-bottom:5px">핀 위치 기준 주소</div>
+          <div id="addr" style="font:700 17px/1.4 var(--font-sans);color:var(--label-normal)">Barangay Poblacion, Makati City</div>
+          <div id="meta" style="font:500 12px/1.5 var(--font-sans);color:var(--label-alternative);margin-top:3px">Metro Manila 1210 · 14.56570, 121.02950</div>
+        </div>
+        <span id="dist" style="flex:none;background:var(--primary-bg);color:var(--primary-strong);font:700 11px/1 var(--font-sans);padding:7px 9px;border-radius:6px">핀 위치 확정</span>
+      </div>
+      <input id="mUnit" class="fld" placeholder="동 · 호수 (Unit / Floor)" value="Unit 301" style="margin-bottom:10px">
+      <input id="mLandmark" class="fld" placeholder="랜드마크 · 기사 안내 (필수)" value="Rockwell 정문 옆, 경비실 맡김 가능" style="margin-bottom:12px">
+      <div id="mAliases" style="display:flex;gap:7px;margin-bottom:14px"></div>
+      <div style="display:flex;gap:9px;align-items:flex-start;background:var(--fill-normal);border-radius:10px;padding:12px 13px;margin-bottom:14px">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="var(--primary-normal)" style="flex:none;margin-top:1px"><path d="M12 2.2a9.8 9.8 0 1 0 0 19.6 9.8 9.8 0 0 0 0-19.6Zm0 1.8a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm0 3a1.15 1.15 0 1 0 0 2.3 1.15 1.15 0 0 0 0-2.3Zm.9 4.1h-1.8v6h1.8v-6Z"/></svg>
+        <div style="font:500 12px/1.6 var(--font-sans);color:var(--label-neutral)">필리핀은 번지 체계가 일정하지 않아, 텍스트 주소보다 <b style="color:var(--label-normal)">핀 좌표 + 랜드마크</b>가 기사에게 정확합니다. 저장 시 좌표가 함께 전달됩니다.</div>
+      </div>
+      <button id="mSave" style="width:100%;height:54px;border:none;border-radius:12px;background:var(--primary-normal);color:#fff;font:700 16px/1 var(--font-sans);cursor:pointer">이 위치를 배송지로 저장</button>
+    </div>
+  </div>
+
+  <!-- ================= FORM MODE ================= -->
+  <div id="formMode" style="display:none;flex:1;min-height:0;overflow-y:auto;padding:6px 20px 30px">
+    <div class="row">
+      <label class="lab" for="fName">수령인 · Recipient</label>
+      <input id="fName" class="fld" placeholder="예: Maria Santos" value="Maria Santos">
+      <div class="err" id="eName">수령인 이름을 입력해 주세요.</div>
+    </div>
+
+    <div class="row">
+      <label class="lab" for="fPhone">휴대폰 · Mobile</label>
+      <div style="display:flex;gap:8px">
+        <span style="flex:none;height:48px;padding:0 13px;border-radius:12px;border:1.5px solid var(--line-normal);background:var(--fill-normal);font:600 15px/46px var(--font-sans);color:var(--label-neutral)">+63</span>
+        <input id="fPhone" class="fld" inputmode="numeric" placeholder="9171234567" value="9171234567" style="flex:1">
+      </div>
+      <div class="err" id="ePhone">9로 시작하는 10자리 번호를 입력해 주세요.</div>
+    </div>
+
+    <div class="row">
+      <label class="lab" for="fProv">지역 · Province / Region</label>
+      <input id="fProv" class="fld" placeholder="Metro Manila" value="Metro Manila" autocomplete="off">
+      <div class="acbox" id="acProv"></div>
+      <div class="err" id="eProv">목록에서 지역을 선택해 주세요.</div>
+    </div>
+
+    <div class="row">
+      <label class="lab" for="fCity">시 · City / Municipality</label>
+      <input id="fCity" class="fld" placeholder="Makati City" value="Makati City" autocomplete="off">
+      <div class="acbox" id="acCity"></div>
+      <div class="err" id="eCity">목록에서 시를 선택해 주세요.</div>
+    </div>
+
+    <div class="row">
+      <label class="lab" for="fBrgy">바랑가이 · Barangay <span style="color:var(--brand-red)">*</span></label>
+      <input id="fBrgy" class="fld" placeholder="입력하면 자동완성됩니다" value="Poblacion" autocomplete="off">
+      <div class="acbox" id="acBrgy"></div>
+      <div class="err" id="eBrgy">목록에서 바랑가이를 선택해 주세요.</div>
+    </div>
+
+    <div class="row">
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <label class="lab" for="fStreet">거리 · 건물명</label>
+          <input id="fStreet" class="fld" placeholder="예: Rockwell Drive" value="Rockwell Drive">
+        </div>
+        <div style="width:104px;flex:none">
+          <label class="lab" for="fZip">ZIP</label>
+          <input id="fZip" class="fld" inputmode="numeric" placeholder="1210" value="1210">
+        </div>
+      </div>
+      <div class="err" id="eStreet">거리 또는 건물명을 입력해 주세요.</div>
+    </div>
+
+    <div class="row">
+      <label class="lab" for="fUnit">동 · 호수 (선택)</label>
+      <input id="fUnit" class="fld" placeholder="Unit 301" value="Unit 301">
+    </div>
+
+    <div class="row">
+      <label class="lab" for="fLandmark">랜드마크 · 기사 안내 <span style="color:var(--brand-red)">*</span></label>
+      <input id="fLandmark" class="fld" placeholder="예: 7-Eleven 뒤 파란 게이트" value="Rockwell 정문 옆, 경비실 맡김 가능">
+      <div class="err" id="eLandmark">필리핀은 번지만으로 찾기 어렵습니다. 랜드마크를 적어주세요.</div>
+    </div>
+
+    <div class="row">
+      <label class="lab">별칭 · Label</label>
+      <div id="fAliases" style="display:flex;gap:7px"></div>
+    </div>
+
+    <button id="fPinLink" style="width:100%;display:flex;align-items:center;gap:10px;border:1px dashed var(--line-strong);border-radius:12px;background:var(--fill-normal);padding:14px 15px;cursor:pointer;text-align:left;margin-bottom:16px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--primary-normal)" style="flex:none"><g transform="translate(3.6 1.976)"><path d="M 12.803 16.53 C 11.83 17.555 10.86 18.393 10.134 18.974 C 9.735 19.294 9.328 19.608 8.904 19.896 C 8.604 20.099 8.194 20.098 7.894 19.895 C 7.471 19.608 7.065 19.293 6.666 18.974 C 5.94 18.393 4.97 17.555 3.997 16.53 C 2.091 14.521 0 11.613 0 8.4 C 0 3.761 3.761 0 8.4 0 C 13.039 0 16.8 3.761 16.8 8.4 C 16.8 11.613 14.709 14.521 12.803 16.53 Z M 8.4 1.8 C 4.755 1.8 1.8 4.755 1.8 8.4 C 1.8 10.881 3.459 13.348 5.303 15.291 C 6.514 16.567 7.736 17.544 8.4 18.041 C 9.064 17.544 10.286 16.567 11.497 15.291 C 13.341 13.348 15 10.881 15 8.4 C 15 4.755 12.045 1.8 8.4 1.8 Z" fill-rule="evenodd"></path></g></svg>
+      <span style="flex:1;min-width:0;display:block">
+        <span style="display:block;font:600 13px/1.4 var(--font-sans);color:var(--label-normal)">지도에서 핀도 함께 찍어두기</span>
+        <span id="fPinState" style="display:block;font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">아직 핀 없음 · 기사 도착률이 크게 올라갑니다</span>
+      </span>
+    </button>
+
+    <button id="fSave" style="width:100%;height:54px;border:none;border-radius:12px;background:var(--primary-normal);color:#fff;font:700 16px/1 var(--font-sans);cursor:pointer">이 주소를 배송지로 저장</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var dark = new URLSearchParams(location.search).get("theme") === "dark";
+  if (dark) document.documentElement.classList.add("dark");
+
+  // ---- Philippine address reference data (province → city → barangays, with ZIP) ----
+  var PH = {
+    "Metro Manila": {
+      "Makati City": { zip: "1210", b: ["Poblacion", "Bel-Air", "San Lorenzo", "Urdaneta", "Forbes Park", "Bangkal", "Pio del Pilar", "La Paz", "Guadalupe Nuevo", "Olympia"] },
+      "Taguig City": { zip: "1634", b: ["Fort Bonifacio (BGC)", "Ususan", "Bagumbayan", "Western Bicutan", "Tuktukan", "Pinagsama"] },
+      "Pasig City": { zip: "1605", b: ["San Antonio (Ortigas)", "Kapitolyo", "Ugong", "Rosario", "Pineda", "Oranbo"] },
+      "Quezon City": { zip: "1103", b: ["South Triangle", "Socorro (Cubao)", "U.P. Campus (Diliman)", "Bagumbayan", "Kamuning", "Sacred Heart", "Batasan Hills"] },
+      "Manila": { zip: "1000", b: ["Ermita", "Malate", "Binondo", "Sampaloc", "Santa Cruz", "Paco", "Tondo"] },
+      "Mandaluyong City": { zip: "1550", b: ["Wack-Wack Greenhills", "Highway Hills", "Plainview", "Hulo", "Barangka Ilaya"] },
+      "San Juan City": { zip: "1502", b: ["Greenhills", "Kabayanan", "Corazon de Jesus", "Salapan"] },
+      "Pasay City": { zip: "1300", b: ["Bay Area", "Barangay 183 (Villamor)", "Barangay 76", "Barangay 201"] },
+      "Parañaque City": { zip: "1720", b: ["BF Homes", "Don Bosco", "Sun Valley", "La Huerta", "Tambo"] },
+      "Muntinlupa City": { zip: "1780", b: ["Ayala Alabang", "Cupang", "Putatan", "Tunasan", "Bayanan"] },
+      "Marikina City": { zip: "1800", b: ["Santo Niño", "Concepcion Uno", "San Roque", "Malanday"] },
+      "Caloocan City": { zip: "1400", b: ["Barangay 176 (Bagong Silang)", "Grace Park East", "Sangandaan", "Bagumbong"] }
+    },
+    "Cebu": {
+      "Cebu City": { zip: "6000", b: ["Lahug", "Mabolo", "Guadalupe", "Banilad", "Apas (IT Park)", "Talamban", "Capitol Site"] },
+      "Mandaue City": { zip: "6014", b: ["Banilad", "Subangdaku", "Tipolo", "Basak"] },
+      "Lapu-Lapu City": { zip: "6015", b: ["Pusok", "Mactan", "Basak", "Marigondon"] }
+    },
+    "Davao del Sur": {
+      "Davao City": { zip: "8000", b: ["Poblacion", "Buhangin", "Talomo", "Matina Crossing", "Bajada", "Lanang"] }
+    },
+    "Cavite": {
+      "Bacoor City": { zip: "4102", b: ["Molino IV", "Talaba", "Zapote", "Mambog"] },
+      "Dasmariñas City": { zip: "4114", b: ["Salitran", "Burol Main", "Paliparan", "Sampaloc"] },
+      "Imus City": { zip: "4103", b: ["Anabu", "Bucandala", "Tanzang Luma", "Poblacion"] }
+    },
+    "Laguna": {
+      "Santa Rosa City": { zip: "4026", b: ["Balibago", "Don Jose", "Macabling", "Dita"] },
+      "Calamba City": { zip: "4027", b: ["Parian", "Real", "Canlubang", "Halang"] }
+    },
+    "Iloilo": {
+      "Iloilo City": { zip: "5000", b: ["Mandurriao", "Jaro", "Molo", "La Paz", "City Proper"] }
+    },
+    "Pampanga": {
+      "Angeles City": { zip: "2009", b: ["Balibago", "Malabañas", "Pampang", "Santo Domingo"] },
+      "San Fernando City": { zip: "2000", b: ["Dolores", "Del Pilar", "Sindalan", "Telabastagan"] }
+    }
+  };
+
+  // map-mode pin reference points
+  var SPOTS = [
+    { n: "Barangay Poblacion", c: "Makati City", z: "1210", lat: 14.5657, lng: 121.0295 },
+    { n: "Barangay Bel-Air", c: "Makati City", z: "1209", lat: 14.5590, lng: 121.0290 },
+    { n: "Barangay San Lorenzo", c: "Makati City", z: "1223", lat: 14.5545, lng: 121.0205 },
+    { n: "Barangay Bangkal", c: "Makati City", z: "1233", lat: 14.5410, lng: 121.0120 },
+    { n: "Barangay Forbes Park", c: "Makati City", z: "1219", lat: 14.5512, lng: 121.0435 },
+    { n: "Fort Bonifacio (BGC)", c: "Taguig City", z: "1634", lat: 14.5512, lng: 121.0492 },
+    { n: "Barangay Ususan", c: "Taguig City", z: "1632", lat: 14.5220, lng: 121.0680 },
+    { n: "Barangay San Antonio (Ortigas)", c: "Pasig City", z: "1605", lat: 14.5860, lng: 121.0608 },
+    { n: "Barangay Kapitolyo", c: "Pasig City", z: "1603", lat: 14.5700, lng: 121.0598 },
+    { n: "Barangay Wack-Wack", c: "Mandaluyong City", z: "1550", lat: 14.5808, lng: 121.0402 },
+    { n: "Greenhills", c: "San Juan City", z: "1502", lat: 14.6030, lng: 121.0350 },
+    { n: "Barangay Socorro (Cubao)", c: "Quezon City", z: "1109", lat: 14.6190, lng: 121.0530 },
+    { n: "Barangay South Triangle", c: "Quezon City", z: "1103", lat: 14.6330, lng: 121.0350 },
+    { n: "Barangay U.P. Campus (Diliman)", c: "Quezon City", z: "1101", lat: 14.6540, lng: 121.0680 },
+    { n: "Barangay Ermita", c: "Manila", z: "1000", lat: 14.5820, lng: 120.9820 },
+    { n: "Barangay Malate", c: "Manila", z: "1004", lat: 14.5710, lng: 120.9880 },
+    { n: "Binondo", c: "Manila", z: "1006", lat: 14.6000, lng: 120.9740 },
+    { n: "Bay Area", c: "Pasay City", z: "1300", lat: 14.5350, lng: 120.9820 },
+    { n: "Barangay Ayala Alabang", c: "Muntinlupa City", z: "1780", lat: 14.4230, lng: 121.0290 },
+    { n: "BF Homes", c: "Parañaque City", z: "1720", lat: 14.4630, lng: 121.0180 },
+    { n: "Barangay Sto. Niño", c: "Marikina City", z: "1800", lat: 14.6350, lng: 121.0980 }
+  ];
+
+  var ALIASES = ["집", "회사", "기타"];
+  var mAlias = "집", fAlias = "집";
+  var pinCoords = "";
+
+  var $ = function (id) { return document.getElementById(id); };
+  function post(msg) { if (window.parent !== window) window.parent.postMessage(msg, "*"); }
+
+  // ---------- mode switch ----------
+  function setMode(m) {
+    var isMap = m === "map";
+    $("mapMode").style.display = isMap ? "flex" : "none";
+    $("formMode").style.display = isMap ? "none" : "block";
+    $("tabMap").style.cssText = "flex:1;height:42px;border-radius:10px;border:1.5px solid " + (isMap ? "var(--primary-normal)" : "var(--line-normal)") + ";background:" + (isMap ? "var(--primary-bg)" : "var(--bg-normal)") + ";color:" + (isMap ? "var(--primary-strong)" : "var(--label-normal)") + ";font:700 14px/1 var(--font-sans);cursor:pointer";
+    $("tabForm").style.cssText = "flex:1;height:42px;border-radius:10px;border:1.5px solid " + (!isMap ? "var(--primary-normal)" : "var(--line-normal)") + ";background:" + (!isMap ? "var(--primary-bg)" : "var(--bg-normal)") + ";color:" + (!isMap ? "var(--primary-strong)" : "var(--label-normal)") + ";font:700 14px/1 var(--font-sans);cursor:pointer";
+    if (isMap && map) setTimeout(function () { map.invalidateSize(); }, 60);
+  }
+  $("tabMap").onclick = function () { setMode("map"); };
+  $("tabForm").onclick = function () { setMode("form"); };
+  $("back").onclick = function () { post({ type: "hkm-address-cancel" }); };
+
+  // ---------- alias chips ----------
+  function chips(host, get, set) {
+    host.innerHTML = "";
+    ALIASES.forEach(function (a) {
+      var on = a === get();
+      var b = document.createElement("button");
+      b.type = "button"; b.textContent = a;
+      b.style.cssText = "border:1.5px solid " + (on ? "var(--primary-normal)" : "var(--line-normal)") + ";background:" + (on ? "var(--primary-bg)" : "var(--bg-normal)") + ";color:" + (on ? "var(--primary-strong)" : "var(--label-neutral)") + ";font:600 13px/1 var(--font-sans);padding:12px 17px;border-radius:999px;cursor:pointer";
+      b.onclick = function () { set(a); chips(host, get, set); };
+      host.appendChild(b);
+    });
+  }
+  chips($("mAliases"), function () { return mAlias; }, function (v) { mAlias = v; });
+  chips($("fAliases"), function () { return fAlias; }, function (v) { fAlias = v; });
+
+  // ---------- map ----------
+  var map = L.map("map", { center: [14.5657, 121.0295], zoom: 16, zoomControl: false });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
+  var current = SPOTS[0];
+
+  function nearest(lat, lng) {
+    var best = SPOTS[0], bd = Infinity;
+    for (var i = 0; i < SPOTS.length; i++) {
+      var dLat = (SPOTS[i].lat - lat) * 110.6, dLng = (SPOTS[i].lng - lng) * 107.3;
+      var d = Math.sqrt(dLat * dLat + dLng * dLng);
+      if (d < bd) { bd = d; best = SPOTS[i]; }
+    }
+    return { spot: best, km: bd };
+  }
+  function refresh() {
+    var c = map.getCenter(), hit = nearest(c.lat, c.lng);
+    current = hit.spot;
+    pinCoords = c.lat.toFixed(5) + ", " + c.lng.toFixed(5);
+    $("addr").textContent = hit.spot.n + ", " + hit.spot.c;
+    $("meta").textContent = "Metro Manila " + hit.spot.z + " · " + pinCoords;
+    $("fPinState").textContent = "핀 저장됨 · " + pinCoords;
+    var d = $("dist");
+    if (hit.km < 0.35) { d.textContent = "핀 위치 확정"; d.style.background = "var(--primary-bg)"; d.style.color = "var(--primary-strong)"; }
+    else { d.textContent = "중심에서 " + hit.km.toFixed(1) + "km"; d.style.background = "var(--fill-normal)"; d.style.color = "var(--label-alternative)"; }
+  }
+  map.on("movestart", function () { $("pinBubble").textContent = "핀을 놓을 곳으로 이동"; });
+  map.on("move", function () { $("meta").textContent = "위치 확인 중…"; });
+  map.on("moveend", function () { $("pinBubble").textContent = "여기로 배송"; refresh(); });
+  refresh();
+  $("locate").onclick = function () { map.setView([14.5657, 121.0295], 16, { animate: true }); };
+
+  // map search
+  $("q").addEventListener("input", function () {
+    var v = this.value.trim().toLowerCase(), box = $("sugg");
+    box.innerHTML = "";
+    var hits = v ? SPOTS.filter(function (s) { return (s.n + " " + s.c).toLowerCase().indexOf(v) >= 0; }).slice(0, 5) : [];
+    if (!hits.length) { box.style.display = "none"; return; }
+    hits.forEach(function (s) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.innerHTML = '<span style="display:block;font:600 14px/1.4 var(--font-sans);color:var(--label-normal)">' + s.n + '</span><span style="display:block;font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">' + s.c + " · " + s.z + "</span>";
+      b.onclick = function () { map.setView([s.lat, s.lng], 17, { animate: true }); box.style.display = "none"; $("q").value = ""; };
+      box.appendChild(b);
+    });
+    box.style.display = "block";
+  });
+
+  $("mSave").onclick = function () {
+    var lm = $("mLandmark").value.trim();
+    if (!lm) { $("mLandmark").style.borderColor = "var(--brand-red)"; $("mLandmark").focus(); return; }
+    var unit = $("mUnit").value.trim();
+    post({
+      type: "hkm-address-save", alias: mAlias, mode: "pin",
+      line: (unit ? unit + ", " : "") + current.n + ", " + current.c,
+      short: current.c.replace(" City", "") + " · " + current.n.replace("Barangay ", ""),
+      landmark: lm, coords: pinCoords, zip: current.z
+    });
+  };
+
+  // ---------- autocomplete ----------
+  function autocomplete(input, box, source, onPick) {
+    function close() { box.style.display = "none"; }
+    function open(list) {
+      box.innerHTML = "";
+      if (!list.length) { close(); return; }
+      list.slice(0, 40).forEach(function (item) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.innerHTML = '<span style="display:block;font:600 14px/1.4 var(--font-sans);color:var(--label-normal)">' + item.label + '</span>' +
+          (item.meta ? '<span style="display:block;font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">' + item.meta + "</span>" : "");
+        b.onclick = function () { input.value = item.label; close(); input.style.borderColor = "var(--line-normal)"; onPick(item); };
+        box.appendChild(b);
+      });
+      box.style.display = "block";
+    }
+    function run() {
+      var v = input.value.trim().toLowerCase();
+      var all = source();
+      open(v ? all.filter(function (i) { return i.label.toLowerCase().indexOf(v) >= 0; }) : all);
+    }
+    input.addEventListener("input", run);
+    input.addEventListener("focus", run);
+    input.addEventListener("blur", function () { setTimeout(close, 160); });
+  }
+
+  autocomplete($("fProv"), $("acProv"),
+    function () { return Object.keys(PH).map(function (p) { return { label: p, meta: Object.keys(PH[p]).length + "개 시·군" }; }); },
+    function () { $("fCity").value = ""; $("fBrgy").value = ""; $("fZip").value = ""; $("fCity").focus(); });
+
+  autocomplete($("fCity"), $("acCity"),
+    function () {
+      var p = PH[$("fProv").value.trim()];
+      return p ? Object.keys(p).map(function (c) { return { label: c, meta: "ZIP " + p[c].zip + " · " + p[c].b.length + "개 바랑가이" }; }) : [];
+    },
+    function (item) {
+      var p = PH[$("fProv").value.trim()];
+      if (p && p[item.label]) $("fZip").value = p[item.label].zip;
+      $("fBrgy").value = ""; $("fBrgy").focus();
+    });
+
+  autocomplete($("fBrgy"), $("acBrgy"),
+    function () {
+      var p = PH[$("fProv").value.trim()], c = p && p[$("fCity").value.trim()];
+      return c ? c.b.map(function (b) { return { label: b, meta: $("fCity").value.trim() }; }) : [];
+    },
+    function () { $("fStreet").focus(); });
+
+  $("fPinLink").onclick = function () { setMode("map"); };
+
+  // ---------- validation + save ----------
+  function bad(input, errId, on) {
+    input.style.borderColor = on ? "var(--brand-red)" : "var(--line-normal)";
+    $(errId).style.display = on ? "block" : "none";
+    return on;
+  }
+  $("fSave").onclick = function () {
+    var prov = $("fProv").value.trim(), city = $("fCity").value.trim(), brgy = $("fBrgy").value.trim();
+    var p = PH[prov], c = p && p[city];
+    var e = false;
+    e = bad($("fName"), "eName", !$("fName").value.trim()) || e;
+    e = bad($("fPhone"), "ePhone", !/^9\d{9}$/.test($("fPhone").value.replace(/\D/g, ""))) || e;
+    e = bad($("fProv"), "eProv", !p) || e;
+    e = bad($("fCity"), "eCity", !c) || e;
+    e = bad($("fBrgy"), "eBrgy", !(c && c.b.indexOf(brgy) >= 0)) || e;
+    e = bad($("fStreet"), "eStreet", !$("fStreet").value.trim()) || e;
+    e = bad($("fLandmark"), "eLandmark", !$("fLandmark").value.trim()) || e;
+    if (e) return;
+    var unit = $("fUnit").value.trim(), street = $("fStreet").value.trim();
+    post({
+      type: "hkm-address-save", alias: fAlias, mode: pinCoords ? "form+pin" : "form",
+      line: (unit ? unit + ", " : "") + street + ", Barangay " + brgy + ", " + city,
+      short: city.replace(" City", "") + " · " + brgy,
+      landmark: $("fLandmark").value.trim(),
+      coords: pinCoords, zip: $("fZip").value.trim() || (c ? c.zip : ""),
+      name: $("fName").value.trim(), phone: "+63 " + $("fPhone").value.replace(/\D/g, "")
+    });
+  };
+})();
+</script>
+</body>
+</html>

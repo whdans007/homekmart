@@ -63,33 +63,42 @@ try {
 
     if (empty($cartItems)) { throw new Exception('장바구니에 상품이 없습니다.'); }
 
-    // 주문서 엑셀 생성
+    // 주문서 엑셀 생성 (대용량 재고 파일은 시간이 걸릴 수 있어 DB 커넥션이 유휴 상태로 끊길 수 있음)
     $tmpFile = ord_generate_order_file($originalPath, $colMap, $cartItems);
 
-    // 이력 저장
+    // 이력 저장 — 실패해도 다운로드 자체는 막지 않는다 (부가 기능)
     if ($saveHistory) {
-        // 엑셀 파일의 인코딩 문제로 유효하지 않은 UTF-8 바이트가 섞여 들어오면
-        // json_encode()가 false를 반환해 items_json(JSON 컬럼)에 빈 문자열이 저장되며
-        // "Invalid JSON text" SQL 에러로 이어지므로 사전에 정리한다.
-        array_walk_recursive($cartItems, function (&$v) {
-            if (is_string($v) && !mb_check_encoding($v, 'UTF-8')) {
-                $v = iconv('UTF-8', 'UTF-8//IGNORE', $v);
+        try {
+            // 파일 생성 중 시간이 오래 걸리면 기존 커넥션이 서버 측에서 끊겨
+            // "MySQL server has gone away" 오류로 이어질 수 있으므로 재연결한다.
+            $conn->close();
+            $conn = get_ord_db();
+
+            // 엑셀 파일의 인코딩 문제로 유효하지 않은 UTF-8 바이트가 섞여 들어오면
+            // json_encode()가 false를 반환해 items_json(JSON 컬럼)에 빈 문자열이 저장되며
+            // "Invalid JSON text" SQL 에러로 이어지므로 사전에 정리한다.
+            array_walk_recursive($cartItems, function (&$v) {
+                if (is_string($v) && !mb_check_encoding($v, 'UTF-8')) {
+                    $v = iconv('UTF-8', 'UTF-8//IGNORE', $v);
+                }
+            });
+            $itemsJson = json_encode($cartItems, JSON_UNESCAPED_UNICODE);
+            if ($itemsJson === false) {
+                throw new Exception('주문 내역을 JSON으로 변환하지 못했습니다 (원인: ' . json_last_error_msg() . ')');
             }
-        });
-        $itemsJson = json_encode($cartItems, JSON_UNESCAPED_UNICODE);
-        if ($itemsJson === false) {
-            throw new Exception('주문 내역을 JSON으로 변환하지 못했습니다 (원인: ' . json_last_error_msg() . '). 재고 파일의 문자 인코딩을 확인해주세요.');
+            $itemCount = count($cartItems);
+            $invId     = (int)$inv['id'];
+            $userId    = ord_current_user_id();
+            $stmt = $conn->prepare("INSERT INTO order_history (store_id, vendor_id, vendor_name, ordered_by, items_json, item_count, inventory_id) VALUES (?,?,?,?,?,?,?)");
+            $stmt->bind_param('iisisii', $storeId, $vendorId, $vendorName, $userId, $itemsJson, $itemCount, $invId);
+            $stmt->execute();
+            $stmt->close();
+        } catch (\Throwable $historyError) {
+            error_log('order_history 저장 실패 (vendor_id=' . $vendorId . '): ' . $historyError->getMessage());
         }
-        $itemCount = count($cartItems);
-        $invId     = (int)$inv['id'];
-        $userId    = ord_current_user_id();
-        $stmt = $conn->prepare("INSERT INTO order_history (store_id, vendor_id, vendor_name, ordered_by, items_json, item_count, inventory_id) VALUES (?,?,?,?,?,?,?)");
-        $stmt->bind_param('iisisii', $storeId, $vendorId, $vendorName, $userId, $itemsJson, $itemCount, $invId);
-        $stmt->execute();
-        $stmt->close();
     }
 
-    $conn->close();
+    try { $conn->close(); } catch (\Throwable $ignore) {}
 
     // 다운로드 응답
     $downloadName = date('Ymd') . '_' . preg_replace('/[^a-zA-Z0-9가-힣_-]/', '_', $vendorName) . '_발주서.xlsx';

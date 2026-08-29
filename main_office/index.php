@@ -73,6 +73,10 @@ $store_summaries = get_main_office_store_summaries($year, $month);
            class="btn btn-sm btn-outline-success flex-fill">
           <i class="fa-solid fa-chart-bar me-1"></i>Sales Report
         </a>
+        <a href="sales_expenses_report.php?store_id=<?php echo $sid; ?>&year=<?php echo $year; ?>&month=<?php echo $month; ?>"
+           class="btn btn-sm btn-outline-dark flex-fill">
+          <i class="fa-solid fa-scale-balanced me-1"></i>Sales &amp; Expenses
+        </a>
         <a href="expense_report.php?store_id=<?php echo $sid; ?>&date=<?php echo $today; ?>"
            class="btn btn-sm btn-outline-secondary flex-fill">
           <i class="fa-solid fa-receipt me-1"></i>Expense

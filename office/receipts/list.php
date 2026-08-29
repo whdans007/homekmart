@@ -212,7 +212,7 @@ $unused_this_month = count(array_filter($rows, fn($r) =>
         <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap"><?php echo htmlspecialchars($r['receipt_date']); ?></td>
         <td class="px-4 py-3 text-sm font-medium text-gray-800"><?php echo htmlspecialchars($r['supplier_name']); ?></td>
         <td class="px-4 py-3 text-sm text-gray-500 max-w-xs break-words whitespace-normal"><?php echo htmlspecialchars($r['description'] ?? ''); ?></td>
-        <td class="px-4 py-3 text-sm text-gray-600 font-mono break-all w-32 min-w-[8rem] max-w-[8rem] whitespace-normal"><?php echo $r['cv_no'] ? htmlspecialchars($r['cv_no']) : '<span class="text-gray-300">—</span>'; ?></td>
+        <td class="px-4 py-3 text-sm text-gray-600 font-mono break-all w-32 min-w-[8rem] max-w-[8rem] whitespace-normal line-clamp-2" title="<?php echo $r['cv_no'] ? htmlspecialchars($r['cv_no']) : ''; ?>"><?php echo $r['cv_no'] ? htmlspecialchars($r['cv_no']) : '<span class="text-gray-300">—</span>'; ?></td>
         <td class="px-4 py-3 text-sm font-medium text-gray-800 text-right whitespace-nowrap"><?php echo format_amount((float)$r['amount']); ?></td>
         <td class="px-4 py-3 text-center">
           <?php if ($r['file_path']): ?>

@@ -23,8 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn = get_lc_db();
 
         if ($action === 'approve') {
-            // 대책 B: 승인 시점에 FEFO 재고 차감 + lot/원가 확정.
-            // 승인된(확정) 주문이 즉시 가용재고에서 빠져 다른 지점의 중복 주문을 방지한다.
+            // 대책 C: 재고 차감은 지점의 주문 접수 시점(store/order.php)에 이미 완료됨.
+            // 승인은 상태 전환만 수행. 단, 전환 이전에 생성된 레거시 pending 주문
+            // (아직 차감 이력이 없는 주문)은 여기서 안전하게 차감을 대신 수행한다.
             $conn->autocommit(false);
             $st = $conn->prepare(
                 "UPDATE lc_orders SET status='approved', approved_by=?, approved_at=? WHERE id=? AND status='pending'"
@@ -38,17 +39,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $conn->rollback();
                 lc_set_flash('error', 'Only pending orders can be approved (it may already be processed).');
             } else {
-                lc_allocate_order_stock($conn, $id, true);
+                if (!lc_order_stock_allocated($conn, $id)) {
+                    lc_allocate_order_stock($conn, $id, true);
+                }
                 // 원가 확정 후 총액 재계산 (lc_order_items.total_amount STORED 컬럼 자동 반영)
                 $conn->query(
                     "UPDATE lc_orders SET total_amount=(SELECT COALESCE(SUM(total_amount),0) FROM lc_order_items WHERE order_id=$id) WHERE id=$id"
                 );
                 $conn->commit();
-                lc_set_flash('success', 'Order approved. Inventory deducted and cost finalized.');
+                lc_set_flash('success', 'Order approved.');
             }
 
         } elseif ($action === 'ship') {
-            // 대책 B: 재고는 승인 시 이미 차감됨 → 출고는 상태 전환만 수행한다.
+            // 대책 C: 재고는 주문 접수 시 이미 차감됨 → 출고는 상태 전환만 수행한다.
             $st = $conn->prepare(
                 "UPDATE lc_orders SET status='shipped', shipped_at=? WHERE id=? AND status='approved'"
             );
@@ -76,15 +79,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$editable) {
                 lc_set_flash('error', 'Only orders before delivery can be modified (super admins can also modify delivered orders).');
             } else {
-                // pending: 재고 미차감. approved/shipped/delivered: 승인 시 이미 차감된 상태 → 복원 후 재차감.
-                $stock_deducted = $cur['status'] !== 'pending';
+                // 대책 C: pending 포함 모든 상태에서 이미 재고가 차감되어 있을 수 있음 → 항상 복원 후 재차감.
+                // (전환 이전 생성된 레거시 pending 주문처럼 차감 이력이 없으면 복원은 안전하게 무동작)
                 $item_ids  = $_POST['item_id']  ?? [];
                 $quantities = $_POST['item_qty'] ?? [];
                 $prices    = $_POST['item_price'] ?? [];
                 $units     = $_POST['item_unit'] ?? [];
 
                 $conn->autocommit(false);
-                if ($stock_deducted) { lc_restore_order_stock($conn, $id); }
+                lc_restore_order_stock($conn, $id);
                 $has_items = false;
                 $upd = $conn->prepare("UPDATE lc_order_items SET quantity = ?, unit_price = ?, order_unit = ? WHERE id = ? AND order_id = ?");
                 $del = $conn->prepare("DELETE FROM lc_order_items WHERE id = ? AND order_id = ?");
@@ -110,8 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $conn->rollback();
                     lc_set_flash('error', 'At least 1 product must remain. Use order cancellation for full cancellation.');
                 } else {
-                    // 재고 차감 상태였던 주문만: 변경된 수량으로 재차감(단가는 수동 입력값 유지 → $set_cost=false)
-                    if ($stock_deducted) { lc_allocate_order_stock($conn, $id, false); }
+                    // 변경된 수량으로 재차감(단가는 수동 입력값 유지 → $set_cost=false)
+                    lc_allocate_order_stock($conn, $id, false);
                     $conn->query(
                         "UPDATE lc_orders SET total_amount =
                          (SELECT COALESCE(SUM(total_amount),0) FROM lc_order_items WHERE order_id = $id)
@@ -124,8 +127,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } elseif ($action === 'add_item') {
             // 어떤 상태에서든 품목 추가. 상태에 맞춰 재고 차감을 자동 처리한다.
-            // - pending/cancelled: 차감 없이 항목만 추가 (승인 시 일괄 차감/원가 확정)
-            // - approved/cancel_requested/shipped/delivered: 추가 항목만 FEFO 차감 + 원가 확정
+            // 대책 C: pending도 이미 재고가 차감된 상태이므로 추가 품목도 즉시 FEFO 차감.
+            // - cancelled: 차감 없이 항목만 추가
+            // - pending/approved/cancel_requested/shipped/delivered: 추가 항목만 FEFO 차감 + 원가 확정
             $product_id = (int)($_POST['product_id'] ?? 0);
             $qty        = max(0, (int)($_POST['quantity'] ?? 0));
 
@@ -145,14 +149,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$prod) {
                     lc_set_flash('error', 'Product not found.');
                 } else {
-                    $deduct_statuses = ['approved', 'cancel_requested', 'shipped', 'delivered'];
+                    $deduct_statuses = ['pending', 'approved', 'cancel_requested', 'shipped', 'delivered'];
                     $need_deduct = in_array($cur['status'], $deduct_statuses, true);
                     $order_unit  = $prod['unit'] ?: 'PCS';
                     $ppb         = max(1, (int)($prod['pieces_per_box'] ?? 1));
 
                     $conn->autocommit(false);
                     try {
-                        $unit_price = 0.0; // pending/cancelled: 승인 시 확정. deduct 상태는 아래에서 평균원가로 갱신.
+                        $unit_price = 0.0; // cancelled: 차감 없음. deduct 상태는 아래에서 평균원가로 갱신.
                         $ins = $conn->prepare(
                             "INSERT INTO lc_order_items (order_id, product_id, quantity, order_unit, pieces_per_box, unit_price)
                              VALUES (?,?,?,?,?,?)"
@@ -190,7 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         );
                         $conn->commit();
                         lc_set_flash('success', 'Item added.' . ($need_deduct ? ' Inventory deducted (FEFO).' : ''));
-                    } catch (Exception $e) {
+                    } catch (Throwable $e) {
                         $conn->rollback();
                         lc_set_flash('error', 'Failed to add item: ' . $e->getMessage());
                     }
@@ -205,20 +209,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $st->execute();
             lc_set_flash('success', 'Delivery completed.');
 
-        } elseif ($action === 'revert_delivery') {
-            // 배송완료(delivered) 주문을 승인(approved) 상태로 되돌린다.
-            // 대책 B: approved 상태도 재고가 차감된 상태이므로 재고/ lot은 그대로 유지하고 상태만 되돌린다.
+        } elseif ($action === 'revert_approval') {
+            // 승인(approved) 주문을 접수(pending) 상태로 되돌린다. 단계별 되돌리기 1단계.
+            // 대책 C: 재고는 접수 시점에 이미 차감된 상태이므로 그대로 유지하고 상태만 되돌린다.
             // CENTER 소속 관리자/점장(센터장)만 가능
             if (!lc_is_admin()) {
                 lc_set_flash('error', 'Access denied.');
             } else {
                 $st = $conn->prepare(
-                    "UPDATE lc_orders SET status='approved', shipped_at=NULL, delivered_at=NULL WHERE id=? AND status='delivered'"
+                    "UPDATE lc_orders SET status='pending', approved_by=NULL, approved_at=NULL WHERE id=? AND status='approved'"
                 );
                 $st->bind_param('i', $id);
                 $st->execute();
                 if ($st->affected_rows > 0) {
-                    lc_set_flash('success', 'Delivery reverted. The order returned to Approved status (inventory remains deducted).');
+                    lc_set_flash('success', 'Reverted to Pending status (inventory remains deducted).');
+                } else {
+                    lc_set_flash('error', 'Only approved orders can be reverted.');
+                }
+                $st->close();
+            }
+
+        } elseif ($action === 'revert_ship') {
+            // 출고(shipped) 주문을 승인(approved) 상태로 되돌린다. 단계별 되돌리기 2단계.
+            // 대책 C: 재고는 접수 시점에 이미 차감된 상태이므로 그대로 유지하고 상태만 되돌린다.
+            // CENTER 소속 관리자/점장(센터장)만 가능
+            if (!lc_is_admin()) {
+                lc_set_flash('error', 'Access denied.');
+            } else {
+                $st = $conn->prepare(
+                    "UPDATE lc_orders SET status='approved', shipped_at=NULL WHERE id=? AND status='shipped'"
+                );
+                $st->bind_param('i', $id);
+                $st->execute();
+                if ($st->affected_rows > 0) {
+                    lc_set_flash('success', 'Reverted to Approved status (inventory remains deducted).');
+                } else {
+                    lc_set_flash('error', 'Only shipped orders can be reverted.');
+                }
+                $st->close();
+            }
+
+        } elseif ($action === 'revert_delivery') {
+            // 배송완료(delivered) 주문을 출고(shipped) 상태로 되돌린다. 단계별 되돌리기 3단계.
+            // 대책 C: shipped 상태도 재고가 차감된 상태이므로 재고/ lot은 그대로 유지하고 상태만 되돌린다.
+            // CENTER 소속 관리자/점장(센터장)만 가능
+            if (!lc_is_admin()) {
+                lc_set_flash('error', 'Access denied.');
+            } else {
+                $st = $conn->prepare(
+                    "UPDATE lc_orders SET status='shipped', delivered_at=NULL WHERE id=? AND status='delivered'"
+                );
+                $st->bind_param('i', $id);
+                $st->execute();
+                if ($st->affected_rows > 0) {
+                    lc_set_flash('success', 'Delivery reverted. The order returned to Shipped status (inventory remains deducted).');
                 } else {
                     lc_set_flash('error', 'Only delivered orders can be reverted.');
                 }
@@ -226,7 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
         } elseif ($action === 'cancel') {
-            // 대책 B: 승인된 주문 취소 시 차감(예약) 재고를 복원. pending 주문은 lot이 없어 무동작.
+            // 대책 C: 취소 시 차감(예약) 재고를 복원. pending도 주문 접수 시 이미 차감되어 있으므로 함께 복원된다.
             $conn->autocommit(false);
             $st = $conn->prepare(
                 "UPDATE lc_orders SET status='cancelled' WHERE id=? AND status IN ('pending','approved')"
@@ -245,7 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
         } elseif ($action === 'approve_cancel') {
-            // 대책 B: 취소요청 승인(=주문 취소) 시 차감(예약) 재고를 복원.
+            // 대책 C: 취소요청 승인(=주문 취소) 시 차감(예약) 재고를 복원.
             $conn->autocommit(false);
             $st = $conn->prepare(
                 "UPDATE lc_orders SET status='cancelled' WHERE id=? AND status='cancel_requested'"
@@ -307,7 +351,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $conn->close();
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if (isset($conn)) { $conn->rollback(); $conn->close(); }
         lc_set_flash('error', 'DB Error: ' . $e->getMessage());
     }
@@ -371,6 +415,22 @@ try {
          LEFT JOIN lc_brands b ON p.brand_id = b.id
          WHERE oi.order_id = $id"
     )->fetch_all(MYSQLI_ASSOC);
+
+    // 남은재고 (주문 항목 상품들의 현재 창고 재고 합계)
+    $stock_by_product = [];
+    if ($items) {
+        $pids = array_unique(array_map('intval', array_column($items, 'product_id')));
+        $pids_csv = implode(',', $pids) ?: '0';
+        $stock_rows = $conn->query(
+            "SELECT product_id, COALESCE(SUM(quantity_remain), 0) AS stock
+             FROM lc_inventory
+             WHERE product_id IN ($pids_csv) AND quantity_remain <> 0
+             GROUP BY product_id"
+        )->fetch_all(MYSQLI_ASSOC);
+        foreach ($stock_rows as $sr) {
+            $stock_by_product[(int)$sr['product_id']] = (int)$sr['stock'];
+        }
+    }
 
     // 차감 완료 주문(승인/출고/배송): lot별 유통기한 + 원가 + 위치 내역
     $lots_by_item = [];
@@ -520,16 +580,17 @@ try {
     /* 페이지마다 테이블 헤더 반복 */
     #viewMode thead { display: table-header-group !important; }
 
-    /* Order Items 컬럼 너비 고정 (#·Barcode·[Brand숨김]·Product·Qty·Unit·PKG·Expiry·UnitPrice·Subtotal) */
-    #viewMode th:nth-child(1), #viewMode td:nth-child(1) { width: 34px !important; text-align: center; white-space: nowrap !important; word-break: normal !important; }
+    /* Order Items 컬럼 너비 고정 (#·Barcode·[Brand숨김]·Product·Remaining Stock·Qty·Unit·PKG·Expiry·UnitPrice·Subtotal) */
+    #viewMode th:nth-child(1), #viewMode td:nth-child(1) { width: 22px !important; text-align: center; white-space: nowrap !important; word-break: normal !important; }
     #viewMode th:nth-child(2), #viewMode td:nth-child(2) { width: 140px !important; }
     #viewMode th:nth-child(4), #viewMode td:nth-child(4) { width: 230px !important; white-space: normal !important; word-break: break-word !important; overflow: visible !important; }
-    #viewMode th:nth-child(5), #viewMode td:nth-child(5) { width: 36px !important; text-align: center; }
-    #viewMode th:nth-child(6), #viewMode td:nth-child(6) { width: 32px !important; text-align: center; }
-    #viewMode th:nth-child(7), #viewMode td:nth-child(7) { width: 28px !important; text-align: center; }
-    #viewMode th:nth-child(8), #viewMode td:nth-child(8) { width: 80px !important; text-align: center; }
-    #viewMode th:nth-child(9), #viewMode td:nth-child(9) { width: 50px !important; text-align: right; }
-    #viewMode th:nth-child(10), #viewMode td:nth-child(10) { width: 70px !important; text-align: right; }
+    #viewMode th:nth-child(5), #viewMode td:nth-child(5) { width: 50px !important; text-align: center; }
+    #viewMode th:nth-child(6), #viewMode td:nth-child(6) { width: 36px !important; text-align: center; }
+    #viewMode th:nth-child(7), #viewMode td:nth-child(7) { width: 32px !important; text-align: center; }
+    #viewMode th:nth-child(8), #viewMode td:nth-child(8) { width: 28px !important; text-align: center; }
+    #viewMode th:nth-child(9), #viewMode td:nth-child(9) { width: 60px !important; text-align: center; }
+    #viewMode th:nth-child(10), #viewMode td:nth-child(10) { width: 50px !important; text-align: right; }
+    #viewMode th:nth-child(11), #viewMode td:nth-child(11) { width: 70px !important; text-align: right; }
 
     /* picking preview 숨김 (내부용) */
     .print-only { display: block !important; }
@@ -593,6 +654,15 @@ try {
             // 색상 기준: 지나간 완료 단계 = 연한 블루, 현재 최종 도달 단계만 = 보라색
             $lastDone = -1;
             foreach ($steps as $i => $s) { if ($s['done']) $lastDone = $i; }
+
+            // 단계별 되돌리기: 각 단계는 바로 이전 단계로만 되돌릴 수 있다 (재고는 접수 시 이미 차감되어 그대로 유지).
+            // CENTER 소속 관리자/점장(센터장)만 가능. 삭제된(휴지통) 주문은 제외.
+            $revert_map = [
+                1 => ['action' => 'revert_approval', 'status' => 'approved',  'target' => 'Pending',  'confirm' => 'Revert this order to Pending status? The approval will be undone.'],
+                2 => ['action' => 'revert_ship',      'status' => 'shipped',   'target' => 'Approved', 'confirm' => 'Revert this order to Approved status? Outbound processing will be undone.'],
+                3 => ['action' => 'revert_delivery',  'status' => 'delivered', 'target' => 'Shipped',  'confirm' => 'Revert this order to Shipped status? Delivery completion will be undone.'],
+            ];
+            $can_revert_steps = lc_is_admin() && empty($order['deleted_at']);
         ?>
         <div class="flex items-start">
             <?php foreach ($steps as $i => $s): ?>
@@ -613,6 +683,21 @@ try {
                     <p class="text-xs font-medium mt-1.5 leading-tight <?php echo $s['done'] ? 'text-gray-800' : 'text-gray-400'; ?>"><?php echo $s['label']; ?></p>
                     <?php if ($s['done'] && $s['time']): ?>
                     <p class="text-gray-400 leading-tight mt-0.5" style="font-size:10px;"<?php echo !empty($s['sub']) ? ' title="' . htmlspecialchars($s['sub']) . '"' : ''; ?>><?php echo date('m/d H:i', strtotime($s['time'])); ?></p>
+                    <?php endif; ?>
+                    <?php
+                        $rv = $revert_map[$i] ?? null;
+                        $show_revert = $can_revert_steps && $rv && $i === $lastDone && $order['status'] === $rv['status'];
+                    ?>
+                    <?php if ($show_revert): ?>
+                    <form method="post" class="mt-1">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
+                        <input type="hidden" name="action" value="<?php echo $rv['action']; ?>">
+                        <button type="submit" onclick="return confirm('<?php echo htmlspecialchars($rv['confirm'], ENT_QUOTES); ?>')"
+                                title="Revert to <?php echo $rv['target']; ?>"
+                                class="text-gray-300 hover:text-orange-500 transition-colors" style="font-size:11px; line-height:1;">
+                            <i class="fas fa-rotate-left"></i>
+                        </button>
+                    </form>
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>
@@ -685,6 +770,7 @@ try {
                 <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium" style="width:140px;">Barcode</th>
                 <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium" style="width:120px;">Brand</th>
                 <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
+                <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:90px;">Remaining Stock</th>
                 <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium qty-head" style="width:80px;font-size:16px;font-weight:700;background:#fecaca;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Qty</th>
                 <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:80px;">Unit</th>
                 <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:80px;">PKG</th>
@@ -728,6 +814,8 @@ try {
                     $row_unit = !empty($item['order_unit']) ? $item['order_unit'] : ($item['unit'] ?? '-');
                     $row_ppb  = (int)($item['pieces_per_box'] ?? 0) ?: (int)($item['product_ppb'] ?? 0);
                 ?>
+                <?php $row_stock = $stock_by_product[(int)$item['product_id']] ?? 0; ?>
+                <td class="px-2 py-2 text-center text-xs <?php echo $row_stock <= 0 ? 'text-red-600 font-semibold' : 'text-gray-600'; ?>"><?php echo number_format($row_stock); ?></td>
                 <td class="px-4 py-3 text-center font-bold text-lg qty-cell" style="background:#fef2f2;-webkit-print-color-adjust:exact;print-color-adjust:exact;"><?php echo number_format($item['quantity']); ?></td>
                 <td class="px-3 py-2 text-center text-xs font-semibold text-gray-700"><?php echo htmlspecialchars($row_unit); ?></td>
                 <td class="px-3 py-2 text-center text-xs text-gray-600"><?php echo $row_ppb ?: '-'; ?></td>
@@ -768,13 +856,15 @@ try {
                     <?php endif; ?>
                 </td>
                 <td class="px-4 py-3 text-right font-bold">
-                    <?php if ($expiry_rows): ?>
+                    <?php if (count($expiry_rows) > 1): ?>
                     <div class="space-y-1">
                         <?php foreach ($expiry_rows as $row): ?>
                         <div><?php echo number_format($row['cost_price'] * $row['quantity'], 2); ?></div>
                         <?php endforeach; ?>
                         <div class="border-t border-gray-200 pt-1 mt-1"><?php echo number_format(array_sum(array_map(fn($r) => $r['cost_price'] * $r['quantity'], $expiry_rows)), 2); ?></div>
                     </div>
+                    <?php elseif (count($expiry_rows) === 1): ?>
+                    <?php echo number_format($expiry_rows[0]['cost_price'] * $expiry_rows[0]['quantity'], 2); ?>
                     <?php else: ?>
                     <?php echo number_format($item['unit_price'] * $item['quantity'], 2); ?>
                     <?php endif; ?>
@@ -782,7 +872,7 @@ try {
             </tr>
             <?php endforeach; ?>
             <tr class="bg-gray-50">
-                <td colspan="9" class="px-4 py-3 text-right text-sm font-semibold text-gray-700">Total</td>
+                <td colspan="10" class="px-4 py-3 text-right text-sm font-semibold text-gray-700">Total</td>
                 <td class="px-4 py-3 text-right text-base font-bold text-gray-900"><?php echo number_format($order['total_amount'], 2); ?></td>
             </tr>
             </tbody>
@@ -975,6 +1065,16 @@ function setQtyZero(itemId) {
             <i class="fas fa-times mr-2"></i>Cancel
         </button>
     </form>
+    <?php if (lc_is_admin()): ?>
+    <form method="post" class="inline">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
+        <input type="hidden" name="action" value="revert_approval">
+        <button type="submit" onclick="return confirm('Revert this order to Pending status? The approval will be undone.')"
+                class="px-5 py-2 bg-orange-100 text-orange-700 text-sm font-medium rounded-lg hover:bg-orange-200">
+            <i class="fas fa-rotate-left mr-2"></i>Revert to Pending
+        </button>
+    </form>
+    <?php endif; ?>
     <?php elseif ($order['status'] === 'cancel_requested'): ?>
     <div class="w-full bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 mb-3 text-sm text-orange-800">
         <i class="fas fa-exclamation-circle mr-2"></i>Store requested cancellation. Approving will cancel the order.
@@ -1004,14 +1104,24 @@ function setQtyZero(itemId) {
             <i class="fas fa-check-double mr-2"></i>Delivery Completed
         </button>
     </form>
+    <?php if (lc_is_admin()): ?>
+    <form method="post" class="inline">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
+        <input type="hidden" name="action" value="revert_ship">
+        <button type="submit" onclick="return confirm('Revert this order to Approved status? Outbound processing will be undone.')"
+                class="px-5 py-2 bg-orange-100 text-orange-700 text-sm font-medium rounded-lg hover:bg-orange-200">
+            <i class="fas fa-rotate-left mr-2"></i>Revert to Approved
+        </button>
+    </form>
+    <?php endif; ?>
     <?php endif; ?>
     <?php if ($order['status'] === 'delivered' && lc_is_admin()): ?>
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="revert_delivery">
-        <button type="submit" onclick="return confirm('Revert this order to Approved status? Inventory deducted at outbound will be restored.')"
+        <button type="submit" onclick="return confirm('Revert this order to Shipped status? Delivery completion will be undone.')"
                 class="px-5 py-2 bg-orange-100 text-orange-700 text-sm font-medium rounded-lg hover:bg-orange-200">
-            <i class="fas fa-undo mr-2"></i>Revert to Approved
+            <i class="fas fa-rotate-left mr-2"></i>Revert to Shipped
         </button>
     </form>
     <?php endif; ?>

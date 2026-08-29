@@ -21,151 +21,20 @@ if ($sr = $st_name->get_result()->fetch_assoc()) {
     $store_display = $sr['name'] ?? '';
 }
 $st_name->close();
+$conn->close();
 if (($_p = strpos($store_display, ' (')) !== false) {
     $store_display = substr($store_display, 0, $_p);
 }
 $store_display = strtoupper(trim($store_display));
 
-// POS 매출 — 셀 마감액(expected_cash, POS Z리딩) 기준. daily_entry DAY TOTAL과 동일 기준 (monthly_report.php 와 동일 로직).
-$stmt = $conn->prepare("SELECT DAY(sale_date) AS d, shift, pos_no, expected_cash FROM sales_pos_reconciliation WHERE store_id=? AND YEAR(sale_date)=? AND MONTH(sale_date)=?");
-$stmt->bind_param('iii', $store_id, $year, $month);
-$stmt->execute();
-$sales_by_day = [];
-foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $r) {
-    $d = (int)$r['d'];
-    if (!isset($sales_by_day[$d])) $sales_by_day[$d] = [];
-    $sales_by_day[$d]["{$r['shift']}_pos{$r['pos_no']}"] = $r['expected_cash'];
-}
-$stmt->close();
-
-// Delivery K는 셀 단위가 아니므로 sales_daily에서 그대로
-$stmt = $conn->prepare("SELECT DAY(sale_date) AS d, delivery_k FROM sales_daily WHERE store_id=? AND YEAR(sale_date)=? AND MONTH(sale_date)=?");
-$stmt->bind_param('iii', $store_id, $year, $month);
-$stmt->execute();
-foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $r) {
-    $d = (int)$r['d'];
-    if (!isset($sales_by_day[$d])) $sales_by_day[$d] = [];
-    $sales_by_day[$d]['delivery_k'] = $r['delivery_k'];
-}
-$stmt->close();
-
-// §4/§5 — POS 셀에 실제 pick된 금액 기준 (credit/credit_doc/wholesale). monthly_report.php 와 동일 로직.
-// credit_doc 는 SALES TOTAL 포함(별도 컬럼), credit(POS 외상)은 정보용 컬럼(SALES TOTAL 제외).
-// wholesale은 wholesale_sales 테이블 전체가 아니라 셀에 pick된 금액만 집계 (daily_entry DAY TOTAL과 동일 기준).
-$pos_credit_by_day = [];
-$credit_doc_by_day = [];
-$ws_by_day = [];
-$pick_tbl = $conn->query("SHOW TABLES LIKE 'sales_pos_wholesale_pick'");
-if ($pick_tbl && $pick_tbl->num_rows > 0) {
-    $stmt = $conn->prepare("SELECT DAY(sale_date) AS d, source_type, SUM(amount) AS total FROM sales_pos_wholesale_pick WHERE store_id=? AND source_type IN ('credit','credit_doc','wholesale') AND YEAR(sale_date)=? AND MONTH(sale_date)=? GROUP BY DAY(sale_date), source_type");
-    $stmt->bind_param('iii', $store_id, $year, $month);
-    $stmt->execute();
-    foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $r) {
-        $d = (int)$r['d'];
-        if ($r['source_type'] === 'credit') { $pos_credit_by_day[$d] = (float)$r['total']; }
-        elseif ($r['source_type'] === 'credit_doc') { $credit_doc_by_day[$d] = (float)$r['total']; }
-        else { $ws_by_day[$d] = (float)$r['total']; }
-    }
-    $stmt->close();
-}
-
-$stmt = $conn->prepare("SELECT DAY(payment_date) AS d, SUM(amount) AS total FROM office_product_purchases WHERE store_id=? AND payment_type='cash' AND YEAR(payment_date)=? AND MONTH(payment_date)=? GROUP BY DAY(payment_date)");
-$stmt->bind_param('iii', $store_id, $year, $month);
-$stmt->execute();
-$pu_day = [];
-foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $r) { $pu_day[(int)$r['d']] = (float)$r['total']; }
-$stmt->close();
-
-$stmt = $conn->prepare("SELECT DAY(check_issued_date) AS d, SUM(amount) AS total FROM office_product_purchases WHERE store_id=? AND payment_type='check' AND YEAR(check_issued_date)=? AND MONTH(check_issued_date)=? GROUP BY DAY(check_issued_date)");
-$stmt->bind_param('iii', $store_id, $year, $month);
-$stmt->execute();
-foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $r) { $pu_day[(int)$r['d']] = ($pu_day[(int)$r['d']] ?? 0) + (float)$r['total']; }
-$stmt->close();
-
-// ER 저장 상태에서 r_(영수증) 아이템 → PURCHASE / STORE EXP 합산
-$eq_day = [];
-$er_tbl2 = $conn->query("SHOW TABLES LIKE 'er_saved_state'");
-if ($er_tbl2 && $er_tbl2->num_rows > 0) {
-    $er_q2 = $conn->prepare("SELECT DAY(save_date) AS d, state_json FROM er_saved_state WHERE store_id=? AND YEAR(save_date)=? AND MONTH(save_date)=?");
-    if ($er_q2) {
-        $er_q2->bind_param('iii', $store_id, $year, $month);
-        $er_q2->execute();
-        $er_pu_secs  = ['selling', 'check_sup'];
-        $er_exp_secs = ['not_selling', 'other_exp_check', 'other_exp_cash'];
-        foreach ($er_q2->get_result()->fetch_all(MYSQLI_ASSOC) as $er_row2) {
-            $d2    = (int)$er_row2['d'];
-            $state2 = json_decode($er_row2['state_json'], true);
-            if (!$state2 || !isset($state2['sections'])) continue;
-            foreach ($state2['sections'] as $sec2 => $rows2) {
-                $is_pu2  = in_array($sec2, $er_pu_secs);
-                $is_exp2 = in_array($sec2, $er_exp_secs);
-                if (!$is_pu2 && !$is_exp2) continue;
-                foreach ($rows2 as $row2) {
-                    if (strncmp((string)($row2['item_id'] ?? ''), 'r_', 2) !== 0) continue;
-                    $amt2 = (float)($row2['amount'] ?? 0);
-                    if ($amt2 <= 0) continue;
-                    if ($is_pu2)  $pu_day[$d2]  = ($pu_day[$d2]  ?? 0) + $amt2;
-                    else          $eq_day[$d2]   = ($eq_day[$d2]  ?? 0) + $amt2;
-                }
-            }
-        }
-        $er_q2->close();
-    }
-}
-
-$stmt = $conn->prepare("SELECT DAY(payment_date) AS d, SUM(amount) AS total FROM office_equipment_purchases WHERE store_id=? AND YEAR(payment_date)=? AND MONTH(payment_date)=? GROUP BY DAY(payment_date)");
-$stmt->bind_param('iii', $store_id, $year, $month);
-$stmt->execute();
-foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $r) { $eq_day[(int)$r['d']] = ($eq_day[(int)$r['d']] ?? 0) + (float)$r['total']; }
-$stmt->close();
-
-
-// Transfer IN from office sales_transfers
-$stmt = $conn->prepare("SELECT DAY(transfer_date) AS d, SUM(amount) AS total FROM sales_transfers WHERE store_id=? AND direction='in' AND YEAR(transfer_date)=? AND MONTH(transfer_date)=? GROUP BY DAY(transfer_date)");
-$stmt->bind_param('iii', $store_id, $year, $month);
-$stmt->execute();
-$tr_in_day = [];
-foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $r) { $tr_in_day[(int)$r['d']] = (float)$r['total']; }
-$stmt->close();
-
-// Transfer OUT from admin store_transfers
-$stmt = $conn->prepare("SELECT DAY(transfer_date) AS d, SUM(final_amount) AS total FROM store_transfers WHERE from_store_id=? AND status != 'cancelled' AND YEAR(transfer_date)=? AND MONTH(transfer_date)=? GROUP BY DAY(transfer_date)");
-$stmt->bind_param('iii', $store_id, $year, $month);
-$stmt->execute();
-$tr_out_day = [];
-foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $r) { $tr_out_day[(int)$r['d']] = (float)$r['total']; }
-$stmt->close();
-
-$tr_day = [];
-foreach (array_unique(array_merge(array_keys($tr_in_day), array_keys($tr_out_day))) as $d) {
-    $tr_day[$d] = ($tr_in_day[$d] ?? 0) - ($tr_out_day[$d] ?? 0);
-}
-$conn->close();
+// Design Ref: sales-report-main-office — 화면(monthly_report.php)과 동일한 공용 집계 함수를 사용해
+// 엑셀 다운로드 데이터가 화면 데이터와 어긋나지 않도록 한다 (계산식 drift 방지).
+require_once __DIR__ . '/../lib/sales_report_helper.php';
+$report     = get_monthly_sales_report($store_id, $year, $month);
+$rows       = $report['rows'];
+$col_totals = $report['col_totals'];
 
 $days_en = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-$totals  = array_fill_keys(['gy1','gy2','mo1','mo2','mi1','mi2','dk','pc','cd','ws','st','pu','eq','tr','net'], 0.0);
-$rows    = [];
-for ($d = 1; $d <= $days; $d++) {
-    $s   = $sales_by_day[$d] ?? [];
-    $gy1 = (float)($s['gy_pos1']??0);    $gy2 = (float)($s['gy_pos2']??0);
-    $mo1 = (float)($s['morning_pos1']??0); $mo2 = (float)($s['morning_pos2']??0);
-    $mi1 = (float)($s['mid_pos1']??0);   $mi2 = (float)($s['mid_pos2']??0);
-    $dk  = (float)($s['delivery_k']??0);
-    $pc  = $pos_credit_by_day[$d] ?? 0.0; // §4 POS 외상 (정보용 · SALES TOTAL 제외)
-    $cd  = $credit_doc_by_day[$d] ?? 0.0; // §4 거래명세서 (SALES TOTAL 포함)
-    $ws  = $ws_by_day[$d] ?? 0.0;
-    $st  = $gy1+$gy2+$mo1+$mo2+$mi1+$mi2+$dk+$cd+$ws; // 거래명세서 포함, POS 외상 제외
-    $pu  = $pu_day[$d] ?? 0.0;
-    $eq  = $eq_day[$d] ?? 0.0;
-    $tr  = $tr_day[$d] ?? 0.0;
-    $net = $st - $pu - $eq - $tr;
-    $dt  = date('Y-m-d', mktime(0,0,0,$month,$d,$year));
-    $dow = $days_en[date('w', strtotime($dt))];
-    $rows[$d] = compact('gy1','gy2','mo1','mo2','mi1','mi2','dk','pc','cd','ws','st','pu','eq','tr','net','dow');
-    foreach (['gy1','gy2','mo1','mo2','mi1','mi2','dk','pc','cd','ws','st','pu','eq','tr','net'] as $k) {
-        $totals[$k] += $$k;
-    }
-}
 
 // XML helpers
 function xesc(string $v): string {
@@ -263,7 +132,8 @@ $xml .= xrow(22, $hdr_cells);
 // Data rows
 for ($d = 1; $d <= $days; $d++) {
     $r   = $rows[$d];
-    $lbl = date('M j', mktime(0,0,0,$month,$d,$year)) . ' ' . $r['dow'];
+    $dow = $days_en[date('w', mktime(0,0,0,$month,$d,$year))];
+    $lbl = date('M j', mktime(0,0,0,$month,$d,$year)) . ' ' . $dow;
     $ns  = 's_num';
     $xml .= xrow(16,
         xcell($lbl, 's_date') .
@@ -288,21 +158,21 @@ for ($d = 1; $d <= $days; $d++) {
 // Total row
 $xml .= xrow(18,
     xcell('TOTAL', 's_grand_date') .
-    xcell(xnum($totals['gy1'], false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['gy2'], false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['mo1'], false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['mo2'], false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['mi1'], false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['mi2'], false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['dk'],  false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['pc'],  false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['cd'],  false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['ws'],  false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['st'],  false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['pu'],  false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['eq'],  false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['tr'],  false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['net'], false), 's_grand', 0, 'Number')
+    xcell(xnum($col_totals['gy_pos1'], false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['gy_pos2'], false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['morning_pos1'], false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['morning_pos2'], false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['mid_pos1'], false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['mid_pos2'], false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['delivery_k'],  false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['pos_credit'],  false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['credit_doc'],  false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['whole_sale'],  false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['sales_total'], false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['purchase'],    false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['equip'],       false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['transfer'],    false), 's_grand', 0, 'Number') .
+    xcell(xnum($col_totals['net'],         false), 's_grand', 0, 'Number')
 );
 
 $xml .= '</Table>' . "\n";

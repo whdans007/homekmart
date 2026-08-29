@@ -122,9 +122,11 @@ function get_daily_credit_breakdown(mysqli $conn, int $store_id, string $date): 
     return $buckets;
 }
 
-// Plan SC: 매입 거래처별 현금/체크 — expense_report의 selling(CASH SELLING)/check_sup(PAY THRU CHECK)
+// Plan SC: 매입 거래처별 현금/체크/점간이동 — expense_report의 selling(CASH SELLING)/check_sup(PAY THRU CHECK)
 // 섹션(er_saved_state)을 소스로 사용한다. 이 점포는 office_product_purchases 별도 입력 화면을
 // 쓰지 않고 Daily Expense Report의 드래그앤드롭으로만 매입을 기록하기 때문 (기타지출과 동일 소스 패턴).
+// 점간이동(transfer)은 다른 점포/물류센터에서 당일 받은 재고의 원가로, monthly_report.php(sales_report_helper.php)의
+// 재고이동 IN 집계와 동일한 3개 소스를 하루 단위로 합산한다.
 function get_daily_purchase_summary(mysqli $conn, int $store_id, string $date): array {
     $by_supplier = [];
 
@@ -143,24 +145,80 @@ function get_daily_purchase_summary(mysqli $conn, int $store_id, string $date): 
         foreach ($sections['selling'] ?? [] as $item) {
             $name = trim((string)($item['supplier'] ?? ''));
             if ($name === '') continue;
-            $by_supplier[$name] ??= ['supplier' => $name, 'cash' => 0.0, 'check' => 0.0];
+            $by_supplier[$name] ??= ['supplier' => $name, 'cash' => 0.0, 'check' => 0.0, 'transfer' => 0.0];
             $by_supplier[$name]['cash'] += (float)($item['amount'] ?? 0);
         }
         foreach ($sections['check_sup'] ?? [] as $item) {
             $name = trim((string)($item['supplier'] ?? ''));
             if ($name === '') continue;
-            $by_supplier[$name] ??= ['supplier' => $name, 'cash' => 0.0, 'check' => 0.0];
+            $by_supplier[$name] ??= ['supplier' => $name, 'cash' => 0.0, 'check' => 0.0, 'transfer' => 0.0];
             $by_supplier[$name]['check'] += (float)($item['amount'] ?? 0);
         }
     }
 
-    $totals = ['cash' => 0.0, 'check' => 0.0, 'total' => 0.0];
+    // 점간이동 IN (1) 수기입력 (sales_transfers, direction='in')
+    $stmt3 = $conn->prepare(
+        "SELECT s.name AS supplier, SUM(t.amount) AS total
+         FROM sales_transfers t
+         JOIN stores s ON s.id = t.other_store_id
+         WHERE t.store_id=? AND t.direction='in' AND t.transfer_date=?
+         GROUP BY s.name"
+    );
+    $stmt3->bind_param('is', $store_id, $date);
+    $stmt3->execute();
+    foreach ($stmt3->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+        $name = $row['supplier'];
+        $by_supplier[$name] ??= ['supplier' => $name, 'cash' => 0.0, 'check' => 0.0, 'transfer' => 0.0];
+        $by_supplier[$name]['transfer'] += (float)$row['total'];
+    }
+    $stmt3->close();
+
+    // 점간이동 IN (2) 정식 점간이동 자동 (store_transfers, to_store_id=이 점포)
+    $stmt4 = $conn->prepare(
+        "SELECT s.name AS supplier, SUM(st.final_amount) AS total
+         FROM store_transfers st
+         JOIN stores s ON s.id = st.from_store_id
+         WHERE st.to_store_id=? AND st.status != 'cancelled' AND st.transfer_date=?
+         GROUP BY s.name"
+    );
+    $stmt4->bind_param('is', $store_id, $date);
+    $stmt4->execute();
+    foreach ($stmt4->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+        $name = $row['supplier'];
+        $by_supplier[$name] ??= ['supplier' => $name, 'cash' => 0.0, 'check' => 0.0, 'transfer' => 0.0];
+        $by_supplier[$name]['transfer'] += (float)$row['total'];
+    }
+    $stmt4->close();
+
+    // 점간이동 IN (3) 물류센터(CENTER) 배송완료(lc_orders, status='delivered')
+    $center_row = $conn->query("SELECT id FROM stores WHERE name='CENTER (물류센터)' LIMIT 1")->fetch_assoc();
+    $center_id  = $center_row ? (int)$center_row['id'] : 0;
+    if ($center_id > 0) {
+        $stmt5 = $conn->prepare(
+            "SELECT COALESCE(SUM(oi.total_amount),0) AS total
+             FROM lc_orders o
+             JOIN lc_order_items oi ON oi.order_id = o.id
+             WHERE o.store_id=? AND o.status='delivered' AND DATE(o.delivered_at)=?"
+        );
+        $stmt5->bind_param('is', $store_id, $date);
+        $stmt5->execute();
+        $center_total = (float)($stmt5->get_result()->fetch_assoc()['total'] ?? 0);
+        $stmt5->close();
+        if ($center_total > 0.0) {
+            $name = 'CENTER (물류센터)';
+            $by_supplier[$name] ??= ['supplier' => $name, 'cash' => 0.0, 'check' => 0.0, 'transfer' => 0.0];
+            $by_supplier[$name]['transfer'] += $center_total;
+        }
+    }
+
+    $totals = ['cash' => 0.0, 'check' => 0.0, 'transfer' => 0.0, 'total' => 0.0];
     $rows = [];
     foreach ($by_supplier as $row) {
-        $row['total'] = $row['cash'] + $row['check'];
-        $totals['cash']  += $row['cash'];
-        $totals['check'] += $row['check'];
-        $totals['total'] += $row['total'];
+        $row['total'] = $row['cash'] + $row['check'] + $row['transfer'];
+        $totals['cash']     += $row['cash'];
+        $totals['check']    += $row['check'];
+        $totals['transfer'] += $row['transfer'];
+        $totals['total']    += $row['total'];
         $rows[] = $row;
     }
 

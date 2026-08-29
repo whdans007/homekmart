@@ -13,31 +13,58 @@ $_adm_pos = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/admin/');
 $_admin_web_root = ($_adm_pos !== false) ? substr($_SERVER['SCRIPT_NAME'], 0, $_adm_pos) : '';
 
 // 현재 사용자의 점포 정보 가져오기
+// 슈퍼어드민은 admin/ 전역에서 $_SESSION['store_id']를 "현재 조회/작업 중인 점포"로 그대로 사용하는
+// 페이지가 많아(ajax_*.php 다수가 header.php를 거치지 않고 $_SESSION['store_id']를 직접 읽음),
+// 점포 전환 스위처도 header.php의 지역변수가 아닌 $_SESSION['store_id'] 자체를 갱신한다
+// (ajax_switch_store.php). 그래야 전환 즉시 모든 admin 화면/AJAX가 일관되게 반영된다.
 $current_store_name = '본점';
 $current_store_id = null;
 if (!empty($_SESSION['user_id'])) {
     try {
         $conn = get_db_connection();
-        $user_stmt = $conn->prepare("SELECT s.name as store_name, s.id as store_id FROM users u LEFT JOIN stores s ON u.store_id = s.id WHERE u.id = ?");
-        $user_stmt->bind_param("i", $_SESSION['user_id']);
-        $user_stmt->execute();
-        $user_result = $user_stmt->get_result();
-        if ($user_row = $user_result->fetch_assoc()) {
-            $current_store_name = $user_row['store_name'] ?? '본점';
-            $current_store_id = $user_row['store_id'];
 
-            // super_admin이고 store_id가 없는 경우 기본 점포(CLARK HILLS) 설정
-            if ($_SESSION['role'] === 'super_admin' && empty($current_store_id)) {
-                $current_store_id = 1; // CLARK HILLS
-                $current_store_name = 'CLARK HILLS';
-                $_SESSION['store_id'] = $current_store_id; // 세션에도 저장
+        if ($_SESSION['role'] === 'super_admin') {
+            $sid = (int)($_SESSION['store_id'] ?? 0);
+            if ($sid <= 0) $sid = 1; // 기본값: CLARK HILLS
+            $st = $conn->prepare("SELECT id, name FROM stores WHERE id=?");
+            $st->bind_param('i', $sid);
+            $st->execute();
+            $srow = $st->get_result()->fetch_assoc();
+            $st->close();
+            if ($srow) {
+                $current_store_id   = (int)$srow['id'];
+                $current_store_name = $srow['name'];
             }
+            $_SESSION['store_id'] = $current_store_id; // 세션 정규화(최초 로그인 시 null이었던 경우 등)
+        } else {
+            $user_stmt = $conn->prepare("SELECT s.name as store_name, s.id as store_id FROM users u LEFT JOIN stores s ON u.store_id = s.id WHERE u.id = ?");
+            $user_stmt->bind_param("i", $_SESSION['user_id']);
+            $user_stmt->execute();
+            $user_result = $user_stmt->get_result();
+            if ($user_row = $user_result->fetch_assoc()) {
+                $current_store_name = $user_row['store_name'] ?? '본점';
+                $current_store_id = $user_row['store_id'];
+            }
+            $user_stmt->close();
         }
-        $user_stmt->close();
+
         $conn->close();
     } catch (Exception $e) {
         // 오류 발생시 기본값 유지
         error_log("Store info error: " . $e->getMessage());
+    }
+}
+
+// 슈퍼어드민 점포 선택 드롭다운용 전체 점포 목록
+$admin_all_stores = [];
+if (($_SESSION['role'] ?? '') === 'super_admin') {
+    try {
+        $conn = get_db_connection();
+        $r = $conn->query("SELECT id, name FROM stores ORDER BY name ASC");
+        $admin_all_stores = $r ? $r->fetch_all(MYSQLI_ASSOC) : [];
+        $conn->close();
+    } catch (Exception $e) {
+        error_log("Store list error: " . $e->getMessage());
     }
 }
 
@@ -123,7 +150,18 @@ if ((has_permission('product_management') || in_array($_SESSION['role'] ?? '', [
                 <div class="flex-shrink-0 mx-2 mb-1.5" style="border:1px solid #ccfbf1;border-radius:0.6rem;background:linear-gradient(135deg,#f0fdfa 0%,#ecfdf5 100%);overflow:hidden;">
                     <div style="display:flex;align-items:center;gap:0.35rem;padding:0.5rem 0.55rem;background:#0d9488;color:#fff;">
                         <i class="fas fa-store" style="font-size:0.8rem;flex-shrink:0;"></i>
+                        <?php if (($_SESSION['role'] ?? '') === 'super_admin' && !empty($admin_all_stores)): ?>
+                        <select id="admin_store_switch" onchange="switchAdminStore(this.value)"
+                                style="flex:1;min-width:0;font-weight:600;font-size:11px;line-height:1.15;background:#0d9488;color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:0.3rem;padding:0.15rem 0.25rem;">
+                            <?php foreach ($admin_all_stores as $s): ?>
+                            <option value="<?php echo (int)$s['id']; ?>" <?php echo ((int)$s['id'] === (int)$current_store_id) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($s['name']); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?php else: ?>
                         <span style="font-weight:600;font-size:11px;line-height:1.15;"><?php echo htmlspecialchars($current_store_name); ?></span>
+                        <?php endif; ?>
                     </div>
                     <div style="padding:0.5rem 0.55rem;">
                         <a href="user_profile.php" style="display:flex;align-items:center;gap:0.35rem;color:#334155;font-size:11px;margin-bottom:0.5rem;">

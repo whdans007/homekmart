@@ -12,6 +12,10 @@ $stmt->close();
 $conn->close();
 ?>
 
+<style>
+#resultBody tr.row-focused { background-color: #fef08a !important; outline: 2px solid #eab308; outline-offset: -2px; }
+</style>
+
 <div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4 space-y-3">
             <div class="flex gap-2">
@@ -42,7 +46,19 @@ $conn->close();
                     <span class="text-sm font-medium text-gray-600">검색 결과 <span id="resultCount" class="text-indigo-600">—</span></span>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm">
+                    <table class="min-w-full text-sm" style="table-layout:fixed; width:100%;">
+                        <colgroup>
+                            <col style="width:130px">
+                            <col style="width:90px">
+                            <col>
+                            <col style="width:60px">
+                            <col style="width:42px">
+                            <col style="width:85px">
+                            <col style="width:85px">
+                            <col style="width:95px">
+                            <col style="width:85px">
+                            <col style="width:90px">
+                        </colgroup>
                         <thead class="bg-gray-50 border-b border-gray-100">
                             <tr>
                                 <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">업체명</th>
@@ -105,10 +121,11 @@ $conn->close();
                                     <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">브랜드 / 품명</th>
                                     <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">재고</th>
                                     <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">유통기한</th>
+                                    <th class="px-3 py-2"></th>
                                 </tr>
                             </thead>
                             <tbody id="logisticsBody" class="divide-y divide-gray-50">
-                                <tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 물류센터 재고가 표시됩니다.</td></tr>
+                                <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 물류센터 재고가 표시됩니다.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -214,11 +231,11 @@ function loadLogisticsStock(keyword) {
     const body = document.getElementById('logisticsBody');
     const countEl = document.getElementById('logisticsCount');
     if (!keyword) {
-        body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 물류센터 재고가 표시됩니다.</td></tr>';
+        body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 물류센터 재고가 표시됩니다.</td></tr>';
         countEl.textContent = '';
         return;
     }
-    body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-1"></i>불러오는 중...</td></tr>';
+    body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-1"></i>불러오는 중...</td></tr>';
 
     fetch(ORD_BASE + '/ajax/logistics_search.php', {
         method: 'POST',
@@ -227,10 +244,10 @@ function loadLogisticsStock(keyword) {
     })
     .then(r => r.json())
     .then(res => {
-        if (!res.success) { body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-red-400 text-sm">재고를 불러오지 못했습니다.</td></tr>'; return; }
+        if (!res.success) { body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-red-400 text-sm">재고를 불러오지 못했습니다.</td></tr>'; return; }
         renderLogistics(res.data);
     })
-    .catch(() => { body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-red-400 text-sm">재고를 불러오지 못했습니다.</td></tr>'; });
+    .catch(() => { body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-red-400 text-sm">재고를 불러오지 못했습니다.</td></tr>'; });
 }
 
 function renderLogistics(items) {
@@ -238,7 +255,7 @@ function renderLogistics(items) {
     const countEl = document.getElementById('logisticsCount');
     countEl.textContent = items.length ? items.length + '건' : '';
     if (!items.length) {
-        body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm">물류센터에 재고가 없습니다.</td></tr>';
+        body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm">물류센터에 재고가 없습니다.</td></tr>';
         return;
     }
     body.innerHTML = items.map(item => {
@@ -261,10 +278,41 @@ function renderLogistics(items) {
             </td>
             <td class="px-3 py-2 text-xs text-right text-teal-700 font-mono whitespace-nowrap">${escHtml(item.stock_display)}</td>
             <td class="px-3 py-2 text-xs whitespace-nowrap">${expiryHtml}</td>
+            <td class="px-3 py-2 text-center whitespace-nowrap">
+                <button type="button" onclick="addToStoreOrder(${item.product_id}, this)"
+                        class="inline-flex items-center px-2 py-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-md hover:bg-teal-100 transition-colors">
+                    <i class="fas fa-cart-plus mr-1"></i>담기
+                </button>
+            </td>
         </tr>
     `;
     }).join('');
 }
+
+// Design Ref: §7.1 확장 — 물류센터 재고 항목을 store/order.php의 주문 선택(장바구니)으로 전달
+// store/order.php는 페이지 열람 시 localStorage 임시저장(order_draft_*)을 자동 복원하므로,
+// 새 창을 열지 않고 같은 키에 직접 누적 저장해두면 다음에 store/order.php를 열었을 때 반영된다.
+// (order/와 store/는 같은 도메인이라 localStorage를 공유하고, store_id도 같은 세션값을 씀)
+const STORE_DRAFT_KEY = 'order_draft_<?php echo (int)ord_current_store_id(); ?>';
+window.addToStoreOrder = function(productId, btn) {
+    if (!productId) return;
+
+    var draft = {};
+    try { draft = JSON.parse(localStorage.getItem(STORE_DRAFT_KEY) || '{}'); } catch (e) { draft = {}; }
+    var existingQty = (draft[productId] && draft[productId].qty) || 0;
+    draft[productId] = { qty: existingQty + 1, unit: draft[productId] ? draft[productId].unit : undefined };
+    localStorage.setItem(STORE_DRAFT_KEY, JSON.stringify(draft));
+
+    var row  = btn.closest('tr');
+    var name = row ? row.querySelector('.text-gray-800').textContent.trim() : '상품';
+
+    var original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-check mr-1"></i>담김';
+    setTimeout(function() { btn.disabled = false; btn.innerHTML = original; }, 1500);
+
+    showFlash('success', name + ' — Store 주문 선택에 담았습니다.');
+};
 
 function renderResults(items) {
     const body = document.getElementById('resultBody');
@@ -275,17 +323,17 @@ function renderResults(items) {
     const fmt = v => v ? Number(v).toLocaleString('ko-KR', {minimumFractionDigits:2}) : '';
     body.innerHTML = items.map(item => `
         <tr class="hover:bg-gray-50" id="result-${item.id}">
-            <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">${escHtml(item.vendor_name)}</td>
-            <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">${escHtml(item.brand ?? '')}</td>
-            <td class="px-3 py-2">
-                <div class="text-sm font-medium text-gray-800">${escHtml(item.product_name)}</div>
-                ${item.product_name_en ? `<div class="text-xs text-gray-400">${escHtml(item.product_name_en)}</div>` : ''}
+            <td class="px-3 py-2 text-xs text-gray-500 truncate" title="${escHtml(item.vendor_name)}">${escHtml(item.vendor_name)}</td>
+            <td class="px-3 py-2 text-xs text-gray-500 truncate" title="${escHtml(item.brand ?? '')}">${escHtml(item.brand ?? '')}</td>
+            <td class="px-3 py-2 overflow-hidden">
+                <div class="text-xs font-medium text-gray-800 truncate" title="${escHtml(item.product_name)}">${escHtml(item.product_name)}</div>
+                ${item.product_name_en ? `<div class="text-xs text-gray-400 truncate" title="${escHtml(item.product_name_en)}">${escHtml(item.product_name_en)}</div>` : ''}
             </td>
-            <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">${escHtml(item.order_unit ?? '')}</td>
+            <td class="px-3 py-2 text-xs text-gray-500 truncate" title="${escHtml(item.order_unit ?? '')}">${escHtml(item.order_unit ?? '')}</td>
             <td class="px-3 py-2 text-xs text-right text-gray-500 font-mono whitespace-nowrap">${item.unit_qty ? item.unit_qty : ''}</td>
             <td class="px-3 py-2 text-xs text-right text-teal-600 font-mono whitespace-nowrap">${fmt(item.unit_price_pcs)}</td>
             <td class="px-3 py-2 text-xs text-right text-indigo-600 font-mono whitespace-nowrap">${fmt(item.unit_price)}</td>
-            <td class="px-3 py-2 text-xs text-gray-400 italic">${escHtml(item.remark ?? '')}</td>
+            <td class="px-3 py-2 text-xs text-gray-400 italic line-clamp-2 break-words" title="${escHtml(item.remark ?? '')}">${escHtml(item.remark ?? '')}</td>
             <td class="px-3 py-2 text-xs text-orange-500 whitespace-nowrap">${escHtml(item.expiry_date ?? '')}</td>
             <td class="px-3 py-2 whitespace-nowrap">
                 <input type="number" min="0" step="1" value="${item.in_cart ? Math.round(item.cart_quantity) : ''}"
@@ -347,8 +395,17 @@ document.getElementById('resultBody').addEventListener('keydown', e => {
     }
 });
 
+document.getElementById('resultBody').addEventListener('focus', e => {
+    if (e.target.classList.contains('qty-input')) {
+        e.target.closest('tr')?.classList.add('row-focused');
+    }
+}, true);
+
 document.getElementById('resultBody').addEventListener('blur', e => {
-    if (e.target.classList.contains('qty-input')) autoSaveCart(e.target);
+    if (e.target.classList.contains('qty-input')) {
+        e.target.closest('tr')?.classList.remove('row-focused');
+        autoSaveCart(e.target);
+    }
 }, true);
 </script>
 

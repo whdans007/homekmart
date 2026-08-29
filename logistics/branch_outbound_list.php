@@ -150,7 +150,7 @@ main { overflow: hidden !important; }
                     <button type="button"
                             onclick="shipDraft(<?php echo $row['id']; ?>, '<?php echo htmlspecialchars($row['store_name'] ?? '-', ENT_QUOTES); ?>', <?php echo (int)$row['item_count']; ?>)"
                             class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-white bg-teal-600 border border-teal-600 rounded-md hover:bg-teal-700 mr-1">
-                        <i class="fas fa-truck mr-1"></i>Confirm Shipment
+                        <i class="fas fa-check mr-1"></i>Confirm Order
                     </button>
                     <button type="button"
                             onclick="deleteDraft(<?php echo $row['id']; ?>)"
@@ -204,9 +204,9 @@ main { overflow: hidden !important; }
         el.classList.remove('hidden');
     }
 
-    // Design §5.1 — 목록에서 최종 출고 (Plan SC-6)
+    // Design §5.1 — 목록에서 주문 확정 (Plan SC-6)
     window.shipDraft = function(draftId, storeName, itemCount) {
-        if (!confirm('[' + storeName + '] You are about to ship ' + itemCount + ' item(s).\nStock will be deducted based on current inventory and cannot be undone.\nContinue?')) return;
+        if (!confirm('[' + storeName + '] You are about to confirm an order for ' + itemCount + ' item(s).\nStock will be deducted based on current inventory and cannot be undone.\nThe order will be created with Pending status.\nContinue?')) return;
 
         var fd = new FormData();
         fd.append('action', 'ship_draft');

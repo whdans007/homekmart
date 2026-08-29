@@ -199,9 +199,10 @@ function check_legacy_permission($permission, $role) {
         'logistics_purchase_management' => ['super_admin', 'admin'],
         'logistics_outbound_management'  => ['super_admin', 'admin'],
         'logistics_inventory_management' => ['super_admin', 'admin'],
+        'mall_management' => ['super_admin', 'admin'],
     ];
-    
-    return isset($legacy_permissions[$permission]) && 
+
+    return isset($legacy_permissions[$permission]) &&
            in_array($role, $legacy_permissions[$permission]);
 }
 
@@ -247,9 +248,10 @@ function get_user_permissions($user_id = null) {
                 'logistics_purchase_management' => true,
                 'logistics_outbound_management' => true,
                 'logistics_inventory_management' => true,
+                'mall_management' => true,
             ];
         }
-        
+
         // permissions 컬럼이 있는 경우
         if ($user['permissions']) {
             $permissions = json_decode($user['permissions'], true);
@@ -278,6 +280,7 @@ function get_all_permission_keys() {
         'wholesale_management', 'store_transfer_management', 'customer_management', 'delivery_management',
         'settings', 'shop_access', 'barcode_management', 'accounting_management',
         'logistics_purchase_management', 'logistics_outbound_management', 'logistics_inventory_management',
+        'mall_management',
     ];
 }
 
@@ -364,6 +367,7 @@ function get_legacy_default_permissions($role) {
             'logistics_purchase_management' => true,
             'logistics_outbound_management' => true,
             'logistics_inventory_management' => true,
+            'mall_management' => true,
         ],
         'admin' => [
             'admin_access' => true,
@@ -383,6 +387,7 @@ function get_legacy_default_permissions($role) {
             'logistics_purchase_management' => true,
             'logistics_outbound_management' => true,
             'logistics_inventory_management' => true,
+            'mall_management' => true,
         ],
         'manager' => [
             'admin_access' => true,
@@ -474,6 +479,7 @@ function get_permission_label($permission) {
         'logistics_purchase_management' => '물류 매입 관리',
         'logistics_outbound_management' => '물류 출고 관리',
         'logistics_inventory_management' => '물류 재고 현황',
+        'mall_management' => '쇼핑몰 관리',
     ];
     
     return $labels[$permission] ?? $permission;

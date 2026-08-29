@@ -1467,22 +1467,22 @@ function renderItems() {
       <td style="font-family:monospace;font-size:11px;color:#64748b">${escHtml(p.sku)}</td>
       <td style="min-width:0">
         <div style="display:flex;align-items:center;gap:4px">
-          <span style="flex-shrink:0;font-size:9px;font-weight:700;color:#38bdf8;background:#0c2340;border:1px solid #1e4a7a;border-radius:3px;padding:1px 4px;line-height:1.4">ENG</span>
-          <input id="ni_en_${i}" type="text" value="${escHtml(p.name_en||'')}"
-            placeholder="영문명"
+          <span style="flex-shrink:0;font-size:9px;font-weight:700;color:#f59e0b;background:#1a1400;border:1px solid #78350f;border-radius:3px;padding:1px 4px;line-height:1.4">KOR</span>
+          <input id="ni_ko_${i}" type="text" value="${escHtml(p.name_ko||'')}"
+            placeholder="한글명"
             style="flex:1;min-width:0;background:#0f172a;border:1px solid #334155;border-radius:5px;color:#f1f5f9;font-size:12px;font-weight:600;padding:3px 6px;box-sizing:border-box;outline:none;transition:border-color 0.2s"
             onfocus="this.style.borderColor='#38bdf8'"
-            onblur="this.style.borderColor='#334155';saveItemName(${i},'en',this.value)"
+            onblur="this.style.borderColor='#334155';saveItemName(${i},'ko',this.value)"
             onkeydown="if(event.key==='Enter'){this.blur()}">
           <button onclick="openNameHistory(${p.product_id||0},'${escHtml(p.sku||'')}')" title="변경 이력" style="flex-shrink:0;background:none;border:none;color:#475569;cursor:pointer;font-size:11px;padding:2px 4px;border-radius:4px;transition:color 0.15s" onmouseover="this.style.color='#38bdf8'" onmouseout="this.style.color='#475569'"><i class="fas fa-history"></i></button>
         </div>
         <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
-          <span style="flex-shrink:0;font-size:9px;font-weight:700;color:#f59e0b;background:#1a1400;border:1px solid #78350f;border-radius:3px;padding:1px 4px;line-height:1.4">KOR</span>
-          <input id="ni_ko_${i}" type="text" value="${escHtml(p.name_ko||'')}"
-            placeholder="한글명"
+          <span style="flex-shrink:0;font-size:9px;font-weight:700;color:#38bdf8;background:#0c2340;border:1px solid #1e4a7a;border-radius:3px;padding:1px 4px;line-height:1.4">ENG</span>
+          <input id="ni_en_${i}" type="text" value="${escHtml(p.name_en||'')}"
+            placeholder="영문명"
             style="flex:1;min-width:0;background:#0f172a;border:1px solid #334155;border-radius:5px;color:#94a3b8;font-size:11px;padding:3px 6px;box-sizing:border-box;outline:none;transition:border-color 0.2s"
             onfocus="this.style.borderColor='#38bdf8'"
-            onblur="this.style.borderColor='#334155';saveItemName(${i},'ko',this.value)"
+            onblur="this.style.borderColor='#334155';saveItemName(${i},'en',this.value)"
             onkeydown="if(event.key==='Enter'){this.blur()}">
         </div>
       </td>

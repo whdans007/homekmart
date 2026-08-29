@@ -30,12 +30,10 @@ try {
     $where_conditions = [];
     $params = [];
 
-    // 권한 확인 (super_admin이 아닌 경우 자신의 점포 관련 이동만)
-    if ($_SESSION['role'] !== 'super_admin') {
-        $where_conditions[] = "(st.from_store_id = ? OR st.to_store_id = ?)";
-        $params[] = $current_store_id;
-        $params[] = $current_store_id;
-    }
+    // 점포 필터 — super_admin도 선택된 점포($current_store_id, 상단 점포 스위처) 관련 이동만 조회
+    $where_conditions[] = "(st.from_store_id = ? OR st.to_store_id = ?)";
+    $params[] = $current_store_id;
+    $params[] = $current_store_id;
 
     // WHERE 절 구성
     $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";

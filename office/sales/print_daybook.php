@@ -24,9 +24,10 @@ $conn->close();
 
 $expense_total   = array_sum(array_column($expenses, 'amount'));
 $payment_total   = array_sum(array_column($payments, 'amount'));
-// wholesale_pick 분리: 섹션4(SUBSIDIARY COMPANY CREDITS)=credit/delivery_k/credit_doc, 섹션5(WHOLE SALES)=wholesale
-$scc = array_values(array_filter($wholesale, fn($w) => in_array($w['source_type'] ?? '', ['credit','delivery_k','credit_doc'], true)));
-$ws  = array_values(array_filter($wholesale, fn($w) => ($w['source_type'] ?? '') === 'wholesale'));
+// wholesale_pick 분리: 섹션4(SUBSIDIARY COMPANY CREDITS)=credit/credit_doc, 섹션5(WHOLE SALES)=wholesale/delivery_k
+// (daily_entry.php 모달의 sccPicked/wsPicked 분류 기준과 동일하게 맞춤)
+$scc = array_values(array_filter($wholesale, fn($w) => in_array($w['source_type'] ?? '', ['credit','credit_doc'], true)));
+$ws  = array_values(array_filter($wholesale, fn($w) => in_array($w['source_type'] ?? '', ['wholesale','delivery_k'], true)));
 // 섹션4 신용거래·섹션5 도매는 매출(시제) 제외 → 셀 총액은 현금 입금분 + 기타결제만. §4·§5 소계는 참고용 표시.
 $scc_total       = array_sum(array_column($scc, 'amount'));  // §4 참고용 소계
 $ws_total        = array_sum(array_column($ws, 'amount'));    // §5 참고용 소계
@@ -53,6 +54,9 @@ $fallback_cash   = $alloc['cash_total'] > 0 ? $alloc['deposit_cash'] : 0.0;
 $total_amount    = (float)($recon['total_amount'] ?? $fallback_cash);
 $over_short      = (isset($recon['over_short']) && $recon['over_short'] !== null && $recon['over_short'] !== '') ? (float)$recon['over_short'] : null;
 
+$admin_name   = get_store_representative_name($store_id) ?: '-';
+$manager_name = get_store_manager_name($store_id) ?: '-';
+
 $nf = fn($n) => number_format((float)$n);
 $shift_cells = [
     'morning'=>['MORNING','8:00AM-5:00PM'],
@@ -60,10 +64,13 @@ $shift_cells = [
     'gy'     =>['GY','12:00 AM -8:00 AM'],
 ];
 // 빈 줄 패딩 (양식 느낌)
-$exp_pad     = max(0, 5 - count($expenses));
+// §5 WHOLE SALES 가 기본 3줄을 초과하면 늘어난 줄 수만큼 §4 SUBSIDIARY COMPANY CREDITS의
+// 빈 줄 패딩을 줄여, 한 페이지 안에 들어가도록 전체 줄 수를 맞춘다.
+$ws_overflow = max(0, count($ws) - 3);
+$exp_pad     = max(0, 4 - count($expenses));
 $credits_pad = max(0, 4 - count($payments));
-$scc_pad     = max(0, 4 - count($scc));
-$ws_pad      = max(0, 4 - count($ws));
+$scc_pad     = max(0, 3 - count($scc) - $ws_overflow);
+$ws_pad      = max(0, 3 - count($ws));
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -71,7 +78,7 @@ $ws_pad      = max(0, 4 - count($ws));
 <title>POS <?php echo $pos_no; ?> DAYBOOK — <?php echo htmlspecialchars($date); ?></title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
-  * { box-sizing:border-box; }
+  * { box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   body { font-family:'Times New Roman',Georgia,serif; background:#dcdfdd; margin:0; padding:10px; color:#000; }
   .page { width:820px; margin:0 auto; background:#fff; padding:14px 18px 18px; box-shadow:0 10px 40px rgba(0,0,0,.15); }
   .title { text-align:center; font-size:24px; font-weight:700; margin:0 0 8px; }
@@ -80,7 +87,7 @@ $ws_pad      = max(0, 4 - count($ws));
   .bd, .bd th, .bd td { border:1.5px solid #000; }
   .shift { margin:0 auto 8px; }
   .shift td { padding:4px 14px; text-align:center; font-weight:700; font-size:13px; line-height:1.3; }
-  .shift td.on { background:#111; color:#fff; }
+  .shift td.on { background:#ff69b4; color:#000; }
   .date { font-size:17px; font-weight:700; margin:4px 0 8px; }
   .date .ln { display:inline-block; border-bottom:1.5px solid #000; min-width:190px; padding:0 6px; }
   .cols { width:100%; }
@@ -88,7 +95,7 @@ $ws_pad      = max(0, 4 - count($ws));
   .sec-h { text-align:center; font-weight:700; font-size:15px; margin:8px 0 3px; }
   .grid { width:100%; font-size:14px; }
   .grid th { padding:3px 6px; font-weight:700; text-align:center; }
-  .grid td { padding:5px 7px; height:32px; }
+  .grid td { padding:5px 7px; height:31px; }
   .grid td.u { text-align:center; font-weight:700; width:58px; }
   .grid td.star { text-align:center; width:24px; }
   .grid td.q { text-align:center; width:60px; }
@@ -103,6 +110,7 @@ $ws_pad      = max(0, 4 - count($ws));
   .sigbox th { background:#f1f1f1; font-weight:700; font-size:13px; letter-spacing:.04em; padding:6px; text-align:center; }
   .sigbox td { height:95px; vertical-align:bottom; text-align:center; padding:4px 8px 10px; }
   .sigbox .nm { display:block; border-top:1px solid #999; margin-top:auto; padding-top:4px; font-size:11px; color:#777; }
+  .sigbox .sig-name { font-size:13px; font-weight:700; color:#111; margin-bottom:34px; }
   .toolbar { width:820px; margin:0 auto 8px; text-align:right; }
   .btn { font-family:sans-serif; border:1px solid #111; background:#111; color:#fff; padding:7px 14px; border-radius:6px; font-size:13px; cursor:pointer; }
   @media print { body { background:#fff; padding:0; } .toolbar { display:none; } .page { box-shadow:none; width:194mm; padding:0; } @page { size:A4 portrait; margin:8mm; } }
@@ -226,8 +234,8 @@ $ws_pad      = max(0, 4 - count($ws));
     <thead><tr><th style="width:33.33%">CASHIER</th><th style="width:33.33%">ADMIN</th><th style="width:33.34%">MANAGER</th></tr></thead>
     <tbody><tr>
       <td><span class="nm">Signature</span></td>
-      <td><span class="nm">Signature</span></td>
-      <td><span class="nm">Signature</span></td>
+      <td><div class="sig-name"><?php echo htmlspecialchars($admin_name); ?></div><span class="nm">Signature</span></td>
+      <td><div class="sig-name"><?php echo htmlspecialchars($manager_name); ?></div><span class="nm">Signature</span></td>
     </tr></tbody>
   </table>
 </div>

@@ -93,8 +93,7 @@ $colLetters = array_merge([''], range('A', 'Z'), ['AA','AB','AC','AD','AE','AF',
 
 <div class="max-w-2xl">
     <div class="flex items-center mb-6">
-        <a href="<?php echo ORD_BASE; ?>/vendors.php" class="text-indigo-600 hover:text-indigo-800 mr-3"><i class="fas fa-arrow-left"></i></a>
-        <h1 class="text-xl font-bold text-gray-800"><i class="fas fa-columns mr-2 text-indigo-600"></i><?php echo htmlspecialchars($vendor['name']); ?> — 컬럼 설정</h1>
+        <a href="<?php echo ORD_BASE; ?>/vendors.php" class="text-indigo-600 hover:text-indigo-800"><i class="fas fa-arrow-left"></i></a>
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

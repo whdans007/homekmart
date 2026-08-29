@@ -75,6 +75,9 @@ function dr_render_sheet_rows(mysqli $conn, int $store_id, string $date, string 
         ? get_daily_commission_summary($conn, $store_id, $date)
         : ['rows' => [], 'total' => 0.0];
 
+    // 상단 헤더 요약행은 점간이동을 포함해 표시하므로(카톡 참고 이미지), 순이익도 매입 전체(현금+체크+점간이동)
+    // 기준으로 계산한다. 다만 하단 매입 상세(거래처별) 표는 참고 파일의 고정 그리드(현금/체크 2열)를
+    // 유지하며 점간이동 전용 행은 그 표에서 제외한다 — 아래 $purchase_cc_rows 참고.
     $grand_expense = $other_exp['total_placed'];
     $grand_sales    = $pos_summary['totals']['total'] + $ar['credit_sales_total'];
     $grand_purchase = $purchase['totals']['total'];
@@ -94,30 +97,34 @@ function dr_render_sheet_rows(mysqli $conn, int $store_id, string $date, string 
     echo dr_xml_row(24, dr_xml_cells([[strtoupper(dr_xe($store_label)) . ' DAILY REPORT', 's_title', 10]]));
     echo dr_xml_row(6, dr_blank_row(11));
 
-    // ── 헤더 요약행 (11 물리컬럼: 날짜1 + 매출5(포스+메뉴얼2/외상거래처2/수수료1) + 매입2(현금/체크) + 기타지출1 + 거래처수금1 + 수익1) ──
+    // ── 헤더 요약행 (11 물리컬럼: 날짜1 + 매출4(포스+메뉴얼2/외상거래처1/수수료1) + 매입3(현금/체크/점간이동) + 기타지출1 + 거래처수금1 + 수익1) ──
+    // Layout Ref: 카톡 참고 이미지(2026-08-28) — 외상거래처는 더 이상 2열 병합하지 않고 1열만 사용,
+    // 그 뒤로 밀린 만큼을 매입 그룹의 신규 3번째 열(점간이동)이 흡수해 총 물리컬럼 수(11, A~K)는 그대로 유지된다.
     echo dr_xml_row(20, dr_xml_cells([
         ['날짜', 's_hdr', 0, 1, 'String', 1],
-        ['매출', 's_hdr', 4, 0, 'String', 2],
-        ['매입', 's_hdr', 1, 0, 'String', 7],
+        ['매출', 's_hdr', 3, 0, 'String', 2],
+        ['매입', 's_hdr', 2, 0, 'String', 6],
         ['기타지출', 's_hdr', 0, 1, 'String', 9],
         ['거래처수금', 's_hdr', 0, 0, 'String', 10],
         ['수익', 's_hdr', 0, 1, 'String', 11],
     ]));
     echo dr_xml_row(20, dr_xml_cells([
         ['포스+메뉴얼', 's_hdr', 1, 0, 'String', 2],
-        ['외상거래처', 's_hdr', 1, 0, 'String', 4],
-        ['수수료 코너', 's_hdr', 0, 0, 'String', 6],
-        ['현금', 's_hdr', 0, 0, 'String', 7],
-        ['체크', 's_hdr', 0, 0, 'String', 8],
+        ['외상거래처', 's_hdr', 0, 0, 'String', 4],
+        ['수수료 코너', 's_hdr', 0, 0, 'String', 5],
+        ['현금', 's_hdr', 0, 0, 'String', 6],
+        ['체크', 's_hdr', 0, 0, 'String', 7],
+        ['점간이동', 's_hdr', 0, 0, 'String', 8],
         ['현금', 's_hdr', 0, 0, 'String', 10],
     ]));
     echo dr_xml_row(20, dr_xml_cells([
         [dr_xe($date_label), 's_date_val', 0, 0, 'String', 1],
         [(float)$pos_summary['totals']['total'], 's_hdr_val', 1, 0, 'Number', 2],
-        [$ar['credit_sales_total'] > 0 ? (float)$ar['credit_sales_total'] : '', 's_hdr_val', 1, 0, 'Number', 4],
-        [$commission['total'] > 0 ? (float)$commission['total'] : '', 's_hdr_val', 0, 0, 'Number', 6],
-        [(float)$purchase['totals']['cash'], 's_hdr_val', 0, 0, 'Number', 7],
-        [(float)$purchase['totals']['check'], 's_hdr_val', 0, 0, 'Number', 8],
+        [$ar['credit_sales_total'] > 0 ? (float)$ar['credit_sales_total'] : '', 's_hdr_val', 0, 0, 'Number', 4],
+        [$commission['total'] > 0 ? (float)$commission['total'] : '', 's_hdr_val', 0, 0, 'Number', 5],
+        [(float)$purchase['totals']['cash'], 's_hdr_val', 0, 0, 'Number', 6],
+        [(float)$purchase['totals']['check'], 's_hdr_val', 0, 0, 'Number', 7],
+        [$purchase['totals']['transfer'] > 0 ? (float)$purchase['totals']['transfer'] : '', 's_hdr_val', 0, 0, 'Number', 8],
         [(float)$grand_expense, 's_hdr_val', 0, 0, 'Number', 9],
         [(float)$ar['collections_total'], 's_hdr_val', 0, 0, 'Number', 10],
         [(float)$grand_profit, 's_profit', 0, 0, 'Number', 11],
@@ -129,7 +136,7 @@ function dr_render_sheet_rows(mysqli $conn, int $store_id, string $date, string 
         ['포스매출', 's_sec', 4], ['수수료 코너', 's_sec', 2], ['기타지출', 's_sec', 2],
     ]));
     echo dr_xml_row(14, dr_xml_cells([
-        ['포스', 's_colhd'], ['현금', 's_colhd'], ['크레딧', 's_colhd'], ['도매', 's_colhd'], ['합계', 's_colhd'],
+        ['포스', 's_colhd'], ['현금', 's_colhd'], ['크레딧+할인', 's_colhd'], ['도매', 's_colhd'], ['합계', 's_colhd'],
         ['업체명', 's_colhd', 1], ['매출', 's_colhd'],
         ['사용내역', 's_colhd', 1], ['사용금액', 's_colhd'],
     ]));
@@ -155,7 +162,11 @@ function dr_render_sheet_rows(mysqli $conn, int $store_id, string $date, string 
         ]));
     }
     echo dr_xml_row(14, dr_xml_cells([
-        ['합계', 's_total', 3], [(float)$pos_summary['totals']['total'], 's_total_amt', 0, 0, 'Number'],
+        ['합계', 's_total'],
+        [(float)$pos_summary['totals']['cash'],           's_total_amt', 0, 0, 'Number'],
+        [(float)$pos_summary['totals']['credit'],         's_total_amt', 0, 0, 'Number'],
+        [(float)$pos_summary['totals']['delivery_slip'],  's_total_amt', 0, 0, 'Number'],
+        [(float)$pos_summary['totals']['total'],          's_total_amt', 0, 0, 'Number'],
         ['합계', 's_total', 1], [(float)$commission['total'], 's_total_amt', 0, 0, 'Number'],
         ['합계', 's_total', 1], [(float)$other_exp['total_placed'], 's_total_amt', 0, 0, 'Number'],
     ]));
@@ -176,21 +187,24 @@ function dr_render_sheet_rows(mysqli $conn, int $store_id, string $date, string 
     $left_rows[] = [['매입', 's_sec', 5]];
     $left_rows[] = [['거래처명', 's_colhd', 2], ['현금매입', 's_colhd'], ['체크매입', 's_colhd'], ['합계', 's_colhd']];
     // Layout Ref: 참고 파일은 매입 표에 실제 거래처 외 여유 행을 두어 표 전체가 약 20행
+    // 점간이동(transfer)만 있는 행은 이 고정 서식(현금/체크 2열)에는 표시하지 않는다.
+    $purchase_cc_rows = array_values(array_filter($purchase['rows'], fn($r) => $r['cash'] > 0 || $r['check'] > 0));
     $PURCHASE_MIN_ROWS = 20;
-    $purchase_row_count = max(count($purchase['rows']), $PURCHASE_MIN_ROWS);
+    $purchase_row_count = max(count($purchase_cc_rows), $PURCHASE_MIN_ROWS);
     for ($i = 0; $i < $purchase_row_count; $i++) {
-        $p = $purchase['rows'][$i] ?? null;
+        $p = $purchase_cc_rows[$i] ?? null;
+        $p_total = $p ? (float)$p['cash'] + (float)$p['check'] : '';
         $left_rows[] = [
             [$p ? $p['supplier'] : '', 's_data', 2],
             [$p && $p['cash'] > 0 ? (float)$p['cash'] : '', 's_amt', 0, 0, 'Number'],
             [$p && $p['check'] > 0 ? (float)$p['check'] : '', 's_amt', 0, 0, 'Number'],
-            [$p ? (float)$p['total'] : '', $p ? 's_amt' : 's_data', 0, 0, 'Number'],
+            [$p_total, $p ? 's_amt' : 's_data', 0, 0, 'Number'],
         ];
     }
     $left_rows[] = [
         ['합계', 's_total', 2], [(float)$purchase['totals']['cash'], 's_total_amt', 0, 0, 'Number'],
         [(float)$purchase['totals']['check'], 's_total_amt', 0, 0, 'Number'],
-        [(float)$purchase['totals']['total'], 's_total_amt', 0, 0, 'Number'],
+        [(float)$purchase['totals']['cash'] + (float)$purchase['totals']['check'], 's_total_amt', 0, 0, 'Number'],
     ];
 
     // 우측 스트림: 크레딧+외상수금 → 갭 → 외상판매+도매판매 (G-K, 5 논리컬럼)

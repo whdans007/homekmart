@@ -597,6 +597,20 @@ try {
                 <div id="modal-image-content" class="mt-6 flex justify-start items-center">
                     <img id="modal-image" src="" alt="상품 이미지" class="w-[30px] h-[30px] rounded-md border bg-gray-100 object-contain">
                 </div>
+
+                <!-- 사진 관리 (mall 큐레이션과 공유되는 mall_product_images) -->
+                <div class="mt-6 border-t pt-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-sm font-medium text-gray-700">사진 관리</label>
+                        <label class="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 cursor-pointer">
+                            업로드
+                            <input type="file" id="product-image-upload-input" class="hidden" accept="image/jpeg,image/png,image/webp">
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-2">쇼핑몰(mall) 상품 이미지와 동일한 저장소를 공유합니다. 몰 큐레이션에서 삭제 후 다시 등록해도 여기 사진은 유지됩니다.</p>
+                    <div id="product-images-grid" class="flex flex-wrap gap-2"></div>
+                    <div id="product-images-empty" class="text-xs text-gray-400 hidden">등록된 사진이 없습니다</div>
+                </div>
             </div>
         </div>
     </div>
@@ -732,7 +746,10 @@ document.addEventListener('DOMContentLoaded', function() {
         lastModified: document.getElementById('modal-last-modified'),
         loading: document.getElementById('modal-loading'),
         bodyWrapper: document.getElementById('modal-body-wrapper'),
-        imageContent: document.getElementById('modal-image-content')
+        imageContent: document.getElementById('modal-image-content'),
+        imagesGrid: document.getElementById('product-images-grid'),
+        imagesEmpty: document.getElementById('product-images-empty'),
+        imagesUploadInput: document.getElementById('product-image-upload-input')
     };
 
     function showModal() {
@@ -851,9 +868,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         // Load purchase history
                         loadPurchaseHistory(productId);
-                        
+
                         // Load lot inventory
                         loadLotInventory(productId);
+
+                        // Load product images (사진 관리)
+                        loadProductImages(productId);
 
                         // Show content
                         modalContent.loading.style.display = 'none';
@@ -876,6 +896,89 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentProductId = null;
     let selectedPurchaseData = null;
     let marginPresets = [20, 25, 30, 35]; // 기본값
+
+    // ── 사진 관리 (mall_product_images 공유) ────────────────────────────
+    let currentImagesProductId = null;
+
+    function renderProductImages(images) {
+        modalContent.imagesGrid.innerHTML = '';
+        modalContent.imagesEmpty.classList.toggle('hidden', images.length > 0);
+
+        images.forEach((img, index) => {
+            const thumb = document.createElement('div');
+            thumb.className = 'relative';
+            thumb.style.width = '64px';
+            thumb.style.height = '64px';
+            thumb.innerHTML = `
+                <img src="${img.image_url}" style="width:64px;height:64px;object-fit:cover;border-radius:0.375rem;border:1px solid #e5e7eb;">
+                <button type="button" class="product-image-delete-btn" data-image-id="${img.id}" title="삭제"
+                        style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;line-height:16px;text-align:center;font-size:0.7rem;color:#fff;background:#dc2626;border-radius:9999px;">×</button>
+                <div style="position:absolute;bottom:-6px;left:0;right:0;display:flex;justify-content:center;gap:2px;">
+                    <button type="button" class="product-image-move-btn" data-image-id="${img.id}" data-direction="up" ${index === 0 ? 'disabled' : ''}
+                            style="font-size:0.65rem;background:#fff;border:1px solid #e5e7eb;border-radius:0.25rem;padding:0 3px;${index === 0 ? 'opacity:0.3;' : 'cursor:pointer;'}">◀</button>
+                    <button type="button" class="product-image-move-btn" data-image-id="${img.id}" data-direction="down" ${index === images.length - 1 ? 'disabled' : ''}
+                            style="font-size:0.65rem;background:#fff;border:1px solid #e5e7eb;border-radius:0.25rem;padding:0 3px;${index === images.length - 1 ? 'opacity:0.3;' : 'cursor:pointer;'}">▶</button>
+                </div>
+            `;
+            modalContent.imagesGrid.appendChild(thumb);
+        });
+
+        modalContent.imagesGrid.querySelectorAll('.product-image-delete-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                if (!confirm('이 사진을 삭제하시겠습니까?')) return;
+                const params = new URLSearchParams();
+                params.set('image_id', this.dataset.imageId);
+                fetch('ajax_delete_product_image.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) { loadProductImages(currentImagesProductId); } else { alert(data.error?.message || '삭제 실패'); }
+                    });
+            });
+        });
+
+        modalContent.imagesGrid.querySelectorAll('.product-image-move-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                if (this.disabled) return;
+                const params = new URLSearchParams();
+                params.set('image_id', this.dataset.imageId);
+                params.set('direction', this.dataset.direction);
+                fetch('ajax_reorder_product_images.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) { loadProductImages(currentImagesProductId); } else { alert(data.error?.message || '순서 변경 실패'); }
+                    });
+            });
+        });
+    }
+
+    function loadProductImages(productId) {
+        currentImagesProductId = productId;
+        fetch(`ajax_get_product_images.php?product_id=${productId}`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    renderProductImages(result.data);
+                }
+            })
+            .catch(error => console.error('Error loading product images:', error));
+    }
+
+    modalContent.imagesUploadInput.addEventListener('change', function () {
+        if (!this.files.length || !currentImagesProductId) return;
+        const formData = new FormData();
+        formData.append('product_id', currentImagesProductId);
+        formData.append('image', this.files[0]);
+        fetch('ajax_upload_product_image.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) { loadProductImages(currentImagesProductId); } else { alert(data.error?.message || '업로드 실패'); }
+                modalContent.imagesUploadInput.value = '';
+            })
+            .catch(error => {
+                console.error('Error uploading product image:', error);
+                modalContent.imagesUploadInput.value = '';
+            });
+    });
 
     // 마진율 프리셋 로드
     function loadMarginPresets() {

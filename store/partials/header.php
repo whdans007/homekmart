@@ -89,6 +89,10 @@ $_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '
                            class="<?php echo in_array($_sp, ['orders.php','order_detail.php']) ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-list-alt mr-2 text-xs w-4 text-center"></i>Order History
                         </a>
+                        <a href="<?php echo STORE_BASE; ?>/order_items.php"
+                           class="<?php echo $_sp === 'order_items.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-boxes-stacked mr-2 text-xs w-4 text-center"></i>Ordered Items List
+                        </a>
                     </div>
 
                     <!-- Requests (amber) -->
@@ -135,6 +139,7 @@ $_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '
         <div id="mobile-menu" class="hidden md:hidden bg-white border-b border-gray-200 px-4 py-3 space-y-1">
             <a href="<?php echo STORE_BASE; ?>/order.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Order</a>
             <a href="<?php echo STORE_BASE; ?>/orders.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Order History</a>
+            <a href="<?php echo STORE_BASE; ?>/order_items.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Ordered Items List</a>
             <a href="<?php echo STORE_BASE; ?>/requests.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Requests</a>
             <a href="<?php echo STORE_BASE; ?>/kimsmall_stock.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-pink-50 rounded-md"><i class="fas fa-warehouse mr-2"></i>KIM'S MALL WHEREHOUSE 재고 확인</a>
             <div class="border-t border-gray-100 mt-2 pt-2">

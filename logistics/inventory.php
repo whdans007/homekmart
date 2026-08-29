@@ -53,7 +53,15 @@ try {
                        COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                        0 AS total_stock, 0 AS box_stock, 0 AS pack_stock, 0 AS pcs_stock,
                        0 AS lot_count, NULL AS earliest_expiry, NULL AS days_left,
-                       NULL AS latest_inbound, NULL AS latest_inbound_id
+                       NULL AS latest_inbound, NULL AS latest_inbound_id,
+                       (SELECT s.name
+                        FROM lc_inventory li
+                        JOIN lc_inbound ib2 ON li.inbound_id = ib2.id
+                        LEFT JOIN lc_inbound_batches bat2 ON ib2.batch_id = bat2.id
+                        LEFT JOIN lc_suppliers s ON bat2.supplier_id = s.id
+                        WHERE li.product_id = p.id
+                        ORDER BY ib2.inbound_date DESC, li.inbound_id DESC
+                        LIMIT 1) AS latest_supplier
                 FROM lc_products p
                 LEFT JOIN lc_brands b ON p.brand_id = b.id
                 LEFT JOIN lc_inventory i ON i.product_id = p.id AND i.quantity_remain > 0
@@ -61,6 +69,63 @@ try {
                 GROUP BY p.id
                 HAVING COALESCE(SUM(i.quantity_remain), 0) <= 0
                 ORDER BY p.name_en ASC
+                LIMIT $limit OFFSET $offset";
+        $st = $conn->prepare($sql);
+        if ($params) { $st->bind_param($types, ...$params); }
+        $st->execute();
+        $list = $st->get_result()->fetch_all(MYSQLI_ASSOC);
+        $st->close();
+    } elseif ($filter === 'all') {
+        // 전체 상품 목록 — 재고가 0(또는 lot 자체가 없는) 상품도 목록/검색에 노출되도록
+        // lc_products 기준 LEFT JOIN (다른 필터는 실재고 lot 존재를 전제로 하므로 INNER JOIN 유지)
+        $conds  = [];
+        $params = [];
+        $types  = '';
+
+        if ($search) {
+            $conds[] = "(p.name_en LIKE ? OR p.name_ko LIKE ? OR p.barcode_unit LIKE ? OR p.barcode_box LIKE ? OR p.barcode_logistics LIKE ?)";
+            $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%";
+            $types   .= 'sssss';
+        }
+        $where = $conds ? ('WHERE ' . implode(' AND ', $conds)) : '';
+
+        $cnt_sql = "SELECT COUNT(*) FROM lc_products p $where";
+        $cnt = $conn->prepare($cnt_sql);
+        if ($params) { $cnt->bind_param($types, ...$params); }
+        $cnt->execute();
+        $total = (int)$cnt->get_result()->fetch_row()[0];
+        $cnt->close();
+        $total_pages = max(1, (int)ceil($total / $limit));
+
+        $sql = "SELECT p.id AS product_id,
+                       CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS product_name,
+                       b.name_en AS brand_name, b.name_ko AS brand_name_ko,
+                       p.unit, p.capacity, p.pieces_per_box, p.min_stock,
+                       COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
+                       COALESCE(SUM(i.quantity_remain), 0) AS total_stock,
+                       COALESCE(SUM(CASE WHEN i.unit = 'BOX'  THEN i.quantity_remain ELSE 0 END), 0) AS box_stock,
+                       COALESCE(SUM(CASE WHEN i.unit = 'PACK' THEN i.quantity_remain ELSE 0 END), 0) AS pack_stock,
+                       COALESCE(SUM(CASE WHEN i.unit = 'PCS'  THEN i.quantity_remain ELSE 0 END), 0) AS pcs_stock,
+                       COUNT(i.id)            AS lot_count,
+                       MIN(i.expiry_date)     AS earliest_expiry,
+                       DATEDIFF(MIN(i.expiry_date), CURDATE()) AS days_left,
+                       MAX(ib.inbound_date)   AS latest_inbound,
+                       MAX(i.inbound_id)      AS latest_inbound_id,
+                       (SELECT s.name
+                        FROM lc_inventory li
+                        JOIN lc_inbound ib2 ON li.inbound_id = ib2.id
+                        LEFT JOIN lc_inbound_batches bat2 ON ib2.batch_id = bat2.id
+                        LEFT JOIN lc_suppliers s ON bat2.supplier_id = s.id
+                        WHERE li.product_id = p.id
+                        ORDER BY ib2.inbound_date DESC, li.inbound_id DESC
+                        LIMIT 1) AS latest_supplier
+                FROM lc_products p
+                LEFT JOIN lc_inventory i ON i.product_id = p.id AND i.quantity_remain <> 0
+                LEFT JOIN lc_inbound ib ON i.inbound_id = ib.id
+                LEFT JOIN lc_brands b ON p.brand_id = b.id
+                $where
+                GROUP BY p.id
+                ORDER BY latest_inbound DESC, latest_inbound_id DESC, p.name_en ASC
                 LIMIT $limit OFFSET $offset";
         $st = $conn->prepare($sql);
         if ($params) { $st->bind_param($types, ...$params); }
@@ -120,7 +185,15 @@ try {
                        MIN(i.expiry_date)     AS earliest_expiry,
                        DATEDIFF(MIN(i.expiry_date), CURDATE()) AS days_left,
                        MAX(ib.inbound_date)   AS latest_inbound,
-                       MAX(i.inbound_id)      AS latest_inbound_id
+                       MAX(i.inbound_id)      AS latest_inbound_id,
+                       (SELECT s.name
+                        FROM lc_inventory li
+                        JOIN lc_inbound ib2 ON li.inbound_id = ib2.id
+                        LEFT JOIN lc_inbound_batches bat2 ON ib2.batch_id = bat2.id
+                        LEFT JOIN lc_suppliers s ON bat2.supplier_id = s.id
+                        WHERE li.product_id = p.id
+                        ORDER BY ib2.inbound_date DESC, li.inbound_id DESC
+                        LIMIT 1) AS latest_supplier
                 FROM lc_inventory i
                 JOIN lc_products p ON i.product_id = p.id
                 JOIN lc_inbound ib ON i.inbound_id = ib.id
@@ -261,25 +334,23 @@ main { overflow: hidden !important; }
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Capacity</th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Unit</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">PKG</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Nearest Expiry</th>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">LOT Count</th>
                 <th class="px-4 py-3 text-right text-xs text-pink-700 font-semibold bg-pink-100">Current Stock</th>
                 <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Open</th>
                 <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Status</th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Supplier</th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php if (empty($list)): ?>
-            <tr><td colspan="10" class="px-4 py-10 text-center text-gray-400">No products in stock.</td></tr>
+            <tr><td colspan="9" class="px-4 py-10 text-center text-gray-400">No products in stock.</td></tr>
             <?php endif; ?>
             <?php foreach ($list as $row):
                 $days = $row['days_left'];
                 $rowCls = '';
-                $expiryBadge = '';
                 if ($row['earliest_expiry']) {
                     if ($days === null)      { }
-                    elseif ($days < 0)       { $rowCls = 'bg-red-50';    $expiryBadge = '<span class="ml-1 text-xs font-bold text-red-600">Expired</span>'; }
-                    elseif ($days <= 30)     { $rowCls = 'bg-orange-50'; $expiryBadge = '<span class="ml-1 text-xs text-orange-600">D-' . $days . '</span>'; }
-                    elseif ($days <= 90)     { $rowCls = 'bg-yellow-50'; $expiryBadge = '<span class="ml-1 text-xs text-yellow-600">D-' . $days . '</span>'; }
+                    elseif ($days < 0)       { $rowCls = 'bg-red-50'; }
+                    elseif ($days <= 30)     { $rowCls = 'bg-orange-50'; }
+                    elseif ($days <= 90)     { $rowCls = 'bg-yellow-50'; }
                 }
                 // Design Ref: pack-unit §5 — 단위별(BOX/PACK/PCS) 분리 집계 표시
                 $boxStock  = (int)$row['box_stock'];
@@ -320,14 +391,6 @@ main { overflow: hidden !important; }
                 <td class="px-4 py-3 text-gray-600 text-xs"><?php echo htmlspecialchars($row['capacity'] ?: '—'); ?></td>
                 <td class="px-4 py-3 text-gray-600 text-xs"><?php echo htmlspecialchars($row['unit'] ?: '—'); ?></td>
                 <td class="px-4 py-3 text-right font-mono text-xs text-gray-500"><?php echo (int)($row['pieces_per_box'] ?? 1); ?></td>
-                <td class="px-4 py-3 text-sm text-gray-600">
-                    <?php if ($row['earliest_expiry']): ?>
-                        <?php echo $row['earliest_expiry']; ?><?php echo $expiryBadge; ?>
-                    <?php else: ?>
-                        <span class="text-gray-400">-</span>
-                    <?php endif; ?>
-                </td>
-                <td class="px-4 py-3 text-center text-gray-500"><?php echo $row['lot_count']; ?></td>
                 <td class="px-4 py-3 text-right font-bold bg-pink-50 <?php echo $isNegative ? 'text-red-600' : 'text-gray-900'; ?>">
                     <?php if ($isNegative): ?><i class="fas fa-exclamation-circle mr-1"></i><?php endif; ?>
                     <?php echo htmlspecialchars($stockDisplay); ?>
@@ -353,6 +416,7 @@ main { overflow: hidden !important; }
                     <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Normal</span>
                     <?php endif; ?>
                 </td>
+                <td class="px-4 py-3 text-gray-600 text-xs"><?php echo htmlspecialchars($row['latest_supplier'] ?: '—'); ?></td>
             </tr>
             <?php endforeach; ?>
             </tbody>

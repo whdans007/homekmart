@@ -27,9 +27,17 @@ if ($filter === 'out') {
 
     $sql = "SELECT p.id AS product_id,
                    CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS product_name,
-                   p.unit, p.min_stock,
+                   p.unit, p.capacity, p.min_stock,
                    COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
-                   0 AS total_stock, 0 AS lot_count, NULL AS earliest_expiry, NULL AS days_left
+                   0 AS total_stock,
+                   (SELECT s.name
+                    FROM lc_inventory li
+                    JOIN lc_inbound ib2 ON li.inbound_id = ib2.id
+                    LEFT JOIN lc_inbound_batches bat2 ON ib2.batch_id = bat2.id
+                    LEFT JOIN lc_suppliers s ON bat2.supplier_id = s.id
+                    WHERE li.product_id = p.id
+                    ORDER BY ib2.inbound_date DESC, li.inbound_id DESC
+                    LIMIT 1) AS latest_supplier
             FROM lc_products p
             LEFT JOIN lc_inventory i ON i.product_id = p.id AND i.quantity_remain > 0
             $where
@@ -64,12 +72,18 @@ if ($filter === 'out') {
 
     $sql = "SELECT p.id AS product_id,
                    CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS product_name,
-                   p.unit, p.min_stock,
+                   p.unit, p.capacity, p.min_stock,
                    COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                    SUM(i.quantity_remain) AS total_stock,
-                   COUNT(i.id)            AS lot_count,
                    MIN(i.expiry_date)     AS earliest_expiry,
-                   DATEDIFF(MIN(i.expiry_date), CURDATE()) AS days_left
+                   (SELECT s.name
+                    FROM lc_inventory li
+                    JOIN lc_inbound ib2 ON li.inbound_id = ib2.id
+                    LEFT JOIN lc_inbound_batches bat2 ON ib2.batch_id = bat2.id
+                    LEFT JOIN lc_suppliers s ON bat2.supplier_id = s.id
+                    WHERE li.product_id = p.id
+                    ORDER BY ib2.inbound_date DESC, li.inbound_id DESC
+                    LIMIT 1) AS latest_supplier
             FROM lc_inventory i
             JOIN lc_products p ON i.product_id = p.id
             JOIN lc_inbound ib ON i.inbound_id = ib.id
@@ -85,10 +99,10 @@ if ($filter === 'out') {
 $conn->close();
 
 $headers = [
-    'Product Name', 'Barcode', 'Unit', 'Earliest Expiry', 'Days Left',
-    'LOT Count', 'Current Stock', 'Min Stock', 'Status',
+    'Product Name', 'Capacity', 'Barcode', 'Unit',
+    'Current Stock', 'Min Stock', 'Status', 'Supplier',
 ];
-$textCols = [2]; // Barcode
+$textCols = [3]; // Barcode
 
 $rows = [];
 foreach ($list as $row) {
@@ -96,14 +110,13 @@ foreach ($list as $row) {
     $isLow = !$isOut && $row['min_stock'] > 0 && $row['total_stock'] <= $row['min_stock'];
     $rows[] = [
         $row['product_name'],
+        $row['capacity'] ?? '',
         $row['barcode'] ?? '',
         $row['unit'],
-        $row['earliest_expiry'] ?? '',
-        $row['earliest_expiry'] !== null ? (string)$row['days_left'] : '',
-        (string)$row['lot_count'],
         (string)$row['total_stock'],
         (string)$row['min_stock'],
         $isOut ? 'Out of Stock' : ($isLow ? 'Low Stock' : 'Normal'),
+        $row['latest_supplier'] ?? '',
     ];
 }
 

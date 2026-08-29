@@ -66,6 +66,21 @@ function lc_current_store_id(): ?int {
     return isset($_SESSION['store_id']) ? (int)$_SESSION['store_id'] : null;
 }
 
+// 물류센터(CENTER) 자체 점포명 — 출고/배분 목적지로 선택되면 안 됨 (자기 자신에게 출고하는 오류 방지)
+const LC_CENTER_STORE_NAME = 'CENTER (물류센터)';
+
+// store_id가 물류센터(CENTER) 자신인지 확인
+function lc_is_center_store(mysqli $conn, int $store_id): bool {
+    if ($store_id <= 0) return false;
+    $st = $conn->prepare("SELECT 1 FROM stores WHERE id = ? AND name = ?");
+    $name = LC_CENTER_STORE_NAME;
+    $st->bind_param('is', $store_id, $name);
+    $st->execute();
+    $found = (bool)$st->get_result()->fetch_row();
+    $st->close();
+    return $found;
+}
+
 function lc_current_role(): string {
     return $_SESSION['role'] ?? '';
 }

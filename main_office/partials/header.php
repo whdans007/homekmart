@@ -101,6 +101,7 @@ $_mo_qs_sales = mo_nav_qs($_mo_carry_store, null, $_mo_carry_year, $_mo_carry_mo
 <nav class="mo-nav">
     <a href="index.php" class="<?php echo $_mo_page === 'index.php' ? 'active' : ''; ?>"><i class="fa-solid fa-store me-1"></i>By Store</a>
     <a href="sales_report.php<?php echo $_mo_qs_sales; ?>" class="<?php echo $_mo_page === 'sales_report.php' ? 'active' : ''; ?>"><i class="fa-solid fa-chart-bar me-1"></i>SALES REPORT</a>
+    <a href="sales_expenses_report.php<?php echo $_mo_qs_sales; ?>" class="<?php echo $_mo_page === 'sales_expenses_report.php' ? 'active' : ''; ?>"><i class="fa-solid fa-scale-balanced me-1"></i>Sales &amp; Expenses</a>
     <a href="expense_report.php<?php echo $_mo_qs_date; ?>" class="<?php echo $_mo_page === 'expense_report.php' ? 'active' : ''; ?>"><i class="fa-solid fa-receipt me-1"></i>Expense Report</a>
     <a href="cash_disbursement.php<?php echo $_mo_qs_date; ?>" class="<?php echo $_mo_page === 'cash_disbursement.php' ? 'active' : ''; ?>"><i class="fa-solid fa-money-bill-wave me-1"></i>Cash Disbursement</a>
     <a href="cheque_expense_report.php<?php echo $_mo_qs_date; ?>" class="<?php echo $_mo_page === 'cheque_expense_report.php' ? 'active' : ''; ?>"><i class="fa-solid fa-file-invoice-dollar me-1"></i>Cheque Expense</a>
