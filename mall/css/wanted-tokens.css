@@ -1,0 +1,125 @@
+/* ============================================================
+   HOME K MART — Wanted Design System tokens (mall 전용)
+   Source: design_handoff_home_k_mart/wanted-tokens.css + README.md
+   §"색 (다크)" 표. 라이트 값은 :root에 한 번만 정의한다.
+   다크 팔레트는 [data-theme="dark"]에만 정의되어 있고, 그 속성을
+   설정하는 토글 UI가 아직 없어 지금은 항상 라이트로 보인다
+   (시스템이 다크 모드여도 자동 전환되지 않음 — 가독성 문제로 꺼둠).
+   ============================================================ */
+
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-jp-dynamic-subset.css");
+
+:root {
+  /* Primary (브랜드 액션) */
+  --primary-normal: #0066ff;
+  --primary-strong: #005eeb;
+  --primary-bg: #eaf2fe;
+
+  /* 로고 딥블루 */
+  --brand-blue-deep: #0b4ea2;
+
+  /* 텍스트 */
+  --label-normal: #171719;
+  --label-neutral: rgba(46, 47, 51, 0.88);
+  --label-alternative: rgba(55, 56, 60, 0.61);
+  --label-assistive: rgba(55, 56, 60, 0.28);
+
+  /* 배경/라인/필 */
+  --bg-normal: #ffffff;
+  --bg-alternative: #f7f7f8;
+  --line-normal: rgba(112, 115, 124, 0.22);
+  --line-alternative: rgba(112, 115, 124, 0.08);
+  --fill-normal: rgba(112, 115, 124, 0.05);
+  --fill-strong: rgba(112, 115, 124, 0.16);
+
+  /* 할인/성공/별점 */
+  --brand-red: #c8102e;
+  --on-brand-red: #ffffff;
+  --brand-green: #00752e;
+  --brand-star: #b87503;
+
+  /* 사진 위 라벨/헤어라인 */
+  --plate: rgba(255, 255, 255, 0.82);
+  --tile-line: rgba(23, 23, 25, 0.06);
+  --sticky-bg: rgba(255, 255, 255, 0.92);
+
+  /* 정적(테마 무관) */
+  --static-white: #ffffff;
+  --static-black: #000000;
+  --toast-bg: rgba(23, 23, 25, 0.92);
+
+  /* 타이포 */
+  --font-sans: "Pretendard JP", "Pretendard", -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "SF Mono", "SFMono-Regular", ui-monospace, "JetBrains Mono", Menlo,
+    Consolas, monospace;
+
+  --t-title1: 700 32px/1.375;    --ls-title1: -0.0253em;
+  --t-title2: 700 28px/1.358;    --ls-title2: -0.0236em;
+  --t-title3: 700 24px/1.334;    --ls-title3: -0.023em;
+  --t-heading1: 700 22px/1.364;  --ls-heading1: -0.0194em;
+  --t-heading2: 700 20px/1.40;   --ls-heading2: -0.012em;
+  --t-headline1: 600 18px/1.445; --ls-headline1: -0.002em;
+  --t-headline2: 600 17px/1.412; --ls-headline2: 0em;
+  --t-body1: 500 16px/1.50;      --ls-body1: 0.0057em;
+  --t-body2: 500 15px/1.467;     --ls-body2: 0.0096em;
+  --t-label1: 500 14px/1.429;    --ls-label1: 0.0145em;
+  --t-label2: 500 13px/1.385;    --ls-label2: 0.0194em;
+  --t-caption1: 500 12px/1.334;  --ls-caption1: 0.0252em;
+
+  /* radius */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 999px;
+
+  /* spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* elevation */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 2px 8px rgba(23, 23, 23, 0.07), 0 1px 2px rgba(23, 23, 23, 0.06);
+  --shadow-lg: 0 4px 16px rgba(23, 23, 23, 0.10), 0 2px 4px rgba(23, 23, 23, 0.06);
+}
+
+/* (v1) 시스템 다크모드 자동 전환은 잠시 꺼둔다 — 사이트 안에 다크/라이트를 직접 고르는
+   토글이 아직 없어서, 시스템이 다크로 설정된 사용자는 아래 다크 팔레트를 강제로 보게 되는데
+   실제로 확인해보니 가독성이 떨어져 우선 라이트 고정으로 되돌린다. 토글 기능을 넣을 때
+   아래 --dark-tokens 값들을 다시 조정해서 @media (prefers-color-scheme: dark) 블록을 살리면 된다.
+   :root[data-theme="dark"] { ... 동일한 값 ... } */
+
+/* 사용자가 앱 안에서 명시적으로 다크를 골랐을 때(현재는 이 속성을 설정하는 토글 UI가 없어 사실상 미사용) */
+:root[data-theme="dark"] {
+  --primary-normal: #4d8fff;
+  --primary-bg: rgba(77, 143, 255, 0.18);
+  --label-normal: #f2f3f5;
+  --label-alternative: rgba(233, 236, 242, 0.60);
+  --bg-normal: #17181a;
+  --bg-alternative: #0f1012;
+  --line-normal: rgba(160, 168, 184, 0.24);
+  --fill-strong: rgba(160, 168, 184, 0.20);
+  --brand-red: #ff7a85;
+  --on-brand-red: #17181a;
+  --brand-green: #4ade80;
+  --brand-star: #ffc44d;
+  --plate: rgba(23, 24, 26, 0.72);
+  --tile-line: rgba(255, 255, 255, 0.10);
+  --sticky-bg: rgba(23, 24, 26, 0.92);
+}
+
+.t-title3    { font: var(--t-title3) var(--font-sans);    letter-spacing: var(--ls-title3); }
+.t-heading2  { font: var(--t-heading2) var(--font-sans);  letter-spacing: var(--ls-heading2); }
+.t-headline1 { font: var(--t-headline1) var(--font-sans); letter-spacing: var(--ls-headline1); }
+.t-headline2 { font: var(--t-headline2) var(--font-sans); letter-spacing: var(--ls-headline2); }
+.t-body1     { font: var(--t-body1) var(--font-sans);     letter-spacing: var(--ls-body1); }
+.t-body2     { font: var(--t-body2) var(--font-sans);     letter-spacing: var(--ls-body2); }
+.t-label1    { font: var(--t-label1) var(--font-sans);    letter-spacing: var(--ls-label1); }
+.t-label2    { font: var(--t-label2) var(--font-sans);    letter-spacing: var(--ls-label2); }
+.t-caption1  { font: var(--t-caption1) var(--font-sans);  letter-spacing: var(--ls-caption1); }

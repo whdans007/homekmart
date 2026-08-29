@@ -72,11 +72,9 @@ try {
     // 취소된 판매 제외
     $where_conditions[] = "ws.status != 'cancelled'";
     
-    // 점포 필터 (super_admin이 아닌 경우)
-    if ($_SESSION['role'] !== 'super_admin') {
-        $where_conditions[] = "ws.store_id = ?";
-        $params[] = $current_store_id;
-    }
+    // 점포 필터 — super_admin도 선택된 점포($current_store_id, 상단 점포 스위처) 기준으로 스코프
+    $where_conditions[] = "ws.store_id = ?";
+    $params[] = $current_store_id;
 
     // 거래처 필터 (좌측 사이드바 선택)
     if ($filter_customer_id > 0) {
@@ -177,12 +175,8 @@ try {
     }
 
     // 좌측 거래처 목록 — 도매판매(취소 제외)가 있는 거래처. 점포 스코프(거래처 필터는 미적용).
-    $cust_where  = ["ws.status != 'cancelled'"];
-    $cust_params = [];
-    if ($_SESSION['role'] !== 'super_admin') {
-        $cust_where[]  = "ws.store_id = ?";
-        $cust_params[] = $current_store_id;
-    }
+    $cust_where  = ["ws.status != 'cancelled'", "ws.store_id = ?"];
+    $cust_params = [$current_store_id];
     $cust_sql = "
         SELECT wc.id, wc.name,
                COUNT(ws.id)         AS sale_count,

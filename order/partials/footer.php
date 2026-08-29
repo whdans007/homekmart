@@ -1,7 +1,7 @@
         </div><!-- /px-6 py-5 -->
         </div><!-- /flex-1 overflow-y-auto -->
     </div><!-- /메인 콘텐츠 -->
-</div><!-- /flex h-screen -->
+</div><!-- /flex flex-col h-screen -->
 
 <script>
 function showFlash(type, message) {

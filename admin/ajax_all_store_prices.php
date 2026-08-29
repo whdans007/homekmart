@@ -87,10 +87,10 @@ try {
 
     // 상품 식별 (product_id 우선, 없으면 바코드/SKU)
     if ($productId > 0) {
-        $pStmt = $pdo->prepare("SELECT id, sku, name_ko, name_en" . ($hasProdPrice ? ", selling_price" : "") . " FROM products WHERE id = ? LIMIT 1");
+        $pStmt = $pdo->prepare("SELECT id, sku, name_ko, name_en, pieces_per_box" . ($hasProdPrice ? ", selling_price" : "") . " FROM products WHERE id = ? LIMIT 1");
         $pStmt->execute([$productId]);
     } elseif ($barcode !== '') {
-        $pStmt = $pdo->prepare("SELECT id, sku, name_ko, name_en" . ($hasProdPrice ? ", selling_price" : "") . " FROM products WHERE sku = ? LIMIT 1");
+        $pStmt = $pdo->prepare("SELECT id, sku, name_ko, name_en, pieces_per_box" . ($hasProdPrice ? ", selling_price" : "") . " FROM products WHERE sku = ? LIMIT 1");
         $pStmt->execute([$barcode]);
     } else {
         echo json_encode(['success' => false, 'message' => '바코드 또는 상품을 선택해주세요.']);
@@ -116,6 +116,7 @@ try {
             i.quantity        AS quantity
         FROM stores s
         LEFT JOIN inventory i ON i.store_id = s.id AND i.product_id = ?
+        WHERE s.name NOT IN ('CENTER (물류센터)', 'KIMS MALL WHEREHOUSE (킴스몰 창고)')
         ORDER BY s.name ASC
     ");
     $stmt->execute([$productId]);
@@ -206,10 +207,11 @@ try {
     echo json_encode([
         'success' => true,
         'product' => [
-            'product_id' => $productId,
-            'sku'        => $product['sku'],
-            'name_ko'    => $product['name_ko'] ?? '',
-            'name_en'    => $product['name_en'] ?? '',
+            'product_id'     => $productId,
+            'sku'            => $product['sku'],
+            'name_ko'        => $product['name_ko'] ?? '',
+            'name_en'        => $product['name_en'] ?? '',
+            'pieces_per_box' => isset($product['pieces_per_box']) ? (int)$product['pieces_per_box'] : null,
         ],
         'stores'     => $stores,
         'logistics'  => $logistics,

@@ -15,6 +15,16 @@ if (!$store_id) {
     exit;
 }
 
+// 물류센터(CENTER) 소속 계정은 자기 자신에게 주문할 수 없음 — branch_outbound.php 사용
+$conn_center_check = get_lc_db();
+$is_center_account = lc_is_center_store($conn_center_check, $store_id);
+$conn_center_check->close();
+if ($is_center_account) {
+    lc_set_flash('error', 'The Logistics Center cannot place an order to itself. Use Branch Outbound instead.');
+    header('Location: ' . LC_BASE . '/index.php');
+    exit;
+}
+
 $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

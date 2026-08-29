@@ -128,13 +128,7 @@ $conn->close();
   </div>
 </div>
 
-<div class="flex items-center justify-between mb-4">
-  <h2 class="text-lg font-bold text-gray-800">
-    <i class="fas fa-users mr-2 text-indigo-500"></i>사용자 관리
-    <?php if ($storeName): ?>
-    <span class="text-sm font-normal text-gray-400 ml-2"><?php echo htmlspecialchars($storeName); ?></span>
-    <?php endif; ?>
-  </h2>
+<div class="flex items-center justify-end mb-4">
   <button onclick="new bootstrap.Modal(document.getElementById('addUserModal')).show()"
           class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
     <i class="fas fa-user-plus mr-1"></i>사용자 추가

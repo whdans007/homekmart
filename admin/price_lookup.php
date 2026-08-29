@@ -55,8 +55,32 @@ ensure_logged_in();
         .suggest-name { color: #e2e8f0; font-size: 0.9rem; }
         .product-head { border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 0.85rem; margin-bottom: 0.85rem; }
         .prod-sku { color: #38bdf8; font-weight: 800; font-size: 1.05rem; }
-        .prod-name { color: #fff; font-size: 1.1rem; font-weight: 700; }
-        .prod-name-en { color: rgba(255,255,255,0.6); font-size: 0.9rem; }
+        .lang-tag {
+            display: inline-block; font-size: 0.68rem; font-weight: 700; padding: 0.05rem 0.4rem;
+            border-radius: 0.3rem; margin-right: 0.4rem; background: rgba(56,165,233,0.15); color: #38bdf8;
+            vertical-align: middle;
+        }
+        .lang-tag-en { background: rgba(167,139,250,0.15); color: #a78bfa; }
+        .name-edit-block { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.5rem; margin-top: 0.5rem; }
+        .name-edit-fields { display: flex; flex-direction: column; justify-content: center; gap: 0.35rem; flex: 1 1 220px; min-width: 0; }
+        .name-edit-row { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+        .name-input {
+            background: #0f172a; border: 1px solid #334155; color: #f1f5f9;
+            border-radius: 0.4rem; padding: 0.3rem 0.55rem; font-size: 0.95rem; width: 100%; min-width: 0;
+        }
+        .name-input:focus { outline: none; border-color: #0ea5e9; box-shadow: 0 0 0 2px rgba(14,165,233,0.25); }
+        .name-input-ko { font-weight: 700; }
+        .save-name-btn {
+            display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.3;
+            background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #4ade80;
+            font-size: 0.78rem; font-weight: 600; padding: 0 1rem; border-radius: 0.4rem; cursor: pointer;
+            white-space: nowrap; flex: 0 0 auto;
+        }
+        .save-name-btn:hover { background: rgba(34,197,94,0.28); }
+        .save-name-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .name-save-msg { display: block; margin-top: 0.4rem; font-size: 0.8rem; color: rgba(255,255,255,0.45); }
+        .name-save-msg.ok { color: #4ade80; }
+        .name-save-msg.err { color: #f87171; }
         table.price-table { width: 100%; border-collapse: collapse; }
         table.price-table th, table.price-table td { padding: 0.6rem 0.8rem; text-align: right; }
         table.price-table th:first-child, table.price-table td:first-child { text-align: left; }
@@ -82,13 +106,6 @@ ensure_logged_in();
             padding: 0.4rem 0.85rem; border-radius: 0.5rem; transition: all 0.15s ease;
         }
         .main-btn:hover { background: rgba(14,165,233,0.28); color: #fff; }
-        .pull-btn {
-            display: inline-flex; align-items: center; gap: 0.4rem;
-            background: rgba(34,197,94,0.14); border: 1px solid rgba(34,197,94,0.35);
-            color: #86efac; font-size: 0.85rem; font-weight: 600; text-decoration: none;
-            padding: 0.4rem 0.85rem; border-radius: 0.5rem; transition: all 0.15s ease;
-        }
-        .pull-btn:hover { background: rgba(34,197,94,0.28); color: #fff; }
         .summary-chip {
             display:inline-block; background: rgba(14,165,233,0.12); border:1px solid rgba(14,165,233,0.3);
             color:#7dd3fc; font-size:0.78rem; padding:0.25rem 0.6rem; border-radius:0.4rem; margin-left:0.4rem;
@@ -122,7 +139,6 @@ ensure_logged_in();
             <div class="page-subtitle">All-Store Price Lookup</div>
         </div>
         <div class="d-flex align-items-center gap-3">
-            <a href="pull_store_pricing.php" class="pull-btn"><i class="fas fa-cloud-arrow-down"></i>지점 가격 가져오기</a>
             <a href="/" class="main-btn"><i class="fas fa-globe"></i>MAIN</a>
             <a href="system_management.php" class="back-link"><i class="fas fa-arrow-left me-1"></i>시스템 관리</a>
         </div>
@@ -174,11 +190,14 @@ const fetchSuggest = debounce(async (q) => {
 
 function renderSuggest(products) {
     activeIdx = -1;
-    suggestBox.innerHTML = products.map((p, i) => `
+    suggestBox.innerHTML = products.map((p, i) => {
+        const names = [p.name_ko, p.name_en].filter(Boolean).join(' / ');
+        return `
         <div class="suggest-item" data-idx="${i}" data-pid="${p.product_id}">
             <span class="suggest-sku">${escapeHtml(p.sku)}</span>
-            <span class="suggest-name"> · ${escapeHtml(p.name_ko || p.name_en || '')}</span>
-        </div>`).join('');
+            <span class="suggest-name"> · ${escapeHtml(names)}</span>
+        </div>`;
+    }).join('');
     suggestBox.style.display = 'block';
     suggestBox.querySelectorAll('.suggest-item').forEach(el => {
         el.addEventListener('click', () => {
@@ -254,15 +273,35 @@ function renderLogistics(logi) {
     panel.style.display = 'block';
 }
 
+let currentProduct = null;
+
 function renderResult(product, stores) {
+    currentProduct = product;
     const withInv = stores.filter(s => s.has_inventory).length;
+    const boxChip = (product.pieces_per_box && product.pieces_per_box > 0)
+        ? `<span class="summary-chip"><i class="fas fa-box me-1"></i>박스당 ${product.pieces_per_box}개</span>` : '';
     $('productHead').innerHTML = `
         <div class="d-flex justify-content-between align-items-start flex-wrap">
             <div>
                 <span class="prod-sku">${escapeHtml(product.sku)}</span>
                 <span class="summary-chip">점포 ${stores.length}곳 · 가격등록 ${withInv}곳</span>
-                <div class="prod-name mt-1">${escapeHtml(product.name_ko || product.name_en || '')}</div>
-                ${product.name_en ? `<div class="prod-name-en">${escapeHtml(product.name_en)}</div>` : ''}
+                ${boxChip}
+                <div class="name-edit-block">
+                    <div class="name-edit-fields">
+                        <div class="name-edit-row">
+                            <span class="lang-tag">KOR</span>
+                            <input type="text" id="editNameKo" class="name-input name-input-ko" value="${escapeHtml(product.name_ko || '')}">
+                        </div>
+                        <div class="name-edit-row">
+                            <span class="lang-tag lang-tag-en">ENG</span>
+                            <input type="text" id="editNameEn" class="name-input" value="${escapeHtml(product.name_en || '')}">
+                        </div>
+                    </div>
+                    <button type="button" id="saveNameBtn" class="save-name-btn" onclick="saveProductName()">
+                        <i class="fas fa-floppy-disk"></i>&nbsp;상품명<br>저장
+                    </button>
+                </div>
+                <span id="nameSaveMsg" class="name-save-msg"></span>
             </div>
         </div>`;
 
@@ -300,6 +339,48 @@ function renderResult(product, stores) {
             </thead>
             <tbody>${rows}</tbody>
         </table>`;
+}
+
+async function saveProductName() {
+    if (!currentProduct) return;
+    const msgEl = $('nameSaveMsg');
+    const btn   = $('saveNameBtn');
+    const newKo = $('editNameKo').value.trim();
+    const newEn = $('editNameEn').value.trim();
+
+    const tasks = [];
+    if (newKo !== (currentProduct.name_ko || '')) tasks.push(['ko', newKo]);
+    if (newEn !== (currentProduct.name_en || '')) tasks.push(['en', newEn]);
+
+    if (!tasks.length) {
+        msgEl.textContent = '변경된 내용이 없습니다.';
+        msgEl.className = 'name-save-msg';
+        return;
+    }
+
+    btn.disabled = true;
+    msgEl.textContent = '저장 중…';
+    msgEl.className = 'name-save-msg';
+
+    try {
+        for (const [lang, name] of tasks) {
+            const fd = new FormData();
+            fd.append('product_id', currentProduct.product_id);
+            fd.append('language', lang);
+            fd.append('product_name', name);
+            const res = await fetch('ajax_update_product_name.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message || '저장 실패');
+            if (lang === 'ko') currentProduct.name_ko = name; else currentProduct.name_en = name;
+        }
+        msgEl.textContent = '저장되었습니다.';
+        msgEl.className = 'name-save-msg ok';
+    } catch (e) {
+        msgEl.textContent = e.message;
+        msgEl.className = 'name-save-msg err';
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 // 키보드 네비게이션 + 엔터 검색

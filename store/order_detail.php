@@ -36,9 +36,9 @@ try {
     $st->bind_param('i', $id); $st->execute();
     $items = $st->get_result()->fetch_all(MYSQLI_ASSOC); $st->close();
 
-    // 재고 차감 완료 주문(승인/출고/배달): lot 유통기한 정보 로드
+    // 재고 차감 완료 주문(대책 C: 접수 즉시 차감): lot 유통기한 정보 로드
     $expiry_by_item = [];
-    if (in_array($order['status'], ['approved', 'cancel_requested', 'shipped', 'delivered'])) {
+    if (in_array($order['status'], ['pending', 'approved', 'cancel_requested', 'shipped', 'delivered'])) {
         $item_ids_csv = implode(',', array_column($items, 'id') ?: [0]);
         $lot_rows = $conn->query(
             "SELECT oll.order_item_id,

@@ -1,0 +1,231 @@
+/* ============================================================
+   WANTED DESIGN SYSTEM — Colors & Type foundations
+   Source: "Wanted Design System (Community)" Figma file.
+   Brand: Wanted (Wanted Lab / 원티드랩) — career & recruitment platform.
+
+   Fonts are loaded from CDN (both are open-source):
+   - Pretendard JP  → primary UI typeface (KR / EN / JP)
+   - Wanted Sans    → brand / marketing display typeface
+   - SF Mono / ui-monospace → code
+   If you need offline/self-hosted font files, ask the team to
+   drop the .woff2 files in /fonts and swap the @font-face srcs.
+   ============================================================ */
+
+/* Pretendard JP — primary typeface */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-jp-dynamic-subset.css");
+/* Wanted Sans — brand display typeface */
+@import url("https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css");
+
+:root {
+  /* ---------------------------------------------------------
+     1. ATOMIC PALETTE  (color-atomic-*)
+     Raw, theme-agnostic ramps. Prefer the SEMANTIC tokens
+     below for product UI; reach for atomics only when a
+     semantic token doesn't exist.
+     --------------------------------------------------------- */
+  --atomic-common-100: #ffffff;   /* common/100 = white */
+  --atomic-common-0:   #000000;   /* common/0   = black  */
+
+  /* Neutral (warm-grey, the workhorse text/line ramp) */
+  --atomic-neutral-99: #f7f7f8;
+  --atomic-neutral-95: #f4f4f5;
+  --atomic-neutral-90: #ededee;
+  --atomic-neutral-80: #dbdcdf;
+  --atomic-neutral-70: #c2c4c8;
+  --atomic-neutral-60: #aeb0b6;
+  --atomic-neutral-50: #989ba2;
+  --atomic-neutral-40: #878a93;
+  --atomic-neutral-30: #70737c;   /* the single most-used grey */
+  --atomic-neutral-22: #55565a;
+  --atomic-neutral-20: #46474b;
+  --atomic-neutral-10: #2e2f33;
+  --atomic-neutral-5:  #1b1c1e;
+  --atomic-neutral-0:  #171719;
+
+  /* Cool-neutral (used for surfaces / fills with a cool cast) */
+  --atomic-coolNeutral-99: #f7f7f8;
+  --atomic-coolNeutral-95: #f4f4f5;
+  --atomic-coolNeutral-90: #eaebec;
+  --atomic-coolNeutral-50: #989ba2;
+  --atomic-coolNeutral-10: #2b2c2e;
+
+  /* Blue — the primary brand action hue */
+  --atomic-blue-99: #eaf2fe;
+  --atomic-blue-95: #cce0ff;
+  --atomic-blue-90: #99c2ff;
+  --atomic-blue-70: #4d94ff;
+  --atomic-blue-60: #3385ff;
+  --atomic-blue-50: #0066ff;       /* primary */
+  --atomic-blue-40: #005eeb;
+  --atomic-blue-30: #0048b5;
+
+  --atomic-lightBlue-50: #0098b2;
+  --atomic-red-50:       #ff4242;  /* negative / error */
+  --atomic-red-60:       #e53935;
+  --atomic-redOrange-50: #ff6b2c;  /* accent */
+  --atomic-green-50:     #00bf40;  /* positive / success */
+  --atomic-green-60:     #00a838;
+  --atomic-purple-50:    #9747ff;  /* spec-annotation accent (not product UI) */
+  --atomic-purple-90:    #f0ecfe;
+
+  /* ---------------------------------------------------------
+     2. SEMANTIC TOKENS  (color-semantic-*)  — LIGHT THEME
+     These are what you reach for 95% of the time. Label
+     colours are opacity-based on a near-black so they
+     composite correctly over any surface.
+     --------------------------------------------------------- */
+
+  /* Primary (brand action) */
+  --primary-normal:      #0066ff;
+  --primary-strong:      #005eeb;
+  --primary-heavy:       #0048b5;
+  --primary-bg:          #eaf2fe;   /* tinted primary surface */
+
+  /* Label (text) — opacity ramp over #2E2F33 / #37383C */
+  --label-normal:        #171719;            /* headings, primary text */
+  --label-strong:        #000000;
+  --label-neutral:       rgba(46,47,51,0.88); /* body text */
+  --label-alternative:   rgba(55,56,60,0.61); /* secondary / captions */
+  --label-assistive:     rgba(55,56,60,0.28); /* hints, disabled text */
+  --label-disable:       rgba(55,56,60,0.16);
+
+  /* Static (never invert with theme) */
+  --static-white:        #ffffff;
+  --static-black:        #000000;
+
+  /* Inverse (text/fill on dark surfaces) */
+  --inverse-primary:     #3385ff;
+  --inverse-background:  #171719;
+  --inverse-label:       #ffffff;
+
+  /* Background surfaces */
+  --bg-normal:           #ffffff;   /* base page / card */
+  --bg-alternative:      #f7f7f8;   /* subtle section fill */
+  --bg-elevated:         #ffffff;   /* modals / popovers (with shadow) */
+
+  /* Line / border — opacity over neutral-30 (#70737C) */
+  --line-normal:         rgba(112,115,124,0.22); /* default hairline */
+  --line-neutral:        rgba(112,115,124,0.16);
+  --line-alternative:    rgba(112,115,124,0.08);
+  --line-strong:         rgba(112,115,124,0.52);
+
+  /* Component fills (chips, inputs, secondary buttons) */
+  --fill-normal:         rgba(112,115,124,0.08);
+  --fill-strong:         rgba(112,115,124,0.16);
+  --fill-alternative:    rgba(112,115,124,0.05);
+
+  /* Interaction */
+  --interaction-inactive: #989ba2;
+  --interaction-disable:  #f4f4f5;
+
+  /* Status */
+  --status-positive:     #00bf40;
+  --status-cautionary:   #ff6b2c;
+  --status-negative:     #ff4242;
+
+  /* Accent backgrounds (tinted status surfaces) */
+  --accent-bg-blue:      #eaf2fe;
+  --accent-bg-green:     #e8f8ee;
+  --accent-bg-red:       #ffeceb;
+  --accent-bg-redOrange: #fff0e8;
+
+  /* ---------------------------------------------------------
+     3. TYPEFACES
+     --------------------------------------------------------- */
+  --font-sans: "Pretendard JP", "Pretendard", -apple-system, BlinkMacSystemFont,
+               "Apple SD Gothic Neo", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-brand: "Wanted Sans", "Wanted Sans Variable", var(--font-sans);
+  --font-mono: "SF Mono", "SFMono-Regular", ui-monospace, "JetBrains Mono",
+               Menlo, Consolas, monospace;
+
+  /* Weights (Pretendard JP) */
+  --fw-regular: 400;
+  --fw-medium: 500;   /* default body weight in Wanted UI */
+  --fw-semibold: 600;
+  --fw-bold: 700;     /* titles, button labels, emphasis */
+
+  /* ---------------------------------------------------------
+     4. TYPE SCALE  — 7 tiers, 18 styles. Pretendard JP.
+     Format: --t-<name>: <weight> <size>/<line-height> ; with a
+     matching --ls-<name> for letter-spacing.
+     (Wanted ships Normal + Reading line-heights for Body/Label.)
+     --------------------------------------------------------- */
+  --t-display1: 700 56px/1.286;   --ls-display1: -0.0319em;
+  --t-display2: 700 40px/1.30;    --ls-display2: -0.0282em;
+  --t-display3: 700 36px/1.334;   --ls-display3: -0.027em;
+  --t-title1:   700 32px/1.375;   --ls-title1:   -0.0253em;
+  --t-title2:   700 28px/1.358;   --ls-title2:   -0.0236em;
+  --t-title3:   700 24px/1.334;   --ls-title3:   -0.023em;
+  --t-heading1: 700 22px/1.364;   --ls-heading1: -0.0194em;
+  --t-heading2: 700 20px/1.40;    --ls-heading2: -0.012em;
+  --t-headline1:600 18px/1.445;   --ls-headline1:-0.002em;
+  --t-headline2:600 17px/1.412;   --ls-headline2: 0em;
+  --t-body1:    500 16px/1.50;    --ls-body1:     0.0057em;
+  --t-body1-reading: 500 16px/1.625; --ls-body1-reading: 0.0057em;
+  --t-body2:    500 15px/1.467;   --ls-body2:     0.0096em;
+  --t-body2-reading: 500 15px/1.60;  --ls-body2-reading: 0.0096em;
+  --t-label1:   500 14px/1.429;   --ls-label1:    0.0145em;
+  --t-label1-reading: 500 14px/1.571; --ls-label1-reading: 0.0145em;
+  --t-label2:   500 13px/1.385;   --ls-label2:    0.0194em;
+  --t-caption1: 500 12px/1.334;   --ls-caption1:  0.0252em;
+  --t-caption2: 500 11px/1.273;   --ls-caption2:  0.0311em;
+
+  /* ---------------------------------------------------------
+     5. RADII  (from the component library)
+     --------------------------------------------------------- */
+  --radius-xs: 6px;    /* xsmall button / tiny chip      */
+  --radius-sm: 8px;    /* small button / chip            */
+  --radius-md: 10px;   /* medium button                  */
+  --radius-lg: 12px;   /* large button / card / input    */
+  --radius-xl: 16px;   /* large card / sheet header      */
+  --radius-2xl: 24px;  /* feature panel                  */
+  --radius-3xl: 32px;  /* spec / showcase container      */
+  --radius-full: 999px;/* pill button, avatar            */
+
+  /* ---------------------------------------------------------
+     6. SPACING  — 4px base unit
+     --------------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---------------------------------------------------------
+     7. ELEVATION  — soft, low-spread, near-black shadows
+     --------------------------------------------------------- */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.08), 0 0 1px rgba(0,0,0,0.08);
+  --shadow-md: 0 2px 8px rgba(23,23,23,0.07), 0 1px 2px rgba(23,23,23,0.06);
+  --shadow-lg: 0 4px 16px rgba(23,23,23,0.10), 0 2px 4px rgba(23,23,23,0.06);
+  --shadow-xl: 0 8px 28px rgba(23,23,23,0.12), 0 2px 8px rgba(23,23,23,0.06);
+  /* text protection over imagery */
+  --shadow-text: 0 1px 2px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.08);
+}
+
+/* ============================================================
+   SEMANTIC TYPE CLASSES — apply directly to elements.
+   e.g. <h1 class="t-title1">  <p class="t-body1">
+   ============================================================ */
+.t-display1 { font:var(--t-display1) var(--font-sans); letter-spacing:var(--ls-display1); }
+.t-display2 { font:var(--t-display2) var(--font-sans); letter-spacing:var(--ls-display2); }
+.t-display3 { font:var(--t-display3) var(--font-sans); letter-spacing:var(--ls-display3); }
+.t-title1   { font:var(--t-title1)   var(--font-sans); letter-spacing:var(--ls-title1); }
+.t-title2   { font:var(--t-title2)   var(--font-sans); letter-spacing:var(--ls-title2); }
+.t-title3   { font:var(--t-title3)   var(--font-sans); letter-spacing:var(--ls-title3); }
+.t-heading1 { font:var(--t-heading1) var(--font-sans); letter-spacing:var(--ls-heading1); }
+.t-heading2 { font:var(--t-heading2) var(--font-sans); letter-spacing:var(--ls-heading2); }
+.t-headline1{ font:var(--t-headline1)var(--font-sans); letter-spacing:var(--ls-headline1); }
+.t-headline2{ font:var(--t-headline2)var(--font-sans); letter-spacing:var(--ls-headline2); }
+.t-body1    { font:var(--t-body1)    var(--font-sans); letter-spacing:var(--ls-body1); }
+.t-body1-reading { font:var(--t-body1-reading) var(--font-sans); letter-spacing:var(--ls-body1-reading); }
+.t-body2    { font:var(--t-body2)    var(--font-sans); letter-spacing:var(--ls-body2); }
+.t-body2-reading { font:var(--t-body2-reading) var(--font-sans); letter-spacing:var(--ls-body2-reading); }
+.t-label1   { font:var(--t-label1)   var(--font-sans); letter-spacing:var(--ls-label1); }
+.t-label1-reading { font:var(--t-label1-reading) var(--font-sans); letter-spacing:var(--ls-label1-reading); }
+.t-label2   { font:var(--t-label2)   var(--font-sans); letter-spacing:var(--ls-label2); }
+.t-caption1 { font:var(--t-caption1) var(--font-sans); letter-spacing:var(--ls-caption1); }
+.t-caption2 { font:var(--t-caption2) var(--font-sans); letter-spacing:var(--ls-caption2); }

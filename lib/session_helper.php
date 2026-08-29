@@ -27,7 +27,7 @@ function ensure_logged_in() {
         if (!is_logged_in()) {
             // 원래 접근하려던 URL을 기억해두었다가 로그인 후 그곳으로 돌려보냅니다.
             $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '';
-            header('Location: login.php');
+            header('Location: /admin/login.php');
             exit();
         }
     }

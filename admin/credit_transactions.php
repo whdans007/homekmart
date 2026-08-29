@@ -24,7 +24,6 @@ $customer_balances = [];
 $summary = ['outstanding' => 0, 'month_sales' => 0, 'month_paid' => 0];
 $errors = [];
 
-$is_super = ($_SESSION['role'] ?? '') === 'super_admin';
 $store_id = $current_store_id;
 
 // 선택한 업체(카드 클릭) 필터
@@ -59,17 +58,17 @@ try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // 점포 필터 조건
-    $store_cond_tx = $is_super ? "" : " AND ct.store_id = " . (int)$store_id;
-    $store_cond_pay = $is_super ? "" : " AND cp.store_id = " . (int)$store_id;
-    $store_cond_cc = $is_super ? "" : " AND cc.store_id = " . (int)$store_id;
+    // 점포 필터 조건 — super_admin도 선택된 점포($current_store_id, 상단 점포 스위처) 기준으로 스코프
+    $store_cond_tx = " AND ct.store_id = " . (int)$store_id;
+    $store_cond_pay = " AND cp.store_id = " . (int)$store_id;
+    $store_cond_cc = " AND cc.store_id = " . (int)$store_id;
 
     // 선택한 달 기간 조건 (매월 1일~말일, 누계 매월 리셋)
     $date_cond_tx  = " AND ct.transaction_date BETWEEN '{$month_start}' AND '{$month_end}'";
     $date_cond_pay = " AND cp.payment_date BETWEEN '{$month_start}' AND '{$month_end}'";
 
     // POS 외상(sales_pos_wholesale_pick, source_type='credit') 통합 조건
-    $store_cond_pos = $is_super ? "" : " AND wp.store_id = " . (int)$store_id;
+    $store_cond_pos = " AND wp.store_id = " . (int)$store_id;
     $date_cond_pos  = " AND wp.sale_date BETWEEN '{$month_start}' AND '{$month_end}'";
     $has_pos = false;
     try { $has_pos = (bool)$pdo->query("SHOW TABLES LIKE 'sales_pos_wholesale_pick'")->fetchColumn(); } catch (PDOException $e) { $has_pos = false; }

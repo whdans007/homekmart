@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="wanted-tokens.css">
+<script src="./image-slot.js"></script>
+<style>
+html,body{margin:0;padding:0;background:#f0eee9;font-family:"Pretendard JP","Pretendard",-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#0066ff;text-decoration:none}
+a:hover{color:#0048b5}
+button{font-family:inherit}
+::-webkit-scrollbar{width:0;height:0}
+@keyframes pushIn{from{transform:translateX(28px);opacity:.4}to{transform:translateX(0);opacity:1}}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes toastIn{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+</style>
+</helmet>
+
+<svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden"><symbol id="i-search" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(2.35 2.35)"><path d="M 7.9 0 C 3.537 0 0 3.537 0 7.9 C 0 12.263 3.537 15.8 7.9 15.8 C 9.757 15.8 11.465 15.159 12.814 14.086 L 17.764 19.036 C 18.115 19.388 18.685 19.388 19.036 19.036 C 19.388 18.685 19.388 18.115 19.036 17.764 L 14.086 12.813 C 15.159 11.465 15.8 9.757 15.8 7.9 C 15.8 3.537 12.263 0 7.9 0 Z M 1.8 7.9 C 1.8 4.531 4.531 1.8 7.9 1.8 C 11.269 1.8 14 4.531 14 7.9 C 14 11.269 11.269 14 7.9 14 C 4.531 14 1.8 11.269 1.8 7.9 Z" fill-rule="evenodd"></path></g></symbol><symbol id="i-bell" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(2.838 2.1)"><path d="M 9.163 0 C 6.938 0 5.108 0.788 3.851 2.274 C 2.611 3.74 2.013 5.783 2.013 8.15 L 2.013 8.9 C 2.013 11.365 1.33 12.825 0.357 13.768 C -0.025 14.138 -0.065 14.65 0.072 15.026 C 0.21 15.409 0.591 15.8 1.162 15.8 L 17.163 15.8 C 17.735 15.8 18.115 15.409 18.254 15.026 C 18.39 14.65 18.351 14.138 17.969 13.768 C 16.996 12.825 16.313 11.365 16.313 8.9 L 16.313 8.15 C 16.313 5.783 15.715 3.74 14.475 2.274 C 13.217 0.788 11.388 0 9.163 0 Z M 3.813 8.15 C 3.813 6.065 4.34 4.483 5.225 3.437 C 6.092 2.411 7.388 1.8 9.163 1.8 C 10.938 1.8 12.233 2.411 13.101 3.437 C 13.986 4.483 14.513 6.065 14.513 8.15 L 14.513 8.9 C 14.513 11.063 14.981 12.727 15.832 14 L 2.494 14 C 3.345 12.727 3.813 11.063 3.813 8.9 L 3.813 8.15 Z" fill-rule="evenodd"></path><path d="M 7.163 18 C 6.666 18 6.263 18.403 6.263 18.9 C 6.263 19.397 6.666 19.8 7.163 19.8 L 11.163 19.8 C 11.66 19.8 12.063 19.397 12.063 18.9 C 12.063 18.403 11.66 18 11.163 18 L 7.163 18 Z"></path></g></symbol><symbol id="i-bag" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(2.1 2.6)"><path d="M 6.9 8 C 6.403 8 6 8.403 6 8.9 C 6 9.397 6.403 9.8 6.9 9.8 L 12.9 9.8 C 13.397 9.8 13.8 9.397 13.8 8.9 C 13.8 8.403 13.397 8 12.9 8 L 6.9 8 Z"></path><path d="M 7.47 0 L 12.33 0 C 12.584 0 12.826 0 13.03 0.016 C 13.252 0.035 13.508 0.077 13.763 0.207 C 14.12 0.389 14.411 0.68 14.593 1.037 C 14.723 1.292 14.765 1.547 14.783 1.77 C 14.8 1.974 14.8 2.216 14.8 2.47 L 14.8 3.5 L 15.735 3.5 C 16.265 3.5 16.716 3.5 17.087 3.53 C 17.476 3.562 17.855 3.632 18.217 3.816 C 18.762 4.094 19.206 4.538 19.484 5.083 C 19.668 5.445 19.738 5.824 19.77 6.213 C 19.8 6.583 19.8 7.035 19.8 7.564 L 19.8 14.735 C 19.8 15.265 19.8 15.716 19.77 16.087 C 19.738 16.476 19.668 16.855 19.484 17.216 C 19.206 17.762 18.762 18.206 18.217 18.484 C 17.855 18.668 17.476 18.738 17.087 18.77 C 16.716 18.8 16.265 18.8 15.735 18.8 L 4.065 18.8 C 3.535 18.8 3.084 18.8 2.713 18.77 C 2.324 18.738 1.945 18.668 1.583 18.484 C 1.038 18.206 0.594 17.762 0.316 17.216 C 0.132 16.855 0.062 16.476 0.03 16.087 C 0 15.716 0 15.265 0 14.735 L 0 7.564 C 0 7.035 0 6.583 0.03 6.213 C 0.062 5.824 0.132 5.445 0.316 5.083 C 0.594 4.538 1.038 4.094 1.583 3.816 C 1.945 3.632 2.324 3.562 2.713 3.53 C 3.084 3.5 3.535 3.5 4.065 3.5 L 5 3.5 L 5 2.47 C 5 2.216 5 1.974 5.017 1.77 C 5.035 1.547 5.077 1.292 5.207 1.037 C 5.389 0.68 5.68 0.389 6.037 0.207 C 6.292 0.077 6.547 0.035 6.77 0.016 C 6.974 0 7.216 0 7.47 0 Z M 13 1.9 L 13 3.5 L 6.8 3.5 L 6.8 1.9 C 6.8 1.845 6.845 1.8 6.9 1.8 L 12.9 1.8 C 12.955 1.8 13 1.845 13 1.9 Z M 3.7 5.3 C 2.885 5.3 2.692 5.311 2.56 5.354 C 2.225 5.463 1.963 5.725 1.854 6.06 C 1.811 6.192 1.8 6.385 1.8 7.2 L 1.8 15.1 C 1.8 15.914 1.811 16.108 1.854 16.24 C 1.963 16.575 2.225 16.837 2.56 16.946 C 2.692 16.989 2.885 17 3.7 17 L 16.1 17 C 16.914 17 17.108 16.989 17.24 16.946 C 17.575 16.837 17.837 16.575 17.946 16.24 C 17.989 16.108 18 15.914 18 15.1 L 18 7.2 C 18 6.385 17.989 6.192 17.946 6.06 C 17.837 5.725 17.575 5.463 17.24 5.354 C 17.108 5.311 16.914 5.3 16.1 5.3 L 3.7 5.3 Z" fill-rule="evenodd"></path></g></symbol><symbol id="i-chev-right" viewBox="0 0 24 24" fill="currentColor"><path transform="translate(7.6 3.099)" d="M 0.264 0.264 C -0.088 0.615 -0.088 1.185 0.264 1.536 L 7.627 8.9 L 0.264 16.264 C -0.088 16.615 -0.088 17.185 0.264 17.536 C 0.615 17.888 1.185 17.888 1.536 17.536 L 9.536 9.536 C 9.888 9.185 9.888 8.615 9.536 8.264 L 1.536 0.264 C 1.185 -0.088 0.615 -0.088 0.264 0.264 Z"></path></symbol><symbol id="i-chev-left" viewBox="0 0 24 24" fill="currentColor"><g transform="rotate(180 12 12)"><path transform="translate(7.6 3.099)" d="M 0.264 0.264 C -0.088 0.615 -0.088 1.185 0.264 1.536 L 7.627 8.9 L 0.264 16.264 C -0.088 16.615 -0.088 17.185 0.264 17.536 C 0.615 17.888 1.185 17.888 1.536 17.536 L 9.536 9.536 C 9.888 9.185 9.888 8.615 9.536 8.264 L 1.536 0.264 C 1.185 -0.088 0.615 -0.088 0.264 0.264 Z"></path></g></symbol><symbol id="i-plus" viewBox="0 0 24 24" fill="currentColor"><path transform="translate(3.1 3.103)" d="M 8.9 0 C 9.397 0 9.8 0.403 9.8 0.9 L 9.8 8 L 16.9 8 C 17.397 8 17.8 8.403 17.8 8.9 C 17.8 9.397 17.397 9.8 16.9 9.8 L 9.8 9.8 L 9.8 16.9 C 9.8 17.397 9.397 17.8 8.9 17.8 C 8.403 17.8 8 17.397 8 16.9 L 8 9.8 L 0.9 9.8 C 0.403 9.8 0 9.397 0 8.9 C 0 8.403 0.403 8 0.9 8 L 8 8 L 8 0.9 C 8 0.403 8.403 0 8.9 0 Z"></path></symbol><symbol id="i-minus" viewBox="0 0 24 24" fill="currentColor"><rect x="3.1" y="11.1" width="17.8" height="1.8" rx="0.9"></rect></symbol><symbol id="i-close" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(4.6 4.6)"><path d="M 0.264 0.264 C 0.615 -0.088 1.185 -0.088 1.536 0.264 L 7.4 6.127 L 13.264 0.264 C 13.615 -0.088 14.185 -0.088 14.536 0.264 C 14.888 0.615 14.888 1.185 14.536 1.536 L 8.673 7.4 L 14.536 13.264 C 14.888 13.615 14.888 14.185 14.536 14.536 C 14.185 14.888 13.615 14.888 13.264 14.536 L 7.4 8.673 L 1.536 14.536 C 1.185 14.888 0.615 14.888 0.264 14.536 C -0.088 14.185 -0.088 13.615 0.264 13.264 L 6.127 7.4 L 0.264 1.536 C -0.088 1.185 -0.088 0.615 0.264 0.264 Z"></path></g></symbol><symbol id="i-send" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(2.916 2.662)"><path d="M 5.371 1.288 C 4.603 0.873 3.973 0.533 3.468 0.315 C 2.982 0.105 2.416 -0.084 1.848 0.039 C 1.096 0.2 0.467 0.712 0.157 1.416 C -0.078 1.948 -0.007 2.54 0.1 3.059 C 0.211 3.597 0.417 4.283 0.668 5.119 L 1.935 9.339 L 0.668 13.559 C 0.417 14.394 0.211 15.08 0.1 15.619 C -0.007 16.137 -0.078 16.73 0.157 17.262 C 0.467 17.965 1.096 18.477 1.848 18.639 C 2.416 18.761 2.982 18.572 3.468 18.362 C 3.973 18.145 4.603 17.804 5.371 17.389 L 16.23 11.519 C 16.624 11.306 16.972 11.118 17.236 10.943 C 17.501 10.767 17.818 10.518 17.995 10.131 C 18.226 9.628 18.226 9.049 17.995 8.547 C 17.818 8.159 17.501 7.911 17.236 7.735 C 16.972 7.559 16.624 7.371 16.23 7.158 L 5.371 1.288 Z M 1.778 2.557 C 1.624 2.045 2.167 1.603 2.638 1.857 L 16.316 9.251 C 16.34 9.264 16.35 9.277 16.356 9.286 C 16.363 9.299 16.368 9.317 16.368 9.339 C 16.368 9.361 16.363 9.379 16.356 9.391 C 16.35 9.401 16.34 9.413 16.316 9.427 L 2.638 16.82 C 2.167 17.075 1.624 16.632 1.778 16.12 L 3.544 10.239 L 8.871 10.239 C 9.368 10.239 9.771 9.836 9.771 9.339 C 9.771 8.842 9.368 8.439 8.871 8.439 L 3.544 8.439 L 1.778 2.557 Z" fill-rule="evenodd"></path></g></symbol><symbol id="i-home" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(2.6 2.415)"><path d="M 9.762 0.047 C 9.525 -0.016 9.275 -0.016 9.039 0.047 C 8.758 0.122 8.525 0.304 8.402 0.4 L 8.367 0.427 L 1.534 5.653 C 1.147 5.948 0.821 6.197 0.578 6.521 C 0.365 6.806 0.206 7.128 0.109 7.47 C -0.001 7.86 0 8.27 0 8.757 L 0 15.106 C 0 15.636 0 16.087 0.03 16.457 C 0.062 16.847 0.132 17.225 0.316 17.587 C 0.594 18.133 1.038 18.576 1.584 18.854 C 1.945 19.039 2.324 19.109 2.713 19.14 C 3.084 19.171 3.535 19.171 4.065 19.171 L 9.39 19.171 C 9.393 19.171 9.397 19.171 9.4 19.171 C 9.404 19.171 9.407 19.171 9.411 19.171 L 14.735 19.171 C 15.265 19.171 15.717 19.171 16.087 19.14 C 16.476 19.109 16.855 19.039 17.217 18.854 C 17.762 18.576 18.206 18.133 18.484 17.587 C 18.668 17.225 18.738 16.847 18.77 16.457 C 18.8 16.087 18.8 15.636 18.8 15.106 L 18.8 8.757 C 18.801 8.27 18.801 7.86 18.691 7.47 C 18.594 7.128 18.435 6.806 18.222 6.521 C 17.979 6.197 17.653 5.948 17.266 5.653 L 10.433 0.427 L 10.398 0.4 C 10.275 0.304 10.042 0.122 9.762 0.047 Z M 10.3 17.37 L 15.1 17.37 C 15.915 17.37 16.108 17.359 16.24 17.317 C 16.575 17.208 16.837 16.945 16.946 16.61 C 16.989 16.479 17 16.285 17 15.47 L 17 8.654 C 17 8.234 16.997 8.138 16.982 8.058 C 16.944 7.858 16.853 7.672 16.717 7.522 C 16.662 7.461 16.588 7.4 16.254 7.145 L 9.4 1.903 L 2.546 7.145 C 2.212 7.4 2.138 7.461 2.084 7.522 C 1.947 7.672 1.856 7.858 1.819 8.058 C 1.804 8.138 1.8 8.234 1.8 8.654 L 1.8 15.47 C 1.8 16.285 1.811 16.479 1.854 16.61 C 1.963 16.945 2.225 17.208 2.56 17.317 C 2.692 17.359 2.886 17.37 3.7 17.37 L 8.5 17.37 L 8.5 11.771 C 8.5 11.274 8.903 10.871 9.4 10.871 C 9.897 10.871 10.3 11.274 10.3 11.771 L 10.3 17.37 Z" fill-rule="evenodd"></path></g></symbol><symbol id="i-home-fill" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(2.6 2.415)"><path d="M 9.039 0.047 C 9.275 -0.016 9.525 -0.016 9.762 0.047 C 10.042 0.122 10.275 0.304 10.398 0.4 L 10.433 0.427 L 17.266 5.653 C 17.653 5.948 17.979 6.197 18.222 6.521 C 18.435 6.806 18.594 7.128 18.691 7.47 C 18.801 7.86 18.801 8.27 18.8 8.757 L 18.8 15.106 C 18.8 15.636 18.8 16.087 18.77 16.457 C 18.738 16.847 18.668 17.225 18.484 17.587 C 18.206 18.133 17.762 18.576 17.217 18.854 C 16.855 19.039 16.476 19.109 16.087 19.14 C 15.717 19.171 15.265 19.171 14.736 19.171 L 10.3 19.171 L 10.3 11.771 C 10.3 11.274 9.897 10.871 9.4 10.871 C 8.903 10.871 8.5 11.274 8.5 11.771 L 8.5 19.171 L 4.065 19.171 C 3.535 19.171 3.084 19.171 2.713 19.14 C 2.324 19.109 1.945 19.039 1.584 18.854 C 1.038 18.576 0.594 18.133 0.316 17.587 C 0.132 17.225 0.062 16.847 0.03 16.457 C 0 16.087 0 15.636 0 15.106 L 0 8.757 C 0 8.27 -0.001 7.86 0.109 7.47 C 0.206 7.128 0.365 6.806 0.578 6.521 C 0.821 6.197 1.147 5.948 1.534 5.653 L 8.367 0.427 L 8.402 0.4 C 8.525 0.304 8.758 0.122 9.039 0.047 Z"></path></g></symbol><symbol id="i-person" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(3.1 2.6)"><path d="M 8.9 0 C 6.194 0 4 2.194 4 4.9 C 4 7.606 6.194 9.8 8.9 9.8 C 11.606 9.8 13.8 7.606 13.8 4.9 C 13.8 2.194 11.606 0 8.9 0 Z M 5.8 4.9 C 5.8 3.188 7.188 1.8 8.9 1.8 C 10.612 1.8 12 3.188 12 4.9 C 12 6.612 10.612 8 8.9 8 C 7.188 8 5.8 6.612 5.8 4.9 Z" fill-rule="evenodd"></path><path d="M 8.9 10.998 C 6.588 10.998 4.431 11.451 2.816 12.321 C 1.203 13.189 0 14.565 0 16.398 L 0 16.726 C 0 16.913 0 17.103 0.013 17.265 C 0.028 17.446 0.064 17.67 0.18 17.898 C 0.338 18.209 0.59 18.461 0.901 18.62 C 1.129 18.736 1.353 18.771 1.534 18.786 C 1.697 18.799 1.887 18.799 2.073 18.799 L 15.727 18.799 C 15.913 18.799 16.104 18.799 16.266 18.785 C 16.447 18.771 16.671 18.735 16.899 18.619 C 17.21 18.46 17.462 18.208 17.62 17.898 C 17.736 17.669 17.772 17.445 17.787 17.264 C 17.8 17.102 17.8 16.912 17.8 16.725 L 17.8 16.398 C 17.8 14.565 16.597 13.189 14.984 12.321 C 13.369 11.451 11.212 10.998 8.9 10.998 Z M 1.8 16.398 C 1.8 15.471 2.388 14.596 3.67 13.905 C 4.951 13.215 6.794 12.798 8.9 12.798 C 11.006 12.798 12.849 13.215 14.13 13.905 C 15.412 14.596 16 15.471 16 16.398 L 15.998 16.997 L 1.802 16.998 L 1.8 16.398 Z" fill-rule="evenodd"></path></g></symbol><symbol id="i-person-fill" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(3.1 2.727)"><path d="M 4.5 4.4 C 4.5 1.97 6.47 0 8.9 0 C 11.33 0 13.3 1.97 13.3 4.4 C 13.3 6.83 11.33 8.8 8.9 8.8 C 6.47 8.8 4.5 6.83 4.5 4.4 Z"></path><path d="M 8.9 10.746 C 6.588 10.746 4.431 11.199 2.816 12.068 C 1.203 12.937 0 14.312 0 16.146 L 0 16.474 C 0 16.66 0 16.85 0.013 17.013 C 0.028 17.194 0.064 17.418 0.18 17.646 C 0.338 17.957 0.59 18.209 0.901 18.367 C 1.129 18.484 1.353 18.519 1.534 18.534 C 1.697 18.547 1.887 18.547 2.073 18.547 L 15.727 18.546 C 15.913 18.546 16.103 18.546 16.266 18.533 C 16.447 18.518 16.671 18.483 16.899 18.366 C 17.21 18.208 17.462 17.956 17.62 17.645 C 17.736 17.417 17.772 17.193 17.787 17.012 C 17.8 16.85 17.8 16.66 17.8 16.473 L 17.8 16.146 C 17.8 14.312 16.597 12.937 14.984 12.068 C 13.369 11.199 11.212 10.746 8.9 10.746 Z"></path></g></symbol><symbol id="i-menu" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(3.1 4.85)"><path d="M 0.9 0 C 0.403 0 0 0.403 0 0.9 C 0 1.397 0.403 1.8 0.9 1.8 L 16.9 1.8 C 17.397 1.8 17.8 1.397 17.8 0.9 C 17.8 0.403 17.397 0 16.9 0 L 0.9 0 Z"></path><path d="M 0 7.15 C 0 6.653 0.403 6.25 0.9 6.25 L 16.9 6.25 C 17.397 6.25 17.8 6.653 17.8 7.15 C 17.8 7.647 17.397 8.05 16.9 8.05 L 0.9 8.05 C 0.403 8.05 0 7.647 0 7.15 Z"></path><path d="M 0 13.4 C 0 12.903 0.403 12.5 0.9 12.5 L 16.9 12.5 C 17.397 12.5 17.8 12.903 17.8 13.4 C 17.8 13.897 17.397 14.3 16.9 14.3 L 0.9 14.3 C 0.403 14.3 0 13.897 0 13.4 Z"></path></g></symbol><symbol id="i-heart" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(1.5 2.679)"><path d="M 0 6.3 C 0 2.837 2.67 0 6.1 0 C 7.842 0 9.397 0.737 10.5 1.919 C 11.603 0.737 13.157 0 14.9 0 C 18.33 0 21 2.837 21 6.3 C 21 7.94 20.406 9.321 19.479 10.603 C 18.569 11.861 17.303 13.068 15.912 14.36 L 15.908 14.363 L 12.169 17.791 C 11.996 17.95 11.83 18.102 11.679 18.22 C 11.514 18.349 11.312 18.482 11.056 18.56 C 10.693 18.671 10.306 18.671 9.944 18.56 C 9.688 18.482 9.486 18.349 9.321 18.22 C 9.17 18.102 9.004 17.95 8.831 17.791 L 5.092 14.363 L 5.088 14.36 C 3.697 13.068 2.431 11.861 1.521 10.603 C 0.594 9.321 0 7.94 0 6.3 Z M 6.1 1.8 C 3.73 1.8 1.8 3.763 1.8 6.3 C 1.8 7.46 2.206 8.479 2.979 9.547 C 3.769 10.639 4.902 11.731 6.31 13.038 L 10.432 16.817 C 10.471 16.852 10.529 16.852 10.568 16.817 L 14.69 13.038 C 16.098 11.731 17.231 10.639 18.021 9.547 C 18.793 8.479 19.2 7.46 19.2 6.3 C 19.2 3.763 17.27 1.8 14.9 1.8 C 13.367 1.8 12.032 2.613 11.269 3.869 C 11.106 4.137 10.814 4.301 10.5 4.301 C 10.186 4.301 9.894 4.137 9.731 3.869 C 8.968 2.613 7.633 1.8 6.1 1.8 Z" fill-rule="evenodd"></path></g></symbol><symbol id="i-heart-fill" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(1.5 2.679)"><path d="M 6.1 0 C 2.67 0 0 2.837 0 6.3 C 0 7.94 0.594 9.321 1.521 10.603 C 2.431 11.861 3.697 13.068 5.088 14.36 L 5.092 14.363 L 8.831 17.791 C 9.004 17.95 9.17 18.102 9.321 18.22 C 9.486 18.349 9.688 18.482 9.944 18.56 C 10.306 18.671 10.693 18.671 11.056 18.56 C 11.312 18.482 11.514 18.349 11.679 18.22 C 11.83 18.102 11.996 17.95 12.169 17.791 L 15.908 14.363 L 15.912 14.36 C 17.303 13.068 18.569 11.861 19.479 10.603 C 20.406 9.321 21 7.94 21 6.3 C 21 2.837 18.33 0 14.9 0 C 13.157 0 11.603 0.737 10.5 1.919 C 9.397 0.737 7.842 0 6.1 0 Z"></path></g></symbol><symbol id="i-check" viewBox="0 0 24 24" fill="currentColor"><path transform="translate(4.35 6.6)" d="M 15.036 0.264 C 15.388 0.615 15.388 1.185 15.036 1.536 L 6.036 10.536 C 5.685 10.888 5.115 10.888 4.764 10.536 L 0.264 6.036 C -0.088 5.685 -0.088 5.115 0.264 4.764 C 0.615 4.412 1.185 4.412 1.536 4.764 L 5.4 8.627 L 13.764 0.264 C 14.115 -0.088 14.685 -0.088 15.036 0.264 Z"></path></symbol><symbol id="i-location" viewBox="0 0 24 24" fill="currentColor"><g transform="translate(3.6 1.976)"><path d="M 12.803 16.53 C 11.83 17.555 10.86 18.393 10.134 18.974 C 9.735 19.294 9.328 19.608 8.904 19.896 C 8.604 20.099 8.194 20.098 7.894 19.895 C 7.471 19.608 7.065 19.293 6.666 18.974 C 5.94 18.393 4.97 17.555 3.997 16.53 C 2.091 14.521 0 11.613 0 8.4 C 0 3.761 3.761 0 8.4 0 C 13.039 0 16.8 3.761 16.8 8.4 C 16.8 11.613 14.709 14.521 12.803 16.53 Z M 8.4 1.8 C 4.755 1.8 1.8 4.755 1.8 8.4 C 1.8 10.881 3.459 13.348 5.303 15.291 C 6.514 16.567 7.736 17.544 8.4 18.041 C 9.064 17.544 10.286 16.567 11.497 15.291 C 13.341 13.348 15 10.881 15 8.4 C 15 4.755 12.045 1.8 8.4 1.8 Z" fill-rule="evenodd"></path><path d="M 8.4 4.75 C 6.384 4.75 4.75 6.384 4.75 8.4 C 4.75 10.416 6.384 12.05 8.4 12.05 C 10.416 12.05 12.05 10.416 12.05 8.4 C 12.05 6.384 10.416 4.75 8.4 4.75 Z M 6.55 8.4 C 6.55 7.378 7.378 6.55 8.4 6.55 C 9.422 6.55 10.25 7.378 10.25 8.4 C 10.25 9.422 9.422 10.25 8.4 10.25 C 7.378 10.25 6.55 9.422 6.55 8.4 Z" fill-rule="evenodd"></path></g></symbol><symbol id="i-star" viewBox="0 0 24 24" fill="currentColor"><path d="M 11.146 2.242 C 11.494 1.539 12.506 1.539 12.854 2.242 L 15.211 7.019 C 15.349 7.298 15.616 7.492 15.925 7.537 L 21.198 8.308 C 21.974 8.421 22.286 9.375 21.726 9.923 L 17.912 13.653 C 17.689 13.871 17.587 14.185 17.639 14.492 L 18.53 19.747 C 18.662 20.522 17.844 21.111 17.146 20.747 L 12.415 18.28 C 12.14 18.136 11.86 18.136 11.585 18.28 L 6.854 20.747 C 6.156 21.111 5.338 20.522 5.47 19.747 L 6.361 14.492 C 6.413 14.185 6.311 13.871 6.088 13.653 L 2.274 9.923 C 1.714 9.375 2.026 8.421 2.802 8.308 L 8.075 7.537 C 8.384 7.492 8.651 7.298 8.789 7.019 L 11.146 2.242 Z"></path></symbol></svg>
+
+<div style="--brand-red:#C8102E;--brand-red-bg:#FDECEE;--brand-green:#00752E;--brand-star:#B87503;--brand-blue-deep:#0B4EA2;--on-tint:rgba(23,23,25,.46);--toast-bg:rgba(23,23,25,.94);--sticky-bg:rgba(255,255,255,.92);--tile-line:rgba(23,23,25,.06);--logo-plate:transparent;--on-brand-red:#FFFFFF;--plate:rgba(255,255,255,.82);min-height:100vh;padding:56px 48px 96px;display:flex;flex-direction:column;align-items:center;gap:36px">
+
+  <div style="width:820px;max-width:100%;display:flex;flex-direction:column;gap:18px">
+    <div style="display:flex;align-items:flex-end;gap:16px">
+      <img src="assets/homekmart-logo.png" alt="HOME K MART" style="height:44px;width:auto;display:block">
+      <div style="font:500 13px/1.4 var(--font-sans);color:var(--label-alternative);padding-bottom:4px">iOS 앱 프로토타입 · K-Grocery · Philippines (PHP)</div>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      <div style="flex:1;min-width:240px;background:var(--bg-normal);border:1px solid var(--line-normal);border-radius:12px;padding:16px 18px">
+        <div style="font:700 12px/1.3 var(--font-sans);letter-spacing:.03em;color:var(--label-alternative);margin-bottom:8px">전제 / ASSUMPTIONS</div>
+        <div style="font:500 14px/1.6 var(--font-sans);color:var(--label-neutral)">필리핀(메트로 마닐라) 서비스, 한국 식품 그로서리 중심. 화폐는 필리핀 페소(₱), 무료배송 기준 ₱1,200. 터치 타깃 44px 이상, 본문 15px 이상. 한/영 병기는 <span style="color:var(--label-normal);font-weight:700">한글 주(主) · 영문 보조(補)</span> 위계로 처리했습니다.</div>
+      </div>
+      <div style="flex:1;min-width:240px;background:var(--bg-normal);border:1px solid var(--line-normal);border-radius:12px;padding:16px 18px">
+        <div style="font:700 12px/1.3 var(--font-sans);letter-spacing:.03em;color:var(--label-alternative);margin-bottom:8px">색 운용 / COLOR</div>
+        <div style="font:500 14px/1.6 var(--font-sans);color:var(--label-neutral)">로고의 <span style="color:var(--brand-blue-deep);font-weight:700">블루</span>는 브랜드·신뢰, <span style="color:var(--brand-red);font-weight:700">레드</span>는 할인·마감임박에만. 액션은 시스템 블루 <span style="color:var(--primary-normal);font-weight:700">#0066FF</span> 하나로 통일해, 그 밖의 곳에는 색을 쓰지 않았습니다.</div>
+      </div>
+      <div style="flex:1;min-width:240px;background:var(--bg-normal);border:1px solid var(--line-normal);border-radius:12px;padding:16px 18px">
+        <div style="font:700 12px/1.3 var(--font-sans);letter-spacing:.03em;color:var(--label-alternative);margin-bottom:8px">이미지 / IMAGERY</div>
+        <div style="font:500 14px/1.6 var(--font-sans);color:var(--label-neutral)">상품 타일은 <span style="color:var(--label-normal);font-weight:700">사진을 끌어다 놓는 슬롯</span>입니다. 같은 상품은 어느 화면에서든 한 번만 올리면 전부 반영되고, 드롭한 사진은 새로고침 후에도 유지됩니다.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span style="font:700 12px/1.3 var(--font-sans);color:var(--label-alternative);margin-right:4px">테마</span>
+      <sc-for list="{{ themeChips }}" as="c" hint-placeholder-count="2">
+        <button onClick="{{ c.pick }}" style="border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.color }};font:600 13px/1 var(--font-sans);padding:9px 14px;border-radius:999px;cursor:pointer;white-space:nowrap">{{ c.label }}</button>
+      </sc-for>
+      <span style="font:700 12px/1.3 var(--font-sans);color:var(--label-alternative);margin:0 4px 0 10px">언어</span>
+      <sc-for list="{{ langChips }}" as="c" hint-placeholder-count="2">
+        <button onClick="{{ c.pick }}" style="border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.color }};font:600 13px/1 var(--font-sans);padding:9px 14px;border-radius:999px;cursor:pointer;white-space:nowrap">{{ c.label }}</button>
+      </sc-for>
+      <span style="font:500 12px/1.5 var(--font-sans);color:var(--label-alternative);margin-left:6px">할인 레드는 <span style="color:var(--brand-red);font-weight:700">#C8102E</span> (흰 배경 대비 5.4:1, AA 통과)로 조정했습니다.</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span style="font:700 12px/1.3 var(--font-sans);color:var(--label-alternative);margin-right:4px">화면 이동</span>
+      <sc-for list="{{ jumpChips }}" as="c" hint-placeholder-count="9">
+        <button onClick="{{ c.go }}" style="border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.color }};font:600 13px/1 var(--font-sans);padding:9px 13px;border-radius:999px;cursor:pointer;white-space:nowrap">{{ c.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="{{ themeVars }}">
+  <div style="width:402px;height:874px;border-radius:48px;position:relative;background:var(--bg-normal);overflow:hidden;box-shadow:0 40px 80px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.12);flex:none">
+    <div style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:126px;height:37px;border-radius:24px;background:#000;z-index:50"></div>
+    <div style="position:absolute;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:space-between;padding:19px 30px 0;pointer-events:none">
+      <span style="font:590 17px/22px -apple-system,system-ui;color:var(--label-normal);letter-spacing:-.2px">9:41</span>
+      <span style="display:flex;align-items:center;gap:7px">
+        <svg width="19" height="12" viewBox="0 0 19 12"><rect y="7.5" width="3.2" height="4.5" rx=".7" fill="var(--label-normal)"/><rect x="4.8" y="5" width="3.2" height="7" rx=".7" fill="var(--label-normal)"/><rect x="9.6" y="2.5" width="3.2" height="9.5" rx=".7" fill="var(--label-normal)"/><rect x="14.4" width="3.2" height="12" rx=".7" fill="var(--label-normal)"/></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 3.2c2.3 0 4.4.9 5.9 2.4l1.1-1.1A9.8 9.8 0 0 0 8.5 1.5 9.8 9.8 0 0 0 1.5 4.5l1.1 1.1a8.3 8.3 0 0 1 5.9-2.4Z" fill="var(--label-normal)"/><path d="M8.5 6.8c1.4 0 2.6.5 3.5 1.4l1.1-1.1A6.6 6.6 0 0 0 8.5 5.1 6.6 6.6 0 0 0 3.9 7.1L5 8.2a5 5 0 0 1 3.5-1.4Z" fill="var(--label-normal)"/><circle cx="8.5" cy="10.5" r="1.5" fill="var(--label-normal)"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#000" stroke-opacity=".35" fill="none"/><rect x="2" y="2" width="20" height="9" rx="2" fill="var(--label-normal)"/><path d="M25 4.5v4c.8-.3 1.5-1.3 1.5-2s-.7-1.7-1.5-2Z" fill="var(--label-normal)" fill-opacity=".4"/></svg>
+      </span>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;z-index:60;height:34px;display:flex;justify-content:center;align-items:flex-end;padding-bottom:8px;pointer-events:none">
+      <div style="width:139px;height:5px;border-radius:100px;background:rgba(0,0,0,.25)"></div>
+    </div>
+
+    <div style="height:100%;display:flex;flex-direction:column;position:relative;background:var(--bg-normal);overflow:hidden">
+
+      <div style="flex:1;overflow-y:auto;overflow-x:hidden;position:relative">
+
+        <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <div style="position:sticky;top:0;z-index:20;background:var(--bg-normal);padding:56px 20px 12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <span style="display:inline-flex;padding:3px 7px;border-radius:8px;background:var(--logo-plate)"><img src="assets/homekmart-logo.png" alt="HOME K MART" style="height:24px;width:auto;display:block"></span>
+              <div style="display:flex;gap:16px;align-items:center">
+                <button onClick="{{ goPromo }}" style="background:none;border:none;padding:0;cursor:pointer;color:var(--label-normal);display:flex">
+                  <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="#i-bell"></use></svg>
+                </button>
+                <button onClick="{{ goCart }}" style="background:none;border:none;padding:0;cursor:pointer;color:var(--label-normal);display:flex;position:relative">
+                  <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="#i-bag"></use></svg>
+                  <span style="position:absolute;top:-5px;right:-7px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--brand-red);color:var(--on-brand-red);font:700 10px/17px var(--font-sans);text-align:center">{{ cartCount }}</span>
+                </button>
+              </div>
+            </div>
+            <button onClick="{{ goSearch }}" style="width:100%;display:flex;align-items:center;gap:9px;height:46px;padding:0 14px;border-radius:12px;border:1.5px solid var(--primary-normal);background:var(--bg-normal);cursor:pointer;text-align:left">
+              <svg width="20" height="20" viewBox="0 0 24 24" style="color:var(--primary-normal);flex:none;"><use href="#i-search"></use></svg>
+              <span style="font:var(--t-body2) var(--font-sans);color:var(--label-alternative)">{{ t.k0 }}</span>
+            </button>
+          </div>
+
+          <button onClick="{{ goAddress }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:10px 20px 14px;background:var(--bg-normal);border:none;cursor:pointer;text-align:left">
+            <svg width="18" height="18" viewBox="0 0 24 24" style="color:var(--primary-normal);flex:none;"><use href="#i-location"></use></svg>
+            <span style="font:600 14px/1.4 var(--font-sans);color:var(--label-normal);white-space:nowrap">{{ addrShort }}</span>
+            <span style="flex:1;font:500 13px/1.4 var(--font-sans);color:var(--primary-normal);white-space:nowrap">{{ t.k1 }}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" style="color:var(--label-assistive);flex:none;"><use href="#i-chev-right"></use></svg>
+          </button>
+
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px 6px;padding:4px 14px 22px">
+            <sc-for list="{{ categories }}" as="c" hint-placeholder-count="8">
+              <button onClick="{{ c.go }}" style="background:none;border:none;padding:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px">
+                <span style="width:56px;height:56px;border-radius:18px;background:{{ c.tint }};display:flex;align-items:center;justify-content:center;font:700 20px/1 var(--font-sans);color:{{ c.ink }}">{{ c.mark }}</span>
+                <span style="font:600 12px/1.3 var(--font-sans);color:var(--label-neutral);text-align:center">{{ c.kr }}</span>
+              </button>
+            </sc-for>
+          </div>
+
+          <button onClick="{{ goPromo }}" style="display:block;width:100%;border:none;padding:0 20px 24px;background:var(--bg-normal);cursor:pointer;text-align:left">
+            <div style="border-radius:16px;overflow:hidden;background:linear-gradient(118deg,var(--brand-blue-deep),#0066ff 62%,#3385ff);padding:24px 22px;position:relative">
+              <div style="position:absolute;right:-30px;top:-30px;width:170px;height:170px;border-radius:999px;background:rgba(255,255,255,.09)"></div>
+              <div style="position:absolute;right:22px;bottom:-46px;width:110px;height:110px;border-radius:999px;background:rgba(232,17,45,.28)"></div>
+              <div style="position:relative">
+                <div style="display:inline-block;background:rgba(255,255,255,.18);color:var(--static-white);font:700 11px/1 var(--font-sans);letter-spacing:.04em;padding:6px 9px;border-radius:6px;margin-bottom:12px">{{ t.k2 }}</div>
+                <div style="font:var(--t-title2) var(--font-sans);letter-spacing:var(--ls-title2);color:var(--static-white);margin-bottom:6px">{{ t.k3 }}<br>{{ t.k4 }}</div>
+                <div style="font:500 13px/1.5 var(--font-sans);color:rgba(255,255,255,.82)">K-Grocery Pantry Sale · 8.15 – 8.21</div>
+              </div>
+            </div>
+          </button>
+
+          <div style="padding:0 20px 8px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font:var(--t-title3) var(--font-sans);letter-spacing:var(--ls-title3);color:var(--label-normal)">{{ t.k5 }}</div>
+              <div style="font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">Today's deals</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;background:var(--brand-red-bg);border-radius:8px;padding:7px 10px">
+              <span style="font:600 11px/1 var(--font-sans);color:var(--brand-red)">{{ t.k6 }}</span>
+              <span style="font:700 13px/1 var(--font-mono);color:var(--brand-red);letter-spacing:.02em">{{ dealTime }}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;overflow-x:auto;padding:8px 20px 26px">
+            <sc-for list="{{ deals }}" as="p" hint-placeholder-count="4">
+              <div style="width:146px;flex:none">
+                <button onClick="{{ p.open }}" style="display:block;width:100%;border:none;background:none;padding:0;cursor:pointer;text-align:left">
+                  <div style="position:relative;aspect-ratio:1;border-radius:12px;background:{{ p.tint }};overflow:hidden;margin-bottom:9px;box-shadow:inset 0 0 0 1px var(--tile-line)">
+                    <div style="position:absolute;inset:0;display:block"><image-slot id="{{ p.slotId }}" shape="rect" fit="cover" placeholder="{{ t.k78 }}"></image-slot></div>
+                    <div style="position:absolute;left:8px;bottom:7px;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 10px/1.3 var(--font-sans);color:var(--label-normal);background:var(--plate);backdrop-filter:blur(6px);padding:3px 6px;border-radius:5px;pointer-events:none">{{ p.en }}</div>
+                    <div style="position:absolute;left:0;top:0;background:var(--brand-red);color:var(--on-brand-red);font:700 12px/1 var(--font-sans);padding:6px 8px;border-bottom-right-radius:10px">{{ p.discLabel }}</div>
+                  </div>
+                  <div style="font:600 14px/1.4 var(--font-sans);color:var(--label-normal);height:39px;overflow:hidden">{{ p.kr }}</div>
+                  <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px">
+                    <span style="font:700 16px/1.2 var(--font-sans);color:var(--label-normal)">{{ p.priceLabel }}</span>
+                    <span style="font:500 12px/1.2 var(--font-sans);color:var(--label-assistive);text-decoration:line-through">{{ p.wasLabel }}</span>
+                  </div>
+                </button>
+                <div style="margin-top:9px">
+                  <sc-if value="{{ p.notInCart }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ p.add }}" style="width:100%;height:38px;border-radius:9px;border:1px solid var(--line-normal);background:var(--fill-normal);color:var(--label-normal);font:700 13px/1 var(--font-sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px" style-hover="background:var(--fill-strong)">
+                      <svg width="15" height="15" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>{{ addLabel }}
+                    </button>
+                  </sc-if>
+                  <sc-if value="{{ p.inCart }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;height:38px;border:1.5px solid var(--primary-normal);border-radius:9px;background:var(--primary-bg);overflow:hidden">
+                      <button onClick="{{ p.dec }}" style="width:38px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-minus"></use></svg>
+                      </button>
+                      <span style="flex:1;text-align:center;font:700 14px/1 var(--font-sans);color:var(--primary-strong)">{{ p.cartQtyLabel }}</span>
+                      <button onClick="{{ p.inc }}" style="width:38px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>
+                      </button>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ showRestock }}" hint-placeholder-val="{{ true }}">
+          <div>
+          <div style="height:8px;background:var(--bg-alternative)"></div>
+
+          <div style="padding:24px 20px 6px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
+            <div>
+              <div style="font:var(--t-title3) var(--font-sans);letter-spacing:var(--ls-title3);color:var(--label-normal)">{{ t.k8 }}</div>
+              <div style="font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">{{ t.k9 }}</div>
+            </div>
+            <button onClick="{{ restockAll }}" style="flex:none;height:38px;padding:0 14px;border-radius:999px;border:1.5px solid var(--primary-normal);background:var(--primary-bg);color:var(--primary-strong);font:700 13px/1 var(--font-sans);cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>{{ restockAllLabel }}
+            </button>
+          </div>
+          <div style="padding:0 20px 26px">
+            <sc-for list="{{ restock }}" as="r" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line-normal)">
+                <button onClick="{{ r.open }}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;border:none;background:none;padding:0;cursor:pointer;text-align:left">
+                  <span style="width:62px;height:62px;border-radius:12px;background:{{ r.tint }};flex:none;position:relative;overflow:hidden">
+                    <span style="position:absolute;inset:0;background:radial-gradient(120% 90% at 30% 22%,rgba(255,255,255,.55),transparent 62%);display:block"></span>
+                  </span>
+                  <span style="flex:1;min-width:0;display:block">
+                    <span style="display:block;font:600 15px/1.4 var(--font-sans);color:var(--label-normal);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.kr }}</span>
+                    <span style="display:block;font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:1px">{{ r.lastBuy }}</span>
+                    <span style="display:block;font:700 15px/1.2 var(--font-sans);color:var(--label-normal);margin-top:5px">{{ r.priceLabel }}</span>
+                  </span>
+                </button>
+                <div style="width:104px;flex:none">
+                  <div style="margin-top:9px">
+                    <sc-if value="{{ r.notInCart }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ r.add }}" style="width:100%;height:38px;border-radius:9px;border:1px solid var(--line-normal);background:var(--fill-normal);color:var(--label-normal);font:700 13px/1 var(--font-sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px" style-hover="background:var(--fill-strong)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>{{ addLabel }}
+                      </button>
+                    </sc-if>
+                    <sc-if value="{{ r.inCart }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;align-items:center;height:38px;border:1.5px solid var(--primary-normal);border-radius:9px;background:var(--primary-bg);overflow:hidden">
+                        <button onClick="{{ r.dec }}" style="width:38px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                          <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-minus"></use></svg>
+                        </button>
+                        <span style="flex:1;text-align:center;font:700 14px/1 var(--font-sans);color:var(--primary-strong)">{{ r.cartQtyLabel }}</span>
+                        <button onClick="{{ r.inc }}" style="width:38px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                          <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>
+                        </button>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          </div>
+          </sc-if>
+
+          <div style="height:8px;background:var(--bg-alternative)"></div>
+
+          <div style="padding:24px 20px 6px">
+            <div style="font:var(--t-title3) var(--font-sans);letter-spacing:var(--ls-title3);color:var(--label-normal)">{{ t.k10 }}</div>
+            <div style="font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">New from Korea</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px 12px;padding:12px 20px 110px">
+            <sc-for list="{{ freshGrid }}" as="p" hint-placeholder-count="6">
+              <div>
+                <button onClick="{{ p.open }}" style="display:block;width:100%;border:none;background:none;padding:0;cursor:pointer;text-align:left">
+                  <div style="position:relative;aspect-ratio:1;border-radius:12px;background:{{ p.tint }};overflow:hidden;margin-bottom:9px;box-shadow:inset 0 0 0 1px var(--tile-line)">
+                    <div style="position:absolute;inset:0;display:block"><image-slot id="{{ p.slotId }}" shape="rect" fit="cover" placeholder="{{ t.k78 }}"></image-slot></div>
+                    <div style="position:absolute;left:8px;bottom:7px;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 10px/1.3 var(--font-sans);color:var(--label-normal);background:var(--plate);backdrop-filter:blur(6px);padding:3px 6px;border-radius:5px;pointer-events:none">{{ p.en }}</div>
+                  </div>
+                  <div style="font:600 15px/1.4 var(--font-sans);color:var(--label-normal);height:42px;overflow:hidden">{{ p.kr }}</div>
+                  <div style="display:flex;align-items:baseline;gap:6px;margin-top:4px">
+                    <span style="font:700 12px/1.2 var(--font-sans);color:var(--brand-red)">{{ p.discLabel }}</span>
+                    <span style="font:700 17px/1.2 var(--font-sans);color:var(--label-normal)">{{ p.priceLabel }}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:5px;margin-top:6px">
+                    <svg width="13" height="13" viewBox="0 0 24 24" style="color:var(--brand-star);flex:none;"><use href="#i-star"></use></svg>
+                    <span style="font:600 12px/1 var(--font-sans);color:var(--label-neutral)">{{ p.rating }}</span>
+                    <span style="font:500 12px/1 var(--font-sans);color:var(--label-assistive)">{{ p.reviewLabel }}</span>
+                  </div>
+                </button>
+                <div style="margin-top:9px">
+                  <sc-if value="{{ p.notInCart }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ p.add }}" style="width:100%;height:38px;border-radius:9px;border:1px solid var(--line-normal);background:var(--fill-normal);color:var(--label-normal);font:700 13px/1 var(--font-sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px" style-hover="background:var(--fill-strong)">
+                      <svg width="15" height="15" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>{{ addLabel }}
+                    </button>
+                  </sc-if>
+                  <sc-if value="{{ p.inCart }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;height:38px;border:1.5px solid var(--primary-normal);border-radius:9px;background:var(--primary-bg);overflow:hidden">
+                      <button onClick="{{ p.dec }}" style="width:38px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-minus"></use></svg>
+                      </button>
+                      <span style="flex:1;text-align:center;font:700 14px/1 var(--font-sans);color:var(--primary-strong)">{{ p.cartQtyLabel }}</span>
+                      <button onClick="{{ p.inc }}" style="width:38px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>
+                      </button>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isCategory }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;height:100%">
+          <div style="padding:56px 20px 14px;background:var(--bg-normal);border-bottom:1px solid var(--line-normal)">
+            <div style="font:var(--t-title3) var(--font-sans);letter-spacing:var(--ls-title3);color:var(--label-normal)">{{ t.k11 }}</div>
+            <div style="font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">Categories</div>
+          </div>
+          <div style="flex:1;display:flex;min-height:0;padding-bottom:96px">
+            <div style="width:118px;flex:none;background:var(--bg-alternative);overflow-y:auto">
+              <sc-for list="{{ catRail }}" as="c" hint-placeholder-count="8">
+                <button onClick="{{ c.pick }}" style="width:100%;border:none;background:{{ c.bg }};color:{{ c.color }};font:{{ c.font }};padding:17px 12px;cursor:pointer;text-align:left;border-left:3px solid {{ c.bar }}">{{ c.kr }}</button>
+              </sc-for>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding:18px 16px 24px">
+              <div style="font:var(--t-heading2) var(--font-sans);letter-spacing:var(--ls-heading2);color:var(--label-normal)">{{ activeCatKr }}</div>
+              <div style="font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin:2px 0 16px">{{ activeCatEn }}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px">
+                <sc-for list="{{ activeSubs }}" as="s" hint-placeholder-count="6">
+                  <span style="border:1px solid var(--line-normal);border-radius:999px;padding:8px 12px;font:500 13px/1 var(--font-sans);color:var(--label-neutral)">{{ s }}</span>
+                </sc-for>
+              </div>
+              <sc-for list="{{ catProducts }}" as="p" hint-placeholder-count="4">
+                <div style="display:flex;gap:12px;padding:13px 0;border-bottom:1px solid var(--line-normal)">
+                  <button onClick="{{ p.open }}" style="width:66px;height:66px;border-radius:12px;background:{{ p.tint }};flex:none;border:none;padding:0;cursor:pointer"></button>
+                  <div style="flex:1;min-width:0">
+                    <button onClick="{{ p.open }}" style="display:block;width:100%;border:none;background:none;padding:0;cursor:pointer;text-align:left">
+                      <span style="display:block;font:600 14px/1.4 var(--font-sans);color:var(--label-normal);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ p.kr }}</span>
+                    </button>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px">
+                      <span style="font:700 15px/1.2 var(--font-sans);color:var(--label-normal)">{{ p.priceLabel }}</span>
+                      <div style="width:100px;flex:none">
+                    <sc-if value="{{ p.notInCart }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ p.add }}" style="width:100%;height:38px;border-radius:9px;border:1px solid var(--line-normal);background:var(--fill-normal);color:var(--label-normal);font:700 13px/1 var(--font-sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px" style-hover="background:var(--fill-strong)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>{{ addLabel }}
+                      </button>
+                    </sc-if>
+                    <sc-if value="{{ p.inCart }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;align-items:center;height:38px;border:1.5px solid var(--primary-normal);border-radius:9px;background:var(--primary-bg);overflow:hidden">
+                        <button onClick="{{ p.dec }}" style="width:34px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                          <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-minus"></use></svg>
+                        </button>
+                        <span style="flex:1;text-align:center;font:700 14px/1 var(--font-sans);color:var(--primary-strong)">{{ p.cartQtyLabel }}</span>
+                        <button onClick="{{ p.inc }}" style="width:34px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                          <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>
+                        </button>
+                      </div>
+                    </sc-if>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isSearch }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="position:sticky;top:0;z-index:20;background:var(--bg-normal);padding:56px 16px 12px;border-bottom:1px solid var(--line-normal)">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="flex:1;display:flex;align-items:center;gap:8px;height:46px;padding:0 13px;border-radius:12px;background:var(--fill-normal)">
+                <svg width="20" height="20" viewBox="0 0 24 24" style="color:var(--label-alternative);flex:none;"><use href="#i-search"></use></svg>
+                <input value="{{ query }}" onChange="{{ onQuery }}" placeholder="{{ t.k79 }}" style="flex:1;border:none;background:none;outline:none;font:var(--t-body2) var(--font-sans);color:var(--label-normal);min-width:0">
+                <button onClick="{{ clearQuery }}" style="border:none;background:none;padding:0;cursor:pointer;display:flex;color:var(--label-assistive)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" style="flex:none;"><use href="#i-close"></use></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <sc-if value="{{ searchEmpty }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:22px 20px 110px">
+            <div style="font:700 14px/1.4 var(--font-sans);color:var(--label-normal);margin-bottom:12px">{{ t.k12 }}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px">
+              <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="6">
+                <button onClick="{{ s.pick }}" style="border:1px solid var(--line-normal);background:var(--bg-normal);border-radius:999px;padding:10px 14px;font:500 13px/1 var(--font-sans);color:var(--label-neutral);cursor:pointer">{{ s.label }}</button>
+              </sc-for>
+            </div>
+            <div style="font:700 14px/1.4 var(--font-sans);color:var(--label-normal);margin-bottom:6px">{{ t.k13 }}</div>
+            <sc-for list="{{ trending }}" as="t" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--line-normal)">
+                <button onClick="{{ t.open }}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;border:none;background:none;padding:0;cursor:pointer;text-align:left">
+                  <span style="font:700 15px/1 var(--font-sans);color:var(--primary-normal);width:16px;flex:none">{{ t.rank }}</span>
+                  <span style="width:44px;height:44px;border-radius:10px;background:{{ t.tint }};flex:none"></span>
+                  <span style="flex:1;min-width:0;display:block">
+                    <span style="display:block;font:600 14px/1.4 var(--font-sans);color:var(--label-normal);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.kr }}</span>
+                    <span style="display:block;font:700 14px/1.2 var(--font-sans);color:var(--label-normal);margin-top:3px">{{ t.priceLabel }}</span>
+                  </span>
+                </button>
+                <div style="width:100px;flex:none">
+                  <sc-if value="{{ t.notInCart }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ t.add }}" style="width:100%;height:38px;border-radius:9px;border:1px solid var(--line-normal);background:var(--fill-normal);color:var(--label-normal);font:700 13px/1 var(--font-sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px" style-hover="background:var(--fill-strong)">
+                      <svg width="15" height="15" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>{{ addLabel }}
+                    </button>
+                  </sc-if>
+                  <sc-if value="{{ t.inCart }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;height:38px;border:1.5px solid var(--primary-normal);border-radius:9px;background:var(--primary-bg);overflow:hidden">
+                      <button onClick="{{ t.dec }}" style="width:34px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-minus"></use></svg>
+                      </button>
+                      <span style="flex:1;text-align:center;font:700 14px/1 var(--font-sans);color:var(--primary-strong)">{{ t.cartQtyLabel }}</span>
+                      <button onClick="{{ t.inc }}" style="width:34px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>
+                      </button>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+          <sc-if value="{{ searchHasResults }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px 10px">
+              <div style="font:500 13px/1.4 var(--font-sans);color:var(--label-alternative)">{{ resultCountLabel }}</div>
+              <div style="display:flex;gap:6px">
+                <sc-for list="{{ sorts }}" as="s" hint-placeholder-count="3">
+                  <button onClick="{{ s.pick }}" style="border:1px solid {{ s.border }};background:{{ s.bg }};color:{{ s.color }};border-radius:999px;padding:7px 11px;font:600 12px/1 var(--font-sans);cursor:pointer">{{ s.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px 12px;padding:8px 20px 110px">
+              <sc-for list="{{ results }}" as="p" hint-placeholder-count="4">
+                <div>
+                <button onClick="{{ p.open }}" style="display:block;width:100%;border:none;background:none;padding:0;cursor:pointer;text-align:left">
+                  <div style="position:relative;aspect-ratio:1;border-radius:12px;background:{{ p.tint }};overflow:hidden;margin-bottom:9px;box-shadow:inset 0 0 0 1px var(--tile-line)">
+                    <div style="position:absolute;inset:0;display:block"><image-slot id="{{ p.slotId }}" shape="rect" fit="cover" placeholder="{{ t.k78 }}"></image-slot></div>
+                    <div style="position:absolute;left:8px;bottom:7px;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 10px/1.3 var(--font-sans);color:var(--label-normal);background:var(--plate);backdrop-filter:blur(6px);padding:3px 6px;border-radius:5px;pointer-events:none">{{ p.en }}</div>
+                  </div>
+                  <div style="font:600 15px/1.4 var(--font-sans);color:var(--label-normal);height:42px;overflow:hidden">{{ p.kr }}</div>
+                  <div style="display:flex;align-items:baseline;gap:6px;margin-top:4px">
+                    <span style="font:700 12px/1.2 var(--font-sans);color:var(--brand-red)">{{ p.discLabel }}</span>
+                    <span style="font:700 17px/1.2 var(--font-sans);color:var(--label-normal)">{{ p.priceLabel }}</span>
+                  </div>
+                </button>
+                <div style="margin-top:9px">
+                  <sc-if value="{{ p.notInCart }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ p.add }}" style="width:100%;height:38px;border-radius:9px;border:1px solid var(--line-normal);background:var(--fill-normal);color:var(--label-normal);font:700 13px/1 var(--font-sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px" style-hover="background:var(--fill-strong)">
+                      <svg width="15" height="15" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>{{ addLabel }}
+                    </button>
+                  </sc-if>
+                  <sc-if value="{{ p.inCart }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;height:38px;border:1.5px solid var(--primary-normal);border-radius:9px;background:var(--primary-bg);overflow:hidden">
+                      <button onClick="{{ p.dec }}" style="width:38px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-minus"></use></svg>
+                      </button>
+                      <span style="flex:1;text-align:center;font:700 14px/1 var(--font-sans);color:var(--primary-strong)">{{ p.cartQtyLabel }}</span>
+                      <button onClick="{{ p.inc }}" style="width:38px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>
+                      </button>
+                    </div>
+                  </sc-if>
+                </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          </sc-if>
+          <sc-if value="{{ searchNoHit }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:90px 30px;text-align:center">
+            <div style="font:var(--t-headline1) var(--font-sans);color:var(--label-normal);margin-bottom:6px">{{ t.k14 }}</div>
+            <div style="font:500 14px/1.6 var(--font-sans);color:var(--label-alternative)">{{ noHitLine }}<br>{{ t.k15 }}</div>
+          </div>
+          </sc-if>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isProduct }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:pushIn .24s ease-out">
+          <div style="position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:52px 14px 10px;background:var(--sticky-bg);backdrop-filter:blur(12px)">
+            <button onClick="{{ back }}" style="width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--label-normal)">
+              <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="#i-chev-left"></use></svg>
+            </button>
+            <div style="display:flex">
+              <button onClick="{{ toggleLike }}" style="width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:{{ likeColor }}">
+                <svg width="23" height="23" viewBox="0 0 24 24" style="flex:none;"><use href="{{ heartIcon }}"></use></svg>
+              </button>
+              <button onClick="{{ goCart }}" style="width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--label-normal);position:relative">
+                <svg width="23" height="23" viewBox="0 0 24 24" style="flex:none;"><use href="#i-bag"></use></svg>
+                <span style="position:absolute;top:4px;right:2px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--brand-red);color:var(--on-brand-red);font:700 10px/17px var(--font-sans);text-align:center">{{ cartCount }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div style="aspect-ratio:1;background:{{ pdTint }};position:relative;margin-top:-96px">
+            <div style="position:absolute;inset:0;display:block"><image-slot id="{{ pdSlotId }}" shape="rect" fit="cover" placeholder="{{ t.k78 }}"></image-slot></div>
+            <div style="position:absolute;left:18px;bottom:16px;font:600 12px/1.3 var(--font-sans);color:var(--label-normal);background:var(--plate);backdrop-filter:blur(6px);padding:5px 9px;border-radius:6px;pointer-events:none">{{ pdEn }}</div>
+          </div>
+
+          <div style="padding:20px 20px 0">
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <span style="background:var(--primary-bg);color:var(--primary-strong);font:700 11px/1 var(--font-sans);padding:6px 8px;border-radius:6px">{{ t.k16 }}</span>
+              <span style="background:var(--accent-bg-green);color:var(--brand-green);font:700 11px/1 var(--font-sans);padding:6px 8px;border-radius:6px">{{ t.k17 }}</span>
+            </div>
+            <div style="font:var(--t-heading1) var(--font-sans);letter-spacing:var(--ls-heading1);color:var(--label-normal)">{{ pdKr }}</div>
+            <div style="font:500 13px/1.5 var(--font-sans);color:var(--label-alternative);margin-top:4px">{{ pdEn }}</div>
+            <div style="display:flex;align-items:baseline;gap:8px;margin:16px 0 4px">
+              <span style="font:var(--t-title2) var(--font-sans);letter-spacing:var(--ls-title2);color:var(--brand-red)">{{ pdDiscLabel }}</span>
+              <span style="font:var(--t-title2) var(--font-sans);letter-spacing:var(--ls-title2);color:var(--label-normal)">{{ pdPriceLabel }}</span>
+              <span style="font:500 15px/1.2 var(--font-sans);color:var(--label-assistive);text-decoration:line-through">{{ pdWasLabel }}</span>
+            </div>
+            <button onClick="{{ goReview }}" style="display:flex;align-items:center;gap:6px;border:none;background:none;padding:8px 0 0;cursor:pointer">
+              <svg width="15" height="15" viewBox="0 0 24 24" style="color:var(--brand-star);flex:none;"><use href="#i-star"></use></svg>
+              <span style="font:700 14px/1 var(--font-sans);color:var(--label-normal)">{{ pdRating }}</span>
+              <span style="font:500 14px/1 var(--font-sans);color:var(--label-alternative);text-decoration:underline">{{ pdReviewLine }}</span>
+            </button>
+          </div>
+
+          <div style="margin:22px 20px 0;border:1px solid var(--line-normal);border-radius:12px;overflow:hidden">
+            <sc-for list="{{ pdSpecs }}" as="s" hint-placeholder-count="4">
+              <div style="display:flex;gap:12px;padding:13px 15px;border-bottom:1px solid var(--line-alternative)">
+                <span style="width:76px;flex:none;font:500 13px/1.5 var(--font-sans);color:var(--label-alternative)">{{ s.k }}</span>
+                <span style="flex:1;font:500 13px/1.5 var(--font-sans);color:var(--label-neutral)">{{ s.v }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="margin:20px 20px 0;background:var(--primary-bg);border-radius:12px;padding:15px;display:flex;gap:11px;align-items:flex-start">
+            <svg width="20" height="20" viewBox="0 0 24 24" style="color:var(--primary-normal);flex:none;margin-top:1pxflex:none;"><use href="#i-send"></use></svg>
+            <div>
+              <div style="font:700 14px/1.4 var(--font-sans);color:var(--primary-strong)">{{ t.k19 }}</div>
+              <div style="font:500 12px/1.5 var(--font-sans);color:var(--primary-heavy);margin-top:3px">Order by 8 PM · arrives tomorrow in Metro Manila</div>
+            </div>
+          </div>
+
+          <div style="padding:28px 20px 6px">
+            <div style="font:var(--t-heading2) var(--font-sans);letter-spacing:var(--ls-heading2);color:var(--label-normal)">{{ t.k20 }}</div>
+            <div style="font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">Pairs well</div>
+          </div>
+          <div style="display:flex;gap:12px;overflow-x:auto;padding:12px 20px 26px">
+            <sc-for list="{{ related }}" as="p" hint-placeholder-count="4">
+              <button onClick="{{ p.open }}" style="width:122px;flex:none;border:none;background:none;padding:0;cursor:pointer;text-align:left">
+                <div style="aspect-ratio:1;border-radius:12px;background:{{ p.tint }};margin-bottom:8px"></div>
+                <div style="font:600 13px/1.4 var(--font-sans);color:var(--label-normal);height:36px;overflow:hidden">{{ p.kr }}</div>
+                <div style="font:700 14px/1.2 var(--font-sans);color:var(--label-normal);margin-top:3px">{{ p.priceLabel }}</div>
+              </button>
+            </sc-for>
+          </div>
+
+          <div style="position:sticky;bottom:0;z-index:30;background:var(--bg-normal);border-top:1px solid var(--line-normal);padding:12px 16px 30px">
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <sc-for list="{{ buyModes }}" as="m" hint-placeholder-count="2">
+                <button onClick="{{ m.pick }}" style="flex:1;height:46px;border:1.5px solid {{ m.border }};background:{{ m.bg }};border-radius:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+                  <span style="font:700 13px/1.2 var(--font-sans);color:{{ m.color }}">{{ m.label }}</span>
+                  <span style="font:500 11px/1.2 var(--font-sans);color:{{ m.sub }}">{{ m.meta }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
+              <span style="font:600 14px/1 var(--font-sans);color:var(--label-neutral)">{{ t.k21 }}</span>
+              <div style="display:flex;align-items:center;border:1px solid var(--line-normal);border-radius:10px;overflow:hidden">
+                <button onClick="{{ qtyDown }}" style="width:40px;height:40px;border:none;background:var(--bg-normal);cursor:pointer;color:var(--label-neutral);display:flex;align-items:center;justify-content:center">
+                  <svg width="18" height="18" viewBox="0 0 24 24" style="flex:none;"><use href="#i-minus"></use></svg>
+                </button>
+                <span style="min-width:44px;text-align:center;font:700 15px/1 var(--font-sans);color:var(--label-normal)">{{ qty }}</span>
+                <button onClick="{{ qtyUp }}" style="width:40px;height:40px;border:none;background:var(--bg-normal);cursor:pointer;color:var(--label-neutral);display:flex;align-items:center;justify-content:center">
+                  <svg width="18" height="18" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>
+                </button>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px">
+              <button onClick="{{ toggleLike }}" style="width:52px;height:52px;flex:none;border:1px solid var(--line-normal);border-radius:12px;background:var(--bg-normal);cursor:pointer;display:flex;align-items:center;justify-content:center;color:{{ likeColor }}">
+                <svg width="22" height="22" viewBox="0 0 24 24" style="flex:none;"><use href="{{ heartIcon }}"></use></svg>
+              </button>
+              <button onClick="{{ pdCta }}" style="flex:1;height:52px;border:none;border-radius:12px;background:var(--primary-normal);color:var(--static-white);font:700 16px/1 var(--font-sans);cursor:pointer" style-hover="background:var(--primary-strong)">{{ pdCtaLabel }}</button>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isReview }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:pushIn .24s ease-out;padding-bottom:40px">
+          <div style="position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:6px;padding:52px 10px 10px;background:var(--bg-normal);border-bottom:1px solid var(--line-normal)">
+            <button onClick="{{ back }}" style="width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--label-normal)">
+              <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="#i-chev-left"></use></svg>
+            </button>
+            <span style="font:var(--t-headline1) var(--font-sans);color:var(--label-normal)">{{ reviewHeader }}</span>
+          </div>
+
+          <div style="display:flex;gap:22px;align-items:center;padding:24px 20px 20px;border-bottom:1px solid var(--line-normal)">
+            <div style="text-align:center;flex:none">
+              <div style="font:var(--t-display3) var(--font-sans);letter-spacing:var(--ls-display3);color:var(--label-normal)">{{ pdRating }}</div>
+              <div style="display:flex;gap:2px;justify-content:center;margin-top:4px">
+                <sc-for list="{{ starRow }}" as="s" hint-placeholder-count="5">
+                  <svg width="14" height="14" viewBox="0 0 24 24" style="color:{{ s.fill }};flex:none;"><use href="#i-star"></use></svg>
+                </sc-for>
+              </div>
+            </div>
+            <div style="flex:1">
+              <sc-for list="{{ ratingBars }}" as="b" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+                  <span style="font:500 11px/1 var(--font-sans);color:var(--label-alternative);width:20px">{{ b.label }}</span>
+                  <span style="flex:1;height:6px;border-radius:3px;background:var(--fill-normal);overflow:hidden;display:block">
+                    <span style="display:block;height:100%;width:{{ b.pct }};background:var(--brand-star)"></span>
+                  </span>
+                  <span style="font:500 11px/1 var(--font-sans);color:var(--label-assistive);width:32px;text-align:right">{{ b.count }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;padding:16px 20px 4px;overflow-x:auto">
+            <sc-for list="{{ reviewFilters }}" as="f" hint-placeholder-count="4">
+              <button onClick="{{ f.pick }}" style="flex:none;border:1px solid {{ f.border }};background:{{ f.bg }};color:{{ f.color }};border-radius:999px;padding:9px 13px;font:600 13px/1 var(--font-sans);cursor:pointer">{{ f.label }}</button>
+            </sc-for>
+          </div>
+
+          <div style="padding:12px 20px 0">
+            <sc-for list="{{ reviews }}" as="r" hint-placeholder-count="4">
+              <div style="padding:18px 0;border-bottom:1px solid var(--line-normal)">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px">
+                  <span style="width:34px;height:34px;border-radius:999px;background:var(--fill-strong);display:flex;align-items:center;justify-content:center;font:700 13px/1 var(--font-sans);color:var(--label-alternative)">{{ r.initial }}</span>
+                  <span style="flex:1;display:block">
+                    <span style="display:flex;gap:1px">
+                      <sc-for list="{{ r.stars }}" as="s" hint-placeholder-count="5">
+                        <svg width="12" height="12" viewBox="0 0 24 24" style="color:{{ s.fill }};flex:none;"><use href="#i-star"></use></svg>
+                      </sc-for>
+                    </span>
+                    <span style="display:block;font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:3px">{{ r.who }} · {{ r.when }}</span>
+                  </span>
+                  <sc-if value="{{ r.repeat }}" hint-placeholder-val="{{ true }}">
+                    <span style="background:var(--accent-bg-green);color:var(--brand-green);font:700 11px/1 var(--font-sans);padding:6px 8px;border-radius:6px">{{ t.k23 }}</span>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ r.hasPhoto }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;gap:6px;margin-bottom:10px">
+                    <span style="width:78px;height:78px;border-radius:10px;background:{{ r.photoA }};display:block"></span>
+                    <span style="width:78px;height:78px;border-radius:10px;background:{{ r.photoB }};display:block"></span>
+                  </div>
+                </sc-if>
+                <div style="font:var(--t-body2-reading) var(--font-sans);letter-spacing:var(--ls-body2-reading);color:var(--label-neutral)">{{ r.body }}</div>
+                <button onClick="{{ noop }}" style="margin-top:11px;display:flex;align-items:center;gap:6px;border:1px solid var(--line-normal);border-radius:999px;background:var(--bg-normal);padding:7px 12px;cursor:pointer;font:600 12px/1 var(--font-sans);color:var(--label-neutral)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" style="flex:none;"><use href="#i-check"></use></svg>
+                  {{ r.helpfulLabel }}
+                </button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isCart }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="padding:56px 20px 14px;background:var(--bg-normal)">
+            <div style="font:var(--t-title3) var(--font-sans);letter-spacing:var(--ls-title3);color:var(--label-normal)">{{ t.k25 }}</div>
+            <div style="font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">{{ cartSubLabel }}</div>
+          </div>
+
+          <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:110px 34px;text-align:center">
+            <div style="width:64px;height:64px;border-radius:999px;background:var(--fill-normal);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;color:var(--label-assistive)">
+              <svg width="30" height="30" viewBox="0 0 24 24" style="flex:none;"><use href="#i-bag"></use></svg>
+            </div>
+            <div style="font:var(--t-headline1) var(--font-sans);color:var(--label-normal);margin-bottom:6px">{{ t.k26 }}</div>
+            <div style="font:500 14px/1.6 var(--font-sans);color:var(--label-alternative);margin-bottom:20px">{{ t.k27 }}</div>
+            <button onClick="{{ goHome }}" style="height:48px;padding:0 22px;border:none;border-radius:12px;background:var(--primary-normal);color:var(--static-white);font:700 15px/1 var(--font-sans);cursor:pointer">{{ t.k28 }}</button>
+          </div>
+          </sc-if>
+
+          <sc-if value="{{ cartHasItems }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <div style="margin:0 20px 16px;border:1px solid var(--line-normal);border-radius:12px;padding:14px 15px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+                <svg width="18" height="18" viewBox="0 0 24 24" style="color:var(--primary-normal);flex:none;"><use href="#i-send"></use></svg>
+                <span style="font:600 13px/1.4 var(--font-sans);color:var(--label-normal)">{{ shipMsg }}</span>
+              </div>
+              <span style="display:block;height:7px;border-radius:4px;background:var(--fill-normal);overflow:hidden">
+                <span style="display:block;height:100%;width:{{ shipPct }};background:var(--primary-normal)"></span>
+              </span>
+            </div>
+
+            <div style="padding:0 20px">
+              <sc-for list="{{ cartLines }}" as="l" hint-placeholder-count="3">
+                <div style="display:flex;gap:12px;padding:16px 0;border-top:1px solid var(--line-normal)">
+                  <span style="width:76px;height:76px;border-radius:12px;background:{{ l.tint }};flex:none;position:relative;overflow:hidden">
+                    <span style="position:absolute;inset:0;background:radial-gradient(120% 90% at 30% 22%,rgba(255,255,255,.55),transparent 62%);display:block"></span>
+                  </span>
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;gap:8px">
+                      <div style="flex:1;min-width:0">
+                        <div style="font:600 14px/1.4 var(--font-sans);color:var(--label-normal)">{{ l.kr }}</div>
+                        <div style="font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:1px">{{ l.en }}</div>
+                      </div>
+                      <button onClick="{{ l.remove }}" style="width:26px;height:26px;flex:none;border:none;background:none;cursor:pointer;color:var(--label-assistive);display:flex;align-items:center;justify-content:center">
+                        <svg width="17" height="17" viewBox="0 0 24 24" style="flex:none;"><use href="#i-close"></use></svg>
+                      </button>
+                    </div>
+                    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:12px">
+                      <div style="display:flex;align-items:center;border:1px solid var(--line-normal);border-radius:9px;overflow:hidden">
+                        <button onClick="{{ l.dec }}" style="width:36px;height:36px;border:none;background:var(--bg-normal);cursor:pointer;color:var(--label-neutral);display:flex;align-items:center;justify-content:center">
+                          <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-minus"></use></svg>
+                        </button>
+                        <span style="min-width:34px;text-align:center;font:700 14px/1 var(--font-sans);color:var(--label-normal)">{{ l.qty }}</span>
+                        <button onClick="{{ l.inc }}" style="width:36px;height:36px;border:none;background:var(--bg-normal);cursor:pointer;color:var(--label-neutral);display:flex;align-items:center;justify-content:center">
+                          <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>
+                        </button>
+                      </div>
+                      <span style="font:700 16px/1.2 var(--font-sans);color:var(--label-normal)">{{ l.lineTotal }}</span>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="height:8px;background:var(--bg-alternative);margin-top:20px"></div>
+
+            <div style="padding:20px">
+              <div style="font:var(--t-heading2) var(--font-sans);letter-spacing:var(--ls-heading2);color:var(--label-normal);margin-bottom:14px">{{ t.k29 }}</div>
+              <sc-for list="{{ cartSummary }}" as="s" hint-placeholder-count="3">
+                <div style="display:flex;justify-content:space-between;padding:7px 0">
+                  <span style="font:var(--t-body2) var(--font-sans);color:var(--label-alternative)">{{ s.k }}</span>
+                  <span style="font:600 15px/1.4 var(--font-sans);color:{{ s.color }}">{{ s.v }}</span>
+                </div>
+              </sc-for>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;padding:15px 0 0;margin-top:8px;border-top:1px solid var(--line-normal)">
+                <span style="font:700 16px/1.4 var(--font-sans);color:var(--label-normal)">{{ t.k30 }}</span>
+                <span style="font:var(--t-title3) var(--font-sans);letter-spacing:var(--ls-title3);color:var(--label-normal)">{{ cartTotalLabel }}</span>
+              </div>
+            </div>
+
+            <div style="padding:0 20px 24px">
+              <div style="border:1px solid var(--line-normal);border-radius:12px;padding:15px">
+                <div style="font:700 13px/1.4 var(--font-sans);color:var(--label-normal);margin-bottom:8px">{{ t.k31 }}</div>
+                <div style="font:var(--t-label1-reading) var(--font-sans);color:var(--label-alternative)">{{ addrLine }}<br>{{ shipLineLabel }}</div>
+              </div>
+            </div>
+
+            <div style="position:sticky;bottom:0;z-index:30;background:var(--bg-normal);border-top:1px solid var(--line-normal);padding:12px 16px 30px">
+              <button onClick="{{ goCheckout }}" style="width:100%;height:54px;border:none;border-radius:12px;background:var(--primary-normal);color:var(--static-white);font:700 16px/1 var(--font-sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px" style-hover="background:var(--primary-strong)">
+                <span>{{ cartCtaLabel }}</span>
+              </button>
+            </div>
+          </div>
+          </sc-if>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isOrders }}" hint-placeholder-val="{{ false }}">
+        <div style="padding-bottom:110px">
+          <div style="position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:6px;padding:52px 10px 12px;background:var(--bg-normal);border-bottom:1px solid var(--line-normal)">
+            <button onClick="{{ back }}" style="width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--label-normal)">
+              <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="#i-chev-left"></use></svg>
+            </button>
+            <span style="font:var(--t-headline1) var(--font-sans);color:var(--label-normal)">{{ t.k33 }}</span>
+          </div>
+          <sc-for list="{{ orders }}" as="o" hint-placeholder-count="3">
+            <div style="margin:16px 20px;border:1px solid var(--line-normal);border-radius:14px;overflow:hidden">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line-alternative)">
+                <div>
+                  <div style="font:700 14px/1.4 var(--font-sans);color:{{ o.statusColor }}">{{ o.status }}</div>
+                  <div style="font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">{{ o.date }} · {{ o.no }}</div>
+                </div>
+                <button onClick="{{ o.act }}" style="border:1px solid var(--line-normal);background:var(--bg-normal);border-radius:8px;padding:9px 12px;font:600 12px/1 var(--font-sans);color:var(--label-neutral);cursor:pointer">{{ o.action }}</button>
+              </div>
+              <sc-if value="{{ o.tracking }}" hint-placeholder-val="{{ true }}">
+                <div style="padding:16px 16px 6px">
+                  <div style="display:flex;align-items:center">
+                    <sc-for list="{{ o.steps }}" as="s" hint-placeholder-count="4">
+                      <span style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;position:relative">
+                        <span style="width:11px;height:11px;border-radius:999px;background:{{ s.dot }};display:block"></span>
+                        <span style="font:600 11px/1.3 var(--font-sans);color:{{ s.color }};white-space:nowrap">{{ s.label }}</span>
+                        <span style="position:absolute;top:5px;left:50%;right:-50%;height:2px;background:{{ s.bar }};display:block;z-index:-1"></span>
+                      </span>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+              <div style="padding:14px 16px">
+                <sc-for list="{{ o.items }}" as="i" hint-placeholder-count="2">
+                  <div style="display:flex;gap:11px;align-items:center;padding:7px 0">
+                    <span style="width:52px;height:52px;border-radius:10px;background:{{ i.tint }};flex:none"></span>
+                    <span style="flex:1;min-width:0;display:block">
+                      <span style="display:block;font:600 14px/1.4 var(--font-sans);color:var(--label-normal);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.kr }}</span>
+                      <span style="display:block;font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">{{ i.qtyLabel }} · {{ i.priceLabel }}</span>
+                    </span>
+                  </div>
+                </sc-for>
+                <div style="display:flex;justify-content:space-between;padding-top:12px;margin-top:8px;border-top:1px solid var(--line-alternative)">
+                  <span style="font:500 13px/1.4 var(--font-sans);color:var(--label-alternative)">{{ t.k34 }}</span>
+                  <span style="font:700 15px/1.4 var(--font-sans);color:var(--label-normal)">{{ o.total }}</span>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isMy }}" hint-placeholder-val="{{ false }}">
+        <div style="padding-bottom:110px">
+          <div style="padding:56px 20px 20px">
+            <div style="font:var(--t-title3) var(--font-sans);letter-spacing:var(--ls-title3);color:var(--label-normal)">{{ t.k35 }}</div>
+          </div>
+          <sc-if value="{{ isGuest }}" hint-placeholder-val="{{ true }}">
+          <div style="margin:0 20px 18px;border:1px solid var(--line-normal);border-radius:16px;padding:22px 20px">
+            <div style="font:var(--t-heading2) var(--font-sans);letter-spacing:var(--ls-heading2);color:var(--label-normal)">{{ guestTitle }}</div>
+            <div style="font:500 13px/1.6 var(--font-sans);color:var(--label-alternative);margin-top:6px">{{ guestDesc }}</div>
+            <div style="display:flex;gap:9px;margin-top:16px">
+              <button onClick="{{ goSignup }}" style="flex:1;height:50px;border:none;border-radius:12px;background:var(--primary-normal);color:var(--static-white);font:700 15px/1 var(--font-sans);cursor:pointer">{{ guestSignup }}</button>
+              <button onClick="{{ goLogin }}" style="flex:1;height:50px;border:1px solid var(--line-normal);border-radius:12px;background:var(--bg-normal);color:var(--label-normal);font:700 15px/1 var(--font-sans);cursor:pointer">{{ guestLogin }}</button>
+            </div>
+          </div>
+          </sc-if>
+          <sc-if value="{{ isMember }}" hint-placeholder-val="{{ false }}">
+          <div style="margin:0 20px 18px;border-radius:16px;background:linear-gradient(120deg,var(--brand-blue-deep),#0066ff);padding:20px;color:var(--static-white)">
+            <div style="display:flex;align-items:center;gap:13px;margin-bottom:18px">
+              <span style="width:52px;height:52px;border-radius:999px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font:700 18px/1 var(--font-sans)">{{ userInitial }}</span>
+              <span style="flex:1;display:block">
+                <span style="display:block;font:var(--t-heading2) var(--font-sans);letter-spacing:var(--ls-heading2)">{{ userName }}</span>
+                <span style="display:block;font:500 13px/1.4 var(--font-sans);color:rgba(255,255,255,.8);margin-top:2px">{{ t.k37 }}</span>
+              </span>
+              <svg width="20" height="20" viewBox="0 0 24 24" style="color:rgba(255,255,255,.7);flex:none;"><use href="#i-chev-right"></use></svg>
+            </div>
+            <div style="display:flex;background:rgba(255,255,255,.14);border-radius:12px;overflow:hidden">
+              <sc-for list="{{ myStats }}" as="s" hint-placeholder-count="3">
+                <span style="flex:1;padding:13px 8px;text-align:center;display:block">
+                  <span style="display:block;font:700 17px/1.2 var(--font-sans)">{{ s.v }}</span>
+                  <span style="display:block;font:500 11px/1.3 var(--font-sans);color:rgba(255,255,255,.78);margin-top:3px">{{ s.k }}</span>
+                </span>
+              </sc-for>
+            </div>
+          </div>
+          </sc-if>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 20px 22px">
+            <button onClick="{{ goOrders }}" style="height:76px;border:1px solid var(--line-normal);border-radius:12px;background:var(--bg-normal);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:var(--label-normal)">
+              <svg width="22" height="22" viewBox="0 0 24 24" style="flex:none;"><use href="#i-bag"></use></svg>
+              <span style="font:600 13px/1 var(--font-sans)">{{ t.k33 }}</span>
+            </button>
+            <button onClick="{{ goHome }}" style="height:76px;border:1px solid var(--line-normal);border-radius:12px;background:var(--bg-normal);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:var(--label-normal)">
+              <svg width="22" height="22" viewBox="0 0 24 24" style="flex:none;"><use href="{{ heartIcon }}"></use></svg>
+              <span style="font:600 13px/1 var(--font-sans)">{{ t.k38 }}</span>
+            </button>
+          </div>
+          <div style="padding:0 20px">
+            <sc-for list="{{ myMenu }}" as="m" hint-placeholder-count="6">
+              <button onClick="{{ m.go }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:17px 2px;border:none;border-bottom:1px solid var(--line-normal);background:none;cursor:pointer;text-align:left">
+                <span style="flex:1;font:var(--t-body1) var(--font-sans);color:var(--label-normal)">{{ m.kr }}</span>
+                <span style="font:500 13px/1.4 var(--font-sans);color:var(--label-alternative)">{{ m.meta }}</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" style="color:var(--label-assistive);flex:none;"><use href="#i-chev-right"></use></svg>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isPromo }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:pushIn .24s ease-out;padding-bottom:110px">
+          <div style="position:relative;background:linear-gradient(150deg,var(--brand-blue-deep),#0066ff 58%,#3385ff);padding:96px 22px 34px;color:var(--static-white);overflow:hidden">
+            <div style="position:absolute;right:-56px;top:-26px;width:210px;height:210px;border-radius:999px;background:rgba(255,255,255,.08)"></div>
+            <div style="position:absolute;right:38px;bottom:-70px;width:130px;height:130px;border-radius:999px;background:rgba(232,17,45,.3)"></div>
+            <button onClick="{{ back }}" style="position:absolute;left:8px;top:48px;width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--static-white);z-index:2">
+              <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="#i-chev-left"></use></svg>
+            </button>
+            <div style="position:relative">
+              <div style="display:inline-block;background:rgba(255,255,255,.18);font:700 11px/1 var(--font-sans);letter-spacing:.04em;padding:7px 10px;border-radius:6px;margin-bottom:14px">{{ t.k39 }}</div>
+              <div style="font:var(--t-title1) var(--font-sans);letter-spacing:var(--ls-title1)">{{ t.k40 }}<br>{{ t.k41 }}</div>
+              <div style="font:500 14px/1.6 var(--font-sans);color:rgba(255,255,255,.85);margin-top:10px">{{ t.k42 }}<br>{{ t.k43 }}</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;padding:16px 20px;overflow-x:auto">
+            <sc-for list="{{ promoTabs }}" as="t" hint-placeholder-count="4">
+              <button onClick="{{ t.pick }}" style="flex:none;border:1px solid {{ t.border }};background:{{ t.bg }};color:{{ t.color }};border-radius:999px;padding:10px 14px;font:600 13px/1 var(--font-sans);cursor:pointer">{{ t.label }}</button>
+            </sc-for>
+          </div>
+
+          <div style="padding:4px 20px 0">
+            <sc-for list="{{ promoItems }}" as="p" hint-placeholder-count="5">
+              <div style="display:flex;gap:13px;padding:16px 0;border-bottom:1px solid var(--line-normal)">
+                <button onClick="{{ p.open }}" style="display:flex;gap:13px;flex:1;min-width:0;border:none;background:none;padding:0;cursor:pointer;text-align:left">
+                  <span style="width:92px;height:92px;border-radius:12px;background:{{ p.tint }};flex:none;position:relative;overflow:hidden">
+                    <span style="position:absolute;inset:0;display:block"><image-slot id="{{ p.slotId }}" shape="rect" fit="cover" placeholder="{{ t.k78 }}"></image-slot></span>
+                    <span style="position:absolute;left:0;top:0;background:var(--brand-red);color:var(--on-brand-red);font:700 11px/1 var(--font-sans);padding:5px 7px;border-bottom-right-radius:9px;display:block">{{ p.discLabel }}</span>
+                  </span>
+                  <span style="flex:1;min-width:0;display:block">
+                    <span style="display:block;font:600 15px/1.4 var(--font-sans);color:var(--label-normal)">{{ p.kr }}</span>
+                    <span style="display:block;font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">{{ p.origin }}</span>
+                    <span style="display:flex;align-items:baseline;gap:6px;margin-top:8px">
+                      <span style="font:700 17px/1.2 var(--font-sans);color:var(--label-normal)">{{ p.priceLabel }}</span>
+                      <span style="font:500 12px/1.2 var(--font-sans);color:var(--label-assistive);text-decoration:line-through">{{ p.wasLabel }}</span>
+                    </span>
+                  </span>
+                </button>
+                <div style="width:96px;flex:none;align-self:center">
+                  <div style="margin-top:9px">
+                    <sc-if value="{{ p.notInCart }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ p.add }}" style="width:100%;height:38px;border-radius:9px;border:1px solid var(--line-normal);background:var(--fill-normal);color:var(--label-normal);font:700 13px/1 var(--font-sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px" style-hover="background:var(--fill-strong)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>{{ addLabel }}
+                      </button>
+                    </sc-if>
+                    <sc-if value="{{ p.inCart }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;align-items:center;height:38px;border:1.5px solid var(--primary-normal);border-radius:9px;background:var(--primary-bg);overflow:hidden">
+                        <button onClick="{{ p.dec }}" style="width:38px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                          <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-minus"></use></svg>
+                        </button>
+                        <span style="flex:1;text-align:center;font:700 14px/1 var(--font-sans);color:var(--primary-strong)">{{ p.cartQtyLabel }}</span>
+                        <button onClick="{{ p.inc }}" style="width:38px;height:100%;border:none;background:none;cursor:pointer;color:var(--primary-strong);display:flex;align-items:center;justify-content:center">
+                          <svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;"><use href="#i-plus"></use></svg>
+                        </button>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isAuth }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:45;background:var(--bg-normal);display:flex;flex-direction:column;animation:pushIn .24s ease-out">
+          <div style="flex:none;display:flex;align-items:center;gap:6px;padding:52px 10px 4px">
+            <button onClick="{{ authBack }}" style="width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--label-normal)">
+              <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="#i-chev-left"></use></svg>
+            </button>
+            <span style="font:600 13px/1.4 var(--font-sans);color:var(--label-alternative)">{{ authStepLabel }}</span>
+          </div>
+
+          <div style="flex:1;overflow-y:auto;padding:14px 24px 24px">
+            <div style="font:var(--t-title3) var(--font-sans);letter-spacing:var(--ls-title3);color:var(--label-normal)">{{ authTitle }}</div>
+            <div style="font:500 14px/1.6 var(--font-sans);color:var(--label-alternative);margin-top:8px">{{ authDesc }}</div>
+
+            <sc-if value="{{ authPhoneStep }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top:24px">
+              <div style="display:flex;gap:8px">
+                <span style="flex:none;height:52px;padding:0 14px;border-radius:12px;border:1.5px solid var(--line-normal);background:var(--fill-normal);font:600 16px/50px var(--font-sans);color:var(--label-neutral)">+63</span>
+                <input value="{{ authPhone }}" onChange="{{ onAuthPhone }}" placeholder="9171234567" inputmode="numeric" style="flex:1;height:52px;padding:0 14px;border-radius:12px;border:1.5px solid var(--line-normal);background:var(--bg-normal);font:500 16px/1 var(--font-sans);color:var(--label-normal);min-width:0;outline:none">
+              </div>
+              <div style="font:500 12px/1.5 var(--font-sans);color:{{ authHintColor }};margin:8px 0 0 2px">{{ authPhoneHint }}</div>
+
+              <div style="margin-top:22px;border:1px solid var(--line-normal);border-radius:12px;overflow:hidden">
+                <sc-for list="{{ authTerms }}" as="c" hint-placeholder-count="4">
+                  <button onClick="{{ c.toggle }}" style="width:100%;display:flex;align-items:center;gap:11px;padding:14px 15px;border:none;border-bottom:1px solid var(--line-alternative);background:{{ c.rowBg }};cursor:pointer;text-align:left">
+                    <span style="width:22px;height:22px;border-radius:{{ c.radius }};background:{{ c.boxBg }};border:1.5px solid {{ c.boxBorder }};color:{{ c.tick }};display:flex;align-items:center;justify-content:center;flex:none">
+                      <svg width="14" height="14" viewBox="0 0 24 24" style="flex:none;"><use href="#i-check"></use></svg>
+                    </span>
+                    <span style="flex:1;font:{{ c.font }};color:var(--label-normal)">{{ c.label }}</span>
+                    <span style="font:500 12px/1 var(--font-sans);color:var(--label-assistive)">{{ c.req }}</span>
+                  </button>
+                </sc-for>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:10px;margin:22px 0 14px">
+                <span style="flex:1;height:1px;background:var(--line-normal);display:block"></span>
+                <span style="font:500 12px/1 var(--font-sans);color:var(--label-assistive)">{{ authOr }}</span>
+                <span style="flex:1;height:1px;background:var(--line-normal);display:block"></span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ authSocial }}" as="o" hint-placeholder-count="2">
+                  <button onClick="{{ o.pick }}" style="height:50px;border:1px solid var(--line-normal);border-radius:12px;background:var(--bg-normal);color:var(--label-normal);font:600 14px/1 var(--font-sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+                    <span style="width:20px;height:20px;border-radius:5px;background:{{ o.bg }};color:{{ o.ink }};font:700 10px/20px var(--font-sans);text-align:center">{{ o.mark }}</span>{{ o.label }}
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+            </sc-if>
+
+            <sc-if value="{{ authOtpStep }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:24px">
+              <input value="{{ authOtp }}" onChange="{{ onAuthOtp }}" placeholder="000000" inputmode="numeric" style="width:100%;height:58px;padding:0 16px;border-radius:12px;border:1.5px solid var(--line-normal);background:var(--bg-normal);font:700 22px/1 var(--font-mono);letter-spacing:.32em;color:var(--label-normal);outline:none;text-align:center">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+                <span style="font:500 12px/1.5 var(--font-sans);color:{{ authHintColor }}">{{ authOtpHint }}</span>
+                <button onClick="{{ resendOtp }}" style="border:none;background:none;padding:0;cursor:pointer;font:700 12px/1 var(--font-sans);color:var(--primary-normal);text-decoration:underline">{{ authResend }}</button>
+              </div>
+              <button onClick="{{ fillOtp }}" style="margin-top:16px;width:100%;height:44px;border:1px dashed var(--line-strong);border-radius:10px;background:var(--fill-normal);color:var(--label-alternative);font:600 12px/1 var(--font-sans);cursor:pointer">{{ authDemoFill }}</button>
+            </div>
+            </sc-if>
+
+            <sc-if value="{{ authProfileStep }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:24px;display:flex;flex-direction:column;gap:14px">
+              <div>
+                <span style="display:block;font:700 12px/1.3 var(--font-sans);color:var(--label-alternative);margin:0 0 6px 2px">{{ authNameLabel }}</span>
+                <input value="{{ authName }}" onChange="{{ onAuthName }}" placeholder="Maria Santos" style="width:100%;height:52px;padding:0 14px;border-radius:12px;border:1.5px solid var(--line-normal);background:var(--bg-normal);font:500 16px/1 var(--font-sans);color:var(--label-normal);outline:none">
+              </div>
+              <div>
+                <span style="display:block;font:700 12px/1.3 var(--font-sans);color:var(--label-alternative);margin:0 0 6px 2px">{{ authEmailLabel }}</span>
+                <input value="{{ authEmail }}" onChange="{{ onAuthEmail }}" placeholder="maria@email.com" style="width:100%;height:52px;padding:0 14px;border-radius:12px;border:1.5px solid var(--line-normal);background:var(--bg-normal);font:500 16px/1 var(--font-sans);color:var(--label-normal);outline:none">
+              </div>
+              <div style="display:flex;gap:9px;align-items:flex-start;background:var(--primary-bg);border-radius:10px;padding:13px 14px">
+                <svg width="17" height="17" viewBox="0 0 24 24" style="color:var(--primary-normal);flex:none;margin-top:1px"><use href="#i-check"></use></svg>
+                <span style="font:500 12px/1.6 var(--font-sans);color:var(--primary-heavy)">{{ authWelcomeNote }}</span>
+              </div>
+            </div>
+            </sc-if>
+          </div>
+
+          <div style="flex:none;background:var(--bg-normal);border-top:1px solid var(--line-normal);padding:12px 20px 30px">
+            <button onClick="{{ authNext }}" style="width:100%;height:54px;border:none;border-radius:12px;background:{{ authCtaBg }};color:{{ authCtaInk }};font:700 16px/1 var(--font-sans);cursor:{{ authCtaCursor }}">{{ authCta }}</button>
+            <button onClick="{{ authToggleMode }}" style="width:100%;margin-top:12px;border:none;background:none;padding:6px;cursor:pointer;font:600 13px/1.4 var(--font-sans);color:var(--label-alternative);text-decoration:underline">{{ authSwitch }}</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isAddress }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:40;background:var(--bg-normal)">
+          <iframe src="{{ mapSrc }}" title="지도에서 배송지 설정" style="width:100%;height:100%;border:none;display:block"></iframe>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isCheckout }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:pushIn .24s ease-out">
+          <div style="position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:6px;padding:52px 10px 12px;background:var(--bg-normal);border-bottom:1px solid var(--line-normal)">
+            <button onClick="{{ back }}" style="width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--label-normal)">
+              <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="#i-chev-left"></use></svg>
+            </button>
+            <span style="font:var(--t-headline1) var(--font-sans);color:var(--label-normal)">{{ t.k44 }}</span>
+          </div>
+
+          <div style="padding:20px 20px 0">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <span style="font:var(--t-heading2) var(--font-sans);letter-spacing:var(--ls-heading2);color:var(--label-normal)">{{ t.k45 }}</span>
+              <button onClick="{{ goAddress }}" style="border:1px solid var(--line-normal);background:var(--bg-normal);border-radius:8px;padding:8px 12px;font:600 12px/1 var(--font-sans);color:var(--label-neutral);cursor:pointer">{{ t.k46 }}</button>
+            </div>
+            <div style="border:1px solid var(--line-normal);border-radius:12px;padding:15px">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+                <span style="font:700 15px/1.4 var(--font-sans);color:var(--label-normal)">{{ addrName }}</span>
+                <span style="background:var(--primary-bg);color:var(--primary-strong);font:700 10px/1 var(--font-sans);padding:5px 7px;border-radius:5px">{{ addrAlias }}</span>
+              </div>
+              <div style="font:var(--t-label1-reading) var(--font-sans);color:var(--label-alternative)">{{ addrPhone }}<br>{{ addrLine }}<br>{{ landmarkLine }}</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line-alternative)">
+                <svg width="15" height="15" viewBox="0 0 24 24" style="color:var(--primary-normal);flex:none;"><use href="#i-location"></use></svg>
+                <span style="font:600 12px/1.4 var(--font-sans);color:var(--label-alternative)">{{ addrPinLabel }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding:24px 20px 0">
+            <div style="font:var(--t-heading2) var(--font-sans);letter-spacing:var(--ls-heading2);color:var(--label-normal);margin-bottom:10px">{{ t.k48 }}</div>
+            <sc-for list="{{ shipModes }}" as="o" hint-placeholder-count="3">
+              <button onClick="{{ o.pick }}" style="width:100%;display:flex;align-items:center;gap:12px;border:1.5px solid {{ o.border }};background:{{ o.bg }};border-radius:12px;padding:14px 15px;margin-bottom:8px;cursor:pointer;text-align:left">
+                <span style="width:20px;height:20px;border-radius:999px;border:2px solid {{ o.dotBorder }};display:flex;align-items:center;justify-content:center;flex:none">
+                  <span style="width:10px;height:10px;border-radius:999px;background:{{ o.dot }};display:block"></span>
+                </span>
+                <span style="flex:1;min-width:0;display:block">
+                  <span style="display:block;font:700 14px/1.4 var(--font-sans);color:var(--label-normal)">{{ o.label }}</span>
+                  <span style="display:block;font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">{{ o.meta }}</span>
+                </span>
+                <span style="font:700 14px/1 var(--font-sans);color:{{ o.feeColor }};flex:none">{{ o.feeLabel }}</span>
+              </button>
+            </sc-for>
+          </div>
+
+          <div style="padding:20px 20px 0">
+            <div style="font:var(--t-heading2) var(--font-sans);letter-spacing:var(--ls-heading2);color:var(--label-normal);margin-bottom:10px">{{ t.k49 }}</div>
+            <sc-for list="{{ pays }}" as="o" hint-placeholder-count="5">
+              <button onClick="{{ o.pick }}" style="width:100%;display:flex;align-items:center;gap:12px;border:1.5px solid {{ o.border }};background:{{ o.bg }};border-radius:12px;padding:14px 15px;margin-bottom:8px;cursor:pointer;text-align:left">
+                <span style="width:20px;height:20px;border-radius:999px;border:2px solid {{ o.dotBorder }};display:flex;align-items:center;justify-content:center;flex:none">
+                  <span style="width:10px;height:10px;border-radius:999px;background:{{ o.dot }};display:block"></span>
+                </span>
+                <span style="width:34px;height:24px;border-radius:5px;background:{{ o.markBg }};color:{{ o.markInk }};font:700 10px/24px var(--font-sans);text-align:center;flex:none">{{ o.mark }}</span>
+                <span style="flex:1;min-width:0;display:block">
+                  <span style="display:block;font:600 14px/1.4 var(--font-sans);color:var(--label-normal)">{{ o.label }}</span>
+                  <span style="display:block;font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">{{ o.meta }}</span>
+                </span>
+              </button>
+            </sc-for>
+          </div>
+
+          <div style="padding:20px 20px 0">
+            <button onClick="{{ togglePoints }}" style="width:100%;display:flex;align-items:center;gap:12px;border:1px solid var(--line-normal);border-radius:12px;padding:15px;background:var(--bg-normal);cursor:pointer;text-align:left">
+              <span style="flex:1;min-width:0;display:block">
+                <span style="display:block;font:600 14px/1.4 var(--font-sans);color:var(--label-normal)">{{ t.k50 }}</span>
+                <span style="display:block;font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">{{ pointsAvailLabel }}</span>
+              </span>
+              <span style="width:48px;height:28px;border-radius:999px;background:{{ pointsTrack }};padding:3px;display:flex;justify-content:{{ pointsAlign }};flex:none">
+                <span style="width:22px;height:22px;border-radius:999px;background:var(--static-white);display:block;box-shadow:0 1px 2px rgba(0,0,0,.2)"></span>
+              </span>
+            </button>
+          </div>
+
+          <div style="padding:24px 20px 0">
+            <div style="font:var(--t-heading2) var(--font-sans);letter-spacing:var(--ls-heading2);color:var(--label-normal);margin-bottom:12px">{{ t.k29 }}</div>
+            <sc-for list="{{ checkoutSummary }}" as="s" hint-placeholder-count="4">
+              <div style="display:flex;justify-content:space-between;padding:7px 0">
+                <span style="font:var(--t-body2) var(--font-sans);color:var(--label-alternative)">{{ s.k }}</span>
+                <span style="font:600 15px/1.4 var(--font-sans);color:{{ s.color }}">{{ s.v }}</span>
+              </div>
+            </sc-for>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:15px 0 0;margin-top:8px;border-top:1px solid var(--line-normal)">
+              <span style="font:700 16px/1.4 var(--font-sans);color:var(--label-normal)">{{ t.k30 }}</span>
+              <span style="font:var(--t-title3) var(--font-sans);letter-spacing:var(--ls-title3);color:var(--label-normal)">{{ checkoutTotalLabel }}</span>
+            </div>
+            <div style="font:500 12px/1.6 var(--font-sans);color:var(--label-alternative);margin-top:10px">{{ t.k52 }}<br>{{ t.k53 }}</div>
+          </div>
+
+          <div style="height:10px"></div>
+
+          <div style="position:sticky;bottom:0;z-index:30;background:var(--bg-normal);border-top:1px solid var(--line-normal);padding:12px 16px 30px">
+            <button onClick="{{ confirmOrder }}" style="width:100%;height:54px;border:none;border-radius:12px;background:var(--primary-normal);color:var(--static-white);font:700 16px/1 var(--font-sans);cursor:pointer" style-hover="background:var(--primary-strong)">{{ checkoutCtaLabel }}</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isPay }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:45;background:var(--bg-normal);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 28px;text-align:center;animation:fadeIn .2s ease-out">
+          <div style="position:relative;width:76px;height:76px;margin-bottom:22px">
+            <div style="position:absolute;inset:0;border-radius:999px;border:3px solid var(--fill-strong)"></div>
+            <div style="position:absolute;inset:0;border-radius:999px;border:3px solid transparent;border-top-color:var(--primary-normal);animation:spin .9s linear infinite"></div>
+            <div style="position:absolute;inset:14px;border-radius:12px;background:{{ payMarkBg }};color:{{ payMarkInk }};font:700 15px/48px var(--font-sans)">{{ payMark }}</div>
+          </div>
+          <div style="font:var(--t-heading1) var(--font-sans);letter-spacing:var(--ls-heading1);color:var(--label-normal)">{{ payTitle }}</div>
+          <div style="font:500 14px/1.6 var(--font-sans);color:var(--label-alternative);margin-top:8px">{{ payDesc }}</div>
+
+          <div style="width:100%;margin:26px 0 0;border:1px solid var(--line-normal);border-radius:14px;padding:16px;text-align:left">
+            <div style="display:flex;justify-content:space-between;padding:5px 0">
+              <span style="font:500 13px/1.5 var(--font-sans);color:var(--label-alternative)">{{ t.k54 }}</span>
+              <span style="font:600 13px/1.5 var(--font-sans);color:var(--label-normal)">HOME K MART PH Inc.</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0">
+              <span style="font:500 13px/1.5 var(--font-sans);color:var(--label-alternative)">{{ t.k49 }}</span>
+              <span style="font:600 13px/1.5 var(--font-sans);color:var(--label-normal)">{{ payLabel }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 0 0;margin-top:6px;border-top:1px solid var(--line-alternative)">
+              <span style="font:700 14px/1.4 var(--font-sans);color:var(--label-normal)">{{ t.k34 }}</span>
+              <span style="font:700 18px/1.4 var(--font-sans);color:var(--label-normal)">{{ checkoutTotalLabel }}</span>
+            </div>
+          </div>
+
+          <div style="width:100%;margin-top:18px;display:flex;flex-direction:column;gap:10px;text-align:left">
+            <sc-for list="{{ paySteps }}" as="s" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="width:22px;height:22px;border-radius:999px;background:{{ s.bg }};color:{{ s.ink }};font:700 11px/22px var(--font-sans);text-align:center;flex:none">{{ s.n }}</span>
+                <span style="font:{{ s.font }};color:{{ s.color }}">{{ s.label }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="font:500 12px/1.6 var(--font-sans);color:var(--label-assistive);margin-top:22px">{{ t.k55 }}<br>{{ t.k56 }}</div>
+          <button onClick="{{ cancelPay }}" style="margin-top:14px;height:46px;padding:0 20px;border:1px solid var(--line-normal);border-radius:12px;background:var(--bg-normal);color:var(--label-neutral);font:700 14px/1 var(--font-sans);cursor:pointer">{{ t.k57 }}</button>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:fadeIn .3s ease-out;padding:120px 24px 40px;text-align:center">
+          <div style="width:72px;height:72px;border-radius:999px;background:var(--primary-bg);color:var(--primary-normal);margin:0 auto 20px;display:flex;align-items:center;justify-content:center">
+            <svg width="36" height="36" viewBox="0 0 24 24" style="flex:none;"><use href="#i-check"></use></svg>
+          </div>
+          <div style="font:var(--t-title3) var(--font-sans);letter-spacing:var(--ls-title3);color:var(--label-normal)">{{ t.k58 }}</div>
+          <div style="font:500 14px/1.6 var(--font-sans);color:var(--label-alternative);margin-top:8px">Order confirmed · {{ orderNo }}</div>
+          <div style="margin:26px 0 0;border:1px solid var(--line-normal);border-radius:14px;text-align:left">
+            <sc-for list="{{ doneRows }}" as="r" hint-placeholder-count="4">
+              <div style="display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line-alternative)">
+                <span style="width:74px;flex:none;font:500 13px/1.5 var(--font-sans);color:var(--label-alternative)">{{ r.k }}</span>
+                <span style="flex:1;font:600 13px/1.5 var(--font-sans);color:var(--label-normal)">{{ r.v }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:22px">
+            <button onClick="{{ goOrders }}" style="flex:1;height:50px;border:1px solid var(--line-normal);border-radius:12px;background:var(--bg-normal);color:var(--label-normal);font:700 15px/1 var(--font-sans);cursor:pointer">{{ t.k59 }}</button>
+            <button onClick="{{ goHome }}" style="flex:1;height:50px;border:none;border-radius:12px;background:var(--primary-normal);color:var(--static-white);font:700 15px/1 var(--font-sans);cursor:pointer">{{ t.k60 }}</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isSubscribe }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:pushIn .24s ease-out;padding-bottom:8px">
+          <div style="position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:6px;padding:52px 10px 12px;background:var(--bg-normal);border-bottom:1px solid var(--line-normal)">
+            <button onClick="{{ back }}" style="width:44px;height:44px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--label-normal)">
+              <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="#i-chev-left"></use></svg>
+            </button>
+            <span style="font:var(--t-headline1) var(--font-sans);color:var(--label-normal)">{{ t.k61 }}</span>
+          </div>
+
+          <div style="margin:18px 20px 0;border-radius:16px;background:linear-gradient(120deg,var(--brand-blue-deep),var(--primary-normal));padding:20px;color:var(--static-white)">
+            <div style="font:var(--t-heading2) var(--font-sans);letter-spacing:var(--ls-heading2)">{{ t.k62 }}</div>
+            <div style="font:500 13px/1.6 var(--font-sans);color:rgba(255,255,255,.85);margin-top:6px">{{ t.k63 }} <span style="font-weight:700;color:var(--static-white)">{{ t.k64 }}</span>.</div>
+          </div>
+
+          <div style="padding:24px 20px 0">
+            <div style="font:var(--t-heading2) var(--font-sans);letter-spacing:var(--ls-heading2);color:var(--label-normal);margin-bottom:10px">{{ t.k65 }}</div>
+            <div style="display:flex;gap:8px">
+              <sc-for list="{{ intervals }}" as="i" hint-placeholder-count="3">
+                <button onClick="{{ i.pick }}" style="flex:1;height:52px;border:1.5px solid {{ i.border }};background:{{ i.bg }};border-radius:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+                  <span style="font:700 15px/1.2 var(--font-sans);color:{{ i.color }}">{{ i.label }}</span>
+                  <span style="font:500 11px/1.2 var(--font-sans);color:{{ i.sub }}">{{ i.meta }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:12px;background:var(--fill-normal);border-radius:10px;padding:13px 14px">
+              <svg width="18" height="18" viewBox="0 0 24 24" style="color:var(--primary-normal);flex:none;"><use href="#i-send"></use></svg>
+              <span style="font:600 13px/1.4 var(--font-sans);color:var(--label-neutral)">{{ nextDateLabel }}</span>
+            </div>
+          </div>
+
+          <div style="padding:24px 20px 0">
+            <div style="font:var(--t-heading2) var(--font-sans);letter-spacing:var(--ls-heading2);color:var(--label-normal);margin-bottom:4px">{{ t.k67 }}</div>
+            <sc-for list="{{ subItems }}" as="l" hint-placeholder-count="3">
+              <div style="display:flex;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line-normal)">
+                <span style="width:62px;height:62px;border-radius:12px;background:{{ l.tint }};flex:none;position:relative;overflow:hidden">
+                  <span style="position:absolute;inset:0;background:radial-gradient(120% 90% at 30% 22%,rgba(255,255,255,.55),transparent 62%);display:block"></span>
+                </span>
+                <span style="flex:1;min-width:0;display:block">
+                  <span style="display:block;font:600 14px/1.4 var(--font-sans);color:var(--label-normal)">{{ l.kr }}</span>
+                  <span style="display:block;font:500 12px/1.4 var(--font-sans);color:var(--label-alternative);margin-top:2px">{{ l.qtyLabel }}</span>
+                </span>
+                <span style="text-align:right;flex:none;display:block">
+                  <span style="display:block;font:700 15px/1.2 var(--font-sans);color:var(--label-normal)">{{ l.subPrice }}</span>
+                  <span style="display:block;font:500 12px/1.2 var(--font-sans);color:var(--label-assistive);text-decoration:line-through;margin-top:2px">{{ l.basePrice }}</span>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="padding:20px 20px 0">
+            <div style="border:1px solid var(--line-normal);border-radius:12px;padding:15px">
+              <div style="display:flex;justify-content:space-between;padding:5px 0">
+                <span style="font:var(--t-body2) var(--font-sans);color:var(--label-alternative)">{{ t.k68 }}</span>
+                <span style="font:600 15px/1.4 var(--font-sans);color:var(--label-normal)">{{ subBaseLabel }}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:5px 0">
+                <span style="font:var(--t-body2) var(--font-sans);color:var(--label-alternative)">{{ t.k69 }}</span>
+                <span style="font:600 15px/1.4 var(--font-sans);color:var(--brand-red)">{{ subSaveLabel }}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:12px 0 0;margin-top:6px;border-top:1px solid var(--line-alternative)">
+                <span style="font:700 15px/1.4 var(--font-sans);color:var(--label-normal)">{{ t.k70 }}</span>
+                <span style="font:700 17px/1.4 var(--font-sans);color:var(--label-normal)">{{ subTotalLabel }}</span>
+              </div>
+            </div>
+            <div style="font:500 12px/1.7 var(--font-sans);color:var(--label-alternative);margin-top:12px">{{ t.k71 }}</div>
+          </div>
+
+          <div style="position:sticky;bottom:0;z-index:30;background:var(--bg-normal);border-top:1px solid var(--line-normal);padding:12px 16px 30px">
+            <sc-if value="{{ subOn }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:10px">
+                <button onClick="{{ skipSub }}" style="flex:1;height:52px;border:1px solid var(--line-normal);border-radius:12px;background:var(--bg-normal);color:var(--label-normal);font:700 15px/1 var(--font-sans);cursor:pointer">{{ t.k72 }}</button>
+                <button onClick="{{ stopSub }}" style="flex:1;height:52px;border:1px solid var(--line-normal);border-radius:12px;background:var(--bg-normal);color:var(--brand-red);font:700 15px/1 var(--font-sans);cursor:pointer">{{ t.k73 }}</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ subOff }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ startSub }}" style="width:100%;height:54px;border:none;border-radius:12px;background:var(--primary-normal);color:var(--static-white);font:700 16px/1 var(--font-sans);cursor:pointer" style-hover="background:var(--primary-strong)">{{ subCtaLabel }}</button>
+            </sc-if>
+          </div>
+        </div>
+        </sc-if>
+
+      </div>
+
+      <sc-if value="{{ showTabs }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:none;display:flex;border-top:1px solid var(--line-normal);background:var(--sticky-bg);backdrop-filter:blur(12px);padding:8px 0 26px;position:relative;z-index:25">
+        <button onClick="{{ goHome }}" style="flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 0;color:{{ tabHome }}">
+          <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="{{ homeIcon }}"></use></svg>
+          <span style="font:600 11px/1 var(--font-sans)">{{ t.k74 }}</span>
+        </button>
+        <button onClick="{{ goCategory }}" style="flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 0;color:{{ tabCategory }}">
+          <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="#i-menu"></use></svg>
+          <span style="font:600 11px/1 var(--font-sans)">{{ t.k11 }}</span>
+        </button>
+        <button onClick="{{ goSearch }}" style="flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 0;color:{{ tabSearch }}">
+          <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="#i-search"></use></svg>
+          <span style="font:600 11px/1 var(--font-sans)">{{ t.k75 }}</span>
+        </button>
+        <button onClick="{{ goCart }}" style="flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 0;color:{{ tabCart }};position:relative">
+          <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="#i-bag"></use></svg>
+          <span style="font:600 11px/1 var(--font-sans)">{{ t.k25 }}</span>
+          <span style="position:absolute;top:0;left:56%;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--brand-red);color:var(--on-brand-red);font:700 10px/17px var(--font-sans);text-align:center">{{ cartCount }}</span>
+        </button>
+        <button onClick="{{ goMy }}" style="flex:1;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 0;color:{{ tabMy }}">
+          <svg width="24" height="24" viewBox="0 0 24 24" style="flex:none;"><use href="{{ myIcon }}"></use></svg>
+          <span style="font:600 11px/1 var(--font-sans)">{{ t.k76 }}</span>
+        </button>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:20px;right:20px;bottom:110px;z-index:70;background:var(--toast-bg);color:var(--static-white);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:10px;animation:toastIn .2s ease-out;box-shadow:0 8px 28px rgba(0,0,0,.24)">
+          <svg width="19" height="19" viewBox="0 0 24 24" style="color:#4dff92;flex:noneflex:none;"><use href="#i-check"></use></svg>
+          <span style="flex:1;font:600 14px/1.4 var(--font-sans)">{{ toast }}</span>
+          <button onClick="{{ goCart }}" style="border:none;background:none;padding:0;cursor:pointer;font:700 13px/1 var(--font-sans);color:#7fb8ff">{{ t.k77 }}</button>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+
+  </div>
+
+  <div style="width:820px;max-width:100%;font:500 13px/1.7 var(--font-sans);color:var(--label-alternative)">
+    <span style="font-weight:700;color:var(--label-normal)">이번 라운드</span> — 회원 전용 주문: 비회원은 탐색·담기까지만 가능하고 결제 진입 시 휴대폰(+63) 인증 3단계 가입(약관 동의·OTP·프로필)으로 유도, 마이페이지는 게스트/회원 상태 분기 · 빠른 담기: 특가·신상품·검색결과·기획전 카드에 담기↔수량 스테퍼, "다시 담을 시간" 한번에 담기, 주문내역 재주문 = 전체 담기.<br>
+    <span style="font-weight:700;color:var(--label-normal)">남은 것</span> — 지도 화면을 Google Maps + Places로 교체 · 실사진 업로드 후 다크모드 대비 최종 점검 · 소셜 로그인(Google·Apple) 실제 연동 · 타갈로그 추가.
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;980&quot;,&quot;height&quot;:&quot;1240&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;category&quot;,&quot;search&quot;,&quot;product&quot;,&quot;review&quot;,&quot;cart&quot;,&quot;auth&quot;,&quot;address&quot;,&quot;checkout&quot;,&quot;pay&quot;,&quot;done&quot;,&quot;subscribe&quot;,&quot;orders&quot;,&quot;my&quot;,&quot;promo&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;프로토타입&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;프로토타입&quot;},&quot;lang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ko&quot;,&quot;en&quot;],&quot;default&quot;:&quot;ko&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;프로토타입&quot;},&quot;freeShipThreshold&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1200,&quot;min&quot;:0,&quot;max&quot;:4000,&quot;step&quot;:100,&quot;unit&quot;:&quot;₱&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;커머스 규칙&quot;},&quot;showRestock&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;홈 구성&quot;}}">
+const WON = (n) => "₱" + n.toLocaleString("en-PH");
+
+const P = [
+  { id: 1, kr: "매운 봉지라면 5입", en: "Spicy Ramyun 5-pack", price: 199, was: 239, tint: "#FBE0DA", cat: 0, rating: "4.9", reviews: 5210, origin: "국내 제조 · 정식 수입", originEn: "Made in Korea · official import", keep: "실온 보관", keepEn: "Room temperature", unit: "5입 멀티팩", unitEn: "5-pack" },
+  { id: 2, kr: "짜장라면 4입", en: "Jjajang Ramyun 4-pack", price: 189, was: 225, tint: "#F1E6D6", cat: 0, rating: "4.8", reviews: 3120, origin: "국내 제조 · 정식 수입", originEn: "Made in Korea · official import", keep: "실온 보관", keepEn: "Room temperature", unit: "4입 멀티팩", unitEn: "4-pack" },
+  { id: 3, kr: "국내산 포기김치 3kg", en: "Napa Kimchi 3kg", price: 999, was: 1199, tint: "#FBDCD6", cat: 1, rating: "4.7", reviews: 1284, origin: "전남 해남 배추 100%", originEn: "100% Haenam napa cabbage", keep: "냉장 0~5℃", keepEn: "Refrigerate 0–5℃", unit: "3kg 1통", unitEn: "3 kg tub" },
+  { id: 4, kr: "볶음 고추장 500g", en: "Gochujang 500g", price: 319, was: 385, tint: "#F7DBD2", cat: 2, rating: "4.8", reviews: 2044, origin: "충북 진천 제조", originEn: "Made in Jincheon, Korea", keep: "실온 · 개봉 후 냉장", keepEn: "Room temp · refrigerate after opening", unit: "500g 1병", unitEn: "500 g jar" },
+  { id: 5, kr: "재래식 된장 1kg", en: "Doenjang 1kg", price: 359, was: 0, tint: "#EEE6D3", cat: 2, rating: "4.7", reviews: 640, origin: "전북 순창 제조", originEn: "Made in Sunchang, Korea", keep: "실온 · 개봉 후 냉장", keepEn: "Room temp · refrigerate after opening", unit: "1kg 1통", unitEn: "1 kg tub" },
+  { id: 6, kr: "참기름 320ml", en: "Sesame Oil 320ml", price: 479, was: 599, tint: "#FBF0D3", cat: 2, rating: "4.9", reviews: 1870, origin: "국내산 참깨 100%", originEn: "100% Korean sesame", keep: "직사광선 피해 실온", keepEn: "Room temp, away from sunlight", unit: "320ml 1병", unitEn: "320 ml bottle" },
+  { id: 7, kr: "재래김 도시락김 16봉", en: "Seasoned Laver 16pk", price: 279, was: 359, tint: "#E3EDE7", cat: 3, rating: "4.8", reviews: 4310, origin: "전남 완도 · 국내 가공", originEn: "Wando laver · processed in Korea", keep: "실온 보관", keepEn: "Room temperature", unit: "4g × 16봉", unitEn: "4 g × 16 packs" },
+  { id: 8, kr: "즉석밥 12입", en: "Instant Rice 12-pack", price: 519, was: 639, tint: "#F2F1E9", cat: 4, rating: "4.9", reviews: 6120, origin: "국내산 쌀 100%", originEn: "100% Korean rice", keep: "실온 보관", keepEn: "Room temperature", unit: "210g × 12개", unitEn: "210 g × 12" },
+  { id: 9, kr: "김치만두 1.4kg", en: "Kimchi Dumplings 1.4kg", price: 639, was: 799, tint: "#F6E2DC", cat: 7, rating: "4.7", reviews: 1560, origin: "국내 제조", originEn: "Made in Korea", keep: "냉동 -18℃ 이하", keepEn: "Freeze at -18℃ or below", unit: "350g × 4봉", unitEn: "350 g × 4 packs" },
+  { id: 10, kr: "허니버터 감자칩 3봉", en: "Honey Butter Chips 3pk", price: 219, was: 279, tint: "#FFF0D0", cat: 5, rating: "4.6", reviews: 980, origin: "국내 제조 · 정식 수입", originEn: "Made in Korea · official import", keep: "실온 보관", keepEn: "Room temperature", unit: "60g × 3봉", unitEn: "60 g × 3 packs" },
+  { id: 11, kr: "유자차 1kg", en: "Citron Tea 1kg", price: 399, was: 519, tint: "#FFEDC4", cat: 6, rating: "4.8", reviews: 760, origin: "전남 고흥 유자", originEn: "Goheung citron, Korea", keep: "개봉 후 냉장", keepEn: "Refrigerate after opening", unit: "1kg 1병", unitEn: "1 kg jar" },
+  { id: 12, kr: "쌀과자 선물세트", en: "Rice Cracker Gift Set", price: 559, was: 719, tint: "#F3EEDD", cat: 5, rating: "4.7", reviews: 522, origin: "국내산 쌀 100%", originEn: "100% Korean rice", keep: "실온 보관", keepEn: "Room temperature", unit: "9종 1세트", unitEn: "9-item gift set" },
+  { id: 13, kr: "떡볶이 밀키트 2인", en: "Tteokbokki Kit (2)", price: 359, was: 439, tint: "#FBDBD4", cat: 4, rating: "4.6", reviews: 1130, origin: "국내 제조", originEn: "Made in Korea", keep: "냉장 0~10℃", keepEn: "Refrigerate 0–10℃", unit: "2인분 1팩", unitEn: "2 servings" },
+  { id: 15, kr: "봉지라면 20입 기획박스", en: "Ramyun 20-pack Box", price: 639, was: 1159, tint: "#FADDD6", cat: 0, rating: "4.9", reviews: 2870, origin: "국내 제조 · 정식 수입", originEn: "Made in Korea · official import", keep: "실온 보관", keepEn: "Room temperature", unit: "20입 1박스", unitEn: "20-pack box" },
+  { id: 14, kr: "홍삼 스틱 30포", en: "Red Ginseng Sticks 30", price: 1399, was: 1799, tint: "#ECE2E8", cat: 6, rating: "4.9", reviews: 344, origin: "6년근 국내산 홍삼", originEn: "6-year Korean red ginseng", keep: "실온 보관", keepEn: "Room temperature", unit: "10ml × 30포", unitEn: "10 ml × 30 sticks" }
+];
+
+const CATS = [
+  { kr: "라면·면류", en: "Ramyun & Noodles", mark: "라", tint: "#FBE0DA", ink: "#b03a3a", subs: ["봉지라면", "컵라면", "짜장·비빔", "냉면·국수", "멀티팩"], subsEn: ["Pouch ramyun", "Cup noodles", "Jjajang & bibim", "Naengmyeon & noodles", "Multipacks"] },
+  { kr: "김치·반찬", en: "Kimchi & Banchan", mark: "김", tint: "#FBDCD6", ink: "#b0453a", subs: ["포기김치", "볶음김치", "깍두기", "젓갈·장아찌", "밑반찬"], subsEn: ["Whole kimchi", "Stir-fried kimchi", "Kkakdugi", "Jeotgal & pickles", "Side dishes"] },
+  { kr: "장·소스", en: "Jang & Sauces", mark: "장", tint: "#F7DBD2", ink: "#a8541a", subs: ["고추장", "된장·쌈장", "간장", "참기름·들기름", "양념장"], subsEn: ["Gochujang", "Doenjang & ssamjang", "Soy sauce", "Sesame & perilla oil", "Marinades"] },
+  { kr: "김·건어물", en: "Laver & Dried", mark: "해", tint: "#E3EDE7", ink: "#1e6c6c", subs: ["조미김", "김밥김", "멸치·다시", "오징어·쥐포", "미역·다시마"], subsEn: ["Seasoned laver", "Gimbap laver", "Anchovy & broth", "Squid & jerky", "Seaweed & kelp"] },
+  { kr: "즉석밥·간편식", en: "Rice & Meal Kits", mark: "밥", tint: "#F2F1E9", ink: "#6a6248", subs: ["즉석밥", "국·탕·찌개", "밀키트", "죽·수프", "컵밥"], subsEn: ["Instant rice", "Soups & stews", "Meal kits", "Porridge & soup", "Cup rice"] },
+  { kr: "과자·간식", en: "Snacks", mark: "과", tint: "#FFF0D0", ink: "#a8681a", subs: ["감자칩", "쌀과자", "초코·비스킷", "젤리·캔디", "선물세트"], subsEn: ["Chips", "Rice crackers", "Choco & biscuits", "Jelly & candy", "Gift sets"] },
+  { kr: "음료·차·건강", en: "Drinks & Tea", mark: "차", tint: "#FFEDC4", ink: "#a06a12", subs: ["전통차", "커피", "탄산·주스", "홍삼·건강", "생수"], subsEn: ["Traditional tea", "Coffee", "Soda & juice", "Ginseng & health", "Water"] },
+  { kr: "냉동·만두", en: "Frozen & Mandu", mark: "냉", tint: "#E7EDF4", ink: "#2b5aa8", subs: ["만두", "튀김·전", "떡", "냉동밥", "아이스"], subsEn: ["Mandu", "Fritters & jeon", "Tteok", "Frozen rice", "Ice"] }
+];
+
+const REVIEWS = [
+  { initial: "정", who: "정** 님", when: "2일 전", stars: 5, repeat: true, hasPhoto: true, photoA: "#FBE0DA", photoB: "#F2F1E9", helpful: 42, body: "제조일이 이번 달로 찍혀 있어서 안심했어요. 국내에서 사 먹던 그 맛 그대로입니다. 멀티팩 단위가 보관하기 딱 좋아서 세 번째 주문이에요." },
+  { initial: "김", who: "김** 님", when: "5일 전", stars: 5, repeat: false, hasPhoto: false, helpful: 18, body: "박스 안에 눌린 봉지 하나 없이 왔습니다. 유통기한도 넉넉하고, 즉석밥이랑 같이 담으니 배송비도 안 들었어요." },
+  { initial: "이", who: "이** 님", when: "1주 전", stars: 4, repeat: true, hasPhoto: true, photoA: "#F7DBD2", photoB: "#E3EDE7", helpful: 9, body: "맛은 만족인데 스프가 예전보다 조금 덜 매워진 느낌이에요. 가격은 마트보다 저렴해서 계속 살 것 같습니다." },
+  { initial: "박", who: "박** 님", when: "2주 전", stars: 5, repeat: false, hasPhoto: false, helpful: 5, body: "정식 수입 표기가 상세페이지에 그대로 있어서 믿고 주문했습니다. 재고 알림도 잘 왔어요." }
+];
+
+const STR = {
+  k0: ["오늘 뭐 먹지? 라면 · 김치 · 장류 검색", "What's for dinner? Ramyun, kimchi, sauces"],
+  k1: ["내일 도착", "Arrives tomorrow"],
+  k2: ["이번 주 기획전", "This week's event"],
+  k3: ["라면·김치·장류", "Ramyun · Kimchi · Sauces"],
+  k4: ["최대 45% 할인", "Up to 45% off"],
+  k5: ["오늘의 특가", "Today's deals"],
+  k6: ["마감까지", "Ends in"],
+  k7: ["담기", "Add"],
+  k8: ["다시 담을 시간이에요", "Time to restock"],
+  k9: ["Time to restock · 지난 구매 기준", "Based on what you bought before"],
+  k10: ["새로 들어온 한국 상품", "New from Korea"],
+  k11: ["카테고리", "Categories"],
+  k12: ["추천 검색어", "Suggested searches"],
+  k13: ["지금 많이 찾는 상품", "Trending now"],
+  k14: ["검색 결과가 없어요", "No results found"],
+  k15: ["철자를 확인하거나 다른 이름으로 찾아보세요.", "Check the spelling, or try another name."],
+  k16: ["정품 직소싱", "Authentic sourcing"],
+  k17: ["익일배송", "Next-day"],
+  k19: ["오늘 20:00 전 주문 시 내일 도착해요", "Order by 8 PM today, arrives tomorrow"],
+  k20: ["함께 담으면 좋아요", "Pairs well with"],
+  k21: ["수량", "Qty"],
+  k23: ["재구매", "Repeat buyer"],
+  k25: ["장바구니", "Cart"],
+  k26: ["담은 상품이 없어요", "Your cart is empty"],
+  k27: ["오늘의 특가부터 둘러보시겠어요?", "Want to start with today's deals?"],
+  k28: ["특가 보러가기", "See today's deals"],
+  k29: ["결제 금액", "Payment summary"],
+  k30: ["총 결제금액", "Total"],
+  k31: ["배송 정보", "Delivery info"],
+  k33: ["주문 내역", "Orders"],
+  k34: ["결제금액", "Paid"],
+  k35: ["마이페이지", "My page"],
+  k36: ["Maria Santos님", "Maria Santos"],
+  k37: ["WELCOME · 단골 3개월차", "WELCOME · 3 months with us"],
+  k38: ["찜한 상품", "Saved items"],
+  k39: ["8.15 – 8.21 한정", "Aug 15 – 21 only"],
+  k40: ["한국 식품", "Korean pantry"],
+  k41: ["모아담기 대전", "Stock-up sale"],
+  k42: ["국내 제조사에서 바로 들여온 정품만 골라", "Straight from Korean makers — authentic only,"],
+  k43: ["최대 45%로 준비했습니다.", "up to 45% off."],
+  k44: ["주문서", "Order sheet"],
+  k45: ["배송지", "Delivery address"],
+  k46: ["지도에서 변경", "Change on map"],
+  k48: ["배송 방법", "Delivery method"],
+  k49: ["결제수단", "Payment method"],
+  k50: ["포인트 사용", "Use points"],
+  k52: ["표시가격은 VAT 12% 포함 금액입니다 · All prices are VAT-inclusive.", "All prices include 12% VAT · 표시가격은 VAT 포함입니다."],
+  k53: ["주문 내용을 확인했으며 결제에 동의합니다.", "I have reviewed this order and agree to pay."],
+  k54: ["가맹점", "Merchant"],
+  k55: ["앱으로 전환되지 않으면 아래에서 다시 시도할 수 있어요.", "If the app doesn't open, you can retry below."],
+  k56: ["승인 후 자동으로 돌아옵니다.", "You'll come back here automatically after approval."],
+  k57: ["결제 취소", "Cancel payment"],
+  k58: ["주문이 접수됐어요", "Order confirmed"],
+  k59: ["주문 상세", "Order detail"],
+  k60: ["쇼핑 계속하기", "Keep shopping"],
+  k61: ["정기배송", "Subscription"],
+  k62: ["떨어질 때마다 알아서 도착", "Arrives before you run out"],
+  k63: ["라면·즉석밥·김처럼 늘 쓰는 품목만 묶어두면 주기마다 자동 결제됩니다. 정기배송은", "Bundle the staples you always buy — ramyun, rice, laver — and they ship on schedule. Subscriptions get"],
+  k64: ["5% 추가 할인 + 배송비 무료", "5% extra off + free delivery"],
+  k65: ["배송 주기", "Delivery interval"],
+  k67: ["담긴 품목", "Items in this subscription"],
+  k68: ["회차당 상품금액", "Items per delivery"],
+  k69: ["정기배송 할인 5%", "Subscription discount 5%"],
+  k70: ["회차당 결제금액", "Charged per delivery"],
+  k71: ["배송 3일 전까지 건너뛰기·일시정지·해지할 수 있고, 위약금은 없습니다. 결제는 매 회차 발송 전날 등록된 수단으로 진행됩니다.", "Skip, pause or cancel up to 3 days before delivery — no penalty. Payment runs the day before each shipment."],
+  k72: ["이번 회차 건너뛰기", "Skip this delivery"],
+  k73: ["정기배송 해지", "Cancel subscription"],
+  k74: ["홈", "Home"],
+  k75: ["검색", "Search"],
+  k76: ["마이", "My"],
+  k77: ["보기", "View"],
+  k78: ["상품 사진", "Product photo"],
+  k79: ["상품명 · 브랜드 검색", "Search products or brands"]
+};
+
+const SHIP = [
+  { id: "next", label: "익일배송", labelEn: "Next-day", meta: "내일 오전 도착 · ₱1,200 이상 무료", metaEn: "Arrives tomorrow AM · free over ₱1,200", eta: "8월 17일(월) 도착", etaEn: "Arrives Mon, Aug 17", fee: 0 },
+  { id: "same", label: "당일배송", labelEn: "Same-day", meta: "Makati · BGC · Ortigas 한정", metaEn: "Makati · BGC · Ortigas only", eta: "오늘 저녁 전 도착", etaEn: "Arrives by tonight", fee: 120 },
+  { id: "pick", label: "날짜 지정", labelEn: "Pick a date", meta: "원하는 날 오전/오후 선택", metaEn: "Choose day and AM/PM", eta: "지정한 날 도착", etaEn: "Arrives on your date", fee: 0 }
+];
+
+const PAYS = [
+  { id: "gcash", label: "GCash", labelEn: "GCash", meta: "연결된 지갑 ···· 4567", metaEn: "Linked wallet ···· 4567", mark: "GC", markBg: "#0B4EA2", markInk: "#FFFFFF" },
+  { id: "maya", label: "Maya", labelEn: "Maya", meta: "생체인증으로 바로 결제", metaEn: "Approve with biometrics", mark: "MY", markBg: "#00A85A", markInk: "#FFFFFF" },
+  { id: "card", label: "신용·체크카드", labelEn: "Credit / debit card", meta: "Visa ···· 8821", metaEn: "Visa ···· 8821", mark: "CARD", markBg: "var(--fill-strong)", markInk: "var(--label-neutral)" },
+  { id: "bank", label: "계좌이체 (InstaPay)", labelEn: "Bank transfer (InstaPay)", meta: "BDO · BPI · UnionBank", metaEn: "BDO · BPI · UnionBank", mark: "BANK", markBg: "var(--fill-strong)", markInk: "var(--label-neutral)" },
+  { id: "cod", label: "착불 현금 (COD)", labelEn: "Cash on delivery", meta: "수령 시 기사에게 결제", metaEn: "Pay the rider on arrival", mark: "COD", markBg: "var(--fill-strong)", markInk: "var(--label-neutral)" }
+];
+
+const PROMO_TABS = ["전체", "라면·면류", "김치·반찬", "장·소스", "김·건어물", "과자·간식", "냉동·만두"];
+
+const SUB_LINES = [{ id: 1, qty: 2 }, { id: 8, qty: 1 }, { id: 7, qty: 1 }];
+
+const radio = (on) => ({
+  border: on ? "var(--primary-normal)" : "var(--line-normal)",
+  bg: on ? "var(--primary-bg)" : "var(--bg-normal)",
+  dotBorder: on ? "var(--primary-normal)" : "var(--line-strong)",
+  dot: on ? "var(--primary-normal)" : "transparent"
+});
+
+class Component extends DCLogic {
+  state = {
+    screen: "",
+    prev: "home",
+    pdId: 1,
+    qty: 1,
+    cart: { 1: 1, 4: 2, 6: 1 },
+    liked: {},
+    query: "",
+    catIndex: 0,
+    sort: "추천순",
+    reviewFilter: "전체",
+    promoTab: "전체",
+    buyMode: "once",
+    pay: "gcash",
+    shipMode: "next",
+    usePoints: false,
+    interval: 4,
+    subOn: false,
+    orderNo: "",
+    dark: null,
+    addr: { alias: "집", line: "Unit 301, Rockwell Drive, Barangay Poblacion, Makati City", short: "Makati · Poblacion", landmark: "Rockwell 정문 옆, 경비실 맡김 가능", coords: "14.56570, 121.02950", zip: "1210", name: "Maria Santos", phone: "+63 917 123 4567", mode: "form+pin" },
+    payStep: 0,
+    lang: null,
+    user: null,
+    auth: { mode: "signup", step: 0, phone: "", otp: "", name: "", email: "", tos: false, privacy: false, marketing: false, err: "" },
+    authNext: "",
+    paidTotal: 0,
+    toast: "",
+    secs: 9667
+  };
+
+  componentDidMount() {
+    this.timer = setInterval(() => this.setState((s) => ({ secs: s.secs > 0 ? s.secs - 1 : 0 })), 1000);
+    this.onMsg = (e) => {
+      const d = e.data || {};
+      if (d.type === "hkm-address-save") {
+        this.setState((x) => ({ addr: { ...x.addr, alias: d.alias, line: d.line, short: d.short, landmark: d.landmark, coords: d.coords || "", zip: d.zip, mode: d.mode || "pin", name: d.name || x.addr.name, phone: d.phone || x.addr.phone } }));
+        this.back();
+        this.flash(this._en ? "Delivery address saved" : "배송지를 핀 위치로 저장했어요");
+      } else if (d.type === "hkm-address-cancel") {
+        this.back();
+      }
+    };
+    window.addEventListener("message", this.onMsg);
+  }
+  componentWillUnmount() {
+    clearInterval(this.timer);
+    if (this.tt) clearTimeout(this.tt);
+    (this.payTimers || []).forEach(clearTimeout);
+    window.removeEventListener("message", this.onMsg);
+  }
+
+  finishAuth(name, phone) {
+    const target = this.state.authNext || "my";
+    this.setState((s) => ({
+      user: { name: name, phone: phone, joined: "2026.08.16" },
+      addr: { ...s.addr, name: name, phone: phone },
+      auth: { ...s.auth, step: 0, otp: "", err: "" },
+      authNext: ""
+    }));
+    this.go(target);
+    this.flash(this._en ? "Welcome, " + name + "!" : name + "님, 가입을 환영해요");
+  }
+
+  bump(id, d) {
+    this.setState((s) => {
+      const c = { ...s.cart }, n = (c[id] || 0) + d;
+      if (n <= 0) delete c[id]; else c[id] = n;
+      return { cart: c };
+    });
+  }
+
+  addMany(ids) {
+    this.setState((s) => {
+      const c = { ...s.cart };
+      ids.forEach((id) => { c[id] = (c[id] || 0) + 1; });
+      return { cart: c };
+    });
+    this.flash(this._en ? ids.length + " items added to cart" : ids.length + "개를 장바구니에 담았어요");
+  }
+
+  setAuth(patch) { this.setState((s) => ({ auth: { ...s.auth, ...patch } })); }
+
+  runPayment(total) {
+    this.paid = total;
+    (this.payTimers || []).forEach(clearTimeout);
+    this.payTimers = [
+      setTimeout(() => this.setState({ payStep: 1 }), 900),
+      setTimeout(() => this.setState({ payStep: 2 }), 2100),
+      setTimeout(() => {
+        this.setState({ cart: {}, payStep: 0, paidTotal: this.paid, orderNo: "HKM26" + String(Math.floor(Math.random() * 900000) + 100000) });
+        this.go("done");
+      }, 3000)
+    ];
+  }
+
+  go = (screen) => this.setState((s) => ({ screen, prev: s.screen }));
+  back = () => this.setState((s) => ({ screen: s.prev === s.screen ? "home" : s.prev }));
+
+  openProduct = (id) => this.setState((s) => ({ screen: "product", prev: s.screen, pdId: id, qty: 1 }));
+
+  flash = (msg) => {
+    this.setState({ toast: msg });
+    if (this.tt) clearTimeout(this.tt);
+    this.tt = setTimeout(() => this.setState({ toast: "" }), 2600);
+  };
+
+  add = (id, n) => {
+    const p = P.find((x) => x.id === id);
+    this.setState((s) => ({ cart: { ...s.cart, [id]: (s.cart[id] || 0) + (n || 1) } }));
+    this.flash(this._en ? p.en + " added to cart" : p.kr + " 담았습니다");
+  };
+  setQtyFor = (id, n) => this.setState((s) => {
+    const c = { ...s.cart };
+    if (n <= 0) delete c[id]; else c[id] = n;
+    return { cart: c };
+  });
+
+  _mix(hex, to, amt) {
+    const h = hex.replace("#", "");
+    const c = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+    return "#" + c.map((v, i) => Math.round(v + (to[i] - v) * amt).toString(16).padStart(2, "0")).join("");
+  }
+  _T(hex) { return this._dark ? this._mix(hex, [23, 24, 26], 0.8) : hex; }
+  _INK(hex) { return this._dark ? this._mix(hex, [255, 255, 255], 0.62) : hex; }
+
+  fmt(p) {
+    return {
+      ...p,
+      kr: this._en ? p.en : p.kr,
+      en: this._en ? p.kr : p.en,
+      origin: this._en ? p.originEn : p.origin,
+      inCart: (this.state.cart[p.id] || 0) > 0,
+      notInCart: !(this.state.cart[p.id] > 0),
+      cartQtyLabel: (this.state.cart[p.id] || 0) + (this._en ? "" : "개"),
+      inc: () => this.bump(p.id, 1),
+      dec: () => this.bump(p.id, -1),
+      unit: this._en ? p.unitEn : p.unit,
+      tint: this._T(p.tint),
+      slotId: "p" + p.id,
+      priceLabel: WON(p.price),
+      wasLabel: p.was ? WON(p.was) : "",
+      discLabel: p.was ? Math.round((1 - p.price / p.was) * 100) + "%" : "",
+      reviewLabel: "(" + p.reviews.toLocaleString("ko-KR") + ")",
+      open: () => this.openProduct(p.id),
+      add: () => this.add(p.id, 1)
+    };
+  }
+
+  chip(active) {
+    return active
+      ? { bg: "var(--primary-normal)", color: "var(--static-white)", border: "var(--primary-normal)" }
+      : { bg: "var(--static-white)", color: "var(--label-neutral)", border: "var(--line-normal)" };
+  }
+
+  renderVals() {
+    const s = { ...this.state, screen: this.state.screen || (this.props.startScreen ?? "home") };
+    const FREE = this.props.freeShipThreshold ?? 1200;
+    const showRestock = this.props.showRestock ?? true;
+    const dark = s.dark === null ? (this.props.theme ?? "light") === "dark" : s.dark;
+    const en = s.lang === null ? (this.props.lang ?? "ko") === "en" : s.lang === "en";
+    const L = (ko, eng) => (en ? eng : ko);
+    const t = {};
+    Object.keys(STR).forEach((k) => { t[k] = STR[k][en ? 1 : 0]; });
+    const nm = (p) => (en ? p.en : p.kr);
+    const nm2 = (p) => (en ? p.kr : p.en);
+    this._dark = dark;
+    this._en = en;
+    const DARKVARS = "--bg-normal:#17181A;--bg-alternative:#0F1012;--bg-elevated:#1F2124;--label-normal:#F2F3F5;--label-strong:#FFFFFF;--label-neutral:rgba(242,243,245,.88);--label-alternative:rgba(233,236,242,.60);--label-assistive:rgba(233,236,242,.34);--line-normal:rgba(160,168,184,.24);--line-alternative:rgba(160,168,184,.14);--fill-normal:rgba(160,168,184,.10);--fill-strong:rgba(160,168,184,.20);--primary-normal:#4D8FFF;--primary-strong:#7FB0FF;--primary-heavy:#A8C9FF;--primary-bg:rgba(77,143,255,.18);--brand-red:#FF7A85;--brand-red-bg:rgba(255,122,133,.16);--brand-green:#4ADE80;--brand-star:#FFC44D;--accent-bg-green:rgba(74,222,128,.16);--on-tint:rgba(255,255,255,.62);--sticky-bg:rgba(23,24,26,.92);--toast-bg:rgba(46,48,52,.96);--logo-plate:rgba(255,255,255,.94);--on-brand-red:#17181A;--plate:rgba(23,24,26,.72);--tile-line:rgba(255,255,255,.10);";
+    const cartIds = Object.keys(s.cart).map(Number);
+    const cartCount = cartIds.reduce((a, id) => a + s.cart[id], 0);
+    const subtotal = cartIds.reduce((a, id) => a + P.find((p) => p.id === id).price * s.cart[id], 0);
+    const saved = cartIds.reduce((a, id) => { const p = P.find((x) => x.id === id); return a + (p.was ? (p.was - p.price) * s.cart[id] : 0); }, 0);
+    const ship = subtotal >= FREE || subtotal === 0 ? 0 : 79;
+    const modeFee = (SHIP.find((o) => o.id === s.shipMode) || SHIP[0]).fee;
+    const totalShip = ship + modeFee;
+    const pointsUsed = s.usePoints ? Math.min(240, subtotal) : 0;
+    const checkoutTotal = Math.max(0, subtotal + totalShip - pointsUsed);
+
+    const a = s.auth;
+    const signup = a.mode === "signup";
+    const allTerms = a.tos && a.privacy && a.marketing;
+    const authReady = a.step === 0 ? /^9\d{9}$/.test(a.phone) && a.tos && a.privacy
+      : a.step === 1 ? a.otp.length === 6
+      : a.name.trim().length > 1;
+    const payMethod = PAYS.find((p2) => p2.id === s.pay) || PAYS[0];
+    const shipMethod = SHIP.find((o) => o.id === s.shipMode) || SHIP[0];
+    const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+    const nd = new Date(2026, 7, 16 + s.interval * 7);
+    const nextDate = nd.getFullYear() + "." + String(nd.getMonth() + 1).padStart(2, "0") + "." + String(nd.getDate()).padStart(2, "0") + " (" + DAYS[nd.getDay()] + ")";
+    const subLines = SUB_LINES.map((l) => {
+      const p = P.find((x) => x.id === l.id);
+      return {
+        kr: nm(p), tint: this._T(p.tint), slotId: "p" + p.id, qtyLabel: L(l.qty + "개 · " + p.unit, l.qty + " pcs · " + p.unitEn),
+        subPrice: WON(Math.round(p.price * 0.95) * l.qty), basePrice: WON(p.price * l.qty)
+      };
+    });
+    const subBase = SUB_LINES.reduce((a, l) => a + P.find((x) => x.id === l.id).price * l.qty, 0);
+    const subTotal = Math.round(subBase * 0.95);
+    const remain = Math.max(0, FREE - subtotal);
+
+    const pd = P.find((p) => p.id === s.pdId) || P[0];
+    const hh = String(Math.floor(s.secs / 3600)).padStart(2, "0");
+    const mm = String(Math.floor((s.secs % 3600) / 60)).padStart(2, "0");
+    const ss = String(s.secs % 60).padStart(2, "0");
+
+    const screens = [
+      ["home", "홈"], ["category", "카테고리"], ["search", "검색"], ["product", "상품 상세"],
+      ["review", "리뷰"], ["cart", "장바구니"], ["auth", "회원가입"], ["address", "배송지 설정"], ["checkout", "주문서"], ["pay", "결제 승인"], ["done", "주문완료"], ["subscribe", "정기배송"], ["orders", "주문 내역"], ["my", "마이페이지"], ["promo", "기획전"]
+    ];
+
+    const q = s.query.trim();
+    const hits = q ? P.filter((p) => p.kr.includes(q) || p.en.toLowerCase().includes(q.toLowerCase())) : [];
+    const sorted = s.sort === "낮은 가격순" ? [...hits].sort((a, b) => a.price - b.price)
+      : s.sort === "할인율순" ? [...hits].sort((a, b) => (b.was ? 1 - b.price / b.was : 0) - (a.was ? 1 - a.price / a.was : 0))
+      : hits;
+
+    const orderSteps = (n) => (en ? ["Paid", "Packing", "In transit", "Delivered"] : ["결제완료", "상품준비", "배송중", "배송완료"]).map((label, i) => ({
+      label,
+      dot: i <= n ? "var(--primary-normal)" : "var(--line-normal)",
+      bar: i < n ? "var(--primary-normal)" : "var(--line-normal)",
+      color: i <= n ? "var(--primary-strong)" : "var(--label-assistive)"
+    }));
+
+    const oItem = (id, qty) => { const p = P.find((x) => x.id === id); return { kr: nm(p), tint: this._T(p.tint), qtyLabel: L(qty + "개", qty + " pcs"), priceLabel: WON(p.price * qty) }; };
+
+    const tabColor = (name) => (s.screen === name ? "var(--primary-normal)" : "var(--label-assistive)");
+
+    return {
+      noop: () => {},
+      back: this.back,
+      goHome: () => this.go("home"),
+      goCategory: () => this.go("category"),
+      goSearch: () => this.go("search"),
+      goCart: () => this.go("cart"),
+      goMy: () => this.go("my"),
+      goOrders: () => this.go("orders"),
+      goPromo: () => this.go("promo"),
+      goCheckout: () => {
+        if (!s.user) { this.setState({ authNext: "checkout", auth: { ...s.auth, step: 0, err: "" } }); this.go("auth"); this.flash(L("주문하려면 회원가입이 필요해요", "Sign up to place an order")); return; }
+        this.go("checkout");
+      },
+      goAddress: () => this.go("address"),
+      isAddress: s.screen === "address",
+      mapSrc: "map-pin.html?theme=" + (dark ? "dark" : "light") + "&lang=" + (en ? "en" : "ko"),
+      addrAlias: en ? ({ "집": "Home", "회사": "Work", "기타": "Other" }[s.addr.alias] || s.addr.alias) : s.addr.alias,
+      addrLine: s.addr.line + ", Metro Manila " + s.addr.zip,
+      addrShort: s.addr.short,
+      addrLandmark: s.addr.landmark,
+      addrCoords: s.addr.coords,
+      addrName: s.addr.name,
+      addrPhone: s.addr.phone,
+      addrPinLabel: s.addr.coords ? L("핀 위치 저장됨 · " + s.addr.coords, "Pin saved · " + s.addr.coords) : L("주소 직접 입력 · 핀 미설정", "Typed address · no pin"),
+      goSubscribe: () => this.go("subscribe"),
+      goReview: () => this.go("review"),
+
+      isHome: s.screen === "home",
+      isCategory: s.screen === "category",
+      isSearch: s.screen === "search",
+      isProduct: s.screen === "product",
+      isReview: s.screen === "review",
+      isCart: s.screen === "cart",
+      isOrders: s.screen === "orders",
+      isMy: s.screen === "my",
+      isGuest: !s.user,
+      isMember: !!s.user,
+      userName: s.user ? s.user.name : "",
+      userInitial: s.user ? s.user.name.slice(0, 1) : "",
+      guestTitle: L("회원가입하고 주문하세요", "Create an account to order"),
+      guestDesc: L("주문·배송 조회, 정기배송, 포인트 적립은 회원 전용입니다. 휴대폰 번호만 있으면 1분이면 끝나요.", "Ordering, tracking, subscriptions and points are members-only. It takes a minute with just your mobile number."),
+      guestSignup: L("회원가입", "Sign up"),
+      guestLogin: L("로그인", "Sign in"),
+      goSignup: () => { this.setState({ authNext: "my", auth: { ...s.auth, mode: "signup", step: 0, err: "" } }); this.go("auth"); },
+      goLogin: () => { this.setState({ authNext: "my", auth: { ...s.auth, mode: "login", step: 0, err: "" } }); this.go("auth"); },
+      isPromo: s.screen === "promo",
+      isCheckout: s.screen === "checkout",
+      isDone: s.screen === "done",
+      isSubscribe: s.screen === "subscribe",
+      showTabs: ["home", "category", "search", "cart", "my"].indexOf(s.screen) >= 0,
+
+      tabHome: tabColor("home"),
+      tabCategory: tabColor("category"),
+      tabSearch: tabColor("search"),
+      tabCart: tabColor("cart"),
+      tabMy: tabColor("my"),
+
+      jumpChips: screens.map(([id, label]) => ({
+        label,
+        go: () => this.go(id),
+        bg: s.screen === id ? "var(--primary-normal)" : "var(--static-white)",
+        color: s.screen === id ? "var(--static-white)" : "var(--label-neutral)",
+        border: s.screen === id ? "var(--primary-normal)" : "var(--line-normal)"
+      })),
+
+      cartCount,
+      homeIcon: s.screen === "home" ? "#i-home-fill" : "#i-home",
+      myIcon: s.screen === "my" ? "#i-person-fill" : "#i-person",
+      heartIcon: s.liked[s.pdId] ? "#i-heart-fill" : "#i-heart",
+      toast: s.toast,
+      dealTime: hh + ":" + mm + ":" + ss,
+
+      categories: CATS.map((c, i) => ({ ...c, kr: nm(c), tint: this._T(c.tint), ink: this._INK(c.ink), go: () => this.setState({ screen: "category", prev: s.screen, catIndex: i }) })),
+      deals: [P[13], P[0], P[1], P[7], P[6]].map((p) => this.fmt(p)),
+      showRestock,
+      addLabel: L("담기", "Add"),
+      restockAll: () => this.addMany([P[7].id, P[0].id, P[6].id]),
+      restockAllLabel: L("3개 한번에 담기", "Add all 3"),
+      restock: [P[7], P[0], P[6]].map((p) => ({ ...this.fmt(p), lastBuy: L("3주 전 구매 · 보통 4주마다 담으셨어요", "Bought 3 weeks ago · usually every 4 weeks") })),
+      freshGrid: [P[2], P[8], P[9], P[12], P[14], P[11]].map((p) => this.fmt(p)),
+
+      catRail: CATS.map((c, i) => ({
+        kr: nm(c),
+        pick: () => this.setState({ catIndex: i }),
+        bg: s.catIndex === i ? "var(--static-white)" : "transparent",
+        color: s.catIndex === i ? "var(--primary-normal)" : "var(--label-neutral)",
+        font: s.catIndex === i ? "700 14px/1.4 var(--font-sans)" : "500 14px/1.4 var(--font-sans)",
+        bar: s.catIndex === i ? "var(--primary-normal)" : "transparent"
+      })),
+      activeCatKr: nm(CATS[s.catIndex]),
+      activeCatEn: nm2(CATS[s.catIndex]),
+      activeSubs: en ? CATS[s.catIndex].subsEn : CATS[s.catIndex].subs,
+      catProducts: P.filter((p) => p.cat === s.catIndex).map((p) => this.fmt(p)),
+
+      query: s.query,
+      onQuery: (e) => this.setState({ query: e.target.value }),
+      clearQuery: () => this.setState({ query: "" }),
+      searchEmpty: q === "",
+      searchHasResults: q !== "" && sorted.length > 0,
+      searchNoHit: q !== "" && sorted.length === 0,
+      noHitLine: L("‘" + q + "’와 일치하는 상품을 찾지 못했습니다.", "Nothing matched ‘" + q + "’."),
+      suggestions: L(["라면", "김치", "고추장", "김", "즉석밥", "만두"], ["Ramyun", "Kimchi", "Gochujang", "Laver", "Instant rice", "Dumplings"]).map((label) => ({ label, pick: () => this.setState({ query: label }) })),
+      trending: [P[13], P[0], P[7], P[2], P[6]].map((p, i) => ({ ...this.fmt(p), rank: i + 1 })),
+      sorts: L(["추천순", "낮은 가격순", "할인율순"], ["Recommended", "Lowest price", "Biggest discount"]).map((label) => ({ label, pick: () => this.setState({ sort: label }), ...this.chip(s.sort === label) })),
+      results: sorted.map((p) => this.fmt(p)),
+      resultCountLabel: L("총 " + sorted.length + "개", sorted.length + " results"),
+
+      pdKr: nm(pd),
+      pdEn: nm2(pd),
+      pdTint: this._T(pd.tint),
+      pdSlotId: "p" + pd.id,
+      pdRating: pd.rating,
+      pdReviewCount: pd.reviews.toLocaleString("en-US"),
+      pdReviewLine: L("리뷰 " + pd.reviews.toLocaleString("ko-KR") + "건 보기", "See " + pd.reviews.toLocaleString("en-US") + " reviews"),
+      reviewHeader: L("리뷰 " + pd.reviews.toLocaleString("ko-KR"), pd.reviews.toLocaleString("en-US") + " reviews"),
+      shipLineLabel: L("익일배송 · " + s.addr.landmark, "Next-day · " + s.addr.landmark),
+      landmarkLine: L("랜드마크: " + s.addr.landmark, "Landmark: " + s.addr.landmark),
+      pointsAvailLabel: L("사용 가능 240 pts", "240 pts available"),
+      nextDateLabel: L("다음 배송 예정 · " + nextDate, "Next delivery · " + nextDate),
+      pdPriceLabel: WON(pd.price),
+      pdWasLabel: pd.was ? WON(pd.was) : "",
+      pdDiscLabel: pd.was ? Math.round((1 - pd.price / pd.was) * 100) + "%" : "",
+      pdCtaLabel: s.buyMode === "sub" ? L("정기배송 설정하기", "Set up subscription") : WON(pd.price * s.qty) + L(" 담기", " · Add to cart"),      pdSpecs: [
+        { k: L("제조·원산지", "Origin"), v: L(pd.origin, pd.originEn) },
+        { k: L("판매단위", "Pack size"), v: L(pd.unit, pd.unitEn) },
+        { k: L("보관방법", "Storage"), v: L(pd.keep, pd.keepEn) },
+        { k: L("유통기한", "Shelf life"), v: L("제조일로부터 12개월 · 수령 시 6개월 이상 보장", "12 months from production · 6+ months guaranteed on arrival") },
+        { k: L("배송", "Delivery"), v: L("오늘 20:00 전 주문 시 내일 도착", "Order by 8 PM today, arrives tomorrow") }
+      ],
+      qty: s.qty,
+      qtyUp: () => this.setState((x) => ({ qty: x.qty + 1 })),
+      qtyDown: () => this.setState((x) => ({ qty: Math.max(1, x.qty - 1) })),
+      addPd: () => this.add(pd.id, s.qty),
+      toggleLike: () => this.setState((x) => ({ liked: { ...x.liked, [pd.id]: !x.liked[pd.id] } })),
+      likeColor: s.liked[pd.id] ? "var(--brand-red)" : "var(--label-alternative)",
+      likeFill: s.liked[pd.id] ? "var(--brand-red)" : "none",
+      related: P.filter((p) => p.id !== pd.id).slice(0, 5).map((p) => this.fmt(p)),
+
+      starRow: [0, 1, 2, 3, 4].map((i) => ({ fill: i < Math.round(parseFloat(pd.rating)) ? "var(--brand-star)" : "var(--line-normal)" })),
+      ratingBars: [[L("5점", "5★"), 1042, "82%"], [L("4점", "4★"), 168, "13%"], [L("3점", "3★"), 48, "4%"], [L("2점", "2★"), 16, "1%"], [L("1점", "1★"), 10, "1%"]].map(([label, count, pct]) => ({ label, count: count.toLocaleString("ko-KR"), pct })),
+      reviewFilters: L(["전체", "사진 리뷰", "재구매", "최신순"], ["All", "With photos", "Repeat buyers", "Newest"]).map((label) => ({ label, pick: () => this.setState({ reviewFilter: label }), ...this.chip(s.reviewFilter === label) })),
+      reviews: (s.reviewFilter === "사진 리뷰" ? REVIEWS.filter((r) => r.hasPhoto) : s.reviewFilter === "재구매" ? REVIEWS.filter((r) => r.repeat) : REVIEWS).map((r) => ({
+        ...r,
+        photoA: r.photoA ? this._T(r.photoA) : "",
+        photoB: r.photoB ? this._T(r.photoB) : "",
+        stars: [0, 1, 2, 3, 4].map((i) => ({ fill: i < r.stars ? "var(--brand-star)" : "var(--line-normal)" }))
+      })),
+
+      cartEmpty: cartCount === 0,
+      cartHasItems: cartCount > 0,
+      shipMsg: remain > 0 ? L(WON(remain) + " 더 담으면 무료배송", "Add " + WON(remain) + " for free delivery") : L("무료배송 조건을 채웠어요", "You've unlocked free delivery"),
+      shipPct: Math.min(100, Math.round((subtotal / FREE) * 100)) + "%",
+      cartLines: cartIds.map((id) => {
+        const p = P.find((x) => x.id === id);
+        return {
+          kr: nm(p), en: nm2(p), tint: this._T(p.tint), slotId: "p" + p.id, qty: s.cart[id],
+          lineTotal: WON(p.price * s.cart[id]),
+          inc: () => this.setQtyFor(id, s.cart[id] + 1),
+          dec: () => this.setQtyFor(id, s.cart[id] - 1),
+          remove: () => this.setQtyFor(id, 0)
+        };
+      }),
+      cartSummary: [
+        { k: L("상품금액", "Items"), v: WON(subtotal + saved), color: "var(--label-normal)" },
+        { k: L("상품할인", "Discounts"), v: "-" + WON(saved), color: "var(--brand-red)" },
+        { k: L("배송비", "Delivery"), v: ship === 0 ? L("무료", "Free") : WON(ship), color: "var(--label-normal)" }
+      ],
+      cartTotalLabel: WON(subtotal + ship),
+      cartCtaLabel: s.user ? L(WON(subtotal + ship) + " 주문하기", "Checkout · " + WON(subtotal + ship)) : L("로그인하고 주문하기", "Sign in to check out"),
+      cartSubLabel: L("Cart · " + cartCount + "개", "Cart · " + cartCount + " items"),
+      t,
+      themeVars: dark ? DARKVARS : "",
+      langChips: [["ko", "한국어"], ["en", "English"]].map(([id, label]) => ({
+        label, pick: () => this.setState({ lang: id }), ...this.chip(en === (id === "en"))
+      })),
+      themeChips: [["light", "라이트"], ["dark", "다크"]].map(([id, label]) => ({
+        label,
+        pick: () => this.setState({ dark: id === "dark" }),
+        ...this.chip(dark === (id === "dark"))
+      })),
+
+      buyModes: [
+        { id: "once", label: L("한 번만 구매", "One-time"), meta: WON(pd.price) },
+        { id: "sub", label: L("정기배송", "Subscribe"), meta: L("5% 할인 ", "5% off ") + WON(Math.round(pd.price * 0.95)) }
+      ].map((m) => ({
+        ...m,
+        pick: () => this.setState({ buyMode: m.id }),
+        border: s.buyMode === m.id ? "var(--primary-normal)" : "var(--line-normal)",
+        bg: s.buyMode === m.id ? "var(--primary-bg)" : "var(--bg-normal)",
+        color: s.buyMode === m.id ? "var(--primary-strong)" : "var(--label-normal)",
+        sub: s.buyMode === m.id ? "var(--primary-heavy)" : "var(--label-alternative)"
+      })),
+      pdCta: () => {
+        if (s.buyMode === "sub") { this.go("subscribe"); return; }
+        this.add(pd.id, s.qty);
+      },
+
+      shipModes: SHIP.map((o) => ({
+        ...o,
+        label: L(o.label, o.labelEn),
+        meta: L(o.meta, o.metaEn),
+        pick: () => this.setState({ shipMode: o.id }),
+        feeLabel: o.fee === 0 ? (ship === 0 ? L("무료", "Free") : WON(ship)) : "+" + WON(o.fee),
+        feeColor: o.fee === 0 && ship === 0 ? "var(--brand-green)" : "var(--label-normal)",
+        ...radio(s.shipMode === o.id)
+      })),
+      pays: PAYS.map((o) => ({ ...o, label: L(o.label, o.labelEn), meta: L(o.meta, o.metaEn), pick: () => this.setState({ pay: o.id }), ...radio(s.pay === o.id), markBg: o.markBg, markInk: o.markInk })),
+      pointsLabel: "240 pts",
+      pointsTrack: s.usePoints ? "var(--primary-normal)" : "var(--fill-strong)",
+      pointsAlign: s.usePoints ? "flex-end" : "flex-start",
+      togglePoints: () => this.setState((x) => ({ usePoints: !x.usePoints })),
+      checkoutSummary: [
+        { k: L("상품금액", "Items"), v: WON(subtotal + saved), color: "var(--label-normal)" },
+        { k: L("상품할인", "Discounts"), v: "-" + WON(saved), color: "var(--brand-red)" },
+        { k: L("배송비", "Delivery"), v: totalShip === 0 ? L("무료", "Free") : WON(totalShip), color: "var(--label-normal)" },
+        { k: L("포인트 사용", "Points"), v: pointsUsed > 0 ? "-" + WON(pointsUsed) : WON(0), color: pointsUsed > 0 ? "var(--brand-red)" : "var(--label-normal)" }
+      ],
+      checkoutTotalLabel: WON(checkoutTotal),
+      checkoutCtaLabel: L(WON(checkoutTotal) + " 결제하기", "Pay " + WON(checkoutTotal)),
+      confirmOrder: () => {
+        if (s.pay === "cod" || s.pay === "card") {
+          this.setState({ cart: {}, paidTotal: checkoutTotal, orderNo: "HKM26" + String(Math.floor(Math.random() * 900000) + 100000) });
+          this.go("done");
+          return;
+        }
+        this.setState({ payStep: 0 });
+        this.go("pay");
+        this.runPayment(checkoutTotal);
+      },
+      isPay: s.screen === "pay",
+      isAuth: s.screen === "auth",
+      authStepLabel: L("단계 " + (a.step + 1) + " / " + (signup ? 3 : 2), "Step " + (a.step + 1) + " of " + (signup ? 3 : 2)),
+      authTitle: a.step === 0 ? (signup ? L("휴대폰 번호로 시작하기", "Start with your mobile number") : L("다시 오셨네요", "Welcome back"))
+        : a.step === 1 ? L("인증번호 6자리", "Enter the 6-digit code")
+        : L("거의 다 됐어요", "Almost there"),
+      authDesc: a.step === 0 ? (signup ? L("주문·배송 알림을 이 번호로 보내드려요. 필리핀 번호(+63)만 가능합니다.", "We'll text order and delivery updates to this number. Philippine (+63) numbers only.")
+          : L("가입한 휴대폰 번호를 입력하면 인증번호를 보내드려요.", "Enter your registered mobile number and we'll text you a code."))
+        : a.step === 1 ? L("+63 " + a.phone + " 로 보낸 번호를 입력해 주세요.", "Enter the code we sent to +63 " + a.phone + ".")
+        : L("배송 안내에 쓸 이름만 알려주시면 끝납니다.", "Just the name we'll use for delivery."),
+      authPhoneStep: a.step === 0,
+      authOtpStep: a.step === 1,
+      authProfileStep: a.step === 2,
+      authPhone: a.phone,
+      onAuthPhone: (e) => this.setAuth({ phone: e.target.value.replace(/\D/g, "").slice(0, 10), err: "" }),
+      authPhoneHint: a.err === "phone" ? L("9로 시작하는 10자리 번호를 입력해 주세요.", "Enter a 10-digit number starting with 9.")
+        : a.err === "terms" ? L("필수 약관에 동의해 주세요.", "Please accept the required terms.")
+        : L("예: 917 123 4567", "e.g. 917 123 4567"),
+      authHintColor: a.err ? "var(--brand-red)" : "var(--label-alternative)",
+      authTerms: [
+        { id: "all", label: L("전체 동의", "Accept all"), req: "", bold: true },
+        { id: "tos", label: L("만 14세 이상 · 이용약관", "I'm 14+ · Terms of Service"), req: L("필수", "Required") },
+        { id: "privacy", label: L("개인정보 수집·이용 동의", "Privacy policy"), req: L("필수", "Required") },
+        { id: "marketing", label: L("혜택·기획전 알림 받기", "Deals and event alerts"), req: L("선택", "Optional") }
+      ].map((c) => {
+        const on = c.id === "all" ? allTerms : a[c.id];
+        return {
+          label: c.label, req: c.req,
+          font: (c.bold ? "700 " : "500 ") + "14px/1.4 var(--font-sans)",
+          rowBg: c.bold ? "var(--fill-normal)" : "var(--bg-normal)",
+          radius: c.bold ? "6px" : "999px",
+          boxBg: on ? "var(--primary-normal)" : "transparent",
+          boxBorder: on ? "var(--primary-normal)" : "var(--line-strong)",
+          tick: on ? "var(--static-white)" : "transparent",
+          toggle: () => {
+            if (c.id === "all") { const v = !allTerms; this.setAuth({ tos: v, privacy: v, marketing: v, err: "" }); return; }
+            this.setAuth({ [c.id]: !a[c.id], err: "" });
+          }
+        };
+      }),
+      authOr: L("또는", "or"),
+      authSocial: [
+        { id: "google", label: L("Google로 계속하기", "Continue with Google"), mark: "G", bg: "var(--fill-strong)", ink: "var(--label-normal)" },
+        { id: "apple", label: L("Apple로 계속하기", "Continue with Apple"), mark: "", bg: "var(--label-normal)", ink: "var(--bg-normal)" }
+      ].map((o) => ({ ...o, pick: () => this.flash(L("실제 서비스에서 연동됩니다", "Wired up in the live app")) })),
+      authOtp: a.otp,
+      onAuthOtp: (e) => this.setAuth({ otp: e.target.value.replace(/\D/g, "").slice(0, 6), err: "" }),
+      authOtpHint: a.err === "otp" ? L("인증번호가 올바르지 않아요.", "That code isn't right.") : L("3분 안에 입력해 주세요.", "Enter it within 3 minutes."),
+      authResend: L("재전송", "Resend"),
+      resendOtp: () => this.flash(L("인증번호를 다시 보냈어요", "We sent a new code")),
+      authDemoFill: L("데모: 인증번호 자동 입력 (204815)", "Demo: autofill code (204815)"),
+      fillOtp: () => this.setAuth({ otp: "204815", err: "" }),
+      authName: a.name,
+      onAuthName: (e) => this.setAuth({ name: e.target.value, err: "" }),
+      authNameLabel: L("이름 · Name", "Name"),
+      authEmail: a.email,
+      onAuthEmail: (e) => this.setAuth({ email: e.target.value }),
+      authEmailLabel: L("이메일 (선택)", "Email (optional)"),
+      authWelcomeNote: L("가입 즉시 신규 회원 쿠폰 ₱150와 첫 주문 무료배송이 지급됩니다.", "You'll get a ₱150 welcome coupon and free delivery on your first order."),
+      authCta: a.step === 0 ? L("인증번호 받기", "Send code") : a.step === 1 ? L("확인", "Verify") : L("가입 완료", "Create account"),
+      authCtaBg: authReady ? "var(--primary-normal)" : "var(--fill-strong)",
+      authCtaInk: authReady ? "var(--static-white)" : "var(--label-assistive)",
+      authCtaCursor: authReady ? "pointer" : "not-allowed",
+      authSwitch: signup ? L("이미 계정이 있어요 · 로그인", "I already have an account · Sign in") : L("처음이신가요? · 회원가입", "New here? · Create an account"),
+      authToggleMode: () => this.setAuth({ mode: signup ? "login" : "signup", step: 0, otp: "", err: "" }),
+      authBack: () => { if (a.step > 0) { this.setAuth({ step: a.step - 1, err: "" }); return; } this.back(); },
+      authNext: () => {
+        if (!authReady) {
+          if (a.step === 0) this.setAuth({ err: /^9\d{9}$/.test(a.phone) ? "terms" : "phone" });
+          if (a.step === 1) this.setAuth({ err: "otp" });
+          return;
+        }
+        if (a.step === 0) { this.setAuth({ step: 1, otp: "" }); return; }
+        if (a.step === 1) {
+          if (signup) { this.setAuth({ step: 2 }); return; }
+          this.finishAuth(s.addr.name || "Maria Santos", "+63 " + a.phone);
+          return;
+        }
+        this.finishAuth(a.name.trim(), "+63 " + a.phone);
+      },
+      payMark: payMethod.mark,
+      payMarkBg: payMethod.markBg,
+      payMarkInk: payMethod.markInk,
+      payLabel: L(payMethod.label, payMethod.labelEn),
+      payTitle: s.payStep === 0 ? L(payMethod.label + " 앱으로 이동 중", "Opening " + payMethod.labelEn) : s.payStep === 1 ? L("승인을 기다리고 있어요", "Waiting for approval") : L("결제가 승인됐어요", "Payment approved"),
+      payDesc: s.payStep === 0 ? L("안전한 외부 결제창으로 전환합니다.", "Switching to the secure payment app.") : s.payStep === 1 ? L(payMethod.label + " 앱에서 결제를 확인해 주세요.", "Confirm the charge in " + payMethod.labelEn + ".") : L("주문서로 돌아갑니다.", "Returning to your order."),
+      paySteps: L(["결제 앱으로 전환", payMethod.label + " 승인", "주문 생성"], ["Open payment app", payMethod.labelEn + " approval", "Create order"]).map((label, i) => ({
+        n: i < s.payStep ? "✓" : String(i + 1),
+        label,
+        bg: i <= s.payStep ? "var(--primary-normal)" : "var(--fill-strong)",
+        ink: i <= s.payStep ? "var(--static-white)" : "var(--label-assistive)",
+        color: i <= s.payStep ? "var(--label-normal)" : "var(--label-assistive)",
+        font: (i === s.payStep ? "700 " : "500 ") + "14px/1.4 var(--font-sans)"
+      })),
+      cancelPay: () => { (this.payTimers || []).forEach(clearTimeout); this.go("checkout"); },
+
+      orderNo: s.orderNo || "HKM26482013",
+      doneRows: [
+        { k: L("결제수단", "Payment"), v: L(payMethod.label, payMethod.labelEn) },
+        { k: L("결제금액", "Paid"), v: WON(s.screen === "done" ? s.paidTotal : checkoutTotal) },
+        { k: L("배송", "Delivery"), v: L(shipMethod.label + " · " + shipMethod.eta, shipMethod.labelEn + " · " + shipMethod.etaEn) },
+        { k: L("배송지", "Ship to"), v: s.addr.line }
+      ],
+
+      subOn: s.subOn,
+      subOff: !s.subOn,
+      intervals: [2, 4, 6].map((w) => ({
+        label: L(w + "주", w + " wks"),
+        meta: w === 4 ? L("가장 많이 선택", "Most popular") : w === 2 ? L("자주 쓰는 집", "Heavy users") : L("여유 있게", "Take it slow"),
+        pick: () => this.setState({ interval: w }),
+        border: s.interval === w ? "var(--primary-normal)" : "var(--line-normal)",
+        bg: s.interval === w ? "var(--primary-bg)" : "var(--bg-normal)",
+        color: s.interval === w ? "var(--primary-strong)" : "var(--label-normal)",
+        sub: s.interval === w ? "var(--primary-heavy)" : "var(--label-alternative)"
+      })),
+      intervalLabel: L(s.interval + "주마다", "every " + s.interval + " weeks"),
+      nextDate: nextDate,
+      subItems: subLines,
+      subBaseLabel: WON(subBase),
+      subSaveLabel: "-" + WON(subBase - subTotal),
+      subTotalLabel: WON(subTotal),
+      subCtaLabel: L(WON(subTotal) + " · " + s.interval + "주마다 시작하기", "Start · " + WON(subTotal) + " every " + s.interval + " weeks"),
+      startSub: () => { this.setState({ subOn: true }); this.flash(L(s.interval + "주 정기배송이 시작됐어요", "Subscription started · every " + s.interval + " weeks")); },
+      skipSub: () => this.flash(L("이번 회차는 건너뛸게요", "We'll skip this delivery")),
+      stopSub: () => { this.setState({ subOn: false }); this.flash(L("정기배송을 해지했어요", "Subscription cancelled")); },
+
+      orders: [
+        { status: L("배송중", "In transit"), statusColor: "var(--primary-normal)", date: "2026.08.14", no: "H2608140931", action: L("배송조회", "Track"), reorder: [], tracking: true, steps: orderSteps(2), items: [oItem(1, 2), oItem(8, 1)], total: WON(917) },
+        { status: L("배송완료", "Delivered"), statusColor: "var(--brand-green)", date: "2026.08.09", no: "H2608092210", action: L("리뷰 쓰기", "Write review"), reorder: [], tracking: false, steps: [], items: [oItem(3, 1), oItem(4, 1), oItem(7, 2)], total: WON(1876) },
+        { status: L("배송완료", "Delivered"), statusColor: "var(--brand-green)", date: "2026.08.02", no: "H2608022014", action: L("재주문", "Reorder"), reorder: [10, 11], tracking: false, steps: [], items: [oItem(10, 1), oItem(11, 1)], total: WON(618) }
+      ].map((o) => ({ ...o, act: () => (o.reorder.length ? this.addMany(o.reorder) : this.flash(L("실제 서비스에서 연동됩니다", "Wired up in the live app"))) })),
+
+      myStats: L([{ k: "포인트", v: "240 pts" }, { k: "쿠폰", v: "4장" }, { k: "누적주문", v: "27건" }], [{ k: "Points", v: "240 pts" }, { k: "Coupons", v: "4" }, { k: "Orders", v: "27" }]),
+      myMenu: [
+        { kr: L("배송지 관리", "Addresses"), meta: s.addr.short, go: () => this.go("address") },
+        { kr: L("결제수단", "Payment methods"), meta: L("카드 2개", "2 cards"), go: () => {} },
+        { kr: L("쿠폰 · 포인트", "Coupons & points"), meta: "240 pts", go: () => {} },
+        { kr: L("내가 쓴 리뷰", "My reviews"), meta: L("12건", "12"), go: () => this.go("review") },
+        { kr: L("정기배송 관리", "Subscriptions"), meta: s.subOn ? L(s.interval + "주마다", "every " + s.interval + " weeks") : L("미사용", "None"), go: () => this.go("subscribe") },
+        { kr: L("고객센터", "Help center"), meta: "", go: () => {} },
+        { kr: L("설정", "Settings"), meta: "", go: () => {} },
+        { kr: s.user ? L("로그아웃", "Sign out") : L("회원가입 · 로그인", "Sign up · Sign in"), meta: "", go: s.user ? () => { this.setState({ user: null }); this.flash(L("로그아웃했어요", "Signed out")); } : () => { this.setState({ authNext: "my" }); this.go("auth"); } }
+      ],
+
+      promoTabs: PROMO_TABS.map((label) => {
+        const cat = CATS.find((x) => x.kr === label);
+        return { label: label === "전체" ? L("전체", "All") : (cat ? nm(cat) : label), pick: () => this.setState({ promoTab: label }), ...this.chip(s.promoTab === label) };
+      }),
+      promoItems: P.filter((p) => p.was > 0 && (s.promoTab === "전체" || p.cat === CATS.findIndex((c) => c.kr === s.promoTab)))
+        .sort((a, b) => (1 - b.price / b.was) - (1 - a.price / a.was))
+        .map((p) => this.fmt(p))
+    };
+  }
+}
+</script>
+</body>
+</html>

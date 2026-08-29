@@ -33,7 +33,10 @@ try {
             exit;
         }
         $st->close();
-        lc_allocate_order_stock($conn, $order_id, true);
+        // 대책 C: store/order.php가 접수 시점에 이미 차감했을 수 있으므로 중복 차감 방지.
+        if (!lc_order_stock_allocated($conn, $order_id)) {
+            lc_allocate_order_stock($conn, $order_id, true);
+        }
         $conn->query("UPDATE lc_orders SET total_amount=(SELECT COALESCE(SUM(total_amount),0) FROM lc_order_items WHERE order_id=$order_id) WHERE id=$order_id");
         $conn->commit();
     } elseif ($action === 'ship') {

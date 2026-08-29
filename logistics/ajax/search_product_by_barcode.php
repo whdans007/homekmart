@@ -28,7 +28,10 @@ try {
                 (SELECT COALESCE(SUM(quantity_remain), 0) FROM lc_inventory
                   WHERE product_id = p.id AND unit = 'PACK') AS pack_stock,
                 (SELECT COALESCE(SUM(quantity_remain), 0) FROM lc_inventory
-                  WHERE product_id = p.id AND unit = 'PCS') AS pcs_stock
+                  WHERE product_id = p.id AND unit = 'PCS') AS pcs_stock,
+                (SELECT i.expiry_date FROM lc_inventory i
+                  WHERE i.product_id = p.id AND i.quantity_remain > 0 AND i.expiry_date IS NOT NULL
+                  ORDER BY i.expiry_date ASC, i.id ASC LIMIT 1) AS nearest_expiry_date
          FROM lc_products p
          LEFT JOIN lc_brands b ON p.brand_id = b.id
          WHERE p.is_active = 1

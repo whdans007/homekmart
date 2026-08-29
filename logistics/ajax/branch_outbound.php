@@ -13,7 +13,8 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 if ($action === 'get_stores') {
     try {
         $conn = get_lc_db();
-        $stores = $conn->query("SELECT id, name FROM stores ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
+        // 물류센터(CENTER) 자신은 출고 목적지가 될 수 없으므로 목록에서 제외
+        $stores = $conn->query("SELECT id, name FROM stores WHERE name <> '" . $conn->real_escape_string(LC_CENTER_STORE_NAME) . "' ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
         $conn->close();
         echo json_encode(['success' => true, 'stores' => $stores]);
     } catch (Exception $e) {
@@ -96,6 +97,11 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$store_id) { echo json_encode(['success' => false, 'message' => 'Please select the destination store.']); exit; }
     if (!is_array($items) || empty($items)) { echo json_encode(['success' => false, 'message' => 'The cart is empty.']); exit; }
+
+    $conn_check = get_lc_db();
+    $is_center = lc_is_center_store($conn_check, $store_id);
+    $conn_check->close();
+    if ($is_center) { echo json_encode(['success' => false, 'message' => 'The Logistics Center cannot be selected as the destination store.']); exit; }
 
     $cart = [];
     foreach ($items as $it) {
@@ -246,6 +252,10 @@ if ($action === 'save_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $conn = get_lc_db();
+        if (lc_is_center_store($conn, $store_id)) {
+            $conn->close();
+            echo json_encode(['success' => false, 'message' => 'The Logistics Center cannot be selected as the destination store.']); exit;
+        }
         $conn->autocommit(false);
 
         $uid   = lc_current_user_id();
@@ -340,6 +350,10 @@ if ($action === 'update_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $conn = get_lc_db();
+        if (lc_is_center_store($conn, $store_id)) {
+            $conn->close();
+            echo json_encode(['success' => false, 'message' => 'The Logistics Center cannot be selected as the destination store.']); exit;
+        }
         $conn->autocommit(false);
 
         // status='draft' 검증 (shipped 건 수정 차단)
@@ -418,7 +432,9 @@ if ($action === 'delete_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Plan SC-5: 최종 출고 — 이 시점에만 FEFO 차감. Design §3.4 조건부 UPDATE로 이중 출고 방지
+// Plan SC-5: 주문 확정 — draft를 pending 주문으로 전환하고 이 시점에 FEFO 차감(대책 C와 동일 패턴).
+// 이후 승인(approve)/출고(ship)는 orders.php/order_detail.php의 일반 주문 워크플로우를 따른다.
+// Design §3.4 조건부 UPDATE로 이중 처리 방지
 if ($action === 'ship_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     lc_verify_csrf();
 
@@ -429,8 +445,20 @@ if ($action === 'ship_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn = get_lc_db();
         $conn->autocommit(false);
 
+        // 방어: draft 목적지가 물류센터(CENTER) 자신이면 확정 차단 (자기 자신에게 출고 방지)
+        $st = $conn->prepare("SELECT store_id FROM lc_orders WHERE id = ?");
+        $st->bind_param('i', $draft_id);
+        $st->execute();
+        $draft_store_id = (int)($st->get_result()->fetch_assoc()['store_id'] ?? 0);
+        $st->close();
+        if (lc_is_center_store($conn, $draft_store_id)) {
+            $conn->rollback(); $conn->close();
+            echo json_encode(['success' => false, 'message' => 'The Logistics Center cannot be selected as the destination store.']);
+            exit;
+        }
+
         // 조건부 UPDATE: status='draft'일 때만 전환 → affected_rows=0이면 이미 처리된 건
-        $st = $conn->prepare("UPDATE lc_orders SET status = 'shipped', shipped_at = NOW() WHERE id = ? AND status = 'draft'");
+        $st = $conn->prepare("UPDATE lc_orders SET status = 'pending' WHERE id = ? AND status = 'draft'");
         $st->bind_param('i', $draft_id);
         $st->execute();
         $claimed = $st->affected_rows;

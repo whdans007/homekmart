@@ -6,11 +6,11 @@
 require_once __DIR__ . '/../../lib/office_helper.php';
 
 // ── 상수 ────────────────────────────────────────────────
-// 권종 집합 (POS Shift Entry v10 기준 — ₱200 포함)
-const POS_DENOMS = [1000, 500, 200, 100, 50, 20, 10, 5, 1];
+// 권종 집합 (POS Shift Entry v10 기준)
+const POS_DENOMS = [1000, 500, 100, 50, 20, 10, 5, 1];
 // 준비금(거스름돈 float) 보존 우선순위: 소액권(특히 ₱100)부터 ₱10,000 까지 최대한 retain.
 // 거스름용으로 유용한 ₱100 을 먼저 남기고, 남는 권종은 입금으로 보낸다. (v10 RETAIN_PRIORITY 동일)
-const POS_RETAIN_PRIORITY = [100, 50, 20, 10, 5, 1, 200, 500, 1000];
+const POS_RETAIN_PRIORITY = [100, 50, 20, 10, 5, 1, 500, 1000];
 // 목표 준비금
 const POS_STARTING_TARGET = 10000;
 const POS_SHIFTS = ['gy', 'morning', 'mid'];

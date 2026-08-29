@@ -31,8 +31,7 @@ $vendors = $conn->query($sql)->fetch_all(MYSQLI_ASSOC);
 $conn->close();
 ?>
 
-<div class="flex items-center justify-between mb-6">
-    <h1 class="text-xl font-bold text-gray-800"><i class="fas fa-building mr-2 text-indigo-600"></i>업체 관리</h1>
+<div class="flex items-center justify-end mb-6">
     <a href="<?php echo ORD_BASE; ?>/vendor_form.php" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">
         <i class="fas fa-plus mr-2"></i>업체 등록
     </a>

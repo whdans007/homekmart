@@ -39,8 +39,8 @@ if (!$order || $order['status'] !== 'delivered') {
     header('Location: purchase_from_logistics.php');
     exit;
 }
-if (!empty($order['converted_purchase_id'])) {
-    $_SESSION['flash'] = ['type' => 'warning', 'message' => '이미 매입등록된 주문입니다.'];
+if ($order['converted_purchase_id'] !== null) {
+    $_SESSION['flash'] = ['type' => 'warning', 'message' => '이미 처리된 주문입니다.'];
     $conn->close();
     header('Location: purchase_from_logistics.php');
     exit;
@@ -68,8 +68,10 @@ $items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
 // SKU 자동 매칭: products.sku = lc_products의 barcode_unit/box/logistics 중 하나
+// 매칭 안 되는 품목은 물류센터 상품정보(lc_products)를 그대로 admin products에 자동 등록해 매칭시킨다.
 foreach ($items as &$it) {
     $it['matched'] = null;
+    $it['auto_registered'] = false;
     $codes = array_values(array_filter([$it['barcode_unit'], $it['barcode_box'], $it['barcode_logistics']], fn($v) => $v !== null && $v !== ''));
     if ($codes) {
         $placeholders = implode(',', array_fill(0, count($codes), '?'));
@@ -79,6 +81,40 @@ foreach ($items as &$it) {
         $it['matched'] = $mstmt->get_result()->fetch_assoc();
         $mstmt->close();
     }
+
+    // Design Ref: purchase-from-logistics — 미매칭 품목 자동 등록 (barcode_unit 우선, 없으면 box/logistics 순)
+    if (!$it['matched'] && $codes) {
+        $new_sku = $codes[0];
+        $name_ko = $it['name_ko'] ?: '';
+        $name_en = $it['name_en'] ?: ($it['name_ko'] ?: $new_sku);
+        $ppb     = max(1, (int)($it['pieces_per_box'] ?: 1));
+        $uid     = (int)($_SESSION['user_id'] ?? 0);
+
+        try {
+            $ins = $conn->prepare(
+                "INSERT INTO products (sku, name_ko, name_en, is_active, pieces_per_box, is_vat_applicable, last_modified_by_user_id)
+                 VALUES (?, ?, ?, 1, ?, 1, ?)"
+            );
+            $ins->bind_param('sssii', $new_sku, $name_ko, $name_en, $ppb, $uid);
+            $ins->execute();
+            $new_id = $conn->insert_id;
+            $ins->close();
+
+            $it['matched'] = [
+                'id' => $new_id, 'sku' => $new_sku, 'name_ko' => $name_ko, 'name_en' => $name_en,
+                'pieces_per_box' => $ppb, 'is_vat_applicable' => 1,
+            ];
+            $it['auto_registered'] = true;
+        } catch (Throwable $e) {
+            // SKU 중복 등 동시성 문제 시 해당 SKU로 재조회 (경쟁 상황 방어)
+            $mstmt = $conn->prepare("SELECT id, sku, name_ko, name_en, pieces_per_box, is_vat_applicable FROM products WHERE sku = ? LIMIT 1");
+            $mstmt->bind_param('s', $new_sku);
+            $mstmt->execute();
+            $it['matched'] = $mstmt->get_result()->fetch_assoc();
+            $mstmt->close();
+        }
+    }
+
     // 물류센터 주문/출고 단위(BOX/PACK/PCS) → 매입 유형(box/piece)
     $it['default_purchase_type'] = ($it['order_unit'] === 'BOX') ? 'box' : 'piece';
 }
@@ -86,6 +122,7 @@ unset($it);
 $conn->close();
 
 $unmatched_count = count(array_filter($items, fn($i) => !$i['matched']));
+$auto_registered_count = count(array_filter($items, fn($i) => !empty($i['auto_registered'])));
 ?>
 
 <div class="flex items-center justify-between mb-4">
@@ -96,10 +133,17 @@ $unmatched_count = count(array_filter($items, fn($i) => !$i['matched']));
     <a href="purchase_from_logistics.php" class="btn"><i class="fas fa-arrow-left mr-2"></i>목록으로</a>
 </div>
 
+<?php if ($auto_registered_count > 0): ?>
+<div class="mb-4 rounded-md bg-indigo-50 border border-indigo-200 p-4 text-sm text-indigo-800">
+    <i class="fas fa-robot mr-1"></i>
+    SKU가 매칭되지 않은 품목 <?php echo $auto_registered_count; ?>건을 물류센터 상품정보로 새로 등록했습니다. 아래에서 확인 후, 다르게 매칭하려면 [변경]을 눌러주세요.
+</div>
+<?php endif; ?>
+
 <?php if ($unmatched_count > 0): ?>
 <div class="mb-4 rounded-md bg-yellow-50 border border-yellow-200 p-4 text-sm text-yellow-800">
     <i class="fas fa-triangle-exclamation mr-1"></i>
-    SKU가 자동으로 매칭되지 않은 품목이 <?php echo $unmatched_count; ?>건 있습니다. 아래에서 직접 상품을 검색해 선택해주세요.
+    바코드 정보가 없어 자동 등록할 수 없는 품목이 <?php echo $unmatched_count; ?>건 있습니다. 아래에서 직접 상품을 검색해 선택해주세요.
 </div>
 <?php endif; ?>
 
@@ -132,9 +176,15 @@ $unmatched_count = count(array_filter($items, fn($i) => !$i['matched']));
                     <input type="hidden" class="product-id-input" name="items[<?php echo $idx; ?>][product_id]" value="<?php echo $m['id'] ?? ''; ?>">
                     <?php if ($m): ?>
                         <div class="matched-display flex items-center gap-2">
+                            <?php if (!empty($it['auto_registered'])): ?>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                <i class="fas fa-robot mr-1"></i>신규 등록
+                            </span>
+                            <?php else: ?>
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                 <i class="fas fa-check mr-1"></i>매칭됨
                             </span>
+                            <?php endif; ?>
                             <span class="text-gray-800"><?php echo htmlspecialchars($m['name_ko'] ?: $m['name_en']); ?></span>
                             <span class="text-xs text-gray-400 font-mono"><?php echo htmlspecialchars($m['sku']); ?></span>
                             <button type="button" class="text-xs text-indigo-500 hover:underline change-match-btn">변경</button>
@@ -173,6 +223,10 @@ $unmatched_count = count(array_filter($items, fn($i) => !$i['matched']));
 
     <div class="flex justify-end gap-3">
         <a href="purchase_from_logistics.php" class="btn">취소</a>
+        <button type="button" id="mark-complete-btn"
+                class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200">
+            <i class="fas fa-flag-checkered mr-2"></i>매입등록완료
+        </button>
         <button type="button" id="save-btn" class="btn-primary">
             <i class="fas fa-save mr-2"></i>매입 등록
         </button>
@@ -270,6 +324,41 @@ document.getElementById('save-btn').addEventListener('click', function() {
             errEl.classList.remove('hidden');
             this.disabled = false;
             this.innerHTML = '<i class="fas fa-save mr-2"></i>매입 등록';
+        });
+});
+
+// Design Ref: purchase-from-logistics — 실제 매입등록 없이 완료 처리만 하는 버튼
+document.getElementById('mark-complete-btn').addEventListener('click', function() {
+    if (!confirm('실제 매입 등록을 하지 않고, 이 건을 매입등록완료 상태로 처리합니다.\n계속하시겠습니까?')) return;
+
+    const errEl = document.getElementById('save-error');
+    errEl.classList.add('hidden');
+
+    const fd = new FormData();
+    fd.append('lc_order_id', <?php echo (int)$lc_order_id; ?>);
+
+    const btn = this;
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>처리 중...';
+
+    fetch('ajax_mark_logistics_purchase_complete.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = 'purchase_from_logistics.php';
+            } else {
+                errEl.textContent = data.error || '처리에 실패했습니다.';
+                errEl.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        })
+        .catch(e => {
+            errEl.textContent = '네트워크 오류: ' + e.message;
+            errEl.classList.remove('hidden');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         });
 });
 </script>

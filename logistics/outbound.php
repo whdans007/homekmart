@@ -55,7 +55,11 @@ try {
                     FROM lc_order_item_lots oll3
                     JOIN lc_inventory inv3 ON oll3.inventory_id = inv3.id
                     WHERE oll3.order_item_id = oi.id
-                      AND inv3.expiry_date IS NOT NULL) AS expiry_info
+                      AND inv3.expiry_date IS NOT NULL) AS expiry_info,
+                   (SELECT COALESCE(SUM(inv4.quantity_remain), 0)
+                    FROM lc_inventory inv4
+                    JOIN lc_inbound ib4 ON inv4.inbound_id = ib4.id
+                    WHERE inv4.product_id = p.id AND inv4.quantity_remain > 0) AS remaining_stock
             FROM lc_order_items oi
             JOIN lc_orders o ON oi.order_id = o.id
             JOIN lc_products p ON oi.product_id = p.id
@@ -119,13 +123,14 @@ main { overflow: hidden !important; }
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Spec</th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Expiry Date (by lot)</th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Remaining Stock</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Quantity</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Unit Price</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Subtotal</th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php if (empty($list)): ?>
-            <tr><td colspan="10" class="px-4 py-10 text-center text-gray-400">
+            <tr><td colspan="11" class="px-4 py-10 text-center text-gray-400">
                 <i class="fas fa-truck text-3xl mb-2 block text-gray-300"></i>
                 No outbound history.
             </td></tr>
@@ -152,6 +157,7 @@ main { overflow: hidden !important; }
                         <span class="text-gray-300">-</span>
                     <?php endif; ?>
                 </td>
+                <td class="px-4 py-3 text-right text-xs <?php echo $row['remaining_stock'] < 0 ? 'text-red-600 font-semibold' : 'text-gray-500'; ?>"><?php echo number_format($row['remaining_stock']); ?></td>
                 <td class="px-4 py-3 text-right font-semibold"><?php echo number_format($row['quantity']); ?> <span class="text-xs text-gray-400"><?php echo htmlspecialchars($row['unit']); ?></span></td>
                 <td class="px-4 py-3 text-right text-gray-600 editable-cell" data-item-id="<?php echo $row['item_id']; ?>">
                     <div class="cell-view flex items-center justify-end gap-1 cursor-pointer group" onclick="startPriceEdit(this)">

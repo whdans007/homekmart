@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "enabled": false,
+  "teamName": "",
+  "feature": "wholesale-sales-return",
+  "pdcaPhase": "completed",
+  "orchestrationPattern": "leader",
+  "ctoAgent": "opus",
+  "startedAt": "2026-08-18T10:19:56.340Z",
+  "lastUpdated": "2026-08-28T02:29:42.755Z",
+  "teammates": [],
+  "progress": {
+    "totalTasks": 0,
+    "completedTasks": 0,
+    "inProgressTasks": 0,
+    "failedTasks": 0,
+    "pendingTasks": 0
+  },
+  "recentMessages": [],
+  "sessionId": "0c67d075-acf5-4dc9-a555-b75f4174b899"
+}

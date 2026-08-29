@@ -1,0 +1,461 @@
+/* ============================================================
+   HOME K MART — mall 공용 컴포넌트 스타일
+   wanted-tokens.css의 커스텀 프로퍼티 위에서 동작.
+   Tailwind는 안 씀 — mall 페이지들이 원래 인라인 스타일 기반이라
+   전용 스타일시트로 통일한다 (design_handoff 계획 참고).
+   ============================================================ */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg-alternative);
+  color: var(--label-normal);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden; /* 실기기 크롬에서 사진 등 일부 요소가 화면 폭을 넘길 때 가로 스크롤/밀림이 생기지 않게 막는 안전망 */
+  max-width: 100%;
+}
+
+body { font: var(--t-body2) var(--font-sans); letter-spacing: var(--ls-body2); }
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; }
+img { max-width: 100%; }
+
+/* 아직 새 디자인으로 재작성되지 않은 화면(체크아웃/로그인/마이페이지 등)을 위한 안전망.
+   재작성된 화면(body.redesigned)은 .section 등 자체 클래스로 좌우 여백을 관리하므로 여기서 빼준다. */
+body:not(.redesigned) main { padding: var(--space-5); }
+
+/* 모바일 우선 셸 — 데스크톱에서도 402px 기준 폭으로 가운데 정렬 */
+.mall-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--bg-normal);
+  position: relative;
+  overflow-x: hidden;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── 상단바 ─────────────────────────────────────────────── */
+.mall-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: calc(var(--space-3) + env(safe-area-inset-top, 0px)) var(--space-5) var(--space-3);
+  background: var(--bg-normal);
+  border-bottom: 1px solid var(--line-alternative);
+}
+.mall-topbar .logo img { height: 28px; display: block; }
+.mall-topbar .spacer { flex: 1; }
+/* .mall-topbar 전용이 아니라 공용 컴포넌트 — product.php의 pd-topbar(뒤로가기/찜/장바구니)도 같이 쓴다. */
+.icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px; height: 40px;
+  border-radius: var(--radius-full);
+  color: var(--label-normal);
+  background: none; border: none; cursor: pointer;
+}
+.icon-btn svg { width: 22px; height: 22px; }
+.badge-count {
+  position: absolute; top: 2px; right: 2px;
+  min-width: 16px; height: 16px; padding: 0 3px;
+  border-radius: var(--radius-full);
+  background: var(--brand-red); color: var(--on-brand-red);
+  font: 700 10px/16px var(--font-sans); text-align: center;
+}
+
+/* ── 홈 전용 상단바(로고+알림/장바구니+검색 진입까지 한 덩어리로 스크롤에 고정) ──
+   디자인 원본처럼 로고행+검색버튼을 같은 sticky 배경 블록 안에 둔다(다른 화면의 .mall-topbar와 달리
+   테두리 없이 이어지고, 검색 버튼까지 같이 붙어 스크롤된다). */
+.home-topbar {
+  position: sticky; top: 0; z-index: 30;
+  background: var(--bg-normal);
+  padding: calc(var(--space-3) + env(safe-area-inset-top, 0px)) var(--space-5) var(--space-3);
+}
+.home-topbar .row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.home-topbar .logo-plate { display: inline-flex; padding: 3px 7px; border-radius: var(--radius-sm); }
+.home-topbar .logo-plate img { height: 36px; display: block; }
+.home-topbar .icons { display: flex; gap: var(--space-4); align-items: center; }
+
+/* ── 검색 진입 버튼 ─────────────────────────────────────── */
+.search-entry {
+  display: flex; align-items: center; gap: var(--space-2);
+  width: 100%;
+  padding: 0 var(--space-4);
+  height: 46px;
+  border: 1.5px solid var(--primary-normal);
+  border-radius: var(--radius-lg);
+  background: var(--bg-normal);
+  color: var(--label-alternative);
+}
+.search-entry svg { width: 20px; height: 20px; color: var(--primary-normal); flex-shrink: 0; }
+
+/* ── 배송지 행(버튼 — 배송지 관리로 이동) ────────────────── */
+.address-row {
+  display: flex; align-items: center; gap: var(--space-2);
+  width: 100%;
+  padding: 10px var(--space-5) 14px;
+  font: var(--t-label1) var(--font-sans);
+  color: var(--label-normal);
+  background: var(--bg-normal); border: none; cursor: pointer; text-align: left;
+}
+.address-row svg.pin { width: 18px; height: 18px; color: var(--primary-normal); flex-shrink: 0; }
+.address-row .short { font-weight: 600; white-space: nowrap; }
+.address-row .change { flex: 1; color: var(--primary-normal); font-weight: 500; font-size: 13px; white-space: nowrap; }
+.address-row svg.chev { width: 16px; height: 16px; color: var(--label-assistive); flex-shrink: 0; }
+
+/* ── 섹션 ───────────────────────────────────────────────── */
+.section { padding: var(--space-6) var(--space-5) 0; }
+.section-band { background: var(--bg-alternative); height: 8px; margin-top: var(--space-6); }
+.section-title {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+.section-title h2 { margin: 0; font: var(--t-heading2) var(--font-sans); letter-spacing: var(--ls-heading2); }
+.section-title .action { font: var(--t-label2) var(--font-sans); color: var(--label-alternative); }
+
+/* ── 카테고리 그리드(2행 x 4열 고정, 8개보다 많으면 옆으로 스크롤) ────
+   grid-auto-flow:column으로 2행씩 채우고 열 너비를 원래 4열일 때와 똑같이 계산해서,
+   8개 이하일 때는 기존과 동일하게 보이고 그 이상이면 오른쪽으로 스크롤해서 더 볼 수 있다. */
+.cat-grid {
+  display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto);
+  grid-auto-columns: calc((100% - 3 * var(--space-3)) / 4);
+  gap: var(--space-3);
+  overflow-x: auto; padding-bottom: 2px; scrollbar-width: none;
+}
+.cat-grid::-webkit-scrollbar { display: none; }
+.cat-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.cat-tile .mark {
+  width: 56px; height: 56px; border-radius: var(--radius-xl);
+  display: flex; align-items: center; justify-content: center;
+  font: 700 20px/1 var(--font-sans); color: var(--static-white);
+  box-shadow: inset 0 0 0 1px var(--tile-line);
+}
+.cat-tile .label { font: var(--t-caption1) var(--font-sans); color: var(--label-neutral); text-align: center; }
+
+/* ── 배너 ───────────────────────────────────────────────── */
+/* 디자인 원본(App.dc.html isHome) 그대로 — 118deg 3색 그라디언트 + 흰색/레드 반투명 원 2개 + 라벨 필. */
+.promo-banner {
+  position: relative; overflow: hidden;
+  border-radius: var(--radius-xl);
+  padding: 24px 22px;
+  background: linear-gradient(118deg, var(--brand-blue-deep), var(--primary-normal) 62%, #3385ff);
+  color: var(--static-white);
+}
+.promo-banner::before {
+  content: ""; position: absolute; right: -30px; top: -30px;
+  width: 170px; height: 170px; border-radius: 50%;
+  background: rgba(255,255,255,0.09);
+}
+.promo-banner::after {
+  content: ""; position: absolute; right: 22px; bottom: -46px;
+  width: 110px; height: 110px; border-radius: 50%;
+  background: rgba(232,17,45,0.28);
+}
+.promo-banner .inner { position: relative; z-index: 1; }
+.promo-banner .eyebrow {
+  display: inline-block; background: rgba(255,255,255,0.18); color: var(--static-white);
+  font: 700 11px/1 var(--font-sans); letter-spacing: 0.04em; padding: 6px 9px; border-radius: var(--radius-xs);
+  margin-bottom: 12px;
+}
+.promo-banner .title { font: var(--t-title2) var(--font-sans); letter-spacing: var(--ls-title2); margin: 0 0 6px; }
+.promo-banner .sub { font: 500 13px/1.5 var(--font-sans); color: rgba(255,255,255,0.82); margin: 0; }
+
+/* ── 가로 스크롤 상품 카드(오늘의 특가) ────────────────── */
+.h-scroll { display: flex; gap: var(--space-3); overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.h-scroll::-webkit-scrollbar { display: none; }
+.deal-card { flex: 0 0 146px; }
+
+/* ── 상품 이미지 위 오버레이(영문명 플레이트/할인뱃지) — 홈 카드류 공용 ── */
+.pcard-thumb { position: relative; aspect-ratio: 1/1; border-radius: var(--radius-lg); overflow: hidden; background: var(--fill-normal); border: 1px dotted var(--line-normal); margin-bottom: 9px; }
+.pcard-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pcard-thumb .en-plate-sm {
+  position: absolute; left: 8px; bottom: 7px; max-width: calc(100% - 16px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 600 10px/1.3 var(--font-sans); color: var(--label-normal);
+  background: var(--plate); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  padding: 3px 6px; border-radius: var(--radius-xs); pointer-events: none;
+}
+.pcard-thumb .disc-flag {
+  position: absolute; left: 0; top: 0;
+  background: var(--brand-red); color: var(--on-brand-red);
+  font: 700 12px/1 var(--font-sans); padding: 6px 8px; border-bottom-right-radius: var(--radius-md);
+}
+/* 오늘의 특가 프로모(1+1/퍼센트할인/원가세일) 문구 — 상품명 앞에 작은 뱃지로도 같이 보여준다. */
+.promo-name-tag {
+  display: inline-flex; align-items: center; height: 16px; padding: 0 5px; margin-right: 4px;
+  border-radius: var(--radius-xs); background: var(--brand-red); color: var(--on-brand-red);
+  font: 700 10px/1 var(--font-sans); vertical-align: middle;
+}
+
+/* ── 담기 버튼 / 수량 스테퍼(홈 카드류 공용) ────────────── */
+.pcard-action { margin-top: 9px; }
+.pcard-add-btn {
+  width: 100%; height: 38px; border-radius: 9px; border: 1px solid var(--line-normal);
+  background: var(--fill-normal); color: var(--label-normal);
+  font: 700 13px/1 var(--font-sans); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+}
+.pcard-add-btn svg { width: 15px; height: 15px; }
+.pcard-stepper {
+  display: flex; align-items: center; height: 38px;
+  border: 1.5px solid var(--primary-normal); border-radius: 9px;
+  background: var(--primary-bg); overflow: hidden;
+}
+.pcard-stepper button {
+  width: 38px; height: 100%; border: none; background: none; cursor: pointer;
+  color: var(--primary-strong); display: flex; align-items: center; justify-content: center;
+}
+.pcard-stepper button svg { width: 16px; height: 16px; }
+.pcard-stepper .qty { flex: 1; text-align: center; font: 700 14px/1 var(--font-sans); color: var(--primary-strong); }
+
+/* ── 오늘의 특가 마감 타이머 뱃지 ────────────────────────── */
+.deal-timer { display: flex; align-items: center; gap: 6px; background: rgba(200,16,46,0.08); border-radius: var(--radius-xs); padding: 7px 10px; flex-shrink: 0; }
+.deal-timer .lbl { font: 600 11px/1 var(--font-sans); color: var(--brand-red); }
+.deal-timer .val { font: 700 13px/1 var(--font-mono); color: var(--brand-red); letter-spacing: 0.02em; }
+
+/* ── 상품 카드(그리드) ─────────────────────────────────── */
+.product-card { display: block; position: relative; }
+.product-card .thumb-wrap { position: relative; border-radius: var(--radius-lg); overflow: hidden; background: var(--fill-normal); border: 1px dotted var(--line-normal); }
+.product-card img.thumb { width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block; }
+.product-card .thumb-wrap.out-of-stock img.thumb { opacity: 0.45; }
+.badge-oos {
+  position: absolute; top: 8px; left: 8px;
+  background: rgba(23,23,25,0.72); color: var(--static-white);
+  font: 700 11px/1 var(--font-sans); padding: 4px 8px; border-radius: var(--radius-full);
+}
+.product-card .name {
+  margin-top: 8px; font: 600 15px/1.4 var(--font-sans); color: var(--label-normal);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.price-row { margin-top: 4px; }
+.price-row .was { font: var(--t-caption1) var(--font-sans); color: var(--label-assistive); text-decoration: line-through; }
+.price-row .final { font: 700 17px/1.3 var(--font-sans); color: var(--label-normal); }
+.price-row .discount { color: var(--brand-red); font: 700 13px/1 var(--font-sans); margin-left: 4px; }
+.no-price { color: var(--label-assistive); font: var(--t-caption1) var(--font-sans); }
+
+.product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4); }
+
+/* ── 새로 들어온 한국 상품 카드(2열 그리드) — 이름/가격/별점 + 담기 컨트롤 ── */
+.new-arrival-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px 12px; }
+.new-arrival-card .name { font: 600 15px/1.4 var(--font-sans); color: var(--label-normal); height: 42px; overflow: hidden; }
+.new-arrival-card .price-row { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; }
+.new-arrival-card .price-row .discount { color: var(--brand-red); font: 700 12px/1.2 var(--font-sans); margin: 0; }
+.new-arrival-card .price-row .final { font: 700 17px/1.2 var(--font-sans); color: var(--label-normal); }
+.new-arrival-card .rating-row { display: flex; align-items: center; gap: 5px; margin-top: 6px; }
+.new-arrival-card .rating-row svg { width: 13px; height: 13px; color: var(--brand-star); }
+.new-arrival-card .rating-row .avg { font: 600 12px/1 var(--font-sans); color: var(--label-neutral); }
+.new-arrival-card .rating-row .cnt { font: 500 12px/1 var(--font-sans); color: var(--label-assistive); }
+
+/* ── 다시 담을 시간(재구매 추천) 행 ──────────────────────── */
+.restock-row { display: flex; align-items: center; gap: var(--space-3); padding: 14px 0; border-bottom: 1px solid var(--line-normal); }
+.restock-row:last-child { border-bottom: none; }
+.restock-row .thumb { width: 62px; height: 62px; border-radius: var(--radius-lg); object-fit: cover; background: var(--fill-normal); border: 1px dotted var(--line-normal); flex-shrink: 0; }
+.restock-row .info { flex: 1; min-width: 0; }
+.restock-row .name { font: 600 15px/1.4 var(--font-sans); color: var(--label-normal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.restock-row .last-buy { font: 500 12px/1.4 var(--font-sans); color: var(--label-alternative); margin-top: 1px; }
+.restock-row .price { font: 700 15px/1.2 var(--font-sans); color: var(--label-normal); margin-top: 5px; }
+.restock-row .action-col { width: 104px; flex-shrink: 0; }
+
+/* ── 상품 리스트 행(카테고리 화면) ─────────────────────── */
+.product-row-item {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) 0; border-bottom: 1px solid var(--line-alternative);
+}
+.product-row-item .thumb { width: 66px; height: 66px; border-radius: var(--radius-md); object-fit: cover; background: var(--fill-normal); border: 1px dotted var(--line-normal); flex-shrink: 0; }
+.product-row-item .info { flex: 1; min-width: 0; }
+.product-row-item .name {
+  font: 600 15px/1.4 var(--font-sans);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.product-row-item .bottom-row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+
+/* ── 빠른 담기 / 수량 스테퍼 ────────────────────────────── */
+.quick-add-btn {
+  height: 32px; padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--primary-normal); color: var(--static-white);
+  font: 700 13px/1 var(--font-sans); border: none; cursor: pointer;
+}
+.qty-stepper {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  height: 38px; padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--primary-bg); border: 1.5px solid var(--primary-normal);
+}
+.qty-stepper button {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: none; background: none; color: var(--primary-normal);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.qty-stepper button svg { width: 14px; height: 14px; }
+.qty-stepper .qty-value { min-width: 18px; text-align: center; font: 700 14px/1 var(--font-sans); color: var(--primary-strong); }
+.qty-stepper-sm { height: 32px; }
+
+/* ── 칩 ─────────────────────────────────────────────────── */
+/* 가로 스크롤이 아니라 디자인 원본(App.dc.html 카테고리/검색 화면)처럼 여러 줄로 줄바꿈되게 한다 —
+   소분류가 많으면 한 줄에 다 안 들어가고 잘려 보이던 문제(가로 스크롤 필요) 수정. */
+.chip-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.chip {
+  flex-shrink: 0; height: 34px; padding: 0 var(--space-4);
+  border-radius: var(--radius-full); border: 1px solid var(--line-normal);
+  display: inline-flex; align-items: center;
+  font: var(--t-label2) var(--font-sans); color: var(--label-neutral);
+  background: var(--bg-normal); cursor: pointer; white-space: nowrap;
+}
+.chip.active { background: var(--label-normal); color: var(--static-white); border-color: var(--label-normal); }
+
+/* ── 버튼 ───────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 48px; padding: 0 var(--space-5);
+  border-radius: var(--radius-md); border: none; cursor: pointer;
+  font: 700 15px/1 var(--font-sans);
+}
+.btn-primary { background: var(--primary-normal); color: var(--static-white); }
+.btn-primary:disabled { background: var(--fill-strong); color: var(--label-assistive); cursor: not-allowed; }
+.btn-block { width: 100%; }
+
+/* ── 스티키 하단 CTA 바 ─────────────────────────────────── */
+.sticky-cta {
+  position: sticky; bottom: 0; z-index: 20;
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  background: var(--sticky-bg);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border-top: 1px solid var(--line-alternative);
+}
+
+/* ── 기획전 페이지(promo.php) ────────────────────────────── */
+.promo-hero {
+  position: relative; overflow: hidden;
+  background: linear-gradient(150deg, var(--brand-blue-deep), var(--primary-normal) 58%, #3385ff);
+  padding: calc(52px + env(safe-area-inset-top, 0px)) var(--space-5) 34px;
+  color: var(--static-white);
+}
+.promo-hero::before { content: ""; position: absolute; right: -56px; top: -26px; width: 210px; height: 210px; border-radius: 50%; background: rgba(255,255,255,0.08); }
+.promo-hero::after { content: ""; position: absolute; right: 38px; bottom: -70px; width: 130px; height: 130px; border-radius: 50%; background: rgba(232,17,45,0.3); }
+.promo-hero .back-btn { position: relative; z-index: 2; color: var(--static-white); margin: -8px 0 6px -8px; }
+.promo-hero .inner { position: relative; z-index: 1; }
+.promo-hero .eyebrow { display: inline-block; background: rgba(255,255,255,0.18); font: 700 11px/1 var(--font-sans); letter-spacing: 0.04em; padding: 7px 10px; border-radius: var(--radius-xs); margin-bottom: 14px; }
+.promo-hero .title { font: var(--t-title1) var(--font-sans); letter-spacing: var(--ls-title1); margin: 0; }
+.promo-hero .sub { font: 500 14px/1.6 var(--font-sans); color: rgba(255,255,255,0.85); margin: 10px 0 0; }
+.promo-tabs { display: flex; gap: 8px; padding: 16px var(--space-5); overflow-x: auto; scrollbar-width: none; }
+.promo-tabs::-webkit-scrollbar { display: none; }
+.promo-tabs .chip { flex-shrink: 0; }
+.promo-row { display: flex; gap: 13px; padding: 16px 0; border-bottom: 1px solid var(--line-normal); }
+.promo-row:last-child { border-bottom: none; }
+.promo-row .pcard-thumb { width: 92px; height: 92px; flex-shrink: 0; margin-bottom: 0; }
+.promo-row .info { flex: 1; min-width: 0; }
+.promo-row .name { font: 600 15px/1.4 var(--font-sans); color: var(--label-normal); }
+.promo-row .origin { font: 500 12px/1.4 var(--font-sans); color: var(--label-alternative); margin-top: 2px; }
+.promo-row .price-row { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; }
+.promo-row .price-row .final { font: 700 17px/1.2 var(--font-sans); color: var(--label-normal); }
+.promo-row .price-row .was { font: 500 12px/1.2 var(--font-sans); color: var(--label-assistive); text-decoration: line-through; }
+.promo-row .action-col { width: 96px; flex-shrink: 0; align-self: center; }
+
+/* ── 카드/배지 ──────────────────────────────────────────── */
+.card { background: var(--bg-normal); border: 1px solid var(--line-alternative); border-radius: var(--radius-lg); }
+.badge { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: var(--radius-xs); font: 700 11px/1 var(--font-sans); }
+.badge-blue { background: var(--primary-bg); color: var(--primary-strong); }
+.badge-green { background: rgba(0,117,46,0.1); color: var(--brand-green); }
+
+/* ── 별점 ───────────────────────────────────────────────── */
+.stars { color: var(--brand-star); display: inline-flex; gap: 1px; }
+.stars svg { width: 14px; height: 14px; }
+
+/* ── 토스트 ─────────────────────────────────────────────── */
+.toast {
+  position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%);
+  max-width: calc(480px - 32px); width: calc(100% - 32px);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  background: var(--toast-bg); color: var(--static-white);
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
+  font: var(--t-label1) var(--font-sans);
+  z-index: 50; animation: toastIn 200ms ease-out;
+}
+.toast a { color: var(--static-white); font-weight: 700; text-decoration: underline; }
+
+/* ── 바텀 탭바 ──────────────────────────────────────────── */
+.bottom-nav {
+  position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
+  width: 100%; max-width: 480px;
+  display: flex;
+  background: var(--bg-normal); border-top: 1px solid var(--line-alternative);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  z-index: 40;
+}
+.bottom-nav a {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 0 6px; color: var(--label-assistive);
+  font: var(--t-caption1) var(--font-sans);
+}
+.bottom-nav a.active { color: var(--primary-normal); }
+.bottom-nav a svg { width: 22px; height: 22px; }
+.bottom-nav-icon-wrap { position: relative; display: inline-flex; }
+.bottom-nav-icon-wrap .badge-count { top: -4px; right: -8px; }
+
+/* ── 회원등급 뱃지 (tier_badge.php) ─────────────────────── */
+.tier-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: var(--radius-full); font: 700 11px/1 var(--font-sans); }
+.tier-retail { background: var(--primary-normal); color: var(--static-white); }
+.tier-wholesale-approved { background: var(--brand-green); color: var(--static-white); }
+.tier-wholesale-pending { background: #d97706; color: var(--static-white); }
+
+/* ── 도매 승인대기 안내(구 화면 공용 — checkout/mypage 등 아직 리스타일 안 된 곳도 사용) ── */
+.wholesale-notice {
+  background: var(--primary-bg); border: 1px solid var(--line-normal); color: var(--primary-strong);
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-md);
+  font: var(--t-caption1) var(--font-sans); margin: var(--space-4) var(--space-5) 0;
+}
+
+/* ── 안내/공지 ──────────────────────────────────────────── */
+.notice-banner {
+  margin: var(--space-4) var(--space-5) 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--primary-bg); color: var(--primary-strong);
+  font: var(--t-caption1) var(--font-sans);
+}
+
+/* ── 준비중 배너 (백엔드 미구현 화면 상단 안내) ─────────── */
+.coming-soon-banner {
+  display: flex; align-items: center; gap: 8px;
+  margin: var(--space-4) var(--space-5) 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--fill-normal); color: var(--label-neutral);
+  border: 1px dashed var(--line-normal);
+  font: var(--t-caption1) var(--font-sans);
+}
+.coming-soon-banner i { color: var(--label-alternative); flex-shrink: 0; }
+.disabled-option { opacity: 0.5; pointer-events: none; }
+.tag-soon {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 6px;
+  border-radius: var(--radius-xs); background: var(--fill-strong); color: var(--label-alternative);
+  font: 700 10px/1 var(--font-sans); margin-left: 6px;
+}
+
+/* ── 빈 상태 ────────────────────────────────────────────── */
+.empty-state { text-align: center; color: var(--label-assistive); padding: var(--space-6) var(--space-5); }
+
+/* ── 애니메이션 ─────────────────────────────────────────── */
+@keyframes pushIn { from { transform: translateX(28px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes toastIn { from { transform: translate(-50%, 12px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.9s linear infinite; }
+
+/* ── 테마 토글 버튼 ─────────────────────────────────────── */
+.theme-toggle-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--label-alternative); display: inline-flex; align-items: center; gap: 4px;
+  font: var(--t-caption1) var(--font-sans);
+}

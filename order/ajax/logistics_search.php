@@ -19,7 +19,7 @@ try {
     $like = '%' . $keyword . '%';
 
     $sql = "
-        SELECT p.name_en, p.name_ko,
+        SELECT p.id AS product_id, p.name_en, p.name_ko,
                b.name_en AS brand_name, b.name_ko AS brand_name_ko,
                COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                SUM(CASE WHEN i.unit = 'BOX'  THEN i.quantity_remain ELSE 0 END) AS box_stock,
@@ -45,6 +45,7 @@ try {
 
     $data = array_map(function ($r) {
         return [
+            'product_id'      => (int)$r['product_id'],
             'product_name'    => $r['name_en'] . ($r['name_ko'] ? ' (' . $r['name_ko'] . ')' : ''),
             'brand_name'      => $r['brand_name'] ?: ($r['brand_name_ko'] ?: ''),
             'barcode'         => $r['barcode'],

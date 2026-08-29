@@ -36,6 +36,9 @@ $commission = ($commission_tbl && $commission_tbl->num_rows > 0)
 
 $conn->close();
 
+// 상단 헤더 요약행은 점간이동을 포함해 표시하므로(Layout Ref: daily_report_render.php와 동일),
+// 순이익도 매입 전체(현금+체크+점간이동) 기준으로 계산한다. 하단 매입 상세(거래처별) 표는
+// 고정 그리드(현금/체크 2열)를 유지하며 점간이동 전용 행은 그 표에서 제외한다.
 $grand_sales    = $pos_summary['totals']['total'] + $ar['credit_sales_total'];
 $grand_purchase = $purchase['totals']['total'];
 $grand_expense  = $other_exp['total_placed'];
@@ -92,22 +95,22 @@ td, th { border: 0.4pt solid #444; padding: 2pt 3pt; font-size: 7.5pt; vertical-
 <div class="sheet">
 
 <table>
-<tr><td class="h-subtitle" colspan="9"><?php echo esc(strtoupper($store_label)); ?> DAILY REPORT</td></tr>
+<tr><td class="h-subtitle" colspan="10"><?php echo esc(strtoupper($store_label)); ?> DAILY REPORT</td></tr>
 </table>
 
 <table>
-<colgroup><col style="width:12%"><col style="width:11%"><col style="width:11%"><col style="width:11%"><col style="width:9%"><col style="width:9%"><col style="width:11%"><col style="width:13%"><col style="width:13%"></colgroup>
+<colgroup><col style="width:12%"><col style="width:11%"><col style="width:11%"><col style="width:11%"><col style="width:6%"><col style="width:6%"><col style="width:6%"><col style="width:11%"><col style="width:13%"><col style="width:13%"></colgroup>
 <tr>
   <td class="h-hdr" rowspan="2">날짜</td>
   <td class="h-hdr" colspan="3">매출</td>
-  <td class="h-hdr" colspan="2">매입</td>
+  <td class="h-hdr" colspan="3">매입</td>
   <td class="h-hdr" rowspan="2">기타지출</td>
   <td class="h-hdr">거래처수금</td>
   <td class="h-hdr" rowspan="2">수익</td>
 </tr>
 <tr>
   <td class="h-hdr">포스+메뉴얼</td><td class="h-hdr">외상거래처</td><td class="h-hdr">수수료 코너</td>
-  <td class="h-hdr">현금</td><td class="h-hdr">체크</td>
+  <td class="h-hdr">현금</td><td class="h-hdr">체크</td><td class="h-hdr">점간이동</td>
   <td class="h-hdr">현금</td>
 </tr>
 <tr>
@@ -117,6 +120,7 @@ td, th { border: 0.4pt solid #444; padding: 2pt 3pt; font-size: 7.5pt; vertical-
   <td class="h-val"><?php echo $commission['total'] > 0 ? fmt2($commission['total']) : '-'; ?></td>
   <td class="h-val"><?php echo fmt2($purchase['totals']['cash']); ?></td>
   <td class="h-val"><?php echo fmt2($purchase['totals']['check']); ?></td>
+  <td class="h-val"><?php echo $purchase['totals']['transfer'] > 0 ? fmt2($purchase['totals']['transfer']) : '-'; ?></td>
   <td class="h-val"><?php echo fmt2($grand_expense); ?></td>
   <td class="h-val"><?php echo fmt2($ar['collections_total']); ?></td>
   <td class="h-profit"><?php echo fmt2($grand_profit); ?></td>
@@ -131,7 +135,7 @@ td, th { border: 0.4pt solid #444; padding: 2pt 3pt; font-size: 7.5pt; vertical-
   <td class="sec-hdr" colspan="2">기타지출</td>
 </tr>
 <tr>
-  <td class="col-hdr">포스</td><td class="col-hdr">현금</td><td class="col-hdr">크레딧</td><td class="col-hdr">도매</td><td class="col-hdr">합계</td><td class="gap-col"></td>
+  <td class="col-hdr">포스</td><td class="col-hdr">현금</td><td class="col-hdr">크레딧+할인</td><td class="col-hdr">도매</td><td class="col-hdr">합계</td><td class="gap-col"></td>
   <td class="col-hdr">업체명</td><td class="col-hdr">매출</td><td class="gap-col"></td>
   <td class="col-hdr">사용내역</td><td class="col-hdr">사용금액</td>
 </tr>
@@ -160,7 +164,11 @@ for ($i = 0; $i < $top_rows; $i++):
 </tr>
 <?php endfor; ?>
 <tr>
-  <td class="total-row" colspan="4">합계</td><td class="total-amt"><?php echo fmt2($pos_summary['totals']['total']); ?></td><td class="gap-col"></td>
+  <td class="total-row">합계</td>
+  <td class="total-amt"><?php echo fmt2($pos_summary['totals']['cash']); ?></td>
+  <td class="total-amt"><?php echo fmt2($pos_summary['totals']['credit']); ?></td>
+  <td class="total-amt"><?php echo fmt2($pos_summary['totals']['delivery_slip']); ?></td>
+  <td class="total-amt"><?php echo fmt2($pos_summary['totals']['total']); ?></td><td class="gap-col"></td>
   <td class="total-row">합계</td><td class="total-amt"><?php echo fmt2($commission['total']); ?></td><td class="gap-col"></td>
   <td class="total-row">합계</td><td class="total-amt"><?php echo fmt2($other_exp['total_placed']); ?></td>
 </tr>
@@ -183,11 +191,13 @@ for ($i = 0; $i < $top_rows; $i++):
 </tr>
 <?php
 $credit_buckets = ['BDO', 'GCASH', 'MAYA', 'QR'];
+// 점간이동(transfer)만 있는 행은 이 고정 서식(현금/체크 2열)에는 표시하지 않는다.
+$purchase_cc_rows = array_values(array_filter($purchase['rows'], fn($r) => $r['cash'] > 0 || $r['check'] > 0));
 // Layout Ref: 참고 파일은 매입 표에 실제 거래처 외 여유 행을 두어 표 전체가 약 20행 — 매입 표만 이 최소 행수로 패딩
 $PURCHASE_MIN_ROWS = 20;
-$mid_rows = max(count($purchase['rows']), $PURCHASE_MIN_ROWS, count($credit_buckets), count($ar['collections']));
+$mid_rows = max(count($purchase_cc_rows), $PURCHASE_MIN_ROWS, count($credit_buckets), count($ar['collections']));
 for ($i = 0; $i < $mid_rows; $i++):
-    $p = $purchase['rows'][$i] ?? null;
+    $p = $purchase_cc_rows[$i] ?? null;
     $bucket = $credit_buckets[$i] ?? null;
     $col = $ar['collections'][$i] ?? null;
 ?>
@@ -195,7 +205,7 @@ for ($i = 0; $i < $mid_rows; $i++):
   <td><?php echo $p ? esc($p['supplier']) : ''; ?></td>
   <td class="amt"><?php echo ($p && $p['cash'] > 0) ? fmt2($p['cash']) : ''; ?></td>
   <td class="amt"><?php echo ($p && $p['check'] > 0) ? fmt2($p['check']) : ''; ?></td>
-  <td class="amt"><?php echo $p ? fmt2($p['total']) : ''; ?></td>
+  <td class="amt"><?php echo $p ? fmt2($p['cash'] + $p['check']) : ''; ?></td>
   <td class="gap-col"></td>
   <td><?php echo esc($bucket ?? ''); ?></td>
   <td class="amt"><?php echo ($bucket && $credit_detail[$bucket] > 0) ? fmt2($credit_detail[$bucket]) : ''; ?></td>
@@ -205,7 +215,7 @@ for ($i = 0; $i < $mid_rows; $i++):
 </tr>
 <?php endfor; ?>
 <tr>
-  <td class="total-row" colspan="3">합계</td><td class="total-amt"><?php echo fmt2($purchase['totals']['total']); ?></td><td class="gap-col"></td>
+  <td class="total-row" colspan="3">합계</td><td class="total-amt"><?php echo fmt2($purchase['totals']['cash'] + $purchase['totals']['check']); ?></td><td class="gap-col"></td>
   <td class="total-row">합계</td><td class="total-amt"><?php echo fmt2($credit_detail['total']); ?></td><td class="gap-col"></td>
   <td class="total-row">합계</td><td class="total-amt"><?php echo fmt2($ar['collections_total']); ?></td>
 </tr>

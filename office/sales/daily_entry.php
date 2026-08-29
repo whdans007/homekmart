@@ -331,9 +331,9 @@ $shifts = [
 
 <script>
 const SALE_DATE = <?php echo json_encode($date); ?>;
-const DENOMS = [1000,500,200,100,50,20,10,5,1];
+const DENOMS = [1000,500,100,50,20,10,5,1];
 // 준비금 retain 우선순위: 소액권(₱100 우선)부터 ₱10,000 까지 보존. (서버 POS_RETAIN_PRIORITY 와 동일)
-const RETAIN_PRIORITY = [100,50,20,10,5,1,200,500,1000];
+const RETAIN_PRIORITY = [100,50,20,10,5,1,500,1000];
 const START_TARGET = 10000;
 const METHODS = [
   {key:'credit_card', label:'Credit Card', icon:'fa-solid fa-credit-card',           bg:'#eff6ff', fg:'#2563eb'},

@@ -190,17 +190,21 @@ function lc_fifo_ship_allow_negative(mysqli $conn, int $product_id, int $qty_nee
 }
 
 /**
- * 대책 B — 승인 시점 재고 차감(예약).
+ * 대책 C — 주문 접수(store/order.php) 시점 재고 차감(예약).
  * 주문의 모든 항목을 FEFO로 차감하고 lc_order_item_lots에 lot 내역을 기록한다.
- * $set_cost=true 이면 차감된 lot의 가중평균 원가로 unit_price를 갱신(승인 시).
+ * $set_cost=true 이면 차감된 lot의 가중평균 원가로 unit_price를 갱신(접수/승인 시).
  * $set_cost=false 이면 unit_price는 그대로 두고 재고/lot만 재배정(수량 수정 시).
  * 반드시 트랜잭션 내에서 호출. 총액(total_amount) 재계산은 호출측에서 수행.
  */
 function lc_allocate_order_stock(mysqli $conn, int $order_id, bool $set_cost = true): void {
     $order_id = (int)$order_id;
-    $items = $conn->query(
+    $res = $conn->query(
         "SELECT id, product_id, quantity FROM lc_order_items WHERE order_id = $order_id"
-    )->fetch_all(MYSQLI_ASSOC);
+    );
+    if ($res === false) {
+        throw new Exception('lc_allocate_order_stock: order_items 조회 실패 - ' . $conn->error);
+    }
+    $items = $res->fetch_all(MYSQLI_ASSOC);
 
     $ins_lot   = $conn->prepare(
         "INSERT INTO lc_order_item_lots (order_item_id, inventory_id, inbound_id, quantity, cost_price)
@@ -234,9 +238,9 @@ function lc_allocate_order_stock(mysqli $conn, int $order_id, bool $set_cost = t
 }
 
 /**
- * 대책 B — 차감(예약) 복원.
+ * 대책 C — 차감(예약) 복원.
  * 주문에 기록된 lot 기준으로 quantity_out을 되돌리고 lot 내역을 삭제한다.
- * 차감 이력(lot)이 없으면(예: pending 주문) 아무 일도 하지 않는다.
+ * 차감 이력(lot)이 없으면(예: 전환 이전 생성된 레거시 pending 주문) 아무 일도 하지 않는다.
  * 반드시 트랜잭션 내에서 호출.
  */
 function lc_restore_order_stock(mysqli $conn, int $order_id): void {
@@ -263,6 +267,24 @@ function lc_restore_order_stock(mysqli $conn, int $order_id): void {
         $upd->close();
         $conn->query("DELETE FROM lc_order_item_lots WHERE order_item_id IN ($ids_csv)");
     }
+}
+
+/**
+ * 주문 항목에 이미 재고 차감(lot) 기록이 있는지 확인.
+ * 대책 B → 대책 C(주문 접수 즉시 차감) 전환 시, 전환 이전에 생성된 레거시 pending
+ * 주문(아직 차감 이력이 없는 주문)을 승인 단계에서도 안전하게 처리하기 위한 판별용.
+ */
+function lc_order_stock_allocated(mysqli $conn, int $order_id): bool {
+    $order_id = (int)$order_id;
+    $res = $conn->query(
+        "SELECT COUNT(*) AS c FROM lc_order_item_lots
+         WHERE order_item_id IN (SELECT id FROM lc_order_items WHERE order_id = $order_id)"
+    );
+    if ($res === false) {
+        throw new Exception('lc_order_stock_allocated: 조회 실패 - ' . $conn->error);
+    }
+    $row = $res->fetch_assoc();
+    return ((int)($row['c'] ?? 0)) > 0;
 }
 
 /**

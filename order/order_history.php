@@ -36,8 +36,7 @@ $conn->close();
 $pages = ceil($total / $limit);
 ?>
 
-<div class="flex items-center justify-between mb-6">
-    <h1 class="text-xl font-bold text-gray-800"><i class="fas fa-history mr-2 text-indigo-600"></i>발주 이력</h1>
+<div class="flex items-center justify-end mb-6">
     <span class="text-sm text-gray-400">총 <?php echo number_format($total); ?>건</span>
 </div>
 

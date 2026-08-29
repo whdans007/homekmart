@@ -36,9 +36,9 @@ if (!$order || $order['status'] !== 'delivered') {
     echo json_encode(['success' => false, 'error' => '유효하지 않은 주문입니다.']);
     exit;
 }
-if (!empty($order['converted_purchase_id'])) {
+if ($order['converted_purchase_id'] !== null) {
     $conn->close();
-    echo json_encode(['success' => false, 'error' => '이미 매입등록된 주문입니다.']);
+    echo json_encode(['success' => false, 'error' => '이미 처리된 주문입니다.']);
     exit;
 }
 

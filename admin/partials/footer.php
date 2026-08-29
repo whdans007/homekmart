@@ -16,6 +16,23 @@
                 }
             });
         }
+
+        function switchAdminStore(storeId) {
+            fetch('<?php echo $_admin_web_root; ?>/admin/ajax_switch_store.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'store_id=' + encodeURIComponent(storeId)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('점포 전환에 실패했습니다.');
+                }
+            })
+            .catch(() => alert('점포 전환 중 오류가 발생했습니다.'));
+        }
     </script>
 </body>
 </html>

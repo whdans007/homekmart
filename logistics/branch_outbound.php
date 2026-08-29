@@ -11,7 +11,8 @@ $draft_id = (int)($_GET['draft_id'] ?? 0);
 
 try {
     $conn = get_lc_db();
-    $stores = $conn->query("SELECT id, name FROM stores ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
+    // 물류센터(CENTER) 자신은 출고 목적지가 될 수 없으므로 목록에서 제외
+    $stores = $conn->query("SELECT id, name FROM stores WHERE name <> '" . $conn->real_escape_string(LC_CENTER_STORE_NAME) . "' ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
     $conn->close();
 } catch (Exception $e) {
     $stores = [];
@@ -99,7 +100,7 @@ try {
             </button>
             <button type="button" id="submitBtn"
                     class="px-4 py-1.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                <i class="fas fa-truck mr-1.5" style="margin-right:6px"></i>Confirm Shipment
+                <i class="fas fa-check mr-1.5" style="margin-right:6px"></i>Confirm Order
             </button>
             <a href="<?php echo LC_BASE; ?>/branch_outbound_list.php" class="px-4 py-1.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200">Cancel</a>
         </div>
@@ -361,17 +362,21 @@ try {
                 '<td class="px-1.5 py-3 w-8 text-center">' +
                     '<span class="row-num inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-500 text-xs font-bold">' + (idx + 1) + '</span>' +
                 '</td>' +
+                '<td class="px-3 py-3 w-28">' +
+                    (p.barcode_unit ? '<span class="text-xs text-gray-400 font-mono whitespace-nowrap"><i class="fas fa-barcode mr-1"></i>' + escHtml(p.barcode_unit) + '</span>' : '<span class="text-xs text-gray-300">-</span>') +
+                '</td>' +
+                '<td class="px-3 py-3 w-28">' +
+                    ((p.brand_en || p.brand_ko) ? '<div class="leading-tight">' +
+                        '<p class="text-xs font-semibold text-teal-600">' + escHtml(p.brand_en || '') + '</p>' +
+                        (p.brand_ko ? '<p class="text-xs text-teal-500">' + escHtml(p.brand_ko) + '</p>' : '') +
+                    '</div>' : '<span class="text-xs text-gray-300">-</span>') +
+                '</td>' +
                 '<td class="px-3 py-3">' +
-                    '<div class="flex items-center gap-3 whitespace-nowrap">' +
-                        ((p.brand_en || p.brand_ko) ? '<div class="leading-tight">' +
-                            '<p class="text-xs font-semibold text-teal-600">' + escHtml(p.brand_en || '') + '</p>' +
-                            (p.brand_ko ? '<p class="text-xs text-teal-500">' + escHtml(p.brand_ko) + '</p>' : '') +
-                        '</div>' : '') +
-                        '<div class="leading-tight">' +
-                            '<p class="text-sm font-semibold text-gray-900">' + escHtml(p.name_en) + (p.capacity ? ' <span class="text-xs font-normal text-gray-500">' + escHtml(p.capacity) + '</span>' : '') + '</p>' +
-                            (p.name_ko ? '<p class="text-xs text-gray-500">' + escHtml(p.name_ko) + (p.capacity ? ' ' + escHtml(p.capacity) : '') + '</p>' : '') +
-                        '</div>' +
-                        (p.barcode_unit ? '<span class="text-xs text-gray-400 font-mono"><i class="fas fa-barcode mr-1"></i>' + escHtml(p.barcode_unit) + '</span>' : '') +
+                    '<div class="leading-tight whitespace-nowrap">' +
+                        '<p class="text-sm font-semibold text-gray-900">' + escHtml(p.name_en) + (p.capacity ? ' <span class="text-xs font-normal text-gray-500">' + escHtml(p.capacity) + '</span>' : '') +
+                            (p.nearest_expiry_date ? ' <span class="text-xs font-normal ' + expiryTextClass(p.nearest_expiry_date) + '">' + escHtml(p.nearest_expiry_date) + '</span>' : '') +
+                        '</p>' +
+                        (p.name_ko ? '<p class="text-xs text-gray-500">' + escHtml(p.name_ko) + (p.capacity ? ' ' + escHtml(p.capacity) : '') + '</p>' : '') +
                     '</div>' +
                 '</td>' +
                 '<td class="px-3 py-3 w-16">' +
@@ -678,6 +683,16 @@ try {
         return 'bg-gray-50 text-gray-600';
     }
 
+    // 유통기한 D-day에 따른 텍스트 색상만(배경 없음) — 검색결과 리스트용
+    function expiryTextClass(expiryDate) {
+        if (!expiryDate) return 'text-gray-400';
+        var days = Math.floor((new Date(expiryDate + 'T00:00:00') - new Date()) / 86400000);
+        if (days < 0) return 'text-red-600';
+        if (days <= 30) return 'text-orange-600';
+        if (days <= 90) return 'text-yellow-700';
+        return 'text-gray-500';
+    }
+
     // Plan FR-06: PCS 부족 + BOX 보유 시 박스 개봉 안내 (자동 개봉 없음)
     function breakSuggestHtml(shortfall) {
         return '<a href="' + LC_BASE + '/box_break.php" target="_blank" ' +
@@ -790,7 +805,7 @@ try {
         var form = validateForm();
         if (!form) return;
 
-        if (!confirm('You are about to ship ' + cart.length + ' selected item(s).\nStock will be deducted based on current inventory and cannot be undone.\nContinue?')) return;
+        if (!confirm('You are about to confirm an order for ' + cart.length + ' selected item(s).\nStock will be deducted based on current inventory and cannot be undone.\nThe order will be created with Pending status.\nContinue?')) return;
 
         var btn = this;
         var saveBtn = document.getElementById('saveBtn');

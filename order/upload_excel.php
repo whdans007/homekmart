@@ -117,10 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $conn->close();
 ?>
 
-<div class="flex items-center justify-between mb-4">
-    <h2 class="text-xl font-bold text-gray-800">
-        <i class="fas fa-upload mr-2 text-indigo-600"></i>재고 업로드
-    </h2>
+<div class="flex items-center justify-end mb-4">
     <a href="<?php echo ORD_BASE; ?>/upload_inventory.php" class="text-sm text-gray-500 hover:text-gray-700">
         <i class="fas fa-arrow-left mr-1"></i>목록으로
     </a>

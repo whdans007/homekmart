@@ -10,7 +10,9 @@ require_once __DIR__ . '/../../lib/lang_helper.php';
 $is_super_admin = ($_SESSION['role'] ?? '') === 'super_admin';
 $store_id       = get_office_store_id();
 $today          = date('Y-m-d');
-$date           = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'] ?? '') ? $_GET['date'] : $today;
+// 기본 조회일 = 어제. 오늘 보고서는 전날 마감된(확정된) 매출자료를 다루므로 날짜 미지정 시 어제를 기본으로 연다.
+$default_date   = date('Y-m-d', strtotime('-1 day'));
+$date           = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'] ?? '') ? $_GET['date'] : $default_date;
 $prev_date      = date('Y-m-d', strtotime($date . ' -1 day'));
 $next_date      = date('Y-m-d', strtotime($date . ' +1 day'));
 $is_future      = $next_date > $today;
@@ -20,7 +22,11 @@ $conn = get_db_connection();
 // super_admin만 다른 점포 조회 가능 (Design §7 — store 스코프 강제)
 $store_list = [];
 if ($is_super_admin) {
-    $res = $conn->query("SELECT id, name AS label FROM stores WHERE is_active=1 ORDER BY label");
+    $res = $conn->query(
+        "SELECT id, name AS label FROM stores
+         WHERE is_active=1 AND name NOT IN ('CENTER (물류센터)', 'KIMS MALL WHEREHOUSE (킴스몰 창고)')
+         ORDER BY label"
+    );
     $store_list = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
     $req_store_id = (int)($_GET['store_id'] ?? 0);
     if ($req_store_id > 0 && in_array($req_store_id, array_column($store_list, 'id'), true)) {
@@ -171,6 +177,7 @@ function drSetLanguage(lang) {
         <th class="px-3 py-2 text-right"><?php echo esc(t('daily_report.col_credit_customer')); ?></th>
         <th class="px-3 py-2 text-right"><?php echo esc(t('daily_report.col_purchase_cash')); ?></th>
         <th class="px-3 py-2 text-right"><?php echo esc(t('daily_report.col_purchase_check')); ?></th>
+        <th class="px-3 py-2 text-right"><?php echo esc(t('daily_report.col_purchase_transfer')); ?></th>
         <th class="px-3 py-2 text-right"><?php echo esc(t('daily_report.col_other_expense')); ?></th>
         <th class="px-3 py-2 text-right"><?php echo esc(t('daily_report.col_collection_cash')); ?></th>
         <th class="px-3 py-2 text-right font-bold"><?php echo esc(t('daily_report.col_profit')); ?></th>
@@ -183,6 +190,7 @@ function drSetLanguage(lang) {
         <td class="px-3 py-2 text-right"><?php echo fmt2($ar['credit_sales_total']); ?></td>
         <td class="px-3 py-2 text-right"><?php echo fmt2($purchase['totals']['cash']); ?></td>
         <td class="px-3 py-2 text-right"><?php echo fmt2($purchase['totals']['check']); ?></td>
+        <td class="px-3 py-2 text-right"><?php echo fmt2($purchase['totals']['transfer']); ?></td>
         <td class="px-3 py-2 text-right"><?php echo fmt2($grand_expense); ?></td>
         <td class="px-3 py-2 text-right"><?php echo fmt2($ar['collections_total']); ?></td>
         <td class="px-3 py-2 text-right font-bold text-purple-700"><?php echo fmt2($grand_profit); ?></td>
@@ -330,18 +338,20 @@ function drSetLanguage(lang) {
           <th class="px-2 py-1 text-left"><?php echo esc(t('daily_report.vendor_name')); ?></th>
           <th class="px-2 py-1 text-right"><?php echo esc(t('daily_report.cash_purchase')); ?></th>
           <th class="px-2 py-1 text-right"><?php echo esc(t('daily_report.check_purchase')); ?></th>
+          <th class="px-2 py-1 text-right"><?php echo esc(t('daily_report.transfer_purchase')); ?></th>
           <th class="px-2 py-1 text-right"><?php echo esc(t('common.total')); ?></th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($purchase['rows'])): ?>
-        <tr><td colspan="4" class="px-2 py-4 text-center text-gray-400"><?php echo esc(t('daily_report.no_data')); ?></td></tr>
+        <tr><td colspan="5" class="px-2 py-4 text-center text-gray-400"><?php echo esc(t('daily_report.no_data')); ?></td></tr>
         <?php endif; ?>
         <?php foreach ($purchase['rows'] as $row): ?>
         <tr class="border-t border-gray-100">
           <td class="px-2 py-1"><?php echo esc($row['supplier']); ?></td>
           <td class="px-2 py-1 text-right"><?php echo $row['cash'] > 0 ? fmt2($row['cash']) : '-'; ?></td>
           <td class="px-2 py-1 text-right"><?php echo $row['check'] > 0 ? fmt2($row['check']) : '-'; ?></td>
+          <td class="px-2 py-1 text-right"><?php echo $row['transfer'] > 0 ? fmt2($row['transfer']) : '-'; ?></td>
           <td class="px-2 py-1 text-right font-medium"><?php echo fmt2($row['total']); ?></td>
         </tr>
         <?php endforeach; ?>
@@ -351,6 +361,7 @@ function drSetLanguage(lang) {
           <td class="px-2 py-1"><?php echo esc(t('common.total')); ?></td>
           <td class="px-2 py-1 text-right"><?php echo fmt2($purchase['totals']['cash']); ?></td>
           <td class="px-2 py-1 text-right"><?php echo fmt2($purchase['totals']['check']); ?></td>
+          <td class="px-2 py-1 text-right"><?php echo fmt2($purchase['totals']['transfer']); ?></td>
           <td class="px-2 py-1 text-right"><?php echo fmt2($purchase['totals']['total']); ?></td>
         </tr>
       </tfoot>

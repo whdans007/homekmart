@@ -64,10 +64,7 @@ $stmt->close();
 $conn->close();
 ?>
 
-<div class="flex items-center justify-between mb-4">
-    <h2 class="text-xl font-bold text-gray-800">
-        <i class="fas fa-boxes-stacked mr-2 text-indigo-600"></i>재고 업로드 목록
-    </h2>
+<div class="flex items-center justify-end mb-4">
     <a href="<?php echo ORD_BASE; ?>/upload_excel.php"
        class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
         <i class="fas fa-upload mr-1"></i>새 업로드

@@ -10,7 +10,8 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 if ($action === 'get_stores') {
     try {
         $conn = get_lc_db();
-        $stores = $conn->query("SELECT id, name FROM stores ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
+        // 물류센터(CENTER) 자신은 배분 목적지가 될 수 없으므로 목록에서 제외
+        $stores = $conn->query("SELECT id, name FROM stores WHERE name <> '" . $conn->real_escape_string(LC_CENTER_STORE_NAME) . "' ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
         $conn->close();
         echo json_encode(['success' => true, 'stores' => $stores]);
     } catch (Exception $e) {
@@ -75,6 +76,17 @@ if ($action === 'distribute' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $conn = get_lc_db();
         $conn->autocommit(false);
+
+        // 물류센터(CENTER) 자신은 배분 목적지가 될 수 없으므로 제외
+        foreach (array_keys($items) as $sid) {
+            if (lc_is_center_store($conn, $sid)) unset($items[$sid]);
+        }
+        if (empty($items)) {
+            $conn->rollback(); $conn->close();
+            echo json_encode(['success' => false, 'message' => 'The Logistics Center cannot be selected as the destination store.']);
+            exit;
+        }
+
         $uid   = lc_current_user_id();
         $today = date('Y-m-d');
         $created = 0;

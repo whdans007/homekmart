@@ -3,6 +3,7 @@
 $edit_order_id = (int)($_GET['edit'] ?? $_POST['edit_order_id'] ?? 0);
 $page_title    = $edit_order_id ? 'Edit Order' : 'Place Order';
 require_once __DIR__ . '/partials/header.php';
+require_once __DIR__ . '/../logistics/lib/inventory_helper.php';
 
 $store_id   = store_current_store_id();
 $errors     = [];
@@ -101,7 +102,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($errors) && $edit_order_id > 0) {
                 // ── 편집 모드: pending 주문 품목 교체 ──────────────────
                 $conn->autocommit(false);
-                $total_amount = array_sum(array_map(fn($it) => $it['quantity'] * $it['unit_price'], $items));
 
                 // 잠금 후 본인 점포 + pending 상태 재확인 (승인 사이 변경 방지)
                 $st = $conn->prepare("SELECT status FROM lc_orders WHERE id = ? AND store_id = ? FOR UPDATE");
@@ -117,8 +117,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $conn->rollback(); $conn->close();
                     $errors[] = 'This order has already been approved by the center and can no longer be edited.';
                 } else {
-                    $st = $conn->prepare("UPDATE lc_orders SET total_amount = ?, notes = ? WHERE id = ?");
-                    $st->bind_param('dsi', $total_amount, $notes, $edit_order_id);
+                    // 기존 차감(예약) 재고 복원 — 품목을 지우기 전에 호출해야 함
+                    lc_restore_order_stock($conn, $edit_order_id);
+
+                    $st = $conn->prepare("UPDATE lc_orders SET notes = ? WHERE id = ?");
+                    $st->bind_param('si', $notes, $edit_order_id);
                     $st->execute();
                     $st->close();
 
@@ -135,6 +138,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $st2->execute();
                     }
                     $st2->close();
+
+                    // 변경된 수량으로 즉시 재차감 + 실제 lot 기준 원가/합계 확정
+                    lc_allocate_order_stock($conn, $edit_order_id, true);
+                    $conn->query(
+                        "UPDATE lc_orders SET total_amount=(SELECT COALESCE(SUM(total_amount),0) FROM lc_order_items WHERE order_id=$edit_order_id) WHERE id=$edit_order_id"
+                    );
 
                     $conn->commit(); $conn->close();
                     $flash_msg = 'Order #' . str_pad($edit_order_id, 4, '0', STR_PAD_LEFT) . ' has been updated.';
@@ -168,6 +177,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $st2->close();
 
+                // 주문 접수 즉시 재고 차감(예약) — 다른 점포의 이중 주문 방지.
+                // 실제 FEFO로 배정된 lot 기준 원가로 unit_price/합계도 함께 확정한다.
+                lc_allocate_order_stock($conn, $order_id, true);
+                $conn->query(
+                    "UPDATE lc_orders SET total_amount=(SELECT COALESCE(SUM(total_amount),0) FROM lc_order_items WHERE order_id=$order_id) WHERE id=$order_id"
+                );
+
                 $conn->commit(); $conn->close();
                 $flash_msg = 'Order #' . str_pad($order_id, 4, '0', STR_PAD_LEFT) . ' has been received.';
                 if (!empty($stock_notices)) $flash_msg .= "\n" . implode("\n", $stock_notices);
@@ -177,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $conn->rollback(); $conn->close();
             }
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             if (isset($conn)) { $conn->rollback(); $conn->close(); }
             $errors[] = 'DB Error: ' . $e->getMessage();
         }
@@ -695,6 +711,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     document.querySelectorAll('.cat-tab').forEach(function(btn) {
         btn.addEventListener('click', function() {
             activeCat = this.dataset.cat;
+            // 기존 검색어 초기화 (검색어에 걸려 해당 카테고리 상품이 가려지는 것 방지)
+            searchVal = '';
+            document.getElementById('searchInput').value = '';
             document.querySelectorAll('.cat-tab').forEach(function(b) {
                 b.classList.remove('bg-teal-600', 'text-white', 'border-teal-600');
                 b.classList.add('bg-white', 'text-gray-600', 'border-gray-300');
@@ -709,6 +728,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // ── "주문 선택" 토글: 수량 입력한 상품만 표시 ────────────────
     selectedToggle.addEventListener('click', function() {
         activeCat = '__selected__';
+        // 기존 검색어 초기화 (검색어에 걸려 장바구니 상품이 가려지는 것 방지)
+        searchVal = '';
+        document.getElementById('searchInput').value = '';
         document.querySelectorAll('.cat-tab').forEach(function(b) {
             b.classList.remove('bg-teal-600', 'text-white', 'border-teal-600');
             b.classList.add('bg-white', 'text-gray-600', 'border-gray-300');
@@ -927,8 +949,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             input.classList.add('border-gray-300');
             if (cell) cell.textContent = '-';
         }
+
+        // "주문 선택" 보기 중 수량을 0으로 만들면 해당 행이 목록에서 사라지므로,
+        // 포커스가 끊기지 않도록 다음(없으면 이전) 상품의 수량 입력으로 이동
+        var moveFocus  = (activeCat === '__selected__' && qty === 0 && document.activeElement === input);
+        var nextTarget = null;
+        if (moveFocus) {
+            var visibleInputs = Array.from(document.querySelectorAll('.product-row:not(.hidden) .qty-input'));
+            var idx = visibleInputs.indexOf(input);
+            if (idx >= 0) nextTarget = visibleInputs[idx + 1] || visibleInputs[idx - 1] || null;
+        }
+
         updateCart();
         saveDraft();
+
+        if (moveFocus && nextTarget) { nextTarget.focus(); nextTarget.select(); }
     };
 
     function updateCart() {
@@ -1011,6 +1046,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // 초기 카트 상태 반영 후 draft 복원 (onQtyChange 정의 이후)
+    // Design Ref: order/index.php 물류센터 목록의 "담기" 버튼이 localStorage(order_draft_*)에
+    // 직접 누적 저장해두므로, restoreDraft()가 그 값을 그대로 불러와 반영한다.
     updateCart();
     restoreDraft();
     filterRows(true);

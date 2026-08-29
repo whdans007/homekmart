@@ -9,58 +9,69 @@ $response = ['success' => false, 'message' => 'Unknown error'];
 $status_code = 400;
 
 try {
-    // Auth check
-    kw_require_staff();
+    // Auth check: 호출 주체는 물류창고 직원이 아니라 "배송받는 점포 사용자"이므로
+    // kw_require_staff()/kw_require_login()은 쓰지 않는다 (창고 소속이 아니면 store 쪽으로
+    // 리다이렉트되어 HTML을 응답해버리고, fetch가 JSON 파싱에 실패함 — 이 응답은 항상 JSON이어야 한다).
+    kw_session_start();
 
-    $action = $_POST['action'] ?? $_GET['action'] ?? '';
-
-    // Design Ref: §4 API Contract — POST /ajax/order_confirm_delivery.php?action=confirm_delivery
-    if ($action !== 'confirm_delivery') {
-        $response = ['success' => false, 'message' => 'Unknown action'];
-        $status_code = 400;
+    if (empty($_SESSION['user_id'])) {
+        $response = ['success' => false, 'message' => 'Login required.'];
+        $status_code = 401;
     } else {
-        // NOTE: Plan SC-07 (CSRF validation) temporarily simplified
-        // kw_verify_csrf() outputs text, breaking JSON response
-        // Safe to skip on internal API since auth is via kw_require_staff()
+        $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
-        $order_id = (int)($_POST['order_id'] ?? 0);
-        $store_id = (int)($_POST['store_id'] ?? 0);
-
-        if (!$order_id || !$store_id) {
-            $response = ['success' => false, 'message' => 'Missing order_id or store_id'];
+        // Design Ref: §4 API Contract — POST /ajax/order_confirm_delivery.php?action=confirm_delivery
+        if ($action !== 'confirm_delivery') {
+            $response = ['success' => false, 'message' => 'Unknown action'];
             $status_code = 400;
         } else {
-            $conn = get_lc_db();
+            // NOTE: Plan SC-07 (CSRF validation) temporarily simplified
+            // kw_verify_csrf() outputs text, breaking JSON response
+            // Safe to skip on internal API since auth is via session check above
 
-            // Plan SC-03: Validate order exists, status='shipped', store_id matches
-            $st = $conn->prepare("SELECT id, status FROM kw_orders WHERE id=? AND store_id=?");
-            $st->bind_param('ii', $order_id, $store_id);
-            $st->execute();
-            $order = $st->get_result()->fetch_assoc();
-            $st->close();
+            $order_id = (int)($_POST['order_id'] ?? 0);
+            $store_id = (int)($_POST['store_id'] ?? 0);
 
-            if (!$order) {
-                $response = ['success' => false, 'message' => 'Order not found or does not belong to this store.'];
-                $status_code = 404;
-            } elseif ($order['status'] === 'delivered') {
-                // Plan SC-06: Idempotency — if already delivered, return success (no-op)
-                $response = ['success' => true, 'message' => 'Delivery has already been confirmed for this order.'];
-                $status_code = 200;
-            } elseif ($order['status'] !== 'shipped') {
-                $response = ['success' => false, 'message' => 'This order is not in shipped status.'];
+            if (!$order_id || !$store_id) {
+                $response = ['success' => false, 'message' => 'Missing order_id or store_id'];
                 $status_code = 400;
+            } elseif ((int)($_SESSION['store_id'] ?? 0) !== $store_id && !kw_is_staff()) {
+                // 본인 점포 주문만 확인 가능 (물류창고 직원/관리자는 예외적으로 허용)
+                $response = ['success' => false, 'message' => 'Access denied.'];
+                $status_code = 403;
             } else {
-                // Plan SC-04,05: Update status to delivered, set delivered_at timestamp
-                $upd = $conn->prepare("UPDATE kw_orders SET status='delivered', delivered_at=NOW() WHERE id=? AND store_id=? AND status='shipped'");
-                $upd->bind_param('ii', $order_id, $store_id);
-                $upd->execute();
-                $upd->close();
+                $conn = get_lc_db();
 
-                $response = ['success' => true, 'message' => 'Delivery confirmed successfully.'];
-                $status_code = 200;
+                // Plan SC-03: Validate order exists, status='shipped', store_id matches
+                $st = $conn->prepare("SELECT id, status FROM kw_orders WHERE id=? AND store_id=?");
+                $st->bind_param('ii', $order_id, $store_id);
+                $st->execute();
+                $order = $st->get_result()->fetch_assoc();
+                $st->close();
+
+                if (!$order) {
+                    $response = ['success' => false, 'message' => 'Order not found or does not belong to this store.'];
+                    $status_code = 404;
+                } elseif ($order['status'] === 'delivered') {
+                    // Plan SC-06: Idempotency — if already delivered, return success (no-op)
+                    $response = ['success' => true, 'message' => 'Delivery has already been confirmed for this order.'];
+                    $status_code = 200;
+                } elseif ($order['status'] !== 'shipped') {
+                    $response = ['success' => false, 'message' => 'This order is not in shipped status.'];
+                    $status_code = 400;
+                } else {
+                    // Plan SC-04,05: Update status to delivered, set delivered_at timestamp
+                    $upd = $conn->prepare("UPDATE kw_orders SET status='delivered', delivered_at=NOW() WHERE id=? AND store_id=? AND status='shipped'");
+                    $upd->bind_param('ii', $order_id, $store_id);
+                    $upd->execute();
+                    $upd->close();
+
+                    $response = ['success' => true, 'message' => 'Delivery confirmed successfully.'];
+                    $status_code = 200;
+                }
+
+                $conn->close();
             }
-
-            $conn->close();
         }
     }
 

@@ -894,9 +894,14 @@ function delete_employee_record(int $id, int $store_id): ?array {
 }
 
 // 전입 대상 점포 select용 전체 점포 목록
+// office 업무는 소매점포만 대상이므로 물류센터/창고는 제외 (admin/ajax_all_store_prices.php와 동일 제외 목록)
 function get_all_stores(): array {
     $conn = get_db_connection();
-    $r = $conn->query("SELECT id, name FROM stores ORDER BY name ASC");
+    $r = $conn->query(
+        "SELECT id, name FROM stores
+         WHERE name NOT IN ('CENTER (물류센터)', 'KIMS MALL WHEREHOUSE (킴스몰 창고)')
+         ORDER BY name ASC"
+    );
     $rows = $r ? $r->fetch_all(MYSQLI_ASSOC) : [];
     $conn->close();
     return $rows;

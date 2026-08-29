@@ -32,9 +32,7 @@ $logistics_pending_count = 0;
 $chk_conv_col = $conn->query("SHOW COLUMNS FROM lc_orders LIKE 'converted_purchase_id'");
 if ($chk_conv_col && $chk_conv_col->num_rows > 0) {
     $pending_where = "status = 'delivered' AND converted_purchase_id IS NULL AND DATE(delivered_at) = CURDATE()";
-    if ($_SESSION['role'] !== 'super_admin') {
-        $pending_where .= !empty($current_store_id) ? " AND store_id = " . (int)$current_store_id : " AND 1 = 0";
-    }
+    $pending_where .= !empty($current_store_id) ? " AND store_id = " . (int)$current_store_id : " AND 1 = 0";
     $pending_row = $conn->query("SELECT COUNT(*) AS cnt FROM lc_orders WHERE {$pending_where}")->fetch_assoc();
     $logistics_pending_count = (int)($pending_row['cnt'] ?? 0);
 }
@@ -45,9 +43,7 @@ $store_transfer_pending_count = 0;
 $chk_st_conv_col = $conn->query("SHOW COLUMNS FROM store_transfers LIKE 'converted_purchase_id'");
 if ($chk_st_conv_col && $chk_st_conv_col->num_rows > 0) {
     $st_pending_where = "status = 'confirmed' AND converted_purchase_id IS NULL AND transfer_date = CURDATE()";
-    if ($_SESSION['role'] !== 'super_admin') {
-        $st_pending_where .= !empty($current_store_id) ? " AND to_store_id = " . (int)$current_store_id : " AND 1 = 0";
-    }
+    $st_pending_where .= !empty($current_store_id) ? " AND to_store_id = " . (int)$current_store_id : " AND 1 = 0";
     $st_pending_row = $conn->query("SELECT COUNT(*) AS cnt FROM store_transfers WHERE {$st_pending_where}")->fetch_assoc();
     $store_transfer_pending_count = (int)($st_pending_row['cnt'] ?? 0);
 }
@@ -78,17 +74,14 @@ if ($has_deleted_at) {
     $where_conditions[] = "p.status != 'deleted'";
 }
 
-// 점포 필터링 (super_admin이 아닌 경우 자신의 점포만 조회)
-if ($_SESSION['role'] !== 'super_admin') {
-    if (!empty($current_store_id)) {
-        // 점포가 지정된 경우: 해당 점포의 데이터만 조회
-        $where_conditions[] = "p.store_id = ?";
-        $params[] = $current_store_id;
-        $param_types .= 'i';
-    } else {
-        // 점포가 지정되지 않은 경우: 아무 데이터도 보이지 않게 함
-        $where_conditions[] = "1 = 0";
-    }
+// 점포 필터링 — super_admin도 선택된 점포($current_store_id, 상단 점포 스위처) 기준으로 스코프
+if (!empty($current_store_id)) {
+    $where_conditions[] = "p.store_id = ?";
+    $params[] = $current_store_id;
+    $param_types .= 'i';
+} else {
+    // 점포가 지정되지 않은 경우: 아무 데이터도 보이지 않게 함
+    $where_conditions[] = "1 = 0";
 }
 
 // 거래처명 검색 필터링
