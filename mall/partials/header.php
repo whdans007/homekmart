@@ -53,15 +53,22 @@ $active_nav = $active_nav ?? '';
 <div class="mall-shell">
     <?php if (empty($mall_hide_topbar)): ?>
     <header class="mall-topbar">
-        <a href="/mall/index.php" class="logo"><img src="/logo/homekmart_logo.png" alt="HOME K MART"></a>
-        <?php echo mall_render_tier_badge($member); ?>
-        <div class="spacer"></div>
-        <?php if ($member): ?>
-            <a href="/mall/my.php" class="icon-btn" title="마이페이지"><svg><use href="#i-person"></use></svg></a>
+        <?php if (!empty($mall_show_back)): ?>
+            <a href="javascript:history.back()" class="icon-btn"><svg><use href="#i-chev-left"></use></svg></a>
+            <div style="font:var(--t-headline2) var(--font-sans);"><?php echo isset($page_title) ? htmlspecialchars($page_title) : ''; ?></div>
         <?php else: ?>
-            <a href="/mall/login.php" class="icon-btn" title="로그인"><svg><use href="#i-person"></use></svg></a>
+            <a href="/mall/index.php" class="logo"><img src="/logo/homekmart_logo.png" alt="HOME K MART"></a>
+            <?php echo mall_render_tier_badge($member); ?>
         <?php endif; ?>
-        <?php include __DIR__ . '/cart_widget.php'; ?>
+        <div class="spacer"></div>
+        <?php if (empty($show_bottom_nav)): ?>
+            <?php if ($member): ?>
+                <a href="/mall/my.php" class="icon-btn" title="마이페이지"><svg><use href="#i-person"></use></svg></a>
+            <?php else: ?>
+                <a href="/mall/login.php" class="icon-btn" title="로그인"><svg><use href="#i-person"></use></svg></a>
+            <?php endif; ?>
+            <?php include __DIR__ . '/cart_widget.php'; ?>
+        <?php endif; ?>
     </header>
     <?php endif; ?>
     <main>

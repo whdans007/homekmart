@@ -118,7 +118,7 @@ require_once __DIR__ . '/partials/header.php';
 </div>
 
 <div class="sticky-cta">
-    <a href="/mall/checkout.php" class="btn btn-primary btn-block">주문하기</a>
+    <a href="/mall/order_checkout.php" class="btn btn-primary btn-block">주문하기</a>
 </div>
 <?php endif; ?>
 

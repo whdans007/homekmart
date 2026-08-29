@@ -18,6 +18,7 @@ $stmt->close();
 $conn->close();
 
 $mall_redesigned = true;
+$show_bottom_nav = true;
 $page_title = '주문완료';
 require_once __DIR__ . '/partials/header.php';
 

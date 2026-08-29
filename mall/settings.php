@@ -2,6 +2,9 @@
 require_once __DIR__ . '/lib/auth.php';
 
 $mall_redesigned = true;
+$mall_show_back = true;
+$show_bottom_nav = true;
+$active_nav = 'my';
 $page_title = '환경설정';
 require_once __DIR__ . '/partials/header.php';
 ?>

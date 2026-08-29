@@ -10,6 +10,7 @@ require_once __DIR__ . '/lib/cart.php';
 
 $mall_redesigned = true;
 $mall_hide_topbar = true;
+$show_bottom_nav = true;
 $page_title = '기획전';
 require_once __DIR__ . '/partials/header.php';
 

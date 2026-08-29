@@ -4,6 +4,7 @@ require_once __DIR__ . '/lib/auth.php';
 mall_require_login('/mall/login.php');
 
 $mall_redesigned = true;
+$show_bottom_nav = true;
 $page_title = '결제 승인';
 require_once __DIR__ . '/partials/header.php';
 
@@ -37,7 +38,7 @@ $label = $labels[$method] ?? 'GCash';
         <div class="pay-step"><span class="dot"></span> 주문 확정</div>
     </div>
 
-    <a href="/mall/checkout.php" style="margin-top:var(--space-6);color:var(--label-alternative);font:var(--t-caption1) var(--font-sans);">취소하고 돌아가기</a>
+    <a href="/mall/order_checkout.php" style="margin-top:var(--space-6);color:var(--label-alternative);font:var(--t-caption1) var(--font-sans);">취소하고 돌아가기</a>
 </div>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

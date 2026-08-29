@@ -44,10 +44,12 @@ try {
     $st = $conn->prepare(
         "SELECT oi.id, oi.order_id, oi.quantity, oi.unit_price, oi.order_unit,
                 o.order_date, o.status, o.created_at,
-                p.name_en, p.name_ko, p.unit
+                p.name_en, p.name_ko, p.unit, p.capacity,
+                b.name_en AS brand_name, b.name_ko AS brand_name_ko
          FROM lc_order_items oi
          JOIN lc_orders o ON o.id = oi.order_id
          JOIN lc_products p ON p.id = oi.product_id
+         LEFT JOIN lc_brands b ON p.brand_id = b.id
          $where
          ORDER BY o.created_at DESC, oi.id DESC
          LIMIT $limit OFFSET $offset"
@@ -108,7 +110,9 @@ $statuses = ['all'=>'All','pending'=>'Pending','approved'=>'Approved','shipped'=
             <thead class="bg-gray-50"><tr>
                 <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium">Order Date</th>
                 <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium">Order #</th>
+                <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium" style="width:96px;">Brand</th>
                 <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
+                <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium whitespace-nowrap" style="width:62px;">Capacity</th>
                 <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:44px;">Qty</th>
                 <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:38px;">Unit</th>
                 <th class="px-2 py-3 text-right text-xs text-gray-500 font-medium" style="width:76px;">Unit Price</th>
@@ -127,12 +131,25 @@ $statuses = ['all'=>'All','pending'=>'Pending','approved'=>'Approved','shipped'=
                         #<?php echo str_pad($item['order_id'], 4, '0', STR_PAD_LEFT); ?>
                     </a>
                 </td>
+                <td class="px-3 py-2 text-xs" style="line-height:1.2;">
+                    <?php if (!empty($item['brand_name']) || !empty($item['brand_name_ko'])): ?>
+                    <?php if (!empty($item['brand_name_ko'])): ?>
+                    <div class="text-gray-900 font-semibold"><?php echo htmlspecialchars($item['brand_name_ko']); ?></div>
+                    <?php endif; ?>
+                    <?php if (!empty($item['brand_name'])): ?>
+                    <div class="text-gray-500"><?php echo htmlspecialchars($item['brand_name']); ?></div>
+                    <?php endif; ?>
+                    <?php else: ?>
+                    <span class="text-gray-300">-</span>
+                    <?php endif; ?>
+                </td>
                 <td class="px-3 py-2 font-medium text-gray-900" style="line-height:1.2;">
                     <div><?php echo htmlspecialchars($item['name_en']); ?></div>
                     <?php if (!empty($item['name_ko'])): ?>
                     <div class="text-xs text-gray-500" style="margin-top:1px;"><?php echo htmlspecialchars($item['name_ko']); ?></div>
                     <?php endif; ?>
                 </td>
+                <td class="px-2 py-2 text-xs text-gray-600 text-center"><?php echo htmlspecialchars($item['capacity'] ?? '') ?: '-'; ?></td>
                 <td class="px-2 py-2 text-center font-bold text-teal-700"><?php echo number_format($item['quantity']); ?></td>
                 <td class="px-2 py-2 text-center text-xs font-semibold text-gray-700"><?php echo htmlspecialchars($row_unit); ?></td>
                 <td class="px-2 py-2 text-right text-gray-600"><?php echo number_format($item['unit_price'], 2); ?></td>

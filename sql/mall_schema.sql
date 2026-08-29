@@ -16,6 +16,7 @@ CREATE TABLE `mall_members` (
   `email` varchar(255) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
   `name` varchar(100) NOT NULL,
+  `english_name` varchar(100) DEFAULT NULL COMMENT '해외 배송용 영문 이름',
   `phone` varchar(50) DEFAULT NULL,
   `business_name` varchar(255) DEFAULT NULL COMMENT '사업자 상호 (도매만)',
   `business_reg_no` varchar(50) DEFAULT NULL COMMENT '사업자등록번호 (도매만)',

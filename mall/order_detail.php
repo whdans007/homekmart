@@ -20,6 +20,7 @@ if (!$order) {
     $conn->close();
     http_response_code(404);
     $mall_redesigned = true;
+    $show_bottom_nav = true;
     $page_title = '주문을 찾을 수 없습니다';
     require_once __DIR__ . '/partials/header.php';
     echo '<p class="empty-state">주문을 찾을 수 없습니다.</p>';
@@ -41,6 +42,7 @@ $status_labels = ['pending' => '접수대기', 'confirmed' => '확인됨', 'prep
 $payment_labels = ['cod' => '착불(현장결제)', 'offline' => '오프라인 결제'];
 
 $mall_redesigned = true;
+$show_bottom_nav = true;
 $page_title = '주문 상세';
 require_once __DIR__ . '/partials/header.php';
 ?>
