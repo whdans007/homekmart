@@ -31,10 +31,32 @@ define('MALL_GOOGLE_CLIENT_ID', '502848247391-99k1krmshe9el3408l7itpc1nd8hrni4.a
 // — 이 키는 프론트엔드 <script> 태그에 그대로 노출되므로 리퍼러 제한이 없으면 다른 사이트에서 도용될 수 있다.
 define('MALL_GOOGLE_MAPS_API_KEY', 'AIzaSyDikJKww3XN6xmh2F0NSL7eGZqbKkDiAEk');
 
-// 장바구니 화면의 무료배송 진행바 표시 전용 상수(참고용 안내일 뿐, 실제 배송비 부과 로직은
-// 체크아웃 재설계 범위에서 다룬다 — 이번 범위에는 포함되지 않음).
-define('MALL_FREE_SHIPPING_THRESHOLD', 1200);
-define('MALL_BASE_SHIPPING_FEE', 79);
+/**
+ * 기본 배송비 / 무료배송 기준금액. mall/admin/discount_rules.php에서 system_settings에 저장한
+ * 값을 읽어온다 — 관리자가 값을 아직 저장하지 않았거나 DB 조회에 실패하면 아래 기본값을 쓴다.
+ * 장바구니 화면의 무료배송 진행바 표시 전용(참고용 안내일 뿐, 실제 배송비 부과 로직은
+ * 체크아웃 재설계 범위에서 다룬다 — 이번 범위에는 포함되지 않음).
+ * @param string $key
+ * @param float $default
+ * @return float
+ */
+function mall_load_shipping_setting($key, $default) {
+    try {
+        $conn = mall_get_db_connection();
+        $stmt = $conn->prepare('SELECT setting_value FROM system_settings WHERE setting_key = ?');
+        $stmt->bind_param('s', $key);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $row ? (float)$row['setting_value'] : $default;
+    } catch (\Throwable $e) {
+        error_log('mall_load_shipping_setting error: ' . $e->getMessage());
+        return $default;
+    }
+}
+
+define('MALL_FREE_SHIPPING_THRESHOLD', mall_load_shipping_setting('mall_free_shipping_threshold', 1200));
+define('MALL_BASE_SHIPPING_FEE', mall_load_shipping_setting('mall_base_shipping_fee', 79));
 
 /**
  * mall_get_db_connection()이 재사용하는 커넥션 클래스 — close()를 무시해 요청 안에서 계속 살려둔다.

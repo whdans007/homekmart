@@ -14,7 +14,11 @@ $channel = ($member['member_type'] === 'wholesale') ? 'wholesale' : 'retail';
 $addresses = mall_address_list($member['id']);
 $default_address = $addresses[0] ?? null; // mall_address_list()가 is_default DESC로 정렬해 첫 번째가 기본 배송지
 
+$shipping_fee = mall_calculate_shipping_fee($summary['subtotal']);
+$total_with_shipping = round($summary['total'] + $shipping_fee, 2);
+
 $mall_redesigned = true;
+$mall_show_back = true;
 $show_bottom_nav = true;
 $page_title = '주문서 작성';
 require_once __DIR__ . '/partials/header.php';
@@ -90,7 +94,8 @@ require_once __DIR__ . '/partials/header.php';
         <div style="border-top:1px solid var(--line-normal);margin-top:8px;padding-top:8px;text-align:right;">
             <div style="font:var(--t-caption1) var(--font-sans);color:var(--label-alternative);">소계 <?php echo number_format($summary['subtotal'], 2); ?></div>
             <div style="font:var(--t-caption1) var(--font-sans);color:var(--brand-red);">할인 -<?php echo number_format($summary['discount_amount'], 2); ?></div>
-            <div style="font:700 18px var(--font-sans);margin-top:4px;">합계 <?php echo number_format($summary['total'], 2); ?></div>
+            <div style="font:var(--t-caption1) var(--font-sans);color:var(--label-alternative);">배송비 <?php echo $shipping_fee > 0 ? number_format($shipping_fee, 2) : '무료'; ?></div>
+            <div style="font:700 18px var(--font-sans);margin-top:4px;">합계 <?php echo number_format($total_with_shipping, 2); ?></div>
             <div style="font:var(--t-caption1) var(--font-sans);color:var(--label-assistive);margin-top:4px;">표시 가격은 VAT 12% 포함가입니다.</div>
         </div>
     </div>

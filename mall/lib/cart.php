@@ -251,6 +251,18 @@ function mall_cart_get_summary($member_id, $guest_token, $member) {
 }
 
 /**
+ * 배송비를 계산합니다. 소계(할인 적용 전, mall_cart_get_summary()의 subtotal)가 무료배송
+ * 기준금액 이상이면 0원, 아니면 기본 배송비를 반환합니다.
+ * order_checkout.php(표시용)와 mall_create_order()(실제 부과)가 반드시 이 함수를 함께 써서
+ * 화면에 보여준 금액과 실제 청구 금액이 어긋나지 않게 한다.
+ * @param float $subtotal
+ * @return float
+ */
+function mall_calculate_shipping_fee($subtotal) {
+    return $subtotal >= MALL_FREE_SHIPPING_THRESHOLD ? 0.0 : (float)MALL_BASE_SHIPPING_FEE;
+}
+
+/**
  * 로그인 직전까지 게스트로 담아둔 장바구니를 로그인한 회원 장바구니로 병합합니다.
  * 같은 상품×채널이 이미 회원 장바구니에 있으면 수량을 더하고, 없으면 그대로 옮깁니다.
  * 호출 시점 주의: mall_attempt_login()이 성공 시 session_regenerate_id()를 호출해

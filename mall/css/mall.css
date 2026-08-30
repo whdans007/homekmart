@@ -298,6 +298,13 @@ body:not(.redesigned) main { padding: var(--space-5); }
 }
 .qty-stepper button svg { width: 14px; height: 14px; }
 .qty-stepper .qty-value { min-width: 18px; text-align: center; font: 700 14px/1 var(--font-sans); color: var(--primary-strong); }
+input.qty-value {
+  width: 32px; border: none; background: none; padding: 0; -moz-appearance: textfield;
+}
+input.qty-value::-webkit-outer-spin-button,
+input.qty-value::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
 .qty-stepper-sm { height: 32px; }
 
 /* ── 칩 ─────────────────────────────────────────────────── */

@@ -179,6 +179,7 @@ CREATE TABLE `mall_orders` (
   `channel` enum('retail','wholesale') NOT NULL,
   `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
   `discount_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `shipping_fee` decimal(12,2) NOT NULL DEFAULT 0.00 COMMENT '주문 확정 시점 배송비 스냅샷',
   `total_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `status` enum('pending','confirmed','preparing','ready','completed','cancelled') NOT NULL DEFAULT 'pending',
   `payment_method` enum('cod','offline') NOT NULL DEFAULT 'cod',

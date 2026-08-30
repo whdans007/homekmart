@@ -8,7 +8,7 @@ $order_id = (int)($_GET['id'] ?? 0);
 
 $conn = get_db_connection();
 $stmt = $conn->prepare(
-    'SELECT id, order_number, channel, subtotal, discount_amount, total_amount, status, payment_method, memo, created_at
+    'SELECT id, order_number, channel, subtotal, discount_amount, shipping_fee, total_amount, status, payment_method, memo, created_at
      FROM mall_orders WHERE id = ? AND member_id = ?'
 );
 $stmt->bind_param('ii', $order_id, $member['id']);
@@ -72,6 +72,7 @@ require_once __DIR__ . '/partials/header.php';
 <div style="text-align:right;padding:var(--space-3) var(--space-5) 0;font:var(--t-label2) var(--font-sans);">
     <div style="color:var(--label-alternative);">소계 <?php echo number_format((float)$order['subtotal'], 2); ?></div>
     <div style="color:var(--brand-red);">할인 -<?php echo number_format((float)$order['discount_amount'], 2); ?></div>
+    <div style="color:var(--label-alternative);">배송비 <?php echo (float)$order['shipping_fee'] > 0 ? number_format((float)$order['shipping_fee'], 2) : '무료'; ?></div>
     <div style="font:700 20px var(--font-sans);margin-top:4px;">합계 <?php echo number_format((float)$order['total_amount'], 2); ?></div>
     <div style="color:var(--label-alternative);margin-top:4px;">결제수단: <?php echo htmlspecialchars($payment_labels[$order['payment_method']] ?? $order['payment_method']); ?></div>
 </div>

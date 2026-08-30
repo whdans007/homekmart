@@ -83,7 +83,7 @@ require_once __DIR__ . '/partials/header.php';
             <div class="row-bottom">
                 <div class="qty-stepper qty-stepper-sm">
                     <button type="button" class="qty-minus"><svg><use href="#i-minus"></use></svg></button>
-                    <span class="qty-value"><?php echo (int)$item['quantity']; ?></span>
+                    <input type="number" class="qty-value" inputmode="numeric" min="1" <?php echo ((int)$item['stock'] > 0) ? 'max="' . (int)$item['stock'] . '"' : ''; ?> value="<?php echo (int)$item['quantity']; ?>">
                     <button type="button" class="qty-plus"><svg><use href="#i-plus"></use></svg></button>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;">
@@ -123,19 +123,40 @@ require_once __DIR__ . '/partials/header.php';
 <?php endif; ?>
 
 <script>
+function mallUpdateCartQty(row, qty) {
+    const stock = parseInt(row.dataset.stock, 10);
+    qty = Math.max(1, qty || 1);
+    if (stock > 0 && qty > stock) qty = stock;
+    const params = new URLSearchParams();
+    params.set('cart_item_id', row.dataset.cartItemId);
+    params.set('quantity', qty);
+    fetch('/mall/ajax/update_cart_item.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+        .then(r => r.json())
+        .then(() => window.location.reload());
+}
+
 document.querySelectorAll('.cart-row .qty-minus, .cart-row .qty-plus').forEach(function (btn) {
     btn.addEventListener('click', function () {
         const row = btn.closest('.cart-row');
-        const stock = parseInt(row.dataset.stock, 10);
         let qty = parseInt(row.dataset.qty, 10);
         qty = btn.classList.contains('qty-plus') ? qty + 1 : qty - 1;
-        if (qty < 1 || (stock > 0 && qty > stock)) return;
-        const params = new URLSearchParams();
-        params.set('cart_item_id', row.dataset.cartItemId);
-        params.set('quantity', qty);
-        fetch('/mall/ajax/update_cart_item.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
-            .then(r => r.json())
-            .then(() => window.location.reload());
+        if (qty < 1) return;
+        mallUpdateCartQty(row, qty);
+    });
+});
+
+document.querySelectorAll('.cart-row .qty-value').forEach(function (input) {
+    input.addEventListener('change', function () {
+        const row = input.closest('.cart-row');
+        const qty = parseInt(input.value, 10);
+        if (!qty || qty === parseInt(row.dataset.qty, 10)) {
+            input.value = row.dataset.qty;
+            return;
+        }
+        mallUpdateCartQty(row, qty);
+    });
+    input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') input.blur();
     });
 });
 
