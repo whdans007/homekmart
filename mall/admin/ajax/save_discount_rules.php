@@ -75,6 +75,35 @@ try {
             echo json_encode(['success' => true]);
             break;
 
+        case 'shipping_save':
+            $base_shipping_fee = (float)($_POST['base_shipping_fee'] ?? -1);
+            $free_shipping_threshold = (float)($_POST['free_shipping_threshold'] ?? -1);
+            if ($base_shipping_fee < 0 || $free_shipping_threshold < 0) {
+                json_error('VALIDATION_ERROR', '입력값을 확인해주세요(0 이상)');
+            }
+            $stmt = $conn->prepare(
+                "INSERT INTO system_settings (setting_key, setting_value, setting_type, description)
+                 VALUES ('mall_base_shipping_fee', ?, 'number', '체크아웃 일반배송 기본 배송비')
+                 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)"
+            );
+            $fee_str = (string)$base_shipping_fee;
+            $stmt->bind_param('s', $fee_str);
+            $stmt->execute();
+            $stmt->close();
+
+            $stmt = $conn->prepare(
+                "INSERT INTO system_settings (setting_key, setting_value, setting_type, description)
+                 VALUES ('mall_free_shipping_threshold', ?, 'number', '체크아웃/장바구니 무료배송 기준금액')
+                 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)"
+            );
+            $threshold_str = (string)$free_shipping_threshold;
+            $stmt->bind_param('s', $threshold_str);
+            $stmt->execute();
+            $stmt->close();
+
+            echo json_encode(['success' => true]);
+            break;
+
         case 'instant_add':
             $min_order_amount = (float)($_POST['min_order_amount'] ?? -1);
             $discount_rate = (float)($_POST['discount_rate'] ?? -1);

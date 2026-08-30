@@ -34,6 +34,18 @@ $markup_row = $markup_stmt->get_result()->fetch_assoc();
 $markup_stmt->close();
 $wholesale_reference_markup_rate = $markup_row ? (float)$markup_row['setting_value'] : 15.0;
 
+// 체크아웃 화면의 기본 배송비/무료배송 기준금액. 없으면 mall_config.php와 동일한 기본값 사용.
+$shipping_stmt = $conn->prepare("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('mall_base_shipping_fee', 'mall_free_shipping_threshold')");
+$shipping_stmt->execute();
+$shipping_rows = $shipping_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$shipping_stmt->close();
+$shipping_settings = [];
+foreach ($shipping_rows as $row) {
+    $shipping_settings[$row['setting_key']] = (float)$row['setting_value'];
+}
+$base_shipping_fee = $shipping_settings['mall_base_shipping_fee'] ?? 79.0;
+$free_shipping_threshold = $shipping_settings['mall_free_shipping_threshold'] ?? 1200.0;
+
 $conn->close();
 ?>
 <!DOCTYPE html>
@@ -85,6 +97,27 @@ $conn->close();
                            class="border border-gray-300 rounded px-2 py-1 w-24">
                 </div>
                 <button id="save-wholesale-reference-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">저장</button>
+            </div>
+        </section>
+
+        <!-- 배송비 설정 (일반배송) -->
+        <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+            <h2 class="text-sm font-bold text-gray-700 mb-1">배송비 설정</h2>
+            <p class="text-xs text-gray-400 mb-3">체크아웃 화면 "일반배송" 문구와 장바구니 무료배송 안내에 표시되는 값입니다.</p>
+            <div class="flex items-end gap-2">
+                <div>
+                    <label class="block text-xs text-gray-500">기본 배송비</label>
+                    <input id="base-shipping-fee" type="number" step="0.01" min="0"
+                           value="<?php echo htmlspecialchars($base_shipping_fee); ?>"
+                           class="border border-gray-300 rounded px-2 py-1 w-28">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500">무료배송 기준금액</label>
+                    <input id="free-shipping-threshold" type="number" step="0.01" min="0"
+                           value="<?php echo htmlspecialchars($free_shipping_threshold); ?>"
+                           class="border border-gray-300 rounded px-2 py-1 w-32">
+                </div>
+                <button id="save-shipping-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">저장</button>
             </div>
         </section>
 
@@ -175,6 +208,16 @@ document.getElementById('save-wholesale-reference-btn').addEventListener('click'
     const params = new URLSearchParams();
     params.set('action', 'wholesale_reference_save');
     params.set('rate', document.getElementById('wholesale-reference-rate').value);
+    postAjax(params.toString()).then(data => {
+        showFlash(data.success ? '저장되었습니다.' : (data.error?.message || '오류가 발생했습니다.'), data.success ? 'success' : 'error');
+    });
+});
+
+document.getElementById('save-shipping-btn').addEventListener('click', function () {
+    const params = new URLSearchParams();
+    params.set('action', 'shipping_save');
+    params.set('base_shipping_fee', document.getElementById('base-shipping-fee').value);
+    params.set('free_shipping_threshold', document.getElementById('free-shipping-threshold').value);
     postAjax(params.toString()).then(data => {
         showFlash(data.success ? '저장되었습니다.' : (data.error?.message || '오류가 발생했습니다.'), data.success ? 'success' : 'error');
     });
