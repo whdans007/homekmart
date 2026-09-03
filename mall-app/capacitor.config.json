@@ -1,0 +1,16 @@
+{
+  "appId": "net.homekmart.mall",
+  "appName": "HOME K MART",
+  "webDir": "www",
+  "server": {
+    "url": "https://homekmart.net/mall/",
+    "androidScheme": "https",
+    "allowNavigation": [
+      "homekmart.net",
+      "*.homekmart.net"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
