@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"git --no-pager diff --stat; echo \\\"=== db_config.php diff ===\\\"; git --no-pager diff config/db_config.php\",\"timeout\":110000,\"description\":\"Show change summary and db_config diff\"}",
-  "error": "Exit code 143\nCommand timed out after 1m 50s",
-  "timestamp": "2026-07-28T23:58:58.887Z",
-  "retry_count": 1
-}
