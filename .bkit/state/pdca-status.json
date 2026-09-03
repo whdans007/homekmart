@@ -1,6 +1,6 @@
 {
   "version": "3.0",
-  "lastUpdated": "2026-08-13T08:02:44.528Z",
+  "lastUpdated": "2026-08-30T03:00:00.000Z",
   "activeFeatures": [
     "wholesale-sales-return",
     "pos-payment-detail",
@@ -23,7 +23,10 @@
     "box-pcs-unit",
     "pack-unit",
     "shopping-mall",
-    "mall-home-layout"
+    "mall-home-layout",
+    "mall-delivery-dispatch",
+    "mall-member-english-name",
+    "mall-order-chat"
   ],
   "primaryFeature": "wholesale-sales-return",
   "features": {
@@ -395,6 +398,72 @@
         "module-4": "done"
       },
       "autoAdvanced": true
+    },
+    "mall-delivery-dispatch": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {
+        "plan": "docs/01-plan/features/mall-delivery-dispatch.plan.md",
+        "design": "docs/02-design/features/mall-delivery-dispatch.design.md"
+      },
+      "timestamps": {
+        "started": "2026-08-30T00:00:00.000Z",
+        "lastUpdated": "2026-08-30T00:10:00.000Z"
+      },
+      "architecture": "Option C",
+      "previousPhase": "design",
+      "relatedFeature": "shopping-mall",
+      "lastFile": "mall/admin/orders.php",
+      "previousPhase": "design",
+      "revisionNote": "Do module-4 완료(고객 화면+폴링) — Do phase 전체 완료. mall/order_detail.php: 상태 라벨에 배정됨/배송중/도착/배송지연 추가, 배송 상태 배너(assigned/delivering/arrived), 15초 폴링(mall/ajax/get_order_tracking.php 신규, IDOR 방지)로 상태 변화 감지 시 자동 새로고침 + delivering/arrived일 때 기사 위치 지도 실시간 표시. 이후 후속 수정: 배송지 스냅샷 부재 문제 해결 — sql/run_add_mall_orders_shipping_snapshot_migration.php(신규, mall_orders에 ship_* 9개 컬럼), mall/lib/order.php의 mall_create_order()가 주문 확정 시점 기본 배송지를 스냅샷으로 저장(주소 없으면 NO_ADDRESS 오류로 주문 차단), mall/driver/order_detail.php가 실시간 조회 대신 주문의 스냅샷을 사용하도록 변경. 전체 모듈(1~4) + 배송지 스냅샷 보완 완료. 이후 추가 하드닝: 관리자가 주문 상태를 임의로 직접 선택해 바꿀 수 있었던 문제(mall/admin/orders.php의 상태 드롭다운)를 제거하고 읽기전용 뱃지로 교체 — 상태는 이제 각 액션(접수확인/취소/배정/재배정, 기사 앱의 배송시작/도착/완료/실패)을 통해서만 자동으로 바뀐다. mall/admin/ajax/update_order_status.php도 서버단에서 '취소'(preparing→pending) 단일 전이만 허용하도록 축소(그 외 임의 상태값은 VALIDATION_ERROR로 거부). 이후 UI 전면 개편: mall/admin/orders.php 목록을 7개 컬럼(주문번호/회원/채널/합계/주문일시/상태/배송기사)으로 축소하고, 행 클릭 시 모달(진행상황 스테퍼+액션 → 고객정보 → 주문내역) 표시로 변경. 신규 mall/admin/ajax/get_order_detail.php(주문+배송지스냅샷+기사+항목+활성기사 한번에 반환)로 get_order_items.php 대체(삭제). 구현 중 발견한 실제 버그: preparing→ready 전이 액션이 아예 없어 배정 자체가 불가능했던 것을 mall_order_mark_ready()(delivery.php 신규 함수) + mall/admin/ajax/mark_ready.php(신규)로 수정. 진행상황 스테퍼에 단계별 타임스탬프 표시를 위해 mall_orders에 confirmed_at/ready_at 컬럼 추가(sql/run_add_mall_orders_stage_timestamps_migration.php 신규, 배정 이후 시각은 기존 mall_order_driver_assignments 재사용). confirm_order.php도 pending 상태 검증 추가. 실제 브라우저 워크스루/L1 curl 테스트 미실행. 브라우저 실사용 피드백 반영: '준비중' 라벨을 '상품준비중'으로 변경(admin/orders.php, order_detail.php, admin/dashboard.php, mypage/orders.php). 이 과정에서 발견한 버그: mall/mypage/orders.php의 주문 트래커가 배정/배송중/도착 상태를 전혀 커버하지 않아(4단계 중 completed만) 배송 단계 진입 시 트래커가 사라지던 문제를 5단계(접수/상품준비중/준비완료/배송중/완료)로 확장해 수정, $status_labels도 전체 상태셋으로 확장. 실사용 버그 리포트로 발견: mall/admin/order_print.php의 피킹슬립 인쇄가 완전 빈 화면으로 실패 — 원인 규명에 시행착오 2번: 1차 시도 p.barcode(sql/complete_schema.sql이 구식이라 실패), 2차 시도 COALESCE(p.barcode_unit,...)(store/kimsmall_stock.php에서 grep으로 찾았지만 그건 완전히 다른 DB/테이블 kw_products였음 — 역시 실패). 최종적으로 sql/inspect_products_columns.php(임시 조회 스크립트, 확인 후 삭제)로 실제 라이브 SHOW COLUMNS를 직접 확인해 products 테이블에 바코드 컬럼 자체가 없고 sku(varchar, unique)만 있음을 확인, p.sku AS barcode로 최종 수정. try/catch는 유지(향후 에러도 화면에 보이도록). 관련 교훈을 메모리에 기록(products vs kw_products는 별도 DB/커넥션). 다음: /pdca analyze mall-delivery-dispatch (Check phase, gap-detector).",
+      "scopeProgress": {
+        "module-1": "done",
+        "module-2": "done",
+        "module-3": "done",
+        "module-4": "done"
+      }
+    },
+    "mall-member-english-name": {
+      "phase": "check",
+      "phaseNumber": 4,
+      "matchRate": 100,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {
+        "plan": "docs/01-plan/features/mall-member-english-name.plan.md",
+        "design": "docs/02-design/features/mall-member-english-name.design.md",
+        "analysis": "docs/03-analysis/mall-member-english-name.analysis.md"
+      },
+      "timestamps": {
+        "started": "2026-08-30T01:00:00.000Z",
+        "lastUpdated": "2026-08-30T03:00:00.000Z"
+      },
+      "relatedFeature": "shopping-mall",
+      "architecture": "Option C",
+      "revisionNote": "Do+Check 완료: mall/lib/romanize.php(신규, 초성/중성/종성 매핑 기반 mall_romanize_korean_name()) + mall/lib/auth.php(mall_google_signup에 english_name 파라미터) + mall/signup.php(양쪽 폼 필수 입력+검증) + mall/lib/order.php(mall_create_order 자동 채움, try/catch 격리) 구현 완료. 정적 검증(gap analysis, static-only formula) Match Rate 100%, Critical/Important 이슈 없음 — 사용자 확인 후 그대로 진행 결정. 스키마 변경 없음, 마이그레이션 불필요. 다음: /pdca report mall-member-english-name (배포 후 수동 브라우저 검증 권장)."
+    },
+    "mall-order-chat": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {
+        "plan": "docs/01-plan/features/mall-order-chat.plan.md",
+        "design": "docs/02-design/features/mall-order-chat.design.md"
+      },
+      "timestamps": {
+        "started": "2026-08-30T04:00:00.000Z",
+        "lastUpdated": "2026-08-30T05:00:00.000Z"
+      },
+      "architecture": "Option C",
+      "previousPhase": "design",
+      "relatedFeature": "shopping-mall",
+      "lastFile": "mall/admin/orders.php",
+      "revisionNote": "Do 완료 + 4차 UX/버그 확장. 1차: 전용 관리자 메뉴+sidebar 배지. 2차: 주문코드→주문자 단위 인박스(진행중/완료 탭+주문코드 칩). 3차: 하얀화면 버그 방어 + 읽음표시(my_read_upto) + 배송기사 3자 채팅 참여(sender_type='driver', mall_order_messages 컬럼 확장, driver 전용 ajax 2개, driver/order_detail.php·index.php 반영). 4차(이번, 요청: '완료건도 메시지 오면 진행중으로, 관리자가 채팅종료 눌러야 완료'): 진행중/완료 판정 기준을 주문 배송상태에서 완전히 분리 — sql/run_add_mall_order_chat_closed_migration.php(신규, mall_order_chat_closed 테이블, 행 존재=완료/부재=진행중) + mall_schema.sql 갱신. mall/lib/order_chat.php: mall_order_chat_close()/reopen()/is_closed() 추가, mall_order_chat_send()가 발신자 무관(고객/관리자/기사) 모든 발송 시 자동으로 reopen 호출하도록 수정, mall_order_chat_admin_working_orders()가 order.status 대신 mall_order_chat_closed LEFT JOIN 결과(is_closed)를 반환하도록 변경. mall/admin/ajax/close_order_chat.php(신규, 관리자 전용 종료 액션). mall/admin/order_chat.php의 고객/주문 진행중·완료 분류를 is_closed 필드 기준으로 교체, 채팅 헤더에 '채팅종료' 버튼 추가(종료 후 인박스 새로고침). mall/admin/orders.php 모달 채팅에도 동일한 '채팅종료' 버튼 추가(같은 close_order_chat.php 공유). 다음: 마이그레이션 3개(mall_order_messages, driver 컬럼, chat_closed) 순서대로 실행 후 실브라우저 검증, 이후 /pdca analyze mall-order-chat."
     }
   },
   "pipeline": {
@@ -1007,6 +1076,84 @@
       "feature": "mall-home-layout",
       "phase": "act",
       "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T00:00:00.000Z",
+      "feature": "mall-delivery-dispatch",
+      "phase": "plan",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T00:05:00.000Z",
+      "feature": "mall-delivery-dispatch",
+      "phase": "design",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T00:10:00.000Z",
+      "feature": "mall-delivery-dispatch module-1: DB 마이그레이션 + lib 헬퍼",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T00:20:00.000Z",
+      "feature": "mall-delivery-dispatch module-2: 관리자 화면",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T00:30:00.000Z",
+      "feature": "mall-delivery-dispatch module-3: 기사 앱",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T00:40:00.000Z",
+      "feature": "mall-delivery-dispatch module-4: 고객 화면 + 폴링",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T01:00:00.000Z",
+      "feature": "mall-member-english-name",
+      "phase": "plan",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T02:00:00.000Z",
+      "feature": "mall-member-english-name",
+      "phase": "design",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T02:30:00.000Z",
+      "feature": "mall-member-english-name",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T03:00:00.000Z",
+      "feature": "mall-member-english-name",
+      "phase": "check",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T04:00:00.000Z",
+      "feature": "mall-order-chat",
+      "phase": "plan",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T04:30:00.000Z",
+      "feature": "mall-order-chat",
+      "phase": "design",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-30T05:00:00.000Z",
+      "feature": "mall-order-chat",
+      "phase": "do",
+      "action": "updated"
     }
   ],
   "stateMachine": {
@@ -1109,6 +1256,94 @@
       "phase": "check",
       "feature": "mall-home-layout",
       "createdAt": "2026-08-13T08:02:14.911Z"
+    },
+    {
+      "taskId": "31",
+      "phase": "plan",
+      "feature": "mall-delivery-dispatch",
+      "createdAt": "2026-08-30T00:00:00.000Z"
+    },
+    {
+      "taskId": "32",
+      "phase": "design",
+      "feature": "mall-delivery-dispatch",
+      "createdAt": "2026-08-30T00:05:00.000Z",
+      "blockedBy": "31"
+    },
+    {
+      "taskId": "33",
+      "phase": "do",
+      "feature": "mall-delivery-dispatch module-1: DB 마이그레이션 + lib 헬퍼",
+      "createdAt": "2026-08-30T00:10:00.000Z",
+      "blockedBy": "32"
+    },
+    {
+      "taskId": "34",
+      "phase": "do",
+      "feature": "mall-delivery-dispatch module-2: 관리자 화면",
+      "createdAt": "2026-08-30T00:20:00.000Z",
+      "blockedBy": "33"
+    },
+    {
+      "taskId": "35",
+      "phase": "do",
+      "feature": "mall-delivery-dispatch module-3: 기사 앱",
+      "createdAt": "2026-08-30T00:30:00.000Z",
+      "blockedBy": "34"
+    },
+    {
+      "taskId": "36",
+      "phase": "do",
+      "feature": "mall-delivery-dispatch module-4: 고객 화면 + 폴링",
+      "createdAt": "2026-08-30T00:40:00.000Z",
+      "blockedBy": "35"
+    },
+    {
+      "taskId": "37",
+      "phase": "plan",
+      "feature": "mall-member-english-name",
+      "createdAt": "2026-08-30T01:00:00.000Z"
+    },
+    {
+      "taskId": "38",
+      "phase": "design",
+      "feature": "mall-member-english-name",
+      "blockedBy": "37",
+      "createdAt": "2026-08-30T02:00:00.000Z"
+    },
+    {
+      "taskId": "39",
+      "phase": "do",
+      "feature": "mall-member-english-name",
+      "blockedBy": "38",
+      "createdAt": "2026-08-30T02:30:00.000Z"
+    },
+    {
+      "taskId": "40",
+      "phase": "check",
+      "feature": "mall-member-english-name",
+      "blockedBy": "39",
+      "createdAt": "2026-08-30T03:00:00.000Z"
+    },
+    {
+      "taskId": "41",
+      "phase": "plan",
+      "feature": "mall-order-chat",
+      "createdAt": "2026-08-30T04:00:00.000Z"
+    },
+    {
+      "taskId": "42",
+      "phase": "design",
+      "feature": "mall-order-chat",
+      "blockedBy": "41",
+      "createdAt": "2026-08-30T04:30:00.000Z"
+    },
+    {
+      "taskId": "43",
+      "phase": "do",
+      "feature": "mall-order-chat",
+      "blockedBy": "42",
+      "createdAt": "2026-08-30T05:00:00.000Z"
     }
   ]
 }

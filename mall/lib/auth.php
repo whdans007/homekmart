@@ -230,11 +230,16 @@ function mall_google_login($google) {
  * @param string $member_type retail|wholesale
  * @param string $business_name 도매 회원만 필수
  * @param string $business_reg_no 도매 회원 선택
+ * @param string $english_name 필수 — mall-member-english-name.design.md §4.2
  * @return array{success:bool, member?:array, error?:string}
  */
-function mall_google_signup($google, $member_type, $business_name = '', $business_reg_no = '') {
+function mall_google_signup($google, $member_type, $business_name = '', $business_reg_no = '', $english_name = '') {
     mall_session_start();
     $member_type = in_array($member_type, ['retail', 'wholesale'], true) ? $member_type : 'retail';
+
+    if (trim($english_name) === '') {
+        return ['success' => false, 'error' => 'ENGLISH_NAME_REQUIRED'];
+    }
 
     if ($member_type === 'wholesale' && trim($business_name) === '') {
         return ['success' => false, 'error' => 'BUSINESS_NAME_REQUIRED'];
@@ -260,13 +265,14 @@ function mall_google_signup($google, $member_type, $business_name = '', $busines
 
         $insert = $conn->prepare(
             'INSERT INTO mall_members
-                (member_type, email, password_hash, google_id, name, business_name, business_reg_no, store_id, retail_tier, wholesale_status)
-             VALUES (?, ?, NULL, ?, ?, ?, ?, ?, "general", ?)'
+                (member_type, email, password_hash, google_id, name, english_name, business_name, business_reg_no, store_id, retail_tier, wholesale_status)
+             VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, "general", ?)'
         );
         $store_id = MALL_STORE_ID;
+        $english_name_val = trim($english_name);
         $insert->bind_param(
-            'ssssssis',
-            $member_type, $google['email'], $google['sub'], $google['name'],
+            'sssssssis',
+            $member_type, $google['email'], $google['sub'], $google['name'], $english_name_val,
             $business_name_val, $business_reg_no_val, $store_id, $wholesale_status
         );
 

@@ -29,7 +29,7 @@ if (!mall_csrf_verify($_POST['csrf_token'] ?? '')) {
 $member_id = (int)($_POST['member_id'] ?? 0);
 $retail_tier = $_POST['retail_tier'] ?? '';
 
-if ($member_id <= 0 || !in_array($retail_tier, ['general', 'discount', 'vip'], true)) {
+if ($member_id <= 0 || !in_array($retail_tier, ['general', 'good', 'vip', 'platinum'], true)) {
     json_error('VALIDATION_ERROR', '입력값을 확인해주세요');
 }
 

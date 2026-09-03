@@ -103,7 +103,7 @@ function mall_is_product_eligible_for_channel($product_id, $channel) {
 
 /**
  * 소매 등급별 할인율(%)을 조회합니다. 규칙이 없으면 0을 반환합니다.
- * @param string $tier general|discount|vip
+ * @param string $tier general|good|vip|platinum
  * @return float
  */
 function mall_get_retail_discount_rate($tier) {

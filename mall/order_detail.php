@@ -8,7 +8,7 @@ $order_id = (int)($_GET['id'] ?? 0);
 
 $conn = get_db_connection();
 $stmt = $conn->prepare(
-    'SELECT id, order_number, channel, subtotal, discount_amount, shipping_fee, total_amount, status, payment_method, memo, created_at
+    'SELECT id, order_number, channel, subtotal, discount_amount, shipping_fee, total_amount, status, estimated_ready_at, payment_method, memo, cancel_reason, created_at
      FROM mall_orders WHERE id = ? AND member_id = ?'
 );
 $stmt->bind_param('ii', $order_id, $member['id']);
@@ -38,8 +38,13 @@ $items = $items_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $items_stmt->close();
 $conn->close();
 
-$status_labels = ['pending' => '접수대기', 'confirmed' => '확인됨', 'preparing' => '준비중', 'ready' => '준비완료', 'completed' => '완료', 'cancelled' => '취소'];
+$status_labels = [
+    'pending' => '접수대기', 'confirmed' => '확인됨', 'preparing' => '상품준비중', 'ready' => '준비완료',
+    'assigned' => '배송기사 배정됨', 'delivering' => '배송중', 'arrived' => '도착', 'completed' => '완료',
+    'cancelled' => '취소', 'delivery_failed' => '배송 지연(재배정 중)',
+];
 $payment_labels = ['cod' => '착불(현장결제)', 'offline' => '오프라인 결제'];
+$mall_show_map = in_array($order['status'], ['delivering', 'arrived'], true);
 
 $mall_redesigned = true;
 $show_bottom_nav = true;
@@ -53,7 +58,30 @@ require_once __DIR__ . '/partials/header.php';
         <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?> ·
         <span class="badge badge-blue"><?php echo $status_labels[$order['status']] ?? $order['status']; ?></span>
     </p>
+    <?php if (!empty($order['estimated_ready_at']) && in_array($order['status'], ['preparing', 'ready'], true)): ?>
+    <p style="font:var(--t-label2) var(--font-sans);color:var(--primary-strong);margin:6px 0 0;">
+        <i class="fas fa-clock"></i> 예상 준비완료 시각: <?php echo htmlspecialchars(date('m/d H:i', strtotime($order['estimated_ready_at']))); ?>
+    </p>
+    <?php endif; ?>
+    <p id="delivery-status-banner" style="font:700 var(--t-label2) var(--font-sans);margin:6px 0 0;<?php echo $order['status'] === 'arrived' ? 'color:var(--brand-green);' : 'color:var(--primary-strong);'; ?>" <?php echo in_array($order['status'], ['assigned', 'delivering', 'arrived'], true) ? '' : 'hidden'; ?>>
+        <?php if ($order['status'] === 'assigned'): ?>
+            <i class="fas fa-box"></i> 배송기사가 배정되었습니다. 곧 출발할 예정입니다.
+        <?php elseif ($order['status'] === 'delivering'): ?>
+            <i class="fas fa-truck"></i> 배송 중입니다.
+        <?php elseif ($order['status'] === 'arrived'): ?>
+            <i class="fas fa-circle-check"></i> 기사님이 도착했습니다!
+        <?php endif; ?>
+    </p>
+    <?php if ($order['status'] === 'cancelled'): ?>
+    <p style="font:700 var(--t-label2) var(--font-sans);color:var(--brand-red);margin:6px 0 0;">
+        <i class="fas fa-circle-xmark"></i> 이 주문은 취소되었습니다<?php echo !empty($order['cancel_reason']) ? ': ' . htmlspecialchars($order['cancel_reason']) : '.'; ?>
+    </p>
+    <?php endif; ?>
 </div>
+
+<?php if ($mall_show_map): ?>
+<div id="delivery-map" style="height:220px;margin:var(--space-4) var(--space-5) 0;border-radius:var(--radius-lg);background:var(--fill-normal);"></div>
+<?php endif; ?>
 
 <div class="card" style="margin:var(--space-4) var(--space-5) 0;overflow:hidden;">
     <?php foreach ($items as $it): ?>
@@ -112,5 +140,51 @@ document.getElementById('reorder-btn').addEventListener('click', function () {
     });
 });
 </script>
+
+<?php $mall_live_tracking = in_array($order['status'], ['assigned', 'delivering', 'arrived'], true); ?>
+<?php if ($mall_live_tracking): ?>
+<script src="https://maps.googleapis.com/maps/api/js?key=<?php echo urlencode(MALL_GOOGLE_MAPS_API_KEY); ?>&callback=mallInitTrackingMap" async defer></script>
+<script>
+var MALL_ORDER_ID = <?php echo (int)$order_id; ?>;
+var MALL_INITIAL_STATUS = <?php echo json_encode($order['status']); ?>;
+var mallTrackingMap = null;
+var mallTrackingMarker = null;
+
+function mallInitTrackingMap() {
+    var mapEl = document.getElementById('delivery-map');
+    if (!mapEl) return;
+    mallTrackingMap = new google.maps.Map(mapEl, { center: { lat: 14.5995, lng: 120.9842 }, zoom: 13 });
+}
+
+function mallPollOrderTracking() {
+    fetch('/mall/ajax/get_order_tracking.php?order_id=' + MALL_ORDER_ID)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.success) return;
+
+            // 배송중→도착처럼 "추적 상태 집합 안에서의" 전이도 놓치지 않도록, 집합을 벗어났는지가
+            // 아니라 최초 렌더된 상태와 달라졌는지로 판단한다.
+            if (data.data.status !== MALL_INITIAL_STATUS) {
+                window.location.reload();
+                return;
+            }
+
+            var loc = data.data.driver_location;
+            if (loc && mallTrackingMap) {
+                var pos = { lat: loc.lat, lng: loc.lng };
+                if (mallTrackingMarker) {
+                    mallTrackingMarker.setPosition(pos);
+                } else {
+                    mallTrackingMarker = new google.maps.Marker({ position: pos, map: mallTrackingMap });
+                }
+                mallTrackingMap.setCenter(pos);
+            }
+        });
+}
+
+setInterval(mallPollOrderTracking, 15000);
+mallPollOrderTracking();
+</script>
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

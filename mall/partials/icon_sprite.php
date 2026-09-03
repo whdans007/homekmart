@@ -68,4 +68,10 @@
     <rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect>
     <rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect>
   </symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 5h16v11H9l-5 4V5Z"></path>
+  </symbol>
+  <symbol id="i-chat-fill" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M4 5h16v11H9l-5 4V5Z"></path>
+  </symbol>
 </svg>

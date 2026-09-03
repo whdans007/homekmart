@@ -29,7 +29,7 @@ $memo = trim($_POST['memo'] ?? '');
 $result = mall_create_order($member['id'], $member, $channel, $memo);
 
 if (!$result['success']) {
-    $http_map = ['UNAUTHORIZED' => 401, 'WHOLESALE_NOT_APPROVED' => 403, 'EMPTY_CART' => 400, 'OUT_OF_STOCK' => 409];
+    $http_map = ['UNAUTHORIZED' => 401, 'WHOLESALE_NOT_APPROVED' => 403, 'EMPTY_CART' => 400, 'OUT_OF_STOCK' => 409, 'NO_ADDRESS' => 400];
     json_error(
         $result['error']['code'],
         $result['error']['message'],

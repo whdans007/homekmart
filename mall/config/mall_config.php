@@ -13,6 +13,10 @@ define('MALL_STORE_ID', 1);
 // mall_members 세션을 관리자(admin) 세션과 분리하기 위한 별도 세션 이름/쿠키
 define('MALL_SESSION_NAME', 'MALLSESSID');
 
+// mall_drivers(배송기사) 세션을 mall_members/admin 세션과 분리하기 위한 별도 세션 이름/쿠키
+// Design Ref: mall-delivery-dispatch.design.md §7 — 기사 세션 분리
+define('MALL_DRIVER_SESSION_NAME', 'MALLDRIVERSESSID');
+
 // mall/batch/recalc_tiers.php를 cron(HTTP)으로 호출할 때 사용하는 인증 키(X-Api-Key 헤더).
 // CLI(php recalc_tiers.php) 실행 시에는 이 키가 필요 없다. 운영 전 반드시 강력한 값으로 교체할 것.
 define('MALL_BATCH_API_KEY', 'mallbatch_change_this_to_a_strong_32char_secret');

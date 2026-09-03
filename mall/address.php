@@ -61,24 +61,24 @@ require_once __DIR__ . '/partials/header.php';
         <input id="af-phone" type="text" placeholder="+63 9XX XXX XXXX" value="<?php echo htmlspecialchars($editing_address['phone'] ?? $member['phone'] ?? ''); ?>">
     </div>
     <div class="addr-field">
-        <label>지역(Region)</label>
-        <input id="af-region" type="text" placeholder="지도에서 핀을 놓으면 자동으로 채워집니다" value="<?php echo htmlspecialchars($editing_address['region'] ?? ''); ?>">
-    </div>
-    <div class="addr-field">
-        <label>시(City)</label>
-        <input id="af-city" type="text" value="<?php echo htmlspecialchars($editing_address['city'] ?? ''); ?>">
-    </div>
-    <div class="addr-field">
-        <label>바랑가이(Barangay)</label>
-        <input id="af-barangay" type="text" value="<?php echo htmlspecialchars($editing_address['barangay'] ?? ''); ?>">
-    </div>
-    <div class="addr-field">
         <label>상세주소/건물명</label>
         <input id="af-detail" type="text" placeholder="건물명, 동/호수 등" value="<?php echo htmlspecialchars($editing_address['detail_address'] ?? ''); ?>">
     </div>
     <div class="addr-field">
         <label>랜드마크 <span style="color:var(--brand-red);">*필수</span></label>
         <input id="af-landmark" type="text" placeholder="예: OOO 편의점 맞은편" value="<?php echo htmlspecialchars($editing_address['landmark'] ?? ''); ?>">
+    </div>
+    <div class="addr-field">
+        <label>바랑가이(Barangay)</label>
+        <input id="af-barangay" type="text" value="<?php echo htmlspecialchars($editing_address['barangay'] ?? ''); ?>">
+    </div>
+    <div class="addr-field">
+        <label>시(City)</label>
+        <input id="af-city" type="text" value="<?php echo htmlspecialchars($editing_address['city'] ?? ''); ?>">
+    </div>
+    <div class="addr-field">
+        <label>지역(Region)</label>
+        <input id="af-region" type="text" placeholder="지도에서 핀을 놓으면 자동으로 채워집니다" value="<?php echo htmlspecialchars($editing_address['region'] ?? ''); ?>">
     </div>
     <label class="addr-default-check">
         <input type="checkbox" id="af-default" <?php echo (!empty($editing_address['is_default'])) ? 'checked disabled' : ''; ?>>
@@ -253,7 +253,7 @@ require_once __DIR__ . '/partials/header.php';
             <?php if ($addr['is_default']): ?><span class="default-badge">기본</span><?php endif; ?>
         </div>
         <div class="body">
-            <?php echo htmlspecialchars(trim(implode(' ', array_filter([$addr['region'], $addr['city'], $addr['barangay']])))); ?><br>
+            <?php echo htmlspecialchars(trim(implode(' ', array_filter([$addr['barangay'], $addr['city'], $addr['region']])))); ?><br>
             랜드마크: <?php echo htmlspecialchars($addr['landmark']); ?><br>
             <?php echo htmlspecialchars($addr['recipient_name']); ?> · <?php echo htmlspecialchars($addr['phone']); ?>
         </div>

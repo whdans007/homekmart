@@ -345,12 +345,14 @@ input.qty-value::-webkit-inner-spin-button {
 .promo-hero {
   position: relative; overflow: hidden;
   background: linear-gradient(150deg, var(--brand-blue-deep), var(--primary-normal) 58%, #3385ff);
-  padding: calc(52px + env(safe-area-inset-top, 0px)) var(--space-5) 34px;
+  padding: calc(var(--space-4) + env(safe-area-inset-top, 0px)) var(--space-5) 28px;
   color: var(--static-white);
 }
 .promo-hero::before { content: ""; position: absolute; right: -56px; top: -26px; width: 210px; height: 210px; border-radius: 50%; background: rgba(255,255,255,0.08); }
 .promo-hero::after { content: ""; position: absolute; right: 38px; bottom: -70px; width: 130px; height: 130px; border-radius: 50%; background: rgba(232,17,45,0.3); }
-.promo-hero .back-btn { position: relative; z-index: 2; color: var(--static-white); margin: -8px 0 6px -8px; }
+.promo-hero .top-row { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; margin: -8px 0 6px -8px; }
+.promo-hero .back-btn { color: var(--static-white); }
+.promo-hero .logo-mark { height: 22px; width: auto; }
 .promo-hero .inner { position: relative; z-index: 1; }
 .promo-hero .eyebrow { display: inline-block; background: rgba(255,255,255,0.18); font: 700 11px/1 var(--font-sans); letter-spacing: 0.04em; padding: 7px 10px; border-radius: var(--radius-xs); margin-bottom: 14px; }
 .promo-hero .title { font: var(--t-title1) var(--font-sans); letter-spacing: var(--ls-title1); margin: 0; }
@@ -374,6 +376,7 @@ input.qty-value::-webkit-inner-spin-button {
 .badge { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: var(--radius-xs); font: 700 11px/1 var(--font-sans); }
 .badge-blue { background: var(--primary-bg); color: var(--primary-strong); }
 .badge-green { background: rgba(0,117,46,0.1); color: var(--brand-green); }
+.badge-red { background: rgba(211,47,47,0.1); color: var(--brand-red); }
 
 /* ── 별점 ───────────────────────────────────────────────── */
 .stars { color: var(--brand-star); display: inline-flex; gap: 1px; }

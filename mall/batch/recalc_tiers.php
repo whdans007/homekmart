@@ -3,7 +3,7 @@
  * 월 1회 등급 재산정 배치
  * Design Ref: shopping-mall.design.md §2.2 [월 1회 배치], §11.2
  *
- * - 소매: mall_orders(완료) 누적 합계로 등급(일반/할인/우수) 재산정 → mall_members.retail_tier 갱신
+ * - 소매: mall_orders(완료) 누적 합계로 등급(일반/우수/VIP/플래티넘) 재산정 → mall_members.retail_tier 갱신
  * - 도매: mall_orders(완료, 도매채널) 누적 합계로 다음 달 적용 누적할인 등급 재산정 → mall_member_stats 갱신
  * - 누적 집계 기간: 가입 이후 전체 누적 (design v0.2 §3.1 결정사항)
  *

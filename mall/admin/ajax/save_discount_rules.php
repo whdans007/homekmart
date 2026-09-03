@@ -28,7 +28,7 @@ if (!mall_csrf_verify($_POST['csrf_token'] ?? '')) {
 }
 
 $action = $_POST['action'] ?? '';
-$valid_tiers = ['general', 'discount', 'vip'];
+$valid_tiers = ['general', 'good', 'vip', 'platinum'];
 
 try {
     $conn = get_db_connection();
@@ -75,6 +75,23 @@ try {
             echo json_encode(['success' => true]);
             break;
 
+        case 'point_accrual_save':
+            $rate = (float)($_POST['rate'] ?? -1);
+            if ($rate < 0 || $rate > 100) {
+                json_error('VALIDATION_ERROR', '입력값을 확인해주세요(0~100% 범위)');
+            }
+            $stmt = $conn->prepare(
+                "INSERT INTO system_settings (setting_key, setting_value, setting_type, description)
+                 VALUES ('mall_point_accrual_rate', ?, 'number', '구매 금액 대비 포인트 적립율(회사 규정 기본 2%)')
+                 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)"
+            );
+            $rate_str = (string)$rate;
+            $stmt->bind_param('s', $rate_str);
+            $stmt->execute();
+            $stmt->close();
+            echo json_encode(['success' => true]);
+            break;
+
         case 'shipping_save':
             $base_shipping_fee = (float)($_POST['base_shipping_fee'] ?? -1);
             $free_shipping_threshold = (float)($_POST['free_shipping_threshold'] ?? -1);
@@ -101,6 +118,23 @@ try {
             $stmt->execute();
             $stmt->close();
 
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'prep_minutes_save':
+            $minutes = (int)($_POST['minutes'] ?? -1);
+            if ($minutes < 0) {
+                json_error('VALIDATION_ERROR', '입력값을 확인해주세요(0 이상)');
+            }
+            $stmt = $conn->prepare(
+                "INSERT INTO system_settings (setting_key, setting_value, setting_type, description)
+                 VALUES ('mall_default_prep_minutes', ?, 'number', '주문 관리 접수확인 시 기본으로 채워지는 상품 준비 소요시간(분)')
+                 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)"
+            );
+            $minutes_str = (string)$minutes;
+            $stmt->bind_param('s', $minutes_str);
+            $stmt->execute();
+            $stmt->close();
             echo json_encode(['success' => true]);
             break;
 

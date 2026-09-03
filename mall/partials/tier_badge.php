@@ -9,7 +9,7 @@ if (!function_exists('mall_render_tier_badge')) {
             return '';
         }
         if ($member['member_type'] === 'retail') {
-            $labels = ['general' => '일반', 'discount' => '할인', 'vip' => '우수'];
+            $labels = ['general' => '일반', 'good' => '우수', 'vip' => 'VIP', 'platinum' => '플래티넘'];
             $label = $labels[$member['retail_tier']] ?? $member['retail_tier'];
             return '<span class="tier-badge tier-retail">' . htmlspecialchars($label) . ' 회원</span>';
         }
