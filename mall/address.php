@@ -99,7 +99,7 @@ require_once __DIR__ . '/partials/header.php';
 <script src="https://maps.googleapis.com/maps/api/js?key=<?php echo urlencode(MALL_GOOGLE_MAPS_API_KEY); ?>&libraries=places&callback=mallInitAddressMap" async defer></script>
 <script>
     var mallMap, mallMarker;
-    var MALL_DEFAULT_CENTER = { lat: 14.5995, lng: 120.9842 }; // Metro Manila
+    var MALL_DEFAULT_CENTER = { lat: 15.1455, lng: 120.5876 }; // Clark/Angeles, Pampanga
     var MALL_INITIAL_PIN = <?php echo ($editing_address && $editing_address['lat'] && $editing_address['lng'])
         ? json_encode(['lat' => (float)$editing_address['lat'], 'lng' => (float)$editing_address['lng']])
         : 'null'; ?>;
