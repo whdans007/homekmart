@@ -278,7 +278,10 @@ $low_zero_count = count($low_zero);
                 <i class="fas fa-exclamation-triangle mr-2"></i>Expiry Approaching/Expired
                 <span class="text-xs font-normal ml-1">(within D-90)</span>
             </h3>
-            <span class="text-xs text-gray-400"><?php echo count($expiry_list); ?> items</span>
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-400"><?php echo count($expiry_list); ?> items</span>
+                <a href="<?php echo LC_BASE; ?>/inventory.php?filter=expiring" class="text-xs text-<?php echo $section_color; ?>-600 hover:underline">View All →</a>
+            </div>
         </div>
         <?php if (!empty($expiry_list)): ?>
         <div class="overflow-x-auto dash-scroll dash-scroll-expiry">

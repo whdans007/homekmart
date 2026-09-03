@@ -6,12 +6,13 @@ function lc_xml_escape(string $v): string {
 }
 
 /**
- * @param string   $filename  다운로드 파일명 (확장자 제외, 타임스탬프 자동 추가)
- * @param string[] $headers   헤더 행
- * @param array[]  $rows      데이터 행 (각 행은 헤더와 같은 개수의 값 배열)
- * @param int[]    $textCols  텍스트 서식(@)을 적용할 1-based 컬럼 번호 목록 (바코드 등)
+ * @param string      $filename  다운로드 파일명 (확장자 제외, 타임스탬프 자동 추가)
+ * @param string[]    $headers   헤더 행
+ * @param array[]     $rows      데이터 행 (각 행은 헤더와 같은 개수의 값 배열)
+ * @param int[]       $textCols  텍스트 서식(@)을 적용할 1-based 컬럼 번호 목록 (바코드 등)
+ * @param string|null $title     지정 시 헤더 위에 굵은 제목 행을 추가 (어느 화면에서 받은 파일인지 표시)
  */
-function lc_export_xlsx(string $filename, array $headers, array $rows, array $textCols = []): void {
+function lc_export_xlsx(string $filename, array $headers, array $rows, array $textCols = [], ?string $title = null): void {
     $colCount = count($headers);
     $colLetters = [];
     for ($i = 0; $i < $colCount; $i++) {
@@ -57,17 +58,26 @@ XML;
     $sheetXml .= '</cols>';
     $sheetXml .= '<sheetData>';
 
+    $headerRowNum = 1;
+    if ($title !== null && $title !== '') {
+        // 제목 행 (첫 열에 표시, 전체 열 병합)
+        $sheetXml .= '<row r="1">';
+        $sheetXml .= '<c r="' . $colLetters[0] . '1" t="inlineStr" s="1"><is><t xml:space="preserve">' . lc_xml_escape($title) . '</t></is></c>';
+        $sheetXml .= '</row>';
+        $headerRowNum = 2;
+    }
+
     // 헤더 행
-    $sheetXml .= '<row r="1">';
+    $sheetXml .= '<row r="' . $headerRowNum . '">';
     foreach ($headers as $i => $h) {
-        $ref = $colLetters[$i] . '1';
+        $ref = $colLetters[$i] . $headerRowNum;
         $sheetXml .= '<c r="' . $ref . '" t="inlineStr" s="1"><is><t xml:space="preserve">' . lc_xml_escape((string)$h) . '</t></is></c>';
     }
     $sheetXml .= '</row>';
 
     // 데이터 행
     foreach ($rows as $rIdx => $row) {
-        $r = $rIdx + 2;
+        $r = $rIdx + $headerRowNum + 1;
         $sheetXml .= '<row r="' . $r . '">';
         foreach (array_values($row) as $i => $val) {
             $ref = $colLetters[$i] . $r;
@@ -77,7 +87,12 @@ XML;
         }
         $sheetXml .= '</row>';
     }
-    $sheetXml .= '</sheetData></worksheet>';
+    $sheetXml .= '</sheetData>';
+    if ($title !== null && $title !== '' && $colCount > 1) {
+        $lastCol = $colLetters[$colCount - 1];
+        $sheetXml .= '<mergeCells count="1"><mergeCell ref="' . $colLetters[0] . '1:' . $lastCol . '1"/></mergeCells>';
+    }
+    $sheetXml .= '</worksheet>';
 
     $contentTypes = <<<XML
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>

@@ -28,6 +28,7 @@ if ($filter === 'out') {
     $sql = "SELECT p.id AS product_id,
                    CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS product_name,
                    p.unit, p.capacity, p.min_stock,
+                   b.name_en AS brand_name,
                    COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                    0 AS total_stock,
                    (SELECT s.name
@@ -40,6 +41,7 @@ if ($filter === 'out') {
                     LIMIT 1) AS latest_supplier
             FROM lc_products p
             LEFT JOIN lc_inventory i ON i.product_id = p.id AND i.quantity_remain > 0
+            LEFT JOIN lc_brands b ON p.brand_id = b.id
             $where
             GROUP BY p.id
             HAVING COALESCE(SUM(i.quantity_remain), 0) <= 0
@@ -73,6 +75,7 @@ if ($filter === 'out') {
     $sql = "SELECT p.id AS product_id,
                    CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS product_name,
                    p.unit, p.capacity, p.min_stock,
+                   b.name_en AS brand_name,
                    COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                    SUM(i.quantity_remain) AS total_stock,
                    MIN(i.expiry_date)     AS earliest_expiry,
@@ -87,6 +90,7 @@ if ($filter === 'out') {
             FROM lc_inventory i
             JOIN lc_products p ON i.product_id = p.id
             JOIN lc_inbound ib ON i.inbound_id = ib.id
+            LEFT JOIN lc_brands b ON p.brand_id = b.id
             $where
             GROUP BY p.id $having
             ORDER BY earliest_expiry ASC, p.name_en ASC";
@@ -99,16 +103,24 @@ if ($filter === 'out') {
 $conn->close();
 
 $headers = [
-    'Product Name', 'Capacity', 'Barcode', 'Unit',
+    'Brand', 'Product Name', 'Capacity', 'Barcode', 'Unit',
     'Current Stock', 'Min Stock', 'Status', 'Supplier',
 ];
-$textCols = [3]; // Barcode
+$textCols = [4]; // Barcode
+
+$titles = [
+    'low'      => 'Low Stock Products (In stock, <= Min Stock)',
+    'out'      => 'Out of Stock Products (Stock 0)',
+    'expiring' => 'Expiry Approaching/Expired (within D-90)',
+];
+$title = $titles[$filter] ?? 'Inventory';
 
 $rows = [];
 foreach ($list as $row) {
     $isOut = $row['total_stock'] <= 0;
     $isLow = !$isOut && $row['min_stock'] > 0 && $row['total_stock'] <= $row['min_stock'];
     $rows[] = [
+        $row['brand_name'] ?? '',
         $row['product_name'],
         $row['capacity'] ?? '',
         $row['barcode'] ?? '',
@@ -120,4 +132,4 @@ foreach ($list as $row) {
     ];
 }
 
-lc_export_xlsx('inventory', $headers, $rows, $textCols);
+lc_export_xlsx('inventory', $headers, $rows, $textCols, $title);
