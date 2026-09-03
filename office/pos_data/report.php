@@ -175,6 +175,51 @@ $dept_filter = trim($_GET['dept'] ?? '');
 
   </div>
 
+  <!-- SKU별 판매 분석 -->
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mt-4">
+    <div class="px-4 py-3 border-b border-gray-100 bg-gray-50 flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <p class="text-sm font-semibold text-gray-600">SKU별 판매 분석</p>
+        <p class="text-xs text-gray-400" id="pos-sku-summary">&nbsp;</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <input type="text" id="pos-sku-search" placeholder="품목명/코드 검색..."
+               class="border border-gray-300 rounded-lg px-3 py-1.5 text-xs w-48 focus:ring-2 focus:ring-blue-400">
+        <select id="pos-sku-limit" class="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-blue-400">
+          <option value="50">Top 50</option>
+          <option value="100" selected>Top 100</option>
+          <option value="300">Top 300</option>
+          <option value="20000">전체</option>
+        </select>
+        <a href="#" id="pos-sku-export-btn" target="_blank"
+           class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium whitespace-nowrap">
+          <i class="fa-solid fa-file-excel mr-1"></i>Excel 다운로드
+        </a>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-xs divide-y divide-gray-100">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-3 py-2 text-left text-gray-500 font-semibold">ITEMCODE</th>
+            <th class="px-3 py-2 text-left text-gray-500 font-semibold">ITEMNAME</th>
+            <th class="px-3 py-2 text-left text-gray-500 font-semibold">DEPT</th>
+            <th class="px-3 py-2 text-right text-gray-500 font-semibold cursor-pointer select-none pos-sku-sortable" data-sort="tx">TX</th>
+            <th class="px-3 py-2 text-right text-gray-500 font-semibold cursor-pointer select-none pos-sku-sortable" data-sort="pcs">PCS</th>
+            <th class="px-3 py-2 text-right text-gray-500 font-semibold">원가</th>
+            <th class="px-3 py-2 text-right text-gray-500 font-semibold">판매가</th>
+            <th class="px-3 py-2 text-right text-gray-500 font-semibold cursor-pointer select-none pos-sku-sortable" data-sort="net">NET SALES</th>
+            <th class="px-3 py-2 text-right text-gray-500 font-semibold">%</th>
+            <th class="px-3 py-2 text-right text-gray-500 font-semibold cursor-pointer select-none pos-sku-sortable" data-sort="gp">GROSS PROFIT</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50" id="pos-sku-tbody">
+          <tr><td colspan="10" class="px-3 py-6 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i>불러오는 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <!-- Chart.js -->
@@ -398,6 +443,113 @@ $dept_filter = trim($_GET['dept'] ?? '');
                 '<td class="px-3 py-2 text-right font-mono text-gray-500">100%</td></tr>';
         })
         .catch(() => {});
+
+    // ── SKU별 판매 분석 (정렬/검색/limit) ──
+    (function() {
+        const tbody     = document.getElementById('pos-sku-tbody');
+        const summaryEl = document.getElementById('pos-sku-summary');
+        const searchEl  = document.getElementById('pos-sku-search');
+        const limitEl   = document.getElementById('pos-sku-limit');
+        const exportBtn = document.getElementById('pos-sku-export-btn');
+        const heads     = document.querySelectorAll('.pos-sku-sortable');
+
+        let state = { sort: 'net', dir: 'desc' };
+        let lastRows = [];
+
+        function esc(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function renderArrows() {
+            heads.forEach(h => {
+                const base = h.dataset.label || h.textContent.replace(/\s*[▲▼]$/, '');
+                h.dataset.label = base;
+                h.textContent = base + (h.dataset.sort === state.sort ? (state.dir === 'asc' ? ' ▲' : ' ▼') : '');
+            });
+        }
+
+        function nf2(n) { return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+        function renderRows(rows, totalNet) {
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="10" class="px-3 py-6 text-center text-gray-400">데이터가 없습니다.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rows.map(r => {
+                const pcs   = parseFloat(r.total_pcs) || 0;
+                const cost  = parseFloat(r.cur_unit_cost) || 0;
+                const price = parseFloat(r.cur_selling_price) || 0;
+                const net   = parseFloat(r.net_sales) || 0;
+                const gp    = parseFloat(r.gross_profit) || 0;
+                const pct   = totalNet > 0 ? net / totalNet * 100 : 0;
+                return '<tr class="hover:bg-gray-50">' +
+                    '<td class="px-3 py-1.5 font-mono text-gray-500 whitespace-nowrap">' + esc(r.item_code || '') + '</td>' +
+                    '<td class="px-3 py-1.5 text-gray-700">' + esc(r.item_name || '') + '</td>' +
+                    '<td class="px-3 py-1.5 text-gray-500 whitespace-nowrap">' + esc(r.department || '') + '</td>' +
+                    '<td class="px-3 py-1.5 text-right font-mono text-gray-600">' + nf(r.tx_count) + '</td>' +
+                    '<td class="px-3 py-1.5 text-right font-mono text-gray-600">' + nf(pcs) + '</td>' +
+                    '<td class="px-3 py-1.5 text-right font-mono text-gray-500">' + nf2(cost) + '</td>' +
+                    '<td class="px-3 py-1.5 text-right font-mono text-gray-500">' + nf2(price) + '</td>' +
+                    '<td class="px-3 py-1.5 text-right font-bold font-mono text-blue-700">' + nf(net) + '</td>' +
+                    '<td class="px-3 py-1.5 text-right font-mono text-gray-400">' + nf(pct) + '%</td>' +
+                    '<td class="px-3 py-1.5 text-right font-mono text-green-600">' + nf(gp) + '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        function applySearch() {
+            const kw = (searchEl.value || '').trim().toLowerCase();
+            if (!kw) { renderRows(lastRows, window.__posSkuTotalNet || 0); return; }
+            const filtered = lastRows.filter(r =>
+                String(r.item_code || '').toLowerCase().includes(kw) ||
+                String(r.item_name || '').toLowerCase().includes(kw) ||
+                String(r.department || '').toLowerCase().includes(kw)
+            );
+            renderRows(filtered, window.__posSkuTotalNet || 0);
+        }
+
+        function updateExportLink() {
+            const limit = limitEl.value;
+            exportBtn.href = 'export_report_sku.php?' + qs + '&sort=' + state.sort + '&dir=' + state.dir + '&limit=' + encodeURIComponent(limit);
+        }
+
+        function load() {
+            tbody.innerHTML = '<tr><td colspan="10" class="px-3 py-6 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i>불러오는 중...</td></tr>';
+            renderArrows();
+            updateExportLink();
+            const limit = limitEl.value;
+            fetch('ajax_report_sku.php?' + qs + '&sort=' + state.sort + '&dir=' + state.dir + '&limit=' + encodeURIComponent(limit))
+                .then(r => r.json())
+                .then(res => {
+                    if (!res.success) return;
+                    lastRows = res.rows;
+                    window.__posSkuTotalNet = res.totals.net;
+                    summaryEl.textContent = 'SKU ' + nf(res.totals.sku_count) + '종 · 총 수량 ' + nf(res.totals.pcs) +
+                        ' · 총 매출 ' + nf(res.totals.net) + (lastRows.length < res.totals.sku_count ? ' (상위 ' + lastRows.length + '건 표시)' : '');
+                    applySearch();
+                })
+                .catch(() => {
+                    tbody.innerHTML = '<tr><td colspan="10" class="px-3 py-6 text-center text-gray-400">불러오기 실패</td></tr>';
+                });
+        }
+
+        heads.forEach(h => {
+            h.addEventListener('click', () => {
+                const col = h.dataset.sort;
+                if (state.sort === col) {
+                    state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    state.sort = col;
+                    state.dir = 'desc';
+                }
+                load();
+            });
+        });
+        limitEl.addEventListener('change', load);
+        searchEl.addEventListener('input', applySearch);
+
+        load();
+    })();
 })();
 </script>
 

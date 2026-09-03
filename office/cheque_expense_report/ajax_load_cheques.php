@@ -297,6 +297,11 @@ if ($tbl && $tbl->num_rows > 0) {
         if ($sv_row) {
             $decoded_sv = json_decode($sv_row['state_json'], true);
             if ($decoded_sv) {
+                if (isset($decoded_sv['sections']) && is_array($decoded_sv['sections'])) {
+                    foreach ($decoded_sv['sections'] as $sec_name => $sec_rows) {
+                        if (is_array($sec_rows)) $decoded_sv['sections'][$sec_name] = office_refresh_supplier_names($conn, $sec_rows);
+                    }
+                }
                 $saved_state = array_merge($decoded_sv, ['saved_at' => $sv_row['saved_at']]);
             }
         }

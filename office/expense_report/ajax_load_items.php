@@ -201,7 +201,15 @@ if ($er_tbl && $er_tbl->num_rows > 0) {
         $sv_row = $sv->get_result()->fetch_assoc();
         if ($sv_row) {
             $d = json_decode($sv_row['state_json'], true);
-            if ($d) $saved_state = array_merge($d, ['saved_at' => $sv_row['saved_at']]);
+            if ($d) {
+                // 스냅샷에 굳어있는 공급처명을 최신 이름으로 갱신 (이미 배치된 항목 재편집 화면용)
+                if (isset($d['sections']) && is_array($d['sections'])) {
+                    foreach ($d['sections'] as $sec_name => $sec_rows) {
+                        if (is_array($sec_rows)) $d['sections'][$sec_name] = office_refresh_supplier_names($conn, $sec_rows);
+                    }
+                }
+                $saved_state = array_merge($d, ['saved_at' => $sv_row['saved_at']]);
+            }
         }
         $sv->close();
     }

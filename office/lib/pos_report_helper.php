@@ -34,15 +34,24 @@ function pos_report_date_cond(string $parsed_expr, string $date_from, string $da
     return "{$parsed_expr} BETWEEN '{$date_from}' AND '{$date_to}'";
 }
 
+// pos_report_get_date_expr() 는 alias 'd'로 고정된 표현식을 반환하므로, 다른 alias로 재사용할 때 치환한다.
+function pos_report_expr_for_alias(string $parsed_expr, string $alias): string {
+    return str_replace('d.sale_date', "{$alias}.sale_date", $parsed_expr);
+}
+
 // 진단 정보(전체 건수/날짜범위/샘플) — 조회 기간과 무관하게 점포 전체 기준
+// min_date/max_date는 항상 Y-m-d 로 반환한다 (report.php 의 from/to 검증 포맷과 일치시켜야
+// "전체 기간 조회" 링크가 정상 동작함 — 원본 sale_date 텍스트 포맷을 그대로 내보내면 안 됨)
 function pos_report_get_diag(mysqli $conn, int $store_id): array {
+    $expr = pos_report_get_date_expr($conn, $store_id);
     $diag = $conn->query(
-        "SELECT COUNT(*) AS cnt, MIN(d.sale_date) AS min_date, MAX(d.sale_date) AS max_date,
-                (SELECT sale_date FROM pos_sales_data WHERE upload_id IN
-                 (SELECT id FROM pos_sales_uploads WHERE store_id={$store_id}) LIMIT 1) AS sample
+        "SELECT COUNT(*) AS cnt,
+                DATE_FORMAT(MIN({$expr['parsed_expr']}), '%Y-%m-%d') AS min_date,
+                DATE_FORMAT(MAX({$expr['parsed_expr']}), '%Y-%m-%d') AS max_date
          FROM pos_sales_data d
          WHERE d.upload_id IN (SELECT id FROM pos_sales_uploads WHERE store_id={$store_id})"
     )->fetch_assoc();
+    $diag['sample']   = $expr['sample'];
     $diag['date_fmt'] = !empty($diag['sample']) ? pos_report_detect_date_format($diag['sample']) : 'Y-m-d';
     return $diag;
 }
@@ -121,6 +130,106 @@ function pos_report_get_dept_breakdown(mysqli $conn, int $store_id, string $date
          GROUP BY d.department
          ORDER BY net_sales DESC"
     )->fetch_all(MYSQLI_ASSOC);
+}
+
+// SKU(품목코드)별 판매 수량/금액 집계 — 정렬 가능, limit 만큼만 반환 (대용량 대비)
+function pos_report_get_sku_breakdown(mysqli $conn, int $store_id, string $date_from, string $date_to, string $dept_filter, string $sort_col, string $sort_dir, int $limit): array {
+    $expr      = pos_report_get_date_expr($conn, $store_id);
+    $date_cond = pos_report_date_cond($expr['parsed_expr'], $date_from, $date_to);
+
+    $dept_cond = '';
+    if ($dept_filter !== '') {
+        $dept_cond = " AND d.department = '" . $conn->real_escape_string($dept_filter) . "'";
+    }
+
+    $sort_map  = ['pcs' => 'total_pcs', 'net' => 'net_sales', 'gp' => 'gross_profit', 'tx' => 'tx_count'];
+    $sort_expr = $sort_map[$sort_col] ?? 'net_sales';
+    $sort_dir  = strtoupper($sort_dir) === 'ASC' ? 'ASC' : 'DESC';
+    $limit     = max(1, min($limit, 20000));
+
+    $rows = $conn->query(
+        "SELECT
+            d.item_code,
+            d.item_name,
+            d.department,
+            COUNT(DISTINCT d.si_no)  AS tx_count,
+            SUM(d.pcs)               AS total_pcs,
+            SUM(d.total_cost)        AS total_cost,
+            SUM(d.net_sales)         AS net_sales,
+            SUM(d.gross_profit)      AS gross_profit
+         FROM pos_sales_data d
+         WHERE d.upload_id IN (SELECT id FROM pos_sales_uploads WHERE store_id={$store_id})
+           AND {$date_cond}
+           {$dept_cond}
+         GROUP BY d.item_code, d.item_name, d.department
+         ORDER BY {$sort_expr} {$sort_dir}
+         LIMIT {$limit}"
+    )->fetch_all(MYSQLI_ASSOC);
+
+    if (empty($rows)) return $rows;
+
+    // item_code별 "현재" 원가/판매가 = 조회 기간 내에서 가장 최근 거래(id 최대) 건의 단가.
+    // 위에서 이미 골라낸 item_code들로만 좁혀서 조회 — 전체 이력을 다시 스캔하지 않도록 함
+    // (과거에는 기간 무관 전체 이력을 스캔해 무한 로딩처럼 보일 정도로 느려졌던 원인).
+    $item_codes = array_values(array_unique(array_column($rows, 'item_code')));
+    $code_list  = implode(',', array_map(fn($c) => "'" . $conn->real_escape_string((string)$c) . "'", $item_codes));
+
+    $d2_date_cond = pos_report_date_cond(pos_report_expr_for_alias($expr['parsed_expr'], 'd2'), $date_from, $date_to);
+    $d2_dept_cond = '';
+    if ($dept_filter !== '') {
+        $d2_dept_cond = " AND d2.department = '" . $conn->real_escape_string($dept_filter) . "'";
+    }
+
+    $latest_rows = $conn->query(
+        "SELECT t.item_code, t.unit_cost, t.selling_price
+         FROM pos_sales_data t
+         INNER JOIN (
+            SELECT d2.item_code, MAX(d2.id) AS max_id
+            FROM pos_sales_data d2
+            WHERE d2.upload_id IN (SELECT id FROM pos_sales_uploads WHERE store_id={$store_id})
+              AND {$d2_date_cond}
+              {$d2_dept_cond}
+              AND d2.item_code IN ({$code_list})
+            GROUP BY d2.item_code
+         ) latest ON latest.max_id = t.id"
+    )->fetch_all(MYSQLI_ASSOC);
+
+    $latest_map = [];
+    foreach ($latest_rows as $lr) {
+        $latest_map[$lr['item_code']] = $lr;
+    }
+    foreach ($rows as &$row) {
+        $row['cur_unit_cost']     = $latest_map[$row['item_code']]['unit_cost'] ?? null;
+        $row['cur_selling_price'] = $latest_map[$row['item_code']]['selling_price'] ?? null;
+    }
+    unset($row);
+
+    return $rows;
+}
+
+// SKU breakdown 대상 기간의 전체 합계 (limit과 무관 — % 계산 기준)
+function pos_report_get_sku_totals(mysqli $conn, int $store_id, string $date_from, string $date_to, string $dept_filter): array {
+    $expr      = pos_report_get_date_expr($conn, $store_id);
+    $date_cond = pos_report_date_cond($expr['parsed_expr'], $date_from, $date_to);
+
+    $dept_cond = '';
+    if ($dept_filter !== '') {
+        $dept_cond = " AND d.department = '" . $conn->real_escape_string($dept_filter) . "'";
+    }
+
+    $row = $conn->query(
+        "SELECT SUM(d.pcs) AS total_pcs, SUM(d.net_sales) AS total_net, COUNT(DISTINCT CONCAT(d.item_code,'|',d.item_name)) AS sku_count
+         FROM pos_sales_data d
+         WHERE d.upload_id IN (SELECT id FROM pos_sales_uploads WHERE store_id={$store_id})
+           AND {$date_cond}
+           {$dept_cond}"
+    )->fetch_assoc();
+
+    return [
+        'pcs'       => (float)($row['total_pcs'] ?? 0),
+        'net'       => (float)($row['total_net'] ?? 0),
+        'sku_count' => (int)($row['sku_count'] ?? 0),
+    ];
 }
 
 // 요일별 3개월 평균 매출 (선택된 기간 필터와 무관 — 최근 3개월 고정 기준, 영업 참고용)

@@ -165,9 +165,8 @@ function get_monthly_sales_report(int $store_id, int $year, int $month): array {
 
     // 3) 일별 점지출(STORE EXP) — office/daily_report/index.php의 "기타지출" 합계(total_placed)와
     // 완전히 동일한 소스를 쓰도록 get_daily_other_expense_categories()를 하루 단위로 그대로 호출한다.
-    // (예전엔 office_equipment_purchases 테이블 + er_saved_state의 r_ 아이템만 따로 집계했는데,
-    //  이는 daily_report의 기타지출 집계 — 카테고리 분류된 항목 + sales_pos_expense 포함 — 과 기준이 달라
-    //  두 화면의 점지출 숫자가 서로 맞지 않는 원인이었다.)
+    // (Design Ref: Sales Report의 STORE EXP는 Daily Report 수동분류 기준을 그대로 유지 — Fixed Expenses
+    //  Report 자동분류 기준으로의 전환은 office/product_purchase/monthly_closing.php에만 적용한다.)
     $equip_by_day = [];
     for ($d = 1; $d <= $days; $d++) {
         $date_str = date('Y-m-d', mktime(0, 0, 0, $month, $d, $year));

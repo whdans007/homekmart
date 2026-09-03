@@ -92,11 +92,26 @@ $carryover_total = array_sum(array_column($carryover_rows, 'amount'));
 // 전체 미결 합계 (전 기간)
 $total_pending_all = array_sum($all_pending);
 
+// 결제 이력이 있는 업체 (전체 기간, entry_date/paid_date 달과 무관)
+// 이연결제 특성상 항목 등록월과 실제 결제월이 다른 경우가 흔해서, History는
+// 특정 달에 종속시키지 않고 결제 이력이 있는 업체면 어느 달을 보고 있든 조회 가능하게 한다.
+$res_paid_ever = $conn->query(
+    "SELECT DISTINCT supplier FROM deferred_entries
+     WHERE store_id={$store_id} AND status='paid'"
+);
+$paid_ever_suppliers = $res_paid_ever ? array_column($res_paid_ever->fetch_all(MYSQLI_ASSOC), 'supplier') : [];
+
 $conn->close();
 
-// 업체명 목록 (데이터 있는 업체만 컬럼으로)
-$suppliers = array_values(array_unique(array_column($rows, 'supplier')));
+// 업체명 목록 (이번 달 데이터가 있거나, 결제 이력이 있는 업체를 컬럼으로)
+$suppliers = array_values(array_unique(array_merge(
+    array_column($rows, 'supplier'),
+    $paid_ever_suppliers
+)));
 sort($suppliers);
+
+// History 버튼 노출 여부 (결제 이력이 있으면 어느 달이든 노출)
+$has_paid_history = array_fill_keys($paid_ever_suppliers, true);
 
 // 자동완성: suppliers 테이블에 등록된 업체만 (수기 입력 항목 제외)
 $autocomplete_suppliers = array_values(array_unique($db_suppliers));
@@ -505,7 +520,7 @@ for ($i=0;$i<12;$i++) {
             Pay
           </button>
           <?php endif; ?>
-          <?php if (($sup_paid[$sup] ?? 0) > 0): ?>
+          <?php if (($sup_paid[$sup] ?? 0) > 0 || !empty($has_paid_history[$sup])): ?>
           <button onclick="openCancelModal(<?php echo htmlspecialchars(json_encode($sup),ENT_QUOTES); ?>)"
                   style="font-size:11px;padding:3px 10px;background:#6b7280;color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;font-weight:600"
                   onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#6b7280'">
@@ -1199,7 +1214,12 @@ function renderCancelBatches(batches) {
         <div class="border border-gray-200 rounded-xl overflow-hidden">
           <div class="flex items-center gap-3 px-4 py-3 bg-gray-50">
             <div class="flex-1">
-              <span class="text-sm font-semibold text-gray-800">${paidLabel}</span>
+              <span class="text-sm font-semibold text-gray-800" id="paid_label_${bi}">${paidLabel}</span>
+              <button type="button"
+                      onclick="startEditBatchDate(${bi}, '${batch.paid_date||''}', ${JSON.stringify(ids).replace(/"/g,'&quot;')})"
+                      class="text-gray-400 hover:text-indigo-600" title="Edit payment date">
+                <i class="fa-solid fa-pen text-xs"></i>
+              </button>
               ${receiptBadge}
               <span class="ml-2 text-xs text-gray-400">${batch.items.length} items</span>
             </div>
@@ -1232,6 +1252,42 @@ function renderCancelBatches(batches) {
     });
     html += '</div>';
     document.getElementById('cancel_batches').innerHTML = html;
+}
+
+// ── 결제일 수기 변경 ─────────────────────────────────────────
+function startEditBatchDate(bi, currentDate, ids) {
+    const el = document.getElementById('paid_label_' + bi);
+    if (!el) return;
+    el.dataset.orig = el.innerHTML;
+    el.innerHTML = `<input type="date" id="edit_date_input_${bi}" value="${currentDate||''}"
+        class="border border-gray-300 rounded px-1 py-0.5 text-xs align-middle">
+        <button type="button" onclick="saveBatchDate(${bi}, ${JSON.stringify(ids).replace(/"/g,'&quot;')})"
+                class="ml-1 text-green-600 hover:text-green-700 align-middle"><i class="fa-solid fa-check text-xs"></i></button>
+        <button type="button" onclick="cancelEditBatchDate(${bi})"
+                class="ml-1 text-gray-400 hover:text-red-500 align-middle"><i class="fa-solid fa-xmark text-xs"></i></button>`;
+}
+function cancelEditBatchDate(bi) {
+    const el = document.getElementById('paid_label_' + bi);
+    if (el && el.dataset.orig) el.innerHTML = el.dataset.orig;
+}
+async function saveBatchDate(bi, ids) {
+    const input = document.getElementById('edit_date_input_' + bi);
+    const newDate = input ? input.value : '';
+    if (!newDate) { alert('날짜를 선택하세요.'); return; }
+
+    const fd = new FormData();
+    fd.append('action', 'update_paid_date');
+    fd.append('supplier', b64u(_cancelSupplier));
+    fd.append('ids', JSON.stringify(ids));
+    fd.append('new_date', newDate);
+
+    const res  = await fetch('ajax_cancel_dtr.php', {method:'POST', body:fd});
+    const data = await res.json();
+    if (data.success) {
+        location.href = 'index.php?year='+YEAR+'&month='+MONTH;
+    } else {
+        alert(data.error || '결제일 변경 실패');
+    }
 }
 
 function toggleCancelBatch(bi) {

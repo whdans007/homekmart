@@ -74,7 +74,7 @@ if ($er_tbl && $er_tbl->num_rows > 0) {
         $er_q->bind_param('iss', $store_id, $first, $last_day);
         $er_q->execute();
         $er_purchase_secs = ['selling', 'check_sup'];
-        $receipt_ids_by_date = []; // date => [id => type(cash|check)]
+        $r_buffer = []; // [['date'=>,'receipt_id'=>,'supplier'=>(스냅샷 fallback),'details'=>,'amount'=>,'type'=>], ...]
 
         foreach ($er_q->get_result()->fetch_all(MYSQLI_ASSOC) as $er_row) {
             $save_date = $er_row['save_date'];
@@ -89,18 +89,45 @@ if ($er_tbl && $er_tbl->num_rows > 0) {
                     if (strncmp($bid, 'r_', 2) !== 0) continue;
                     $amt = (float)($row['amount'] ?? 0);
                     if ($amt <= 0) continue;
-                    // Sales Report와 동일: JSON에 저장된 amount/supplier/details 직접 사용
-                    $all_items[] = [
-                        'date'     => $save_date,
-                        'supplier' => trim($row['supplier'] ?? ''),
-                        'details'  => $row['details'] ?? '',
-                        'amount'   => $amt,
-                        'type'     => $rtype,
+                    $r_buffer[] = [
+                        'date'       => $save_date,
+                        'receipt_id' => (int)substr($bid, 2),
+                        'supplier'   => trim($row['supplier'] ?? ''), // JSON 스냅샷 — 영수증이 삭제된 경우의 fallback
+                        'details'    => $row['details'] ?? '',
+                        'amount'     => $amt,
+                        'type'       => $rtype,
                     ];
                 }
             }
         }
         $er_q->close();
+
+        // 저장된 ER 스냅샷은 당시 공급처명을 그대로 물고 있어 이후 receipts/list.php에서
+        // 공급처를 고쳐도 반영되지 않음 — office_receipts에서 현재 공급처명을 다시 조회해 덮어씀
+        $live_supplier = [];
+        $r_ids = array_values(array_unique(array_column($r_buffer, 'receipt_id')));
+        if ($r_ids) {
+            $ph = implode(',', array_fill(0, count($r_ids), '?'));
+            $rs = $conn->prepare("SELECT id, supplier_name FROM office_receipts WHERE store_id=? AND id IN ({$ph})");
+            if ($rs) {
+                $rs->bind_param('i' . str_repeat('i', count($r_ids)), $store_id, ...$r_ids);
+                $rs->execute();
+                foreach ($rs->get_result()->fetch_all(MYSQLI_ASSOC) as $rr) {
+                    $live_supplier[(int)$rr['id']] = trim($rr['supplier_name']);
+                }
+                $rs->close();
+            }
+        }
+
+        foreach ($r_buffer as $item) {
+            $all_items[] = [
+                'date'     => $item['date'],
+                'supplier' => $live_supplier[$item['receipt_id']] ?? $item['supplier'],
+                'details'  => $item['details'],
+                'amount'   => $item['amount'],
+                'type'     => $item['type'],
+            ];
+        }
     }
 }
 $conn->close();

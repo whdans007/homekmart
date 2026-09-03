@@ -3,6 +3,7 @@ $page_title      = 'Fixed Expenses Report';
 $css_base        = '../../admin/';
 $office_nav_base = '../';
 require_once __DIR__ . '/../partials/header.php';
+require_once __DIR__ . '/../lib/daily_report_helper.php';
 
 $store_id = get_office_store_id();
 $conn     = get_db_connection();
@@ -39,30 +40,12 @@ $st2->bind_param('iss', $store_id, $month_start, $month_end);
 $st2->execute();
 $er_rows = $st2->get_result()->fetch_all(MYSQLI_ASSOC);
 $st2->close();
-$conn->close();
 $cd_rows = [];
 
 // ── 카테고리 자동 분류 ────────────────────────────────────────
-$CATEGORIES = [
-    'Electricity' => ['전기', 'electric', 'elec', 'meralco', 'power bill', 'power corp', 'power co.', 'assoc. fee', 'assoc fee', 'association fee', 'assoc dues', 'association dues'],
-    'Salary'      => ['월급', 'salary', 'salari', 'wage', '급여', 'pay', 'sss', 'pag-ibig', 'pag ibig', 'pagibig', 'philhealth', 'staffworks', 'manpower'],
-    'Internet'    => ['인터넷', 'internet', 'wifi', 'broadband', 'pldt', 'globe'],
-    'Rent'        => ['월세', 'rent', 'rental', '임대', 'lease'],
-    'Water'       => ['수도', 'water', 'maynilad'],
-    'Tax'         => ['bir', 'cdc', 'clark development'],
-    'Others'      => [],
-];
-
-function classify_details(string $details, array $CATEGORIES): string {
-    $d = strtolower($details);
-    foreach ($CATEGORIES as $cat => $kws) {
-        if ($cat === 'Others') continue;
-        foreach ($kws as $kw) {
-            if (str_contains($d, $kw)) return $cat;
-        }
-    }
-    return 'Others';
-}
+// Design Ref: office/lib/daily_report_helper.php의 get_fixed_expense_categories()/
+// classify_fixed_expense_details() — Sales Report/Monthly Closing과 분류 기준을 공유하는 SSOT.
+$CATEGORIES = get_fixed_expense_categories();
 
 // ── 항목 수집 ─────────────────────────────────────────────────
 // source: 'CD' | 'ER-Check' | 'ER-Cash'
@@ -71,16 +54,17 @@ $cat_totals = [];
 $src_totals = ['ER-Check' => 0.0, 'ER-Cash' => 0.0];
 $grand_total = 0.0;
 
-function collect_items(array $raw_rows, string $source_label, array $section_keys, array $CATEGORIES,
+function collect_items(mysqli $conn, array $raw_rows, string $source_label, array $section_keys,
                         array &$all_items, array &$cat_totals, array &$src_totals, float &$grand_total): void {
     foreach ($raw_rows as $row) {
         $state = json_decode($row['state_json'], true);
         foreach ($section_keys as $sec_key => $src) {
-            $items = $state['sections'][$sec_key] ?? [];
+            // 스냅샷에 굳어있는 공급처명을 원본 테이블 기준 최신 이름으로 갱신
+            $items = office_refresh_supplier_names($conn, $state['sections'][$sec_key] ?? []);
             foreach ($items as $item) {
                 $amt = (float)($item['amount'] ?? 0);
                 $classify_text = trim(($item['supplier'] ?? '') . ' ' . ($item['details'] ?? ''));
-                $cat = classify_details($classify_text, $CATEGORIES);
+                $cat = classify_fixed_expense_details($classify_text);
                 $all_items[] = [
                     'date'     => $row['save_date'],
                     'source'   => $src,
@@ -98,9 +82,10 @@ function collect_items(array $raw_rows, string $source_label, array $section_key
     }
 }
 
-collect_items($er_rows, 'ER',
+collect_items($conn, $er_rows, 'ER',
     ['other_exp_check' => 'ER-Check', 'other_exp_cash' => 'ER-Cash'],
-    $CATEGORIES, $all_items, $cat_totals, $src_totals, $grand_total);
+    $all_items, $cat_totals, $src_totals, $grand_total);
+$conn->close();
 
 // 날짜 → 소스 순 정렬
 usort($all_items, fn($a, $b) => strcmp($a['date'].$a['source'], $b['date'].$b['source']));
