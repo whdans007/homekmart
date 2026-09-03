@@ -72,14 +72,21 @@ $stmt->close();
 foreach ($items as &$it) {
     $it['matched'] = null;
     $it['auto_registered'] = false;
+    // 낱개코드(barcode_unit) > 박스코드(barcode_box) > 물류코드(barcode_logistics) 순으로 하나씩 확인.
+    // WHERE sku IN(...) LIMIT 1 방식은 순서를 보장하지 않아 박스코드(앞자리 1)로 등록된 상품이
+    // 먼저 매칭되는 문제가 있었다 (예: 매입번호 2416 — 낱개코드 8801045892085 대신 박스코드
+    // 18801045892082 로 매칭됨). 코드별로 개별 조회해 우선순위를 명시적으로 강제한다.
     $codes = array_values(array_filter([$it['barcode_unit'], $it['barcode_box'], $it['barcode_logistics']], fn($v) => $v !== null && $v !== ''));
-    if ($codes) {
-        $placeholders = implode(',', array_fill(0, count($codes), '?'));
-        $mstmt = $conn->prepare("SELECT id, sku, name_ko, name_en, pieces_per_box, is_vat_applicable FROM products WHERE sku IN ($placeholders) LIMIT 1");
-        $mstmt->bind_param(str_repeat('s', count($codes)), ...$codes);
+    foreach ($codes as $code) {
+        $mstmt = $conn->prepare("SELECT id, sku, name_ko, name_en, pieces_per_box, is_vat_applicable FROM products WHERE sku = ? LIMIT 1");
+        $mstmt->bind_param('s', $code);
         $mstmt->execute();
-        $it['matched'] = $mstmt->get_result()->fetch_assoc();
+        $found = $mstmt->get_result()->fetch_assoc();
         $mstmt->close();
+        if ($found) {
+            $it['matched'] = $found;
+            break;
+        }
     }
 
     // Design Ref: purchase-from-logistics — 미매칭 품목 자동 등록 (barcode_unit 우선, 없으면 box/logistics 순)
