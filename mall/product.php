@@ -203,7 +203,7 @@ if ($product['category_id']) {
         <?php if (!empty($product['pieces_per_box'])): ?>
         <div class="row"><span class="k">판매단위</span><span class="v"><?php echo (int)$product['pieces_per_box']; ?>개입</span></div>
         <?php endif; ?>
-        <div class="row"><span class="k">배송</span><span class="v">필리핀 메트로 마닐라 기준 익일배송(지역별 상이)</span></div>
+        <div class="row"><span class="k">배송</span><span class="v">필리핀 클락(Clark)·앙헬레스(Angeles) 일부 지역 익일배송(지역별 상이)</span></div>
         <!-- 원산지/보관방법/유통기한: products 테이블에 해당 컬럼이 없어 이번 범위에서는 표시하지 않음 -->
     </div>
 
@@ -211,7 +211,7 @@ if ($product['category_id']) {
         <svg><use href="#i-send"></use></svg>
         <div>
             <div class="title">오후 8시 이전 주문 시 익일 도착</div>
-            <div class="sub">메트로 마닐라 기준(지역별 상이)</div>
+            <div class="sub">클락·앙헬레스 일부 지역 기준(지역별 상이)</div>
         </div>
     </div>
 
