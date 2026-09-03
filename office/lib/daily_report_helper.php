@@ -142,13 +142,14 @@ function get_daily_purchase_summary(mysqli $conn, int $store_id, string $date): 
         $state = json_decode($state_row['state_json'], true) ?: [];
         $sections = $state['sections'] ?? [];
 
-        foreach ($sections['selling'] ?? [] as $item) {
+        // 스냅샷에 굳어있는 공급처명을 원본 테이블 기준 최신 이름으로 갱신
+        foreach (office_refresh_supplier_names($conn, $sections['selling'] ?? []) as $item) {
             $name = trim((string)($item['supplier'] ?? ''));
             if ($name === '') continue;
             $by_supplier[$name] ??= ['supplier' => $name, 'cash' => 0.0, 'check' => 0.0, 'transfer' => 0.0];
             $by_supplier[$name]['cash'] += (float)($item['amount'] ?? 0);
         }
-        foreach ($sections['check_sup'] ?? [] as $item) {
+        foreach (office_refresh_supplier_names($conn, $sections['check_sup'] ?? []) as $item) {
             $name = trim((string)($item['supplier'] ?? ''));
             if ($name === '') continue;
             $by_supplier[$name] ??= ['supplier' => $name, 'cash' => 0.0, 'check' => 0.0, 'transfer' => 0.0];
@@ -320,6 +321,33 @@ function get_daily_wholesale_summary(mysqli $conn, int $store_id, string $date):
         $out[$type][] = ['customer' => $label, 'amount' => (float)$row['amount']];
         $out['total'] += (float)$row['amount'];
     }
+
+    // 3) 어드민 도매판매(빠른등록/Add Sale)로 등록된 wholesale_sales
+    // daily_entry.php POS 셀에서 이미 선택(pick)된 건은 제외 —
+    // 그렇지 않으면 위 2)의 sales_pos_wholesale_pick(source_type='wholesale') 조회와 합쳐질 때 같은 건이 두 번 출력됨.
+    $stmt3 = $conn->prepare(
+        "SELECT wc.name AS customer_name, ws.final_amount
+         FROM wholesale_sales ws
+         LEFT JOIN wholesale_customers wc ON ws.customer_id = wc.id
+         WHERE ws.store_id=? AND ws.sale_date=? AND ws.status != 'cancelled'
+           AND NOT EXISTS (
+               SELECT 1 FROM sales_pos_wholesale_pick p
+               WHERE p.store_id=ws.store_id AND p.sale_date=ws.sale_date
+                 AND p.source_type='wholesale' AND p.source_id=ws.id
+           )
+         ORDER BY ws.id"
+    );
+    $stmt3->bind_param('is', $store_id, $date);
+    $stmt3->execute();
+    $rows3 = $stmt3->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt3->close();
+
+    foreach ($rows3 as $row) {
+        $label = trim((string)$row['customer_name']) !== '' ? $row['customer_name'] : 'WHOLE SALE';
+        $out['whole_sale'][] = ['customer' => $label, 'amount' => (float)$row['final_amount']];
+        $out['total'] += (float)$row['final_amount'];
+    }
+
     return $out;
 }
 
@@ -375,6 +403,78 @@ function get_daily_commission_summary(mysqli $conn, int $store_id, string $date)
     return $out;
 }
 
+// 수수료 코너 월간 집계 — get_daily_commission_summary()와 동일 소스(등록 업체 + pos_sales_data.NET SALES)를
+// 하루 단위 대신 지정 연월 전체로 합산한다 (office/product_purchase/monthly_closing.php "수수료 매장" 표).
+// commission_rate(업체별 고정 수수료율 %, ALTER로 추가된 컬럼)를 곱해 수수료 금액까지 함께 반환한다.
+function get_monthly_commission_summary(mysqli $conn, int $store_id, int $year, int $month): array {
+    $out = ['rows' => [], 'total' => 0.0, 'total_commission' => 0.0];
+
+    $rate_col = $conn->query("SHOW COLUMNS FROM daily_report_commission_companies LIKE 'commission_rate'");
+    $has_rate = $rate_col && $rate_col->num_rows > 0;
+
+    $stmt = $conn->prepare(
+        "SELECT id, supplier_name" . ($has_rate ? ', commission_rate' : '') . "
+         FROM daily_report_commission_companies WHERE store_id=? ORDER BY id ASC"
+    );
+    $stmt->bind_param('i', $store_id);
+    $stmt->execute();
+    $companies = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    if (empty($companies)) return $out;
+
+    // 일별 함수와 동일한 방식으로 저장 포맷을 감지한 뒤, 해당 월의 모든 날짜를 그 포맷 문자열로 변환해 매칭한다.
+    $sample = $conn->query(
+        "SELECT sale_date FROM pos_sales_data
+         WHERE upload_id IN (SELECT id FROM pos_sales_uploads WHERE store_id={$store_id}) LIMIT 1"
+    )->fetch_assoc();
+    $sample_date = $sample['sale_date'] ?? '';
+
+    $days = (int)date('t', mktime(0, 0, 0, $month, 1, $year));
+    $date_strs = [];
+    for ($d = 1; $d <= $days; $d++) {
+        $ymd         = sprintf('%04d-%02d-%02d', $year, $month, $d);
+        $date_strs[] = pos_sales_date_to_stored_format($sample_date, $ymd);
+    }
+
+    $names        = array_column($companies, 'supplier_name');
+    $name_ph      = implode(',', array_fill(0, count($names), '?'));
+    $date_ph      = implode(',', array_fill(0, count($date_strs), '?'));
+    $stmt2 = $conn->prepare(
+        "SELECT d.supplier, SUM(d.net_sales) AS total
+         FROM pos_sales_data d
+         WHERE d.upload_id IN (SELECT id FROM pos_sales_uploads WHERE store_id=?)
+           AND d.sale_date IN ({$date_ph})
+           AND d.supplier IN ({$name_ph})
+         GROUP BY d.supplier"
+    );
+    $types  = 'i' . str_repeat('s', count($date_strs)) . str_repeat('s', count($names));
+    $params = array_merge([$store_id], $date_strs, $names);
+    $stmt2->bind_param($types, ...$params);
+    $stmt2->execute();
+    $sales_by_supplier = [];
+    foreach ($stmt2->get_result()->fetch_all(MYSQLI_ASSOC) as $r) {
+        $sales_by_supplier[$r['supplier']] = (float)$r['total'];
+    }
+    $stmt2->close();
+
+    foreach ($companies as $c) {
+        $amount     = $sales_by_supplier[$c['supplier_name']] ?? 0.0;
+        $rate       = $has_rate ? (float)$c['commission_rate'] : 0.0;
+        $commission = $amount * $rate / 100;
+        $out['rows'][] = [
+            'id'             => (int)$c['id'],
+            'supplier_name'  => $c['supplier_name'],
+            'rate'           => $rate,
+            'amount'         => $amount,
+            'commission'     => $commission,
+        ];
+        $out['total']            += $amount;
+        $out['total_commission'] += $commission;
+    }
+    return $out;
+}
+
 // pos_sales_data.sale_date 저장 포맷 감지 규칙 — office/pos_data/report.php의
 // detect_date_format()과 유사하되, 월/일 자리수가 항상 zero-pad라고 가정하지 않고
 // 샘플에서 실제 관측된 자리수(1자리 vs 2자리)를 그대로 따라간다.
@@ -420,7 +520,8 @@ function get_daily_other_expense_categories(mysqli $conn, int $store_id, string 
             $sections['other_exp_check'] = [];
         }
         foreach (['not_selling', 'other_exp_check', 'other_exp_cash'] as $sec_key) {
-            foreach ($sections[$sec_key] ?? [] as $item) {
+            // 스냅샷에 굳어있는 공급처명을 원본 테이블 기준 최신 이름으로 갱신
+            foreach (office_refresh_supplier_names($conn, $sections[$sec_key] ?? []) as $item) {
                 $item_id = (string)($item['item_id'] ?? '');
                 if ($item_id === '') continue;
                 $source_items[$item_id] = [
@@ -501,4 +602,63 @@ function get_daily_other_expense_categories(mysqli $conn, int $store_id, string 
         'unplaced_count' => $unplaced_count,
         'total_placed'   => $total_placed,
     ];
+}
+
+// ── Fixed Expenses Report(office/cash_disbursement/fixed_expenses.php) 자동분류 — SSOT ──────
+// fixed_expenses.php 자신과 office/lib/monthly_closing_helper.php(Monthly Closing의 인건비/전기세/
+// 월세/사무실경비)가 이 함수를 통해서만 분류한다 — Daily Report의 수동 드래그앤드롭 분류
+// (daily_report_expense_category)는 쓰지 않아, 미분류 여부와 무관하게 항상 같은 숫자가 나온다.
+// 주의: office/sales/monthly_report.php의 STORE EXP는 의도적으로 이 함수를 쓰지 않고
+// get_daily_other_expense_categories()(Daily Report 수동분류) 기준을 그대로 유지한다.
+// 소스는 fixed_expenses.php와 동일하게 er_saved_state의 other_exp_check/other_exp_cash 섹션만 사용한다
+// (sales_pos_expense POS 고정지출은 포함하지 않음 — fixed_expenses.php도 포함하지 않음).
+function get_fixed_expense_categories(): array {
+    return [
+        'Electricity' => ['전기', 'electric', 'elec', 'meralco', 'power bill', 'power corp', 'power co.', 'assoc. fee', 'assoc fee', 'association fee', 'assoc dues', 'association dues'],
+        'Salary'      => ['월급', 'salary', 'salari', 'wage', '급여', 'pay', 'sss', 'pag-ibig', 'pag ibig', 'pagibig', 'philhealth', 'staffworks', 'manpower'],
+        'Internet'    => ['인터넷', 'internet', 'wifi', 'broadband', 'pldt', 'globe'],
+        'Rent'        => ['월세', 'rent', 'rental', '임대', 'lease'],
+        'Water'       => ['수도', 'water', 'maynilad'],
+        'Tax'         => ['bir', 'cdc', 'clark development'],
+        'Others'      => [],
+    ];
+}
+
+function classify_fixed_expense_details(string $details): string {
+    $categories = get_fixed_expense_categories();
+    $d = strtolower($details);
+    foreach ($categories as $cat => $kws) {
+        if ($cat === 'Others') continue;
+        foreach ($kws as $kw) {
+            if (str_contains($d, $kw)) return $cat;
+        }
+    }
+    return 'Others';
+}
+
+function get_daily_fixed_expense_totals(mysqli $conn, int $store_id, string $date): array {
+    $by_category = array_fill_keys(array_keys(get_fixed_expense_categories()), 0.0);
+    $total = 0.0;
+
+    $stmt = $conn->prepare("SELECT state_json FROM er_saved_state WHERE store_id=? AND save_date=?");
+    $stmt->bind_param('is', $store_id, $date);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($row) {
+        $state    = json_decode($row['state_json'], true) ?: [];
+        $sections = $state['sections'] ?? [];
+        foreach (['other_exp_check', 'other_exp_cash'] as $sec_key) {
+            foreach (office_refresh_supplier_names($conn, $sections[$sec_key] ?? []) as $item) {
+                $amt  = (float)($item['amount'] ?? 0);
+                $text = trim(($item['supplier'] ?? '') . ' ' . ($item['details'] ?? ''));
+                $cat  = classify_fixed_expense_details($text);
+                $by_category[$cat] += $amt;
+                $total += $amt;
+            }
+        }
+    }
+
+    return ['by_category' => $by_category, 'total' => $total];
 }

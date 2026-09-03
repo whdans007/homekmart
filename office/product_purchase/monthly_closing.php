@@ -3,6 +3,7 @@ $page_title      = '월마감 REPORT';
 $css_base        = '../../admin/';
 $office_nav_base = '../';
 require_once __DIR__ . '/../partials/header.php';
+require_once __DIR__ . '/../lib/monthly_closing_helper.php';
 
 $store_id = get_office_store_id();
 
@@ -15,197 +16,32 @@ $next_ts = mktime(0, 0, 0, $month + 1, 1, $year);
 $prev_y  = (int)date('Y', $prev_ts); $prev_m = (int)date('n', $prev_ts);
 $next_y  = (int)date('Y', $next_ts); $next_m = (int)date('n', $next_ts);
 
-$first    = sprintf('%04d-%02d-01', $year, $month);
-$last_day = date('Y-m-t', strtotime($first));
+$report = get_monthly_closing_report($store_id, $year, $month);
 
-$conn = get_db_connection();
-
-// ── 저장된 수동 입력값 로드 ───────────────────────────────────
-$korean_salary = 0.0;
-$monthly_rent  = 0.0;
-$conn->query("CREATE TABLE IF NOT EXISTS office_monthly_fixed (
-  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  store_id INT UNSIGNED NOT NULL, year SMALLINT UNSIGNED NOT NULL,
-  month TINYINT UNSIGNED NOT NULL, korean_salary DECIMAL(15,2) NOT NULL DEFAULT 0,
-  monthly_rent DECIMAL(15,2) NOT NULL DEFAULT 0,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uniq_store_month (store_id, year, month)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-$sf = $conn->prepare("SELECT korean_salary, monthly_rent FROM office_monthly_fixed WHERE store_id=? AND year=? AND month=?");
-$sf->bind_param('iii', $store_id, $year, $month); $sf->execute();
-$sf_row = $sf->get_result()->fetch_assoc(); $sf->close();
-$rent_saved = (bool)$sf_row;
-if ($sf_row) { $korean_salary = (float)$sf_row['korean_salary']; $monthly_rent = (float)$sf_row['monthly_rent']; }
-
-// ── 1. 총 물품구매액 ──────────────────────────────────────────
-$total_purchase = 0.0;
-
-$s = $conn->prepare(
-    "SELECT COALESCE(SUM(amount),0) FROM office_product_purchases
-     WHERE store_id=? AND payment_type='cash'
-       AND YEAR(payment_date)=? AND MONTH(payment_date)=?"
-);
-$s->bind_param('iii', $store_id, $year, $month); $s->execute();
-$total_purchase += (float)$s->get_result()->fetch_row()[0]; $s->close();
-
-$s = $conn->prepare(
-    "SELECT COALESCE(SUM(amount),0) FROM office_product_purchases
-     WHERE store_id=? AND payment_type='check'
-       AND YEAR(check_issued_date)=? AND MONTH(check_issued_date)=?"
-);
-$s->bind_param('iii', $store_id, $year, $month); $s->execute();
-$total_purchase += (float)$s->get_result()->fetch_row()[0]; $s->close();
-
-// ── 2. 타 지점으로 물품 이동 OUT ─────────────────────────────
-$total_tr_out = 0.0;
-$s = $conn->prepare(
-    "SELECT COALESCE(SUM(final_amount),0) FROM store_transfers
-     WHERE from_store_id=? AND status!='cancelled'
-       AND YEAR(transfer_date)=? AND MONTH(transfer_date)=?"
-);
-$s->bind_param('iii', $store_id, $year, $month); $s->execute();
-$total_tr_out = (float)$s->get_result()->fetch_row()[0]; $s->close();
-
-// ── 3. 타 지점으로부터 물품 이동 IN ──────────────────────────
-$total_tr_in = 0.0;
-$s = $conn->prepare(
-    "SELECT COALESCE(SUM(amount),0) FROM sales_transfers
-     WHERE store_id=? AND direction='in'
-       AND YEAR(transfer_date)=? AND MONTH(transfer_date)=?"
-);
-$s->bind_param('iii', $store_id, $year, $month); $s->execute();
-$total_tr_in = (float)$s->get_result()->fetch_row()[0]; $s->close();
-
-// ── 도매 판매 (Delivery K + Whole Sale) ──────────────────────
-$total_delivery_k = 0.0;
-$s = $conn->prepare(
-    "SELECT COALESCE(SUM(delivery_k),0) FROM sales_daily
-     WHERE store_id=? AND YEAR(sale_date)=? AND MONTH(sale_date)=?"
-);
-$s->bind_param('iii', $store_id, $year, $month); $s->execute();
-$total_delivery_k = (float)$s->get_result()->fetch_row()[0]; $s->close();
-
-$total_wholesale = 0.0;
-$s = $conn->prepare(
-    "SELECT COALESCE(SUM(final_amount),0) FROM wholesale_sales
-     WHERE store_id=? AND status!='cancelled'
-       AND YEAR(sale_date)=? AND MONTH(sale_date)=?"
-);
-$s->bind_param('iii', $store_id, $year, $month); $s->execute();
-$total_wholesale = (float)$s->get_result()->fetch_row()[0]; $s->close();
-
-$total_wholesale_sales = $total_delivery_k + $total_wholesale;
-
-// ── 5. 사무실 경비(부속품 일체) — office_equipment_purchases ──
-$total_equip = 0.0;
-$s = $conn->prepare(
-    "SELECT COALESCE(SUM(amount),0) FROM office_equipment_purchases
-     WHERE store_id=? AND YEAR(payment_date)=? AND MONTH(payment_date)=?"
-);
-$s->bind_param('iii', $store_id, $year, $month); $s->execute();
-$total_equip = (float)$s->get_result()->fetch_row()[0]; $s->close();
-
-// ── ER other_exp 섹션 수집 ────────────────────────────────────
-$salary_kws   = ['월급','salary','salari','wage','급여','인건비','labor','pay','sss','pag-ibig','pag ibig','pagibig','philhealth','staffworks','manpower'];
-$electric_kws = ['전기','electric','elec','meralco','power bill','power corp','power co.','assoc. fee','assoc fee','association fee','assoc dues','association dues'];
-$rent_kws     = ['월세','rent','rental','임대','lease'];
-
-$total_salary    = 0.0; // 현지 직원 인건비
-$total_electric  = 0.0; // 전기세
-$total_rent      = 0.0; // 월세 (ER 기준 자동 감지)
-$total_other_exp = 0.0; // ER other_exp 전체 합계
-
-$tbl = $conn->query("SHOW TABLES LIKE 'er_saved_state'");
-if ($tbl && $tbl->num_rows > 0) {
-    $er_q = $conn->prepare(
-        "SELECT save_date, state_json FROM er_saved_state
-         WHERE store_id=? AND save_date BETWEEN ? AND ?"
-    );
-    $er_q->bind_param('iss', $store_id, $first, $last_day);
-    $er_q->execute();
-
-    foreach ($er_q->get_result()->fetch_all(MYSQLI_ASSOC) as $er_row) {
-        $state = json_decode($er_row['state_json'], true);
-        if (!$state || !isset($state['sections'])) continue;
-
-        // 물품구매 r_ 보완 (selling + check_sup)
-        foreach (['selling', 'check_sup'] as $sec) {
-            foreach ($state['sections'][$sec] ?? [] as $row) {
-                if (strncmp((string)($row['item_id'] ?? ''), 'r_', 2) !== 0) continue;
-                $total_purchase += (float)($row['amount'] ?? 0);
-            }
-        }
-
-        // 사무실 경비 r_ 보완 (not_selling)
-        foreach ($state['sections']['not_selling'] ?? [] as $row) {
-            if (strncmp((string)($row['item_id'] ?? ''), 'r_', 2) !== 0) continue;
-            $total_equip += (float)($row['amount'] ?? 0);
-        }
-
-        // other_exp: r_ 아이템만 처리 (e_ 아이템은 DB 쿼리에서 이미 집계)
-        foreach (['other_exp_check', 'other_exp_cash', 'other_exp'] as $sec) {
-            foreach ($state['sections'][$sec] ?? [] as $row) {
-                if (strncmp((string)($row['item_id'] ?? ''), 'r_', 2) !== 0) continue;
-                $amt = (float)($row['amount'] ?? 0);
-                if ($amt <= 0) continue;
-                $total_other_exp += $amt;
-                $d = strtolower(trim(($row['supplier'] ?? '') . ' ' . ($row['details'] ?? '')));
-                if (array_filter($electric_kws, fn($kw) => str_contains($d, $kw))) {
-                    $total_electric += $amt;
-                } elseif (array_filter($salary_kws, fn($kw) => str_contains($d, $kw))) {
-                    $total_salary += $amt;
-                } elseif (array_filter($rent_kws, fn($kw) => str_contains($d, $kw))) {
-                    $total_rent += $amt;
-                }
-            }
-        }
-    }
-    $er_q->close();
-}
-
-$conn->close();
-
-// 저장된 월세 값이 없으면 ER 기준 자동 감지 금액을 기본값으로 사용
-if (!$rent_saved) { $monthly_rent = $total_rent; }
-
-// 사무실 경비 = STORE EXP 전체 - 현지 직원 인건비 - 전기세 - 월세 (세금은 사무실 경비에 포함)
-// STORE EXP = office_equipment_purchases(not_selling) + ER other_exp 전체
-$total_store_exp = $total_equip + $total_other_exp;
-$total_office    = $total_store_exp - $total_salary - $total_electric - $total_rent;
-
-// ── 항목 정의 ─────────────────────────────────────────────────
-$total_purchase_with_transfer = $total_purchase + $total_tr_in - $total_tr_out;
-
-$items = [
-    ['label' => '총 물품구매액 (매입 + IN - OUT)',      'amount' => $total_purchase_with_transfer, 'icon' => 'fa-boxes-stacked',           'color' => 'blue',   'input' => false],
-    ['label' => '타 지점으로 물품 이동 (OUT)',         'amount' => $total_tr_out,                'icon' => 'fa-arrow-right-from-bracket', 'color' => 'orange', 'input' => false],
-    ['label' => '타 지점으로부터 물품 이동 (IN)',      'amount' => $total_tr_in,                 'icon' => 'fa-arrow-right-to-bracket',  'color' => 'green',  'input' => false],
-    ['label' => '현지 직원 인건비',                   'amount' => $total_salary,                'icon' => 'fa-users',                   'color' => 'purple', 'input' => false],
-    ['label' => '사무실 경비 (부속품 일체)',            'amount' => $total_office,                'icon' => 'fa-screwdriver-wrench',      'color' => 'gray',   'input' => false],
-    ['label' => '전기세',                             'amount' => $total_electric,              'icon' => 'fa-bolt',                    'color' => 'yellow', 'input' => false],
-    ['label' => '한국 직원 급여',                      'amount' => $korean_salary,              'icon' => 'fa-user-tie',                'color' => 'indigo', 'input' => 'korean_salary'],
-    ['label' => '월세',                               'amount' => $monthly_rent,               'icon' => 'fa-building',                'color' => 'red',    'input' => 'monthly_rent'],
-    ['label' => '도매 판매 (Delivery K + Whole Sale)', 'amount' => $total_wholesale_sales,      'icon' => 'fa-truck-fast',              'color' => 'teal',   'input' => false],
-];
-$grand_total = array_sum(array_column($items, 'amount'));
-
-$color_map = [
-    'blue'   => ['bg' => 'bg-blue-50',   'text' => 'text-blue-700',   'icon' => 'text-blue-400'],
-    'orange' => ['bg' => 'bg-orange-50', 'text' => 'text-orange-700', 'icon' => 'text-orange-400'],
-    'green'  => ['bg' => 'bg-green-50',  'text' => 'text-green-700',  'icon' => 'text-green-400'],
-    'purple' => ['bg' => 'bg-purple-50', 'text' => 'text-purple-700', 'icon' => 'text-purple-400'],
-    'gray'   => ['bg' => 'bg-gray-50',   'text' => 'text-gray-700',   'icon' => 'text-gray-400'],
-    'yellow' => ['bg' => 'bg-yellow-50', 'text' => 'text-yellow-700', 'icon' => 'text-yellow-500'],
-    'red'    => ['bg' => 'bg-red-50',    'text' => 'text-red-700',    'icon' => 'text-red-400'],
-    'indigo' => ['bg' => 'bg-indigo-50', 'text' => 'text-indigo-700', 'icon' => 'text-indigo-400'],
-    'teal'   => ['bg' => 'bg-teal-50',   'text' => 'text-teal-700',   'icon' => 'text-teal-400'],
-];
+$korean_salary            = $report['korean_salary'];
+$monthly_rent             = $report['monthly_rent'];
+$items                    = $report['items'];
+$total_sales              = $report['total_sales'];
+$total_expense            = $report['total_expense'];
+$total_purchase_with_transfer = $report['total_purchase_with_transfer'];
+$total_wholesale_sales    = $report['total_wholesale_sales'];
+$total_retail_sales       = $report['total_retail_sales'];
+$commission_tbl_ready     = $report['commission_tbl_ready'];
+$commission_rows          = $report['commission_rows'];
+$commission_sales_total   = $report['commission_sales_total'];
+$commission_fee_total     = $report['commission_fee_total'];
+$commission_tax_total     = $report['commission_tax_total'];
+$commission_payout_total  = $report['commission_payout_total'];
 ?>
 
 <div class="flex items-center justify-between mb-4">
   <h2 class="text-xl font-bold text-gray-800">
     <i class="fa-solid fa-flag-checkered mr-2 text-gray-700"></i>월마감 REPORT
   </h2>
+  <a href="export_monthly_closing.php?year=<?php echo $year; ?>&month=<?php echo $month; ?>"
+     class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium">
+    <i class="fa-solid fa-file-excel mr-1"></i>엑셀 다운로드
+  </a>
 </div>
 
 <!-- 월 네비게이션 -->
@@ -221,26 +57,24 @@ $color_map = [
   </a>
 </div>
 
-<!-- 항목 리스트 -->
+<!-- 항목 리스트 (총 매출 / 지출 항목들 / 총 지출) -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden max-w-2xl mx-auto">
-  <?php foreach ($items as $i => $item):
-    $c = $color_map[$item['color']];
-  ?>
-  <div class="flex items-center gap-4 px-6 py-3 border-b border-gray-100 <?php echo $c['bg']; ?>">
-    <span class="text-sm font-semibold text-gray-400 w-5 text-right"><?php echo $i + 1; ?></span>
-    <span class="w-8 text-center <?php echo $c['icon']; ?>">
-      <i class="fa-solid <?php echo $item['icon']; ?>"></i>
-    </span>
-    <span class="flex-1 text-sm font-medium <?php echo $c['text']; ?>"><?php echo htmlspecialchars($item['label']); ?></span>
+  <!-- 총 매출 -->
+  <div class="flex items-center justify-between px-6 py-4 bg-blue-50 border-b border-gray-200">
+    <span class="text-base font-bold text-blue-800">총 매출</span>
+    <span class="font-mono font-bold text-blue-800 text-lg"><?php echo number_format($total_sales, 2); ?></span>
+  </div>
+
+  <?php foreach ($items as $item): ?>
+  <div class="flex items-center justify-between gap-4 px-6 py-3 border-b border-gray-100 bg-orange-50">
+    <span class="text-sm font-medium text-gray-700"><?php echo htmlspecialchars($item['label']); ?></span>
     <?php if ($item['input']): ?>
-    <div class="flex items-center gap-2">
-      <input type="number" step="0.01" min="0"
-             id="inp_<?php echo $item['input']; ?>"
-             value="<?php echo $item['amount'] > 0 ? $item['amount'] : ''; ?>"
-             placeholder="0.00"
-             class="w-36 text-right border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-mono focus:ring-2 focus:ring-blue-400"
-             onchange="markChanged()">
-    </div>
+    <input type="number" step="0.01" min="0"
+           id="inp_<?php echo $item['input']; ?>"
+           value="<?php echo $item['amount'] > 0 ? $item['amount'] : ''; ?>"
+           placeholder="0.00"
+           class="w-36 text-right border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-mono focus:ring-2 focus:ring-blue-400"
+           onchange="markChanged()">
     <?php else: ?>
     <span class="font-mono font-bold text-gray-800 text-base">
       <?php echo $item['amount'] > 0 ? number_format($item['amount'], 2) : '<span class="text-gray-300 font-normal text-sm">—</span>'; ?>
@@ -258,19 +92,106 @@ $color_map = [
     </button>
   </div>
 
-  <!-- 합계 -->
-  <div class="flex items-center gap-4 px-6 py-5 bg-gray-800">
-    <span class="w-5"></span>
-    <span class="w-8 text-center text-gray-300"><i class="fa-solid fa-sigma"></i></span>
-    <span class="flex-1 text-sm font-bold text-white">합계</span>
-    <span id="grand_total_display" class="font-mono font-bold text-white text-xl"><?php echo number_format($grand_total, 2); ?></span>
+  <!-- 총 지출 -->
+  <div class="flex items-center justify-between px-6 py-5 bg-yellow-300">
+    <span class="text-base font-bold text-gray-800">총 지출</span>
+    <span id="grand_total_display" class="font-mono font-bold text-gray-900 text-xl"><?php echo number_format($total_expense, 2); ?></span>
+  </div>
+</div>
+
+<!-- 수수료 매장 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden max-w-3xl mx-auto mt-8">
+  <div class="px-6 py-3 bg-gray-50 border-b border-gray-200">
+    <h3 class="text-sm font-bold text-gray-700"><i class="fa-solid fa-store mr-2 text-gray-500"></i>수수료 매장</h3>
+  </div>
+  <?php if (!$commission_tbl_ready): ?>
+  <div class="px-6 py-4 text-xs text-amber-800 bg-amber-50">
+    <i class="fa-solid fa-triangle-exclamation mr-1"></i>수수료 코너 테이블이 아직 없습니다. Daily Report 화면에서 먼저 마이그레이션을 실행하세요.
+  </div>
+  <?php elseif (empty($commission_rows)): ?>
+  <div class="px-6 py-6 text-sm text-gray-400 text-center">
+    등록된 수수료 매장이 없습니다. <a href="../daily_report/index.php" class="text-blue-600 hover:underline">Daily Report</a> 화면에서 업체를 등록하세요.
+  </div>
+  <?php else: ?>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="bg-gray-50 text-gray-500 text-xs">
+        <th class="px-4 py-2 text-left">상호명</th>
+        <th class="px-3 py-2 text-right w-20">%</th>
+        <th class="px-4 py-2 text-right">총매출</th>
+        <th class="px-4 py-2 text-right">수수료</th>
+        <th class="px-3 py-2 text-right w-28">세금(12%)</th>
+        <th class="px-4 py-2 text-right">지급액</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php foreach ($commission_rows as $crow): ?>
+      <tr class="commission-row border-t border-gray-100" data-id="<?php echo $crow['id']; ?>" data-amount="<?php echo $crow['amount']; ?>">
+        <td class="px-4 py-2 text-gray-700"><?php echo htmlspecialchars($crow['supplier_name']); ?></td>
+        <td class="px-3 py-2 text-right">
+          <input type="number" step="0.1" min="0" max="100" id="crate_<?php echo $crow['id']; ?>"
+                 value="<?php echo $crow['rate'] > 0 ? $crow['rate'] : ''; ?>" placeholder="0.0"
+                 class="w-16 text-right border border-gray-300 rounded px-1.5 py-1 text-xs font-mono"
+                 onchange="saveCommissionRate(<?php echo $crow['id']; ?>, <?php echo $crow['amount']; ?>)">
+        </td>
+        <td class="px-4 py-2 text-right font-mono text-gray-800"><?php echo number_format($crow['amount'], 2); ?></td>
+        <td class="px-4 py-2 text-right font-mono text-gray-600" id="ccommission_<?php echo $crow['id']; ?>"><?php echo number_format($crow['commission'], 2); ?></td>
+        <td class="px-3 py-2 text-right">
+          <input type="number" step="0.01" min="0" id="ctax_<?php echo $crow['id']; ?>"
+                 value="<?php echo $crow['tax'] > 0 ? $crow['tax'] : ''; ?>" placeholder="0.00"
+                 class="w-20 text-right border border-gray-300 rounded px-1.5 py-1 text-xs font-mono"
+                 onchange="saveCommissionTax(<?php echo $crow['id']; ?>, <?php echo $crow['amount']; ?>)">
+        </td>
+        <td class="px-4 py-2 text-right font-mono font-bold text-gray-800" id="cpayout_<?php echo $crow['id']; ?>"><?php echo number_format($crow['payout'], 2); ?></td>
+      </tr>
+      <?php endforeach; ?>
+    </tbody>
+    <tfoot>
+      <tr class="border-t-2 border-gray-200 bg-orange-50 font-bold text-sm">
+        <td class="px-4 py-2" colspan="2">합계</td>
+        <td class="px-4 py-2 text-right font-mono" id="commission_sales_total"><?php echo number_format($commission_sales_total, 2); ?></td>
+        <td class="px-4 py-2 text-right font-mono" id="commission_fee_total"><?php echo number_format($commission_fee_total, 2); ?></td>
+        <td class="px-3 py-2 text-right font-mono text-gray-400" id="commission_tax_total"><?php echo $commission_tax_total > 0 ? number_format($commission_tax_total, 2) : '-'; ?></td>
+        <td class="px-4 py-2 text-right font-mono text-red-600" id="commission_payout_total"><?php echo number_format($commission_payout_total, 2); ?></td>
+      </tr>
+    </tfoot>
+  </table>
+  </div>
+  <p class="px-4 py-2 text-[11px] text-gray-400 border-t border-gray-100">
+    %(수수료율)는 업체 등록 시 고정되는 값입니다. 업체 추가/삭제는 <a href="../daily_report/index.php" class="text-blue-500 hover:underline">Daily Report</a> 화면에서 관리하세요.
+  </p>
+  <?php endif; ?>
+</div>
+
+<!-- 요약 -->
+<div class="max-w-2xl mx-auto mt-8 border border-gray-300 rounded-xl overflow-hidden">
+  <div class="grid grid-cols-2 text-sm">
+    <div class="px-4 py-2.5 font-bold text-gray-700 border-b border-r border-gray-300 bg-gray-50">총 매출</div>
+    <div class="px-4 py-2.5 text-right font-mono font-bold border-b border-gray-300"><?php echo number_format($total_sales, 2); ?></div>
+
+    <div class="px-4 py-2.5 text-gray-600 border-b border-r border-gray-300 bg-gray-50">수수료매장 매출</div>
+    <div class="px-4 py-2.5 text-right font-mono border-b border-gray-300" id="summary_commission_sales"><?php echo number_format($commission_sales_total, 2); ?></div>
+
+    <div class="px-4 py-2.5 text-gray-600 border-b border-r border-gray-300 bg-gray-50">총 도매 + DELIVERY K 매출</div>
+    <div class="px-4 py-2.5 text-right font-mono border-b border-gray-300"><?php echo number_format($total_wholesale_sales, 2); ?></div>
+
+    <div class="px-4 py-2.5 text-gray-600 border-b border-r border-gray-300 bg-gray-50">총 소매매출</div>
+    <div class="px-4 py-2.5 text-right font-mono border-b border-gray-300"><?php echo number_format($total_retail_sales, 2); ?></div>
+
+    <div class="px-4 py-2.5 text-gray-600 border-r border-gray-300 bg-gray-50">총 구매지출</div>
+    <div class="px-4 py-2.5 text-right font-mono"><?php echo number_format($total_purchase_with_transfer, 2); ?></div>
   </div>
 </div>
 
 <script>
 const YEAR  = <?php echo $year; ?>;
 const MONTH = <?php echo $month; ?>;
-const AUTO_TOTAL = <?php echo $grand_total - $korean_salary - $monthly_rent; ?>; // 자동 계산 항목 합계
+const AUTO_TOTAL = <?php echo $total_expense - $korean_salary - $monthly_rent; ?>; // 자동 계산 항목 합계
+
+function fmt2(n) {
+    return n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
 
 function markChanged() {
     document.getElementById('btn_save').disabled = false;
@@ -283,8 +204,7 @@ function updateGrandTotal() {
     const ks = parseFloat(document.getElementById('inp_korean_salary').value) || 0;
     const mr = parseFloat(document.getElementById('inp_monthly_rent').value)  || 0;
     const total = AUTO_TOTAL + ks + mr;
-    document.getElementById('grand_total_display').textContent =
-        total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('grand_total_display').textContent = fmt2(total);
 }
 
 async function saveFixed() {
@@ -309,6 +229,57 @@ async function saveFixed() {
         document.getElementById('save_status').className = 'text-xs text-red-500';
         btn.disabled = false;
     }
+}
+
+// ── 수수료 매장 표 — 실시간 재계산 + 개별 셀 자동 저장 ──────────
+function recalcCommissionRow(id, amount) {
+    const rate = parseFloat(document.getElementById('crate_' + id).value) || 0;
+    const tax  = parseFloat(document.getElementById('ctax_'  + id).value) || 0;
+    const commission = amount * rate / 100;
+    const payout     = amount - commission - tax;
+    document.getElementById('ccommission_' + id).textContent = fmt2(commission);
+    document.getElementById('cpayout_'     + id).textContent = fmt2(payout);
+    recalcCommissionTotals();
+}
+
+function recalcCommissionTotals() {
+    let salesT = 0, feeT = 0, taxT = 0, payoutT = 0;
+    document.querySelectorAll('.commission-row').forEach(function (row) {
+        const id     = row.dataset.id;
+        const amount = parseFloat(row.dataset.amount) || 0;
+        const rate   = parseFloat(document.getElementById('crate_' + id).value) || 0;
+        const tax    = parseFloat(document.getElementById('ctax_'  + id).value) || 0;
+        const fee    = amount * rate / 100;
+        salesT  += amount;
+        feeT    += fee;
+        taxT    += tax;
+        payoutT += amount - fee - tax;
+    });
+    document.getElementById('commission_sales_total').textContent  = fmt2(salesT);
+    document.getElementById('commission_fee_total').textContent    = fmt2(feeT);
+    document.getElementById('commission_tax_total').textContent    = taxT > 0 ? fmt2(taxT) : '-';
+    document.getElementById('commission_payout_total').textContent = fmt2(payoutT);
+    const summaryEl = document.getElementById('summary_commission_sales');
+    if (summaryEl) summaryEl.textContent = fmt2(salesT);
+}
+
+async function saveCommissionField(url, payload, id, amount) {
+    recalcCommissionRow(id, amount);
+    const fd = new FormData();
+    for (const k in payload) fd.append(k, payload[k]);
+    const res  = await fetch(url, {method: 'POST', body: fd});
+    const data = await res.json();
+    if (!data.success) alert('저장 실패: ' + (data.error || ''));
+}
+
+function saveCommissionRate(id, amount) {
+    const rate = parseFloat(document.getElementById('crate_' + id).value) || 0;
+    saveCommissionField('ajax_save_commission_rate.php', {id: id, rate: rate}, id, amount);
+}
+
+function saveCommissionTax(id, amount) {
+    const tax = parseFloat(document.getElementById('ctax_' + id).value) || 0;
+    saveCommissionField('ajax_save_commission_tax.php', {year: YEAR, month: MONTH, company_id: id, tax_amount: tax}, id, amount);
 }
 </script>
 

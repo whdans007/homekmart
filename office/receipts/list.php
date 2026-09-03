@@ -69,6 +69,11 @@ $cnt_stmt->bind_param('i', $store_id);
 $cnt_stmt->execute();
 $total_unused = (int)$cnt_stmt->get_result()->fetch_assoc()['cnt'];
 $cnt_stmt->close();
+
+// 공급처 인라인 수정용 목록 (Plan: 목록에서 바로 Supplier 교정)
+$sup_res   = $conn->query("SELECT name FROM suppliers ORDER BY name");
+$suppliers = $sup_res ? $sup_res->fetch_all(MYSQLI_ASSOC) : [];
+
 $conn->close();
 
 $month_total = array_sum(array_column($rows, 'amount'));
@@ -114,6 +119,18 @@ $unused_this_month = count(array_filter($rows, fn($r) =>
     </a>
     <?php endif; ?>
   </div>
+
+  <!-- 이전 달로 이동 -->
+  <?php
+    $prev_month = $month - 1;
+    $prev_year  = $year;
+    if ($prev_month < 1) { $prev_month = 12; $prev_year--; }
+  ?>
+  <a href="list.php?year=<?php echo $prev_year; ?>&month=<?php echo $prev_month; ?>&status=<?php echo urlencode($status); ?>"
+     class="border border-gray-300 rounded-lg px-2.5 py-2 text-sm text-gray-500 hover:bg-gray-50 hover:text-indigo-600 <?php echo $search ? 'opacity-40 pointer-events-none' : ''; ?>"
+     title="전월로 이동">
+    <i class="fa-solid fa-angles-left"></i>
+  </a>
 
   <!-- 월 선택 (검색 중이면 흐리게) -->
   <select name="month" id="month_sel"
@@ -210,7 +227,19 @@ $unused_this_month = count(array_filter($rows, fn($r) =>
     ?>
       <tr class="hover:bg-gray-50 transition-colors <?php echo !$is_used ? 'bg-amber-50/30' : ''; ?>">
         <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap"><?php echo htmlspecialchars($r['receipt_date']); ?></td>
-        <td class="px-4 py-3 text-sm font-medium text-gray-800"><?php echo htmlspecialchars($r['supplier_name']); ?></td>
+        <td class="px-4 py-3 text-sm font-medium text-gray-800 pos-supplier-cell" data-id="<?php echo $r['id']; ?>">
+          <div class="flex items-center gap-1.5">
+            <span class="pos-supplier-text"><?php echo htmlspecialchars($r['supplier_name']); ?></span>
+            <!-- ER/CER/CD 처리 여부와 무관하게 항상 수정 가능 — 세 흐름 모두 supplier_name을
+                 office_receipts/office_product_purchases/office_equipment_purchases에서 매번
+                 새로 조회(live)하며 별도 스냅샷을 저장하지 않으므로, 원본 테이블만 갱신하면 됨.
+                 opacity-0/group-hover:opacity-100 조합은 이 프로젝트의 컴파일된 style.css에
+                 포함되어 있지 않아 동작하지 않으므로(항상 숨김/무효과), hover 의존 없이 항상 노출 -->
+            <button type="button" class="supplier-edit-btn text-gray-400 hover:text-indigo-600" title="공급처 수정">
+              <i class="fa-solid fa-pen text-xs"></i>
+            </button>
+          </div>
+        </td>
         <td class="px-4 py-3 text-sm text-gray-500 max-w-xs break-words whitespace-normal"><?php echo htmlspecialchars($r['description'] ?? ''); ?></td>
         <td class="px-4 py-3 text-sm text-gray-600 font-mono break-all w-32 min-w-[8rem] max-w-[8rem] whitespace-normal line-clamp-2" title="<?php echo $r['cv_no'] ? htmlspecialchars($r['cv_no']) : ''; ?>"><?php echo $r['cv_no'] ? htmlspecialchars($r['cv_no']) : '<span class="text-gray-300">—</span>'; ?></td>
         <td class="px-4 py-3 text-sm font-medium text-gray-800 text-right whitespace-nowrap"><?php echo format_amount((float)$r['amount']); ?></td>
@@ -370,6 +399,103 @@ function closePreview() {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closePreview();
 });
+
+// ── 공급처(Supplier) 인라인 수정 ──
+const SUPPLIERS = <?php echo json_encode(array_column($suppliers, 'name'), JSON_UNESCAPED_UNICODE); ?>;
+
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function supplierDisplayHtml(name) {
+    return '<div class="flex items-center gap-1.5">' +
+        '<span class="pos-supplier-text">' + escapeHtml(name) + '</span>' +
+        '<button type="button" class="supplier-edit-btn text-gray-400 hover:text-indigo-600" title="공급처 수정">' +
+        '<i class="fa-solid fa-pen text-xs"></i></button></div>';
+}
+
+function bindSupplierEditBtn(cell) {
+    const btn = cell.querySelector('.supplier-edit-btn');
+    if (btn) btn.addEventListener('click', () => startSupplierEdit(cell));
+}
+
+function renderSupplierDisplay(cell, name) {
+    cell.innerHTML = supplierDisplayHtml(name);
+    bindSupplierEditBtn(cell);
+}
+
+function startSupplierEdit(cell) {
+    if (cell.querySelector('.supplier-edit-input')) return;
+    const id      = cell.dataset.id;
+    const current = cell.querySelector('.pos-supplier-text').textContent;
+    const list    = SUPPLIERS.includes(current) ? SUPPLIERS : [current, ...SUPPLIERS];
+
+    cell.innerHTML =
+        '<div class="relative" style="min-width:160px">' +
+        '<input type="text" class="supplier-edit-input w-full border border-indigo-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-400" autocomplete="off">' +
+        '<div class="supplier-edit-dropdown hidden absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto"></div>' +
+        '</div>';
+    const input    = cell.querySelector('.supplier-edit-input');
+    const dropdown = cell.querySelector('.supplier-edit-dropdown');
+    input.value = current;
+
+    function renderDropdown(filter) {
+        const q = filter.trim().toLowerCase();
+        const matches = list.filter(s => s.toLowerCase().includes(q));
+        if (!matches.length) { dropdown.classList.add('hidden'); dropdown.innerHTML = ''; return; }
+        dropdown.innerHTML = matches.map(s =>
+            '<div class="px-2 py-1.5 text-sm hover:bg-indigo-50 cursor-pointer" data-name="' + escapeHtml(s) + '">' + escapeHtml(s) + '</div>'
+        ).join('');
+        dropdown.classList.remove('hidden');
+    }
+
+    async function save(name) {
+        if (!name || name === current) { renderSupplierDisplay(cell, current); return; }
+        input.disabled = true;
+        try {
+            const res = await fetch('ajax_update_supplier.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'id=' + encodeURIComponent(id) + '&supplier_name=' + encodeURIComponent(name)
+            });
+            const data = await res.json();
+            if (data.success) {
+                renderSupplierDisplay(cell, data.supplier_name);
+            } else {
+                alert(data.error || '수정에 실패했습니다.');
+                renderSupplierDisplay(cell, current);
+            }
+        } catch (e) {
+            alert('수정 중 오류가 발생했습니다.');
+            renderSupplierDisplay(cell, current);
+        }
+    }
+
+    input.addEventListener('focus', () => renderDropdown(input.value));
+    input.addEventListener('input', () => renderDropdown(input.value));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { renderSupplierDisplay(cell, current); }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const exact = list.find(s => s.toLowerCase() === input.value.trim().toLowerCase());
+            if (exact) save(exact);
+        }
+    });
+    dropdown.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const opt = e.target.closest('[data-name]');
+        if (opt) save(opt.dataset.name);
+    });
+    input.addEventListener('blur', () => {
+        setTimeout(() => { if (cell.querySelector('.supplier-edit-input')) renderSupplierDisplay(cell, current); }, 150);
+    });
+
+    input.focus();
+    input.select();
+    renderDropdown(current);
+}
+
+document.querySelectorAll('.pos-supplier-cell').forEach(bindSupplierEditBtn);
 </script>
 
 <?php require_once __DIR__ . '/../partials/footer.php'; ?>

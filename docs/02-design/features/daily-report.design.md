@@ -156,7 +156,8 @@ CREATE TABLE IF NOT EXISTS daily_report_expense_category (
 | `office_product_purchases` | 매입 현금/체크 | store_id, supplier_name, payment_type, amount, payment_date, check_issued_date |
 | `credit_transactions` | 외상판매 | store_id, customer_id→`credit_customers.name`, transaction_date, final_amount |
 | `credit_payments` | 외상수금 | store_id, customer_id, payment_date, amount |
-| `sales_daily_items` | 도매판매/Delivery K | store_id, sale_date, item_type('delivery_k','whole_sale'), description, amount |
+| `sales_daily_items` | 도매판매/Delivery K (레거시 수동입력) | store_id, sale_date, item_type('delivery_k','whole_sale'), description, amount |
+| `wholesale_sales` | 도매판매 (Admin 빠른등록/Add Sale로 등록된 어드민 관리 도매판매. `sales_pos_wholesale_pick`에 이미 pick된 건은 제외해 중복집계 방지) | store_id, customer_id→`wholesale_customers.name`, sale_date, final_amount, status(≠'cancelled') |
 | `er_saved_state` | 기타지출 소스 항목(이미 expense_report에서 배치된 CASH NOT SELLING + OTHER EXP CHECK/CASH 행. CASH SELLING/PAY THRU CHECK는 제외 — 매입은 office_product_purchases로 별도 자동집계) | store_id, save_date, state_json |
 
 ### 3.3 Entity Relationships
@@ -339,7 +340,7 @@ Report 메뉴 → Daily Report 진입 (오늘 날짜 기본)
 | 2 | `get_daily_credit_breakdown()` | 'BDO' 라벨 포함 항목 1건 이상 있는 날짜로 호출 | BDO 버킷에 정확히 집계, 나머지는 OTHERS |
 | 3 | `get_daily_purchase_summary()` | `office_product_purchases`에 현금+체크 혼재 날짜 | 거래처별 현금/체크/합계 정확 |
 | 4 | `get_daily_ar_summary()` | `credit_transactions`+`credit_payments` 혼재 날짜 | 외상판매/외상수금 분리 정확 |
-| 5 | `get_daily_wholesale_summary()` | `sales_daily_items`에 delivery_k, whole_sale 혼재 | 도매판매 표에 거래처명+금액 정확 |
+| 5 | `get_daily_wholesale_summary()` | `sales_daily_items`에 delivery_k, whole_sale 혼재 + `wholesale_sales`에 Admin 빠른등록 건 포함 | 도매판매 표에 거래처명+금액 정확 (세 소스 합산, cancelled 제외) |
 | 6 | 기타지출 배치 | 항목 드래그 → 새로고침 | 배치 상태 유지, 미분류 카운트 갱신 |
 
 ### 8.3 UI 동작 검증

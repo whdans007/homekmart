@@ -292,7 +292,14 @@ if ($tbl_check && $tbl_check->num_rows > 0) {
         $sv_row = $sv->get_result()->fetch_assoc();
         if ($sv_row) {
             $decoded = json_decode($sv_row['state_json'], true);
-            if ($decoded) $saved_state = array_merge($decoded, ['saved_at'=>$sv_row['saved_at']]);
+            if ($decoded) {
+                if (isset($decoded['sections']) && is_array($decoded['sections'])) {
+                    foreach ($decoded['sections'] as $sec_name => $sec_rows) {
+                        if (is_array($sec_rows)) $decoded['sections'][$sec_name] = office_refresh_supplier_names($conn, $sec_rows);
+                    }
+                }
+                $saved_state = array_merge($decoded, ['saved_at'=>$sv_row['saved_at']]);
+            }
         }
         $sv->close();
     }

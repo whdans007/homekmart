@@ -407,16 +407,28 @@ function get_saved_report_state(string $table, int $store_id, string $date): ?ar
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    $conn->close();
 
     if (!$row) {
+        $conn->close();
         return null;
     }
 
     $decoded = json_decode($row['state_json'], true);
     if (!is_array($decoded)) {
+        $conn->close();
         return null;
     }
+
+    // 스냅샷에 굳어있는 공급처명을 원본 테이블 기준 최신 이름으로 갱신
+    // (export_er/export_cd/export_cer/print_er/print_cd/print_cer 공통 조회 지점)
+    if (isset($decoded['sections']) && is_array($decoded['sections'])) {
+        foreach ($decoded['sections'] as $sec_name => $sec_rows) {
+            if (is_array($sec_rows)) {
+                $decoded['sections'][$sec_name] = office_refresh_supplier_names($conn, $sec_rows);
+            }
+        }
+    }
+    $conn->close();
 
     $decoded['saved_at'] = $row['saved_at'];
     return $decoded;
@@ -475,6 +487,48 @@ function link_receipt(int $receipt_id, string $type, int $purchase_id): void {
     $stmt->execute();
     $stmt->close();
     $conn->close();
+}
+
+// ER/CER/CD 저장 상태(JSON 스냅샷)의 row들에는 저장 시점의 supplier 텍스트가 굳어있어
+// 이후 receipts/list.php 등에서 공급처명을 고쳐도 반영되지 않는다.
+// item_id(p_/pc_/e_/r_ 접두사)로 원본 테이블에서 현재 supplier_name을 다시 조회해 덮어쓴다.
+// 원본 레코드가 삭제된 경우 등은 스냅샷 값을 그대로 유지(fallback).
+function office_refresh_supplier_names(mysqli $conn, array $rows): array {
+    $ids = ['office_product_purchases' => [], 'office_equipment_purchases' => [], 'office_receipts' => []];
+    foreach ($rows as $row) {
+        $bid = (string)($row['item_id'] ?? '');
+        if (strncmp($bid, 'pc_', 3) === 0)      { $n = (int)substr($bid, 3); if ($n > 0) $ids['office_product_purchases'][] = $n; }
+        elseif (strncmp($bid, 'p_', 2) === 0)   { $n = (int)substr($bid, 2); if ($n > 0) $ids['office_product_purchases'][] = $n; }
+        elseif (strncmp($bid, 'e_', 2) === 0)   { $n = (int)substr($bid, 2); if ($n > 0) $ids['office_equipment_purchases'][] = $n; }
+        elseif (strncmp($bid, 'r_', 2) === 0)   { $n = (int)substr($bid, 2); if ($n > 0) $ids['office_receipts'][] = $n; }
+    }
+
+    $live = [];
+    foreach ($ids as $tbl => $tbl_ids) {
+        $tbl_ids = array_values(array_unique($tbl_ids));
+        if (!$tbl_ids) continue;
+        $ph   = implode(',', array_fill(0, count($tbl_ids), '?'));
+        $stmt = $conn->prepare("SELECT id, supplier_name FROM {$tbl} WHERE id IN ({$ph})");
+        $stmt->bind_param(str_repeat('i', count($tbl_ids)), ...$tbl_ids);
+        $stmt->execute();
+        foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $r) {
+            $live[$tbl][(int)$r['id']] = $r['supplier_name'];
+        }
+        $stmt->close();
+    }
+
+    foreach ($rows as &$row) {
+        $bid = (string)($row['item_id'] ?? '');
+        $tbl = null; $n = 0;
+        if (strncmp($bid, 'pc_', 3) === 0)      { $tbl = 'office_product_purchases';   $n = (int)substr($bid, 3); }
+        elseif (strncmp($bid, 'p_', 2) === 0)   { $tbl = 'office_product_purchases';   $n = (int)substr($bid, 2); }
+        elseif (strncmp($bid, 'e_', 2) === 0)   { $tbl = 'office_equipment_purchases'; $n = (int)substr($bid, 2); }
+        elseif (strncmp($bid, 'r_', 2) === 0)   { $tbl = 'office_receipts';            $n = (int)substr($bid, 2); }
+        if ($tbl && isset($live[$tbl][$n])) $row['supplier'] = $live[$tbl][$n];
+    }
+    unset($row);
+
+    return $rows;
 }
 
 // Plan SC10 — Unlink receipt when deleting expense

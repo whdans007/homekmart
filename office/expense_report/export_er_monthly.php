@@ -39,6 +39,10 @@ if ($tbl && $tbl->num_rows > 0) {
                     $sec['other_exp_check'] = [];
                     unset($sec['other_exp']);
                 }
+                // 스냅샷에 굳어있는 공급처명을 원본 테이블 기준 최신 이름으로 갱신
+                foreach ($sec as $sec_name => $sec_rows) {
+                    $sec[$sec_name] = office_refresh_supplier_names($conn, $sec_rows);
+                }
                 $saved_states[$r['save_date']] = $sec;
             }
         }
