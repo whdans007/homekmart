@@ -30,8 +30,17 @@ if (!empty($orders)) {
 }
 $conn->close();
 
-$status_labels = ['pending' => '접수대기', 'confirmed' => '확인됨', 'preparing' => '준비중', 'ready' => '준비완료', 'completed' => '완료', 'cancelled' => '취소'];
-$status_stage = ['pending' => 1, 'confirmed' => 2, 'preparing' => 2, 'ready' => 3, 'completed' => 4]; // cancelled은 트래커 없음
+$status_labels = [
+    'pending' => '접수대기', 'confirmed' => '확인됨', 'preparing' => '상품준비중', 'ready' => '준비완료',
+    'assigned' => '배정됨', 'delivering' => '배송중', 'arrived' => '도착', 'completed' => '완료',
+    'cancelled' => '취소', 'delivery_failed' => '배송실패',
+];
+// cancelled/delivery_failed은 트래커 없음. 배정/배송중/도착은 모두 "배송중" 단계로 묶어서 표시한다
+// (mypage 트래커는 간단히 5단계까지만 — 세부 배송 상태는 order_detail.php에서 확인).
+$status_stage = [
+    'pending' => 1, 'confirmed' => 2, 'preparing' => 2, 'ready' => 3,
+    'assigned' => 4, 'delivering' => 4, 'arrived' => 4, 'completed' => 5,
+];
 
 $mall_redesigned = true;
 $mall_show_back = true;
@@ -71,7 +80,7 @@ require_once __DIR__ . '/../partials/header.php';
 
         <?php if ($__stage): ?>
         <div class="order-tracker">
-            <?php foreach (['접수' => 1, '준비중' => 2, '준비완료' => 3, '완료' => 4] as $label => $stage): ?>
+            <?php foreach (['접수' => 1, '상품준비중' => 2, '준비완료' => 3, '배송중' => 4, '완료' => 5] as $label => $stage): ?>
                 <div class="step <?php echo $__stage >= $stage ? 'active' : ''; ?>">
                     <div class="dot"><?php echo $__stage >= $stage ? '<svg style="width:12px;height:12px;"><use href="#i-check"></use></svg>' : $stage; ?></div>
                     <div class="label"><?php echo $label; ?></div>

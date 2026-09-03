@@ -49,7 +49,7 @@ require_once __DIR__ . '/partials/header.php';
             <div style="font:var(--t-label2) var(--font-sans);color:var(--label-normal);">
                 <div style="font-weight:700;"><?php echo htmlspecialchars($default_address['recipient_name']); ?> · <?php echo htmlspecialchars($default_address['phone']); ?></div>
                 <div style="color:var(--label-alternative);margin-top:2px;">
-                    <?php echo htmlspecialchars(trim(implode(' ', array_filter([$default_address['region'], $default_address['city'], $default_address['barangay'], $default_address['detail_address']])))); ?><br>
+                    <?php echo htmlspecialchars(trim(implode(' ', array_filter([$default_address['detail_address'], $default_address['barangay'], $default_address['city'], $default_address['region']])))); ?><br>
                     랜드마크: <?php echo htmlspecialchars($default_address['landmark']); ?>
                 </div>
             </div>

@@ -7,6 +7,7 @@
  */
 require_once __DIR__ . '/lib/catalog.php';
 require_once __DIR__ . '/lib/cart.php';
+require_once __DIR__ . '/lib/home_layout.php';
 
 $mall_redesigned = true;
 $mall_hide_topbar = true;
@@ -70,7 +71,10 @@ $__cart_qty_map = mall_cart_get_quantities_by_product($__member_id, $__guest_tok
 ?>
 
 <div class="promo-hero">
-    <a href="javascript:history.back()" class="icon-btn back-btn"><svg><use href="#i-chev-left"></use></svg></a>
+    <div class="top-row">
+        <a href="javascript:history.back()" class="icon-btn back-btn"><svg><use href="#i-chev-left"></use></svg></a>
+        <a href="/mall/index.php"><img class="logo-mark" src="/logo/homekmart_logo.png" alt="HOME K MART"></a>
+    </div>
     <div class="inner">
         <span class="eyebrow">기획전</span>
         <div class="title"><?php echo $hero_title !== '' ? nl2br(htmlspecialchars($hero_title)) : '이번 주<br>기획전'; ?></div>

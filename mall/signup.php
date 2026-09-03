@@ -20,16 +20,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['google_pending'] ?? '') ==
     $member_type = in_array($_POST['member_type'] ?? '', ['retail', 'wholesale'], true) ? $_POST['member_type'] : 'retail';
     $business_name = trim($_POST['business_name'] ?? '');
     $business_reg_no = trim($_POST['business_reg_no'] ?? '');
+    $english_name = trim($_POST['english_name'] ?? '');
     $google = $_SESSION['mall_pending_google'] ?? null;
 
     if (!$google) {
         $error_message = '구글 인증 정보가 만료되었습니다. 다시 시도해주세요.';
+    } elseif ($english_name === '') {
+        $error_message = '영문 이름을 입력해주세요.';
+        $google_pending = $google;
     } elseif ($member_type === 'wholesale' && $business_name === '') {
         $error_message = '사업자 회원은 상호명을 입력해야 합니다.';
         $google_pending = $google;
     } else {
         $guest_token_before_login = mall_guest_token();
-        $result = mall_google_signup($google, $member_type, $business_name, $business_reg_no);
+        $result = mall_google_signup($google, $member_type, $business_name, $business_reg_no, $english_name);
         if ($result['success']) {
             unset($_SESSION['mall_pending_google']);
             mall_cart_merge_guest_into_member($result['member']['id'], $guest_token_before_login);
@@ -47,12 +51,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['google_pending'] ?? '') ==
     $password = $_POST['password'] ?? '';
     $password_confirm = $_POST['password_confirm'] ?? '';
     $name = trim($_POST['name'] ?? '');
+    $english_name = trim($_POST['english_name'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
     $business_name = trim($_POST['business_name'] ?? '');
     $business_reg_no = trim($_POST['business_reg_no'] ?? '');
 
     if ($email === '' || $password === '' || $name === '') {
         $error_message = '이메일, 비밀번호, 이름은 필수 입력 항목입니다.';
+    } elseif ($english_name === '') {
+        $error_message = '영문 이름을 입력해주세요.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error_message = '이메일 형식이 올바르지 않습니다.';
     } elseif (strlen($password) < 8) {
@@ -83,13 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['google_pending'] ?? '') ==
 
                 $insert = $conn->prepare(
                     'INSERT INTO mall_members
-                        (member_type, email, password_hash, name, phone, business_name, business_reg_no, store_id, retail_tier, wholesale_status)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, "general", ?)'
+                        (member_type, email, password_hash, name, english_name, phone, business_name, business_reg_no, store_id, retail_tier, wholesale_status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, "general", ?)'
                 );
                 $store_id = MALL_STORE_ID;
                 $insert->bind_param(
-                    'sssssssis',
-                    $member_type, $email, $password_hash, $name, $phone,
+                    'ssssssssis',
+                    $member_type, $email, $password_hash, $name, $english_name, $phone,
                     $business_name_val, $business_reg_no_val, $store_id, $wholesale_status
                 );
 
@@ -171,6 +178,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['google_pending'] ?? '') ==
             <div class="google-profile-box"><i class="fab fa-google"></i> <span><?php echo htmlspecialchars($google_pending['name']); ?> (<?php echo htmlspecialchars($google_pending['email']); ?>)</span></div>
             <form action="signup.php?google=1" method="post" id="signup-form">
                 <input type="hidden" name="google_pending" value="1">
+                <div class="auth-field">
+                    <label for="english_name_google">영문 이름 (배송/실무 확인용)</label>
+                    <input id="english_name_google" name="english_name" type="text" required placeholder="예: Hong Gildong" value="<?php echo htmlspecialchars($_POST['english_name'] ?? ''); ?>">
+                </div>
                 <div class="type-toggle">
                     <label><input type="radio" name="member_type" value="retail" <?php echo $member_type === 'retail' ? 'checked' : ''; ?>><span>소매 회원</span></label>
                     <label><input type="radio" name="member_type" value="wholesale" <?php echo $member_type === 'wholesale' ? 'checked' : ''; ?>><span>사업자(도매) 회원</span></label>
@@ -211,6 +222,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['google_pending'] ?? '') ==
                 <div class="auth-field">
                     <label for="name">이름</label>
                     <input id="name" name="name" type="text" required value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>">
+                </div>
+                <div class="auth-field">
+                    <label for="english_name">영문 이름 (배송/실무 확인용)</label>
+                    <input id="english_name" name="english_name" type="text" required placeholder="예: Hong Gildong" value="<?php echo htmlspecialchars($_POST['english_name'] ?? ''); ?>">
                 </div>
                 <div class="auth-field">
                     <label for="phone">연락처</label>

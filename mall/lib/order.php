@@ -8,6 +8,8 @@
 require_once __DIR__ . '/cart.php';
 require_once __DIR__ . '/pricing.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/address.php';
+require_once __DIR__ . '/romanize.php';
 
 /**
  * 회원의 장바구니를 주문으로 확정합니다.
@@ -46,6 +48,14 @@ function mall_create_order($member_id, $member, $requested_channel, $memo = '') 
         ];
     }
 
+    // 배송지 스냅샷: 주문 시점의 기본 배송지 값을 그대로 복사해 저장한다(mall_order_items 가격
+    // 스냅샷과 동일한 원칙 — 이후 회원이 배송지를 수정/변경해도 이미 만든 주문은 영향받지 않는다).
+    $addresses = mall_address_list($member_id);
+    $address = $addresses[0] ?? null;
+    if (!$address) {
+        return ['success' => false, 'error' => ['code' => 'NO_ADDRESS', 'message' => '배송지를 먼저 등록해주세요']];
+    }
+
     $shipping_fee = mall_calculate_shipping_fee($summary['subtotal']);
     $total_with_shipping = round($summary['total'] + $shipping_fee, 2);
 
@@ -54,17 +64,40 @@ function mall_create_order($member_id, $member, $requested_channel, $memo = '') 
     $in_txn = true;
 
     try {
+        // Design Ref: mall-member-english-name.design.md §4.2 — 레거시 회원 영문 이름 자동 채움
+        // (FR-04, FR-05). 이미 값이 있으면 절대 덮어쓰지 않고, 변환 실패는 주문을 막지 않는다.
+        if (empty($member['english_name']) && !empty($member['name'])) {
+            try {
+                $auto_english_name = mall_romanize_korean_name($member['name']);
+                if ($auto_english_name !== '') {
+                    $fill_stmt = $conn->prepare('UPDATE mall_members SET english_name = ? WHERE id = ?');
+                    $fill_stmt->bind_param('si', $auto_english_name, $member_id);
+                    $fill_stmt->execute();
+                    $fill_stmt->close();
+                }
+            } catch (Exception $e) {
+                error_log('mall_create_order english_name auto-fill error: ' . $e->getMessage());
+            }
+        }
+
         $order_number = 'MALL-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
 
         $order_stmt = $conn->prepare(
-            'INSERT INTO mall_orders (order_number, member_id, store_id, channel, subtotal, discount_amount, shipping_fee, total_amount, status, payment_method, memo)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, "pending", "cod", ?)'
+            'INSERT INTO mall_orders (order_number, member_id, store_id, channel, subtotal, discount_amount, shipping_fee, total_amount,
+                    ship_recipient_name, ship_phone, ship_region, ship_city, ship_barangay, ship_detail_address, ship_landmark, ship_lat, ship_lng,
+                    status, payment_method, memo)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "pending", "cod", ?)'
         );
         $store_id = MALL_STORE_ID;
+        $ship_lat = (float)$address['lat'];
+        $ship_lng = (float)$address['lng'];
         $order_stmt->bind_param(
-            'siisdddds',
+            'siisddddsssssssdds',
             $order_number, $member_id, $store_id, $requested_channel,
-            $summary['subtotal'], $summary['discount_amount'], $shipping_fee, $total_with_shipping, $memo
+            $summary['subtotal'], $summary['discount_amount'], $shipping_fee, $total_with_shipping,
+            $address['recipient_name'], $address['phone'], $address['region'], $address['city'],
+            $address['barangay'], $address['detail_address'], $address['landmark'], $ship_lat, $ship_lng,
+            $memo
         );
         $order_stmt->execute();
         $order_id = $order_stmt->insert_id;
@@ -113,4 +146,58 @@ function mall_create_order($member_id, $member, $requested_channel, $memo = '') 
         error_log('mall_create_order error: ' . $e->getMessage());
         return ['success' => false, 'error' => ['code' => 'SERVER_ERROR', 'message' => '주문 처리 중 오류가 발생했습니다']];
     }
+}
+
+/**
+ * 주문 항목의 품절 제외 상태가 바뀐 뒤 mall_orders.subtotal/discount_amount/shipping_fee/total_amount를
+ * 다시 계산해 저장합니다. is_sold_out=1인 항목은 소계/합계 계산에서 제외됩니다.
+ * Design Ref: mall-delivery-dispatch 피킹 중 품절 처리 — 항목별 base_price는 저장돼 있지 않으므로
+ * unit_price_snapshot(할인 적용 후 단가)과 discount_rate_snapshot으로 역산한다.
+ * @param mysqli $conn
+ * @param int $order_id
+ * @return array{subtotal:float, discount_amount:float, shipping_fee:float, total_amount:float}
+ */
+function mall_recalculate_order_totals($conn, $order_id) {
+    $stmt = $conn->prepare(
+        'SELECT unit_price_snapshot, discount_rate_snapshot, quantity, line_total, is_sold_out
+         FROM mall_order_items WHERE order_id = ?'
+    );
+    $stmt->bind_param('i', $order_id);
+    $stmt->execute();
+    $items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    $subtotal = 0.0;
+    $total = 0.0;
+    foreach ($items as $it) {
+        if ((int)$it['is_sold_out'] === 1) {
+            continue;
+        }
+        $unit_price = (float)$it['unit_price_snapshot'];
+        $discount_rate = (float)$it['discount_rate_snapshot'];
+        $quantity = (int)$it['quantity'];
+        $unit_base = $discount_rate < 100 ? round($unit_price / (1 - $discount_rate / 100), 2) : $unit_price;
+        $subtotal += $unit_base * $quantity;
+        $total += (float)$it['line_total'];
+    }
+
+    $subtotal = round($subtotal, 2);
+    $total = round($total, 2);
+    $discount_amount = round($subtotal - $total, 2);
+    $shipping_fee = mall_calculate_shipping_fee($subtotal);
+    $total_amount = round($total + $shipping_fee, 2);
+
+    $update = $conn->prepare(
+        'UPDATE mall_orders SET subtotal = ?, discount_amount = ?, shipping_fee = ?, total_amount = ? WHERE id = ?'
+    );
+    $update->bind_param('ddddi', $subtotal, $discount_amount, $shipping_fee, $total_amount, $order_id);
+    $update->execute();
+    $update->close();
+
+    return [
+        'subtotal' => $subtotal,
+        'discount_amount' => $discount_amount,
+        'shipping_fee' => $shipping_fee,
+        'total_amount' => $total_amount,
+    ];
 }

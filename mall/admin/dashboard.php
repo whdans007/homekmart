@@ -49,7 +49,11 @@ $recent_orders = $conn->query(
 
 $conn->close();
 
-$status_labels = ['pending' => '접수대기', 'confirmed' => '확인됨', 'preparing' => '준비중', 'ready' => '준비완료', 'completed' => '완료', 'cancelled' => '취소'];
+$status_labels = [
+    'pending' => '접수대기', 'confirmed' => '확인됨', 'preparing' => '상품준비중', 'ready' => '준비완료',
+    'assigned' => '배정됨', 'delivering' => '배송중', 'arrived' => '도착', 'completed' => '완료',
+    'cancelled' => '취소', 'delivery_failed' => '배송실패',
+];
 ?>
 <!DOCTYPE html>
 <html lang="ko">

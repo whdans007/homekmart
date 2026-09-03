@@ -59,7 +59,7 @@ $customers = $conn->query(
 
 $conn->close();
 
-$tier_labels = ['general' => '일반', 'discount' => '할인', 'vip' => '우수'];
+$tier_labels = ['general' => '일반', 'good' => '우수', 'vip' => 'VIP', 'platinum' => '플래티넘'];
 $status_labels = ['pending' => '승인대기', 'approved' => '승인됨', 'rejected' => '반려'];
 ?>
 <!DOCTYPE html>

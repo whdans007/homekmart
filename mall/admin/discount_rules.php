@@ -15,7 +15,7 @@ $res = $conn->query('SELECT tier, discount_rate, min_cumulative_amount FROM mall
 while ($row = $res->fetch_assoc()) {
     $retail_rules[$row['tier']] = $row;
 }
-$tier_labels = ['general' => '일반', 'discount' => '할인', 'vip' => '우수'];
+$tier_labels = ['general' => '일반', 'good' => '우수', 'vip' => 'VIP', 'platinum' => '플래티넘'];
 
 $instant_tiers = $conn->query(
     'SELECT id, min_order_amount, discount_rate, sort_order, is_active
@@ -46,6 +46,20 @@ foreach ($shipping_rows as $row) {
 $base_shipping_fee = $shipping_settings['mall_base_shipping_fee'] ?? 79.0;
 $free_shipping_threshold = $shipping_settings['mall_free_shipping_threshold'] ?? 1200.0;
 
+// 포인트 적립율(회사 규정: 구매 금액의 2% 적립). 없으면 기본 2%.
+$point_stmt = $conn->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'mall_point_accrual_rate'");
+$point_stmt->execute();
+$point_row = $point_stmt->get_result()->fetch_assoc();
+$point_stmt->close();
+$point_accrual_rate = $point_row ? (float)$point_row['setting_value'] : 2.0;
+
+// 주문 관리 화면 "접수확인" 버튼에 기본값으로 채워지는 상품 준비 소요시간(분). 없으면 기본 30분.
+$prep_stmt = $conn->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'mall_default_prep_minutes'");
+$prep_stmt->execute();
+$prep_row = $prep_stmt->get_result()->fetch_assoc();
+$prep_stmt->close();
+$default_prep_minutes = $prep_row ? (int)$prep_row['setting_value'] : 30;
+
 $conn->close();
 ?>
 <!DOCTYPE html>
@@ -65,9 +79,9 @@ $conn->close();
         <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-percent mr-2"></i>할인 규칙</h1>
         <div id="flash-area"></div>
 
-        <!-- 소매 등급별 할인율 -->
+        <!-- 회원등급(소매)별 할인율 -->
         <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h2 class="text-sm font-bold text-gray-700 mb-3">소매 등급별 할인율</h2>
+            <h2 class="text-sm font-bold text-gray-700 mb-3">회원등급</h2>
             <table class="min-w-full text-xs mb-2">
                 <thead class="bg-gray-100 text-gray-600">
                     <tr><th class="px-3 py-2 text-left">등급</th><th class="px-3 py-2 text-left">할인율(%)</th><th class="px-3 py-2 text-left">등급 산정 누적금액 기준</th></tr>
@@ -100,6 +114,21 @@ $conn->close();
             </div>
         </section>
 
+        <!-- 포인트 적립율 (회사 규정) -->
+        <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+            <h2 class="text-sm font-bold text-gray-700 mb-1">포인트 적립율</h2>
+            <p class="text-xs text-gray-400 mb-3">구매 금액(합계) 기준으로 적립되는 포인트 비율입니다. 회사 규정상 기본값은 2%입니다.</p>
+            <div class="flex items-end gap-2">
+                <div>
+                    <label class="block text-xs text-gray-500">적립율(%)</label>
+                    <input id="point-accrual-rate" type="number" step="0.01" min="0" max="100"
+                           value="<?php echo htmlspecialchars($point_accrual_rate); ?>"
+                           class="border border-gray-300 rounded px-2 py-1 w-24">
+                </div>
+                <button id="save-point-accrual-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">저장</button>
+            </div>
+        </section>
+
         <!-- 배송비 설정 (일반배송) -->
         <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
             <h2 class="text-sm font-bold text-gray-700 mb-1">배송비 설정</h2>
@@ -118,6 +147,21 @@ $conn->close();
                            class="border border-gray-300 rounded px-2 py-1 w-32">
                 </div>
                 <button id="save-shipping-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">저장</button>
+            </div>
+        </section>
+
+        <!-- 상품 준비 시간 설정 -->
+        <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+            <h2 class="text-sm font-bold text-gray-700 mb-1">상품 준비 시간 설정</h2>
+            <p class="text-xs text-gray-400 mb-3">주문 관리 화면에서 "접수확인"을 누를 때 기본으로 채워지는 준비 소요시간입니다(주문마다 접수 시 수정 가능).</p>
+            <div class="flex items-end gap-2">
+                <div>
+                    <label class="block text-xs text-gray-500">기본 준비시간(분)</label>
+                    <input id="default-prep-minutes" type="number" step="1" min="0"
+                           value="<?php echo htmlspecialchars($default_prep_minutes); ?>"
+                           class="border border-gray-300 rounded px-2 py-1 w-28">
+                </div>
+                <button id="save-prep-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">저장</button>
             </div>
         </section>
 
@@ -213,11 +257,29 @@ document.getElementById('save-wholesale-reference-btn').addEventListener('click'
     });
 });
 
+document.getElementById('save-point-accrual-btn').addEventListener('click', function () {
+    const params = new URLSearchParams();
+    params.set('action', 'point_accrual_save');
+    params.set('rate', document.getElementById('point-accrual-rate').value);
+    postAjax(params.toString()).then(data => {
+        showFlash(data.success ? '저장되었습니다.' : (data.error?.message || '오류가 발생했습니다.'), data.success ? 'success' : 'error');
+    });
+});
+
 document.getElementById('save-shipping-btn').addEventListener('click', function () {
     const params = new URLSearchParams();
     params.set('action', 'shipping_save');
     params.set('base_shipping_fee', document.getElementById('base-shipping-fee').value);
     params.set('free_shipping_threshold', document.getElementById('free-shipping-threshold').value);
+    postAjax(params.toString()).then(data => {
+        showFlash(data.success ? '저장되었습니다.' : (data.error?.message || '오류가 발생했습니다.'), data.success ? 'success' : 'error');
+    });
+});
+
+document.getElementById('save-prep-btn').addEventListener('click', function () {
+    const params = new URLSearchParams();
+    params.set('action', 'prep_minutes_save');
+    params.set('minutes', document.getElementById('default-prep-minutes').value);
     postAjax(params.toString()).then(data => {
         showFlash(data.success ? '저장되었습니다.' : (data.error?.message || '오류가 발생했습니다.'), data.success ? 'success' : 'error');
     });
