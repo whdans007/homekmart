@@ -39,6 +39,8 @@ $__mall_nav_items = [
     ['href' => 'dashboard.php', 'icon' => 'fa-gauge', 'label' => '대시보드'],
     ['href' => 'home_layout.php', 'icon' => 'fa-swatchbook', 'label' => '홈 레이아웃'],
     ['href' => 'products.php', 'icon' => 'fa-box', 'label' => '상품 큐레이션'],
+    ['href' => 'fresh_products.php', 'icon' => 'fa-apple-whole', 'label' => '신선상품 관리'],
+    ['href' => 'fresh_product_links.php', 'icon' => 'fa-link', 'label' => '신선상품 매핑'],
     // 도매 상품 노출(wholesale_products.php)은 메뉴에서만 숨김 — 기능/페이지는 그대로 남아있어
     // 필요해지면 이 줄만 되살리면 된다(URL 직접 접근으로는 여전히 사용 가능).
     ['href' => 'members.php', 'icon' => 'fa-users', 'label' => '회원 관리'],

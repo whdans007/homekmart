@@ -2166,6 +2166,14 @@
     "js_save_error": "저장 중 오류가 발생했습니다.",
     "js_server_error": "서버 오류가 발생했습니다."
   },
+  "mall_fresh_products": {
+    "master_management": "신선상품 마스터 관리",
+    "store_link_management": "점포-몰 코드 매핑 관리",
+    "suggested_candidates": "추천 후보",
+    "manual_search": "점포 상품 직접 검색",
+    "unlink": "연결 해제",
+    "price_per_100g": "100g당 판매가"
+  },
   "daily_report": {
     "title": "Daily Report",
     "excel": "Excel",

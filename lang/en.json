@@ -2086,6 +2086,14 @@
     "js_save_error": "An error occurred while saving.",
     "js_server_error": "A server error occurred."
   },
+  "mall_fresh_products": {
+    "master_management": "Fresh Product Master Management",
+    "store_link_management": "Store-to-Mall Product Mapping",
+    "suggested_candidates": "Suggested Candidates",
+    "manual_search": "Search Store Products",
+    "unlink": "Unlink",
+    "price_per_100g": "Price per 100g"
+  },
   "daily_report": {
     "title": "Daily Report",
     "excel": "Excel",
