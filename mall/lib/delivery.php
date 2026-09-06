@@ -9,6 +9,7 @@
  */
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../../config/db_config.php';
+require_once __DIR__ . '/fresh_order.php';
 
 /**
  * 주문의 현재(종료되지 않은) 배정 행을 조회합니다.
@@ -66,6 +67,12 @@ function mall_order_mark_ready($order_id) {
     }
     if ($order['status'] !== 'preparing') {
         return ['success' => false, 'error' => 'INVALID_STATE_TRANSITION'];
+    }
+    // Design Ref: mall-fresh-products.design.md §4.3, §6.2 — weight 타입 신선 라인이 아직 실측
+    // 입력 전이면 준비완료로 넘어갈 수 없다(서버가 최종 방어; 화면에서도 버튼을 비활성화해둔다).
+    if (mall_fresh_order_has_unconfirmed_weight($order_id)) {
+        $conn->close();
+        return ['success' => false, 'error' => 'PREPARING_BLOCKED'];
     }
 
     $stmt = $conn->prepare("UPDATE mall_orders SET status = 'ready', ready_at = NOW() WHERE id = ?");

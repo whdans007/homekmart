@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
+require_once __DIR__ . '/../lib/fresh_order.php';
 
 ensure_logged_in();
 require_permission('mall_management', '../../admin/index.php');
@@ -46,6 +47,10 @@ try {
     $items = $items_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $items_stmt->close();
     $conn->close();
+
+    // 신선상품 라인(mall_fresh_order_items) — 정가상품과 완전히 분리된 테이블이라 별도 조회한다.
+    // Design Ref: mall-fresh-products.design.md §5.4.
+    $fresh_items = mall_fresh_order_items_get_by_order($order_id);
 } catch (Throwable $e) {
     error_log('order_receipt.php error: ' . $e->getMessage());
     http_response_code(500);
@@ -110,6 +115,24 @@ $has_discount = (float)$order['discount_amount'] > 0;
                 <td class="num"><?php echo number_format((float)$it['unit_price_snapshot'], 2); ?></td>
                 <td class="center"><?php echo (int)$it['quantity']; ?></td>
                 <td class="num"><?php echo $it['is_sold_out'] ? number_format(0, 2) : number_format((float)$it['line_total'], 2); ?></td>
+            </tr>
+            <?php endforeach; ?>
+            <?php foreach ($fresh_items as $j => $fi):
+                $__fi_confirmed = $fi['actual_weight_g'] !== null;
+                $__fi_amount = $__fi_confirmed ? $fi['confirmed_price'] : $fi['estimated_price'];
+                $__fi_qty = $fi['sale_type_snapshot'] === 'weight'
+                    ? ($__fi_confirmed ? $fi['actual_weight_g'] . 'g (확정)' : $fi['weight_g'] . 'g (예상)')
+                    : (int)$fi['quantity'];
+            ?>
+            <tr<?php echo $fi['is_sold_out'] ? ' class="sold-out"' : ''; ?>>
+                <td class="center"><?php echo count($items) + $j + 1; ?></td>
+                <td>
+                    <?php echo htmlspecialchars($fi['product_name_snapshot']); ?>
+                    <?php if ($fi['is_sold_out']): ?><span class="sold-out-badge">품절</span><?php endif; ?>
+                </td>
+                <td class="num"><?php echo number_format((float)$fi['unit_price_snapshot'], 2); ?></td>
+                <td class="center"><?php echo htmlspecialchars((string)$__fi_qty); ?></td>
+                <td class="num"><?php echo $fi['is_sold_out'] ? number_format(0, 2) : number_format((float)$__fi_amount, 2); ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
