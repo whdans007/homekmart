@@ -12,6 +12,7 @@
  */
 require_once __DIR__ . '/../lib/home_layout.php';
 require_once __DIR__ . '/../lib/cart.php';
+require_once __DIR__ . '/../lib/fresh_cart.php';
 
 $show_wholesale_notice = $member && $member['member_type'] === 'wholesale' && $member['wholesale_status'] !== 'approved';
 $__show_placeholders = $show_section_placeholders ?? false;
@@ -66,7 +67,8 @@ if ($member) {
             <span class="icon-btn" style="cursor:default;" title="알림(준비중)"><svg><use href="#i-bell"></use></svg></span>
             <a href="/mall/cart.php" class="icon-btn" title="장바구니">
                 <svg><use href="#i-bag"></use></svg>
-                <?php $__home_cart_count = mall_cart_count($__home_member_id, $__home_guest_token); ?>
+                <?php $__home_cart_count = mall_cart_count($__home_member_id, $__home_guest_token)
+                    + mall_fresh_cart_count($__home_member_id, $__home_guest_token); ?>
                 <?php if ($__home_cart_count > 0): ?><span class="badge-count"><?php echo $__home_cart_count > 99 ? '99+' : $__home_cart_count; ?></span><?php endif; ?>
             </a>
         </div>

@@ -178,7 +178,11 @@ function mall_fresh_cart_get_summary($member_id, $guest_token) {
             $has_sold_out = true;
         }
         $unit_price = (float)$row['price_per_100g'];
-        if ($row['sale_type'] === 'weight') {
+        // sale_type이 아니라 카트 행 자체에 실제로 채워진 컬럼으로 분기한다 — 담은 뒤 관리자가
+        // 상품의 sale_type을 바꿔도(admin/edit_fresh_product.php) 이 장바구니 행은 담을 당시의
+        // weight_g/quantity를 그대로 들고 있으므로, 현재 sale_type을 신뢰하면 반대쪽 컬럼이 NULL이라
+        // 금액이 0으로 잘못 계산될 수 있다.
+        if ($row['weight_g'] !== null) {
             $estimated_price = round((int)$row['weight_g'] / 100 * $unit_price, 2);
         } else {
             $estimated_price = round($unit_price * (int)$row['quantity'], 2);
@@ -214,10 +218,31 @@ function mall_fresh_cart_merge_guest_into_member($member_id, $guest_token) {
     $stmt->execute();
     $guest_items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
-    $conn->close();
 
+    // mall_fresh_cart_add()는 "최종값 지정" 방식(무게 스테퍼 UX에 맞춘 설계)이라 그대로 쓰면 병합 시
+    // 회원이 이미 담아둔 값을 덮어써 버린다. mall_cart_add()의 additive 병합과 사용자 기대를 맞추기
+    // 위해, 같은 상품이 이미 회원 장바구니에 있으면 값을 더해서 넘긴다.
+    $member_stmt = $conn->prepare('SELECT weight_g, quantity FROM mall_fresh_cart_items WHERE member_id = ? AND mall_fresh_product_id = ?');
     foreach ($guest_items as $item) {
-        mall_fresh_cart_add($member_id, null, (int)$item['mall_fresh_product_id'], $item['weight_g'] !== null ? (int)$item['weight_g'] : null, $item['quantity'] !== null ? (int)$item['quantity'] : null);
+        $product_id = (int)$item['mall_fresh_product_id'];
+        $weight_g = $item['weight_g'] !== null ? (int)$item['weight_g'] : null;
+        $quantity = $item['quantity'] !== null ? (int)$item['quantity'] : null;
+
+        $member_stmt->bind_param('ii', $member_id, $product_id);
+        $member_stmt->execute();
+        $existing = $member_stmt->get_result()->fetch_assoc();
+        if ($existing) {
+            if ($weight_g !== null && $existing['weight_g'] !== null) {
+                $weight_g += (int)$existing['weight_g'];
+            }
+            if ($quantity !== null && $existing['quantity'] !== null) {
+                $quantity += (int)$existing['quantity'];
+            }
+        }
+
+        mall_fresh_cart_add($member_id, null, $product_id, $weight_g, $quantity);
         mall_fresh_cart_remove(null, $guest_token, (int)$item['id']);
     }
+    $member_stmt->close();
+    $conn->close();
 }

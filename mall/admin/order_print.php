@@ -157,7 +157,7 @@ $change_due = $cash_received - $total_floor;
                 <td class="barcode-cell"><span style="color:#999;">-</span></td>
                 <td class="names">
                     <?php echo htmlspecialchars($fi['product_name_snapshot']); ?>
-                    <?php if ($fi['is_sold_out']): ?><span class="sold-out-badge"><?php echo t('mall_admin.receipt.sold_out'); ?></span><?php endif; ?>
+                    <?php if ($fi['is_sold_out']): ?><span class="sold-out-badge">품절</span><?php endif; ?>
                 </td>
                 <td class="qty"><?php echo htmlspecialchars((string)$__fi_qty); ?></td>
                 <td class="num"><?php echo number_format((float)$fi['unit_price_snapshot'], 2); ?></td>

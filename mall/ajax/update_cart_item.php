@@ -7,6 +7,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/cart.php';
+require_once __DIR__ . '/../lib/fresh_cart.php';
 
 function json_error($code, $message, $http = 400) {
     http_response_code($http);
@@ -35,5 +36,5 @@ echo json_encode(['success' => true, 'data' => [
     'subtotal' => $summary['subtotal'],
     'discount_amount' => $summary['discount_amount'],
     'total' => $summary['total'],
-    'cart_count' => mall_cart_count($member_id, $guest_token),
+    'cart_count' => mall_cart_count($member_id, $guest_token) + mall_fresh_cart_count($member_id, $guest_token),
 ]]);

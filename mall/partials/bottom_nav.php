@@ -4,6 +4,7 @@
  * 포함하는 쪽(footer.php)에서 $active_nav('home'|'category'|'search'|'cart'|'my')를 미리 정의해야 한다.
  */
 require_once __DIR__ . '/../lib/cart.php';
+require_once __DIR__ . '/../lib/fresh_cart.php';
 require_once __DIR__ . '/../lib/order_chat.php';
 
 // 아이콘 스프라이트에 line→fill 변형이 있는 것만(home/person/chat) 활성 시 fill로 바꾸고,
@@ -23,7 +24,8 @@ $__nav_items = [
 $__nav_member = $member ?? null;
 $__nav_member_id = $__nav_member ? $__nav_member['id'] : null;
 $__nav_guest_token = $__nav_member ? null : mall_guest_token();
-$__nav_cart_count = mall_cart_count($__nav_member_id, $__nav_guest_token);
+$__nav_cart_count = mall_cart_count($__nav_member_id, $__nav_guest_token)
+    + mall_fresh_cart_count($__nav_member_id, $__nav_guest_token);
 // 안읽음 채팅 배지는 로그인 회원에게만 표시한다(게스트는 주문톡 자체를 쓸 수 없음 — 클릭 시 로그인 유도).
 $__nav_chat_unread = $__nav_member_id ? mall_order_chat_unread_count_for_member($__nav_member_id) : 0;
 ?>

@@ -9,6 +9,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/cart.php';
+require_once __DIR__ . '/../lib/fresh_cart.php';
 
 function json_error($code, $message, $http = 400) {
     http_response_code($http);
@@ -34,6 +35,7 @@ if (!$member) {
 
 if ($guest_token_before_login) {
     mall_cart_merge_guest_into_member($member['id'], $guest_token_before_login);
+    mall_fresh_cart_merge_guest_into_member($member['id'], $guest_token_before_login);
 }
 
 echo json_encode(['success' => true, 'data' => ['redirect' => mall_get_login_redirect_target()]]);
