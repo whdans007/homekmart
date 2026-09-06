@@ -2086,6 +2086,21 @@
     "js_save_error": "An error occurred while saving.",
     "js_server_error": "A server error occurred."
   },
+  "mall_fresh_products": {
+    "fresh_badge": "Fresh",
+    "sold_out": "Sold out",
+    "weight_product": "Sold by weight",
+    "piece_product": "Sold by piece",
+    "price_per_100g": "Price per 100g",
+    "price_per_piece": "Price per piece",
+    "weight": "Weight",
+    "quantity": "Quantity",
+    "estimated_amount": "Estimated amount",
+    "confirmed_amount": "Confirmed amount",
+    "estimated_notice": "This is an estimate and may change based on the actual weight.",
+    "add_to_cart": "Add to cart",
+    "sold_out_button": "This item is sold out"
+  },
   "daily_report": {
     "title": "Daily Report",
     "excel": "Excel",

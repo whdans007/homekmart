@@ -3,19 +3,22 @@ require_once __DIR__ . '/lib/auth.php';
 require_once __DIR__ . '/lib/cart.php';
 require_once __DIR__ . '/lib/csrf.php';
 require_once __DIR__ . '/lib/address.php';
+require_once __DIR__ . '/lib/fresh_cart.php';
 
 mall_require_login('/mall/login.php');
 $member = mall_current_member();
 $csrf_token = mall_csrf_token();
 
 $summary = mall_cart_get_summary($member['id'], null, $member);
+$fresh_summary = mall_fresh_cart_get_summary($member['id'], null);
 $channel = ($member['member_type'] === 'wholesale') ? 'wholesale' : 'retail';
 
 $addresses = mall_address_list($member['id']);
 $default_address = $addresses[0] ?? null; // mall_address_list()가 is_default DESC로 정렬해 첫 번째가 기본 배송지
 
-$shipping_fee = mall_calculate_shipping_fee($summary['subtotal']);
-$total_with_shipping = round($summary['total'] + $shipping_fee, 2);
+$combined_subtotal = round($summary['subtotal'] + $fresh_summary['subtotal'], 2);
+$shipping_fee = mall_calculate_shipping_fee($combined_subtotal);
+$total_with_shipping = round($summary['total'] + $fresh_summary['subtotal'] + $shipping_fee, 2);
 
 $mall_redesigned = true;
 $mall_show_back = true;
@@ -35,7 +38,7 @@ require_once __DIR__ . '/partials/header.php';
 
 <h1 style="font:var(--t-heading2) var(--font-sans);padding:var(--space-4) var(--space-5) 0;">주문서 작성</h1>
 
-<?php if (empty($summary['items'])): ?>
+<?php if (empty($summary['items']) && empty($fresh_summary['items'])): ?>
     <p class="empty-state">장바구니가 비어있습니다.<br><a href="/mall/index.php" style="color:var(--primary-normal);font-weight:700;">쇼핑하러 가기</a></p>
 <?php else: ?>
 
@@ -91,11 +94,18 @@ require_once __DIR__ . '/partials/header.php';
         <?php foreach ($summary['items'] as $item): ?>
             <div class="co-item-row"><span><?php echo htmlspecialchars($item['display_name']); ?> × <?php echo (int)$item['quantity']; ?></span><span><?php echo number_format($item['line_total'], 2); ?></span></div>
         <?php endforeach; ?>
+        <?php foreach ($fresh_summary['items'] as $item): ?>
+            <div class="co-item-row">
+                <span><span class="badge badge-green">신선</span> <?php echo htmlspecialchars(($mall_lang === 'en' && !empty($item['name_en'])) ? $item['name_en'] : $item['name_ko']); ?> · <?php echo $item['sale_type'] === 'weight' ? (int)$item['weight_g'] . 'g' : (int)$item['quantity'] . '개'; ?></span>
+                <span><?php echo $item['sale_type'] === 'weight' ? '예상 ' : ''; ?><?php echo number_format($item['estimated_price'], 2); ?></span>
+            </div>
+            <?php if ($item['sale_type'] === 'weight'): ?><div style="font:var(--t-caption1) var(--font-sans);color:var(--label-assistive);">예상금액이며 실제 무게에 따라 달라질 수 있습니다.</div><?php endif; ?>
+        <?php endforeach; ?>
         <div style="border-top:1px solid var(--line-normal);margin-top:8px;padding-top:8px;text-align:right;">
-            <div style="font:var(--t-caption1) var(--font-sans);color:var(--label-alternative);">소계 <?php echo number_format($summary['subtotal'], 2); ?></div>
+            <div style="font:var(--t-caption1) var(--font-sans);color:var(--label-alternative);">소계 <?php echo number_format($combined_subtotal, 2); ?></div>
             <div style="font:var(--t-caption1) var(--font-sans);color:var(--brand-red);">할인 -<?php echo number_format($summary['discount_amount'], 2); ?></div>
             <div style="font:var(--t-caption1) var(--font-sans);color:var(--label-alternative);">배송비 <?php echo $shipping_fee > 0 ? number_format($shipping_fee, 2) : '무료'; ?></div>
-            <div style="font:700 18px var(--font-sans);margin-top:4px;">합계 <?php echo number_format($total_with_shipping, 2); ?></div>
+            <div style="font:700 18px var(--font-sans);margin-top:4px;">예상 합계 <?php echo number_format($total_with_shipping, 2); ?></div>
             <div style="font:var(--t-caption1) var(--font-sans);color:var(--label-assistive);margin-top:4px;">표시 가격은 VAT 12% 포함가입니다.</div>
         </div>
     </div>

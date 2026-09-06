@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/lib/auth.php';
 require_once __DIR__ . '/lib/cart.php';
+require_once __DIR__ . '/lib/fresh_cart.php';
+require_once __DIR__ . '/lib/csrf.php';
 
 // 장바구니는 회원가입 없이도 볼 수 있다(주문 시에만 로그인 필요) — 하단 "주문하기" CTA에서만 로그인을 요구한다.
 $member = mall_current_member();
@@ -8,6 +10,10 @@ $member_id = $member ? $member['id'] : null;
 $guest_token = $member ? null : mall_guest_token();
 
 $summary = mall_cart_get_summary($member_id, $guest_token, $member);
+$fresh_summary = mall_fresh_cart_get_summary($member_id, $guest_token);
+$combined_subtotal = round($summary['subtotal'] + $fresh_summary['subtotal'], 2);
+$combined_total = round($summary['total'] + $fresh_summary['subtotal'], 2);
+$csrf_token = mall_csrf_token();
 $channel = ($member && $member['member_type'] === 'wholesale') ? 'wholesale' : 'retail';
 
 $applied_instant_rate = 0.0;
@@ -20,9 +26,9 @@ if ($channel === 'wholesale' && $summary['subtotal'] > 0) {
 // 무료배송 진행바(참고용 안내) — retail 채널에서만 표시
 $free_shipping_progress = null;
 if ($channel === 'retail') {
-    $remaining = MALL_FREE_SHIPPING_THRESHOLD - $summary['subtotal'];
+    $remaining = MALL_FREE_SHIPPING_THRESHOLD - $combined_subtotal;
     $free_shipping_progress = [
-        'pct' => max(0, min(100, round($summary['subtotal'] / MALL_FREE_SHIPPING_THRESHOLD * 100))),
+        'pct' => max(0, min(100, round($combined_subtotal / MALL_FREE_SHIPPING_THRESHOLD * 100))),
         'remaining' => max(0, $remaining),
         'reached' => $remaining <= 0,
     ];
@@ -53,7 +59,7 @@ require_once __DIR__ . '/partials/header.php';
 
 <h1 style="font:var(--t-heading2) var(--font-sans);padding:var(--space-4) var(--space-5) 0;">장바구니</h1>
 
-<?php if (empty($summary['items'])): ?>
+<?php if (empty($summary['items']) && empty($fresh_summary['items'])): ?>
     <p class="empty-state">장바구니가 비어있습니다.<br><a href="/mall/index.php" style="color:var(--primary-normal);font-weight:700;">쇼핑하러 가기</a></p>
 <?php else: ?>
 
@@ -94,6 +100,32 @@ require_once __DIR__ . '/partials/header.php';
         </div>
     </div>
 <?php endforeach; ?>
+<?php if (!empty($fresh_summary['items'])): ?>
+    <h2 style="font:var(--t-headline2) var(--font-sans);margin:var(--space-5) 0 0;">신선상품</h2>
+    <?php foreach ($fresh_summary['items'] as $item): ?>
+    <div class="cart-row fresh-cart-row" data-cart-item-id="<?php echo (int)$item['cart_item_id']; ?>">
+        <img class="thumb" src="<?php echo htmlspecialchars($item['image_url'] ?: '/logo/homekmart_logo.png'); ?>" alt="">
+        <div class="info">
+            <div class="name"><span class="badge badge-green">신선</span> <?php echo htmlspecialchars(($mall_lang === 'en' && !empty($item['name_en'])) ? $item['name_en'] : $item['name_ko']); ?></div>
+            <?php if ($item['sold_out']): ?>
+                <div style="color:var(--brand-red);font:var(--t-caption1) var(--font-sans);">품절 — 삭제 후 주문해주세요</div>
+            <?php elseif ($item['sale_type'] === 'weight'): ?>
+                <div class="unit-price"><?php echo number_format($item['unit_price'], 2); ?> / 100g · <?php echo (int)$item['weight_g']; ?>g</div>
+                <div class="unit-price">예상금액이며 실제 무게에 따라 달라질 수 있습니다.</div>
+            <?php else: ?>
+                <div class="unit-price"><?php echo number_format($item['unit_price'], 2); ?> / 개 · <?php echo (int)$item['quantity']; ?>개</div>
+            <?php endif; ?>
+            <div class="row-bottom">
+                <span class="badge <?php echo $item['sale_type'] === 'weight' ? 'badge-blue' : 'badge-green'; ?>"><?php echo $item['sale_type'] === 'weight' ? '무게상품' : '낱개상품'; ?></span>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div class="line-total"><?php echo $item['sale_type'] === 'weight' ? '예상 ' : ''; ?><?php echo number_format($item['estimated_price'], 2); ?></div>
+                    <button class="remove-btn fresh-remove-btn" title="삭제"><svg style="width:18px;height:18px;"><use href="#i-close"></use></svg></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endforeach; ?>
+<?php endif; ?>
 </div>
 </div>
 
@@ -112,9 +144,9 @@ require_once __DIR__ . '/partials/header.php';
 <?php endif; ?>
 
 <div class="summary-card">
-    <div class="summary-row"><span>소계</span><span id="cart-subtotal"><?php echo number_format($summary['subtotal'], 2); ?></span></div>
+    <div class="summary-row"><span>소계</span><span id="cart-subtotal"><?php echo number_format($combined_subtotal, 2); ?></span></div>
     <div class="summary-row" style="color:var(--brand-red);"><span>할인</span><span>-<span id="cart-discount"><?php echo number_format($summary['discount_amount'], 2); ?></span></span></div>
-    <div class="summary-row total"><span>합계</span><span id="cart-total"><?php echo number_format($summary['total'], 2); ?></span></div>
+    <div class="summary-row total"><span>예상 합계</span><span id="cart-total"><?php echo number_format($combined_total, 2); ?></span></div>
 </div>
 
 <div class="sticky-cta">
@@ -135,7 +167,7 @@ function mallUpdateCartQty(row, qty) {
         .then(() => window.location.reload());
 }
 
-document.querySelectorAll('.cart-row .qty-minus, .cart-row .qty-plus').forEach(function (btn) {
+document.querySelectorAll('.cart-row:not(.fresh-cart-row) .qty-minus, .cart-row:not(.fresh-cart-row) .qty-plus').forEach(function (btn) {
     btn.addEventListener('click', function () {
         const row = btn.closest('.cart-row');
         let qty = parseInt(row.dataset.qty, 10);
@@ -145,7 +177,7 @@ document.querySelectorAll('.cart-row .qty-minus, .cart-row .qty-plus').forEach(f
     });
 });
 
-document.querySelectorAll('.cart-row .qty-value').forEach(function (input) {
+document.querySelectorAll('.cart-row:not(.fresh-cart-row) .qty-value').forEach(function (input) {
     input.addEventListener('change', function () {
         const row = input.closest('.cart-row');
         const qty = parseInt(input.value, 10);
@@ -160,7 +192,7 @@ document.querySelectorAll('.cart-row .qty-value').forEach(function (input) {
     });
 });
 
-document.querySelectorAll('.cart-row .remove-btn').forEach(function (btn) {
+document.querySelectorAll('.cart-row:not(.fresh-cart-row) .remove-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
         const row = btn.closest('.cart-row');
         const params = new URLSearchParams();
@@ -168,6 +200,17 @@ document.querySelectorAll('.cart-row .remove-btn').forEach(function (btn) {
         fetch('/mall/ajax/remove_cart_item.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
             .then(r => r.json())
             .then(() => window.location.reload());
+    });
+});
+
+document.querySelectorAll('.fresh-cart-row .fresh-remove-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        const row = btn.closest('.fresh-cart-row');
+        const params = new URLSearchParams();
+        params.set('cart_item_id', row.dataset.cartItemId);
+        params.set('csrf_token', '<?php echo htmlspecialchars($csrf_token, ENT_QUOTES); ?>');
+        fetch('/mall/ajax/remove_fresh_cart_item.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+            .then(r => r.json()).then(data => data.success ? window.location.reload() : mallToast(data.error?.message || '삭제하지 못했습니다.'));
     });
 });
 </script>
