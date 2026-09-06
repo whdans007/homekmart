@@ -48,7 +48,7 @@ function mall_fresh_create_order_items($conn, $order_id, $member_id, $summary) {
         $confirmed_price = $sale_type === 'piece' ? $item['estimated_price'] : null;
 
         $item_stmt->bind_param(
-            'iississdd',
+            'iissdiidd',
             $order_id, $item['mall_fresh_product_id'], $item['name_ko'], $sale_type, $item['unit_price'],
             $weight_g, $quantity, $item['estimated_price'], $confirmed_price
         );
@@ -114,7 +114,14 @@ function mall_fresh_confirm_weight($mall_fresh_order_item_id, $actual_weight_g) 
     }
 
     $conn = mall_get_db_connection();
-    $stmt = $conn->prepare('SELECT order_id, sale_type_snapshot, unit_price_snapshot FROM mall_fresh_order_items WHERE id = ?');
+    // Design Ref: mall-fresh-products.design.md §7 — 대상 order_id가 실제 존재하고 preparing
+    // 상태인지 서버에서 재검증한다(이미 배송/완료/취소된 주문의 확정금액을 몰래 바꾸지 못하게 함).
+    $stmt = $conn->prepare(
+        'SELECT foi.order_id, foi.sale_type_snapshot, foi.unit_price_snapshot, o.status
+         FROM mall_fresh_order_items foi
+         INNER JOIN mall_orders o ON o.id = foi.order_id
+         WHERE foi.id = ?'
+    );
     $stmt->bind_param('i', $mall_fresh_order_item_id);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
@@ -123,6 +130,10 @@ function mall_fresh_confirm_weight($mall_fresh_order_item_id, $actual_weight_g) 
     if (!$row) {
         $conn->close();
         return ['success' => false, 'error' => ['code' => 'VALIDATION_ERROR', 'message' => '신선상품 주문 항목을 찾을 수 없습니다']];
+    }
+    if ($row['status'] !== 'preparing') {
+        $conn->close();
+        return ['success' => false, 'error' => ['code' => 'INVALID_STATE_TRANSITION', 'message' => '상품준비중 상태의 주문만 실측 입력할 수 있습니다']];
     }
     if ($row['sale_type_snapshot'] !== 'weight') {
         $conn->close();
