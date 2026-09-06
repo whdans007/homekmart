@@ -80,10 +80,14 @@ try {
     $conn->close();
 
     $active_drivers = mall_driver_list_active();
+    // Design Ref: mall-fresh-products.design.md §5.4 — 신선상품 라인은 mall_order_items와 완전히
+    // 분리된 테이블이라 별도로 조회해 함께 내려준다.
+    $fresh_items = mall_fresh_order_items_get_by_order($order_id);
 
     echo json_encode(['success' => true, 'data' => [
         'order' => $order,
         'items' => $items,
+        'fresh_items' => $fresh_items,
         'active_drivers' => $active_drivers,
         'default_prep_minutes' => $default_prep_minutes,
     ]]);

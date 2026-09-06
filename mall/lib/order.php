@@ -10,6 +10,7 @@ require_once __DIR__ . '/pricing.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/address.php';
 require_once __DIR__ . '/romanize.php';
+require_once __DIR__ . '/fresh_order.php';
 
 /**
  * 회원의 장바구니를 주문으로 확정합니다.
@@ -25,8 +26,11 @@ function mall_create_order($member_id, $member, $requested_channel, $memo = '') 
     }
 
     $summary = mall_cart_get_summary($member_id, null, $member);
+    // 신선상품 장바구니(mall_fresh_cart_items)는 정가상품과 완전히 분리된 테이블이라 별도로 조회해
+    // 같은 주문에 함께 담는다. Design Ref: mall-fresh-products.design.md §4.3.
+    $fresh_summary = mall_fresh_cart_get_summary($member_id, null);
 
-    if (empty($summary['items'])) {
+    if (empty($summary['items']) && empty($fresh_summary['items'])) {
         return ['success' => false, 'error' => ['code' => 'EMPTY_CART', 'message' => '장바구니가 비어있습니다']];
     }
 
@@ -48,6 +52,10 @@ function mall_create_order($member_id, $member, $requested_channel, $memo = '') 
         ];
     }
 
+    if ($fresh_summary['has_sold_out']) {
+        return ['success' => false, 'error' => ['code' => 'SOLD_OUT', 'message' => '품절된 신선상품이 있습니다']];
+    }
+
     // 배송지 스냅샷: 주문 시점의 기본 배송지 값을 그대로 복사해 저장한다(mall_order_items 가격
     // 스냅샷과 동일한 원칙 — 이후 회원이 배송지를 수정/변경해도 이미 만든 주문은 영향받지 않는다).
     $addresses = mall_address_list($member_id);
@@ -56,8 +64,12 @@ function mall_create_order($member_id, $member, $requested_channel, $memo = '') 
         return ['success' => false, 'error' => ['code' => 'NO_ADDRESS', 'message' => '배송지를 먼저 등록해주세요']];
     }
 
-    $shipping_fee = mall_calculate_shipping_fee($summary['subtotal']);
-    $total_with_shipping = round($summary['total'] + $shipping_fee, 2);
+    // 신선상품은 할인 개념이 없어 estimated_price(=subtotal 기여분)가 그대로 total에도 기여한다.
+    // subtotal/total 모두에 똑같이 더해지므로 discount_amount(subtotal-total)에는 영향이 없다.
+    $combined_subtotal = round($summary['subtotal'] + $fresh_summary['subtotal'], 2);
+    $combined_total_before_shipping = round($summary['total'] + $fresh_summary['subtotal'], 2);
+    $shipping_fee = mall_calculate_shipping_fee($combined_subtotal);
+    $total_with_shipping = round($combined_total_before_shipping + $shipping_fee, 2);
 
     $conn = get_db_connection();
     $conn->begin_transaction();
@@ -94,7 +106,7 @@ function mall_create_order($member_id, $member, $requested_channel, $memo = '') 
         $order_stmt->bind_param(
             'siisddddsssssssdds',
             $order_number, $member_id, $store_id, $requested_channel,
-            $summary['subtotal'], $summary['discount_amount'], $shipping_fee, $total_with_shipping,
+            $combined_subtotal, $summary['discount_amount'], $shipping_fee, $total_with_shipping,
             $address['recipient_name'], $address['phone'], $address['region'], $address['city'],
             $address['barangay'], $address['detail_address'], $address['landmark'], $ship_lat, $ship_lng,
             $memo
@@ -123,6 +135,8 @@ function mall_create_order($member_id, $member, $requested_channel, $memo = '') 
             $item_stmt->execute();
         }
         $item_stmt->close();
+
+        mall_fresh_create_order_items($conn, $order_id, $member_id, $fresh_summary);
 
         $delete_cart = $conn->prepare('DELETE FROM mall_cart_items WHERE member_id = ?');
         $delete_cart->bind_param('i', $member_id);
@@ -153,6 +167,11 @@ function mall_create_order($member_id, $member, $requested_channel, $memo = '') 
  * 다시 계산해 저장합니다. is_sold_out=1인 항목은 소계/합계 계산에서 제외됩니다.
  * Design Ref: mall-delivery-dispatch 피킹 중 품절 처리 — 항목별 base_price는 저장돼 있지 않으므로
  * unit_price_snapshot(할인 적용 후 단가)과 discount_rate_snapshot으로 역산한다.
+ *
+ * mall_fresh_order_items(신선상품, 완전 분리 테이블)도 함께 합산한다 — 실측 전(confirmed_price가
+ * NULL)이면 estimated_price를, 실측 후면 confirmed_price를 쓴다. 신선상품은 할인이 없어 subtotal/
+ * total에 동일하게 기여한다(mall_create_order()의 combined_subtotal 계산과 동일한 원칙).
+ * Design Ref: mall-fresh-products.design.md §4.3.
  * @param mysqli $conn
  * @param int $order_id
  * @return array{subtotal:float, discount_amount:float, shipping_fee:float, total_amount:float}
@@ -179,6 +198,22 @@ function mall_recalculate_order_totals($conn, $order_id) {
         $unit_base = $discount_rate < 100 ? round($unit_price / (1 - $discount_rate / 100), 2) : $unit_price;
         $subtotal += $unit_base * $quantity;
         $total += (float)$it['line_total'];
+    }
+
+    $fresh_stmt = $conn->prepare(
+        'SELECT estimated_price, confirmed_price, is_sold_out FROM mall_fresh_order_items WHERE order_id = ?'
+    );
+    $fresh_stmt->bind_param('i', $order_id);
+    $fresh_stmt->execute();
+    $fresh_items = $fresh_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $fresh_stmt->close();
+    foreach ($fresh_items as $it) {
+        if ((int)$it['is_sold_out'] === 1) {
+            continue;
+        }
+        $amount = $it['confirmed_price'] !== null ? (float)$it['confirmed_price'] : (float)$it['estimated_price'];
+        $subtotal += $amount;
+        $total += $amount;
     }
 
     $subtotal = round($subtotal, 2);

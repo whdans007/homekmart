@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/lib/auth.php';
 require_once __DIR__ . '/lib/cart.php';
+require_once __DIR__ . '/lib/fresh_cart.php';
 
 if (mall_is_logged_in()) {
     header('Location: ' . mall_get_login_redirect_target());
@@ -37,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['google_pending'] ?? '') ==
         if ($result['success']) {
             unset($_SESSION['mall_pending_google']);
             mall_cart_merge_guest_into_member($result['member']['id'], $guest_token_before_login);
+            mall_fresh_cart_merge_guest_into_member($result['member']['id'], $guest_token_before_login);
             header('Location: ' . mall_get_login_redirect_target());
             exit;
         }

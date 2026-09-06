@@ -102,6 +102,74 @@ function mall_get_eligible_products($channel, $category_id = null, $search = '',
 }
 
 /**
+ * 카테고리 조건에 맞는 신선상품(mall_fresh_products)을 조회합니다.
+ * Design Ref: mall-fresh-products.design.md §4.3.
+ *
+ * mall_get_eligible_products()와 같은 배열에 합치지 않고 별도 함수로 둔다 — mall_fresh_products.id는
+ * products.id와 다른 id 공간이라, 한 배열에 섞으면 이후 mall_build_product_cards()가 product_id를
+ * 기준으로 mall_calculate_price()/mall_get_stock_quantity()를 호출할 때 엉뚱한(또는 우연히 id가 같은
+ * 다른) 정가상품을 조회하게 되는 사고가 날 수 있다. 화면(카테고리 그리드) 쪽에서 두 배열을 각각 받아
+ * item_type으로 구분해 렌더링한다.
+ *
+ * @param int|null $category_id
+ * @param string $search
+ * @param int $limit
+ * @return array<int, array{id:int, name_ko:string, name_en:?string, sale_type:string, price_per_100g:float, image_url:?string}>
+ */
+function mall_get_eligible_fresh_products($category_id = null, $search = '', $limit = 60) {
+    $conn = mall_get_db_connection();
+
+    $where = ["status = 'active'", 'is_sold_out = 0'];
+    $params = [];
+    $types = '';
+
+    if ($category_id) {
+        // 정가상품과 동일하게 대분류 선택 시 하위 소분류도 함께 포함한다.
+        $child_stmt = $conn->prepare('SELECT id FROM categories WHERE id = ? OR parent_id = ?');
+        $child_stmt->bind_param('ii', $category_id, $category_id);
+        $child_stmt->execute();
+        $category_ids = array_column($child_stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'id');
+        $child_stmt->close();
+        if (empty($category_ids)) {
+            $category_ids = [$category_id];
+        }
+        $cat_placeholders = implode(',', array_fill(0, count($category_ids), '?'));
+        $where[] = "category_id IN ({$cat_placeholders})";
+        foreach ($category_ids as $cid) {
+            $params[] = $cid;
+            $types .= 'i';
+        }
+    }
+    if ($search !== '') {
+        $where[] = '(name_ko LIKE ? OR name_en LIKE ? OR code LIKE ?)';
+        $like = '%' . $search . '%';
+        $params[] = $like;
+        $params[] = $like;
+        $params[] = $like;
+        $types .= 'sss';
+    }
+
+    $sql = 'SELECT id, name_ko, name_en, sale_type, price_per_100g, image_url, display_order
+            FROM mall_fresh_products
+            WHERE ' . implode(' AND ', $where) . '
+            ORDER BY display_order, id DESC
+            LIMIT ?';
+    $params[] = $limit;
+    $types .= 'i';
+
+    $stmt = $conn->prepare($sql);
+    if ($types !== '') {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    $conn->close();
+
+    return $rows;
+}
+
+/**
  * 관리자가 홈 "상품 리스트" 섹션에 수동으로 선택한 product_id 목록을 조회합니다.
  * mall_products 큐레이션 여부와 무관하게(홈 섹션 자체가 큐레이션 수단이므로) 지정한 순서 그대로 반환한다.
  *

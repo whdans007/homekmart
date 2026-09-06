@@ -331,9 +331,9 @@ function renderOrderModal(data) {
     }
 
     renderProgress(order);
-    renderActionArea(order, data.active_drivers, data.default_prep_minutes);
+    renderActionArea(order, data.active_drivers, data.default_prep_minutes, data.fresh_items || []);
     renderCustomer(order);
-    renderItems(order, data.items);
+    renderItems(order, data.items, data.fresh_items || []);
 }
 
 function renderProgress(order) {
@@ -370,9 +370,14 @@ function renderProgress(order) {
     container.innerHTML = html;
 }
 
-function renderActionArea(order, activeDrivers, defaultPrepMinutes) {
+function renderActionArea(order, activeDrivers, defaultPrepMinutes, freshItems) {
     const area = document.getElementById('modal-action-area');
     area.innerHTML = '';
+    // Design Ref: mall-fresh-products.design.md §5.4, §6.2 — weight 타입 신선 라인이 아직 실측
+    // 입력 전이면 준비완료 버튼을 아예 비활성화한다(서버도 mark_ready.php에서 최종 방어).
+    const hasUnconfirmedWeight = (freshItems || []).some(function (fi) {
+        return fi.sale_type_snapshot === 'weight' && Number(fi.is_sold_out) !== 1 && fi.actual_weight_g === null;
+    });
 
     // 배송기사 배정 전(접수대기~준비완료) 단계에서만, 고객 요청 등으로 주문을 취소할 수 있다.
     const CANCELLABLE_STATUSES = ['pending', 'confirmed', 'preparing', 'ready'];
@@ -412,9 +417,13 @@ function renderActionArea(order, activeDrivers, defaultPrepMinutes) {
         });
     } else if (order.status === 'preparing') {
         area.innerHTML =
-            '<button type="button" id="act-ready-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700">준비완료</button> ' +
+            (hasUnconfirmedWeight
+                ? '<button type="button" id="act-ready-btn" class="px-3 py-1.5 text-xs font-semibold bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" disabled>준비완료</button> ' +
+                  '<div class="text-xs text-amber-600 mt-1">무게 상품의 실측 입력이 끝나야 준비완료로 처리할 수 있습니다.</div>'
+                : '<button type="button" id="act-ready-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700">준비완료</button> ') +
             '<button type="button" id="act-cancel-btn" class="px-3 py-1.5 text-xs font-semibold bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">접수 취소(접수대기로)</button>' +
             cancelBtnHtml;
+        if (!hasUnconfirmedWeight) {
         document.getElementById('act-ready-btn').addEventListener('click', function () {
             const btn = this;
             btn.disabled = true;
@@ -431,6 +440,7 @@ function renderActionArea(order, activeDrivers, defaultPrepMinutes) {
                     updateRowSummary(order.id, 'ready', order.current_driver_name);
                 });
         });
+        }
         document.getElementById('act-cancel-btn').addEventListener('click', function () {
             if (!confirm('접수를 취소하고 접수대기 상태로 되돌릴까요?')) return;
             const btn = this;
@@ -534,12 +544,13 @@ function renderCustomer(order) {
     document.getElementById('modal-customer').innerHTML = html;
 }
 
-function renderItems(order, items) {
+function renderItems(order, items, freshItems) {
+    freshItems = freshItems || [];
     let html = '<table class="min-w-full text-xs"><thead><tr class="text-gray-500">' +
         '<th class="px-2 py-1 text-left">상품</th><th class="px-2 py-1 text-right">단가</th>' +
         '<th class="px-2 py-1 text-right">할인율</th><th class="px-2 py-1 text-right">수량</th>' +
         '<th class="px-2 py-1 text-right">금액</th><th class="px-2 py-1 text-center">재고</th></tr></thead><tbody>';
-    if (!items.length) {
+    if (!items.length && !freshItems.length) {
         html += '<tr><td colspan="6" class="px-2 py-3 text-center text-gray-400">담긴 상품이 없습니다.</td></tr>';
     } else {
         items.forEach(function (it) {
@@ -557,6 +568,40 @@ function renderItems(order, items) {
                       '<button type="button" class="mark-sold-out-btn px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700 font-semibold" data-order-item-id="' + it.order_item_id + '" data-sold-out="0">품절취소</button>'
                     : '<button type="button" class="mark-sold-out-btn px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-red-100 hover:text-red-700 font-semibold" data-order-item-id="' + it.order_item_id + '" data-sold-out="1">품절표시</button>') +
                 '</td>' +
+                '</tr>';
+        });
+        // 신선상품 라인(mall_fresh_order_items) — 정가상품과 완전히 분리된 테이블이라 별도로 렌더링한다.
+        // Design Ref: mall-fresh-products.design.md §5.4.
+        freshItems.forEach(function (fi) {
+            const soldOut = Number(fi.is_sold_out) === 1;
+            const strike = soldOut ? 'text-decoration:line-through;color:#9ca3af;' : '';
+            const isWeight = fi.sale_type_snapshot === 'weight';
+            const confirmed = fi.actual_weight_g !== null;
+            const amount = confirmed ? fi.confirmed_price : fi.estimated_price;
+            let qtyCell;
+            if (isWeight) {
+                qtyCell = confirmed ? ('확정 ' + fi.actual_weight_g + 'g') : ('예상 ' + fi.weight_g + 'g');
+            } else {
+                qtyCell = fi.quantity;
+            }
+            let actionCell;
+            if (soldOut) {
+                actionCell = '<span class="px-2 py-1 rounded-md bg-red-100 text-red-700 font-semibold">품절됨</span>';
+            } else if (!isWeight) {
+                actionCell = '<span class="text-gray-400">-</span>';
+            } else if (confirmed) {
+                actionCell = '<span class="px-2 py-1 rounded-md bg-green-100 text-green-700 font-semibold">실측완료</span>';
+            } else {
+                actionCell = '<input type="number" min="1" class="confirm-fresh-weight-input border border-gray-300 rounded px-1.5 py-1 w-16 text-right" placeholder="g" style="display:inline-block;">' +
+                    '<button type="button" class="confirm-fresh-weight-btn px-2 py-1 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 font-semibold ml-1" data-mall-fresh-order-item-id="' + fi.id + '">확정</button>';
+            }
+            html += '<tr class="border-t border-gray-200">' +
+                '<td class="px-2 py-1" style="' + strike + '">' + escapeHtml(fi.product_name_snapshot) + ' <span class="px-1.5 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700">신선</span></td>' +
+                '<td class="px-2 py-1 text-right" style="' + strike + '">' + Number(fi.unit_price_snapshot).toFixed(2) + '</td>' +
+                '<td class="px-2 py-1 text-right" style="' + strike + '">-</td>' +
+                '<td class="px-2 py-1 text-right" style="' + strike + '">' + qtyCell + '</td>' +
+                '<td class="px-2 py-1 text-right font-semibold" style="' + strike + '">' + Number(amount).toFixed(2) + '</td>' +
+                '<td class="px-2 py-1 text-center">' + actionCell + '</td>' +
                 '</tr>';
         });
     }
@@ -586,6 +631,35 @@ document.getElementById('modal-items').addEventListener('click', function (e) {
             if (data.success) {
                 showFlash(soldOut ? '품절 처리되었습니다.' : '품절이 취소되었습니다.', 'success');
                 loadOrderDetail(data.data.order_id);
+            } else {
+                btn.disabled = false;
+                showFlash(data.error?.message || '처리에 실패했습니다.', 'error');
+            }
+        });
+});
+
+// 신선상품 weight 타입 라인 실측 확정. Design Ref: mall-fresh-products.design.md §4.2, §5.4.
+document.getElementById('modal-items').addEventListener('click', function (e) {
+    const btn = e.target.closest('.confirm-fresh-weight-btn');
+    if (!btn) return;
+    const row = btn.closest('tr');
+    const input = row.querySelector('.confirm-fresh-weight-input');
+    const actualWeightG = parseInt(input.value, 10);
+    if (!actualWeightG || actualWeightG <= 0) {
+        showFlash('실측 무게를 확인해주세요.', 'error');
+        return;
+    }
+    btn.disabled = true;
+    const params = new URLSearchParams();
+    params.set('mall_fresh_order_item_id', btn.dataset.mallFreshOrderItemId);
+    params.set('actual_weight_g', actualWeightG);
+    params.set('csrf_token', window.MALL_CSRF_TOKEN);
+    fetch('ajax/confirm_fresh_weight.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showFlash('실측 무게가 확정되었습니다.', 'success');
+                loadOrderDetail(MALL_CURRENT_ORDER_ID);
             } else {
                 btn.disabled = false;
                 showFlash(data.error?.message || '처리에 실패했습니다.', 'error');

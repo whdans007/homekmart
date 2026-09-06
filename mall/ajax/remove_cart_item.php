@@ -7,6 +7,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/cart.php';
+require_once __DIR__ . '/../lib/fresh_cart.php';
 
 function json_error($code, $message, $http = 400) {
     http_response_code($http);
@@ -29,4 +30,4 @@ if (!$result['success']) {
     json_error('VALIDATION_ERROR', '대상 장바구니 항목을 찾을 수 없습니다', 404);
 }
 
-echo json_encode(['success' => true, 'data' => ['cart_count' => mall_cart_count($member_id, $guest_token)]]);
+echo json_encode(['success' => true, 'data' => ['cart_count' => mall_cart_count($member_id, $guest_token) + mall_fresh_cart_count($member_id, $guest_token)]]);
