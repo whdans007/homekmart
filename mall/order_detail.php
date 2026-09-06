@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/lib/auth.php';
+require_once __DIR__ . '/lib/fresh_order.php';
 
 mall_require_login('/mall/login.php');
 $member = mall_current_member();
@@ -37,6 +38,7 @@ $items_stmt->execute();
 $items = $items_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $items_stmt->close();
 $conn->close();
+$fresh_items = mall_fresh_order_items_get_by_order($order_id);
 
 $status_labels = [
     'pending' => '접수대기', 'confirmed' => '확인됨', 'preparing' => '상품준비중', 'ready' => '준비완료',
@@ -93,6 +95,28 @@ require_once __DIR__ . '/partials/header.php';
             <?php endif; ?>
         </div>
         <div style="font-weight:700;"><?php echo number_format((float)$it['line_total'], 2); ?></div>
+    </div>
+    <?php endforeach; ?>
+    <?php foreach ($fresh_items as $it): ?>
+    <?php
+    $is_weight = $it['sale_type_snapshot'] === 'weight';
+    $is_confirmed = $is_weight && $it['actual_weight_g'] !== null;
+    $display_price = $is_weight
+        ? ($is_confirmed ? (float)$it['confirmed_price'] : (float)$it['estimated_price'])
+        : (float)$it['confirmed_price'];
+    ?>
+    <div style="display:flex;justify-content:space-between;gap:12px;padding:12px var(--space-4);border-bottom:1px solid var(--line-alternative);font:var(--t-label1) var(--font-sans);">
+        <div>
+            <div><span class="badge badge-green">신선</span> <?php echo htmlspecialchars($it['product_name_snapshot']); ?><?php if (!$is_weight): ?> × <?php echo (int)$it['quantity']; ?><?php endif; ?></div>
+            <?php if ($is_weight && !$is_confirmed): ?>
+                <span class="badge badge-blue" style="margin-top:5px;">예상 <?php echo (int)$it['weight_g']; ?>g · 예상금액 <?php echo number_format((float)$it['estimated_price'], 2); ?></span>
+            <?php elseif ($is_weight): ?>
+                <span class="badge badge-green" style="margin-top:5px;">확정 <?php echo (int)$it['actual_weight_g']; ?>g · 확정금액 <?php echo number_format((float)$it['confirmed_price'], 2); ?></span>
+            <?php else: ?>
+                <span class="badge badge-green" style="margin-top:5px;">확정금액 <?php echo number_format((float)$it['confirmed_price'], 2); ?></span>
+            <?php endif; ?>
+        </div>
+        <div style="font-weight:700;white-space:nowrap;"><?php echo number_format($display_price, 2); ?></div>
     </div>
     <?php endforeach; ?>
 </div>

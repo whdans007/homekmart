@@ -2166,6 +2166,21 @@
     "js_save_error": "저장 중 오류가 발생했습니다.",
     "js_server_error": "서버 오류가 발생했습니다."
   },
+  "mall_fresh_products": {
+    "fresh_badge": "신선",
+    "sold_out": "품절",
+    "weight_product": "무게상품",
+    "piece_product": "낱개상품",
+    "price_per_100g": "100g당 가격",
+    "price_per_piece": "개당 가격",
+    "weight": "무게",
+    "quantity": "수량",
+    "estimated_amount": "예상금액",
+    "confirmed_amount": "확정금액",
+    "estimated_notice": "예상금액이며 실제 무게에 따라 달라질 수 있습니다.",
+    "add_to_cart": "장바구니 담기",
+    "sold_out_button": "품절된 상품입니다"
+  },
   "daily_report": {
     "title": "Daily Report",
     "excel": "Excel",

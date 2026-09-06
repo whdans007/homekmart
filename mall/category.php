@@ -43,6 +43,7 @@ if ($category_id === null && !empty($rail_categories)) {
 $effective_category_id = $sub_id ?: $category_id;
 $products = mall_get_eligible_products($requested_channel, $effective_category_id, $search);
 $cards = mall_build_product_cards($products, $member, $requested_channel, $mall_lang);
+$fresh_products = mall_get_eligible_fresh_products($effective_category_id, $search);
 
 function mall_cat_label($cat, $mall_lang) {
     return ($mall_lang === 'en' && !empty($cat['name_en'])) ? $cat['name_en'] : $cat['name'];
@@ -85,12 +86,35 @@ function mall_cat_label($cat, $mall_lang) {
         </div>
         <?php endif; ?>
 
-        <?php if (empty($cards)): ?>
+        <?php if (empty($cards) && empty($fresh_products)): ?>
             <p class="empty-state">등록된 상품이 없습니다.</p>
         <?php else: ?>
             <div>
                 <?php foreach ($cards as $card): ?>
                     <?php include __DIR__ . '/partials/product_row.php'; ?>
+                <?php endforeach; ?>
+                <?php foreach ($fresh_products as $fresh): ?>
+                    <?php
+                    $fresh_name = ($mall_lang === 'en' && !empty($fresh['name_en'])) ? $fresh['name_en'] : $fresh['name_ko'];
+                    $fresh_image = $fresh['image_url'] ?: '/logo/homekmart_logo.png';
+                    ?>
+                    <div class="product-row-item">
+                        <a href="/mall/fresh_product.php?id=<?php echo (int)$fresh['id']; ?>">
+                            <img class="thumb" src="<?php echo htmlspecialchars($fresh_image); ?>" alt="<?php echo htmlspecialchars($fresh_name); ?>">
+                        </a>
+                        <div class="info">
+                            <a href="/mall/fresh_product.php?id=<?php echo (int)$fresh['id']; ?>" style="color:inherit;">
+                                <div class="name"><span class="badge badge-green">신선</span> <?php echo htmlspecialchars($fresh_name); ?></div>
+                            </a>
+                            <div class="bottom-row">
+                                <div class="price-row" style="margin-top:0;">
+                                    <span class="final"><?php echo number_format((float)$fresh['price_per_100g'], 2); ?></span>
+                                    <span style="font:var(--t-caption1) var(--font-sans);color:var(--label-alternative);">/ <?php echo $fresh['sale_type'] === 'weight' ? '100g' : '개'; ?></span>
+                                </div>
+                                <a class="quick-add-btn" href="/mall/fresh_product.php?id=<?php echo (int)$fresh['id']; ?>">선택</a>
+                            </div>
+                        </div>
+                    </div>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
