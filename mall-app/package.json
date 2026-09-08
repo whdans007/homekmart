@@ -12,8 +12,10 @@
   "type": "commonjs",
   "dependencies": {
     "@capacitor/android": "^8.5.1",
+    "@capacitor/app": "^8.1.1",
     "@capacitor/cli": "^8.5.1",
-    "@capacitor/core": "^8.5.1"
+    "@capacitor/core": "^8.5.1",
+    "@capgo/capacitor-social-login": "^8.5.5"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5"
