@@ -1,15 +1,19 @@
 <?php
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../lib/home_layout.php';
+require_once __DIR__ . '/../../admin/fresh_product_common.php';
 
 ensure_logged_in();
 require_permission('mall_management', '../../admin/index.php');
 
 $current_page = 'products.php';
 $search = trim($_GET['q'] ?? '');
+// 상품 검색 섹션의 탭 — 일반상품(products/mall_products) / 신선상품(mall_fresh_products)
+$search_tab = ($_GET['search_tab'] ?? 'general') === 'fresh' ? 'fresh' : 'general';
 $selected_category_id = isset($_GET['cat_id']) && $_GET['cat_id'] !== '' ? (int)$_GET['cat_id'] : null;
 $selected_sub_id = isset($_GET['sub_id']) && $_GET['sub_id'] !== '' ? (int)$_GET['sub_id'] : null;
 $can_manage_categories = has_permission('category_management');
@@ -21,7 +25,10 @@ $curated_per_page = 50;
 
 // 카테고리 아랫쪽에 "홈 노출" 가상 카테고리(오늘의특가/기획전/새상품)를 둔다 — 실제 categories 테이블과는
 // 무관하고, mall_home_sections의 해당 슬롯 draft product_ids로만 관리한다.
-$home_slot_labels = ['today_deals' => '오늘의특가', 'promo_products' => '기획전', 'new_arrivals' => '새상품'];
+$home_slot_labels = [
+    'today_deals' => t('mall_admin.products.slot_today_deals'), 'promo_products' => t('mall_admin.products.slot_promo'),
+    'new_arrivals' => t('mall_admin.products.slot_new_arrivals'),
+];
 $selected_home_slot = $_GET['home_slot'] ?? null;
 if (!isset($home_slot_labels[$selected_home_slot])) {
     $selected_home_slot = null;
@@ -194,6 +201,61 @@ if (!$selected_home_slot && $search !== '') {
     $stmt->close();
 }
 
+// 신선상품 검색(신선상품 탭) — mall_fresh_products에서 코드/이름으로 검색한다. 등록/이동 대상 카테고리는
+// 일반상품과 동일하게 좌측에서 선택한 카테고리($add_target_category_id) 기준이다.
+// mall_fresh_products는 점포 구분이 없는 몰 전체 단일 카탈로그라 store_id 필터는 적용하지 않는다.
+$fresh_search_results = [];
+if (!$selected_home_slot && $search_tab === 'fresh' && $search !== '') {
+    $fresh_like = '%' . $search . '%';
+    $fresh_search_stmt = $conn->prepare(
+        "SELECT id, code, name_ko, name_en, fresh_category, sale_type, price_per_100g, category_id
+         FROM mall_fresh_products
+         WHERE status = 'active' AND (code LIKE ? OR name_ko LIKE ? OR name_en LIKE ?)
+         ORDER BY name_ko LIMIT 50"
+    );
+    $fresh_search_stmt->bind_param('sss', $fresh_like, $fresh_like, $fresh_like);
+    $fresh_search_stmt->execute();
+    $fresh_search_results = $fresh_search_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $fresh_search_stmt->close();
+}
+
+// 좌측에서 선택한 카테고리에 배정된 신선상품 — 검색 탭과 무관하게 항상 중앙 패널에 표시한다.
+// 상태(active/inactive)와 무관하게 전부 보여줘야 비활성 상품도 배정 해제가 가능하다.
+// 카테고리를 "전체"로 두고 있으면(=$category_filter_ids가 비어있으면) 카테고리가 배정된 신선상품 전체를 보여준다.
+$fresh_curated = [];
+if (!$selected_home_slot) {
+    if (!empty($category_filter_ids)) {
+        $fc_where = 'mfp.category_id IN (' . implode(',', array_fill(0, count($category_filter_ids), '?')) . ')';
+        $fc_types = str_repeat('i', count($category_filter_ids));
+        $fc_params = $category_filter_ids;
+    } else {
+        $fc_where = 'mfp.category_id IS NOT NULL';
+        $fc_types = '';
+        $fc_params = [];
+    }
+    $fresh_curated_stmt = $conn->prepare(
+        "SELECT mfp.id, mfp.code, mfp.name_ko, mfp.name_en, mfp.fresh_category, mfp.sale_type, mfp.price_per_100g,
+                mfp.status, mfp.image_url, mfp.display_order, mfp.cost_price_override, mfp.wholesale_reference_price_override,
+                mfp.is_sold_out, mfp.retail_discount_allowed, mfp.wholesale_discount_allowed, cc.name AS category_name,
+                (SELECT fpi.unit_cost_per_100g FROM fresh_purchase_items fpi
+                 WHERE fpi.mall_fresh_product_id = mfp.id
+                 ORDER BY fpi.purchase_date DESC, fpi.id DESC LIMIT 1) AS latest_unit_cost_100g,
+                (SELECT fpi.unit_cost_per_piece FROM fresh_purchase_items fpi
+                 WHERE fpi.mall_fresh_product_id = mfp.id
+                 ORDER BY fpi.purchase_date DESC, fpi.id DESC LIMIT 1) AS latest_unit_cost_piece
+         FROM mall_fresh_products mfp
+         LEFT JOIN categories cc ON cc.id = mfp.category_id
+         WHERE {$fc_where}
+         ORDER BY mfp.display_order, mfp.id DESC"
+    );
+    if ($fc_types !== '') {
+        $fresh_curated_stmt->bind_param($fc_types, ...$fc_params);
+    }
+    $fresh_curated_stmt->execute();
+    $fresh_curated = $fresh_curated_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $fresh_curated_stmt->close();
+}
+
 // 기준도매가 = 원가 x (1 + 마진율). 마진율은 할인 규칙 화면에서 관리(기본 15%).
 $markup_stmt = $conn->prepare("SELECT setting_value FROM system_settings WHERE setting_key = 'mall_wholesale_reference_markup_rate'");
 $markup_stmt->execute();
@@ -289,11 +351,50 @@ if (isset($curated_stmt)) {
     $curated_stmt->close();
 }
 
-// 상품별 이미지 목록 (삭제/정렬 UI용)
+// 신선상품도 같은 "큐레이션된 상품" 테이블/컬럼 구조에 완전히 통합한다 — 별도 목록/템플릿을 만들지 않고,
+// 좌측에서 선택한 카테고리에 배정된 신선상품($fresh_curated)을 일반상품과 동일한 키 이름으로 정규화해
+// 같은 배열 끝에 이어붙인다. 그러면 아래 렌더링 루프가 행 종류와 무관하게 그대로 재사용된다:
+//   - sku/display_name/display_name_en → code/name_ko/name_en (표시명 편집은 mall_fresh_products 원본을 직접 수정)
+//   - cost_price_override/wholesale_reference_price_override → 신선상품 전용 override 컬럼, "오리지널"은 최근 매입원가
+//   - selling_price_override는 개념이 없어 항상 null, "오리지널"에 현재 price_per_100g을 넣어 그대로 편집되게 함
+//   - is_active/is_sold_out/할인 플래그/display_order → 신선상품 전용 컬럼을 그대로 매핑
+//   - product_id/real_stock_quantity/promo_*는 신선상품에 해당 없어 항상 null(템플릿이 이미 null-safe)
+if (!$selected_home_slot) {
+    foreach ($fresh_curated as $fc) {
+        $latest_purchase_cost = $fc['sale_type'] === 'piece' ? $fc['latest_unit_cost_piece'] : $fc['latest_unit_cost_100g'];
+        $curated[] = [
+            'row_type' => 'fresh',
+            'id' => null,
+            'fresh_id' => (int)$fc['id'],
+            'product_id' => null,
+            'sku' => $fc['code'],
+            'name_ko' => $fc['name_ko'],
+            'name_en' => $fc['name_en'],
+            'display_name' => $fc['name_ko'],
+            'display_name_en' => $fc['name_en'],
+            'sale_type' => $fc['sale_type'],
+            'display_order' => (int)$fc['display_order'],
+            'cost_price_override' => $fc['cost_price_override'],
+            'selling_price_override' => null,
+            'wholesale_reference_price_override' => $fc['wholesale_reference_price_override'],
+            'original_cost_price' => $latest_purchase_cost,
+            'original_selling_price' => $fc['price_per_100g'],
+            'is_active' => $fc['status'] === 'active' ? 1 : 0,
+            'is_sold_out' => (int)$fc['is_sold_out'],
+            'retail_discount_allowed' => (int)$fc['retail_discount_allowed'],
+            'wholesale_discount_allowed' => (int)$fc['wholesale_discount_allowed'],
+            'real_stock_quantity' => null,
+            'image_url' => $fc['image_url'],
+        ];
+    }
+}
+
+// 상품별 이미지 목록 (삭제/정렬 UI용) — 신선상품 행(product_id 없음)은 대상이 아니므로 건너뛴다.
 $images_by_product = [];
 if (!empty($curated)) {
     $img_stmt = $conn->prepare('SELECT id, image_path FROM mall_product_images WHERE product_id = ? ORDER BY sort_order');
     foreach ($curated as $c) {
+        if (($c['row_type'] ?? 'general') !== 'general') { continue; }
         $img_stmt->bind_param('i', $c['product_id']);
         $img_stmt->execute();
         $images_by_product[$c['product_id']] = $img_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -304,11 +405,11 @@ if (!empty($curated)) {
 $conn->close();
 ?>
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="<?php echo get_language(); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>상품 큐레이션 - HOME K MART 쇼핑몰</title>
+    <title><?php echo t('mall_admin.nav.products'); ?> - HOME K MART <?php echo t('mall_admin.title'); ?></title>
     <link rel="icon" href="data:,">
     <link href="../../admin/css/style.css" rel="stylesheet">
     <link href="../../admin/css/design-system.css" rel="stylesheet">
@@ -325,7 +426,7 @@ $conn->close();
 <body class="bg-gray-50 min-h-screen">
 <?php include __DIR__ . '/partials/sidebar.php'; ?>
 <main class="p-6">
-        <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-box mr-2"></i>상품 큐레이션</h1>
+        <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-box mr-2"></i><?php echo t('mall_admin.nav.products'); ?></h1>
         <div id="flash-area"></div>
 
         <?php
@@ -334,31 +435,31 @@ $conn->close();
             if ($selected_store_id !== (int)MALL_STORE_ID) { $__base_qs['store_id'] = $selected_store_id; }
         ?>
         <div class="mb-4 bg-white rounded-lg border border-gray-200 p-3 flex items-center gap-2 flex-wrap">
-            <label for="store-select" class="text-xs font-bold text-gray-700">기준 점포</label>
+            <label for="store-select" class="text-xs font-bold text-gray-700"><?php echo t('mall_admin.products.reference_store'); ?></label>
             <select id="store-select" class="border border-gray-300 rounded-md px-2 py-1 text-xs">
                 <?php foreach ($stores as $s): ?>
                 <option value="<?php echo (int)$s['id']; ?>" <?php echo $selected_store_id === (int)$s['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($s['name']); ?> (ID <?php echo (int)$s['id']; ?>)</option>
                 <?php endforeach; ?>
             </select>
             <?php if ($selected_store_id !== (int)MALL_STORE_ID): ?>
-            <span class="text-xs text-amber-600"><i class="fas fa-triangle-exclamation mr-1"></i>현재 라이브 쇼핑몰 노출 기준 점포(ID <?php echo (int)MALL_STORE_ID; ?>)와 다릅니다. 이 점포로 등록한 상품은 지금은 실제 쇼핑몰에 노출되지 않습니다.</span>
+            <span class="text-xs text-amber-600"><i class="fas fa-triangle-exclamation mr-1"></i><?php echo t('mall_admin.products.store_mismatch_warning', ['id' => (int)MALL_STORE_ID]); ?></span>
             <?php endif; ?>
         </div>
 
         <div class="flex gap-4 items-start">
         <aside class="w-52 flex-shrink-0 bg-white rounded-lg border border-gray-200 p-4">
             <div class="flex items-center justify-between mb-3">
-                <h2 class="text-sm font-bold text-gray-700">카테고리</h2>
+                <h2 class="text-sm font-bold text-gray-700"><?php echo t('mall_admin.products.category'); ?></h2>
                 <?php if ($can_manage_categories): ?>
                 <button type="button" id="open-category-manage-btn" class="text-xs text-blue-600 hover:text-blue-800 font-semibold">
-                    <i class="fas fa-pen mr-1"></i>수정
+                    <i class="fas fa-pen mr-1"></i><?php echo t('common.edit'); ?>
                 </button>
                 <?php endif; ?>
             </div>
             <ul class="space-y-1 mb-3">
                 <li>
                     <a href="products.php<?php echo $__base_qs ? '?' . http_build_query($__base_qs) : ''; ?>"
-                       class="block px-2 py-1.5 rounded text-xs font-medium <?php echo ($selected_category_id === null && !$selected_home_slot) ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'; ?>">전체</a>
+                       class="block px-2 py-1.5 rounded text-xs font-medium <?php echo ($selected_category_id === null && !$selected_home_slot) ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'; ?>"><?php echo t('common.all'); ?></a>
                 </li>
             </ul>
             <ul class="space-y-1">
@@ -386,7 +487,7 @@ $conn->close();
                 <?php endforeach; ?>
             </ul>
 
-            <h2 class="text-sm font-bold text-gray-700 mt-4 mb-3">홈 노출</h2>
+            <h2 class="text-sm font-bold text-gray-700 mt-4 mb-3"><?php echo t('mall_admin.products.home_exposure'); ?></h2>
             <ul class="space-y-1">
                 <?php foreach ($home_slot_labels as $__slot_key => $__slot_label): ?>
                 <li>
@@ -403,38 +504,44 @@ $conn->close();
         <section class="bg-white rounded-lg border border-gray-200 p-4">
             <h2 class="text-sm font-bold text-gray-700 mb-3">
                 <?php if ($selected_home_slot): ?>
-                    <?php echo htmlspecialchars($home_slot_labels[$selected_home_slot]); ?> 진열 상품 (<?php echo count($curated); ?>)
+                    <?php echo t('mall_admin.products.slot_display_products', ['slot' => htmlspecialchars($home_slot_labels[$selected_home_slot]), 'count' => count($curated)]); ?>
                 <?php else: ?>
-                    큐레이션된 상품 (<?php echo count($curated); ?>)
+                    <?php echo t('mall_admin.products.curated_products', ['count' => count($curated)]); ?>
                 <?php endif; ?>
             </h2>
             <?php if ($selected_home_slot): ?>
-            <p class="text-[11px] text-gray-400 mb-3"><i class="fas fa-circle-info mr-1"></i>순서는 추가한 순서 그대로 노출됩니다. 오른쪽에서 검색해서 추가하거나, 아래 목록에서 "진열 제거"를 눌러 뺄 수 있습니다. 홈 레이아웃 화면의 "적용"을 눌러야 고객 화면에 반영됩니다.</p>
+            <p class="text-[11px] text-gray-400 mb-3"><i class="fas fa-circle-info mr-1"></i><?php echo t('mall_admin.products.slot_hint'); ?></p>
             <?php endif; ?>
             <?php $__is_today_deals = $selected_home_slot === 'today_deals'; $__col_count = $__is_today_deals ? 12 : 11; ?>
             <table class="min-w-full text-xs">
                 <thead class="bg-gray-100 text-gray-600">
                     <tr>
-                        <th class="px-3 py-2 text-left">순서</th>
-                        <th class="px-3 py-2 text-left">상품명</th>
-                        <th class="px-3 py-2 text-left">표시명</th>
-                        <th class="px-3 py-2 text-right">원가</th>
-                        <th class="px-3 py-2 text-right">기준도매가</th>
-                        <th class="px-3 py-2 text-right">기준판매가</th>
-                        <th class="px-3 py-2 text-left">노출</th>
-                        <th class="px-3 py-2 text-left">재고/품절</th>
-                        <th class="px-3 py-2 text-left">할인</th>
-                        <?php if ($__is_today_deals): ?><th class="px-3 py-2 text-left">프로모</th><?php endif; ?>
-                        <th class="px-3 py-2 text-left">이미지</th>
-                        <th class="px-3 py-2 text-left">저장</th>
+                        <th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.sort_order'); ?></th>
+                        <th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.product_name'); ?></th>
+                        <th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.display_name'); ?></th>
+                        <th class="px-3 py-2 text-right"><?php echo t('mall_admin.products.cost_price'); ?></th>
+                        <th class="px-3 py-2 text-right"><?php echo t('mall_admin.products.wholesale_reference_price'); ?></th>
+                        <th class="px-3 py-2 text-right"><?php echo t('mall_admin.products.reference_selling_price'); ?></th>
+                        <th class="px-3 py-2 text-left"><?php echo t('mall_admin.home_layout.visible'); ?></th>
+                        <th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.stock_sold_out'); ?></th>
+                        <th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.discount'); ?></th>
+                        <?php if ($__is_today_deals): ?><th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.promo'); ?></th><?php endif; ?>
+                        <th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.image'); ?></th>
+                        <th class="px-3 py-2 text-left"><?php echo t('common.save'); ?></th>
                     </tr>
                 </thead>
                 <tbody id="curated-products-body" data-order-offset="<?php echo isset($curated_offset) ? (int)$curated_offset : 0; ?>">
                 <?php if (empty($curated)): ?>
-                    <tr><td colspan="<?php echo $__col_count; ?>" class="px-3 py-4 text-center text-gray-400"><?php echo $selected_home_slot ? '아직 이 진열에 추가된 상품이 없습니다. 오른쪽에서 검색해서 추가해보세요.' : '등록된 상품이 없습니다.'; ?></td></tr>
+                    <tr><td colspan="<?php echo $__col_count; ?>" class="px-3 py-4 text-center text-gray-400"><?php echo $selected_home_slot ? t('mall_admin.products.slot_empty') : t('mall_admin.products.no_products'); ?></td></tr>
                 <?php endif; ?>
                 <?php foreach ($curated as $c): ?>
                     <?php
+                        $__row_type = $c['row_type'] ?? 'general';
+                        // 신선상품 행은 mall_products 큐레이션/inventory 개념이 없어, $curated 배열에 담을 때
+                        // 이미 원가/기준도매가/판매가/재고/할인 등을 일반상품과 같은 키 이름으로 정규화해뒀다
+                        // (원가/기준도매가는 mall_fresh_products의 override 컬럼 + 최근 매입원가를 "오리지널"로,
+                        //  판매가는 override 개념 없이 price_per_100g을 그대로 "오리지널"로 취급). 그래서 아래
+                        // 계산/렌더링 로직은 행 종류와 무관하게 동일하게 재사용된다.
                         $original_cost_price = $c['original_cost_price'] !== null ? (float)$c['original_cost_price'] : null;
                         $original_selling_price = $c['original_selling_price'] !== null ? (float)$c['original_selling_price'] : null;
                         // 기준도매가는 소숫점 이하를 항상 올림 처리한다(원가 x 마진율 계산 결과에 끝수가 남지 않도록).
@@ -447,68 +554,80 @@ $conn->close();
                         $effective_cost_price = $cost_price_override ?? $original_cost_price;
                         $effective_selling_price = $selling_price_override ?? $original_selling_price;
                         $effective_wholesale_reference_price = $wholesale_reference_override ?? ($effective_cost_price !== null ? ceil($effective_cost_price * (1 + $wholesale_reference_markup_rate / 100)) : null);
-                        $__is_curated = $c['id'] !== null;
+
+                        // 신선상품 행은 mall_products 큐레이션 개념이 없어(항상 배정된 상태로만 이 목록에 들어옴)
+                        // id 유무와 무관하게 항상 "큐레이션됨" 취급한다.
+                        $__is_curated = $c['id'] !== null || $__row_type === 'fresh';
                     ?>
                     <?php if (!$__is_curated): ?>
                     <tr class="curated-row border-t border-gray-100">
                         <td class="px-3 py-2 text-gray-300">—</td>
                         <td class="px-3 py-2">
-                            <div class="text-gray-400 barcode-copy" data-barcode="<?php echo htmlspecialchars($c['sku']); ?>" title="클릭해서 바코드 복사" style="cursor:pointer;"><?php echo htmlspecialchars($c['sku']); ?></div>
+                            <div class="text-gray-400 barcode-copy" data-barcode="<?php echo htmlspecialchars($c['sku']); ?>" title="<?php echo htmlspecialchars(t('mall_admin.products.copy_barcode_title')); ?>" style="cursor:pointer;"><?php echo htmlspecialchars($c['sku']); ?></div>
                             <?php echo htmlspecialchars($c['name_ko']); ?>
                         </td>
                         <td class="px-3 py-2 text-amber-600" colspan="<?php echo $__col_count - 3; ?>">
-                            <i class="fas fa-triangle-exclamation mr-1"></i>이 점포(ID <?php echo (int)MALL_STORE_ID; ?>)에 아직 큐레이션되지 않았습니다. "지금 큐레이션" 누르면 카테고리 화면과 똑같이 편집할 수 있게 됩니다.
+                            <i class="fas fa-triangle-exclamation mr-1"></i><?php echo t('mall_admin.products.not_curated_yet', ['id' => (int)MALL_STORE_ID]); ?>
                         </td>
                         <td class="px-3 py-2 whitespace-nowrap">
-                            <button class="curate-home-slot-product-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$c['product_id']; ?>">지금 큐레이션</button>
-                            <button class="remove-from-home-slot-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$c['product_id']; ?>">진열 제거</button>
+                            <button class="curate-home-slot-product-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$c['product_id']; ?>"><?php echo t('mall_admin.products.curate_now'); ?></button>
+                            <button class="remove-from-home-slot-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$c['product_id']; ?>"><?php echo t('mall_admin.products.remove_from_slot'); ?></button>
                         </td>
                     </tr>
                     <?php else: ?>
-                    <tr class="curated-row border-t border-gray-100" data-mall-product-id="<?php echo (int)$c['id']; ?>" <?php echo $selected_home_slot ? '' : 'draggable="true"'; ?>>
+                    <tr class="curated-row border-t border-gray-100"
+                        <?php if ($__row_type === 'fresh'): ?>
+                        data-row-type="fresh" data-fresh-product-id="<?php echo (int)$c['fresh_id']; ?>" draggable="true"
+                        <?php else: ?>
+                        data-mall-product-id="<?php echo (int)$c['id']; ?>" <?php echo $selected_home_slot ? '' : 'draggable="true"'; ?>
+                        <?php endif; ?>>
                         <td class="px-3 py-2 whitespace-nowrap">
-                            <?php if (!$selected_home_slot): ?><i class="fas fa-grip-vertical text-gray-300 cursor-grab" title="드래그해서 순서 변경"></i><?php endif; ?>
-                            <input type="number" min="0" max="999" class="edit-display-order border border-gray-300 rounded px-2 py-1 w-10" value="<?php echo (int)$c['display_order']; ?>" <?php echo $selected_home_slot ? 'title="이 목록에서는 추가한 순서로 노출됩니다(전체 큐레이션 순서와는 별개)"' : ''; ?>>
+                            <?php if (!$selected_home_slot): ?><i class="fas fa-grip-vertical text-gray-300 cursor-grab" title="<?php echo htmlspecialchars(t('mall_admin.products.drag_to_reorder')); ?>"></i><?php endif; ?>
+                            <input type="number" min="0" max="999" class="edit-display-order border border-gray-300 rounded px-2 py-1 w-10" value="<?php echo (int)$c['display_order']; ?>" <?php echo $selected_home_slot ? 'title="' . htmlspecialchars(t('mall_admin.products.slot_order_title')) . '"' : ''; ?>>
                         </td>
                         <td class="px-3 py-2">
-                            <div class="text-gray-400 barcode-copy" data-barcode="<?php echo htmlspecialchars($c['sku']); ?>" title="클릭해서 바코드 복사" style="cursor:pointer;"><?php echo htmlspecialchars($c['sku']); ?></div>
+                            <div class="text-gray-400 barcode-copy" data-barcode="<?php echo htmlspecialchars($c['sku']); ?>" title="<?php echo htmlspecialchars(t('mall_admin.products.copy_barcode_title')); ?>" style="cursor:pointer;"><?php echo htmlspecialchars($c['sku']); ?></div>
                             <?php echo htmlspecialchars($c['name_ko']); ?>
+                            <?php if ($__row_type === 'fresh'): ?><span class="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700"><?php echo t('mall_fresh_products.fresh_product_label'); ?></span><?php endif; ?>
                         </td>
                         <td class="px-3 py-2">
                             <div class="flex flex-col gap-1">
-                                <div class="flex items-center gap-1"><span class="text-gray-400 text-[11px] flex-shrink-0">한:</span><input type="text" class="edit-display-name border border-gray-300 rounded px-2 py-1 w-32" placeholder="한글" value="<?php echo htmlspecialchars($c['display_name'] ?? ''); ?>"></div>
-                                <div class="flex items-center gap-1"><span class="text-gray-400 text-[11px] flex-shrink-0">영:</span><input type="text" class="edit-display-name-en border border-gray-300 rounded px-2 py-1 w-32" placeholder="영문" value="<?php echo htmlspecialchars($c['display_name_en'] ?? ''); ?>"></div>
+                                <div class="flex items-center gap-1"><span class="text-gray-400 text-[11px] flex-shrink-0"><?php echo t('mall_admin.products.lang_ko_short'); ?>:</span><input type="text" class="edit-display-name border border-gray-300 rounded px-2 py-1 w-32" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.korean')); ?>" value="<?php echo htmlspecialchars($c['display_name'] ?? ''); ?>"></div>
+                                <div class="flex items-center gap-1"><span class="text-gray-400 text-[11px] flex-shrink-0"><?php echo t('mall_admin.products.lang_en_short'); ?>:</span><input type="text" class="edit-display-name-en border border-gray-300 rounded px-2 py-1 w-32" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.english')); ?>" value="<?php echo htmlspecialchars($c['display_name_en'] ?? ''); ?>"></div>
                             </div>
                         </td>
                         <td class="px-3 py-2 text-right">
                             <input type="number" step="0.01" min="0" class="edit-cost-price border border-gray-300 rounded px-2 py-1 w-20 text-right font-mono" value="<?php echo $effective_cost_price !== null ? $effective_cost_price : ''; ?>">
                             <?php if ($cost_price_override !== null): ?>
-                            <div class="text-gray-400 mt-0.5">오리지널: <?php echo $original_cost_price !== null ? number_format($original_cost_price, 2) : '-'; ?></div>
+                            <div class="text-gray-400 mt-0.5"><?php echo t('mall_admin.products.original'); ?>: <?php echo $original_cost_price !== null ? number_format($original_cost_price, 2) : '-'; ?></div>
                             <?php endif; ?>
                         </td>
                         <td class="px-3 py-2 text-right">
                             <input type="number" step="0.01" min="0" class="edit-wholesale-reference-price border border-gray-300 rounded px-2 py-1 w-20 text-right font-mono" value="<?php echo $effective_wholesale_reference_price !== null ? $effective_wholesale_reference_price : ''; ?>">
                             <?php if ($wholesale_reference_override !== null): ?>
-                            <div class="text-gray-400 mt-0.5">오리지널: <?php echo $original_wholesale_reference_price !== null ? number_format($original_wholesale_reference_price, 2) : '-'; ?></div>
+                            <div class="text-gray-400 mt-0.5"><?php echo t('mall_admin.products.original'); ?>: <?php echo $original_wholesale_reference_price !== null ? number_format($original_wholesale_reference_price, 2) : '-'; ?></div>
                             <?php endif; ?>
                         </td>
                         <td class="px-3 py-2 text-right">
                             <input type="number" step="0.01" min="0" class="edit-selling-price border border-gray-300 rounded px-2 py-1 w-20 text-right font-mono" value="<?php echo $effective_selling_price !== null ? $effective_selling_price : ''; ?>">
-                            <div class="selling-price-original-hint text-gray-400 mt-0.5" style="<?php echo $selling_price_override !== null ? '' : 'display:none;'; ?>">오리지널: <?php echo $original_selling_price !== null ? number_format($original_selling_price, 2) : '-'; ?></div>
+                            <div class="selling-price-original-hint text-gray-400 mt-0.5" style="<?php echo $selling_price_override !== null ? '' : 'display:none;'; ?>"><?php echo t('mall_admin.products.original'); ?>: <?php echo $original_selling_price !== null ? number_format($original_selling_price, 2) : '-'; ?></div>
+                            <?php if ($__row_type === 'fresh'): ?>
+                            <div class="text-gray-400 mt-0.5"><?php echo $c['sale_type'] === 'piece' ? htmlspecialchars(t('mall_fresh_products.price_label_piece')) : htmlspecialchars(t('mall_fresh_products.price_label_weight')); ?></div>
+                            <?php endif; ?>
                         </td>
                         <td class="px-3 py-2"><input type="checkbox" class="edit-is-active" <?php echo $c['is_active'] ? 'checked' : ''; ?>></td>
                         <td class="px-3 py-2 whitespace-nowrap">
-                            <div class="text-gray-500 mb-1">실재고: <?php echo $c['real_stock_quantity'] !== null ? (int)$c['real_stock_quantity'] . '개' : '-'; ?></div>
-                            <label class="flex items-center gap-1 text-[11px] text-red-600 font-semibold" title="켜면 실재고와 무관하게 몰 화면에서 무조건 품절로 표시됩니다">
-                                <input type="checkbox" class="edit-is-sold-out" <?php echo $c['is_sold_out'] ? 'checked' : ''; ?>>품절 처리
+                            <div class="text-gray-500 mb-1"><?php echo t('mall_admin.products.real_stock'); ?>: <?php echo $c['real_stock_quantity'] !== null ? t('mall_admin.dashboard.count_unit', ['count' => (int)$c['real_stock_quantity']]) : '-'; ?></div>
+                            <label class="flex items-center gap-1 text-[11px] text-red-600 font-semibold" title="<?php echo htmlspecialchars(t('mall_admin.products.force_sold_out_title')); ?>">
+                                <input type="checkbox" class="edit-is-sold-out" <?php echo $c['is_sold_out'] ? 'checked' : ''; ?>><?php echo t('mall_admin.orders.mark_sold_out'); ?>
                             </label>
                         </td>
                         <td class="px-3 py-2 whitespace-nowrap">
-                            <label class="flex items-center gap-1 text-[11px] text-gray-600" title="체크 해제 시 소매(일반) 구매 시 할인 규칙이 적용되지 않습니다">
-                                <input type="checkbox" class="edit-retail-discount-allowed" <?php echo $c['retail_discount_allowed'] ? 'checked' : ''; ?>>일반
+                            <label class="flex items-center gap-1 text-[11px] text-gray-600" title="<?php echo htmlspecialchars(t('mall_admin.products.retail_discount_title')); ?>">
+                                <input type="checkbox" class="edit-retail-discount-allowed" <?php echo $c['retail_discount_allowed'] ? 'checked' : ''; ?>><?php echo t('mall_admin.members.tier_general'); ?>
                             </label>
-                            <label class="flex items-center gap-1 text-[11px] text-gray-600" title="체크 해제 시 도매 구매 시 할인 규칙이 적용되지 않습니다">
-                                <input type="checkbox" class="edit-wholesale-discount-allowed" <?php echo $c['wholesale_discount_allowed'] ? 'checked' : ''; ?>>도매
+                            <label class="flex items-center gap-1 text-[11px] text-gray-600" title="<?php echo htmlspecialchars(t('mall_admin.products.wholesale_discount_title')); ?>">
+                                <input type="checkbox" class="edit-wholesale-discount-allowed" <?php echo $c['wholesale_discount_allowed'] ? 'checked' : ''; ?>><?php echo t('mall_admin.orders.channel_wholesale'); ?>
                             </label>
                         </td>
                         <?php if ($__is_today_deals):
@@ -517,10 +636,10 @@ $conn->close();
                         ?>
                         <td class="px-3 py-2 whitespace-nowrap">
                             <select class="promo-type-select border border-gray-300 rounded px-1.5 py-1 text-xs" data-product-id="<?php echo (int)$c['product_id']; ?>">
-                                <option value="none" <?php echo $__p_type === 'none' ? 'selected' : ''; ?>>없음</option>
+                                <option value="none" <?php echo $__p_type === 'none' ? 'selected' : ''; ?>><?php echo t('common.none'); ?></option>
                                 <option value="1plus1" <?php echo $__p_type === '1plus1' ? 'selected' : ''; ?>>1+1</option>
-                                <option value="percent" <?php echo $__p_type === 'percent' ? 'selected' : ''; ?>>퍼센트 할인</option>
-                                <option value="cost_sale" <?php echo $__p_type === 'cost_sale' ? 'selected' : ''; ?>>원가세일</option>
+                                <option value="percent" <?php echo $__p_type === 'percent' ? 'selected' : ''; ?>><?php echo t('mall_admin.products.promo_percent'); ?></option>
+                                <option value="cost_sale" <?php echo $__p_type === 'cost_sale' ? 'selected' : ''; ?>><?php echo t('mall_admin.products.promo_cost_sale'); ?></option>
                             </select>
                             <div class="promo-value-wrap mt-1" style="<?php echo $__p_type === 'percent' ? '' : 'display:none;'; ?>">
                                 <input type="number" min="1" max="99" step="1" class="promo-value-input border border-gray-300 rounded px-1.5 py-1 text-xs w-14" value="<?php echo htmlspecialchars((string)$__p_value); ?>" placeholder="%">%
@@ -528,34 +647,48 @@ $conn->close();
                         </td>
                         <?php endif; ?>
                         <td class="px-3 py-2">
+                            <?php if ($__row_type === 'fresh'): ?>
+                            <div class="image-thumb-list flex flex-wrap gap-1">
+                                <?php if (!empty($c['image_url'])): ?>
+                                <div class="image-thumb" style="position:relative;">
+                                    <img src="<?php echo htmlspecialchars($c['image_url']); ?>" class="image-preview-trigger" data-full-src="<?php echo htmlspecialchars($c['image_url']); ?>" title="<?php echo htmlspecialchars(t('mall_admin.products.click_to_enlarge')); ?>" style="width:40px;height:40px;object-fit:cover;border-radius:0.3rem;border:1px solid #e5e7eb;cursor:zoom-in;">
+                                </div>
+                                <?php else: ?>
+                                <span class="text-gray-300 text-[11px]"><?php echo t('common.none'); ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <?php else: ?>
                             <div class="image-thumb-list flex flex-wrap gap-1">
                                 <?php foreach (($images_by_product[$c['product_id']] ?? []) as $img): ?>
                                 <div class="image-thumb" data-image-id="<?php echo (int)$img['id']; ?>" style="position:relative;">
-                                    <img src="/mall/<?php echo htmlspecialchars($img['image_path']); ?>" class="image-preview-trigger" data-full-src="/mall/<?php echo htmlspecialchars($img['image_path']); ?>" title="클릭해서 크게 보기" style="width:40px;height:40px;object-fit:cover;border-radius:0.3rem;border:1px solid #e5e7eb;cursor:zoom-in;">
+                                    <img src="/mall/<?php echo htmlspecialchars($img['image_path']); ?>" class="image-preview-trigger" data-full-src="/mall/<?php echo htmlspecialchars($img['image_path']); ?>" title="<?php echo htmlspecialchars(t('mall_admin.products.click_to_enlarge')); ?>" style="width:40px;height:40px;object-fit:cover;border-radius:0.3rem;border:1px solid #e5e7eb;cursor:zoom-in;">
                                     <div style="display:flex;gap:2px;margin-top:2px;">
-                                        <button class="img-move-btn" data-dir="up" title="위로" style="font-size:0.6rem;">▲</button>
-                                        <button class="img-move-btn" data-dir="down" title="아래로" style="font-size:0.6rem;">▼</button>
-                                        <button class="img-delete-btn" title="삭제" style="font-size:0.6rem;color:#dc2626;">×</button>
+                                        <button class="img-move-btn" data-dir="up" title="<?php echo htmlspecialchars(t('mall_admin.products.move_up')); ?>" style="font-size:0.6rem;">▲</button>
+                                        <button class="img-move-btn" data-dir="down" title="<?php echo htmlspecialchars(t('mall_admin.products.move_down')); ?>" style="font-size:0.6rem;">▼</button>
+                                        <button class="img-delete-btn" title="<?php echo htmlspecialchars(t('common.delete')); ?>" style="font-size:0.6rem;color:#dc2626;">×</button>
                                     </div>
                                 </div>
                                 <?php endforeach; ?>
                                 <?php if (empty($images_by_product[$c['product_id']] ?? [])): ?>
-                                <span class="text-gray-300 text-[11px]">없음</span>
+                                <span class="text-gray-300 text-[11px]"><?php echo t('common.none'); ?></span>
                                 <?php endif; ?>
                             </div>
+                            <?php endif; ?>
                         </td>
                         <td class="px-3 py-2 whitespace-nowrap">
-                            <button class="save-curated-btn px-2 py-1 bg-blue-600 text-white rounded text-xs">저장</button>
-                            <?php if ($selected_home_slot): ?>
-                            <button class="remove-from-home-slot-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$c['product_id']; ?>" title="쇼핑몰 큐레이션에서는 그대로 두고 이 진열에서만 뺍니다">진열 제거</button>
+                            <button class="save-curated-btn px-2 py-1 bg-blue-600 text-white rounded text-xs"><?php echo t('common.save'); ?></button>
+                            <?php if ($__row_type === 'fresh'): ?>
+                            <button class="unassign-fresh-category-btn px-2 py-1 bg-red-600 text-white rounded text-xs" data-fresh-product-id="<?php echo (int)$c['fresh_id']; ?>" data-product-name="<?php echo htmlspecialchars($c['name_ko']); ?>"><?php echo t('mall_admin.products.unassign_category'); ?></button>
+                            <?php elseif ($selected_home_slot): ?>
+                            <button class="remove-from-home-slot-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$c['product_id']; ?>" title="<?php echo htmlspecialchars(t('mall_admin.products.remove_from_slot_title')); ?>"><?php echo t('mall_admin.products.remove_from_slot'); ?></button>
                             <?php else: ?>
-                            <button class="delete-curated-btn px-2 py-1 bg-red-600 text-white rounded text-xs" data-product-name="<?php echo htmlspecialchars($c['name_ko']); ?>">삭제</button>
+                            <button class="delete-curated-btn px-2 py-1 bg-red-600 text-white rounded text-xs" data-product-name="<?php echo htmlspecialchars($c['name_ko']); ?>"><?php echo t('common.delete'); ?></button>
                             <?php endif; ?>
                             <div class="mt-1 flex items-center gap-1.5">
                                 <label class="text-blue-600 cursor-pointer text-[11px]">
-                                    사진추가<input type="file" class="image-upload-input hidden" data-product-id="<?php echo (int)$c['product_id']; ?>" accept="image/jpeg,image/png,image/webp">
+                                    <?php echo t('mall_admin.products.add_photo'); ?><input type="file" class="<?php echo $__row_type === 'fresh' ? 'fresh-image-upload-input' : 'image-upload-input'; ?> hidden" data-<?php echo $__row_type === 'fresh' ? 'fresh-product-id' : 'product-id'; ?>="<?php echo $__row_type === 'fresh' ? (int)$c['fresh_id'] : (int)$c['product_id']; ?>" accept="image/jpeg,image/png,image/webp">
                                 </label>
-                                <a href="https://www.google.com/search?tbm=isch&q=<?php echo urlencode($c['name_ko']); ?>" target="_blank" rel="noopener noreferrer" class="text-gray-500 hover:text-blue-600 text-[11px]">사진검색</a>
+                                <a href="https://www.google.com/search?tbm=isch&q=<?php echo urlencode($c['name_ko']); ?>" target="_blank" rel="noopener noreferrer" class="text-gray-500 hover:text-blue-600 text-[11px]"><?php echo t('mall_admin.products.search_photo'); ?></a>
                             </div>
                         </td>
                     </tr>
@@ -570,13 +703,13 @@ $conn->close();
                 if ($selected_sub_id) { $__page_qs['sub_id'] = $selected_sub_id; }
             ?>
             <div class="flex items-center justify-between mt-3 text-xs text-gray-600">
-                <span>전체 <?php echo (int)$curated_total; ?>개 중 <?php echo (int)$curated_offset + 1; ?>–<?php echo min($curated_offset + $curated_per_page, $curated_total); ?>개</span>
+                <span><?php echo t('mall_admin.products.pagination_range', ['total' => (int)$curated_total, 'from' => (int)$curated_offset + 1, 'to' => min($curated_offset + $curated_per_page, $curated_total)]); ?></span>
                 <div class="flex items-center gap-1">
                     <a href="?<?php echo http_build_query(array_merge($__page_qs, ['page' => max(1, $curated_page - 1)])); ?>"
-                       class="px-2 py-1 rounded border border-gray-300 <?php echo $curated_page <= 1 ? 'pointer-events-none text-gray-300' : 'hover:bg-gray-100'; ?>">이전</a>
-                    <span class="px-2">페이지 <?php echo (int)$curated_page; ?> / <?php echo (int)$curated_total_pages; ?></span>
+                       class="px-2 py-1 rounded border border-gray-300 <?php echo $curated_page <= 1 ? 'pointer-events-none text-gray-300' : 'hover:bg-gray-100'; ?>"><?php echo t('common.previous'); ?></a>
+                    <span class="px-2"><?php echo t('mall_admin.products.page_of', ['page' => (int)$curated_page, 'total' => (int)$curated_total_pages]); ?></span>
                     <a href="?<?php echo http_build_query(array_merge($__page_qs, ['page' => min($curated_total_pages, $curated_page + 1)])); ?>"
-                       class="px-2 py-1 rounded border border-gray-300 <?php echo $curated_page >= $curated_total_pages ? 'pointer-events-none text-gray-300' : 'hover:bg-gray-100'; ?>">다음</a>
+                       class="px-2 py-1 rounded border border-gray-300 <?php echo $curated_page >= $curated_total_pages ? 'pointer-events-none text-gray-300' : 'hover:bg-gray-100'; ?>"><?php echo t('common.next'); ?></a>
                 </div>
             </div>
             <?php endif; ?>
@@ -586,22 +719,22 @@ $conn->close();
         <div class="w-96 flex-shrink-0">
         <section class="bg-white rounded-lg border border-gray-200 p-4">
             <?php if ($selected_home_slot): ?>
-            <h2 class="text-sm font-bold text-gray-700 mb-3"><?php echo htmlspecialchars($home_slot_labels[$selected_home_slot]); ?>에 추가 <span class="text-gray-400 font-normal">(전체 상품 대상)</span></h2>
+            <h2 class="text-sm font-bold text-gray-700 mb-3"><?php echo t('mall_admin.products.add_to_slot', ['slot' => htmlspecialchars($home_slot_labels[$selected_home_slot])]); ?> <span class="text-gray-400 font-normal">(<?php echo t('mall_admin.products.all_products_scope'); ?>)</span></h2>
             <form method="get" class="flex gap-1 mb-3">
                 <input type="hidden" name="home_slot" value="<?php echo htmlspecialchars($selected_home_slot); ?>">
                 <?php if ($selected_store_id !== (int)MALL_STORE_ID): ?><input type="hidden" name="store_id" value="<?php echo (int)$selected_store_id; ?>"><?php endif; ?>
-                <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="상품명/SKU 검색"
+                <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.search_placeholder_short')); ?>"
                        class="border border-gray-300 rounded-md px-2 py-1 text-xs w-full">
-                <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md">검색</button>
+                <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md"><?php echo t('common.search'); ?></button>
             </form>
             <?php if ($search !== ''): ?>
             <table class="min-w-full text-xs">
                 <thead class="bg-gray-100 text-gray-600">
-                    <tr><th class="px-3 py-2 text-left">상품명</th><th class="px-3 py-2 text-left">액션</th></tr>
+                    <tr><th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.product_name'); ?></th><th class="px-3 py-2 text-left"><?php echo t('common.actions'); ?></th></tr>
                 </thead>
                 <tbody>
                 <?php if (empty($home_slot_search_results)): ?>
-                    <tr><td colspan="2" class="px-3 py-4 text-center text-gray-400">검색 결과가 없습니다.</td></tr>
+                    <tr><td colspan="2" class="px-3 py-4 text-center text-gray-400"><?php echo t('mall_admin.products.no_search_results'); ?></td></tr>
                 <?php endif; ?>
                 <?php foreach ($home_slot_search_results as $p): ?>
                     <?php $__already_in_slot = in_array((int)$p['product_id'], $home_slot_membership[$selected_home_slot], true); ?>
@@ -609,13 +742,13 @@ $conn->close();
                         <td class="px-3 py-2">
                             <div class="text-gray-400"><?php echo htmlspecialchars($p['sku']); ?></div>
                             <?php echo htmlspecialchars($p['display_name'] ?: $p['name_ko']); ?>
-                            <?php if (!$p['mall_product_id']): ?><span class="text-amber-600" title="이 점포에 큐레이션되어 있지 않은 상품입니다">미큐레이션</span><?php endif; ?>
+                            <?php if (!$p['mall_product_id']): ?><span class="text-amber-600" title="<?php echo htmlspecialchars(t('mall_admin.products.not_curated_at_store_title')); ?>"><?php echo t('mall_admin.products.not_curated'); ?></span><?php endif; ?>
                         </td>
                         <td class="px-3 py-2">
                             <?php if ($__already_in_slot): ?>
-                                <span class="text-gray-400">이미 추가됨</span>
+                                <span class="text-gray-400"><?php echo t('mall_admin.products.already_added'); ?></span>
                             <?php else: ?>
-                                <button class="add-to-home-slot-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>">추가</button>
+                                <button class="add-to-home-slot-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>"><?php echo t('common.add'); ?></button>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -624,28 +757,81 @@ $conn->close();
             </table>
             <?php endif; ?>
             <?php else: ?>
-            <h2 class="text-sm font-bold text-gray-700 mb-3">상품 검색 <span class="text-gray-400 font-normal">(전체 상품 대상)</span></h2>
+            <?php
+                $__tab_qs = $__base_qs;
+                if ($selected_category_id) { $__tab_qs['cat_id'] = $selected_category_id; }
+                if ($selected_sub_id) { $__tab_qs['sub_id'] = $selected_sub_id; }
+            ?>
+            <div class="flex gap-1 mb-3 border-b border-gray-200">
+                <a href="?<?php echo http_build_query(array_merge($__tab_qs, ['search_tab' => 'general'])); ?>"
+                   class="px-3 py-2 text-xs font-semibold border-b-2 <?php echo $search_tab === 'general' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'; ?>"><?php echo t('mall_admin.products.tab_general'); ?></a>
+                <a href="?<?php echo http_build_query(array_merge($__tab_qs, ['search_tab' => 'fresh'])); ?>"
+                   class="px-3 py-2 text-xs font-semibold border-b-2 <?php echo $search_tab === 'fresh' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'; ?>"><?php echo t('mall_admin.products.tab_fresh'); ?></a>
+            </div>
+            <h2 class="text-sm font-bold text-gray-700 mb-3"><?php echo t('mall_admin.products.search_products'); ?> <span class="text-gray-400 font-normal">(<?php echo t('mall_admin.products.all_products_scope'); ?>)</span></h2>
             <?php if (!$add_target_category_id): ?>
             <div class="mb-3 px-3 py-2 text-xs rounded border bg-amber-50 text-amber-700 border-amber-200">
-                <i class="fas fa-circle-info mr-1"></i>좌측에서 카테고리(가능하면 소분류까지)를 먼저 선택해야 상품을 몰에 추가할 수 있습니다.
+                <i class="fas fa-circle-info mr-1"></i><?php echo t('mall_admin.products.category_required_hint'); ?>
             </div>
             <?php endif; ?>
+            <?php if ($search_tab === 'fresh'): ?>
             <form method="get" class="flex gap-1 mb-3">
+                <input type="hidden" name="search_tab" value="fresh">
                 <?php if ($selected_category_id): ?><input type="hidden" name="cat_id" value="<?php echo (int)$selected_category_id; ?>"><?php endif; ?>
                 <?php if ($selected_sub_id): ?><input type="hidden" name="sub_id" value="<?php echo (int)$selected_sub_id; ?>"><?php endif; ?>
                 <?php if ($selected_store_id !== (int)MALL_STORE_ID): ?><input type="hidden" name="store_id" value="<?php echo (int)$selected_store_id; ?>"><?php endif; ?>
-                <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="상품명/바코드/SKU 검색"
+                <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="<?php echo htmlspecialchars(t('mall_fresh_products.search_placeholder')); ?>"
                        class="border border-gray-300 rounded-md px-2 py-1 text-xs w-full">
-                <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md">검색</button>
+                <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md"><?php echo t('common.search'); ?></button>
             </form>
             <?php if ($search !== ''): ?>
             <table class="min-w-full text-xs">
                 <thead class="bg-gray-100 text-gray-600">
-                    <tr><th class="px-3 py-2 text-left">상품명</th><th class="px-3 py-2 text-left">최근 1개월 판매량</th><th class="px-3 py-2 text-left">액션</th></tr>
+                    <tr><th class="px-3 py-2 text-left"><?php echo t('product.name'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_fresh_products.category_label'); ?></th><th class="px-3 py-2 text-right"><?php echo t('mall_admin.products.fresh_unit_price'); ?></th><th class="px-3 py-2 text-left"><?php echo t('common.actions'); ?></th></tr>
+                </thead>
+                <tbody>
+                <?php if (empty($fresh_search_results)): ?>
+                    <tr><td colspan="4" class="px-3 py-4 text-center text-gray-400"><?php echo t('mall_fresh_products.no_search_results'); ?></td></tr>
+                <?php endif; ?>
+                <?php foreach ($fresh_search_results as $fp): ?>
+                    <tr class="border-t border-gray-100">
+                        <td class="px-3 py-2">
+                            <div class="text-gray-400 font-mono text-[11px]"><?php echo htmlspecialchars($fp['code']); ?></div>
+                            <?php echo htmlspecialchars($fp['name_ko']); ?>
+                        </td>
+                        <td class="px-3 py-2"><?php echo htmlspecialchars(fresh_category_label($fp['fresh_category'])); ?> · <?php echo $fp['sale_type'] === 'piece' ? htmlspecialchars(t('mall_fresh_products.sale_type_piece')) : htmlspecialchars(t('mall_fresh_products.sale_type_weight')); ?></td>
+                        <td class="px-3 py-2 text-right"><?php echo number_format((float)$fp['price_per_100g'], 2); ?><?php echo $fp['sale_type'] === 'weight' ? ' / 100g' : ''; ?></td>
+                        <td class="px-3 py-2">
+                            <?php if (!$add_target_category_id): ?>
+                                <span class="text-gray-400" title="<?php echo htmlspecialchars(t('mall_admin.products.select_category_first')); ?>"><?php echo t('mall_admin.products.category_selection_required'); ?></span>
+                            <?php elseif ((int)$fp['category_id'] === (int)$add_target_category_id): ?>
+                                <span class="text-gray-400"><?php echo t('mall_admin.products.already_registered'); ?></span>
+                            <?php else: ?>
+                                <button class="fresh-assign-btn px-2 py-1 <?php echo $fp['category_id'] ? 'bg-amber-500' : 'bg-blue-600'; ?> text-white rounded text-xs" data-fresh-product-id="<?php echo (int)$fp['id']; ?>" data-category-id="<?php echo (int)$add_target_category_id; ?>"><?php echo $fp['category_id'] ? t('mall_admin.products.move_register') : t('mall_admin.products.add_to_mall'); ?></button>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
+            <?php else: ?>
+            <form method="get" class="flex gap-1 mb-3">
+                <?php if ($selected_category_id): ?><input type="hidden" name="cat_id" value="<?php echo (int)$selected_category_id; ?>"><?php endif; ?>
+                <?php if ($selected_sub_id): ?><input type="hidden" name="sub_id" value="<?php echo (int)$selected_sub_id; ?>"><?php endif; ?>
+                <?php if ($selected_store_id !== (int)MALL_STORE_ID): ?><input type="hidden" name="store_id" value="<?php echo (int)$selected_store_id; ?>"><?php endif; ?>
+                <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.search_placeholder_long')); ?>"
+                       class="border border-gray-300 rounded-md px-2 py-1 text-xs w-full">
+                <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md"><?php echo t('common.search'); ?></button>
+            </form>
+            <?php if ($search !== ''): ?>
+            <table class="min-w-full text-xs">
+                <thead class="bg-gray-100 text-gray-600">
+                    <tr><th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.product_name'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.recent_sales'); ?></th><th class="px-3 py-2 text-left"><?php echo t('common.actions'); ?></th></tr>
                 </thead>
                 <tbody>
                 <?php if (empty($search_results)): ?>
-                    <tr><td colspan="3" class="px-3 py-4 text-center text-gray-400">검색 결과가 없습니다.</td></tr>
+                    <tr><td colspan="3" class="px-3 py-4 text-center text-gray-400"><?php echo t('mall_admin.products.no_search_results'); ?></td></tr>
                 <?php endif; ?>
                 <?php foreach ($search_results as $p): ?>
                     <tr class="border-t border-gray-100">
@@ -653,24 +839,25 @@ $conn->close();
                             <div class="text-gray-400"><?php echo htmlspecialchars($p['sku']); ?></div>
                             <?php echo htmlspecialchars($p['name_ko']); ?>
                         </td>
-                        <td class="px-3 py-2"><?php echo number_format((float)$p['recent_sales_qty']); ?>개</td>
+                        <td class="px-3 py-2"><?php echo t('mall_admin.dashboard.count_unit', ['count' => number_format((float)$p['recent_sales_qty'])]); ?></td>
                         <td class="px-3 py-2">
                             <?php if ($p['mall_product_id']): ?>
                                 <?php if ($add_target_category_id && (int)$p['category_id'] !== $add_target_category_id): ?>
-                                <button class="move-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-product-id="<?php echo (int)$p['id']; ?>" data-category-id="<?php echo (int)$add_target_category_id; ?>" title="현재 선택된 카테고리로 이동등록">이동등록</button>
+                                <button class="move-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-product-id="<?php echo (int)$p['id']; ?>" data-category-id="<?php echo (int)$add_target_category_id; ?>" title="<?php echo htmlspecialchars(t('mall_admin.products.move_to_category_title')); ?>"><?php echo t('mall_admin.products.move_register'); ?></button>
                                 <?php else: ?>
-                                <span class="text-gray-400">이미 등록됨</span>
+                                <span class="text-gray-400"><?php echo t('mall_admin.products.already_registered'); ?></span>
                                 <?php endif; ?>
                             <?php elseif (!$add_target_category_id): ?>
-                                <span class="text-gray-400" title="좌측에서 카테고리를 먼저 선택하세요">카테고리 선택 필요</span>
+                                <span class="text-gray-400" title="<?php echo htmlspecialchars(t('mall_admin.products.select_category_first')); ?>"><?php echo t('mall_admin.products.category_selection_required'); ?></span>
                             <?php else: ?>
-                                <button class="add-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-product-id="<?php echo (int)$p['id']; ?>" data-name="<?php echo htmlspecialchars($p['name_ko']); ?>" data-name-en="<?php echo htmlspecialchars($p['name_en'] ?? ''); ?>" data-store-id="<?php echo (int)$selected_store_id; ?>" data-category-id="<?php echo (int)$add_target_category_id; ?>">쇼핑몰에 추가</button>
+                                <button class="add-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-product-id="<?php echo (int)$p['id']; ?>" data-name="<?php echo htmlspecialchars($p['name_ko']); ?>" data-name-en="<?php echo htmlspecialchars($p['name_en'] ?? ''); ?>" data-store-id="<?php echo (int)$selected_store_id; ?>" data-category-id="<?php echo (int)$add_target_category_id; ?>"><?php echo t('mall_admin.products.add_to_mall'); ?></button>
                             <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
             </table>
+            <?php endif; ?>
             <?php endif; ?>
             <?php endif; ?>
         </section>
@@ -686,7 +873,7 @@ $conn->close();
     <div id="category-manage-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden z-50 items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
             <div class="flex items-center justify-between p-4 border-b border-gray-100">
-                <h3 class="text-sm font-bold text-gray-800"><i class="fas fa-sitemap mr-1.5"></i>카테고리 관리</h3>
+                <h3 class="text-sm font-bold text-gray-800"><i class="fas fa-sitemap mr-1.5"></i><?php echo t('mall_admin.products.manage_categories'); ?></h3>
                 <button type="button" id="close-category-manage-btn" class="text-gray-400 hover:text-gray-700"><i class="fas fa-xmark"></i></button>
             </div>
             <div class="p-4 overflow-y-auto flex-1">
@@ -694,34 +881,34 @@ $conn->close();
                     <?php foreach ($mall_categories as $cat): ?>
                     <li class="category-item border border-gray-100 rounded-md" data-category-id="<?php echo (int)$cat['id']; ?>" draggable="true">
                         <div class="flex items-center gap-1 px-2 py-1.5">
-                            <i class="fas fa-grip-vertical text-gray-300 cursor-grab" title="드래그해서 순서 변경"></i>
-                            <button type="button" class="toggle-sub-btn text-gray-400 hover:text-gray-700 px-1" title="소분류 펼치기/접기">
+                            <i class="fas fa-grip-vertical text-gray-300 cursor-grab" title="<?php echo htmlspecialchars(t('mall_admin.products.drag_to_reorder')); ?>"></i>
+                            <button type="button" class="toggle-sub-btn text-gray-400 hover:text-gray-700 px-1" title="<?php echo htmlspecialchars(t('mall_admin.products.toggle_subcategory_title')); ?>">
                                 <i class="fas fa-chevron-right"></i>
                             </button>
                             <input type="text" class="edit-category-name border border-gray-300 rounded px-1.5 py-1 text-xs flex-1 min-w-0" data-category-id="<?php echo (int)$cat['id']; ?>" value="<?php echo htmlspecialchars($cat['name']); ?>">
                             <input type="text" class="edit-category-name-en border border-gray-300 rounded px-1.5 py-1 text-xs w-16 flex-shrink-0" value="<?php echo htmlspecialchars($cat['name_en'] ?? ''); ?>" placeholder="EN">
                             <span class="text-gray-400 text-[10px] flex-shrink-0">(<?php echo (int)$cat['product_count']; ?>)</span>
-                            <button type="button" class="delete-category-btn text-gray-300 hover:text-red-500 px-1" data-category-id="<?php echo (int)$cat['id']; ?>" data-category-name="<?php echo htmlspecialchars($cat['name']); ?>" title="삭제"><i class="fas fa-xmark"></i></button>
+                            <button type="button" class="delete-category-btn text-gray-300 hover:text-red-500 px-1" data-category-id="<?php echo (int)$cat['id']; ?>" data-category-name="<?php echo htmlspecialchars($cat['name']); ?>" title="<?php echo htmlspecialchars(t('common.delete')); ?>"><i class="fas fa-xmark"></i></button>
                         </div>
                         <div class="subcategory-panel hidden pl-6 pr-2 pb-2">
                             <ul class="subcategory-list space-y-1 mb-2" data-parent-id="<?php echo (int)$cat['id']; ?>">
                                 <?php foreach (($sub_categories_by_parent[$cat['id']] ?? []) as $sub): ?>
                                 <li class="category-item flex items-center gap-1" data-category-id="<?php echo (int)$sub['id']; ?>" draggable="true">
-                                    <i class="fas fa-grip-vertical text-gray-300 cursor-grab" title="드래그해서 순서 변경"></i>
+                                    <i class="fas fa-grip-vertical text-gray-300 cursor-grab" title="<?php echo htmlspecialchars(t('mall_admin.products.drag_to_reorder')); ?>"></i>
                                     <input type="text" class="edit-category-name border border-gray-300 rounded px-1.5 py-1 text-xs flex-1 min-w-0" data-category-id="<?php echo (int)$sub['id']; ?>" value="<?php echo htmlspecialchars($sub['name']); ?>">
                                     <input type="text" class="edit-category-name-en border border-gray-300 rounded px-1.5 py-1 text-xs w-14 flex-shrink-0" value="<?php echo htmlspecialchars($sub['name_en'] ?? ''); ?>" placeholder="EN">
                                     <span class="text-gray-400 text-[10px] flex-shrink-0">(<?php echo (int)$sub['product_count']; ?>)</span>
-                                    <button type="button" class="delete-category-btn text-gray-300 hover:text-red-500 px-1" data-category-id="<?php echo (int)$sub['id']; ?>" data-category-name="<?php echo htmlspecialchars($sub['name']); ?>" title="삭제"><i class="fas fa-xmark"></i></button>
+                                    <button type="button" class="delete-category-btn text-gray-300 hover:text-red-500 px-1" data-category-id="<?php echo (int)$sub['id']; ?>" data-category-name="<?php echo htmlspecialchars($sub['name']); ?>" title="<?php echo htmlspecialchars(t('common.delete')); ?>"><i class="fas fa-xmark"></i></button>
                                 </li>
                                 <?php endforeach; ?>
                                 <?php if (empty($sub_categories_by_parent[$cat['id']] ?? [])): ?>
-                                <li class="text-[11px] text-gray-300">소분류 없음</li>
+                                <li class="text-[11px] text-gray-300"><?php echo t('mall_admin.products.no_subcategories'); ?></li>
                                 <?php endif; ?>
                             </ul>
                             <form class="add-subcategory-form flex gap-1" data-parent-id="<?php echo (int)$cat['id']; ?>">
-                                <input type="text" name="name" placeholder="소분류명" required class="border border-gray-300 rounded px-2 py-1 text-xs flex-1 min-w-0">
+                                <input type="text" name="name" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.subcategory_name_placeholder')); ?>" required class="border border-gray-300 rounded px-2 py-1 text-xs flex-1 min-w-0">
                                 <input type="text" name="name_en" placeholder="EN" class="border border-gray-300 rounded px-2 py-1 text-xs w-16">
-                                <button type="submit" class="px-2 py-1 text-xs font-semibold bg-gray-500 text-white rounded flex-shrink-0">추가</button>
+                                <button type="submit" class="px-2 py-1 text-xs font-semibold bg-gray-500 text-white rounded flex-shrink-0"><?php echo t('common.add'); ?></button>
                             </form>
                         </div>
                     </li>
@@ -729,14 +916,14 @@ $conn->close();
                 </ul>
             </div>
             <div class="p-4 border-t border-gray-100 space-y-2">
-                <p class="text-[11px] text-gray-400">"추가"를 누르면 목록에 <span class="text-blue-500 font-bold">NEW</span> 표시로 쌓이기만 하고, 아래 버튼을 눌러야 실제로 저장됩니다.</p>
+                <p class="text-[11px] text-gray-400"><?php echo t('mall_admin.products.new_badge_hint'); ?></p>
                 <button type="button" id="apply-category-edits-btn" class="w-full px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">
-                    <i class="fas fa-check mr-1"></i>변경/추가 내용 한번에 적용
+                    <i class="fas fa-check mr-1"></i><?php echo t('mall_admin.products.apply_all_changes'); ?>
                 </button>
                 <form id="add-category-form" class="flex gap-1">
-                    <input type="text" name="name" placeholder="새 대분류명" required class="border border-gray-300 rounded-md px-2 py-1 text-xs flex-1 min-w-0">
+                    <input type="text" name="name" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.new_category_name_placeholder')); ?>" required class="border border-gray-300 rounded-md px-2 py-1 text-xs flex-1 min-w-0">
                     <input type="text" name="name_en" placeholder="EN" class="border border-gray-300 rounded-md px-2 py-1 text-xs w-20">
-                    <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md flex-shrink-0">추가</button>
+                    <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md flex-shrink-0"><?php echo t('common.add'); ?></button>
                 </form>
             </div>
         </div>
@@ -782,8 +969,8 @@ document.querySelectorAll('.barcode-copy').forEach(function (el) {
     el.addEventListener('click', function () {
         const code = el.dataset.barcode;
         if (!code) return;
-        const done = function () { showFlash('바코드를 복사했습니다: ' + code, 'success', 1500); };
-        const fail = function () { showFlash('복사 실패 — 직접 선택해서 복사해주세요.', 'error'); };
+        const done = function () { showFlash('<?php echo addslashes(t('mall_admin.products.barcode_copied')); ?>: ' + code, 'success', 1500); };
+        const fail = function () { showFlash('<?php echo addslashes(t('mall_admin.products.copy_failed')); ?>', 'error'); };
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(code).then(done).catch(fail);
         } else {
@@ -828,7 +1015,7 @@ document.querySelectorAll('.add-btn').forEach(function (btn) {
         fetch('ajax/save_retail_product.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
             .then(r => r.json())
             .then(data => {
-                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '오류가 발생했습니다.', 'error'); }
+                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error'); }
             });
     });
 });
@@ -843,7 +1030,39 @@ document.querySelectorAll('.move-btn').forEach(function (btn) {
         fetch('ajax/save_retail_product.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
             .then(r => r.json())
             .then(data => {
-                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '이동등록 실패', 'error'); }
+                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.move_register_failed')); ?>', 'error'); }
+            });
+    });
+});
+
+// 신선상품 탭 — 카테고리 배정/이동은 등록 여부와 무관하게 항상 UPDATE 한 번으로 처리된다(mall_products처럼
+// 별도 큐레이션 행을 만들지 않으므로 add/move가 같은 액션).
+document.querySelectorAll('.fresh-assign-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        const params = new URLSearchParams();
+        params.set('action', 'assign_category');
+        params.set('mall_fresh_product_id', btn.dataset.freshProductId);
+        params.set('category_id', btn.dataset.categoryId);
+        params.set('csrf_token', window.MALL_CSRF_TOKEN);
+        fetch('ajax/save_fresh_curation.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.move_register_failed')); ?>', 'error'); }
+            });
+    });
+});
+
+document.querySelectorAll('.unassign-fresh-category-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        if (!confirm(btn.dataset.productName + '<?php echo addslashes(t('mall_admin.products.unassign_category_confirm')); ?>')) return;
+        const params = new URLSearchParams();
+        params.set('action', 'unassign_category');
+        params.set('mall_fresh_product_id', btn.dataset.freshProductId);
+        params.set('csrf_token', window.MALL_CSRF_TOKEN);
+        fetch('ajax/save_fresh_curation.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.unassign_category_failed')); ?>', 'error'); }
             });
     });
 });
@@ -859,6 +1078,29 @@ document.querySelectorAll('.edit-is-sold-out').forEach(function (checkbox) {
 document.querySelectorAll('.save-curated-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
         const row = btn.closest('tr');
+        if (row.dataset.rowType === 'fresh') {
+            // 신선상품 행 — 표시명/판매가는 mall_fresh_products 원본을 직접 수정(오버라이드 개념 없음),
+            // 원가/기준도매가는 일반상품과 동일하게 override 컬럼에 저장(오리지널=최근 매입원가 대비 다를 때만).
+            const freshParams = new URLSearchParams();
+            freshParams.set('action', 'update');
+            freshParams.set('mall_fresh_product_id', row.dataset.freshProductId);
+            freshParams.set('name_ko', row.querySelector('.edit-display-name').value);
+            freshParams.set('name_en', row.querySelector('.edit-display-name-en').value);
+            freshParams.set('cost_price', row.querySelector('.edit-cost-price').value);
+            freshParams.set('wholesale_reference_price', row.querySelector('.edit-wholesale-reference-price').value);
+            freshParams.set('price_per_100g', row.querySelector('.edit-selling-price').value);
+            freshParams.set('is_active', row.querySelector('.edit-is-active').checked ? '1' : '0');
+            freshParams.set('is_sold_out', row.querySelector('.edit-is-sold-out').checked ? '1' : '0');
+            freshParams.set('retail_discount_allowed', row.querySelector('.edit-retail-discount-allowed').checked ? '1' : '0');
+            freshParams.set('wholesale_discount_allowed', row.querySelector('.edit-wholesale-discount-allowed').checked ? '1' : '0');
+            freshParams.set('csrf_token', window.MALL_CSRF_TOKEN);
+            fetch('ajax/save_fresh_curation.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: freshParams.toString() })
+                .then(r => r.json())
+                .then(data => {
+                    showFlash(data.success ? '<?php echo addslashes(t('common.save_success')); ?>' : (data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>'), data.success ? 'success' : 'error');
+                });
+            return;
+        }
         const params = new URLSearchParams();
         params.set('action', 'update');
         params.set('mall_product_id', row.dataset.mallProductId);
@@ -876,7 +1118,7 @@ document.querySelectorAll('.save-curated-btn').forEach(function (btn) {
         fetch('ajax/save_retail_product.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
             .then(r => r.json())
             .then(data => {
-                showFlash(data.success ? '저장되었습니다.' : (data.error?.message || '오류가 발생했습니다.'), data.success ? 'success' : 'error');
+                showFlash(data.success ? '<?php echo addslashes(t('common.save_success')); ?>' : (data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>'), data.success ? 'success' : 'error');
             });
     });
 });
@@ -891,9 +1133,9 @@ function toggleHomeSlotProduct(slotKey, productId, active, onDone) {
     fetch('ajax/toggle_home_section_product.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
         .then(r => r.json())
         .then(data => {
-            if (data.success) { onDone(); } else { showFlash(data.error?.message || '저장 실패', 'error'); }
+            if (data.success) { onDone(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); }
         })
-        .catch(function () { showFlash('저장 실패', 'error'); });
+        .catch(function () { showFlash('<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); });
 }
 
 document.querySelectorAll('.add-to-home-slot-btn').forEach(function (btn) {
@@ -946,7 +1188,7 @@ function applyPromoResultToRow(select, data) {
         priceInput.value = data.new_price;
         if (hint) {
             hint.style.display = '';
-            hint.textContent = '오리지널: ' + (data.original_selling_price !== null ? Number(data.original_selling_price).toFixed(2) : '-');
+            hint.textContent = '<?php echo addslashes(t('mall_admin.products.original')); ?>: ' + (data.original_selling_price !== null ? Number(data.original_selling_price).toFixed(2) : '-');
         }
     } else {
         // 프로모 해제(없음/1+1) — override가 풀렸으니 오리지널 판매가로 되돌리고 힌트는 숨긴다.
@@ -970,11 +1212,11 @@ document.querySelectorAll('.promo-type-select').forEach(function (select) {
         saveTodayDealPromo(select.dataset.productId, select.value, select.value === 'percent' ? valueInput.value : null)
             .then(function (data) {
                 select.disabled = false;
-                if (!data.success) { showFlash(data.error?.message || '저장 실패', 'error'); return; }
+                if (!data.success) { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); return; }
                 applyPromoResultToRow(select, data.data);
-                showFlash('프로모가 저장되었습니다. 홈 레이아웃에서 "적용"을 눌러야 반영됩니다.', 'success');
+                showFlash('<?php echo addslashes(t('mall_admin.products.promo_saved_msg')); ?>', 'success');
             })
-            .catch(function () { select.disabled = false; showFlash('저장 실패', 'error'); });
+            .catch(function () { select.disabled = false; showFlash('<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); });
     });
 
     if (valueInput) {
@@ -984,18 +1226,18 @@ document.querySelectorAll('.promo-type-select').forEach(function (select) {
             saveTodayDealPromo(select.dataset.productId, 'percent', valueInput.value)
                 .then(function (data) {
                     valueInput.disabled = false;
-                    if (!data.success) { showFlash(data.error?.message || '저장 실패', 'error'); return; }
+                    if (!data.success) { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); return; }
                     applyPromoResultToRow(select, data.data);
-                    showFlash('프로모가 저장되었습니다. 홈 레이아웃에서 "적용"을 눌러야 반영됩니다.', 'success');
+                    showFlash('<?php echo addslashes(t('mall_admin.products.promo_saved_msg')); ?>', 'success');
                 })
-                .catch(function () { valueInput.disabled = false; showFlash('저장 실패', 'error'); });
+                .catch(function () { valueInput.disabled = false; showFlash('<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); });
         });
     }
 });
 
 document.querySelectorAll('.delete-curated-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
-        if (!confirm(btn.dataset.productName + ' 상품을 쇼핑몰 큐레이션에서 삭제하시겠습니까?')) return;
+        if (!confirm(btn.dataset.productName + '<?php echo addslashes(t('mall_admin.products.delete_curated_confirm')); ?>')) return;
         const row = btn.closest('tr');
         const params = new URLSearchParams();
         params.set('action', 'delete');
@@ -1004,7 +1246,7 @@ document.querySelectorAll('.delete-curated-btn').forEach(function (btn) {
         fetch('ajax/save_retail_product.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
             .then(r => r.json())
             .then(data => {
-                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '삭제 실패', 'error'); }
+                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.delete_failed')); ?>', 'error'); }
             });
     });
 });
@@ -1020,7 +1262,7 @@ document.querySelectorAll('.image-upload-input').forEach(function (input) {
         fetch('ajax/save_retail_product.php', { method: 'POST', body: formData })
             .then(r => r.json())
             .then(data => {
-                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '업로드 실패', 'error'); }
+                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.upload_failed')); ?>', 'error'); }
             });
     });
 });
@@ -1034,7 +1276,7 @@ document.querySelectorAll('.img-delete-btn').forEach(function (btn) {
         fetch('ajax/delete_product_image.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
             .then(r => r.json())
             .then(data => {
-                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '삭제 실패', 'error'); }
+                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.delete_failed')); ?>', 'error'); }
             });
     });
 });
@@ -1049,7 +1291,7 @@ document.querySelectorAll('.img-move-btn').forEach(function (btn) {
         fetch('ajax/reorder_product_images.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
             .then(r => r.json())
             .then(data => {
-                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '정렬 실패', 'error'); }
+                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.sort_failed')); ?>', 'error'); }
             });
     });
 });
@@ -1061,10 +1303,10 @@ function addPendingCategoryRow(name, nameEn, parentId, targetList) {
     li.className = 'pending-category-item category-item flex items-center gap-1' + (parentId ? '' : ' border border-dashed border-blue-300 rounded-md px-2 py-1.5');
     li.dataset.parentId = parentId || '';
     li.innerHTML =
-        '<span class="text-blue-500 text-[10px] font-bold flex-shrink-0" title="아직 저장 전입니다">NEW</span>' +
+        '<span class="text-blue-500 text-[10px] font-bold flex-shrink-0" title="<?php echo addslashes(t('mall_admin.products.not_saved_yet')); ?>">NEW</span>' +
         '<input type="text" class="pending-name border border-blue-300 rounded px-1.5 py-1 text-xs flex-1 min-w-0" value="' + escHtml(name) + '">' +
         '<input type="text" class="pending-name-en border border-blue-300 rounded px-1.5 py-1 text-xs w-16 flex-shrink-0" value="' + escHtml(nameEn) + '" placeholder="EN">' +
-        '<button type="button" class="remove-pending-btn text-gray-300 hover:text-red-500 px-1" title="취소"><i class="fas fa-xmark"></i></button>';
+        '<button type="button" class="remove-pending-btn text-gray-300 hover:text-red-500 px-1" title="<?php echo addslashes(t('common.cancel')); ?>"><i class="fas fa-xmark"></i></button>';
     li.querySelector('.remove-pending-btn').addEventListener('click', function () { li.remove(); });
     targetList.appendChild(li);
 }
@@ -1145,7 +1387,7 @@ if (applyCategoryEditsBtn) {
             params.append('new_parent_id[]', li.dataset.parentId || '');
         });
         if (hasEmptyPending) {
-            showFlash('추가하려는 카테고리명이 비어있는 항목이 있습니다.', 'error');
+            showFlash('<?php echo addslashes(t('mall_admin.products.empty_category_name_error')); ?>', 'error');
             return;
         }
 
@@ -1155,7 +1397,7 @@ if (applyCategoryEditsBtn) {
         fetch('ajax/save_category.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
             .then(r => r.json())
             .then(data => {
-                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '변경사항 적용 실패', 'error'); applyCategoryEditsBtn.disabled = false; }
+                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.apply_changes_failed')); ?>', 'error'); applyCategoryEditsBtn.disabled = false; }
             });
     });
 }
@@ -1178,7 +1420,7 @@ function goToProductsAfterCategoryDelete(deletedId) {
 
 document.querySelectorAll('.delete-category-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
-        if (!confirm(btn.dataset.categoryName + ' 카테고리를 삭제하시겠습니까?\n등록된 상품이 있으면 삭제할 수 없습니다.')) return;
+        if (!confirm(btn.dataset.categoryName + '<?php echo addslashes(t('mall_admin.products.delete_category_confirm')); ?>')) return;
         const params = new URLSearchParams();
         params.set('action', 'delete');
         params.set('category_id', btn.dataset.categoryId);
@@ -1191,14 +1433,14 @@ document.querySelectorAll('.delete-category-btn').forEach(function (btn) {
                     if (details && details.products && details.products.length) {
                         let list = '<ul style="margin:0.3rem 0 0;padding-left:1.1rem;">' +
                             details.products.map(p => '<li>' + escHtml(p.name) + (p.sku ? ' (' + escHtml(p.sku) + ')' : '') + '</li>').join('') +
-                            (details.truncated ? '<li>... 외 ' + (details.product_count - details.products.length) + '개</li>' : '') +
+                            (details.truncated ? '<li>' + '<?php echo addslashes(t('mall_admin.products.and_more_count')); ?>'.replace('{count}', details.product_count - details.products.length) + '</li>' : '') +
                             '</ul>';
                         const forceBtn = '<button type="button" class="force-clear-delete-btn" data-category-id="' + escHtml(btn.dataset.categoryId) +
                             '" data-category-name="' + escHtml(btn.dataset.categoryName) +
-                            '" style="margin-top:0.5rem;padding:4px 10px;background:#dc2626;color:#fff;border-radius:4px;font-size:11px;cursor:pointer;border:none;">이 상품들 카테고리 비우고 삭제</button>';
-                        showFlash((data.error?.message || '카테고리 삭제 실패') + list + forceBtn, 'error', 20000);
+                            '" style="margin-top:0.5rem;padding:4px 10px;background:#dc2626;color:#fff;border-radius:4px;font-size:11px;cursor:pointer;border:none;"><?php echo addslashes(t('mall_admin.products.clear_and_delete_products')); ?></button>';
+                        showFlash((data.error?.message || '<?php echo addslashes(t('mall_admin.products.delete_category_failed')); ?>') + list + forceBtn, 'error', 20000);
                     } else {
-                        showFlash(data.error?.message || '카테고리 삭제 실패', 'error');
+                        showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.delete_category_failed')); ?>', 'error');
                     }
                     return;
                 }
@@ -1211,7 +1453,7 @@ document.querySelectorAll('.delete-category-btn').forEach(function (btn) {
 document.getElementById('flash-area').addEventListener('click', function (e) {
     const btn = e.target.closest('.force-clear-delete-btn');
     if (!btn) return;
-    if (!confirm(btn.dataset.categoryName + ' 카테고리에 걸려있는 상품들의 카테고리를 전부 비우고, 카테고리도 함께 삭제합니다.\n되돌릴 수 없습니다. 계속하시겠습니까?')) return;
+    if (!confirm(btn.dataset.categoryName + '<?php echo addslashes(t('mall_admin.products.clear_and_delete_confirm')); ?>')) return;
     btn.disabled = true;
     const params = new URLSearchParams();
     params.set('action', 'clear_and_delete');
@@ -1223,7 +1465,7 @@ document.getElementById('flash-area').addEventListener('click', function (e) {
             if (data.success) {
                 goToProductsAfterCategoryDelete(btn.dataset.categoryId);
             } else {
-                showFlash(data.error?.message || '삭제 실패', 'error');
+                showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.delete_failed')); ?>', 'error');
                 btn.disabled = false;
             }
         });
@@ -1267,7 +1509,7 @@ function saveCategoryOrder(listEl, parentId) {
     fetch('ajax/reorder_categories.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
         .then(r => r.json())
         .then(data => {
-            if (!data.success) { showFlash(data.error?.message || '순서 저장 실패', 'error'); }
+            if (!data.success) { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.order_save_failed')); ?>', 'error'); }
         });
 }
 
@@ -1279,8 +1521,11 @@ document.querySelectorAll('.subcategory-list').forEach(function (subList) {
     makeCategoryListSortable(subList, function () { saveCategoryOrder(subList, subList.dataset.parentId); });
 });
 
-// 네이티브 HTML5 Drag & Drop으로 큐레이션된 상품 순서 변경
+// 네이티브 HTML5 Drag & Drop으로 큐레이션된 상품 순서 변경.
+// 일반상품/신선상품은 서로 다른 정렬 공간(mall_products.display_order / mall_fresh_products.display_order)을
+// 쓰므로, 종류가 다른 행끼리는 드롭해도 순서가 섞이지 않도록 무시한다.
 let curatedDragSrcRow = null;
+function curatedRowType(row) { return row.dataset.rowType === 'fresh' ? 'fresh' : 'general'; }
 function attachCuratedDragHandlers() {
     document.querySelectorAll('.curated-row[draggable="true"]').forEach(function (row) {
         row.addEventListener('dragstart', function () { curatedDragSrcRow = row; });
@@ -1289,7 +1534,7 @@ function attachCuratedDragHandlers() {
         row.addEventListener('drop', function (e) {
             e.preventDefault();
             row.classList.remove('drag-over');
-            if (curatedDragSrcRow && curatedDragSrcRow !== row) {
+            if (curatedDragSrcRow && curatedDragSrcRow !== row && curatedRowType(curatedDragSrcRow) === curatedRowType(row)) {
                 const isAfter = curatedDragSrcRow.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING;
                 if (isAfter) {
                     row.after(curatedDragSrcRow);
@@ -1306,25 +1551,63 @@ attachCuratedDragHandlers();
 function saveCuratedOrder() {
     const body = document.getElementById('curated-products-body');
     const offset = parseInt(body.dataset.orderOffset, 10) || 0;
-    const rows = Array.from(document.querySelectorAll('#curated-products-body .curated-row'));
-    const ids = rows.map(r => r.dataset.mallProductId);
-    const params = new URLSearchParams();
-    params.set('order', ids.join(','));
-    params.set('offset', offset);
-    params.set('csrf_token', window.MALL_CSRF_TOKEN);
-    fetch('ajax/reorder_curated_products.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                rows.forEach(function (r, idx) {
-                    const input = r.querySelector('.edit-display-order');
-                    if (input) { input.value = offset + idx; }
-                });
-            } else {
-                showFlash(data.error?.message || '순서 저장 실패', 'error');
-            }
-        });
+    const generalRows = Array.from(document.querySelectorAll('#curated-products-body .curated-row[data-mall-product-id]'));
+    const freshRows = Array.from(document.querySelectorAll('#curated-products-body .curated-row[data-fresh-product-id]'));
+
+    if (generalRows.length) {
+        const params = new URLSearchParams();
+        params.set('order', generalRows.map(r => r.dataset.mallProductId).join(','));
+        params.set('offset', offset);
+        params.set('csrf_token', window.MALL_CSRF_TOKEN);
+        fetch('ajax/reorder_curated_products.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    generalRows.forEach(function (r, idx) {
+                        const input = r.querySelector('.edit-display-order');
+                        if (input) { input.value = offset + idx; }
+                    });
+                } else {
+                    showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.order_save_failed')); ?>', 'error');
+                }
+            });
+    }
+
+    if (freshRows.length) {
+        const freshParams = new URLSearchParams();
+        freshParams.set('action', 'reorder');
+        freshParams.set('order', freshRows.map(r => r.dataset.freshProductId).join(','));
+        freshParams.set('csrf_token', window.MALL_CSRF_TOKEN);
+        fetch('ajax/save_fresh_curation.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: freshParams.toString() })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    freshRows.forEach(function (r, idx) {
+                        const input = r.querySelector('.edit-display-order');
+                        if (input) { input.value = idx; }
+                    });
+                } else {
+                    showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.order_save_failed')); ?>', 'error');
+                }
+            });
+    }
 }
+
+document.querySelectorAll('.fresh-image-upload-input').forEach(function (input) {
+    input.addEventListener('change', function () {
+        if (!input.files.length) return;
+        const formData = new FormData();
+        formData.append('action', 'upload_image');
+        formData.append('mall_fresh_product_id', input.dataset.freshProductId);
+        formData.append('image', input.files[0]);
+        formData.append('csrf_token', window.MALL_CSRF_TOKEN);
+        fetch('ajax/save_fresh_curation.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.upload_failed')); ?>', 'error'); }
+            });
+    });
+});
 </script>
 </body>
 </html>

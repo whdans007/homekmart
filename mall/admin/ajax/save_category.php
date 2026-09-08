@@ -266,6 +266,20 @@ try {
             json_error('VALIDATION_ERROR', "이 카테고리에 상품이 {$product_count}개 등록되어 있어 삭제할 수 없습니다. 먼저 상품의 카테고리를 변경해주세요.", 400, $details);
         }
 
+        // mall_fresh_products.category_id는 categories에 대한 FK(ON DELETE 미지정=RESTRICT)라, 배정된
+        // 신선상품이 있으면 아래 DELETE가 FK 위반으로 실패한다. 일반상품과 동일하게 미리 확인해 친절한
+        // 메시지로 안내한다(products.php "신선상품" 탭에서 배정한 항목).
+        $fresh_count_stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM mall_fresh_products WHERE category_id IN ({$placeholders})");
+        $fresh_count_stmt->bind_param(str_repeat('i', count($sub_ids)), ...$sub_ids);
+        $fresh_count_stmt->execute();
+        $fresh_product_count = (int)($fresh_count_stmt->get_result()->fetch_assoc()['cnt'] ?? 0);
+        $fresh_count_stmt->close();
+
+        if ($fresh_product_count > 0) {
+            $conn->close();
+            json_error('VALIDATION_ERROR', "이 카테고리에 신선상품이 {$fresh_product_count}개 배정되어 있어 삭제할 수 없습니다. 먼저 신선상품의 카테고리 배정을 해제해주세요.", 400, ['fresh_product_count' => $fresh_product_count]);
+        }
+
         // categories.parent_id는 ON DELETE SET NULL이므로 하위 카테고리는 삭제되지 않고 대분류만 해제된다.
         $stmt = $conn->prepare('DELETE FROM categories WHERE id = ?');
         $stmt->bind_param('i', $category_id);
@@ -304,6 +318,13 @@ try {
         $cleared_count = $clear_stmt->affected_rows;
         $clear_stmt->close();
 
+        // mall_fresh_products.category_id도 함께 비워야 아래 카테고리 삭제가 FK 위반 없이 진행된다.
+        $clear_fresh_stmt = $conn->prepare("UPDATE mall_fresh_products SET category_id = NULL WHERE category_id IN ({$placeholders})");
+        $clear_fresh_stmt->bind_param($types, ...$sub_ids);
+        $clear_fresh_stmt->execute();
+        $cleared_fresh_count = $clear_fresh_stmt->affected_rows;
+        $clear_fresh_stmt->close();
+
         $del_stmt = $conn->prepare('DELETE FROM categories WHERE id = ?');
         $del_stmt->bind_param('i', $category_id);
         $del_stmt->execute();
@@ -311,7 +332,7 @@ try {
 
         $conn->commit();
         $conn->close();
-        echo json_encode(['success' => true, 'data' => ['cleared_products' => $cleared_count]]);
+        echo json_encode(['success' => true, 'data' => ['cleared_products' => $cleared_count, 'cleared_fresh_products' => $cleared_fresh_count]]);
         exit;
     }
 
