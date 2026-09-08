@@ -1,0 +1,2 @@
+- [store-config 스프린트 상태](project_store_config_sprint.md) — 문서 4종 완료, 사용자 확인 4건 미해소로 구현 착수 차단 중
+- [Plan 문서 작성 규칙](feedback_plan_owner_tagging.md) — 작업 항목마다 (Claude Code)/(Codex) 태그, 미확인 항목은 차단 섹션으로 분리
