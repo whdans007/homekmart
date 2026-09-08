@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 
 ensure_logged_in();
@@ -15,7 +16,10 @@ $res = $conn->query('SELECT tier, discount_rate, min_cumulative_amount FROM mall
 while ($row = $res->fetch_assoc()) {
     $retail_rules[$row['tier']] = $row;
 }
-$tier_labels = ['general' => '일반', 'good' => '우수', 'vip' => 'VIP', 'platinum' => '플래티넘'];
+$tier_labels = [
+    'general' => t('mall_admin.members.tier_general'), 'good' => t('mall_admin.members.tier_good'),
+    'vip' => t('mall_admin.members.tier_vip'), 'platinum' => t('mall_admin.members.tier_platinum'),
+];
 
 $instant_tiers = $conn->query(
     'SELECT id, min_order_amount, discount_rate, sort_order, is_active
@@ -63,11 +67,11 @@ $default_prep_minutes = $prep_row ? (int)$prep_row['setting_value'] : 30;
 $conn->close();
 ?>
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="<?php echo get_language(); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>할인 규칙 - HOME K MART 쇼핑몰</title>
+    <title><?php echo t('mall_admin.nav.settings'); ?> - HOME K MART <?php echo t('mall_admin.title'); ?></title>
     <link rel="icon" href="data:,">
     <link href="../../admin/css/style.css" rel="stylesheet">
     <link href="../../admin/css/design-system.css" rel="stylesheet">
@@ -76,101 +80,101 @@ $conn->close();
 <body class="bg-gray-50 min-h-screen">
 <?php include __DIR__ . '/partials/sidebar.php'; ?>
 <main class="p-6 max-w-4xl">
-        <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-percent mr-2"></i>할인 규칙</h1>
+        <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-percent mr-2"></i><?php echo t('mall_admin.discount_rules.page_title'); ?></h1>
         <div id="flash-area"></div>
 
         <!-- 회원등급(소매)별 할인율 -->
         <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h2 class="text-sm font-bold text-gray-700 mb-3">회원등급</h2>
+            <h2 class="text-sm font-bold text-gray-700 mb-3"><?php echo t('mall_admin.discount_rules.member_tier'); ?></h2>
             <table class="min-w-full text-xs mb-2">
                 <thead class="bg-gray-100 text-gray-600">
-                    <tr><th class="px-3 py-2 text-left">등급</th><th class="px-3 py-2 text-left">할인율(%)</th><th class="px-3 py-2 text-left">등급 산정 누적금액 기준</th></tr>
+                    <tr><th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.tier'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.discount_rate'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.tier_min_cumulative'); ?></th></tr>
                 </thead>
                 <tbody id="retail-rules-body">
                     <?php foreach ($tier_labels as $key => $label): $r = $retail_rules[$key] ?? ['discount_rate' => 0, 'min_cumulative_amount' => 0]; ?>
                     <tr class="border-t border-gray-100">
-                        <td class="px-3 py-2 font-semibold"><?php echo $label; ?></td>
+                        <td class="px-3 py-2 font-semibold"><?php echo htmlspecialchars($label); ?></td>
                         <td class="px-3 py-2"><input type="number" step="0.01" min="0" max="100" class="retail-rate border border-gray-300 rounded px-2 py-1 w-24" data-tier="<?php echo $key; ?>" value="<?php echo htmlspecialchars($r['discount_rate']); ?>"></td>
                         <td class="px-3 py-2"><input type="number" step="0.01" min="0" class="retail-min border border-gray-300 rounded px-2 py-1 w-32" data-tier="<?php echo $key; ?>" value="<?php echo htmlspecialchars($r['min_cumulative_amount']); ?>"></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
-            <button id="save-retail-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">저장</button>
+            <button id="save-retail-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md"><?php echo t('common.save'); ?></button>
         </section>
 
         <!-- 기준도매가 마진율 (상품 큐레이션 화면 참고용 표시값 계산 기준) -->
         <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h2 class="text-sm font-bold text-gray-700 mb-1">기준도매가 마진율</h2>
-            <p class="text-xs text-gray-400 mb-3">상품 큐레이션 화면의 "기준도매가" = 원가 × (1 + 마진율). 실제 도매 판매가(도매 상품 노출)와는 별개의 참고용 값입니다.</p>
+            <h2 class="text-sm font-bold text-gray-700 mb-1"><?php echo t('mall_admin.discount_rules.wholesale_reference_rate'); ?></h2>
+            <p class="text-xs text-gray-400 mb-3"><?php echo t('mall_admin.discount_rules.wholesale_reference_rate_hint'); ?></p>
             <div class="flex items-end gap-2">
                 <div>
-                    <label class="block text-xs text-gray-500">마진율(%)</label>
+                    <label class="block text-xs text-gray-500"><?php echo t('mall_admin.discount_rules.markup_rate'); ?></label>
                     <input id="wholesale-reference-rate" type="number" step="0.01" min="0" max="100"
                            value="<?php echo htmlspecialchars($wholesale_reference_markup_rate); ?>"
                            class="border border-gray-300 rounded px-2 py-1 w-24">
                 </div>
-                <button id="save-wholesale-reference-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">저장</button>
+                <button id="save-wholesale-reference-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md"><?php echo t('common.save'); ?></button>
             </div>
         </section>
 
         <!-- 포인트 적립율 (회사 규정) -->
         <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h2 class="text-sm font-bold text-gray-700 mb-1">포인트 적립율</h2>
-            <p class="text-xs text-gray-400 mb-3">구매 금액(합계) 기준으로 적립되는 포인트 비율입니다. 회사 규정상 기본값은 2%입니다.</p>
+            <h2 class="text-sm font-bold text-gray-700 mb-1"><?php echo t('mall_admin.discount_rules.point_accrual_rate'); ?></h2>
+            <p class="text-xs text-gray-400 mb-3"><?php echo t('mall_admin.discount_rules.point_accrual_rate_hint'); ?></p>
             <div class="flex items-end gap-2">
                 <div>
-                    <label class="block text-xs text-gray-500">적립율(%)</label>
+                    <label class="block text-xs text-gray-500"><?php echo t('mall_admin.discount_rules.accrual_rate'); ?></label>
                     <input id="point-accrual-rate" type="number" step="0.01" min="0" max="100"
                            value="<?php echo htmlspecialchars($point_accrual_rate); ?>"
                            class="border border-gray-300 rounded px-2 py-1 w-24">
                 </div>
-                <button id="save-point-accrual-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">저장</button>
+                <button id="save-point-accrual-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md"><?php echo t('common.save'); ?></button>
             </div>
         </section>
 
         <!-- 배송비 설정 (일반배송) -->
         <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h2 class="text-sm font-bold text-gray-700 mb-1">배송비 설정</h2>
-            <p class="text-xs text-gray-400 mb-3">체크아웃 화면 "일반배송" 문구와 장바구니 무료배송 안내에 표시되는 값입니다.</p>
+            <h2 class="text-sm font-bold text-gray-700 mb-1"><?php echo t('mall_admin.discount_rules.shipping_settings'); ?></h2>
+            <p class="text-xs text-gray-400 mb-3"><?php echo t('mall_admin.discount_rules.shipping_settings_hint'); ?></p>
             <div class="flex items-end gap-2">
                 <div>
-                    <label class="block text-xs text-gray-500">기본 배송비</label>
+                    <label class="block text-xs text-gray-500"><?php echo t('mall_admin.discount_rules.base_shipping_fee'); ?></label>
                     <input id="base-shipping-fee" type="number" step="0.01" min="0"
                            value="<?php echo htmlspecialchars($base_shipping_fee); ?>"
                            class="border border-gray-300 rounded px-2 py-1 w-28">
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500">무료배송 기준금액</label>
+                    <label class="block text-xs text-gray-500"><?php echo t('mall_admin.discount_rules.free_shipping_threshold'); ?></label>
                     <input id="free-shipping-threshold" type="number" step="0.01" min="0"
                            value="<?php echo htmlspecialchars($free_shipping_threshold); ?>"
                            class="border border-gray-300 rounded px-2 py-1 w-32">
                 </div>
-                <button id="save-shipping-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">저장</button>
+                <button id="save-shipping-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md"><?php echo t('common.save'); ?></button>
             </div>
         </section>
 
         <!-- 상품 준비 시간 설정 -->
         <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h2 class="text-sm font-bold text-gray-700 mb-1">상품 준비 시간 설정</h2>
-            <p class="text-xs text-gray-400 mb-3">주문 관리 화면에서 "접수확인"을 누를 때 기본으로 채워지는 준비 소요시간입니다(주문마다 접수 시 수정 가능).</p>
+            <h2 class="text-sm font-bold text-gray-700 mb-1"><?php echo t('mall_admin.discount_rules.prep_time_settings'); ?></h2>
+            <p class="text-xs text-gray-400 mb-3"><?php echo t('mall_admin.discount_rules.prep_time_settings_hint'); ?></p>
             <div class="flex items-end gap-2">
                 <div>
-                    <label class="block text-xs text-gray-500">기본 준비시간(분)</label>
+                    <label class="block text-xs text-gray-500"><?php echo t('mall_admin.discount_rules.default_prep_minutes'); ?></label>
                     <input id="default-prep-minutes" type="number" step="1" min="0"
                            value="<?php echo htmlspecialchars($default_prep_minutes); ?>"
                            class="border border-gray-300 rounded px-2 py-1 w-28">
                 </div>
-                <button id="save-prep-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">저장</button>
+                <button id="save-prep-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md"><?php echo t('common.save'); ?></button>
             </div>
         </section>
 
         <!-- 도매 즉석할인 구간 -->
         <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h2 class="text-sm font-bold text-gray-700 mb-3">도매 즉석할인 구간 (장바구니 금액 기준)</h2>
+            <h2 class="text-sm font-bold text-gray-700 mb-3"><?php echo t('mall_admin.discount_rules.instant_tiers'); ?></h2>
             <table class="min-w-full text-xs mb-2">
                 <thead class="bg-gray-100 text-gray-600">
-                    <tr><th class="px-3 py-2 text-left">최소 주문금액</th><th class="px-3 py-2 text-left">할인율(%)</th><th class="px-3 py-2 text-left">순서</th><th class="px-3 py-2 text-left">활성</th><th class="px-3 py-2 text-left">삭제</th></tr>
+                    <tr><th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.min_order_amount'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.discount_rate'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.sort_order'); ?></th><th class="px-3 py-2 text-left"><?php echo t('common.active'); ?></th><th class="px-3 py-2 text-left"><?php echo t('common.delete'); ?></th></tr>
                 </thead>
                 <tbody id="instant-tiers-body">
                     <?php foreach ($instant_tiers as $t): ?>
@@ -179,25 +183,25 @@ $conn->close();
                         <td class="px-3 py-2"><?php echo number_format((float)$t['discount_rate'], 2); ?>%</td>
                         <td class="px-3 py-2"><?php echo (int)$t['sort_order']; ?></td>
                         <td class="px-3 py-2"><?php echo $t['is_active'] ? '✅' : '➖'; ?></td>
-                        <td class="px-3 py-2"><button class="instant-delete-btn text-red-600" data-id="<?php echo (int)$t['id']; ?>">삭제</button></td>
+                        <td class="px-3 py-2"><button class="instant-delete-btn text-red-600" data-id="<?php echo (int)$t['id']; ?>"><?php echo t('common.delete'); ?></button></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
             <div class="flex items-end gap-2">
-                <div><label class="block text-xs text-gray-500">최소 주문금액</label><input id="instant-min" type="number" step="0.01" min="0" class="border border-gray-300 rounded px-2 py-1 w-32"></div>
-                <div><label class="block text-xs text-gray-500">할인율(%)</label><input id="instant-rate" type="number" step="0.01" min="0" max="100" class="border border-gray-300 rounded px-2 py-1 w-24"></div>
-                <div><label class="block text-xs text-gray-500">순서</label><input id="instant-sort" type="number" step="1" value="0" class="border border-gray-300 rounded px-2 py-1 w-20"></div>
-                <button id="instant-add-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">구간 추가</button>
+                <div><label class="block text-xs text-gray-500"><?php echo t('mall_admin.discount_rules.min_order_amount'); ?></label><input id="instant-min" type="number" step="0.01" min="0" class="border border-gray-300 rounded px-2 py-1 w-32"></div>
+                <div><label class="block text-xs text-gray-500"><?php echo t('mall_admin.discount_rules.discount_rate'); ?></label><input id="instant-rate" type="number" step="0.01" min="0" max="100" class="border border-gray-300 rounded px-2 py-1 w-24"></div>
+                <div><label class="block text-xs text-gray-500"><?php echo t('mall_admin.discount_rules.sort_order'); ?></label><input id="instant-sort" type="number" step="1" value="0" class="border border-gray-300 rounded px-2 py-1 w-20"></div>
+                <button id="instant-add-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md"><?php echo t('mall_admin.discount_rules.add_tier'); ?></button>
             </div>
         </section>
 
         <!-- 도매 누적실적 등급 -->
         <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h2 class="text-sm font-bold text-gray-700 mb-3">도매 누적실적 등급</h2>
+            <h2 class="text-sm font-bold text-gray-700 mb-3"><?php echo t('mall_admin.discount_rules.cumulative_tiers'); ?></h2>
             <table class="min-w-full text-xs mb-2">
                 <thead class="bg-gray-100 text-gray-600">
-                    <tr><th class="px-3 py-2 text-left">등급명</th><th class="px-3 py-2 text-left">누적기준금액</th><th class="px-3 py-2 text-left">추가할인율(%)</th><th class="px-3 py-2 text-left">순서</th><th class="px-3 py-2 text-left">삭제</th></tr>
+                    <tr><th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.tier_name'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.min_cumulative_amount'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.additional_discount_rate'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.sort_order'); ?></th><th class="px-3 py-2 text-left"><?php echo t('common.delete'); ?></th></tr>
                 </thead>
                 <tbody id="cumulative-tiers-body">
                     <?php foreach ($cumulative_tiers as $t): ?>
@@ -206,17 +210,17 @@ $conn->close();
                         <td class="px-3 py-2"><?php echo number_format((float)$t['min_cumulative_amount'], 2); ?></td>
                         <td class="px-3 py-2"><?php echo number_format((float)$t['additional_discount_rate'], 2); ?>%</td>
                         <td class="px-3 py-2"><?php echo (int)$t['sort_order']; ?></td>
-                        <td class="px-3 py-2"><button class="cumulative-delete-btn text-red-600" data-id="<?php echo (int)$t['id']; ?>">삭제</button></td>
+                        <td class="px-3 py-2"><button class="cumulative-delete-btn text-red-600" data-id="<?php echo (int)$t['id']; ?>"><?php echo t('common.delete'); ?></button></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
             <div class="flex items-end gap-2">
-                <div><label class="block text-xs text-gray-500">등급명</label><input id="cumulative-name" type="text" class="border border-gray-300 rounded px-2 py-1 w-28"></div>
-                <div><label class="block text-xs text-gray-500">누적기준금액</label><input id="cumulative-min" type="number" step="0.01" min="0" class="border border-gray-300 rounded px-2 py-1 w-32"></div>
-                <div><label class="block text-xs text-gray-500">추가할인율(%)</label><input id="cumulative-rate" type="number" step="0.01" min="0" max="100" class="border border-gray-300 rounded px-2 py-1 w-24"></div>
-                <div><label class="block text-xs text-gray-500">순서</label><input id="cumulative-sort" type="number" step="1" value="0" class="border border-gray-300 rounded px-2 py-1 w-20"></div>
-                <button id="cumulative-add-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">등급 추가</button>
+                <div><label class="block text-xs text-gray-500"><?php echo t('mall_admin.discount_rules.tier_name'); ?></label><input id="cumulative-name" type="text" class="border border-gray-300 rounded px-2 py-1 w-28"></div>
+                <div><label class="block text-xs text-gray-500"><?php echo t('mall_admin.discount_rules.min_cumulative_amount'); ?></label><input id="cumulative-min" type="number" step="0.01" min="0" class="border border-gray-300 rounded px-2 py-1 w-32"></div>
+                <div><label class="block text-xs text-gray-500"><?php echo t('mall_admin.discount_rules.additional_discount_rate'); ?></label><input id="cumulative-rate" type="number" step="0.01" min="0" max="100" class="border border-gray-300 rounded px-2 py-1 w-24"></div>
+                <div><label class="block text-xs text-gray-500"><?php echo t('mall_admin.discount_rules.sort_order'); ?></label><input id="cumulative-sort" type="number" step="1" value="0" class="border border-gray-300 rounded px-2 py-1 w-20"></div>
+                <button id="cumulative-add-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md"><?php echo t('mall_admin.discount_rules.add_grade'); ?></button>
             </div>
         </section>
     </main>
@@ -244,7 +248,7 @@ document.getElementById('save-retail-btn').addEventListener('click', function ()
     document.querySelectorAll('.retail-rate').forEach(el => params.set('rate_' + el.dataset.tier, el.value));
     document.querySelectorAll('.retail-min').forEach(el => params.set('min_' + el.dataset.tier, el.value));
     postAjax(params.toString()).then(data => {
-        showFlash(data.success ? '저장되었습니다.' : (data.error?.message || '오류가 발생했습니다.'), data.success ? 'success' : 'error');
+        showFlash(data.success ? '<?php echo addslashes(t('common.save_success')); ?>' : (data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>'), data.success ? 'success' : 'error');
     });
 });
 
@@ -253,7 +257,7 @@ document.getElementById('save-wholesale-reference-btn').addEventListener('click'
     params.set('action', 'wholesale_reference_save');
     params.set('rate', document.getElementById('wholesale-reference-rate').value);
     postAjax(params.toString()).then(data => {
-        showFlash(data.success ? '저장되었습니다.' : (data.error?.message || '오류가 발생했습니다.'), data.success ? 'success' : 'error');
+        showFlash(data.success ? '<?php echo addslashes(t('common.save_success')); ?>' : (data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>'), data.success ? 'success' : 'error');
     });
 });
 
@@ -262,7 +266,7 @@ document.getElementById('save-point-accrual-btn').addEventListener('click', func
     params.set('action', 'point_accrual_save');
     params.set('rate', document.getElementById('point-accrual-rate').value);
     postAjax(params.toString()).then(data => {
-        showFlash(data.success ? '저장되었습니다.' : (data.error?.message || '오류가 발생했습니다.'), data.success ? 'success' : 'error');
+        showFlash(data.success ? '<?php echo addslashes(t('common.save_success')); ?>' : (data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>'), data.success ? 'success' : 'error');
     });
 });
 
@@ -272,7 +276,7 @@ document.getElementById('save-shipping-btn').addEventListener('click', function 
     params.set('base_shipping_fee', document.getElementById('base-shipping-fee').value);
     params.set('free_shipping_threshold', document.getElementById('free-shipping-threshold').value);
     postAjax(params.toString()).then(data => {
-        showFlash(data.success ? '저장되었습니다.' : (data.error?.message || '오류가 발생했습니다.'), data.success ? 'success' : 'error');
+        showFlash(data.success ? '<?php echo addslashes(t('common.save_success')); ?>' : (data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>'), data.success ? 'success' : 'error');
     });
 });
 
@@ -281,7 +285,7 @@ document.getElementById('save-prep-btn').addEventListener('click', function () {
     params.set('action', 'prep_minutes_save');
     params.set('minutes', document.getElementById('default-prep-minutes').value);
     postAjax(params.toString()).then(data => {
-        showFlash(data.success ? '저장되었습니다.' : (data.error?.message || '오류가 발생했습니다.'), data.success ? 'success' : 'error');
+        showFlash(data.success ? '<?php echo addslashes(t('common.save_success')); ?>' : (data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>'), data.success ? 'success' : 'error');
     });
 });
 
@@ -292,14 +296,14 @@ document.getElementById('instant-add-btn').addEventListener('click', function ()
     params.set('discount_rate', document.getElementById('instant-rate').value);
     params.set('sort_order', document.getElementById('instant-sort').value);
     postAjax(params.toString()).then(data => {
-        if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '오류가 발생했습니다.', 'error'); }
+        if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error'); }
     });
 });
 
 document.querySelectorAll('.instant-delete-btn').forEach(btn => {
     btn.addEventListener('click', function () {
         postAjax('action=instant_delete&id=' + encodeURIComponent(btn.dataset.id)).then(data => {
-            if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '오류가 발생했습니다.', 'error'); }
+            if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error'); }
         });
     });
 });
@@ -312,14 +316,14 @@ document.getElementById('cumulative-add-btn').addEventListener('click', function
     params.set('additional_discount_rate', document.getElementById('cumulative-rate').value);
     params.set('sort_order', document.getElementById('cumulative-sort').value);
     postAjax(params.toString()).then(data => {
-        if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '오류가 발생했습니다.', 'error'); }
+        if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error'); }
     });
 });
 
 document.querySelectorAll('.cumulative-delete-btn').forEach(btn => {
     btn.addEventListener('click', function () {
         postAjax('action=cumulative_delete&id=' + encodeURIComponent(btn.dataset.id)).then(data => {
-            if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '오류가 발생했습니다.', 'error'); }
+            if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error'); }
         });
     });
 });

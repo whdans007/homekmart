@@ -14,12 +14,12 @@ $csrf_token = mall_csrf_token();
 $order_id = (int)($_GET['order_id'] ?? 0);
 
 $mall_redesigned = true;
-$mall_show_back = true;
 $show_bottom_nav = true;
 $active_nav = 'chat';
 
 if ($order_id > 0) {
-    // ---- 채팅창 모드 ----
+    // ---- 채팅창 모드 ---- 특정 주문의 대화방이므로 목록으로 돌아갈 수 있게 뒤로가기 헤더를 쓴다.
+    $mall_show_back = true;
     $conn = get_db_connection();
     $stmt = $conn->prepare('SELECT id, order_number, created_at FROM mall_orders WHERE id = ? AND member_id = ?');
     $stmt->bind_param('ii', $order_id, $member['id']);

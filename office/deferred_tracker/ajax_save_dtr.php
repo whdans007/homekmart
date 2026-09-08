@@ -14,10 +14,13 @@ if (!has_office_permission()) {
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { echo json_encode(['success'=>false]); exit; }
 
-$store_id = get_office_store_id();
-$date     = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['entry_date']??'') ? $_POST['entry_date'] : null;
-$supplier = trim(office_b64_decode($_POST['supplier'] ?? ''));
-$amount   = max(0.01, (float)($_POST['amount'] ?? 0));
+$store_id   = get_office_store_id();
+$date       = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['entry_date']??'') ? $_POST['entry_date'] : null;
+$supplier   = trim(office_b64_decode($_POST['supplier'] ?? ''));
+$entry_type = in_array($_POST['entry_type'] ?? '', ['purchase','return']) ? $_POST['entry_type'] : 'purchase';
+// 사용자는 항상 양수로 입력하고, 반품(return)이면 서버에서 음수로 저장해 미결 잔액에서 자동 차감되게 한다.
+$amount_input = max(0.01, (float)($_POST['amount'] ?? 0));
+$amount       = $entry_type === 'return' ? -$amount_input : $amount_input;
 $notes    = trim(office_b64_decode($_POST['notes'] ?? ''));
 
 if (!$date || !$supplier) {
@@ -100,7 +103,8 @@ $conn->query("CREATE TABLE IF NOT EXISTS deferred_entries (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
 // file 컬럼 없으면 자동 추가 (기존 테이블 대응)
-foreach (['file_path VARCHAR(500) DEFAULT NULL','file_mime VARCHAR(100) DEFAULT NULL'] as $col_def) {
+foreach (['file_path VARCHAR(500) DEFAULT NULL','file_mime VARCHAR(100) DEFAULT NULL',
+          "entry_type ENUM('purchase','return') NOT NULL DEFAULT 'purchase'"] as $col_def) {
     $col = explode(' ', $col_def)[0];
     $chk = $conn->query("SHOW COLUMNS FROM deferred_entries LIKE '{$col}'");
     if ($chk && $chk->num_rows === 0) {
@@ -109,10 +113,10 @@ foreach (['file_path VARCHAR(500) DEFAULT NULL','file_mime VARCHAR(100) DEFAULT 
 }
 
 $stmt = $conn->prepare(
-    "INSERT INTO deferred_entries (store_id, entry_date, supplier, amount, notes, file_path, file_mime)
-     VALUES (?,?,?,?,?,?,?)"
+    "INSERT INTO deferred_entries (store_id, entry_date, supplier, amount, notes, file_path, file_mime, entry_type)
+     VALUES (?,?,?,?,?,?,?,?)"
 );
-$stmt->bind_param('issdsss', $store_id, $date, $supplier, $amount, $notes, $file_path, $file_mime);
+$stmt->bind_param('issdssss', $store_id, $date, $supplier, $amount, $notes, $file_path, $file_mime, $entry_type);
 $ok = $stmt->execute();
 $id = $conn->insert_id;
 $stmt->close();

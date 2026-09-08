@@ -127,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!empty($current_store_id)) {
             $user_store_id = $current_store_id;
         } else {
-            $message = '점포 정보가 없습니다. 관리자에게 문의하세요.';
+            $message = t('purchase.no_store_info_contact_admin');
         }
     }
 
@@ -171,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // store_id 최종 검증
                 if (empty($user_store_id)) {
-                    throw new Exception("점포 정보가 없습니다. store_id가 설정되지 않았습니다. (User: {$_SESSION['user_id']}, Role: {$_SESSION['role']})");
+                    throw new Exception(str_replace(['{user}', '{role}'], [$_SESSION['user_id'], $_SESSION['role']], t('purchase.store_info_missing_detail')));
                 }
 
                 $stmt = $conn->prepare("INSERT INTO purchases (store_id, supplier_id, purchase_date, total_amount, total_items) VALUES (?, ?, ?, ?, ?)");
@@ -183,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // edit_purchase_id가 있지만 새 상품이 없는 경우 → 안내 메시지와 함께 돌아가기
                 $conn->rollback();
-                $_SESSION['flash'] = ['type' => 'warning', 'message' => '추가할 새로운 상품을 먼저 선택해 주세요.'];
+                $_SESSION['flash'] = ['type' => 'warning', 'message' => t('purchase.select_new_items_first')];
                 header("Location: edit_purchase.php?id={$edit_purchase_id}");
                 exit();
             }
@@ -388,7 +388,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php else: ?>
             <a href="purchase_management.php" class="btn">
                 <i class="fas fa-arrow-left mr-2"></i>
-                이전화면
+                <?php echo t('purchase.previous_screen'); ?>
             </a>
         <?php endif; ?>
     </div>
@@ -463,27 +463,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             <!-- VAT 설정 -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">VAT 적용</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2"><?php echo t('purchase.vat_apply_label'); ?></label>
                 <div class="space-y-2">
                     <div class="flex items-center space-x-4">
                         <label class="flex items-center">
-                            <input type="radio" name="default_vat_included" value="1" checked class="mr-2 text-indigo-600"> 
-                            VAT 포함
+                            <input type="radio" name="default_vat_included" value="1" checked class="mr-2 text-indigo-600">
+                            VAT <?php echo t('purchase.vat_included_label'); ?>
                         </label>
                         <label class="flex items-center">
-                            <input type="radio" name="default_vat_included" value="0" class="mr-2 text-indigo-600"> 
-                            VAT 미포함
+                            <input type="radio" name="default_vat_included" value="0" class="mr-2 text-indigo-600">
+                            VAT <?php echo t('purchase.vat_excluded_label'); ?>
                         </label>
                     </div>
                     <div class="text-xs text-gray-500">
-                        VAT 미포함 선택시 입력 단가에 자동으로 12% 추가하여 원가에 저장됩니다.
+                        <?php echo t('purchase.vat_excluded_hint'); ?>
                     </div>
                     <!-- 가격 정보 실시간 표시 -->
                     <div id="vat-calculation-display" class="p-2 bg-gray-50 rounded text-sm hidden">
                         <div class="grid grid-cols-3 gap-4 text-xs">
-                            <div>입력 단가: ₩<span id="global-input-price">0</span></div>
-                            <div>저장될 원가: ₩<span id="global-final-price">0</span></div>
-                            <div class="text-blue-600">VAT 금액: ₩<span id="global-vat-amount">0</span></div>
+                            <div><?php echo t('purchase.input_price_label'); ?>: ₩<span id="global-input-price">0</span></div>
+                            <div><?php echo t('purchase.final_cost_label'); ?>: ₩<span id="global-final-price">0</span></div>
+                            <div class="text-blue-600"><?php echo t('purchase.tooltip_vat_amount'); ?>: ₩<span id="global-vat-amount">0</span></div>
                         </div>
                     </div>
                 </div>
@@ -740,7 +740,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // 수정 모드에서는 검색 기능을 바로 활성화
     searchInput.disabled = false;
-    searchInput.placeholder = '상품명 검색 또는 물류바코드 스캔';
+    searchInput.placeholder = t('purchase.search_placeholder_active');
     searchInput.classList.remove('disabled:bg-gray-100', 'disabled:text-gray-500');
     <?php endif; ?>
 
@@ -836,7 +836,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 div.className = `supplier-result cursor-pointer bg-white hover:bg-indigo-50 p-3 border-b border-gray-100 last:border-b-0`;
                                 div.innerHTML = `
                                     <div class="font-medium text-gray-900">${supplier.name}</div>
-                                    <div class="text-sm text-gray-500">${supplier.phone ? '전화: ' + supplier.phone : ''} ${supplier.memo ? '| ' + supplier.memo : ''}</div>
+                                    <div class="text-sm text-gray-500">${supplier.phone ? t('js.phone_label') + ': ' + supplier.phone : ''} ${supplier.memo ? '| ' + supplier.memo : ''}</div>
                                 `;
                                 div.addEventListener('click', () => selectSupplier(supplier));
                                 supplierSearchResults.appendChild(div);
@@ -975,7 +975,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         if (hasSupplier) {
             searchInput.disabled = false;
-            searchInput.placeholder = '상품명 검색 또는 물류바코드 스캔';
+            searchInput.placeholder = t('purchase.search_placeholder_active');
             searchInput.classList.remove('disabled:bg-gray-100', 'disabled:text-gray-500');
         } else {
             searchInput.disabled = true;
@@ -1336,7 +1336,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 existingRow.style.backgroundColor = '';
                             }, 500);
 
-                            showSuccessMessage(`${product.name_ko} 수량 증가 (${currentQty + addQty}개)`);
+                            showSuccessMessage(t('js.qty_increased_message', {name: product.name_ko, count: currentQty + addQty}));
                         }
 
                         searchInput.value = '';
@@ -1362,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     // 성공 메시지 표시 (매칭 정보 포함)
                     const matchInfo = data.matched_sku ? ` (SKU: ${data.matched_sku})` : '';
-                    showSuccessMessage('물류바코드 인식 성공: ' + product.name_ko + matchInfo);
+                    showSuccessMessage(t('js.logistics_barcode_success_prefix') + product.name_ko + matchInfo);
 
                 } else {
                     // 물류바코드로 찾지 못했으면 일반 상품명 검색 실행
@@ -1425,7 +1425,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             div.innerHTML = `
                                 <p class="text-sm leading-none"><span class="text-gray-400 font-mono">${product.sku}</span> <span class="font-semibold">${product.name_ko}</span> <span class="text-gray-500 font-normal">(${product.name_en})</span></p>
                                 ${pendingQuantity > 1 ? `<p class="text-xs text-amber-600 leading-none"><i class="fas fa-hashtag mr-1"></i>${pendingQuantity}<?php echo t('purchase.qty_items_label'); ?></p>` : ''}
-                                ${index === 0 ? '<p class="text-xs text-blue-600 leading-none"><i class="fas fa-keyboard mr-1"></i>↑↓ 네비게이션, ↵ 선택</p>' : ''}
+                                ${index === 0 ? '<p class="text-xs text-blue-600 leading-none"><i class="fas fa-keyboard mr-1"></i><?php echo t('purchase.keyboard_nav_hint'); ?></p>' : ''}
                             `;
 
                             div.addEventListener('click', () => {
@@ -1676,7 +1676,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             <!-- 상품명 (영어) -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    상품명 (영어) <span class="text-red-500">*</span>
+                                    <?php echo t('purchase.product_name_en'); ?> <span class="text-red-500">*</span>
                                 </label>
                                 <input type="text" id="product-name-en" name="name_en" required
                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
@@ -1686,11 +1686,11 @@ document.addEventListener('DOMContentLoaded', function () {
                             <!-- 상품명 (한국어) -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    상품명 (한국어)
+                                    <?php echo t('purchase.product_name_ko'); ?>
                                 </label>
                                 <input type="text" id="product-name-ko" name="name_ko"
                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                                       placeholder="상품명을 입력하세요">
+                                       placeholder="<?php echo t('purchase.enter_product_name_placeholder'); ?>">
                             </div>
                             
                             <div class="grid grid-cols-2 gap-3">
@@ -1701,7 +1701,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                     </label>
                                     <input type="text" id="product-sku" name="sku" required readonly
                                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50 focus:outline-none"
-                                           placeholder="자동 생성">
+                                           placeholder="<?php echo t('purchase.auto_generated_placeholder'); ?>">
                                 </div>
                                 
                                 <!-- 박스당 개수 -->
@@ -1718,11 +1718,11 @@ document.addEventListener('DOMContentLoaded', function () {
                             <!-- 설명 -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    설명
+                                    <?php echo t('purchase.description_short'); ?>
                                 </label>
                                 <textarea id="product-description" name="description" rows="2"
                                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none"
-                                          placeholder="간단한 설명 (선택사항)"></textarea>
+                                          placeholder="<?php echo t('purchase.description_placeholder'); ?>"></textarea>
                             </div>
                             
                             <!-- 버튼 -->
@@ -1783,7 +1783,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 categoryLoading.classList.add('hidden');
                 
                 if (data.success) {
-                    categorySelect.innerHTML = '<option value="">카테고리를 선택하세요 (선택사항)</option>';
+                    categorySelect.innerHTML = '<option value="">' + t('purchase.select_category_optional') + '</option>';
                     
                     // 카테고리가 있으면 추가
                     if (data.categories && data.categories.length > 0) {
@@ -1804,7 +1804,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     // console.log(`카테고리 로드 완료: ${data.categories ? data.categories.length : 0}개 카테고리`);
                 } else {
                     // 실패 시에도 계속 진행 가능하도록 함
-                    categorySelect.innerHTML = '<option value="">카테고리 없음 (선택사항)</option>';
+                    categorySelect.innerHTML = '<option value="">' + t('purchase.no_category_optional') + '</option>';
                     categoryWarningText.textContent = t('category.load_error') + '. ' + t('product.add') + ' ' + t('forms.optional');
                     categoryWarning.classList.remove('hidden');
                     console.error('카테고리 로드 실패:', data.message || '알 수 없는 오류');
@@ -1813,7 +1813,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(error => {
                 categoryLoading.classList.add('hidden');
                 // 에러 시에도 계속 진행 가능하도록 함
-                categorySelect.innerHTML = '<option value="">카테고리 없음 (선택사항)</option>';
+                categorySelect.innerHTML = '<option value="">' + t('purchase.no_category_optional') + '</option>';
                 categoryWarningText.textContent = t('category.load_error') + '. ' + t('product.add') + ' ' + t('forms.optional');
                 categoryWarning.classList.remove('hidden');
                 console.error('카테고리 로드 오류:', error);
@@ -1943,7 +1943,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     console.error('SQL 오류 상세:', data.sql_error);
                     console.error('디버그 정보:', data.debug);
                     console.error('오류 코드:', data.error_code);
-                    errorMsg += '\n\n개발자 도구 콘솔을 확인해주세요.';
+                    errorMsg += t('js.check_dev_console_message');
                 }
                 
                 alert(errorMsg);
@@ -1973,7 +1973,7 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 inputEl.style.backgroundColor = '#fee2e2';
                 setTimeout(() => { inputEl.style.backgroundColor = ''; }, 2000);
-                alert('상품명 업데이트 실패: ' + data.message);
+                alert(t('js.product_name_update_failed_prefix') + data.message);
             }
         })
         .catch(() => {
@@ -2006,7 +2006,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             row.style.backgroundColor = '';
                         }, 500);
 
-                        showSuccessMessage(`${product.name_ko} 수량 증가 (${currentQty + addQty}개)`);
+                        showSuccessMessage(t('js.qty_increased_message', {name: product.name_ko, count: currentQty + addQty}));
                         return; // 수량 증가 후 함수 종료
                     }
                     break;
@@ -2045,8 +2045,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 ${isExisting
                     ? `<div class="text-sm font-medium text-gray-900">${product.name_ko}</div><div class="text-xs text-gray-500">${product.name_en || ''}</div>`
                     : `<div class="flex flex-col gap-0.5">
-                         <input type="text" class="product-name-ko-input text-sm font-medium text-gray-900 border border-transparent hover:border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded px-1 py-0.5 w-full" placeholder="한글 상품명" title="한글 상품명 — Enter로 저장">
-                         <input type="text" class="product-name-en-input text-xs text-gray-500 border border-transparent hover:border-gray-300 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 rounded px-1 py-0.5 w-full" placeholder="English name" title="영문 상품명 — Enter로 저장">
+                         <input type="text" class="product-name-ko-input text-sm font-medium text-gray-900 border border-transparent hover:border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded px-1 py-0.5 w-full" placeholder="<?php echo t('purchase.ko_name_placeholder'); ?>" title="<?php echo t('purchase.ko_name_title'); ?>">
+                         <input type="text" class="product-name-en-input text-xs text-gray-500 border border-transparent hover:border-gray-300 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 rounded px-1 py-0.5 w-full" placeholder="English name" title="<?php echo t('purchase.en_name_title'); ?>">
                        </div>`
                 }
             </td>
@@ -2077,7 +2077,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <span class="text-xs text-gray-500 ml-1"><?php echo t('purchase.pieces'); ?></span>
             </td>
             <td class="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-right">
-                <input type="number" name="items[${itemIndex}][unit_price]" class="w-20 px-2 py-1 border border-gray-300 rounded-md text-right text-sm unit-price focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" step="0.01" min="0" value="${finalUnitPrice}" placeholder="0원 가능" ${isExisting ? 'readonly' : ''}>
+                <input type="number" name="items[${itemIndex}][unit_price]" class="w-20 px-2 py-1 border border-gray-300 rounded-md text-right text-sm unit-price focus:border-indigo-500 focus:ring-indigo-500 ${isExisting ? 'bg-gray-100' : ''}" step="0.01" min="0" value="${finalUnitPrice}" placeholder="<?php echo t('purchase.zero_price_placeholder'); ?>" ${isExisting ? 'readonly' : ''}>
                 <!-- VAT 관련 hidden 필드 -->
                 <input type="hidden" name="items[${itemIndex}][vat_included]" class="vat-included-field" value="1">
             </td>
@@ -2156,24 +2156,24 @@ document.addEventListener('DOMContentLoaded', function () {
             if (currentSupplierId && product.id) {
                 const priceInput = newRow.querySelector('.unit-price');
                 if (priceInput) {
-                    priceInput.placeholder = '조회중...';
+                    priceInput.placeholder = t('purchase.searching_placeholder');
                 }
                 fetch(`ajax_get_last_purchase_price.php?product_id=${encodeURIComponent(product.id)}&supplier_id=${encodeURIComponent(currentSupplierId)}`)
                     .then(r => r.json())
                     .then(data => {
                         if (data.success && data.unit_price > 0 && priceInput) {
                             priceInput.value = data.unit_price;
-                            priceInput.placeholder = '0원 가능';
+                            priceInput.placeholder = t('purchase.zero_price_placeholder');
                             priceInput.style.backgroundColor = '#fef9c3'; // 노란 배경으로 자동입력 표시
                             setTimeout(() => { priceInput.style.backgroundColor = ''; }, 2000);
                             updateRow(newRow);
-                            showSuccessMessage(`${product.name_ko} 박스 원가 자동 입력 (${data.purchase_date} 매입가: ${Number(data.unit_price).toLocaleString()})`);
+                            showSuccessMessage(t('js.box_cost_auto_filled', {name: product.name_ko, date: data.purchase_date, price: Number(data.unit_price).toLocaleString()}));
                         } else if (priceInput) {
-                            priceInput.placeholder = '0원 가능';
+                            priceInput.placeholder = t('purchase.zero_price_placeholder');
                         }
                     })
                     .catch(() => {
-                        if (priceInput) priceInput.placeholder = '0원 가능';
+                        if (priceInput) priceInput.placeholder = t('purchase.zero_price_placeholder');
                     });
             }
         }
@@ -2318,7 +2318,7 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             
             // 확인 대화상자 표시
-            if (confirm('이 상품을 목록에서 삭제하시겠습니까?')) {
+            if (confirm(t('js.confirm_remove_item_from_list'))) {
                 removeButton.closest('tr').remove();
                 updateTotalAmount();
                 
@@ -2396,7 +2396,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const hasNew = allItems.some(function(item) { return !item.existing_item_id; });
         if (!hasNew) {
             e.preventDefault();
-            alert('추가할 새로운 상품을 먼저 선택해 주세요.');
+            alert(t('purchase.select_new_items_first'));
         }
         <?php endif; ?>
     });
@@ -2708,7 +2708,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             // 수퍼관리자 · 점장만 포장수량 변경 가능
             if (!canEditPiecesPerBox) {
-                alert('수퍼관리자 또는 점장만 포장수량을 변경할 수 있습니다.');
+                alert(t('js.pieces_manager_or_super_admin_only'));
                 return;
             }
 

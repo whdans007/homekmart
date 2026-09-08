@@ -323,6 +323,24 @@ if ((has_permission('product_management') || in_array($_SESSION['role'] ?? '', [
                     </div>
                     <?php endif; ?>
 
+                    <!-- 신선상품 관리 (lime) -->
+                    <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                    <div class="rounded-lg px-1.5 py-2 mt-1.5" style="background:#f7fee7;">
+                        <p class="px-2 py-1 mb-1 text-xs font-semibold uppercase tracking-wider rounded" style="background:#ecfccb;color:#4d7c0f;"><?php echo t('navigation.fresh_products_section'); ?></p>
+                        <a href="fresh_products.php" class="<?php echo ($current_page == 'fresh_products.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-apple-whole mr-2 text-xs w-4 text-center"></i><?php echo t('navigation.fresh_products'); ?>
+                        </a>
+                        <a href="fresh_purchase_items.php" class="<?php echo ($current_page == 'fresh_purchase_items.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-truck-ramp-box mr-2 text-xs w-4 text-center"></i><?php echo t('navigation.fresh_purchase_items'); ?>
+                        </a>
+                        <?php if (in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                        <a href="fresh_margin_management.php" class="<?php echo ($current_page == 'fresh_margin_management.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-percent mr-2 text-xs w-4 text-center"></i><?php echo t('mall_fresh_products.margin_management_link'); ?>
+                        </a>
+                        <?php endif; ?>
+                    </div>
+                    <?php endif; ?>
+
                     <?php if (!$is_logistics_user): ?>
                     <!-- MASTER DATA (gray) -->
                     <?php if (has_permission('admin_access') || has_permission('shop_access') || has_permission('user_management') || has_permission('store_management') || has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
@@ -426,6 +444,14 @@ if ((has_permission('product_management') || in_array($_SESSION['role'] ?? '', [
             <?php if (has_permission('barcode_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
             <p class="px-2 pt-2 text-xs font-semibold uppercase tracking-wider" style="color:#b91c1c;"><?php echo t('navigation.barcode_section'); ?></p>
             <a href="barcode_generate.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('navigation.barcode_generate'); ?></a>
+            <?php endif; ?>
+            <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+            <p class="px-2 pt-2 text-xs font-semibold uppercase tracking-wider" style="color:#4d7c0f;"><?php echo t('navigation.fresh_products_section'); ?></p>
+            <a href="fresh_products.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('navigation.fresh_products'); ?></a>
+            <a href="fresh_purchase_items.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('navigation.fresh_purchase_items'); ?></a>
+            <?php if (in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+            <a href="fresh_margin_management.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('mall_fresh_products.margin_management_link'); ?></a>
+            <?php endif; ?>
             <?php endif; ?>
             <?php if (!$is_logistics_user && (has_permission('admin_access') || has_permission('shop_access') || has_permission('user_management') || has_permission('store_management'))): ?>
             <p class="px-2 pt-2 text-xs font-semibold uppercase tracking-wider" style="color:#334155;"><?php echo t('navigation.basic_menu'); ?></p>

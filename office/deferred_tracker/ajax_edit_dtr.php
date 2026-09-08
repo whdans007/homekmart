@@ -16,7 +16,9 @@ $store_id    = get_office_store_id();
 $id          = (int)($_POST['id'] ?? 0);
 $date        = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['entry_date']??'') ? $_POST['entry_date'] : null;
 $supplier    = trim(office_b64_decode($_POST['supplier'] ?? ''));
-$amount      = max(0.01, (float)($_POST['amount'] ?? 0));
+$entry_type  = in_array($_POST['entry_type'] ?? '', ['purchase','return']) ? $_POST['entry_type'] : 'purchase';
+$amount_input = max(0.01, (float)($_POST['amount'] ?? 0));
+$amount      = $entry_type === 'return' ? -$amount_input : $amount_input;
 $notes       = trim(office_b64_decode($_POST['notes'] ?? ''));
 $status      = in_array($_POST['status']??'', ['pending','paid']) ? $_POST['status'] : 'pending';
 $remove_file = ($_POST['remove_file'] ?? '0') === '1';
@@ -26,6 +28,12 @@ if (!$id || !$date || !$supplier) {
 }
 
 $conn = get_db_connection();
+
+// entry_type 컬럼 없으면 자동 추가 (기존 테이블 대응)
+$chk_col = $conn->query("SHOW COLUMNS FROM deferred_entries LIKE 'entry_type'");
+if ($chk_col && $chk_col->num_rows === 0) {
+    $conn->query("ALTER TABLE deferred_entries ADD COLUMN entry_type ENUM('purchase','return') NOT NULL DEFAULT 'purchase'");
+}
 
 $res = $conn->query("SELECT file_path, file_mime FROM deferred_entries WHERE id=$id AND store_id=$store_id");
 $row = $res ? $res->fetch_assoc() : null;
@@ -98,17 +106,17 @@ if ($remove_file && !$update_file) {
 if ($update_file) {
     $stmt = $conn->prepare(
         "UPDATE deferred_entries
-         SET entry_date=?, supplier=?, amount=?, notes=?, status=?, file_path=?, file_mime=?
+         SET entry_date=?, supplier=?, amount=?, notes=?, status=?, file_path=?, file_mime=?, entry_type=?
          WHERE id=? AND store_id=?"
     );
-    $stmt->bind_param('ssdssssii', $date, $supplier, $amount, $notes, $status, $file_path, $file_mime, $id, $store_id);
+    $stmt->bind_param('ssdsssssii', $date, $supplier, $amount, $notes, $status, $file_path, $file_mime, $entry_type, $id, $store_id);
 } else {
     $stmt = $conn->prepare(
         "UPDATE deferred_entries
-         SET entry_date=?, supplier=?, amount=?, notes=?, status=?
+         SET entry_date=?, supplier=?, amount=?, notes=?, status=?, entry_type=?
          WHERE id=? AND store_id=?"
     );
-    $stmt->bind_param('ssdssii', $date, $supplier, $amount, $notes, $status, $id, $store_id);
+    $stmt->bind_param('ssdsssii', $date, $supplier, $amount, $notes, $status, $entry_type, $id, $store_id);
 }
 
 $ok = $stmt->execute();

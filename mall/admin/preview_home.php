@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../lib/home_layout.php';
@@ -15,13 +16,12 @@ $is_customer_facing = ($view === 'published');
 $sections = mall_get_active_home_sections($is_customer_facing, $view);
 
 $mall_redesigned = true;
-$mall_hide_topbar = true;
-$page_title = '홈 미리보기 (' . ($view === 'draft' ? '초안' : '발행본') . ')';
+$page_title = t('mall_admin.preview_home.title_prefix') . ' (' . ($view === 'draft' ? t('mall_admin.preview_home.draft') : t('mall_admin.preview_home.published')) . ')';
 require_once __DIR__ . '/../partials/header.php';
 ?>
 <div class="coming-soon-banner" style="border-style:solid;">
     <i class="fas fa-eye"></i>
-    <span><?php echo $view === 'draft' ? '초안 미리보기 — 실제 고객에게는 보이지 않습니다.' : '현재 발행되어 고객에게 노출 중인 화면입니다.'; ?></span>
+    <span><?php echo $view === 'draft' ? t('mall_admin.preview_home.banner_draft') : t('mall_admin.preview_home.banner_published'); ?></span>
 </div>
 
 <?php

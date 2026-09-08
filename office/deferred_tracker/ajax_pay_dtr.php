@@ -32,7 +32,7 @@ foreach (['paid_date DATE DEFAULT NULL', 'receipt_id INT UNSIGNED DEFAULT NULL']
 
 // 선택 날짜 이전 모든 미결 항목 (이전 달 포함)
 $stmt = $conn->prepare(
-    "SELECT id, entry_date, amount, notes
+    "SELECT id, entry_date, amount, notes, entry_type
      FROM deferred_entries
      WHERE store_id=? AND supplier=? AND status='pending' AND entry_date<=?
      ORDER BY entry_date ASC, id ASC"
@@ -48,7 +48,7 @@ if ($action === 'preview') {
     $total = 0.0;
     foreach ($pending as $e) {
         $ts      = strtotime($e['entry_date']);
-        $label   = date('M j', $ts);
+        $label   = date('M j', $ts) . (($e['entry_type'] ?? 'purchase') === 'return' ? ' (Return)' : '');
         $items[] = ['label'=>$label, 'amount'=>(float)$e['amount'], 'notes'=>$e['notes']??''];
         $total  += (float)$e['amount'];
     }

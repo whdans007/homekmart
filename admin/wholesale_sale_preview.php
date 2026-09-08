@@ -116,20 +116,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array
             $check_stmt->execute([$pay_sale_id]);
 
             if (!$check_stmt->fetch()) {
-                $_SESSION['flash'] = ['type' => 'error', 'message' => '결제 상태를 변경할 권한이 없습니다.'];
+                $_SESSION['flash'] = ['type' => 'error', 'message' => t('wholesale_sale_preview.payment_permission_denied')];
             } else {
                 if ($_POST['action'] === 'mark_paid') {
                     $stmt = $pdo->prepare("UPDATE wholesale_sales SET payment_status = 'paid', paid_at = NOW(), payment_method = ?, updated_at = NOW() WHERE id = ?");
                     $stmt->execute([$payment_method ?: null, $pay_sale_id]);
-                    $_SESSION['flash'] = ['type' => 'success', 'message' => '결제완료로 처리되었습니다.'];
+                    $_SESSION['flash'] = ['type' => 'success', 'message' => t('wholesale_sale_preview.payment_marked_paid')];
                 } else {
                     $stmt = $pdo->prepare("UPDATE wholesale_sales SET payment_status = 'unpaid', paid_at = NULL, payment_method = NULL, updated_at = NOW() WHERE id = ?");
                     $stmt->execute([$pay_sale_id]);
-                    $_SESSION['flash'] = ['type' => 'success', 'message' => '미결제로 변경되었습니다.'];
+                    $_SESSION['flash'] = ['type' => 'success', 'message' => t('wholesale_sale_preview.payment_marked_unpaid')];
                 }
             }
         } catch (Exception $e) {
-            $_SESSION['flash'] = ['type' => 'error', 'message' => '결제 처리 중 오류: ' . $e->getMessage()];
+            $_SESSION['flash'] = ['type' => 'error', 'message' => t('wholesale_sale_preview.payment_process_error') . $e->getMessage()];
             error_log("Wholesale payment toggle error: " . $e->getMessage());
         }
         header("Location: wholesale_sale_preview.php?id=$pay_sale_id");
@@ -159,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $row = $check_stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$row) {
-                $_SESSION['flash'] = ['type' => 'error', 'message' => '세금 적용 상태를 변경할 권한이 없습니다.'];
+                $_SESSION['flash'] = ['type' => 'error', 'message' => t('wholesale_sale_preview.tax_permission_denied')];
             } else {
                 // vat_applied / ewt_applied 컬럼이 없으면 자동 추가 (하위 호환)
                 $col_check = $pdo->query("SHOW COLUMNS FROM wholesale_sales LIKE 'vat_applied'");
@@ -177,10 +177,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
                 $upd = $pdo->prepare("UPDATE wholesale_sales SET vat_applied = ?, ewt_applied = ?, final_amount = ?, updated_at = NOW() WHERE id = ?");
                 $upd->execute([$vat_flag, $ewt_flag, $final, $tax_sale_id]);
-                $_SESSION['flash'] = ['type' => 'success', 'message' => 'V.A.T / E.W.T 적용 상태가 저장되었습니다.'];
+                $_SESSION['flash'] = ['type' => 'success', 'message' => t('wholesale_sale_preview.tax_saved_success')];
             }
         } catch (Exception $e) {
-            $_SESSION['flash'] = ['type' => 'error', 'message' => '세금 적용 저장 중 오류: ' . $e->getMessage()];
+            $_SESSION['flash'] = ['type' => 'error', 'message' => t('wholesale_sale_preview.tax_save_error') . $e->getMessage()];
             error_log("Wholesale tax save error: " . $e->getMessage());
         }
         header("Location: wholesale_sale_preview.php?id=$tax_sale_id");
@@ -250,7 +250,7 @@ if ($sale_id > 0) {
                         wsi.remarks,
                         wsi.custom_product_name,
                         wsi.custom_cost_price,
-                        COALESCE(p.sku, '수기') as sku,
+                        COALESCE(p.sku, '') as sku,
                         COALESCE(wp.wholesale_name_ko, p.name_ko, wsi.custom_product_name) as name_ko,
                         COALESCE(wp.wholesale_name_en, p.name_en, wsi.custom_product_name) as name_en,
                         COALESCE(p.pieces_per_box, wp.min_quantity, 1) as pieces_per_box
@@ -276,7 +276,7 @@ if ($sale_id > 0) {
                         wsi.remarks,
                         NULL as custom_product_name,
                         wsi.custom_cost_price,
-                        COALESCE(p.sku, '수기') as sku,
+                        COALESCE(p.sku, '') as sku,
                         p.name_ko,
                         p.name_en,
                         COALESCE(p.pieces_per_box, wp.min_quantity, 1) as pieces_per_box
@@ -425,21 +425,21 @@ if (isset($_SESSION['flash'])) {
                         <h1 class="text-xl font-bold text-gray-900 mb-1">
                             <span id="invoice-title-text"><?php echo t('wholesale_sale_preview.transaction_title'); ?></span>
                             <?php if ($is_paid): ?>
-                                <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800 align-middle"><i class="fas fa-check-circle mr-1"></i>결제완료</span>
+                                <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800 align-middle"><i class="fas fa-check-circle mr-1"></i><?php echo t('wholesale_sale_preview.status_paid'); ?></span>
                             <?php else: ?>
-                                <span id="unpaid-status-badge" class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800 align-middle"><i class="fas fa-exclamation-circle mr-1"></i>미결제</span>
+                                <span id="unpaid-status-badge" class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800 align-middle"><i class="fas fa-exclamation-circle mr-1"></i><?php echo t('wholesale_sale_preview.status_unpaid'); ?></span>
                             <?php endif; ?>
                             <?php if ($return_status === 'partial'): ?>
-                                <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-orange-100 text-orange-800 align-middle"><i class="fas fa-undo mr-1"></i>반품포함</span>
+                                <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-orange-100 text-orange-800 align-middle"><i class="fas fa-undo mr-1"></i><?php echo t('wholesale_sale_preview.status_return_partial'); ?></span>
                             <?php elseif ($return_status === 'full'): ?>
-                                <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-gray-200 text-gray-700 align-middle"><i class="fas fa-undo mr-1"></i>반품전표</span>
+                                <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-gray-200 text-gray-700 align-middle"><i class="fas fa-undo mr-1"></i><?php echo t('wholesale_sale_preview.status_return_full'); ?></span>
                             <?php endif; ?>
                         </h1>
                         <div class="text-sm text-gray-600">
                             <?php if ($is_paid): ?>
                                 <div class="text-green-700 mt-1">
                                     <i class="fas fa-money-bill-wave mr-1"></i>
-                                    <?php echo $sale['paid_at'] ? date('Y-m-d', strtotime($sale['paid_at'])) : ''; ?> 결제
+                                    <?php echo $sale['paid_at'] ? date('Y-m-d', strtotime($sale['paid_at'])) : ''; ?><?php echo t('wholesale_sale_preview.paid_date_suffix'); ?>
                                     <?php if (!empty($sale['payment_method'])): ?>(<?php echo htmlspecialchars($sale['payment_method']); ?>)<?php endif; ?>
                                 </div>
                             <?php endif; ?>
@@ -448,11 +448,11 @@ if (isset($_SESSION['flash'])) {
                     <div id="preview-action-buttons" class="flex gap-2 flex-shrink-0 print:hidden">
                         <?php if ($is_paid): ?>
                             <button id="unpay-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-amber-500 hover:bg-amber-600">
-                                <i class="fas fa-undo mr-1.5"></i>미결제로 변경
+                                <i class="fas fa-undo mr-1.5"></i><?php echo t('wholesale_sale_preview.unpay_button'); ?>
                             </button>
                         <?php else: ?>
                             <button id="pay-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700">
-                                <i class="fas fa-money-bill-wave mr-1.5"></i>결제완료 처리
+                                <i class="fas fa-money-bill-wave mr-1.5"></i><?php echo t('wholesale_sale_preview.mark_paid_button'); ?>
                             </button>
                         <?php endif; ?>
                         <a href="wholesale_sales.php?edit=<?php echo $sale_id; ?>" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
@@ -530,7 +530,7 @@ if (isset($_SESSION['flash'])) {
                             <?php if (!empty($items)): ?>
                                 <?php foreach ($items as $item): ?>
                                     <tr>
-                                        <td class="px-2 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($item['sku']); ?></td>
+                                        <td class="px-2 py-2 text-sm text-gray-900 border-b border-gray-200"><?php echo htmlspecialchars($item['sku'] !== '' ? $item['sku'] : t('wholesale_sale_preview.manual_entry_label')); ?></td>
                                         <td class="px-2 py-2 text-sm text-gray-900 border-b border-gray-200">
                                             <?php
                                             // 디버깅용 - 실제 데이터 확인
@@ -573,10 +573,18 @@ if (isset($_SESSION['flash'])) {
                     </table>
                 </div>
 
+                <?php if (!empty($sale['scan_image_path'])): ?>
+                <!-- 메뉴얼 DR(빠른등록) 첨부 스캔 이미지 -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-camera mr-1 text-primary-600"></i><?php echo t('wholesale_sale_preview.scan_image_title'); ?></h3>
+                    <img src="ajax_wholesale_sale_scan.php?id=<?php echo (int)$sale_id; ?>" alt="<?php echo htmlspecialchars(t('wholesale_sale_preview.scan_image_title')); ?>" class="border border-gray-200 rounded-lg shadow-sm" style="max-width:100%;max-height:600px;">
+                </div>
+                <?php endif; ?>
+
                 <?php if (!empty($return_history)): ?>
                 <!-- 반품 이력 -->
                 <div id="return-history-box" class="mb-6 print:hidden">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-undo mr-1 text-orange-500"></i>반품 이력</h3>
+                    <h3 class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-undo mr-1 text-orange-500"></i><?php echo t('wholesale_sale_preview.return_history_title'); ?></h3>
                     <div class="space-y-2">
                         <?php foreach ($return_history as $ret): ?>
                             <div class="border border-gray-200 rounded-md p-3 bg-orange-50">
@@ -585,7 +593,7 @@ if (isset($_SESSION['flash'])) {
                                         <span class="font-medium"><?php echo date('Y-m-d H:i', strtotime($ret['created_at'])); ?></span>
                                         <span class="text-gray-500 ml-2"><?php echo htmlspecialchars($ret['processed_by_name'] ?? ''); ?></span>
                                         <?php if (!empty($ret['reason'])): ?>
-                                            <span class="text-gray-500 ml-2">사유: <?php echo htmlspecialchars($ret['reason']); ?></span>
+                                            <span class="text-gray-500 ml-2"><?php echo t('wholesale_sale_preview.return_reason_prefix'); ?><?php echo htmlspecialchars($ret['reason']); ?></span>
                                         <?php endif; ?>
                                     </div>
                                     <div class="font-semibold text-orange-700"><?php echo fmt_num($ret['total_amount']); ?></div>
@@ -601,7 +609,7 @@ if (isset($_SESSION['flash'])) {
                         <?php endforeach; ?>
                     </div>
                     <div class="mt-3 flex justify-end">
-                        <div class="text-sm font-semibold text-orange-700">반품 합계: -<?php echo fmt_num($return_deduction); ?></div>
+                        <div class="text-sm font-semibold text-orange-700"><?php echo t('wholesale_sale_preview.return_total_prefix'); ?>-<?php echo fmt_num($return_deduction); ?></div>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -612,7 +620,7 @@ if (isset($_SESSION['flash'])) {
                     <table class="summary-total-table w-full border border-gray-200">
                         <tbody>
                             <tr>
-                                <th class="bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-900 border-r border-gray-200" style="width: 50%;">최종 합계 (상품소계 - 반품차감액):</th>
+                                <th class="bg-gray-50 px-3 py-2 text-left text-sm font-bold text-gray-900 border-r border-gray-200" style="width: 50%;"><?php echo t('wholesale_sale_preview.final_total_after_return_label'); ?></th>
                                 <td class="px-3 py-2 text-right text-lg font-bold text-gray-900"><?php echo fmt_num($base_total); ?></td>
                             </tr>
                         </tbody>
@@ -623,20 +631,19 @@ if (isset($_SESSION['flash'])) {
                 <!-- V.A.T / E.W.T 계산 (체크박스 선택 시 반영) -->
                 <div id="tax-summary-box" class="mb-6">
                     <!-- 체크박스 컨트롤 (인쇄/미리보기 제외) -->
-                    <?php $apply_label = t('common.apply') !== 'common.apply' ? t('common.apply') : '적용'; ?>
                     <form method="POST" class="tax-controls flex flex-wrap items-center gap-4 mb-2 print:hidden">
                         <input type="hidden" name="action" value="save_tax">
                         <input type="hidden" name="sale_id" value="<?php echo $sale_id; ?>">
                         <label class="inline-flex items-center text-sm font-medium text-gray-700 cursor-pointer">
                             <input type="checkbox" id="vat-checkbox" name="vat_applied" value="1" <?php echo $vat_applied ? 'checked' : ''; ?> class="mr-1.5 h-4 w-4">
-                            V.A.T + 12% <?php echo $apply_label; ?>
+                            V.A.T + 12% <?php echo t('common.apply'); ?>
                         </label>
                         <label class="inline-flex items-center text-sm font-medium text-gray-700 cursor-pointer">
                             <input type="checkbox" id="ewt-checkbox" name="ewt_applied" value="1" <?php echo $ewt_applied ? 'checked' : ''; ?> class="mr-1.5 h-4 w-4">
-                            E.W.T - 1% <?php echo $apply_label; ?>
+                            E.W.T - 1% <?php echo t('common.apply'); ?>
                         </label>
                         <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700">
-                            <i class="fas fa-save mr-1.5"></i><?php echo t('common.save') !== 'common.save' ? t('common.save') : '저장'; ?>
+                            <i class="fas fa-save mr-1.5"></i><?php echo t('common.save'); ?>
                         </button>
                     </form>
                     <table class="tax-summary-table w-full border border-gray-200">
@@ -704,19 +711,19 @@ if (isset($_SESSION['flash'])) {
                     <table class="info-table w-full border border-gray-200">
                         <tbody>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200" style="width:12%;">점포명</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200" style="width:12%;"><?php echo t('wholesale_sale_preview.store_name_label'); ?></th>
                                 <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" style="width:23%;"><?php echo htmlspecialchars($sale['store_name'] ?: '-'); ?></td>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200" style="width:12%;">전화</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200" style="width:12%;"><?php echo t('wholesale_sale_preview.store_phone_label'); ?></th>
                                 <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" style="width:18%;"><?php echo htmlspecialchars($sale['store_phone'] ?: '-'); ?></td>
-                                <td class="px-3 py-2 text-xs text-gray-500 border-b border-gray-200" style="width:35%; vertical-align: middle;">판매가격은 구매 시점에 따라 변경 될 수 있습니다.</td>
+                                <td class="px-3 py-2 text-xs text-gray-500 border-b border-gray-200" style="width:35%; vertical-align: middle;"><?php echo t('wholesale_sale_preview.price_notice_1'); ?></td>
                             </tr>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">주소</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200"><?php echo t('wholesale_sale_preview.address_label'); ?></th>
                                 <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" colspan="3"><?php echo htmlspecialchars($sale['store_address'] ?: '-'); ?></td>
-                                <td class="px-3 py-2 text-xs text-gray-500 border-b border-gray-200" style="vertical-align: middle;">계산대에서 개별 구매시 가격은 일치 하지 않습니다.</td>
+                                <td class="px-3 py-2 text-xs text-gray-500 border-b border-gray-200" style="vertical-align: middle;"><?php echo t('wholesale_sale_preview.price_notice_2'); ?></td>
                             </tr>
                             <tr>
-                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">계좌번호</th>
+                                <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200"><?php echo t('wholesale_sale_preview.store_account_label'); ?></th>
                                 <td class="px-3 py-2 text-sm text-gray-900" colspan="4"><?php echo htmlspecialchars($sale['store_bank_account'] ?: '-'); ?></td>
                             </tr>
                         </tbody>
@@ -768,23 +775,23 @@ if (isset($_SESSION['flash'])) {
     <div class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white rounded-lg shadow-xl max-w-sm w-full">
             <div class="flex items-center justify-between p-4 border-b border-gray-200">
-                <h3 class="text-base font-medium text-gray-900"><i class="fas fa-money-bill-wave mr-2 text-emerald-600"></i>결제완료 처리</h3>
+                <h3 class="text-base font-medium text-gray-900"><i class="fas fa-money-bill-wave mr-2 text-emerald-600"></i><?php echo t('wholesale_sale_preview.mark_paid_button'); ?></h3>
                 <button type="button" id="close-payment-modal" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-lg"></i></button>
             </div>
             <form method="POST" class="p-4">
                 <input type="hidden" name="action" value="mark_paid">
                 <input type="hidden" name="sale_id" value="<?php echo $sale_id; ?>">
-                <label class="block text-sm font-medium text-gray-700 mb-1">결제 수단</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo t('wholesale_sale_preview.payment_method_label'); ?></label>
                 <select name="payment_method" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 mb-4">
-                    <option value="현금">현금</option>
-                    <option value="계좌이체">계좌이체</option>
-                    <option value="카드">카드</option>
-                    <option value="수표">수표</option>
-                    <option value="기타">기타</option>
+                    <option value="현금"><?php echo t('wholesale_sale_preview.payment_method_cash'); ?></option>
+                    <option value="계좌이체"><?php echo t('wholesale_sale_preview.payment_method_transfer'); ?></option>
+                    <option value="카드"><?php echo t('wholesale_sale_preview.payment_method_card'); ?></option>
+                    <option value="수표"><?php echo t('wholesale_sale_preview.payment_method_check'); ?></option>
+                    <option value="기타"><?php echo t('wholesale_sale_preview.payment_method_other'); ?></option>
                 </select>
                 <div class="flex justify-end gap-2">
-                    <button type="button" id="cancel-payment" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50">취소</button>
-                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700"><i class="fas fa-check mr-1"></i>결제완료</button>
+                    <button type="button" id="cancel-payment" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50"><?php echo t('common.cancel'); ?></button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700"><i class="fas fa-check mr-1"></i><?php echo t('wholesale_sale_preview.status_paid'); ?></button>
                 </div>
             </form>
         </div>
@@ -1075,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const unpayForm = document.getElementById('unpay-form');
     if (unpayBtn && unpayForm) {
         unpayBtn.addEventListener('click', function() {
-            if (confirm('미결제 상태로 변경하시겠습니까?')) unpayForm.submit();
+            if (confirm('<?php echo addslashes(t('wholesale_sale_preview.js_confirm_mark_unpaid')); ?>')) unpayForm.submit();
         });
     }
     

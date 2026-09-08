@@ -6,6 +6,8 @@ require_once __DIR__ . '/../partials/header.php';
 
 $store_id      = get_office_store_id();
 $today         = date('Y-m-d');
+// 반품(entry_type=return)은 음수 금액으로 저장되므로, 부호 있는 페소 표기를 한 곳에서 통일한다.
+function dtr_money($n) { $n=(float)$n; return ($n<0?'-':'').'₱'.number_format(abs($n),2); }
 $year          = (int)($_GET['year']  ?? date('Y'));
 $month         = (int)($_GET['month'] ?? date('n'));
 $days_in_month = (int)date('t', mktime(0,0,0,$month,1,$year));
@@ -38,7 +40,8 @@ $conn->query("CREATE TABLE IF NOT EXISTS deferred_entries (
 
 // 컬럼 자동 추가 (기존 테이블)
 foreach (['file_path VARCHAR(500) DEFAULT NULL','file_mime VARCHAR(100) DEFAULT NULL',
-          'paid_date DATE DEFAULT NULL','receipt_id INT UNSIGNED DEFAULT NULL'] as $cd) {
+          'paid_date DATE DEFAULT NULL','receipt_id INT UNSIGNED DEFAULT NULL',
+          "entry_type ENUM('purchase','return') NOT NULL DEFAULT 'purchase'"] as $cd) {
     $col = explode(' ',$cd)[0];
     $chk = $conn->query("SHOW COLUMNS FROM deferred_entries LIKE '{$col}'");
     if ($chk && $chk->num_rows===0) $conn->query("ALTER TABLE deferred_entries ADD COLUMN {$cd}");
@@ -46,7 +49,7 @@ foreach (['file_path VARCHAR(500) DEFAULT NULL','file_mime VARCHAR(100) DEFAULT 
 
 // 해당 월 데이터
 $stmt = $conn->prepare(
-    "SELECT id, entry_date, supplier, amount, notes, file_path, file_mime, status
+    "SELECT id, entry_date, supplier, amount, notes, file_path, file_mime, status, entry_type
      FROM deferred_entries
      WHERE store_id=? AND YEAR(entry_date)=? AND MONTH(entry_date)=?
      ORDER BY supplier, entry_date, id"
@@ -76,7 +79,7 @@ if ($res_all) {
 
 // 이전 달 미결 항목 (carry-over)
 $stmt_co = $conn->prepare(
-    "SELECT id, entry_date, supplier, amount, notes, file_path, file_mime
+    "SELECT id, entry_date, supplier, amount, notes, file_path, file_mime, entry_type
      FROM deferred_entries
      WHERE store_id=? AND status='pending'
        AND (YEAR(entry_date) < ? OR (YEAR(entry_date)=? AND MONTH(entry_date)<?))
@@ -179,18 +182,6 @@ for ($i=0;$i<12;$i++) {
       </div>
       <div class="modal-body px-4 py-4 space-y-3">
         <div id="add_error" class="hidden bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm"></div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Date <span class="text-red-500">*</span></label>
-            <input type="date" id="a_date" value="<?php echo $today; ?>"
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Amount <span class="text-red-500">*</span></label>
-            <input type="number" id="a_amount" step="0.01" min="0.01" placeholder="0.00"
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right">
-          </div>
-        </div>
         <div>
           <label class="block text-xs font-medium text-gray-700 mb-1">Supplier <span class="text-red-500">*</span></label>
           <div class="flex gap-2">
@@ -209,6 +200,24 @@ for ($i=0;$i<12;$i++) {
           </datalist>
           <p class="text-xs text-gray-400 mt-1">If your supplier is not listed, click <strong>New</strong>.</p>
         </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Date <span class="text-red-500">*</span></label>
+          <input type="date" id="a_date" value="<?php echo $today; ?>"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1"><i class="fa-solid fa-cart-plus mr-1 text-indigo-500"></i>Purchase Amount</label>
+            <input type="number" id="a_amount_purchase" step="0.01" min="0" placeholder="0.00"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1"><i class="fa-solid fa-rotate-left mr-1 text-purple-500"></i>Return Amount</label>
+            <input type="number" id="a_amount_return" step="0.01" min="0" placeholder="0.00"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right">
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 -mt-2">Fill in one, or both to record a purchase and its return for the same supplier at once. The return sign is applied automatically.</p>
         <div>
           <label class="block text-xs font-medium text-gray-700 mb-1">Notes</label>
           <input type="text" id="a_notes" placeholder="Optional"
@@ -255,6 +264,19 @@ for ($i=0;$i<12;$i++) {
       </div>
       <div class="modal-body px-4 py-4 space-y-3">
         <input type="hidden" id="e_id">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Type</label>
+          <div class="flex gap-2">
+            <label class="flex-1 flex items-center justify-center gap-1.5 border border-gray-300 rounded-lg px-3 py-2 text-sm cursor-pointer has-[:checked]:bg-indigo-50 has-[:checked]:border-indigo-400 has-[:checked]:text-indigo-700">
+              <input type="radio" name="e_entry_type" id="e_type_purchase" value="purchase" class="accent-indigo-600">
+              <i class="fa-solid fa-cart-plus"></i>Purchase
+            </label>
+            <label class="flex-1 flex items-center justify-center gap-1.5 border border-gray-300 rounded-lg px-3 py-2 text-sm cursor-pointer has-[:checked]:bg-purple-50 has-[:checked]:border-purple-400 has-[:checked]:text-purple-700">
+              <input type="radio" name="e_entry_type" id="e_type_return" value="return" class="accent-purple-600">
+              <i class="fa-solid fa-rotate-left"></i>Return
+            </label>
+          </div>
+        </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Date</label>
@@ -486,11 +508,11 @@ for ($i=0;$i<12;$i++) {
     <i class="fa-solid fa-magnifying-glass mr-1"></i>Search
   </button>
   <div class="ml-auto flex gap-4 text-sm">
-    <span class="text-amber-600 font-semibold">This Month Pending: ₱<?php echo number_format($grand_pending,2); ?></span>
-    <?php if ($carryover_total > 0): ?>
-    <span class="text-red-600 font-semibold">Carry-over: ₱<?php echo number_format($carryover_total,2); ?></span>
+    <span class="text-amber-600 font-semibold">This Month Pending: <?php echo dtr_money($grand_pending); ?></span>
+    <?php if ($carryover_total != 0): ?>
+    <span class="text-red-600 font-semibold">Carry-over: <?php echo dtr_money($carryover_total); ?></span>
     <?php endif; ?>
-    <span class="text-red-700 font-bold">Total Pending: ₱<?php echo number_format($total_pending_all,2); ?></span>
+    <span class="text-red-700 font-bold">Total Pending: <?php echo dtr_money($total_pending_all); ?></span>
   </div>
 </form>
 
@@ -550,22 +572,24 @@ for ($i=0;$i<12;$i++) {
       <?php echo $d; ?> <span style="color:#9ca3af;font-size:9px"><?php echo $dow; ?></span>
     </td>
     <?php foreach ($suppliers as $sup):
-      $entries = $grid[$d][$sup] ?? [];
-      $sum     = array_sum(array_column($entries,'amount'));
-      $allPaid = $sum>0 && count(array_filter($entries,fn($e)=>$e['status']==='pending'))===0;
+      $entries  = $grid[$d][$sup] ?? [];
+      $sum      = array_sum(array_column($entries,'amount'));
+      $allPaid  = count($entries)>0 && count(array_filter($entries,fn($e)=>$e['status']==='pending'))===0;
+      $hasReturn= count(array_filter($entries,fn($e)=>$e['entry_type']==='return'))>0;
     ?>
     <td style="text-align:right;padding:2px 5px">
-      <?php if ($sum > 0): ?>
+      <?php if (!empty($entries) && $sum != 0): ?>
       <span class="cell-val <?php echo $allPaid?'cell-paid':'cell-pending'; ?>"
             onclick="showDetail(<?php echo $d; ?>,<?php echo htmlspecialchars(json_encode($sup),ENT_QUOTES); ?>)">
-        ₱<?php echo number_format($sum,2); ?>
+        <?php echo dtr_money($sum); ?>
         <?php if (count($entries)>1): ?><span style="font-size:9px;color:#94a3b8">(<?php echo count($entries); ?>)</span><?php endif; ?>
+        <?php if ($hasReturn): ?><i class="fa-solid fa-rotate-left" style="font-size:9px;color:#7c3aed" title="Includes return"></i><?php endif; ?>
         <?php if ($allPaid): ?><i class="fa-solid fa-check" style="font-size:9px;color:#15803d"></i><?php endif; ?>
       </span>
       <?php endif; ?>
     </td>
     <?php endforeach; ?>
-    <td class="row-total"><?php echo $row_total>0?'₱'.number_format($row_total,2):''; ?></td>
+    <td class="row-total"><?php echo $row_total!=0?dtr_money($row_total):''; ?></td>
   </tr>
   <?php endfor; ?>
 
@@ -574,13 +598,13 @@ for ($i=0;$i<12;$i++) {
     <td class="day-cell" style="background:#f0fdf4">Total</td>
     <?php foreach ($suppliers as $sup): ?>
     <td class="col-total" style="color:<?php echo $sup_pending[$sup]>0?'#b45309':'#15803d'; ?>">
-      <?php echo $sup_totals[$sup]>0?'₱'.number_format($sup_totals[$sup],2):''; ?>
+      <?php echo $sup_totals[$sup]!=0?dtr_money($sup_totals[$sup]):''; ?>
       <?php if ($sup_pending[$sup]>0): ?>
-      <div style="font-size:9px;color:#b45309">Pending: ₱<?php echo number_format($sup_pending[$sup],2); ?></div>
+      <div style="font-size:9px;color:#b45309">Pending: <?php echo dtr_money($sup_pending[$sup]); ?></div>
       <?php endif; ?>
     </td>
     <?php endforeach; ?>
-    <td class="row-total">₱<?php echo number_format($grand_total,2); ?></td>
+    <td class="row-total"><?php echo dtr_money($grand_total); ?></td>
   </tr>
   </tbody>
 </table>
@@ -599,7 +623,7 @@ for ($i=0;$i<12;$i++) {
       <i class="fa-solid fa-triangle-exclamation mr-2 text-amber-500"></i>
       Carry-over Pending (Previous Months)
     </h3>
-    <span class="text-sm font-bold text-red-600">₱<?php echo number_format($carryover_total,2); ?></span>
+    <span class="text-sm font-bold text-red-600"><?php echo dtr_money($carryover_total); ?></span>
   </div>
   <div class="overflow-x-auto">
   <table class="min-w-full text-xs">
@@ -620,8 +644,11 @@ for ($i=0;$i<12;$i++) {
       <tr class="hover:bg-amber-100 transition-colors">
         <td class="px-3 py-2 text-gray-600 whitespace-nowrap"><?php echo date('M j, Y', strtotime($e['entry_date'])); ?></td>
         <td class="px-3 py-2 font-medium text-gray-800"><?php echo $i === 0 ? htmlspecialchars($sup) : ''; ?></td>
-        <td class="px-3 py-2 text-gray-500"><?php echo htmlspecialchars($e['notes'] ?? ''); ?></td>
-        <td class="px-3 py-2 text-right font-mono font-semibold text-amber-800">₱<?php echo number_format((float)$e['amount'],2); ?></td>
+        <td class="px-3 py-2 text-gray-500">
+          <?php echo htmlspecialchars($e['notes'] ?? ''); ?>
+          <?php if (($e['entry_type'] ?? 'purchase') === 'return'): ?><span class="text-purple-600 font-semibold text-[10px]">(Return)</span><?php endif; ?>
+        </td>
+        <td class="px-3 py-2 text-right font-mono font-semibold text-amber-800"><?php echo dtr_money((float)$e['amount']); ?></td>
         <td class="px-3 py-2 text-center">
           <?php if ($e['file_path']): ?>
           <button onclick="openDtrPreview(<?php echo $e['id']; ?>,'<?php echo addslashes($e['file_mime']??''); ?>','<?php echo addslashes(htmlspecialchars($sup,ENT_QUOTES)); ?>','<?php echo $e['entry_date']; ?>')"
@@ -637,7 +664,7 @@ for ($i=0;$i<12;$i++) {
         <td colspan="3" class="px-3 py-1.5 text-right text-xs text-amber-700 font-semibold">
           <?php echo htmlspecialchars($sup); ?> subtotal
         </td>
-        <td class="px-3 py-1.5 text-right font-mono font-bold text-amber-800">₱<?php echo number_format($sup_total,2); ?></td>
+        <td class="px-3 py-1.5 text-right font-mono font-bold text-amber-800"><?php echo dtr_money($sup_total); ?></td>
         <td class="px-3 py-1.5 text-center">
           <button onclick="openPayModal(<?php echo htmlspecialchars(json_encode($sup),ENT_QUOTES); ?>)"
                   class="text-xs px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded font-semibold">
@@ -661,9 +688,9 @@ for ($i=0;$i<12;$i++) {
       <i class="fa-solid fa-building text-indigo-500 text-base"></i>
       <div class="flex-1">
         <p class="text-xs text-gray-600 font-medium"><?php echo htmlspecialchars($sup); ?></p>
-        <p class="text-sm font-bold text-indigo-700">₱<?php echo number_format($sup_totals[$sup],2); ?></p>
-        <?php if (($all_pending[$sup] ?? 0) > 0): ?>
-        <p class="text-xs text-amber-600 mb-1">Pending: ₱<?php echo number_format($all_pending[$sup],2); ?></p>
+        <p class="text-sm font-bold text-indigo-700"><?php echo dtr_money($sup_totals[$sup]); ?></p>
+        <?php if (($all_pending[$sup] ?? 0) != 0): ?>
+        <p class="text-xs text-amber-600 mb-1">Pending: <?php echo dtr_money($all_pending[$sup]); ?></p>
         <button onclick="openPayModal(<?php echo htmlspecialchars(json_encode($sup),ENT_QUOTES); ?>)"
                 class="text-xs px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors">
           <i class="fa-solid fa-credit-card mr-1"></i>Pay Now
@@ -676,12 +703,12 @@ for ($i=0;$i<12;$i++) {
       <i class="fa-solid fa-calculator text-gray-500 text-base"></i>
       <div>
         <p class="text-xs text-gray-500">This Month Total</p>
-        <p class="text-sm font-bold text-gray-800">₱<?php echo number_format($grand_total,2); ?></p>
-        <?php if ($grand_pending>0): ?>
-        <p class="text-xs text-amber-600">Month Pending: ₱<?php echo number_format($grand_pending,2); ?></p>
+        <p class="text-sm font-bold text-gray-800"><?php echo dtr_money($grand_total); ?></p>
+        <?php if ($grand_pending!=0): ?>
+        <p class="text-xs text-amber-600">Month Pending: <?php echo dtr_money($grand_pending); ?></p>
         <?php endif; ?>
-        <?php if ($total_pending_all > 0): ?>
-        <p class="text-xs text-red-600 font-semibold">All Pending: ₱<?php echo number_format($total_pending_all,2); ?></p>
+        <?php if ($total_pending_all != 0): ?>
+        <p class="text-xs text-red-600 font-semibold">All Pending: <?php echo dtr_money($total_pending_all); ?></p>
         <?php endif; ?>
       </div>
     </div>
@@ -701,7 +728,7 @@ function syncYear(){
     document.getElementById('year_hidden').value=s.options[s.selectedIndex].dataset.year;
     s.form.submit();
 }
-function fmt(n){ return '₱'+parseFloat(n||0).toLocaleString('en',{minimumFractionDigits:2}); }
+function fmt(n){ const v=parseFloat(n||0); return (v<0?'-':'')+'₱'+Math.abs(v).toLocaleString('en',{minimumFractionDigits:2}); }
 // 업체명에 아포스트로피(')가 들어있으면(예: "JEN'S FRUIT") 일부 호스팅 WAF가 SQL 인젝션으로
 // 오탐지해 요청을 403으로 차단하는 사례가 있어, supplier/notes는 base64로 감싸서 전송한다.
 // (서버는 office_b64_decode()로 복원)
@@ -724,6 +751,7 @@ function showDetail(day, supplier) {
 
     let html='<table class="w-full text-xs border-collapse">'
             +'<thead><tr class="bg-gray-50">'
+            +'<th class="border border-gray-200 px-3 py-2 text-center w-20">Type</th>'
             +'<th class="border border-gray-200 px-3 py-2 text-right w-28">Amount</th>'
             +'<th class="border border-gray-200 px-3 py-2 text-left">Notes</th>'
             +'<th class="border border-gray-200 px-3 py-2 text-center w-20">File</th>'
@@ -739,7 +767,11 @@ function showDetail(day, supplier) {
         const badge  = isPaid
             ? '<span class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">Paid</span>'
             : '<span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">Pending</span>';
-        const entryData = esc(JSON.stringify({id:r.id,date:r.entry_date,amount:r.amount,supplier:r.supplier,notes:r.notes||'',status:r.status,file_path:r.file_path||'',file_mime:r.file_mime||''}));
+        const isReturn = r.entry_type === 'return';
+        const typeBadge = isReturn
+            ? '<span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs"><i class="fa-solid fa-rotate-left mr-0.5"></i>Return</span>'
+            : '<span class="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs">Purchase</span>';
+        const entryData = esc(JSON.stringify({id:r.id,date:r.entry_date,amount:r.amount,supplier:r.supplier,notes:r.notes||'',status:r.status,file_path:r.file_path||'',file_mime:r.file_mime||'',entry_type:r.entry_type||'purchase'}));
         const proof  = r.file_path
             ? `<button data-id="${r.id}" data-mime="${esc(r.file_mime)}" data-supplier="${esc(r.supplier)}" data-date="${esc(r.entry_date)}"
                        onclick="openDtrPreview(this.dataset.id,this.dataset.mime,this.dataset.supplier,this.dataset.date)"
@@ -747,6 +779,7 @@ function showDetail(day, supplier) {
                  <i class="fa-solid ${r.file_mime==='application/pdf'?'fa-file-pdf':'fa-image'}"></i></button>`
             : '—';
         html+=`<tr class="border-b border-gray-100 hover:bg-gray-50">
+            <td class="px-3 py-2 text-center">${typeBadge}</td>
             <td class="px-3 py-2 font-mono font-semibold text-right">${fmt(r.amount)}</td>
             <td class="px-3 py-2 text-gray-500">${esc(r.notes||'—')}</td>
             <td class="px-3 py-2 text-center">${proof}</td>
@@ -762,6 +795,7 @@ function showDetail(day, supplier) {
             </td></tr>`;
     });
     html+=`</tbody><tfoot><tr class="bg-indigo-50">
+        <td></td>
         <td class="px-3 py-2 font-bold text-right text-indigo-700">${fmt(total)}</td>
         <td class="px-3 py-2 text-xs text-gray-400" colspan="4">${entries.length} items</td>
     </tr></tfoot></table>`;
@@ -792,27 +826,45 @@ async function saveEntry(){
         err.classList.remove('hidden');
         return;
     }
-    const fd=new FormData();
-    fd.append('entry_date', document.getElementById('a_date').value);
-    fd.append('supplier',   b64u(supplier));
-    fd.append('amount',     document.getElementById('a_amount').value);
-    fd.append('notes',      b64u(document.getElementById('a_notes').value));
-    const fileEl=document.getElementById('a_file');
-    if(fileEl.files.length) fd.append('dtr_file', fileEl.files[0], safeFileName(fileEl.files[0].name));
+    const purchaseAmt = parseFloat(document.getElementById('a_amount_purchase').value) || 0;
+    const returnAmt   = parseFloat(document.getElementById('a_amount_return').value) || 0;
+    if (purchaseAmt <= 0 && returnAmt <= 0) {
+        err.textContent = 'Enter a purchase amount, a return amount, or both.';
+        err.classList.remove('hidden');
+        return;
+    }
+    // 매입/반품을 같은 날짜·업체로 한 번에 저장 — 둘 다 입력되면 두 건의 개별 항목으로 저장된다.
+    const entries = [];
+    if (purchaseAmt > 0) entries.push({ type: 'purchase', amount: purchaseAmt });
+    if (returnAmt   > 0) entries.push({ type: 'return',   amount: returnAmt });
+
+    const date  = document.getElementById('a_date').value;
+    const notes = document.getElementById('a_notes').value;
+    const fileEl = document.getElementById('a_file');
 
     try {
-        const res  = await fetch('ajax_save_dtr.php',{method:'POST',body:fd});
-        const text = await res.text();
-        let data;
-        try { data = JSON.parse(text); }
-        catch(parseErr) {
-            console.error('Non-JSON response from ajax_save_dtr.php:', text);
-            err.textContent = 'Save failed: unexpected server response (HTTP '+res.status+'). Check console for details.';
-            err.classList.remove('hidden');
-            return;
+        for (const entry of entries) {
+            const fd = new FormData();
+            fd.append('entry_date', date);
+            fd.append('supplier',   b64u(supplier));
+            fd.append('amount',     entry.amount);
+            fd.append('entry_type', entry.type);
+            fd.append('notes',      b64u(notes));
+            if(fileEl.files.length) fd.append('dtr_file', fileEl.files[0], safeFileName(fileEl.files[0].name));
+
+            const res  = await fetch('ajax_save_dtr.php',{method:'POST',body:fd});
+            const text = await res.text();
+            let data;
+            try { data = JSON.parse(text); }
+            catch(parseErr) {
+                console.error('Non-JSON response from ajax_save_dtr.php:', text);
+                err.textContent = 'Save failed: unexpected server response (HTTP '+res.status+'). Check console for details.';
+                err.classList.remove('hidden');
+                return;
+            }
+            if(!data.success){ err.textContent=data.error||'Save failed.'; err.classList.remove('hidden'); return; }
         }
-        if(data.success){ location.href='index.php?year='+YEAR+'&month='+MONTH; }
-        else{ err.textContent=data.error||'Save failed.'; err.classList.remove('hidden'); }
+        location.href='index.php?year='+YEAR+'&month='+MONTH;
     } catch(e) {
         console.error('saveEntry() network error:', e);
         err.textContent = 'Save failed: network error. Please try again.';
@@ -823,15 +875,16 @@ async function saveEntry(){
 // ── Edit ─────────────────────────────────────────────────────
 function openEditFromEntry(btn) {
     const r = JSON.parse(btn.dataset.entry);
-    openEdit(r.id, r.date, r.amount, r.supplier, r.notes, r.status, r.file_path||'', r.file_mime||'');
+    openEdit(r.id, r.date, r.amount, r.supplier, r.notes, r.status, r.file_path||'', r.file_mime||'', r.entry_type||'purchase');
 }
-function openEdit(id,date,amount,supplier,notes,status,filePath,fileMime){
+function openEdit(id,date,amount,supplier,notes,status,filePath,fileMime,entryType){
     document.getElementById('e_id').value       = id;
     document.getElementById('e_date').value     = date;
-    document.getElementById('e_amount').value   = parseFloat(amount).toFixed(2);
+    document.getElementById('e_amount').value   = Math.abs(parseFloat(amount)).toFixed(2);
     document.getElementById('e_supplier').value = supplier;
     document.getElementById('e_notes').value    = notes;
     document.getElementById('e_status').value   = status;
+    document.getElementById(entryType === 'return' ? 'e_type_return' : 'e_type_purchase').checked = true;
     document.getElementById('edit_error').classList.add('hidden');
     document.getElementById('e_remove_file').value = '0';
     document.getElementById('e_file').value = '';
@@ -880,6 +933,7 @@ async function submitEdit(){
     fd.append('entry_date',  document.getElementById('e_date').value);
     fd.append('supplier',    b64u(document.getElementById('e_supplier').value.trim()));
     fd.append('amount',      document.getElementById('e_amount').value);
+    fd.append('entry_type',  document.querySelector('input[name="e_entry_type"]:checked').value);
     fd.append('notes',       b64u(document.getElementById('e_notes').value));
     fd.append('status',      document.getElementById('e_status').value);
     fd.append('remove_file', document.getElementById('e_remove_file').value);
@@ -988,11 +1042,11 @@ function loadPayPreview() {
         d.items.forEach(item => {
             html += `<div class="flex justify-between py-1 border-b border-gray-200 last:border-0">
                 <span class="text-gray-600">${item.label}${item.notes ? ' <span class="text-gray-400">('+item.notes+')</span>' : ''}</span>
-                <span class="font-mono font-medium text-gray-800">₱${parseFloat(item.amount).toLocaleString('en',{minimumFractionDigits:2})}</span>
+                <span class="font-mono font-medium text-gray-800">${fmt(item.amount)}</span>
             </div>`;
         });
         document.getElementById('pay_items').innerHTML = html;
-        document.getElementById('pay_total').textContent = '₱' + parseFloat(d.total).toLocaleString('en',{minimumFractionDigits:2});
+        document.getElementById('pay_total').textContent = fmt(d.total);
     });
 }
 
@@ -1061,13 +1115,13 @@ function openCancelModal(supplier) {
 
 function buildDetailTable(batch, supplier) {
     const paidLabel = batch.paid_date || 'Unknown date';
-    const totalFmt  = '₱' + parseFloat(batch.total).toLocaleString('en', {minimumFractionDigits:2});
+    const totalFmt  = fmt(batch.total);
     let rows = '';
     batch.items.forEach(item => {
         rows += `<tr>
             <td>${item.label}</td>
             <td>${item.notes || '—'}</td>
-            <td class="amount">₱${parseFloat(item.amount).toLocaleString('en',{minimumFractionDigits:2})}</td>
+            <td class="amount">${fmt(item.amount)}</td>
         </tr>`;
     });
     return `<h2>Deferred Payment Detail</h2>
@@ -1145,7 +1199,7 @@ async function printBatchWithReceipts(batch, supplier, btn) {
             if (!item.file_path) continue;
             const f = await toDataUrl(item.id);
             if (!f) continue;
-            const label = `${item.label}${item.notes ? ' — ' + item.notes : ''} · ₱${parseFloat(item.amount).toLocaleString('en',{minimumFractionDigits:2})}`;
+            const label = `${item.label}${item.notes ? ' — ' + item.notes : ''} · ${fmt(item.amount)}`;
             if (f.type.startsWith('image/')) {
                 receiptHtml += `<div class="receipt-item">
                     <div class="receipt-label">${label}</div>
@@ -1199,14 +1253,14 @@ function renderCancelBatches(batches) {
         const receiptBadge = batch.receipt_id
             ? `<span class="ml-2 text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded">Receipt #${batch.receipt_id}</span>`
             : '';
-        const totalFmt = '₱' + parseFloat(batch.total).toLocaleString('en', {minimumFractionDigits:2});
+        const totalFmt = fmt(batch.total);
         const batchJson = JSON.stringify(batch).replace(/"/g,'&quot;');
 
         let itemsHtml = '';
         batch.items.forEach(item => {
             itemsHtml += `<div class="flex justify-between py-1 border-b border-gray-100 last:border-0 text-xs">
                 <span class="text-gray-500">${item.label}${item.notes ? ' <span class="text-gray-400">('+item.notes+')</span>' : ''}</span>
-                <span class="font-mono text-gray-700">₱${parseFloat(item.amount).toLocaleString('en',{minimumFractionDigits:2})}</span>
+                <span class="font-mono text-gray-700">${fmt(item.amount)}</span>
             </div>`;
         });
 

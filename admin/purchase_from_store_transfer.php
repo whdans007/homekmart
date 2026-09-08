@@ -5,7 +5,7 @@
 require_once __DIR__ . '/../lib/lang_helper.php';
 require_once __DIR__ . '/../lib/mobile_detect.php';
 
-$page_title = '타점 이동 매입등록';
+$page_title = t('purchase.store_transfer_purchase_register');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
 
@@ -59,20 +59,20 @@ $conn->close();
 
 <div class="flex items-center justify-between mb-4">
     <h1 class="text-lg font-bold text-gray-900">
-        <i class="fas fa-right-left mr-2 text-teal-600"></i>타점 이동 매입등록
+        <i class="fas fa-right-left mr-2 text-teal-600"></i><?php echo t('purchase.store_transfer_purchase_register'); ?>
     </h1>
-    <a href="purchase_management.php" class="btn"><i class="fas fa-arrow-left mr-2"></i>매입 목록으로</a>
+    <a href="purchase_management.php" class="btn"><i class="fas fa-arrow-left mr-2"></i><?php echo t('purchase.back_to_purchase_list'); ?></a>
 </div>
 
 <div class="bg-white shadow rounded-lg overflow-hidden">
     <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">이동일자</th>
-                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">경로</th>
-                <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">품목수</th>
-                <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">금액</th>
-                <th class="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase">매입등록</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase"><?php echo t('purchase.transfer_date_column'); ?></th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase"><?php echo t('purchase.transfer_route'); ?></th>
+                <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase"><?php echo t('purchase.total_items'); ?></th>
+                <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase"><?php echo t('purchase.amount_column'); ?></th>
+                <th class="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase"><?php echo t('purchase.register_column'); ?></th>
             </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
@@ -80,23 +80,23 @@ $conn->close();
             <tr>
                 <td colspan="5" class="px-6 py-12 text-center text-gray-400">
                     <i class="fas fa-check-circle text-3xl mb-3 block"></i>
-                    매입등록 대기 중인 타점 이동 건이 없습니다.
+                    <?php echo t('purchase.no_transfer_pending'); ?>
                 </td>
             </tr>
         <?php else: foreach ($pending_transfers as $t): ?>
             <tr class="hover:bg-gray-50">
                 <td class="px-6 py-4 text-sm text-gray-700"><?php echo htmlspecialchars($t['transfer_date']); ?></td>
                 <td class="px-6 py-4 text-sm">
-                    <span class="font-medium text-red-600"><?php echo htmlspecialchars($t['from_store_name'] ?? '미지정'); ?></span>
+                    <span class="font-medium text-red-600"><?php echo htmlspecialchars($t['from_store_name'] ?? t('purchase.unassigned')); ?></span>
                     <i class="fas fa-arrow-right mx-2 text-gray-400"></i>
-                    <span class="font-medium text-blue-600"><?php echo htmlspecialchars($t['to_store_name'] ?? '미지정'); ?></span>
+                    <span class="font-medium text-blue-600"><?php echo htmlspecialchars($t['to_store_name'] ?? t('purchase.unassigned')); ?></span>
                 </td>
                 <td class="px-6 py-4 text-sm text-right text-gray-700"><?php echo (int)$t['item_count']; ?></td>
                 <td class="px-6 py-4 text-sm text-right text-gray-700"><?php echo number_format($t['total_amount'], 2); ?></td>
                 <td class="px-6 py-4 text-center">
                     <a href="match_store_transfer_purchase.php?transfer_id=<?php echo (int)$t['id']; ?>"
                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700">
-                        <i class="fas fa-list-check mr-1"></i>확인 및 등록
+                        <i class="fas fa-list-check mr-1"></i><?php echo t('purchase.confirm_and_register'); ?>
                     </a>
                 </td>
             </tr>

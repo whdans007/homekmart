@@ -6,6 +6,7 @@
  */
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
 
@@ -44,11 +45,11 @@ foreach ($rows as $r) {
 uasort($by_driver, function ($a, $b) { return strcmp($a['driver_name'], $b['driver_name']); });
 ?>
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="<?php echo get_language(); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>배달 관리 - HOME K MART 쇼핑몰</title>
+    <title><?php echo t('mall_admin.nav.deliveries'); ?> - HOME K MART <?php echo t('mall_admin.title'); ?></title>
     <link rel="icon" href="data:,">
     <link href="../../admin/css/style.css" rel="stylesheet">
     <link href="../../admin/css/design-system.css" rel="stylesheet">
@@ -71,14 +72,14 @@ uasort($by_driver, function ($a, $b) { return strcmp($a['driver_name'], $b['driv
 <?php include __DIR__ . '/partials/sidebar.php'; ?>
 <main class="p-6 max-w-3xl">
     <div class="flex items-center justify-between mb-4">
-        <h1 class="text-lg font-bold text-gray-800"><i class="fas fa-truck-fast mr-2"></i>배달 관리</h1>
-        <a href="delivery_map.php" class="text-xs text-blue-600 font-semibold hover:underline"><i class="fas fa-map-location-dot mr-1"></i>지도로 보기</a>
+        <h1 class="text-lg font-bold text-gray-800"><i class="fas fa-truck-fast mr-2"></i><?php echo t('mall_admin.nav.deliveries'); ?></h1>
+        <a href="delivery_map.php" class="text-xs text-blue-600 font-semibold hover:underline"><i class="fas fa-map-location-dot mr-1"></i><?php echo t('mall_admin.deliveries.view_map'); ?></a>
     </div>
-    <p class="text-xs text-gray-400 mb-4">현재 배송중인 주문만 기사별로 표시됩니다. 30초마다 자동 갱신됩니다.</p>
+    <p class="text-xs text-gray-400 mb-4"><?php echo t('mall_admin.deliveries.hint'); ?></p>
 
     <div id="delivery-list">
         <?php if (empty($by_driver)): ?>
-            <div class="empty-hint">현재 배송중인 주문이 없습니다.</div>
+            <div class="empty-hint"><?php echo t('mall_admin.deliveries.empty'); ?></div>
         <?php else: ?>
             <?php foreach ($by_driver as $group): ?>
                 <div class="driver-group">
@@ -87,7 +88,7 @@ uasort($by_driver, function ($a, $b) { return strcmp($a['driver_name'], $b['driv
                             <span class="name"><i class="fas fa-motorcycle mr-1"></i><?php echo htmlspecialchars($group['driver_name']); ?></span>
                             <span class="phone"><?php echo htmlspecialchars($group['driver_phone']); ?></span>
                         </div>
-                        <span class="count">배송중 <?php echo count($group['orders']); ?>건</span>
+                        <span class="count"><?php echo t('mall_admin.deliveries.delivering_count', ['count' => count($group['orders'])]); ?></span>
                     </div>
                     <?php foreach ($group['orders'] as $o): ?>
                         <div class="delivery-row" onclick="window.location.href='orders.php?open=<?php echo (int)$o['order_id']; ?>'">
@@ -95,7 +96,7 @@ uasort($by_driver, function ($a, $b) { return strcmp($a['driver_name'], $b['driv
                                 <span class="order-no"><?php echo htmlspecialchars($o['order_number']); ?></span>
                                 <span class="member"><?php echo htmlspecialchars($o['member_name']); ?></span>
                             </div>
-                            <span class="time"><?php echo $o['delivering_at'] ? htmlspecialchars(substr($o['delivering_at'], 5, 11)) . ' 출발' : ''; ?></span>
+                            <span class="time"><?php echo $o['delivering_at'] ? htmlspecialchars(substr($o['delivering_at'], 5, 11)) . ' ' . t('mall_admin.deliveries.departed') : ''; ?></span>
                         </div>
                     <?php endforeach; ?>
                 </div>

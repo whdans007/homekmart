@@ -13,6 +13,8 @@ $filter = $_GET['filter'] ?? 'all'; // all | expiring | expired | low | negative
 $page   = max(1, (int)($_GET['page'] ?? 1));
 $limit  = 9;
 $offset = ($page - 1) * $limit;
+$is_searching = $search !== '';
+$limit_clause = $is_searching ? '' : "LIMIT $limit OFFSET $offset";
 
 try {
     $conn = get_lc_db();
@@ -26,9 +28,21 @@ try {
         $types  = '';
 
         if ($search) {
-            $conds[] = "(p.name_en LIKE ? OR p.name_ko LIKE ? OR p.barcode_unit LIKE ? OR p.barcode_box LIKE ? OR p.barcode_logistics LIKE ?)";
-            $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%";
-            $types   .= 'sssss';
+            $conds[] = "(p.name_en LIKE ? OR p.name_ko LIKE ? OR p.barcode_unit LIKE ? OR p.barcode_box LIKE ? OR p.barcode_logistics LIKE ?
+                        OR EXISTS (
+                            SELECT 1 FROM lc_brands search_brand
+                            WHERE search_brand.id = p.brand_id
+                              AND (search_brand.name_en LIKE ? OR search_brand.name_ko LIKE ?)
+                        )
+                        OR EXISTS (
+                            SELECT 1 FROM lc_inventory search_inventory
+                            JOIN lc_inbound search_inbound ON search_inventory.inbound_id = search_inbound.id
+                            LEFT JOIN lc_inbound_batches search_batch ON search_inbound.batch_id = search_batch.id
+                            LEFT JOIN lc_suppliers search_supplier ON search_batch.supplier_id = search_supplier.id
+                            WHERE search_inventory.product_id = p.id AND search_supplier.name LIKE ?
+                        ))";
+            $params = array_fill(0, 8, "%$search%");
+            $types  .= 'ssssssss';
         }
         $where = 'WHERE ' . implode(' AND ', $conds);
 
@@ -44,7 +58,7 @@ try {
         $cnt->execute();
         $total = (int)$cnt->get_result()->fetch_row()[0];
         $cnt->close();
-        $total_pages = max(1, (int)ceil($total / $limit));
+        $total_pages = $is_searching ? 1 : max(1, (int)ceil($total / $limit));
 
         $sql = "SELECT p.id AS product_id,
                        CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS product_name,
@@ -69,7 +83,7 @@ try {
                 GROUP BY p.id
                 HAVING COALESCE(SUM(i.quantity_remain), 0) <= 0
                 ORDER BY p.name_en ASC
-                LIMIT $limit OFFSET $offset";
+                $limit_clause";
         $st = $conn->prepare($sql);
         if ($params) { $st->bind_param($types, ...$params); }
         $st->execute();
@@ -83,9 +97,21 @@ try {
         $types  = '';
 
         if ($search) {
-            $conds[] = "(p.name_en LIKE ? OR p.name_ko LIKE ? OR p.barcode_unit LIKE ? OR p.barcode_box LIKE ? OR p.barcode_logistics LIKE ?)";
-            $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%";
-            $types   .= 'sssss';
+            $conds[] = "(p.name_en LIKE ? OR p.name_ko LIKE ? OR p.barcode_unit LIKE ? OR p.barcode_box LIKE ? OR p.barcode_logistics LIKE ?
+                        OR EXISTS (
+                            SELECT 1 FROM lc_brands search_brand
+                            WHERE search_brand.id = p.brand_id
+                              AND (search_brand.name_en LIKE ? OR search_brand.name_ko LIKE ?)
+                        )
+                        OR EXISTS (
+                            SELECT 1 FROM lc_inventory search_inventory
+                            JOIN lc_inbound search_inbound ON search_inventory.inbound_id = search_inbound.id
+                            LEFT JOIN lc_inbound_batches search_batch ON search_inbound.batch_id = search_batch.id
+                            LEFT JOIN lc_suppliers search_supplier ON search_batch.supplier_id = search_supplier.id
+                            WHERE search_inventory.product_id = p.id AND search_supplier.name LIKE ?
+                        ))";
+            $params = array_fill(0, 8, "%$search%");
+            $types  .= 'ssssssss';
         }
         $where = $conds ? ('WHERE ' . implode(' AND ', $conds)) : '';
 
@@ -95,7 +121,7 @@ try {
         $cnt->execute();
         $total = (int)$cnt->get_result()->fetch_row()[0];
         $cnt->close();
-        $total_pages = max(1, (int)ceil($total / $limit));
+        $total_pages = $is_searching ? 1 : max(1, (int)ceil($total / $limit));
 
         $sql = "SELECT p.id AS product_id,
                        CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS product_name,
@@ -126,7 +152,7 @@ try {
                 $where
                 GROUP BY p.id
                 ORDER BY latest_inbound DESC, latest_inbound_id DESC, p.name_en ASC
-                LIMIT $limit OFFSET $offset";
+                $limit_clause";
         $st = $conn->prepare($sql);
         if ($params) { $st->bind_param($types, ...$params); }
         $st->execute();
@@ -139,9 +165,21 @@ try {
         $types  = '';
 
         if ($search) {
-            $conds[] = "(p.name_en LIKE ? OR p.name_ko LIKE ? OR p.barcode_unit LIKE ? OR p.barcode_box LIKE ? OR p.barcode_logistics LIKE ?)";
-            $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%";
-            $types   .= 'sssss';
+            $conds[] = "(p.name_en LIKE ? OR p.name_ko LIKE ? OR p.barcode_unit LIKE ? OR p.barcode_box LIKE ? OR p.barcode_logistics LIKE ?
+                        OR EXISTS (
+                            SELECT 1 FROM lc_brands search_brand
+                            WHERE search_brand.id = p.brand_id
+                              AND (search_brand.name_en LIKE ? OR search_brand.name_ko LIKE ?)
+                        )
+                        OR EXISTS (
+                            SELECT 1 FROM lc_inventory search_inventory
+                            JOIN lc_inbound search_inbound ON search_inventory.inbound_id = search_inbound.id
+                            LEFT JOIN lc_inbound_batches search_batch ON search_inbound.batch_id = search_batch.id
+                            LEFT JOIN lc_suppliers search_supplier ON search_batch.supplier_id = search_supplier.id
+                            WHERE search_inventory.product_id = p.id AND search_supplier.name LIKE ?
+                        ))";
+            $params = array_fill(0, 8, "%$search%");
+            $types  .= 'ssssssss';
         }
         if ($filter === 'expiring') {
             $conds[] = "MIN(i.expiry_date) BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 90 DAY)";
@@ -170,7 +208,7 @@ try {
         $cnt->execute();
         $total = (int)$cnt->get_result()->fetch_row()[0];
         $cnt->close();
-        $total_pages = max(1, (int)ceil($total / $limit));
+        $total_pages = $is_searching ? 1 : max(1, (int)ceil($total / $limit));
 
         $sql = "SELECT p.id AS product_id,
                        CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS product_name,
@@ -201,7 +239,7 @@ try {
                 $where
                 GROUP BY p.id $having
                 ORDER BY latest_inbound DESC, latest_inbound_id DESC, p.name_en ASC
-                LIMIT $limit OFFSET $offset";
+                $limit_clause";
         $st = $conn->prepare($sql);
         if ($params) { $st->bind_param($types, ...$params); }
         $st->execute();
@@ -290,7 +328,7 @@ main { overflow: hidden !important; }
 <form method="get" class="bg-white rounded-lg border border-gray-200 px-3 py-2 shrink-0">
     <div class="flex flex-wrap items-center gap-2">
         <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>"
-               placeholder="Search by product name or barcode"
+               placeholder="Search by brand, product, barcode, or supplier"
                class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-56">
         <button type="submit" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700">
             <i class="fas fa-search mr-1"></i>Search
@@ -334,14 +372,13 @@ main { overflow: hidden !important; }
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Capacity</th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Unit</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">PKG</th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Expiry Date</th>
                 <th class="px-4 py-3 text-right text-xs text-pink-700 font-semibold bg-pink-100">Current Stock</th>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Open</th>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Status</th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Supplier</th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php if (empty($list)): ?>
-            <tr><td colspan="9" class="px-4 py-10 text-center text-gray-400">No products in stock.</td></tr>
+            <tr><td colspan="8" class="px-4 py-10 text-center text-gray-400">No products in stock.</td></tr>
             <?php endif; ?>
             <?php foreach ($list as $row):
                 $days = $row['days_left'];
@@ -391,30 +428,23 @@ main { overflow: hidden !important; }
                 <td class="px-4 py-3 text-gray-600 text-xs"><?php echo htmlspecialchars($row['capacity'] ?: '—'); ?></td>
                 <td class="px-4 py-3 text-gray-600 text-xs"><?php echo htmlspecialchars($row['unit'] ?: '—'); ?></td>
                 <td class="px-4 py-3 text-right font-mono text-xs text-gray-500"><?php echo (int)($row['pieces_per_box'] ?? 1); ?></td>
+                <td class="px-4 py-3 text-xs">
+                    <?php if ($row['earliest_expiry']): ?>
+                        <span class="<?php echo $isNegative ? '' : ($days < 0 ? 'text-red-600 font-semibold' : ($days <= 30 ? 'text-orange-600' : ($days <= 90 ? 'text-yellow-700' : 'text-gray-600'))); ?>">
+                            <?php echo htmlspecialchars($row['earliest_expiry']); ?>
+                        </span>
+                        <?php if ($days !== null): ?>
+                        <span class="ml-1 text-xs <?php echo $days < 0 ? 'text-red-500' : ($days <= 30 ? 'text-orange-500' : ($days <= 90 ? 'text-yellow-600' : 'text-gray-400')); ?>">
+                            (<?php echo $days < 0 ? 'Expired' : 'D-' . $days; ?>)
+                        </span>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <span class="text-gray-300">—</span>
+                    <?php endif; ?>
+                </td>
                 <td class="px-4 py-3 text-right font-bold bg-pink-50 <?php echo $isNegative ? 'text-red-600' : 'text-gray-900'; ?>">
                     <?php if ($isNegative): ?><i class="fas fa-exclamation-circle mr-1"></i><?php endif; ?>
                     <?php echo htmlspecialchars($stockDisplay); ?>
-                </td>
-                <td class="px-4 py-3 text-center">
-                    <?php if ($boxStock > 0): ?>
-                    <a href="<?php echo LC_BASE; ?>/box_break.php?product_id=<?php echo $row['product_id']; ?>"
-                       onclick="event.stopPropagation()"
-                       class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100"
-                       title="Open box (BOX → PCS)"><i class="fas fa-box-open mr-0.5" style="font-size:0.6rem;"></i>Open</a>
-                    <?php else: ?>
-                    <span class="text-gray-300">—</span>
-                    <?php endif; ?>
-                </td>
-                <td class="px-4 py-3 text-center">
-                    <?php if ($isNegative): ?>
-                    <span class="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-semibold">Negative</span>
-                    <?php elseif ($isOut): ?>
-                    <span class="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-semibold">Out of Stock</span>
-                    <?php elseif ($isLow): ?>
-                    <span class="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full">Low</span>
-                    <?php else: ?>
-                    <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">Normal</span>
-                    <?php endif; ?>
                 </td>
                 <td class="px-4 py-3 text-gray-600 text-xs"><?php echo htmlspecialchars($row['latest_supplier'] ?: '—'); ?></td>
             </tr>

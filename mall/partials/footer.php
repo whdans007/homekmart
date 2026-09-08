@@ -147,6 +147,21 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
     tick();
     setInterval(tick, 1000);
 });
+
+// 안드로이드 앱(Capacitor) 하드웨어 뒤로가기 버튼 — 기본값은 웹뷰 히스토리가 없으면
+// 앱 자체가 종료돼버려서, 갈 곳이 없을 때는 종료 대신 앱을 백그라운드로 내린다.
+(function () {
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform || !window.Capacitor.isNativePlatform()) return;
+    var CapApp = window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (!CapApp) return;
+    CapApp.addListener('backButton', function (event) {
+        if (event && event.canGoBack) {
+            window.history.back();
+        } else {
+            CapApp.minimizeApp();
+        }
+    });
+})();
 </script>
 </body>
 </html>

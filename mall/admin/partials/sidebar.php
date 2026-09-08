@@ -8,6 +8,7 @@
  */
 require_once __DIR__ . '/../../lib/csrf.php';
 require_once __DIR__ . '/../../lib/order_chat.php';
+require_once __DIR__ . '/../../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/mall_config.php';
 $__mall_csrf_token = mall_csrf_token();
 $__mall_chat_unread_total = mall_order_chat_unread_total_for_admin();
@@ -36,29 +37,30 @@ try {
 }
 
 $__mall_nav_items = [
-    ['href' => 'dashboard.php', 'icon' => 'fa-gauge', 'label' => '대시보드'],
-    ['href' => 'home_layout.php', 'icon' => 'fa-swatchbook', 'label' => '홈 레이아웃'],
-    ['href' => 'products.php', 'icon' => 'fa-box', 'label' => '상품 큐레이션'],
+    ['href' => 'dashboard.php', 'icon' => 'fa-gauge', 'label' => t('mall_admin.nav.dashboard')],
+    ['href' => 'home_layout.php', 'icon' => 'fa-swatchbook', 'label' => t('mall_admin.nav.home_layout')],
+    ['href' => 'products.php', 'icon' => 'fa-box', 'label' => t('mall_admin.nav.products')],
     // 도매 상품 노출(wholesale_products.php)은 메뉴에서만 숨김 — 기능/페이지는 그대로 남아있어
     // 필요해지면 이 줄만 되살리면 된다(URL 직접 접근으로는 여전히 사용 가능).
-    ['href' => 'members.php', 'icon' => 'fa-users', 'label' => '회원 관리'],
-    ['href' => 'discount_rules.php', 'icon' => 'fa-percent', 'label' => '환경설정'],
-    ['href' => 'orders.php', 'icon' => 'fa-receipt', 'label' => '주문 관리', 'badge' => $__mall_pending_orders],
-    ['href' => 'order_chat.php', 'icon' => 'fa-comments', 'label' => '주문톡', 'badge' => $__mall_chat_unread_total],
-    ['href' => 'deliveries.php', 'icon' => 'fa-truck-fast', 'label' => '배달 관리', 'badge' => $__mall_delivering_orders],
-    ['href' => 'drivers.php', 'icon' => 'fa-motorcycle', 'label' => '배송기사 관리'],
-    ['href' => 'delivery_map.php', 'icon' => 'fa-map-location-dot', 'label' => '실시간 배송 지도'],
+    ['href' => 'members.php', 'icon' => 'fa-users', 'label' => t('mall_admin.nav.members')],
+    ['href' => 'discount_rules.php', 'icon' => 'fa-percent', 'label' => t('mall_admin.nav.settings')],
+    ['href' => 'orders.php', 'icon' => 'fa-receipt', 'label' => t('mall_admin.nav.orders'), 'badge' => $__mall_pending_orders],
+    ['href' => 'order_chat.php', 'icon' => 'fa-comments', 'label' => t('mall_admin.nav.order_chat'), 'badge' => $__mall_chat_unread_total],
+    ['href' => 'deliveries.php', 'icon' => 'fa-truck-fast', 'label' => t('mall_admin.nav.deliveries'), 'badge' => $__mall_delivering_orders],
+    ['href' => 'drivers.php', 'icon' => 'fa-motorcycle', 'label' => t('mall_admin.nav.drivers')],
+    ['href' => 'delivery_map.php', 'icon' => 'fa-map-location-dot', 'label' => t('mall_admin.nav.delivery_map')],
 ];
+$__mall_current_lang = get_language();
 ?>
 <div class="bg-white border-b border-gray-200">
     <div class="flex items-center justify-between gap-4 px-4 py-2 flex-wrap">
         <div class="flex items-center gap-4 flex-wrap">
-            <div class="font-bold text-sm text-gray-800 flex-shrink-0 whitespace-nowrap"><i class="fas fa-store mr-1.5"></i>쇼핑몰 관리</div>
+            <div class="font-bold text-sm text-gray-800 flex-shrink-0 whitespace-nowrap"><i class="fas fa-store mr-1.5"></i><?php echo t('mall_admin.title'); ?></div>
             <nav class="flex items-center gap-1 flex-wrap">
                 <?php foreach ($__mall_nav_items as $__item): ?>
                     <a href="<?php echo $__item['href']; ?>"
                        class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-colors <?php echo ($current_page ?? '') === $__item['href'] ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'; ?>">
-                        <i class="fas <?php echo $__item['icon']; ?>"></i><?php echo $__item['label']; ?>
+                        <i class="fas <?php echo $__item['icon']; ?>"></i><?php echo htmlspecialchars($__item['label']); ?>
                         <?php if (isset($__item['badge'])): ?>
                             <span class="mall-nav-badge px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none" data-badge-key="<?php echo htmlspecialchars($__item['href']); ?>" style="<?php echo $__item['badge'] > 0 ? '' : 'display:none;'; ?>"><?php echo $__item['badge'] > 99 ? '99+' : $__item['badge']; ?></span>
                         <?php endif; ?>
@@ -66,11 +68,36 @@ $__mall_nav_items = [
                 <?php endforeach; ?>
             </nav>
         </div>
-        <a href="../../admin/index.php" class="text-xs text-gray-500 hover:text-gray-700 flex-shrink-0 whitespace-nowrap"><i class="fas fa-arrow-left mr-1"></i>관리자 메인으로</a>
+        <div class="flex items-center gap-3 flex-shrink-0">
+            <div id="mall-lang-toggle" class="flex items-center rounded-md border border-gray-200 overflow-hidden flex-shrink-0" role="group" aria-label="Language">
+                <button type="button" class="mall-lang-btn px-2 py-1 text-[11px] font-semibold whitespace-nowrap <?php echo $__mall_current_lang === 'ko' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-100'; ?>" data-lang="ko">한국어</button>
+                <button type="button" class="mall-lang-btn px-2 py-1 text-[11px] font-semibold whitespace-nowrap <?php echo $__mall_current_lang === 'en' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-100'; ?>" data-lang="en">English</button>
+            </div>
+            <a href="../../admin/index.php" class="text-xs text-gray-500 hover:text-gray-700 flex-shrink-0 whitespace-nowrap"><i class="fas fa-arrow-left mr-1"></i><?php echo t('mall_admin.back_to_admin'); ?></a>
+        </div>
     </div>
 </div>
 <script>
 window.MALL_CSRF_TOKEN = <?php echo json_encode($__mall_csrf_token); ?>;
+
+// 상단 메뉴 끝쪽 한/영 전환 토글 — admin/ajax_set_language.php(기존 admin 언어 스위처와 동일 세션/엔드포인트)를
+// 그대로 재사용한다. mall/admin은 lib/session_helper.php로 admin과 같은 세션을 쓰므로 언어 설정도 공유된다.
+document.querySelectorAll('.mall-lang-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var lang = btn.dataset.lang;
+        if (btn.classList.contains('bg-blue-600')) return;
+        fetch('../../admin/ajax_set_language.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'language=' + encodeURIComponent(lang)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) { window.location.reload(); }
+        })
+        .catch(function () {});
+    });
+});
 
 // 상단 메뉴 배지(접수대기 주문/주문톡 안읽음) 30초 폴링 + 늘어나면 알림음.
 // sidebar.php가 모든 관리자 페이지에 포함되므로, 어느 화면에 있든 새 주문/새 메시지를 놓치지 않는다.

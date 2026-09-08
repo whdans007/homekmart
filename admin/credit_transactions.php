@@ -44,7 +44,11 @@ $next_month       = date('Y-m', strtotime($month_start . ' +1 month'));
 $current_month    = date('Y-m');
 $is_current_month = ($sel_month === $current_month);
 $next_disabled    = ($next_month > $current_month);
-$month_label      = date('Y', strtotime($month_start)) . '년 ' . (int)date('n', strtotime($month_start)) . '월';
+$month_label      = str_replace(
+    ['{year}', '{month}'],
+    [date('Y', strtotime($month_start)), (int)date('n', strtotime($month_start))],
+    t('credit_transactions.month_as_of')
+);
 
 // ── 일자 네비게이션 변수 ──
 $day_today         = date('Y-m-d');
@@ -240,7 +244,7 @@ if (isset($_SESSION['flash'])) {
         <div class="flex gap-2">
             <button type="button" id="tx-bulk-pay-btn" disabled
                class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
-                <i class="fas fa-money-check-alt mr-2"></i>선택 결제하기 (<span id="tx-bulk-pay-count">0</span>)
+                <i class="fas fa-money-check-alt mr-2"></i><?php echo htmlspecialchars(t('credit_transactions.bulk_pay_button')); ?> (<span id="tx-bulk-pay-count">0</span>)
             </button>
             <button type="button" id="open-payment-modal" class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
                 <i class="fas fa-hand-holding-usd mr-2"></i><?php echo htmlspecialchars(t('credit_transactions.btn_payment')); ?>
@@ -256,25 +260,25 @@ if (isset($_SESSION['flash'])) {
         <div class="inline-flex items-center gap-2">
             <a href="?<?php echo http_build_query(array_merge(array_diff_key($_GET, ['date'=>1]), ['month' => $prev_month, 'page' => 1])); ?>"
                class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                <i class="fas fa-chevron-left mr-1"></i>이전달
+                <i class="fas fa-chevron-left mr-1"></i><?php echo htmlspecialchars(t('credit_transactions.prev_month')); ?>
             </a>
             <input type="month" value="<?php echo htmlspecialchars($sel_month); ?>" max="<?php echo htmlspecialchars($current_month); ?>"
                    onchange="location.href='?<?php echo http_build_query(array_diff_key($_GET, ['month'=>1,'page'=>1,'date'=>1])); ?><?php echo empty(array_diff_key($_GET, ['month'=>1,'page'=>1,'date'=>1])) ? '' : '&'; ?>month=' + this.value"
                    class="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
             <?php if ($next_disabled): ?>
-                <span class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 bg-white border border-gray-200 rounded-md cursor-not-allowed">다음달<i class="fas fa-chevron-right ml-1"></i></span>
+                <span class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 bg-white border border-gray-200 rounded-md cursor-not-allowed"><?php echo htmlspecialchars(t('credit_transactions.next_month')); ?><i class="fas fa-chevron-right ml-1"></i></span>
             <?php else: ?>
                 <a href="?<?php echo http_build_query(array_merge(array_diff_key($_GET, ['date'=>1]), ['month' => $next_month, 'page' => 1])); ?>"
                    class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                    다음달<i class="fas fa-chevron-right ml-1"></i>
+                    <?php echo htmlspecialchars(t('credit_transactions.next_month')); ?><i class="fas fa-chevron-right ml-1"></i>
                 </a>
             <?php endif; ?>
             <?php if (!$is_current_month): ?>
                 <a href="?<?php echo http_build_query(array_merge(array_diff_key($_GET, ['date'=>1]), ['month' => $current_month, 'page' => 1])); ?>"
-                   class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">이번달</a>
+                   class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700"><?php echo htmlspecialchars(t('credit_transactions.this_month')); ?></a>
             <?php endif; ?>
         </div>
-        <div class="text-sm font-semibold text-gray-700"><i class="fas fa-calendar-alt mr-1 text-primary-600"></i><?php echo htmlspecialchars($month_label); ?> 기준</div>
+        <div class="text-sm font-semibold text-gray-700"><i class="fas fa-calendar-alt mr-1 text-primary-600"></i><?php echo htmlspecialchars($month_label); ?></div>
     </div>
 
     <!-- 일자 네비게이션 -->
@@ -282,33 +286,33 @@ if (isset($_SESSION['flash'])) {
         <div class="inline-flex items-center gap-2">
             <a href="?<?php echo http_build_query(array_merge(array_diff_key($_GET, ['month'=>1]), ['date' => $prev_day, 'page' => 1])); ?>"
                class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                <i class="fas fa-chevron-left mr-1"></i>이전날
+                <i class="fas fa-chevron-left mr-1"></i><?php echo htmlspecialchars(t('credit_transactions.prev_day')); ?>
             </a>
             <input type="date" value="<?php echo htmlspecialchars($filter_date); ?>" max="<?php echo htmlspecialchars($day_today); ?>"
                    onchange="if(this.value){location.href='?<?php echo http_build_query(array_diff_key($_GET, ['date'=>1,'month'=>1,'page'=>1])); ?><?php echo empty(array_diff_key($_GET, ['date'=>1,'month'=>1,'page'=>1])) ? '' : '&'; ?>date=' + this.value;}"
                    class="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500">
             <?php if ($next_day_disabled): ?>
-                <span class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 bg-white border border-gray-200 rounded-md cursor-not-allowed">다음날<i class="fas fa-chevron-right ml-1"></i></span>
+                <span class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 bg-white border border-gray-200 rounded-md cursor-not-allowed"><?php echo htmlspecialchars(t('credit_transactions.next_day')); ?><i class="fas fa-chevron-right ml-1"></i></span>
             <?php else: ?>
                 <a href="?<?php echo http_build_query(array_merge(array_diff_key($_GET, ['month'=>1]), ['date' => $next_day, 'page' => 1])); ?>"
                    class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                    다음날<i class="fas fa-chevron-right ml-1"></i>
+                    <?php echo htmlspecialchars(t('credit_transactions.next_day')); ?><i class="fas fa-chevron-right ml-1"></i>
                 </a>
             <?php endif; ?>
             <a href="?<?php echo http_build_query(array_merge(array_diff_key($_GET, ['month'=>1]), ['date' => $day_today, 'page' => 1])); ?>"
-               class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">오늘</a>
+               class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700"><?php echo htmlspecialchars(t('common.today')); ?></a>
             <?php if ($filter_date !== ''): ?>
                 <a href="?<?php echo http_build_query(array_diff_key($_GET, ['date'=>1,'page'=>1])); ?>"
                    class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                    <i class="fas fa-times mr-1"></i>전체 날짜
+                    <i class="fas fa-times mr-1"></i><?php echo htmlspecialchars(t('credit_transactions.all_dates')); ?>
                 </a>
             <?php endif; ?>
         </div>
         <div class="text-sm font-semibold text-gray-700">
             <?php if ($filter_date !== ''): ?>
-                <i class="fas fa-calendar-day mr-1 text-primary-600"></i><?php echo htmlspecialchars($filter_date); ?> 하루만 표시
+                <i class="fas fa-calendar-day mr-1 text-primary-600"></i><?php echo str_replace('{date}', htmlspecialchars($filter_date), t('credit_transactions.day_only_label')); ?>
             <?php else: ?>
-                <i class="fas fa-calendar-alt mr-1 text-gray-400"></i>월 전체 표시
+                <i class="fas fa-calendar-alt mr-1 text-gray-400"></i><?php echo htmlspecialchars(t('credit_transactions.full_month_label')); ?>
             <?php endif; ?>
         </div>
     </div>
@@ -327,14 +331,14 @@ if (isset($_SESSION['flash'])) {
         <div class="credit-grid">
             <!-- 이 달 요약 (거래처 카드 맨 앞) -->
             <div class="rounded-lg shadow p-4 flex flex-col justify-center" style="background:#eff6ff;border:1px solid #bfdbfe">
-                <div class="text-xs text-gray-500 mb-0.5">이 달 미수 (외상매출−수금)</div>
+                <div class="text-xs text-gray-500 mb-0.5"><?php echo htmlspecialchars(t('credit_transactions.month_outstanding_label')); ?></div>
                 <div class="text-2xl font-bold <?php echo $summary['outstanding'] > 0 ? 'text-red-600' : 'text-gray-900'; ?> mb-2"><?php echo number_format($summary['outstanding'], 2); ?></div>
                 <div class="flex items-center justify-between text-sm">
-                    <span class="text-gray-500">이 달 외상매출</span>
+                    <span class="text-gray-500"><?php echo htmlspecialchars(t('credit_transactions.month_sales_label')); ?></span>
                     <span class="font-semibold text-gray-900"><?php echo number_format($summary['month_sales'], 2); ?></span>
                 </div>
                 <div class="flex items-center justify-between text-sm mt-1">
-                    <span class="text-gray-500">이 달 수금</span>
+                    <span class="text-gray-500"><?php echo htmlspecialchars(t('credit_transactions.month_paid_label')); ?></span>
                     <span class="font-semibold text-blue-700"><?php echo number_format($summary['month_paid'], 2); ?></span>
                 </div>
             </div>
@@ -346,7 +350,7 @@ if (isset($_SESSION['flash'])) {
                     <?php $is_selected = ($filter_customer_id === (int)$cb['id']); ?>
                     <div class="bg-white rounded-lg shadow ring-1 <?php echo $is_selected ? 'ring-2 ring-primary-500' : ($has_balance ? 'ring-red-200' : 'ring-gray-200'); ?> p-4 flex flex-col cursor-pointer hover:shadow-md transition-shadow"
                          onclick="location.href='?<?php echo http_build_query(array_merge($_GET, ['customer_id' => $cb['id'], 'page' => 1])); ?>'"
-                         title="클릭하여 이 업체 거래만 보기">
+                         title="<?php echo htmlspecialchars(t('credit_transactions.click_filter_customer_tooltip')); ?>">
                         <div class="flex items-start justify-between mb-3">
                             <div class="min-w-0">
                                 <div class="text-sm font-bold text-gray-900 truncate" title="<?php echo htmlspecialchars($cb['name'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($cb['name']); ?></div>
@@ -392,7 +396,7 @@ if (isset($_SESSION['flash'])) {
                                 </button>
                                 <a href="credit_payment_history.php?customer_id=<?php echo $cb['id']; ?>"
                                    onclick="event.stopPropagation()"
-                                   title="수금 내역 관리"
+                                   title="<?php echo htmlspecialchars(t('credit_transactions.payment_history_tooltip')); ?>"
                                    class="inline-flex items-center justify-center px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
                                     <i class="fas fa-list-ul"></i>
                                 </a>
@@ -412,14 +416,14 @@ if (isset($_SESSION['flash'])) {
                 <span class="text-sm font-normal text-gray-500">(<?php echo htmlspecialchars(str_replace('{count}', number_format($total_tx), t('credit_transactions.total_count_label'))); ?>)</span>
                 <?php if ($filter_customer_id > 0): ?>
                     <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-primary-100 text-primary-800">
-                        <i class="fas fa-filter mr-1"></i><?php echo htmlspecialchars($filter_customer_name !== '' ? $filter_customer_name : ('#' . $filter_customer_id)); ?> 업체만 표시
+                        <i class="fas fa-filter mr-1"></i><?php echo str_replace('{name}', htmlspecialchars($filter_customer_name !== '' ? $filter_customer_name : ('#' . $filter_customer_id)), t('credit_transactions.customer_filter_label')); ?>
                     </span>
                 <?php endif; ?>
             </h3>
             <?php if ($filter_customer_id > 0): ?>
                 <a href="?<?php echo http_build_query(array_diff_key($_GET, ['customer_id' => 1, 'page' => 1])); ?>"
                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                    <i class="fas fa-times mr-1"></i>전체 보기
+                    <i class="fas fa-times mr-1"></i><?php echo htmlspecialchars(t('credit_transactions.view_all_button')); ?>
                 </a>
             <?php endif; ?>
         </div>
@@ -473,7 +477,7 @@ if (isset($_SESSION['flash'])) {
                                         <?php if ($isPos): ?>
                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold" style="background:#f3e8ff;color:#7c3aed"><i class="fas fa-cash-register mr-1"></i>POS</span>
                                         <?php else: ?>
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold" style="background:#dcfce7;color:#166534"><i class="fas fa-file-invoice mr-1"></i>거래명세서</span>
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold" style="background:#dcfce7;color:#166534"><i class="fas fa-file-invoice mr-1"></i><?php echo htmlspecialchars(t('credit_transactions.doc_badge_label')); ?></span>
                                         <?php endif; ?>
                                     </div>
                                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($t['customer_name'] ?? '—'); ?></div>
@@ -558,15 +562,15 @@ if (isset($_SESSION['flash'])) {
                     </div>
 
                     <!-- 미결제 내역 체크리스트 (선택한 건만 수금 처리) -->
-                    <div id="pay_unpaid_loading" class="hidden text-xs text-gray-400 px-1"><i class="fas fa-spinner fa-spin mr-1"></i>불러오는 중...</div>
-                    <div id="pay_unpaid_empty" class="hidden text-xs text-gray-400 px-1">미결제 내역이 없습니다.</div>
+                    <div id="pay_unpaid_loading" class="hidden text-xs text-gray-400 px-1"><i class="fas fa-spinner fa-spin mr-1"></i><?php echo htmlspecialchars(t('credit_transactions.loading_text')); ?></div>
+                    <div id="pay_unpaid_empty" class="hidden text-xs text-gray-400 px-1"><?php echo htmlspecialchars(t('credit_transactions.no_unpaid_items')); ?></div>
                     <div id="pay_unpaid_wrap" class="hidden border border-gray-200 rounded-md overflow-hidden">
                         <div class="flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b border-gray-200">
                             <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer select-none">
                                 <input type="checkbox" id="pay_select_all" checked class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
-                                전체 선택
+                                <?php echo htmlspecialchars(t('credit_transactions.select_all_label')); ?>
                             </label>
-                            <span class="text-xs text-gray-400">미결제 내역 (체크한 건만 수금)</span>
+                            <span class="text-xs text-gray-400"><?php echo htmlspecialchars(t('credit_transactions.unpaid_checklist_hint')); ?></span>
                         </div>
                         <div id="pay_unpaid_list" class="max-h-40 overflow-y-auto divide-y divide-gray-100"></div>
                     </div>
@@ -609,32 +613,32 @@ if (isset($_SESSION['flash'])) {
 <div id="tx-bulk-pay-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:60;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:14px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.22);overflow:hidden;">
     <div style="padding:18px 22px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-size:15px;font-weight:700;color:#1f2937;"><i class="fas fa-money-check-alt mr-2" style="color:#059669"></i>선택 항목 수금 처리</div>
+      <div style="font-size:15px;font-weight:700;color:#1f2937;"><i class="fas fa-money-check-alt mr-2" style="color:#059669"></i><?php echo htmlspecialchars(t('credit_transactions.bulk_pay_modal_title')); ?></div>
       <button type="button" onclick="closeTxBulkPay()" style="border:none;background:none;color:#9ca3af;cursor:pointer;font-size:16px;"><i class="fas fa-times"></i></button>
     </div>
     <div style="padding:20px 22px;">
       <div id="tx-bulk-pay-summary" style="font-size:13px;color:#374151;margin-bottom:14px;max-height:160px;overflow-y:auto;"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;">
         <div>
-          <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">수금 날짜</label>
+          <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;"><?php echo htmlspecialchars(t('credit_transactions.collection_date_label')); ?></label>
           <input type="date" id="tx-bulk-pay-date" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box;">
         </div>
         <div>
-          <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">결제 수단</label>
+          <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;"><?php echo htmlspecialchars(t('credit_transactions.payment_method_label')); ?></label>
           <select id="tx-bulk-pay-method" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;box-sizing:border-box;">
-            <option value="현금">현금</option>
-            <option value="계좌이체">계좌이체</option>
-            <option value="카드">카드</option>
-            <option value="수표">수표</option>
-            <option value="기타">기타</option>
+            <option value="현금"><?php echo htmlspecialchars(t('credit_transactions.method_cash')); ?></option>
+            <option value="계좌이체"><?php echo htmlspecialchars(t('credit_transactions.method_transfer')); ?></option>
+            <option value="카드"><?php echo htmlspecialchars(t('credit_transactions.method_card')); ?></option>
+            <option value="수표"><?php echo htmlspecialchars(t('credit_transactions.method_check')); ?></option>
+            <option value="기타"><?php echo htmlspecialchars(t('credit_transactions.method_other')); ?></option>
           </select>
         </div>
       </div>
       <div id="tx-bulk-pay-msg" style="display:none;margin-top:10px;font-size:13px;font-weight:500;"></div>
     </div>
     <div style="padding:14px 22px;background:#fafafa;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;gap:10px;">
-      <button type="button" onclick="closeTxBulkPay()" style="padding:8px 16px;border-radius:8px;border:1px solid #d1d5db;background:#fff;font-size:13px;cursor:pointer;">취소</button>
-      <button type="button" id="tx-bulk-pay-confirm-btn" onclick="confirmTxBulkPay()" style="padding:8px 18px;border-radius:8px;border:none;background:#059669;color:#fff;font-size:13px;font-weight:600;cursor:pointer;"><i class="fas fa-check mr-1"></i>수금 처리</button>
+      <button type="button" onclick="closeTxBulkPay()" style="padding:8px 16px;border-radius:8px;border:1px solid #d1d5db;background:#fff;font-size:13px;cursor:pointer;"><?php echo htmlspecialchars(t('credit_transactions.modal_cancel')); ?></button>
+      <button type="button" id="tx-bulk-pay-confirm-btn" onclick="confirmTxBulkPay()" style="padding:8px 18px;border-radius:8px;border:none;background:#059669;color:#fff;font-size:13px;font-weight:600;cursor:pointer;"><i class="fas fa-check mr-1"></i><?php echo htmlspecialchars(t('credit_transactions.collect_confirm_button')); ?></button>
     </div>
   </div>
 </div>
@@ -696,7 +700,7 @@ document.addEventListener('DOMContentLoaded', function() {
         unpaidList.innerHTML = items.map(function(item) {
             const badge = item.source === 'pos'
                 ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">POS</span>'
-                : '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">거래명세서</span>';
+                : '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700"><?php echo addslashes(t('credit_transactions.doc_badge_label')); ?></span>';
             const label = item.label ? `<span class="text-gray-400 ml-1">${escapeHtml(item.label)}</span>` : '';
             return `<label class="flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 cursor-pointer">
                 <input type="checkbox" class="unpaid-item-cb rounded border-gray-300 text-primary-600 focus:ring-primary-500" data-remaining="${item.remaining}" checked>
@@ -715,10 +719,10 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(r => r.json())
             .then(data => {
                 unpaidLoading.classList.add('hidden');
-                if (!data.success) { unpaidEmpty.textContent = data.message || '미결제 내역을 불러오지 못했습니다.'; unpaidEmpty.classList.remove('hidden'); return; }
+                if (!data.success) { unpaidEmpty.textContent = data.message || '<?php echo addslashes(t('credit_transactions.js_unpaid_load_failed')); ?>'; unpaidEmpty.classList.remove('hidden'); return; }
                 renderUnpaidList(data.items || []);
             })
-            .catch(() => { unpaidLoading.classList.add('hidden'); unpaidEmpty.textContent = '미결제 내역을 불러오지 못했습니다.'; unpaidEmpty.classList.remove('hidden'); });
+            .catch(() => { unpaidLoading.classList.add('hidden'); unpaidEmpty.textContent = '<?php echo addslashes(t('credit_transactions.js_unpaid_load_failed')); ?>'; unpaidEmpty.classList.remove('hidden'); });
     }
 
     unpaidList.addEventListener('change', function(e) {
@@ -912,7 +916,7 @@ function confirmTxBulkPay() {
             '&amount=' + encodeURIComponent(amount) +
             '&payment_date=' + encodeURIComponent(date) +
             '&method=' + encodeURIComponent(method) +
-            '&notes=' + encodeURIComponent('선택 결제하기 일괄 처리');
+            '&notes=' + encodeURIComponent('<?php echo addslashes(t('credit_transactions.bulk_pay_note')); ?>');
         return fetch('ajax_save_credit_payment.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -927,12 +931,12 @@ function confirmTxBulkPay() {
         } else {
             confirmBtn.disabled = false;
             msg.style.display = 'block'; msg.style.color = '#dc2626';
-            msg.textContent = failed.length + '건 처리 실패: ' + (failed[0].message || '오류');
+            msg.textContent = failed.length + '<?php echo addslashes(t('credit_transactions.js_items_failed_suffix')); ?>' + (failed[0].message || '<?php echo addslashes(t('common.error')); ?>');
         }
     })
     .catch(function() {
         confirmBtn.disabled = false;
-        msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = '네트워크 오류가 발생했습니다.';
+        msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = '<?php echo addslashes(t('credit_transactions.js_network_error')); ?>';
     });
 }
 </script>

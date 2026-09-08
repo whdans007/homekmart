@@ -2,12 +2,13 @@
 /**
  * 쇼핑몰 고객용 공용 헤더
  * 포함 전 반드시 $page_title(optional)을 설정할 수 있다. $member는 여기서 계산한다.
- * 바텀 탭바를 보여주려면 include 전에 $show_bottom_nav = true; 와 $active_nav = 'home'|'category'|'search'|'cart'|'my'; 를 설정한다.
+ * 바텀 탭바를 보여주려면 include 전에 $show_bottom_nav = true; 와 $active_nav = 'home'|'category'|'search'|'chat'|'my'; 를 설정한다.
  * 새 디자인 시스템으로 재작성된 화면은 include 전에 $mall_redesigned = true; 를 설정한다 — 그 화면들은
  * 자체 <div class="section">/커스텀 클래스로 좌우 여백을 직접 관리하므로 <main>의 기본 여백이 빠진다.
  * 아직 재작성 안 된 화면(체크아웃/로그인/마이페이지 등)은 이 플래그가 없으면 <main>에 기본 여백이 들어간다.
- * $mall_hide_topbar = true; 를 설정하면 공용 .mall-topbar를 건너뛴다 — 홈 화면은 디자인 원본처럼
- * 로고/아이콘/검색을 자체 sticky 블록(.home-topbar, home_body.php)으로 직접 그리기 때문에 필요하다.
+ * 장바구니 아이콘은 화면 종류와 상관없이 이 헤더에 항상 표시된다(하단 탭에는 없음).
+ * $mall_hide_topbar = true; 를 설정하면 공용 .mall-topbar를 통째로 건너뛴다 — promo.php처럼 풀블리드
+ * 랜딩페이지에만 쓴다. 주 5개 탭(홈/카테고리/검색/주문톡/마이)은 전부 이 공용 헤더로 통일돼 있다.
  */
 require_once __DIR__ . '/../lib/auth.php';
 
@@ -67,8 +68,8 @@ $active_nav = $active_nav ?? '';
             <?php else: ?>
                 <a href="/mall/login.php" class="icon-btn" title="로그인"><svg><use href="#i-person"></use></svg></a>
             <?php endif; ?>
-            <?php include __DIR__ . '/cart_widget.php'; ?>
         <?php endif; ?>
+        <?php include __DIR__ . '/cart_widget.php'; ?>
     </header>
     <?php endif; ?>
     <main>

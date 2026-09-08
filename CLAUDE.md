@@ -192,3 +192,8 @@ This application is primarily in Korean (한국어) with Korean comments and UI 
 
 ### 🌐 개발 URL
 - http://main.homekmart.net/
+
+### 🤝 Codex/Claude Code 병렬 작업
+- OpenAI Codex와 작업을 분담할 때는 `docs/00-conventions/agent-orchestration.md` 규칙을 따를 것
+- 워크트리 생성/제거: `scripts/agent-worktree.ps1` (PowerShell) / `scripts/agent-worktree.sh` (bash)
+- 병합 게이트는 항상 Claude Code — 병합 전 `/code-review`로 검토하고 코드 스타일을 통일한다

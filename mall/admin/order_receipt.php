@@ -4,6 +4,7 @@
  */
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../lib/fresh_order.php';
@@ -61,11 +62,11 @@ try {
 $has_discount = (float)$order['discount_amount'] > 0;
 ?>
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="<?php echo get_language(); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>영수증 - <?php echo htmlspecialchars($order['order_number']); ?></title>
+    <title><?php echo t('mall_admin.receipt.title'); ?> - <?php echo htmlspecialchars($order['order_number']); ?></title>
     <link rel="icon" href="data:,">
     <style>
         body { font-family: -apple-system, "Malgun Gothic", sans-serif; margin: 0; padding: 1.5rem; color: #111; }
@@ -85,20 +86,20 @@ $has_discount = (float)$order['discount_amount'] > 0;
     </style>
 </head>
 <body>
-    <h1>영수증 — <?php echo htmlspecialchars($order['order_number']); ?></h1>
+    <h1><?php echo t('mall_admin.receipt.title'); ?> — <?php echo htmlspecialchars($order['order_number']); ?></h1>
     <div class="meta">
-        주문일시: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?> ·
-        고객: <?php echo htmlspecialchars($order['member_name']); ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>)
+        <?php echo t('mall_admin.receipt.order_datetime'); ?>: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?> ·
+        <?php echo t('mall_admin.receipt.customer'); ?>: <?php echo htmlspecialchars($order['member_name']); ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>)
     </div>
 
     <table>
         <thead>
             <tr>
-                <th>순번</th>
-                <th>상품</th>
-                <th class="num">단가</th>
-                <th>수량</th>
-                <th class="num">금액</th>
+                <th><?php echo t('mall_admin.receipt.no'); ?></th>
+                <th><?php echo t('mall_admin.receipt.item'); ?></th>
+                <th class="num"><?php echo t('mall_admin.receipt.unit_price'); ?></th>
+                <th><?php echo t('common.quantity'); ?></th>
+                <th class="num"><?php echo t('mall_admin.receipt.amount'); ?></th>
             </tr>
         </thead>
         <tbody>
@@ -107,7 +108,7 @@ $has_discount = (float)$order['discount_amount'] > 0;
                 <td class="center"><?php echo $i + 1; ?></td>
                 <td>
                     <?php echo htmlspecialchars($it['product_name_snapshot']); ?>
-                    <?php if ($it['is_sold_out']): ?><span class="sold-out-badge">품절</span><?php endif; ?>
+                    <?php if ($it['is_sold_out']): ?><span class="sold-out-badge"><?php echo t('mall_admin.receipt.sold_out'); ?></span><?php endif; ?>
                     <?php if (!empty($it['display_name_en'])): ?>
                         <span class="name-en"><?php echo htmlspecialchars($it['display_name_en']); ?></span>
                     <?php endif; ?>
@@ -139,12 +140,12 @@ $has_discount = (float)$order['discount_amount'] > 0;
     </table>
 
     <div class="totals">
-        <div><span>소계</span><span><?php echo number_format((float)$order['subtotal'], 2); ?></span></div>
+        <div><span><?php echo t('mall_admin.receipt.subtotal'); ?></span><span><?php echo number_format((float)$order['subtotal'], 2); ?></span></div>
         <?php if ($has_discount): ?>
-        <div><span>할인</span><span>-<?php echo number_format((float)$order['discount_amount'], 2); ?></span></div>
+        <div><span><?php echo t('mall_admin.receipt.discount'); ?></span><span>-<?php echo number_format((float)$order['discount_amount'], 2); ?></span></div>
         <?php endif; ?>
-        <div><span>배송비</span><span><?php echo number_format((float)$order['shipping_fee'], 2); ?></span></div>
-        <div class="grand"><span>합계</span><span><?php echo number_format((float)$order['total_amount'], 2); ?></span></div>
+        <div><span><?php echo t('mall_admin.receipt.shipping_fee'); ?></span><span><?php echo number_format((float)$order['shipping_fee'], 2); ?></span></div>
+        <div class="grand"><span><?php echo t('mall_admin.orders.total'); ?></span><span><?php echo number_format((float)$order['total_amount'], 2); ?></span></div>
     </div>
 </body>
 </html>

@@ -9,6 +9,7 @@
  */
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../lib/order_chat.php';
@@ -20,9 +21,11 @@ require_permission('mall_management', '../../admin/index.php');
 $current_page = 'order_chat.php';
 
 $status_labels = [
-    'pending' => '접수대기', 'confirmed' => '확인됨', 'preparing' => '상품준비중', 'ready' => '준비완료',
-    'assigned' => '배정됨', 'delivering' => '배송중', 'arrived' => '도착', 'completed' => '완료',
-    'cancelled' => '취소', 'delivery_failed' => '배송실패',
+    'pending' => t('mall_admin.order_status.pending'), 'confirmed' => t('mall_admin.order_status.confirmed'),
+    'preparing' => t('mall_admin.order_status.preparing'), 'ready' => t('mall_admin.order_status.ready'),
+    'assigned' => t('mall_admin.order_status.assigned'), 'delivering' => t('mall_admin.order_status.delivering'),
+    'arrived' => t('mall_admin.order_status.arrived'), 'completed' => t('mall_admin.order_status.completed'),
+    'cancelled' => t('mall_admin.order_status.cancelled'), 'delivery_failed' => t('mall_admin.order_status.delivery_failed'),
 ];
 $rows = mall_order_chat_admin_working_orders(500);
 
@@ -96,11 +99,11 @@ usort($done_customers, function ($a, $b) {
 });
 ?>
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="<?php echo get_language(); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>주문톡 관리 - HOME K MART 쇼핑몰</title>
+    <title><?php echo t('mall_admin.nav.order_chat'); ?> - HOME K MART <?php echo t('mall_admin.title'); ?></title>
     <link rel="icon" href="data:,">
     <link href="../../admin/css/style.css" rel="stylesheet">
     <link href="../../admin/css/design-system.css" rel="stylesheet">
@@ -146,17 +149,17 @@ usort($done_customers, function ($a, $b) {
 <body class="bg-gray-50 min-h-screen">
 <?php include __DIR__ . '/partials/sidebar.php'; ?>
 <main class="p-6">
-    <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-comments mr-2"></i>주문톡 관리</h1>
+    <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-comments mr-2"></i><?php echo t('mall_admin.nav.order_chat'); ?></h1>
 
     <div class="chat-shell">
         <div class="conv-pane">
             <div class="conv-tabs">
-                <button type="button" class="conv-tab-btn active" data-tab="active">진행중</button>
-                <button type="button" class="conv-tab-btn" data-tab="done">완료</button>
+                <button type="button" class="conv-tab-btn active" data-tab="active"><?php echo t('mall_admin.order_chat.active'); ?></button>
+                <button type="button" class="conv-tab-btn" data-tab="done"><?php echo t('mall_admin.order_chat.done'); ?></button>
             </div>
             <div class="conv-list" id="conv-list-active">
                 <?php if (empty($active_customers)): ?>
-                    <div class="empty-hint">현재 진행중인 주문이 없습니다.</div>
+                    <div class="empty-hint"><?php echo t('mall_admin.order_chat.no_active'); ?></div>
                 <?php else: ?>
                     <?php foreach ($active_customers as $c): ?>
                         <button type="button" class="customer-row" data-member-id="<?php echo $c['member_id']; ?>" data-orders='<?php echo htmlspecialchars(json_encode($c['orders']), ENT_QUOTES); ?>' data-name="<?php echo htmlspecialchars($c['name'], ENT_QUOTES); ?>">
@@ -167,14 +170,14 @@ usort($done_customers, function ($a, $b) {
                                 <?php endif; ?>
                             </div>
                             <div class="address"><?php echo htmlspecialchars($c['active_address'] ?? ''); ?></div>
-                            <div class="order-count">진행중 주문 <?php echo count(array_filter($c['orders'], function ($o) { return !$o['is_done']; })); ?>건</div>
+                            <div class="order-count"><?php echo t('mall_admin.order_chat.active_order_count', ['count' => count(array_filter($c['orders'], function ($o) { return !$o['is_done']; }))]); ?></div>
                         </button>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </div>
             <div class="conv-list" id="conv-list-done" style="display:none;">
                 <?php if (empty($done_customers)): ?>
-                    <div class="empty-hint">완료된 대화가 없습니다.</div>
+                    <div class="empty-hint"><?php echo t('mall_admin.order_chat.no_done'); ?></div>
                 <?php else: ?>
                     <?php foreach ($done_customers as $c): ?>
                         <button type="button" class="customer-row" data-member-id="<?php echo $c['member_id']; ?>" data-orders='<?php echo htmlspecialchars(json_encode($c['orders']), ENT_QUOTES); ?>' data-name="<?php echo htmlspecialchars($c['name'], ENT_QUOTES); ?>">
@@ -185,7 +188,7 @@ usort($done_customers, function ($a, $b) {
                                 <?php endif; ?>
                             </div>
                             <div class="address"><?php echo htmlspecialchars($c['done_address'] ?? ''); ?></div>
-                            <div class="order-count">완료된 대화 <?php echo count(array_filter($c['orders'], function ($o) { return $o['is_done']; })); ?>건</div>
+                            <div class="order-count"><?php echo t('mall_admin.order_chat.done_order_count', ['count' => count(array_filter($c['orders'], function ($o) { return $o['is_done']; }))]); ?></div>
                         </button>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -194,15 +197,15 @@ usort($done_customers, function ($a, $b) {
         <div class="chat-pane">
             <div class="chat-pane-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
                 <div style="min-width:0;">
-                    <div class="cust-name" id="chat-cust-name">왼쪽에서 주문자를 선택하세요</div>
+                    <div class="cust-name" id="chat-cust-name"><?php echo t('mall_admin.order_chat.select_customer_hint'); ?></div>
                     <div class="order-chip-row" id="order-chip-row"></div>
                 </div>
-                <button type="button" id="close-chat-btn" class="px-2.5 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 flex-shrink-0" disabled>채팅종료</button>
+                <button type="button" id="close-chat-btn" class="px-2.5 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 flex-shrink-0" disabled><?php echo t('mall_admin.order_chat.close_chat'); ?></button>
             </div>
-            <div id="chat-msg-list"><div class="chat-empty-state">대화를 선택하면 여기에 표시됩니다.</div></div>
+            <div id="chat-msg-list"><div class="chat-empty-state"><?php echo t('mall_admin.order_chat.select_conversation_hint'); ?></div></div>
             <div class="chat-input-row">
-                <input type="text" id="chat-input" maxlength="500" placeholder="메시지를 입력하세요" disabled>
-                <button type="button" id="chat-send-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700" disabled>전송</button>
+                <input type="text" id="chat-input" maxlength="500" placeholder="<?php echo htmlspecialchars(t('mall_admin.order_chat.message_placeholder')); ?>" disabled>
+                <button type="button" id="chat-send-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700" disabled><?php echo t('mall_admin.order_chat.send'); ?></button>
             </div>
         </div>
     </div>
@@ -232,7 +235,7 @@ document.querySelectorAll('.conv-tab-btn').forEach(function (btn) {
 
 // ---- 채팅 메시지 ----
 var CHAT_MY_LAST_ID = 0;
-var CHAT_ROLE_LABELS = { member: '고객', driver: '배송기사' };
+var CHAT_ROLE_LABELS = { member: '<?php echo addslashes(t('mall_admin.order_chat.role_member')); ?>', driver: '<?php echo addslashes(t('mall_admin.order_chat.role_driver')); ?>' };
 
 function appendBubble(m) {
     const list = document.getElementById('chat-msg-list');
@@ -256,7 +259,7 @@ function renderReadTag(readUpto) {
     if (bubble && !bubble.querySelector('.read-tag')) {
         const tag = document.createElement('span');
         tag.className = 'read-tag';
-        tag.textContent = '읽음';
+        tag.textContent = '<?php echo addslashes(t('mall_admin.order_chat.read_tag')); ?>';
         bubble.appendChild(tag);
     }
 }
@@ -320,14 +323,14 @@ function selectOrder(orderId, orders) {
     document.getElementById('close-chat-btn').disabled = false;
 
     const list = document.getElementById('chat-msg-list');
-    list.innerHTML = '<div class="chat-empty-state">불러오는 중...</div>';
+    list.innerHTML = '<div class="chat-empty-state"><?php echo addslashes(t('mall_admin.order_chat.loading')); ?></div>';
 
     fetch('ajax/get_order_chat_messages.php?order_id=' + orderId + '&after_id=0')
         .then(r => r.json())
         .then(data => {
             list.innerHTML = '';
             if (!data.success || !data.data.messages.length) {
-                list.innerHTML = '<div class="chat-empty-state">대화 내역이 없습니다. 첫 메시지를 보내보세요.</div>';
+                list.innerHTML = '<div class="chat-empty-state"><?php echo addslashes(t('mall_admin.order_chat.no_history')); ?></div>';
             } else {
                 data.data.messages.forEach(function (m) { appendBubble(m); LAST_MSG_ID = m.id; });
                 if (data.success) renderReadTag(data.data.my_read_upto || 0);
@@ -374,7 +377,7 @@ document.getElementById('chat-send-btn').addEventListener('click', function () {
                 LAST_MSG_ID = data.data.id;
                 input.value = '';
             } else {
-                alert(data.error && data.error.message ? data.error.message : '전송에 실패했습니다.');
+                alert(data.error && data.error.message ? data.error.message : '<?php echo addslashes(t('mall_admin.order_chat.send_failed')); ?>');
             }
         })
         .catch(function () { btn.disabled = false; });
@@ -387,7 +390,7 @@ document.getElementById('chat-input').addEventListener('keydown', function (e) {
 
 document.getElementById('close-chat-btn').addEventListener('click', function () {
     if (!CURRENT_ORDER_ID) return;
-    if (!confirm('이 채팅을 종료 처리하시겠습니까? 이후 새 메시지가 오면 다시 진행중으로 돌아갑니다.')) return;
+    if (!confirm('<?php echo addslashes(t('mall_admin.order_chat.close_confirm')); ?>')) return;
     const btn = this;
     btn.disabled = true;
     const params = new URLSearchParams();
@@ -400,7 +403,7 @@ document.getElementById('close-chat-btn').addEventListener('click', function () 
                 window.location.href = 'order_chat.php';
             } else {
                 btn.disabled = false;
-                alert(data.error && data.error.message ? data.error.message : '처리에 실패했습니다.');
+                alert(data.error && data.error.message ? data.error.message : '<?php echo addslashes(t('mall_admin.order_chat.process_failed')); ?>');
             }
         })
         .catch(function () { btn.disabled = false; });

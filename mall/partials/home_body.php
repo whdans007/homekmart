@@ -1,9 +1,10 @@
 <?php
 /**
  * 홈 화면 본문 — mall/index.php(실제 고객 화면)와 mall/admin/preview_home.php(관리자 미리보기)가 공용으로 쓴다.
- * 디자인 원본(design_handoff_home_k_mart/HOME K MART App.dc.html §isHome) 그대로 재현한다:
- * sticky 상단바(로고+알림+장바구니+검색) → 배송지 행 → 카테고리 8칸 → 배너 → 오늘의 특가(카운트다운)
- * → 다시 담을 시간(로그인 시에만) → 새로 들어온 한국 상품(별점 포함). 카드마다 담기/수량 컨트롤 포함.
+ * 상단바(로고+회원등급+장바구니)는 다른 화면과 동일하게 partials/header.php의 공용 .mall-topbar를 쓴다
+ * (예전엔 홈 전용 .home-topbar를 따로 그렸으나, 화면마다 헤더가 달라 보인다는 피드백으로 통일했다).
+ * 이 파일은 그 아래: 검색 진입 버튼 → 배송지 행 → 카테고리 8칸 → 배너 → 오늘의 특가(카운트다운)
+ * → 다시 담을 시간(로그인 시에만) → 새로 들어온 한국 상품(별점 포함)을 그린다. 카드마다 담기/수량 컨트롤 포함.
  * include 전에 정의해야 하는 변수:
  *   $member, $mall_lang, $sections (mall_get_active_home_sections() 결과)
  * 선택:
@@ -12,7 +13,6 @@
  */
 require_once __DIR__ . '/../lib/home_layout.php';
 require_once __DIR__ . '/../lib/cart.php';
-require_once __DIR__ . '/../lib/fresh_cart.php';
 
 $show_wholesale_notice = $member && $member['member_type'] === 'wholesale' && $member['wholesale_status'] !== 'approved';
 $__show_placeholders = $show_section_placeholders ?? false;
@@ -60,19 +60,7 @@ if ($member) {
 }
 ?>
 
-<div class="home-topbar">
-    <div class="row">
-        <span class="logo-plate"><img src="/logo/homekmart_logo.png" alt="HOME K MART"></span>
-        <div class="icons">
-            <span class="icon-btn" style="cursor:default;" title="알림(준비중)"><svg><use href="#i-bell"></use></svg></span>
-            <a href="/mall/cart.php" class="icon-btn" title="장바구니">
-                <svg><use href="#i-bag"></use></svg>
-                <?php $__home_cart_count = mall_cart_count($__home_member_id, $__home_guest_token)
-                    + mall_fresh_cart_count($__home_member_id, $__home_guest_token); ?>
-                <?php if ($__home_cart_count > 0): ?><span class="badge-count"><?php echo $__home_cart_count > 99 ? '99+' : $__home_cart_count; ?></span><?php endif; ?>
-            </a>
-        </div>
-    </div>
+<div class="home-search-wrap">
     <a href="/mall/search.php" class="search-entry">
         <svg><use href="#i-search"></use></svg>
         <span>상품명으로 검색해보세요</span>

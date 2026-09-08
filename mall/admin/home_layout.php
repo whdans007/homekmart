@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../lib/home_layout.php';
@@ -47,11 +48,11 @@ $new_products = !empty($new_config['product_ids']) ? mall_get_products_by_ids($n
 $promo_products = !empty($promo_config['product_ids']) ? mall_get_products_by_ids($promo_config['product_ids']) : [];
 ?>
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="<?php echo get_language(); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>홈 화면 설정 - HOME K MART 쇼핑몰</title>
+    <title><?php echo t('mall_admin.nav.home_layout'); ?> - HOME K MART <?php echo t('mall_admin.title'); ?></title>
     <link rel="icon" href="data:,">
     <link href="../../admin/css/style.css" rel="stylesheet">
     <link href="../../admin/css/design-system.css" rel="stylesheet">
@@ -84,25 +85,25 @@ $promo_products = !empty($promo_config['product_ids']) ? mall_get_products_by_id
 <?php include __DIR__ . '/partials/sidebar.php'; ?>
 <main class="p-6">
         <div class="flex items-center justify-between mb-4">
-            <h1 class="text-lg font-bold text-gray-800"><i class="fas fa-swatchbook mr-2"></i>홈 화면 설정</h1>
+            <h1 class="text-lg font-bold text-gray-800"><i class="fas fa-swatchbook mr-2"></i><?php echo t('mall_admin.nav.home_layout'); ?></h1>
             <div class="flex gap-2">
-                <a href="preview_home.php?view=draft" target="_blank" class="px-3 py-1.5 text-xs font-semibold bg-gray-700 text-white rounded-md"><i class="fas fa-up-right-from-square mr-1"></i>새 창에서 크게 보기</a>
-                <button id="publish-btn" class="px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-md"><i class="fas fa-upload mr-1"></i>적용</button>
+                <a href="preview_home.php?view=draft" target="_blank" class="px-3 py-1.5 text-xs font-semibold bg-gray-700 text-white rounded-md"><i class="fas fa-up-right-from-square mr-1"></i><?php echo t('mall_admin.home_layout.open_new_window'); ?></a>
+                <button id="publish-btn" class="px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-md"><i class="fas fa-upload mr-1"></i><?php echo t('mall_admin.home_layout.publish'); ?></button>
             </div>
         </div>
-        <p class="text-xs text-gray-400 mb-4">홈 화면 구성(카테고리 8칸 → 배너 → 오늘의 특가 → 새로 들어온 한국 상품 → 다시 담을 시간)은 디자인대로 고정되어 있고, 아래에서 각 영역의 내용만 편집할 수 있습니다.</p>
+        <p class="text-xs text-gray-400 mb-4"><?php echo t('mall_admin.home_layout.layout_hint'); ?></p>
 
         <div class="publish-banner">
             <span>
                 <i class="fas fa-circle-info mr-1"></i>
                 <?php if ($last_publish): ?>
-                    최근 발행: <?php echo htmlspecialchars(substr($last_publish['published_at'] ?? '', 0, 16)); ?>
+                    <?php echo t('mall_admin.home_layout.last_published'); ?>: <?php echo htmlspecialchars(substr($last_publish['published_at'] ?? '', 0, 16)); ?>
                     <?php if (!empty($last_publish['published_by_name'])): ?> · <?php echo htmlspecialchars($last_publish['published_by_name']); ?><?php endif; ?>
                 <?php else: ?>
-                    아직 발행된 적이 없습니다 — 아래 내용을 채운 뒤 "적용"을 눌러주세요.
+                    <?php echo t('mall_admin.home_layout.never_published'); ?>
                 <?php endif; ?>
             </span>
-            <span>아래는 <strong>초안</strong>입니다. "적용"을 눌러야 오른쪽 "현재 서비스 중" 화면에 반영됩니다.</span>
+            <span><?php echo t('mall_admin.home_layout.draft_notice'); ?></span>
         </div>
 
         <div id="flash-area"></div>
@@ -112,15 +113,15 @@ $promo_products = !empty($promo_config['product_ids']) ? mall_get_products_by_id
                 <div class="preview-panes">
                     <div class="preview-pane">
                         <div class="preview-pane-label published">
-                            <i class="fas fa-globe"></i> 현재 서비스 중
-                            <button type="button" class="preview-refresh-btn" onclick="document.getElementById('preview-published').src = document.getElementById('preview-published').src;" title="새로고침"><i class="fas fa-rotate-right"></i></button>
+                            <i class="fas fa-globe"></i> <?php echo t('mall_admin.home_layout.currently_live'); ?>
+                            <button type="button" class="preview-refresh-btn" onclick="document.getElementById('preview-published').src = document.getElementById('preview-published').src;" title="<?php echo htmlspecialchars(t('mall_admin.home_layout.refresh')); ?>"><i class="fas fa-rotate-right"></i></button>
                         </div>
                         <iframe id="preview-published" src="preview_home.php?view=published"></iframe>
                     </div>
                     <div class="preview-pane">
                         <div class="preview-pane-label draft">
-                            <i class="fas fa-pen"></i> 디자인 중 (초안)
-                            <button type="button" class="preview-refresh-btn" onclick="document.getElementById('preview-draft').src = document.getElementById('preview-draft').src;" title="새로고침"><i class="fas fa-rotate-right"></i></button>
+                            <i class="fas fa-pen"></i> <?php echo t('mall_admin.home_layout.designing_draft'); ?>
+                            <button type="button" class="preview-refresh-btn" onclick="document.getElementById('preview-draft').src = document.getElementById('preview-draft').src;" title="<?php echo htmlspecialchars(t('mall_admin.home_layout.refresh')); ?>"><i class="fas fa-rotate-right"></i></button>
                         </div>
                         <iframe id="preview-draft" src="preview_home.php?view=draft"></iframe>
                     </div>
@@ -130,48 +131,52 @@ $promo_products = !empty($promo_config['product_ids']) ? mall_get_products_by_id
             <div class="editor-column">
                 <!-- 배너 -->
                 <div class="hl-panel" data-slot="promo_banner">
-                    <h2><i class="fas fa-image text-gray-400"></i>기획전 배너</h2>
+                    <h2><i class="fas fa-image text-gray-400"></i><?php echo t('mall_admin.home_layout.promo_banner'); ?></h2>
                     <label class="flex items-center gap-2 mb-2 text-xs">
-                        <input type="checkbox" class="hl-active" <?php echo (!$slot_banner || $slot_banner['is_active']) ? 'checked' : ''; ?>> 노출
+                        <input type="checkbox" class="hl-active" <?php echo (!$slot_banner || $slot_banner['is_active']) ? 'checked' : ''; ?>> <?php echo t('mall_admin.home_layout.visible'); ?>
                     </label>
                     <div class="mb-2">
-                        <label class="block text-xs font-semibold mb-1">제목</label>
-                        <input type="text" class="hl-title w-full border border-gray-300 rounded px-2 py-1.5 text-xs" value="<?php echo htmlspecialchars($slot_banner['title'] ?? ''); ?>" placeholder="신선한 한국 식품, 마닐라에서 바로">
+                        <label class="block text-xs font-semibold mb-1"><?php echo t('mall_admin.home_layout.title_label'); ?></label>
+                        <input type="text" class="hl-title w-full border border-gray-300 rounded px-2 py-1.5 text-xs" value="<?php echo htmlspecialchars($slot_banner['title'] ?? ''); ?>" placeholder="<?php echo htmlspecialchars(t('mall_admin.home_layout.banner_title_placeholder')); ?>">
                     </div>
                     <div class="mb-2">
-                        <label class="block text-xs font-semibold mb-1">부제</label>
-                        <input type="text" class="hl-subtitle w-full border border-gray-300 rounded px-2 py-1.5 text-xs" value="<?php echo htmlspecialchars($slot_banner['subtitle'] ?? ''); ?>" placeholder="전체 상품 보러가기 →">
+                        <label class="block text-xs font-semibold mb-1"><?php echo t('mall_admin.home_layout.subtitle_label'); ?></label>
+                        <input type="text" class="hl-subtitle w-full border border-gray-300 rounded px-2 py-1.5 text-xs" value="<?php echo htmlspecialchars($slot_banner['subtitle'] ?? ''); ?>" placeholder="<?php echo htmlspecialchars(t('mall_admin.home_layout.banner_subtitle_placeholder')); ?>">
                     </div>
                     <div class="mb-2">
-                        <label class="block text-xs font-semibold mb-1">배너 이미지 (선택 — 안 넣으면 그라디언트 배경만 표시)</label>
-                        <input type="file" class="hl-banner-image text-xs" accept="image/jpeg,image/png,image/webp">
+                        <label class="block text-xs font-semibold mb-1"><?php echo t('mall_admin.home_layout.banner_image_label'); ?></label>
+                        <label class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-600 border border-blue-600 rounded cursor-pointer hover:bg-blue-50">
+                            <i class="fas fa-upload"></i> <?php echo t('mall_admin.home_layout.choose_image'); ?>
+                            <input type="file" class="hl-banner-image hidden" accept="image/jpeg,image/png,image/webp">
+                        </label>
+                        <span class="hl-banner-filename text-xs text-gray-500 ml-1"><?php echo t('mall_admin.home_layout.no_file_chosen'); ?></span>
                         <img class="hl-banner-preview" src="<?php echo !empty($banner_config['image_path']) ? '/mall/' . htmlspecialchars($banner_config['image_path']) : ''; ?>" style="<?php echo !empty($banner_config['image_path']) ? '' : 'display:none;'; ?>max-width:100%;margin-top:0.4rem;border-radius:0.4rem;">
                     </div>
                     <div class="mb-3">
-                        <label class="block text-xs font-semibold mb-1">클릭 시 이동</label>
+                        <label class="block text-xs font-semibold mb-1"><?php echo t('mall_admin.home_layout.link_on_click'); ?></label>
                         <select class="hl-link-type w-full border border-gray-300 rounded px-2 py-1.5 text-xs mb-1">
-                            <option value="url" <?php echo ($banner_config['link_type'] ?? 'url') === 'url' ? 'selected' : ''; ?>>외부/내부 URL</option>
-                            <option value="category" <?php echo ($banner_config['link_type'] ?? '') === 'category' ? 'selected' : ''; ?>>카테고리</option>
-                            <option value="product" <?php echo ($banner_config['link_type'] ?? '') === 'product' ? 'selected' : ''; ?>>상품</option>
-                            <option value="promo" <?php echo ($banner_config['link_type'] ?? '') === 'promo' ? 'selected' : ''; ?>>기획전 페이지</option>
+                            <option value="url" <?php echo ($banner_config['link_type'] ?? 'url') === 'url' ? 'selected' : ''; ?>><?php echo t('mall_admin.home_layout.link_type_url'); ?></option>
+                            <option value="category" <?php echo ($banner_config['link_type'] ?? '') === 'category' ? 'selected' : ''; ?>><?php echo t('mall_admin.home_layout.link_type_category'); ?></option>
+                            <option value="product" <?php echo ($banner_config['link_type'] ?? '') === 'product' ? 'selected' : ''; ?>><?php echo t('mall_admin.home_layout.link_type_product'); ?></option>
+                            <option value="promo" <?php echo ($banner_config['link_type'] ?? '') === 'promo' ? 'selected' : ''; ?>><?php echo t('mall_admin.home_layout.link_type_promo'); ?></option>
                         </select>
 
                         <div class="hl-link-group <?php echo ($banner_config['link_type'] ?? 'url') === 'url' ? 'active' : ''; ?>" data-link-type="url">
-                            <input type="text" class="hl-link-value w-full border border-gray-300 rounded px-2 py-1.5 text-xs" placeholder="URL (예: /mall/category.php?id=1)" value="<?php echo ($banner_config['link_type'] ?? 'url') === 'url' ? htmlspecialchars($banner_config['link_value'] ?? '') : ''; ?>">
+                            <input type="text" class="hl-link-value w-full border border-gray-300 rounded px-2 py-1.5 text-xs" placeholder="<?php echo htmlspecialchars(t('mall_admin.home_layout.url_placeholder')); ?>" value="<?php echo ($banner_config['link_type'] ?? 'url') === 'url' ? htmlspecialchars($banner_config['link_value'] ?? '') : ''; ?>">
                         </div>
                         <div class="hl-link-group <?php echo ($banner_config['link_type'] ?? '') === 'promo' ? 'active' : ''; ?>" data-link-type="promo">
-                            <div class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1.5">/mall/promo.php로 이동합니다. 아래 "기획전 상품" 패널에서 노출할 상품을 고르세요.</div>
+                            <div class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1.5"><?php echo t('mall_admin.home_layout.promo_link_hint'); ?></div>
                         </div>
                         <div class="hl-link-group <?php echo ($banner_config['link_type'] ?? '') === 'category' ? 'active' : ''; ?>" data-link-type="category">
                             <select class="hl-link-category-id w-full border-2 rounded px-2 py-1.5 text-xs" style="border-color:#93c5fd;">
-                                <option value="">선택하세요</option>
+                                <option value=""><?php echo t('mall_admin.home_layout.select_placeholder'); ?></option>
                                 <?php foreach ($categories as $c): ?>
                                     <option value="<?php echo (int)$c['id']; ?>" <?php echo ($banner_config['link_type'] ?? '') === 'category' && (int)($banner_config['link_value'] ?? 0) === (int)$c['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars(($c['parent_id'] ? '　└ ' : '') . $c['name']); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         <div class="hl-link-group <?php echo ($banner_config['link_type'] ?? '') === 'product' ? 'active' : ''; ?>" data-link-type="product">
-                            <input type="text" class="hl-link-product-search w-full border border-gray-300 rounded px-2 py-1.5 text-xs" placeholder="상품명/SKU 검색">
+                            <input type="text" class="hl-link-product-search w-full border border-gray-300 rounded px-2 py-1.5 text-xs" placeholder="<?php echo htmlspecialchars(t('mall_admin.home_layout.product_search_placeholder')); ?>">
                             <div class="hl-link-product-search-results text-xs mt-1"></div>
                             <div class="hl-link-product-selected mt-1">
                                 <?php if ($banner_link_product): ?>
@@ -183,7 +188,7 @@ $promo_products = !empty($promo_config['product_ids']) ? mall_get_products_by_id
                             </div>
                         </div>
                     </div>
-                    <button type="button" class="hl-save-btn w-full px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">배너 저장</button>
+                    <button type="button" class="hl-save-btn w-full px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md"><?php echo t('mall_admin.home_layout.save_banner'); ?></button>
                 </div>
 
                 <?php
@@ -196,27 +201,27 @@ $promo_products = !empty($promo_config['product_ids']) ? mall_get_products_by_id
                     <div class="hl-panel" data-slot="<?php echo htmlspecialchars($slot_key); ?>">
                         <h2><i class="fas <?php echo $icon; ?> text-gray-400"></i><?php echo htmlspecialchars($label); ?></h2>
                         <label class="flex items-center gap-2 mb-2 text-xs">
-                            <input type="checkbox" class="hl-active" <?php echo (!$slot || $slot['is_active']) ? 'checked' : ''; ?>> 노출
+                            <input type="checkbox" class="hl-active" <?php echo (!$slot || $slot['is_active']) ? 'checked' : ''; ?>> <?php echo t('mall_admin.home_layout.visible'); ?>
                         </label>
                         <div class="mb-2">
-                            <label class="block text-xs font-semibold mb-1">제목</label>
+                            <label class="block text-xs font-semibold mb-1"><?php echo t('mall_admin.home_layout.title_label'); ?></label>
                             <input type="text" class="hl-title w-full border border-gray-300 rounded px-2 py-1.5 text-xs" value="<?php echo htmlspecialchars($slot['title'] ?? ''); ?>" placeholder="<?php echo htmlspecialchars($title_placeholder); ?>">
                         </div>
                         <div class="mb-3 px-3 py-2 text-xs rounded border bg-gray-50 text-gray-600 flex items-center justify-between">
-                            <span>선택된 상품 <strong><?php echo count($products); ?></strong>개</span>
-                            <a href="products.php" class="text-blue-600 font-semibold hover:underline"><i class="fas fa-box mr-1"></i>상품 큐레이션에서 관리</a>
+                            <span><?php echo t('mall_admin.home_layout.selected_products', ['count' => count($products)]); ?></span>
+                            <a href="products.php" class="text-blue-600 font-semibold hover:underline"><i class="fas fa-box mr-1"></i><?php echo t('mall_admin.home_layout.manage_in_curation'); ?></a>
                         </div>
-                        <button type="button" class="hl-save-btn w-full px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md"><?php echo htmlspecialchars($label); ?> 저장</button>
+                        <button type="button" class="hl-save-btn w-full px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md"><?php echo htmlspecialchars($label); ?> <?php echo t('common.save'); ?></button>
                     </div>
                     <?php
                     return ob_get_clean();
                 }
-                echo hl_render_product_panel('today_deals', 'fa-fire', '오늘의 특가', '오늘의 특가', $slot_today, $today_products);
-                echo hl_render_product_panel('new_arrivals', 'fa-box-open', '새로 들어온 한국 상품', '새로 들어온 한국 상품', $slot_new, $new_products);
-                echo hl_render_product_panel('promo_products', 'fa-bullhorn', '기획전 상품', '이번 주 기획전', $slot_promo, $promo_products);
+                echo hl_render_product_panel('today_deals', 'fa-fire', t('mall_admin.home_layout.today_deals'), t('mall_admin.home_layout.today_deals'), $slot_today, $today_products);
+                echo hl_render_product_panel('new_arrivals', 'fa-box-open', t('mall_admin.home_layout.new_arrivals'), t('mall_admin.home_layout.new_arrivals'), $slot_new, $new_products);
+                echo hl_render_product_panel('promo_products', 'fa-bullhorn', t('mall_admin.home_layout.promo_products'), t('mall_admin.home_layout.promo_products_placeholder'), $slot_promo, $promo_products);
                 ?>
                 <a href="/mall/promo.php" target="_blank" class="block text-center text-xs text-blue-600 hover:underline mb-4">
-                    <i class="fas fa-up-right-from-square mr-1"></i>기획전 페이지 새 창에서 보기(발행본)
+                    <i class="fas fa-up-right-from-square mr-1"></i><?php echo t('mall_admin.home_layout.view_promo_page'); ?>
                 </a>
             </div>
         </div>
@@ -250,6 +255,13 @@ document.querySelectorAll('.remove-chip-btn').forEach(function (btn) {
 // ── 배너 패널: 클릭 시 이동 타입 전환 + 상품 검색(단일 선택) ─────────────
 const bannerPanel = document.querySelector('.hl-panel[data-slot="promo_banner"]');
 if (bannerPanel) {
+    const bannerFileInput = bannerPanel.querySelector('.hl-banner-image');
+    const bannerFilenameLabel = bannerPanel.querySelector('.hl-banner-filename');
+    const noFileChosenText = '<?php echo addslashes(t('mall_admin.home_layout.no_file_chosen')); ?>';
+    bannerFileInput.addEventListener('change', function () {
+        bannerFilenameLabel.textContent = this.files[0] ? this.files[0].name : noFileChosenText;
+    });
+
     const linkTypeSelect = bannerPanel.querySelector('.hl-link-type');
     linkTypeSelect.addEventListener('change', function () {
         bannerPanel.querySelectorAll('.hl-link-group').forEach(function (g) {
@@ -278,7 +290,7 @@ if (bannerPanel) {
                         row.appendChild(nameSpan);
                         const btn = document.createElement('button');
                         btn.type = 'button';
-                        btn.textContent = '선택';
+                        btn.textContent = '<?php echo addslashes(t('common.select')); ?>';
                         btn.className = 'text-blue-600';
                         btn.addEventListener('click', function () {
                             linkProductSelected.innerHTML = '';
@@ -321,8 +333,8 @@ if (bannerPanel) {
             .then(r => r.json())
             .then(data => {
                 btn.disabled = false;
-                if (data.success) { showFlash('배너가 저장되었습니다. 미리보기(초안)에서 확인해보세요.', 'success'); document.getElementById('preview-draft').src = document.getElementById('preview-draft').src; }
-                else { showFlash(data.error?.message || '저장 실패', 'error'); }
+                if (data.success) { showFlash('<?php echo addslashes(t('mall_admin.home_layout.banner_saved_msg')); ?>', 'success'); document.getElementById('preview-draft').src = document.getElementById('preview-draft').src; }
+                else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.home_layout.save_failed')); ?>', 'error'); }
             });
     });
 }
@@ -345,14 +357,14 @@ document.querySelectorAll('.hl-panel[data-slot="today_deals"], .hl-panel[data-sl
             .then(r => r.json())
             .then(data => {
                 btn.disabled = false;
-                if (data.success) { showFlash('저장되었습니다. 미리보기(초안)에서 확인해보세요.', 'success'); document.getElementById('preview-draft').src = document.getElementById('preview-draft').src; }
-                else { showFlash(data.error?.message || '저장 실패', 'error'); }
+                if (data.success) { showFlash('<?php echo addslashes(t('mall_admin.home_layout.saved_msg')); ?>', 'success'); document.getElementById('preview-draft').src = document.getElementById('preview-draft').src; }
+                else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.home_layout.save_failed')); ?>', 'error'); }
             });
     });
 });
 
 document.getElementById('publish-btn').addEventListener('click', function () {
-    if (!confirm('초안을 고객 화면에 바로 반영합니다. 계속하시겠습니까?')) return;
+    if (!confirm('<?php echo addslashes(t('mall_admin.home_layout.publish_confirm')); ?>')) return;
     const btn = this;
     btn.disabled = true;
     const params = new URLSearchParams();
@@ -362,10 +374,10 @@ document.getElementById('publish-btn').addEventListener('click', function () {
         .then(data => {
             btn.disabled = false;
             if (data.success) {
-                showFlash('적용되었습니다. (' + data.data.published_count + '개 슬롯 발행)', 'success');
+                showFlash('<?php echo addslashes(t('mall_admin.home_layout.published_msg')); ?>'.replace('{count}', data.data.published_count), 'success');
                 document.getElementById('preview-published').src = document.getElementById('preview-published').src;
             } else {
-                showFlash(data.error?.message || '적용 실패', 'error');
+                showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.home_layout.publish_failed')); ?>', 'error');
             }
         })
         .catch(() => { btn.disabled = false; });

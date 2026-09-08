@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../lib/delivery.php';
@@ -23,11 +24,11 @@ $conn->close();
 $stats = mall_driver_stats();
 ?>
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="<?php echo get_language(); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>배송기사 관리 - HOME K MART 쇼핑몰</title>
+    <title><?php echo t('mall_admin.nav.drivers'); ?> - HOME K MART <?php echo t('mall_admin.title'); ?></title>
     <link rel="icon" href="data:,">
     <link href="../../admin/css/style.css" rel="stylesheet">
     <link href="../../admin/css/design-system.css" rel="stylesheet">
@@ -36,68 +37,68 @@ $stats = mall_driver_stats();
 <body class="bg-gray-50 min-h-screen">
 <?php include __DIR__ . '/partials/sidebar.php'; ?>
 <main class="p-6 max-w-4xl">
-    <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-motorcycle mr-2"></i>배송기사 관리</h1>
+    <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-motorcycle mr-2"></i><?php echo t('mall_admin.nav.drivers'); ?></h1>
     <div id="flash-area"></div>
 
     <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-        <h2 class="text-sm font-bold text-gray-700 mb-3">기사 목록</h2>
+        <h2 class="text-sm font-bold text-gray-700 mb-3"><?php echo t('mall_admin.drivers.driver_list'); ?></h2>
         <table id="driver-table" class="min-w-full text-xs mb-2">
             <thead class="bg-gray-100 text-gray-600">
                 <tr>
-                    <th class="px-3 py-2 text-left">이름</th>
-                    <th class="px-3 py-2 text-left">연락처</th>
-                    <th class="px-3 py-2 text-left">차량정보</th>
-                    <th class="px-3 py-2 text-left">유형</th>
-                    <th class="px-3 py-2 text-left">활성</th>
-                    <th class="px-3 py-2 text-left">관리</th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.members.name'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.drivers.phone'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.drivers.vehicle_info'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.members.type'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('common.active'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.drivers.manage'); ?></th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($drivers)): ?>
-                <tr><td colspan="6" class="px-3 py-6 text-center text-gray-400">등록된 기사가 없습니다.</td></tr>
+                <tr><td colspan="6" class="px-3 py-6 text-center text-gray-400"><?php echo t('mall_admin.drivers.empty'); ?></td></tr>
                 <?php endif; ?>
                 <?php foreach ($drivers as $d): ?>
                 <tr class="border-t border-gray-100" data-driver-id="<?php echo (int)$d['id']; ?>">
                     <td class="px-3 py-2 font-semibold view-cell" data-field="name"><?php echo htmlspecialchars($d['name']); ?></td>
                     <td class="px-3 py-2 view-cell" data-field="phone"><?php echo htmlspecialchars($d['phone']); ?></td>
                     <td class="px-3 py-2 view-cell" data-field="vehicle_info"><?php echo htmlspecialchars($d['vehicle_info'] ?? ''); ?></td>
-                    <td class="px-3 py-2"><?php echo $d['driver_type'] === 'external' ? '외부' : '자체'; ?></td>
+                    <td class="px-3 py-2"><?php echo $d['driver_type'] === 'external' ? t('mall_admin.drivers.type_external') : t('mall_admin.drivers.type_internal'); ?></td>
                     <td class="px-3 py-2">
                         <button type="button" class="toggle-active-btn px-2 py-1 text-xs font-semibold rounded-md <?php echo $d['is_active'] ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'; ?>">
-                            <?php echo $d['is_active'] ? '활성' : '비활성'; ?>
+                            <?php echo $d['is_active'] ? t('common.active') : t('common.inactive'); ?>
                         </button>
                     </td>
                     <td class="px-3 py-2 whitespace-nowrap manage-cell">
-                        <button type="button" class="edit-driver-btn px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">수정</button>
-                        <button type="button" class="delete-driver-btn px-2 py-1 text-xs font-semibold bg-red-50 text-red-600 rounded-md hover:bg-red-100">삭제</button>
+                        <button type="button" class="edit-driver-btn px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"><?php echo t('common.edit'); ?></button>
+                        <button type="button" class="delete-driver-btn px-2 py-1 text-xs font-semibold bg-red-50 text-red-600 rounded-md hover:bg-red-100"><?php echo t('common.delete'); ?></button>
                     </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
         <div class="flex items-end gap-2 flex-wrap">
-            <div><label class="block text-xs text-gray-500">이름</label><input id="new-name" type="text" class="border border-gray-300 rounded px-2 py-1 w-28"></div>
-            <div><label class="block text-xs text-gray-500">연락처</label><input id="new-phone" type="text" class="border border-gray-300 rounded px-2 py-1 w-32"></div>
-            <div><label class="block text-xs text-gray-500">비밀번호(8자 이상)</label><input id="new-password" type="password" class="border border-gray-300 rounded px-2 py-1 w-32"></div>
-            <div><label class="block text-xs text-gray-500">차량정보</label><input id="new-vehicle" type="text" class="border border-gray-300 rounded px-2 py-1 w-32"></div>
-            <button id="create-driver-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">기사 추가</button>
+            <div><label class="block text-xs text-gray-500"><?php echo t('mall_admin.members.name'); ?></label><input id="new-name" type="text" class="border border-gray-300 rounded px-2 py-1 w-28"></div>
+            <div><label class="block text-xs text-gray-500"><?php echo t('mall_admin.drivers.phone'); ?></label><input id="new-phone" type="text" class="border border-gray-300 rounded px-2 py-1 w-32"></div>
+            <div><label class="block text-xs text-gray-500"><?php echo t('mall_admin.drivers.password_hint'); ?></label><input id="new-password" type="password" class="border border-gray-300 rounded px-2 py-1 w-32"></div>
+            <div><label class="block text-xs text-gray-500"><?php echo t('mall_admin.drivers.vehicle_info'); ?></label><input id="new-vehicle" type="text" class="border border-gray-300 rounded px-2 py-1 w-32"></div>
+            <button id="create-driver-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md"><?php echo t('mall_admin.drivers.add_driver'); ?></button>
         </div>
     </section>
 
     <section class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-        <h2 class="text-sm font-bold text-gray-700 mb-3">기사별 배송 통계</h2>
+        <h2 class="text-sm font-bold text-gray-700 mb-3"><?php echo t('mall_admin.drivers.stats_title'); ?></h2>
         <table class="min-w-full text-xs">
             <thead class="bg-gray-100 text-gray-600">
                 <tr>
-                    <th class="px-3 py-2 text-left">이름</th>
-                    <th class="px-3 py-2 text-left">완료 건수</th>
-                    <th class="px-3 py-2 text-left">실패 건수</th>
-                    <th class="px-3 py-2 text-left">평균 소요시간(분)</th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.members.name'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.drivers.completed_count'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.drivers.failed_count'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.drivers.avg_minutes'); ?></th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($stats)): ?>
-                <tr><td colspan="4" class="px-3 py-6 text-center text-gray-400">데이터가 없습니다.</td></tr>
+                <tr><td colspan="4" class="px-3 py-6 text-center text-gray-400"><?php echo t('mall_admin.drivers.no_data'); ?></td></tr>
                 <?php endif; ?>
                 <?php foreach ($stats as $s): ?>
                 <tr class="border-t border-gray-100">
@@ -140,7 +141,7 @@ document.getElementById('create-driver-btn').addEventListener('click', function 
         if (data.success) {
             window.location.reload();
         } else {
-            showFlash(data.error?.message || '오류가 발생했습니다.', 'error');
+            showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error');
         }
     });
 });
@@ -152,7 +153,7 @@ document.querySelectorAll('.toggle-active-btn').forEach(function (btn) {
             if (data.success) {
                 window.location.reload();
             } else {
-                showFlash(data.error?.message || '오류가 발생했습니다.', 'error');
+                showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error');
             }
         });
     });
@@ -180,10 +181,10 @@ document.querySelector('#driver-table tbody').addEventListener('click', function
         const manageCell = row.querySelector('.manage-cell');
         manageCell.dataset.original = manageCell.innerHTML;
         manageCell.innerHTML =
-            '<input type="password" class="edit-password border border-gray-300 rounded px-1.5 py-1 text-xs w-28 mb-1" placeholder="새 비밀번호(선택)">' +
+            '<input type="password" class="edit-password border border-gray-300 rounded px-1.5 py-1 text-xs w-28 mb-1" placeholder="<?php echo addslashes(t('mall_admin.drivers.new_password_optional')); ?>">' +
             '<div class="flex gap-1">' +
-            '<button type="button" class="save-driver-btn px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded-md">저장</button>' +
-            '<button type="button" class="cancel-driver-btn px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-md">취소</button>' +
+            '<button type="button" class="save-driver-btn px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded-md"><?php echo addslashes(t('common.save')); ?></button>' +
+            '<button type="button" class="cancel-driver-btn px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-md"><?php echo addslashes(t('common.cancel')); ?></button>' +
             '</div>';
         return;
     }
@@ -214,7 +215,7 @@ document.querySelector('#driver-table tbody').addEventListener('click', function
                 window.location.reload();
             } else {
                 saveBtn.disabled = false;
-                showFlash(data.error?.message || '오류가 발생했습니다.', 'error');
+                showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error');
             }
         });
         return;
@@ -223,12 +224,12 @@ document.querySelector('#driver-table tbody').addEventListener('click', function
     if (deleteBtn) {
         const row = deleteBtn.closest('tr');
         const name = row.querySelector('.view-cell[data-field="name"]').textContent;
-        if (!confirm(name + ' 기사를 삭제하시겠습니까? 배송 이력이 있으면 삭제할 수 없고 비활성화만 가능합니다.')) return;
+        if (!confirm(name + '<?php echo addslashes(t('mall_admin.drivers.delete_confirm')); ?>')) return;
         postAjax('action=delete&id=' + encodeURIComponent(row.dataset.driverId)).then(data => {
             if (data.success) {
                 window.location.reload();
             } else {
-                showFlash(data.error?.message || '오류가 발생했습니다.', 'error');
+                showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error');
             }
         });
     }

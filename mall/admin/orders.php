@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../lib/order_chat.php';
@@ -52,9 +53,11 @@ $conn->close();
 $chat_unread_map = mall_order_chat_unread_map_for_admin(array_column($orders, 'id'));
 
 $status_labels = [
-    'pending' => '접수대기', 'confirmed' => '확인됨', 'preparing' => '상품준비중', 'ready' => '준비완료',
-    'assigned' => '배정됨', 'delivering' => '배송중', 'arrived' => '도착', 'completed' => '완료',
-    'cancelled' => '취소', 'delivery_failed' => '배송실패',
+    'pending' => t('mall_admin.order_status.pending'), 'confirmed' => t('mall_admin.order_status.confirmed'),
+    'preparing' => t('mall_admin.order_status.preparing'), 'ready' => t('mall_admin.order_status.ready'),
+    'assigned' => t('mall_admin.order_status.assigned'), 'delivering' => t('mall_admin.order_status.delivering'),
+    'arrived' => t('mall_admin.order_status.arrived'), 'completed' => t('mall_admin.order_status.completed'),
+    'cancelled' => t('mall_admin.order_status.cancelled'), 'delivery_failed' => t('mall_admin.order_status.delivery_failed'),
 ];
 $status_color = [
     'pending' => 'bg-gray-100 text-gray-600', 'confirmed' => 'bg-gray-100 text-gray-600',
@@ -65,11 +68,11 @@ $status_color = [
 ];
 ?>
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="<?php echo get_language(); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>주문 관리 - HOME K MART 쇼핑몰</title>
+    <title><?php echo t('mall_admin.nav.orders'); ?> - HOME K MART <?php echo t('mall_admin.title'); ?></title>
     <link rel="icon" href="data:,">
     <link href="../../admin/css/style.css" rel="stylesheet">
     <link href="../../admin/css/design-system.css" rel="stylesheet">
@@ -103,41 +106,41 @@ $status_color = [
 <body class="bg-gray-50 min-h-screen">
 <?php include __DIR__ . '/partials/sidebar.php'; ?>
 <main class="p-6">
-    <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-receipt mr-2"></i>주문 관리</h1>
+    <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-receipt mr-2"></i><?php echo t('mall_admin.nav.orders'); ?></h1>
     <div id="flash-area"></div>
 
     <form method="get" class="flex gap-2 mb-4">
         <select name="channel" class="border border-gray-300 rounded-md px-2 py-1 text-xs">
-            <option value="">전체 채널</option>
-            <option value="retail" <?php echo $channel_filter === 'retail' ? 'selected' : ''; ?>>소매</option>
-            <option value="wholesale" <?php echo $channel_filter === 'wholesale' ? 'selected' : ''; ?>>도매</option>
+            <option value=""><?php echo t('mall_admin.orders.all_channels'); ?></option>
+            <option value="retail" <?php echo $channel_filter === 'retail' ? 'selected' : ''; ?>><?php echo t('mall_admin.orders.channel_retail'); ?></option>
+            <option value="wholesale" <?php echo $channel_filter === 'wholesale' ? 'selected' : ''; ?>><?php echo t('mall_admin.orders.channel_wholesale'); ?></option>
         </select>
         <select name="status" class="border border-gray-300 rounded-md px-2 py-1 text-xs">
-            <option value="">전체 상태</option>
+            <option value=""><?php echo t('mall_admin.orders.all_statuses'); ?></option>
             <?php foreach ($status_labels as $key => $label): ?>
-                <option value="<?php echo $key; ?>" <?php echo $status_filter === $key ? 'selected' : ''; ?>><?php echo $label; ?></option>
+                <option value="<?php echo $key; ?>" <?php echo $status_filter === $key ? 'selected' : ''; ?>><?php echo htmlspecialchars($label); ?></option>
             <?php endforeach; ?>
         </select>
-        <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md">필터 적용</button>
+        <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md"><?php echo t('mall_admin.orders.apply_filter'); ?></button>
     </form>
 
     <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
         <table class="min-w-full text-xs">
             <thead class="bg-gray-100 text-gray-600">
                 <tr>
-                    <th class="px-3 py-2 text-left">주문번호</th>
-                    <th class="px-3 py-2 text-left">회원</th>
-                    <th class="px-3 py-2 text-left">채널</th>
-                    <th class="px-3 py-2 text-left">합계</th>
-                    <th class="px-3 py-2 text-left">주문일시</th>
-                    <th class="px-3 py-2 text-left">상태</th>
-                    <th class="px-3 py-2 text-left">배송기사</th>
-                    <th class="px-3 py-2 text-center">주문톡</th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.orders.order_number'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.orders.member'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.orders.channel'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.orders.total'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.orders.order_datetime'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('common.status'); ?></th>
+                    <th class="px-3 py-2 text-left"><?php echo t('mall_admin.orders.driver'); ?></th>
+                    <th class="px-3 py-2 text-center"><?php echo t('mall_admin.nav.order_chat'); ?></th>
                 </tr>
             </thead>
             <tbody>
             <?php if (empty($orders)): ?>
-                <tr><td colspan="8" class="px-3 py-6 text-center text-gray-400">주문이 없습니다.</td></tr>
+                <tr><td colspan="8" class="px-3 py-6 text-center text-gray-400"><?php echo t('mall_admin.dashboard.no_orders'); ?></td></tr>
             <?php endif; ?>
             <?php foreach ($orders as $o): ?>
                 <?php $__unread = $chat_unread_map[(int)$o['id']] ?? 0; ?>
@@ -147,10 +150,10 @@ $status_color = [
                         <div class="text-gray-600 text-[11px]"><?php echo htmlspecialchars(mall_driver_address_line($o)); ?></div>
                     </td>
                     <td class="px-3 py-2"><?php echo htmlspecialchars($o['member_name']); ?> <span class="text-gray-400">(<?php echo htmlspecialchars($o['email']); ?>)</span></td>
-                    <td class="px-3 py-2"><?php echo $o['channel'] === 'wholesale' ? '<span class="text-purple-700 font-semibold">도매</span>' : '<span class="text-teal-700 font-semibold">소매</span>'; ?></td>
+                    <td class="px-3 py-2"><?php echo $o['channel'] === 'wholesale' ? '<span class="text-purple-700 font-semibold">' . t('mall_admin.orders.channel_wholesale') . '</span>' : '<span class="text-teal-700 font-semibold">' . t('mall_admin.orders.channel_retail') . '</span>'; ?></td>
                     <td class="px-3 py-2"><?php echo number_format((float)$o['total_amount'], 2); ?></td>
                     <td class="px-3 py-2"><?php echo htmlspecialchars($o['created_at']); ?></td>
-                    <td class="px-3 py-2"><span class="px-2 py-1 rounded-md font-semibold <?php echo $status_color[$o['status']] ?? 'bg-gray-100 text-gray-600'; ?>"><?php echo $status_labels[$o['status']] ?? $o['status']; ?></span></td>
+                    <td class="px-3 py-2"><span class="px-2 py-1 rounded-md font-semibold <?php echo $status_color[$o['status']] ?? 'bg-gray-100 text-gray-600'; ?>"><?php echo htmlspecialchars($status_labels[$o['status']] ?? $o['status']); ?></span></td>
                     <td class="px-3 py-2"><?php echo htmlspecialchars($o['current_driver_name'] ?? '-'); ?></td>
                     <td class="px-3 py-2 text-center">
                         <?php if ($__unread > 0): ?>
@@ -175,28 +178,28 @@ $status_color = [
             </div>
             <button type="button" id="modal-close-btn" class="text-gray-400 hover:text-gray-700" style="font-size:20px;line-height:1;">&times;</button>
         </div>
-        <div id="modal-loading" class="p-6 text-center text-gray-400 text-xs">불러오는 중...</div>
+        <div id="modal-loading" class="p-6 text-center text-gray-400 text-xs"><?php echo t('mall_admin.order_chat.loading'); ?></div>
         <div id="modal-content" style="display:none;">
             <section class="modal-section">
-                <h3>진행 상황</h3>
+                <h3><?php echo t('mall_admin.orders.progress'); ?></h3>
                 <div id="modal-progress"></div>
                 <div id="modal-action-area" class="mt-3"></div>
             </section>
             <section class="modal-section">
-                <h3>고객 정보</h3>
+                <h3><?php echo t('mall_admin.orders.customer_info'); ?></h3>
                 <div id="modal-customer"></div>
             </section>
             <section class="modal-section">
-                <h3>주문 내역</h3>
+                <h3><?php echo t('mall_admin.orders.order_items'); ?></h3>
                 <div id="modal-items"></div>
                 <button type="button" id="modal-print-btn" class="inline-block mt-3 px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">
-                    <i class="fas fa-print mr-1"></i>피킹슬립 인쇄
+                    <i class="fas fa-print mr-1"></i><?php echo t('mall_admin.orders.print_picking_slip'); ?>
                 </button>
                 <button type="button" id="modal-receipt-btn" class="inline-block mt-3 ml-2 px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">
-                    <i class="fas fa-receipt mr-1"></i>영수증 인쇄
+                    <i class="fas fa-receipt mr-1"></i><?php echo t('mall_admin.orders.print_receipt'); ?>
                 </button>
                 <a id="modal-chat-link" href="order_chat.php" class="inline-block mt-3 ml-2 px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">
-                    <i class="fas fa-comments mr-1"></i>주문톡에서 보기
+                    <i class="fas fa-comments mr-1"></i><?php echo t('mall_admin.orders.view_in_chat'); ?>
                 </a>
             </section>
         </div>
@@ -206,10 +209,10 @@ $status_color = [
 <div id="print-modal-backdrop">
     <div id="print-modal">
         <div class="modal-header">
-            <h2 id="print-modal-title" class="font-bold text-sm">피킹슬립</h2>
+            <h2 id="print-modal-title" class="font-bold text-sm"><?php echo t('mall_admin.picking_slip.title'); ?></h2>
             <div class="flex items-center gap-2">
                 <button type="button" id="print-modal-print-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                    <i class="fas fa-print mr-1"></i>인쇄
+                    <i class="fas fa-print mr-1"></i><?php echo t('common.print'); ?>
                 </button>
                 <button type="button" id="print-modal-close-btn" class="text-gray-400 hover:text-gray-700" style="font-size:20px;line-height:1;">&times;</button>
             </div>
@@ -219,11 +222,7 @@ $status_color = [
 </div>
 
 <script>
-var MALL_STATUS_LABELS = {
-    pending: '접수대기', confirmed: '확인됨', preparing: '상품준비중', ready: '준비완료',
-    assigned: '배정됨', delivering: '배송중', arrived: '도착', completed: '완료',
-    cancelled: '취소', delivery_failed: '배송실패'
-};
+var MALL_STATUS_LABELS = <?php echo json_encode($status_labels, JSON_UNESCAPED_UNICODE); ?>;
 var MALL_STATUS_COLORS = {
     pending: 'bg-gray-100 text-gray-600', confirmed: 'bg-gray-100 text-gray-600',
     preparing: 'bg-yellow-100 text-yellow-800', ready: 'bg-blue-100 text-blue-800',
@@ -270,7 +269,7 @@ function closeOrderModal() {
 
 function openPrintModal(orderId, type) {
     const src = type === 'receipt' ? 'order_receipt.php?id=' : 'order_print.php?id=';
-    document.getElementById('print-modal-title').textContent = type === 'receipt' ? '영수증' : '피킹슬립';
+    document.getElementById('print-modal-title').textContent = type === 'receipt' ? '<?php echo addslashes(t('mall_admin.receipt.title')); ?>' : '<?php echo addslashes(t('mall_admin.picking_slip.title')); ?>';
     document.getElementById('print-modal-iframe').src = src + encodeURIComponent(orderId);
     document.getElementById('print-modal-backdrop').style.display = 'flex';
 }
@@ -285,7 +284,7 @@ function loadOrderDetail(orderId) {
         .then(r => r.json())
         .then(data => {
             if (!data.success) {
-                showFlash(data.error?.message || '주문 정보를 불러오지 못했습니다.', 'error');
+                showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.orders.load_failed')); ?>', 'error');
                 closeOrderModal();
                 return;
             }
@@ -294,7 +293,7 @@ function loadOrderDetail(orderId) {
             document.getElementById('modal-content').style.display = 'block';
         })
         .catch(() => {
-            showFlash('주문 정보를 불러오지 못했습니다.', 'error');
+            showFlash('<?php echo addslashes(t('mall_admin.orders.load_failed')); ?>', 'error');
             closeOrderModal();
         });
 }
@@ -340,8 +339,8 @@ function renderProgress(order) {
     const container = document.getElementById('modal-progress');
     if (order.status === 'cancelled' || order.status === 'delivery_failed') {
         const msg = order.status === 'cancelled'
-            ? '이 주문은 취소되었습니다' + (order.cancel_reason ? ': ' + escapeHtml(order.cancel_reason) : '.')
-            : '배송에 실패했습니다: ' + escapeHtml(order.failed_reason || '사유 없음');
+            ? '<?php echo addslashes(t('mall_admin.orders.order_cancelled')); ?>' + (order.cancel_reason ? ': ' + escapeHtml(order.cancel_reason) : '.')
+            : '<?php echo addslashes(t('mall_admin.orders.delivery_failed_msg')); ?>: ' + escapeHtml(order.failed_reason || '<?php echo addslashes(t('mall_admin.orders.no_reason')); ?>');
         container.innerHTML = '<div class="px-3 py-2 rounded-md text-xs font-semibold ' + (MALL_STATUS_COLORS[order.status]) + '">' + msg + '</div>';
         return;
     }
@@ -382,17 +381,17 @@ function renderActionArea(order, activeDrivers, defaultPrepMinutes, freshItems) 
     // 배송기사 배정 전(접수대기~준비완료) 단계에서만, 고객 요청 등으로 주문을 취소할 수 있다.
     const CANCELLABLE_STATUSES = ['pending', 'confirmed', 'preparing', 'ready'];
     const cancelBtnHtml = CANCELLABLE_STATUSES.includes(order.status)
-        ? '<button type="button" class="act-cancel-order-btn px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-600 rounded-md hover:bg-red-100 ml-1">주문취소(고객요청)</button>'
+        ? '<button type="button" class="act-cancel-order-btn px-3 py-1.5 text-xs font-semibold bg-red-50 text-red-600 rounded-md hover:bg-red-100 ml-1"><?php echo addslashes(t('mall_admin.orders.cancel_by_customer')); ?></button>'
         : '';
 
     if (order.status === 'pending') {
         area.innerHTML =
-            '<button type="button" id="act-confirm-btn" class="px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-md hover:bg-green-700">접수확인</button>' +
+            '<button type="button" id="act-confirm-btn" class="px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-md hover:bg-green-700"><?php echo addslashes(t('mall_admin.orders.confirm_order')); ?></button>' +
             cancelBtnHtml +
             '<div id="act-confirm-form" class="flex items-center gap-1 mt-2" hidden>' +
                 '<input type="number" id="act-prep-minutes" class="border border-gray-300 rounded px-1 py-0.5 w-20 text-xs" min="0" step="1" value="' + defaultPrepMinutes + '">' +
-                '<span class="text-xs text-gray-500">분</span>' +
-                '<button type="button" id="act-confirm-submit" class="px-2 py-1 text-xs font-semibold bg-green-600 text-white rounded-md hover:bg-green-700">확인</button>' +
+                '<span class="text-xs text-gray-500"><?php echo addslashes(t('mall_admin.orders.minutes_unit')); ?></span>' +
+                '<button type="button" id="act-confirm-submit" class="px-2 py-1 text-xs font-semibold bg-green-600 text-white rounded-md hover:bg-green-700"><?php echo addslashes(t('common.confirm')); ?></button>' +
             '</div>';
         document.getElementById('act-confirm-btn').addEventListener('click', function () {
             document.getElementById('act-confirm-btn').hidden = true;
@@ -409,8 +408,8 @@ function renderActionArea(order, activeDrivers, defaultPrepMinutes, freshItems) 
                 .then(r => r.json())
                 .then(data => {
                     btn.disabled = false;
-                    if (!data.success) { showFlash(data.error?.message || '오류가 발생했습니다.', 'error'); return; }
-                    showFlash('접수확인 처리되었습니다.', 'success');
+                    if (!data.success) { showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error'); return; }
+                    showFlash('<?php echo addslashes(t('mall_admin.orders.confirmed_msg')); ?>', 'success');
                     loadOrderDetail(order.id);
                     updateRowSummary(order.id, 'preparing', order.current_driver_name);
                 });
@@ -418,10 +417,10 @@ function renderActionArea(order, activeDrivers, defaultPrepMinutes, freshItems) 
     } else if (order.status === 'preparing') {
         area.innerHTML =
             (hasUnconfirmedWeight
-                ? '<button type="button" id="act-ready-btn" class="px-3 py-1.5 text-xs font-semibold bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" disabled>준비완료</button> ' +
-                  '<div class="text-xs text-amber-600 mt-1">무게 상품의 실측 입력이 끝나야 준비완료로 처리할 수 있습니다.</div>'
-                : '<button type="button" id="act-ready-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700">준비완료</button> ') +
-            '<button type="button" id="act-cancel-btn" class="px-3 py-1.5 text-xs font-semibold bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">접수 취소(접수대기로)</button>' +
+                ? '<button type="button" id="act-ready-btn" class="px-3 py-1.5 text-xs font-semibold bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" disabled><?php echo addslashes(t('mall_admin.order_status.ready')); ?></button> ' +
+                  '<div class="text-xs text-amber-600 mt-1"><?php echo addslashes(t('mall_admin.orders.fresh_weight_pending_hint')); ?></div>'
+                : '<button type="button" id="act-ready-btn" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700"><?php echo addslashes(t('mall_admin.order_status.ready')); ?></button> ') +
+            '<button type="button" id="act-cancel-btn" class="px-3 py-1.5 text-xs font-semibold bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"><?php echo addslashes(t('mall_admin.orders.revert_to_pending')); ?></button>' +
             cancelBtnHtml;
         if (!hasUnconfirmedWeight) {
         document.getElementById('act-ready-btn').addEventListener('click', function () {
@@ -434,15 +433,15 @@ function renderActionArea(order, activeDrivers, defaultPrepMinutes, freshItems) 
                 .then(r => r.json())
                 .then(data => {
                     btn.disabled = false;
-                    if (!data.success) { showFlash(data.error?.message || '오류가 발생했습니다.', 'error'); return; }
-                    showFlash('준비완료 처리되었습니다.', 'success');
+                    if (!data.success) { showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error'); return; }
+                    showFlash('<?php echo addslashes(t('mall_admin.orders.ready_msg')); ?>', 'success');
                     loadOrderDetail(order.id);
                     updateRowSummary(order.id, 'ready', order.current_driver_name);
                 });
         });
         }
         document.getElementById('act-cancel-btn').addEventListener('click', function () {
-            if (!confirm('접수를 취소하고 접수대기 상태로 되돌릴까요?')) return;
+            if (!confirm('<?php echo addslashes(t('mall_admin.orders.revert_confirm')); ?>')) return;
             const btn = this;
             btn.disabled = true;
             const params = new URLSearchParams();
@@ -453,23 +452,23 @@ function renderActionArea(order, activeDrivers, defaultPrepMinutes, freshItems) 
                 .then(r => r.json())
                 .then(data => {
                     btn.disabled = false;
-                    if (!data.success) { showFlash(data.error?.message || '오류가 발생했습니다.', 'error'); return; }
-                    showFlash('접수대기로 되돌렸습니다.', 'success');
+                    if (!data.success) { showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error'); return; }
+                    showFlash('<?php echo addslashes(t('mall_admin.orders.reverted_msg')); ?>', 'success');
                     loadOrderDetail(order.id);
                     updateRowSummary(order.id, 'pending', order.current_driver_name);
                 });
         });
     } else if (order.status === 'ready') {
         if (!activeDrivers.length) {
-            area.innerHTML = '<span class="text-gray-400 text-xs">활성 기사 없음</span> ' + cancelBtnHtml;
+            area.innerHTML = '<span class="text-gray-400 text-xs"><?php echo addslashes(t('mall_admin.orders.no_active_driver')); ?></span> ' + cancelBtnHtml;
             return;
         }
         area.innerHTML =
             '<div class="flex items-center gap-1">' +
                 '<select id="act-assign-select" class="border border-gray-300 rounded px-1 py-0.5 text-xs">' +
-                    activeDrivers.map(d => '<option value="' + d.id + '">' + escapeHtml(d.name) + ' (진행중 ' + d.active_count + ')</option>').join('') +
+                    activeDrivers.map(d => '<option value="' + d.id + '">' + escapeHtml(d.name) + ' (<?php echo addslashes(t('mall_admin.orders.in_progress')); ?> ' + d.active_count + ')</option>').join('') +
                 '</select>' +
-                '<button type="button" id="act-assign-btn" class="px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700">배정</button>' +
+                '<button type="button" id="act-assign-btn" class="px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700"><?php echo addslashes(t('mall_admin.orders.assign')); ?></button>' +
                 cancelBtnHtml +
             '</div>';
         document.getElementById('act-assign-btn').addEventListener('click', function () {
@@ -477,7 +476,7 @@ function renderActionArea(order, activeDrivers, defaultPrepMinutes, freshItems) 
             btn.disabled = true;
             const select = document.getElementById('act-assign-select');
             const driverId = select.value;
-            const driverName = select.options[select.selectedIndex].text.replace(/\s*\(진행중.*\)$/, '');
+            const driverName = select.options[select.selectedIndex].text.replace(/\s*\(<?php echo addslashes(t('mall_admin.orders.in_progress')); ?>.*\)$/, '');
             const params = new URLSearchParams();
             params.set('order_id', order.id);
             params.set('driver_id', driverId);
@@ -486,30 +485,30 @@ function renderActionArea(order, activeDrivers, defaultPrepMinutes, freshItems) 
                 .then(r => r.json())
                 .then(data => {
                     btn.disabled = false;
-                    if (!data.success) { showFlash(data.error?.message || '오류가 발생했습니다.', 'error'); return; }
-                    showFlash('배송기사가 배정되었습니다.', 'success');
+                    if (!data.success) { showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error'); return; }
+                    showFlash('<?php echo addslashes(t('mall_admin.orders.assigned_msg')); ?>', 'success');
                     loadOrderDetail(order.id);
                     updateRowSummary(order.id, 'assigned', driverName);
                 });
         });
     } else if (order.status === 'delivery_failed') {
         if (!activeDrivers.length) {
-            area.innerHTML = '<span class="text-gray-400 text-xs">활성 기사 없음</span>';
+            area.innerHTML = '<span class="text-gray-400 text-xs"><?php echo addslashes(t('mall_admin.orders.no_active_driver')); ?></span>';
             return;
         }
         area.innerHTML =
             '<div class="flex items-center gap-1">' +
                 '<select id="act-reassign-select" class="border border-gray-300 rounded px-1 py-0.5 text-xs">' +
-                    activeDrivers.map(d => '<option value="' + d.id + '">' + escapeHtml(d.name) + ' (진행중 ' + d.active_count + ')</option>').join('') +
+                    activeDrivers.map(d => '<option value="' + d.id + '">' + escapeHtml(d.name) + ' (<?php echo addslashes(t('mall_admin.orders.in_progress')); ?> ' + d.active_count + ')</option>').join('') +
                 '</select>' +
-                '<button type="button" id="act-reassign-btn" class="px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700">재배정</button>' +
+                '<button type="button" id="act-reassign-btn" class="px-2 py-1 text-xs font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700"><?php echo addslashes(t('mall_admin.orders.reassign')); ?></button>' +
             '</div>';
         document.getElementById('act-reassign-btn').addEventListener('click', function () {
             const btn = this;
             btn.disabled = true;
             const select = document.getElementById('act-reassign-select');
             const driverId = select.value;
-            const driverName = select.options[select.selectedIndex].text.replace(/\s*\(진행중.*\)$/, '');
+            const driverName = select.options[select.selectedIndex].text.replace(/\s*\(<?php echo addslashes(t('mall_admin.orders.in_progress')); ?>.*\)$/, '');
             const params = new URLSearchParams();
             params.set('order_id', order.id);
             params.set('driver_id', driverId);
@@ -518,8 +517,8 @@ function renderActionArea(order, activeDrivers, defaultPrepMinutes, freshItems) 
                 .then(r => r.json())
                 .then(data => {
                     btn.disabled = false;
-                    if (!data.success) { showFlash(data.error?.message || '오류가 발생했습니다.', 'error'); return; }
-                    showFlash('재배정되었습니다.', 'success');
+                    if (!data.success) { showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error'); return; }
+                    showFlash('<?php echo addslashes(t('mall_admin.orders.reassigned_msg')); ?>', 'success');
                     loadOrderDetail(order.id);
                     updateRowSummary(order.id, 'assigned', driverName);
                 });
@@ -531,15 +530,15 @@ function renderActionArea(order, activeDrivers, defaultPrepMinutes, freshItems) 
 function renderCustomer(order) {
     const hasSnapshot = !!order.ship_recipient_name;
     let html = '';
-    html += '<div class="info-row"><span>회원</span><span>' + escapeHtml(order.member_name) + ' (' + escapeHtml(order.email) + ')</span></div>';
+    html += '<div class="info-row"><span><?php echo addslashes(t('mall_admin.orders.member')); ?></span><span>' + escapeHtml(order.member_name) + ' (' + escapeHtml(order.email) + ')</span></div>';
     if (hasSnapshot) {
-        html += '<div class="info-row"><span>수령인</span><span>' + escapeHtml(order.ship_recipient_name) + '</span></div>';
-        html += '<div class="info-row"><span>연락처</span><span>' + escapeHtml(order.ship_phone) + '</span></div>';
+        html += '<div class="info-row"><span><?php echo addslashes(t('mall_admin.orders.recipient')); ?></span><span>' + escapeHtml(order.ship_recipient_name) + '</span></div>';
+        html += '<div class="info-row"><span><?php echo addslashes(t('mall_admin.orders.contact')); ?></span><span>' + escapeHtml(order.ship_phone) + '</span></div>';
         const addr = [order.ship_detail_address, order.ship_barangay, order.ship_city, order.ship_region].filter(Boolean).join(' ');
-        html += '<div class="info-row"><span>배송지</span><span style="text-align:right;max-width:65%;">' + escapeHtml(addr) + '</span></div>';
-        html += '<div class="info-row"><span>랜드마크</span><span>' + escapeHtml(order.ship_landmark) + '</span></div>';
+        html += '<div class="info-row"><span><?php echo addslashes(t('mall_admin.orders.shipping_address')); ?></span><span style="text-align:right;max-width:65%;">' + escapeHtml(addr) + '</span></div>';
+        html += '<div class="info-row"><span><?php echo addslashes(t('mall_admin.orders.landmark')); ?></span><span>' + escapeHtml(order.ship_landmark) + '</span></div>';
     } else {
-        html += '<div class="info-row"><span>배송지</span><span class="text-gray-400">스냅샷 없음(구주문)</span></div>';
+        html += '<div class="info-row"><span><?php echo addslashes(t('mall_admin.orders.shipping_address')); ?></span><span class="text-gray-400"><?php echo addslashes(t('mall_admin.orders.no_snapshot')); ?></span></div>';
     }
     document.getElementById('modal-customer').innerHTML = html;
 }
@@ -547,11 +546,11 @@ function renderCustomer(order) {
 function renderItems(order, items, freshItems) {
     freshItems = freshItems || [];
     let html = '<table class="min-w-full text-xs"><thead><tr class="text-gray-500">' +
-        '<th class="px-2 py-1 text-left">상품</th><th class="px-2 py-1 text-right">단가</th>' +
-        '<th class="px-2 py-1 text-right">할인율</th><th class="px-2 py-1 text-right">수량</th>' +
-        '<th class="px-2 py-1 text-right">금액</th><th class="px-2 py-1 text-center">재고</th></tr></thead><tbody>';
+        '<th class="px-2 py-1 text-left"><?php echo addslashes(t('mall_admin.picking_slip.product')); ?></th><th class="px-2 py-1 text-right"><?php echo addslashes(t('mall_admin.receipt.unit_price')); ?></th>' +
+        '<th class="px-2 py-1 text-right"><?php echo addslashes(t('mall_admin.discount_rules.discount_rate')); ?></th><th class="px-2 py-1 text-right"><?php echo addslashes(t('common.quantity')); ?></th>' +
+        '<th class="px-2 py-1 text-right"><?php echo addslashes(t('mall_admin.receipt.amount')); ?></th><th class="px-2 py-1 text-center"><?php echo addslashes(t('mall_admin.orders.stock')); ?></th></tr></thead><tbody>';
     if (!items.length && !freshItems.length) {
-        html += '<tr><td colspan="6" class="px-2 py-3 text-center text-gray-400">담긴 상품이 없습니다.</td></tr>';
+        html += '<tr><td colspan="6" class="px-2 py-3 text-center text-gray-400"><?php echo addslashes(t('mall_admin.orders.no_items')); ?></td></tr>';
     } else {
         items.forEach(function (it) {
             const soldOut = Number(it.is_sold_out) === 1;
@@ -564,9 +563,9 @@ function renderItems(order, items, freshItems) {
                 '<td class="px-2 py-1 text-right font-semibold" style="' + strike + '">' + Number(it.line_total).toFixed(2) + '</td>' +
                 '<td class="px-2 py-1 text-center">' +
                 (soldOut
-                    ? '<span class="px-2 py-1 rounded-md bg-red-100 text-red-700 font-semibold mr-1">품절됨</span>' +
-                      '<button type="button" class="mark-sold-out-btn px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700 font-semibold" data-order-item-id="' + it.order_item_id + '" data-sold-out="0">품절취소</button>'
-                    : '<button type="button" class="mark-sold-out-btn px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-red-100 hover:text-red-700 font-semibold" data-order-item-id="' + it.order_item_id + '" data-sold-out="1">품절표시</button>') +
+                    ? '<span class="px-2 py-1 rounded-md bg-red-100 text-red-700 font-semibold mr-1"><?php echo addslashes(t('mall_admin.orders.sold_out_tag')); ?></span>' +
+                      '<button type="button" class="mark-sold-out-btn px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700 font-semibold" data-order-item-id="' + it.order_item_id + '" data-sold-out="0"><?php echo addslashes(t('mall_admin.orders.undo_sold_out')); ?></button>'
+                    : '<button type="button" class="mark-sold-out-btn px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-red-100 hover:text-red-700 font-semibold" data-order-item-id="' + it.order_item_id + '" data-sold-out="1"><?php echo addslashes(t('mall_admin.orders.mark_sold_out')); ?></button>') +
                 '</td>' +
                 '</tr>';
         });
@@ -607,10 +606,10 @@ function renderItems(order, items, freshItems) {
     }
     html += '</tbody></table>';
     html += '<div style="text-align:right;margin-top:8px;font-size:12px;">' +
-        '<div class="text-gray-500">소계 ' + Number(order.subtotal).toFixed(2) + '</div>' +
-        '<div class="text-red-600">할인 -' + Number(order.discount_amount).toFixed(2) + '</div>' +
-        '<div class="text-gray-500">배송비 ' + Number(order.shipping_fee).toFixed(2) + '</div>' +
-        '<div style="font-weight:700;font-size:14px;margin-top:4px;">합계 ' + Number(order.total_amount).toFixed(2) + '</div>' +
+        '<div class="text-gray-500"><?php echo addslashes(t('mall_admin.receipt.subtotal')); ?> ' + Number(order.subtotal).toFixed(2) + '</div>' +
+        '<div class="text-red-600"><?php echo addslashes(t('mall_admin.receipt.discount')); ?> -' + Number(order.discount_amount).toFixed(2) + '</div>' +
+        '<div class="text-gray-500"><?php echo addslashes(t('mall_admin.receipt.shipping_fee')); ?> ' + Number(order.shipping_fee).toFixed(2) + '</div>' +
+        '<div style="font-weight:700;font-size:14px;margin-top:4px;"><?php echo addslashes(t('mall_admin.orders.total')); ?> ' + Number(order.total_amount).toFixed(2) + '</div>' +
         '</div>';
     document.getElementById('modal-items').innerHTML = html;
 }
@@ -619,7 +618,7 @@ document.getElementById('modal-items').addEventListener('click', function (e) {
     const btn = e.target.closest('.mark-sold-out-btn');
     if (!btn) return;
     const soldOut = btn.dataset.soldOut === '1';
-    if (!confirm(soldOut ? '이 상품을 품절 처리하시겠습니까? 이 주문의 금액이 다시 계산됩니다.' : '이 상품의 품절을 취소하시겠습니까? 이 주문의 금액이 다시 계산됩니다.')) return;
+    if (!confirm(soldOut ? '<?php echo addslashes(t('mall_admin.orders.sold_out_confirm')); ?>' : '<?php echo addslashes(t('mall_admin.orders.undo_sold_out_confirm')); ?>')) return;
     btn.disabled = true;
     const params = new URLSearchParams();
     params.set('order_item_id', btn.dataset.orderItemId);
@@ -629,11 +628,11 @@ document.getElementById('modal-items').addEventListener('click', function (e) {
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                showFlash(soldOut ? '품절 처리되었습니다.' : '품절이 취소되었습니다.', 'success');
+                showFlash(soldOut ? '<?php echo addslashes(t('mall_admin.orders.sold_out_msg')); ?>' : '<?php echo addslashes(t('mall_admin.orders.undo_sold_out_msg')); ?>', 'success');
                 loadOrderDetail(data.data.order_id);
             } else {
                 btn.disabled = false;
-                showFlash(data.error?.message || '처리에 실패했습니다.', 'error');
+                showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.order_chat.process_failed')); ?>', 'error');
             }
         });
 });
@@ -670,10 +669,10 @@ document.getElementById('modal-items').addEventListener('click', function (e) {
 document.getElementById('modal-action-area').addEventListener('click', function (e) {
     const btn = e.target.closest('.act-cancel-order-btn');
     if (!btn || !MALL_CURRENT_ORDER_ID) return;
-    const reason = prompt('취소 사유를 입력해주세요(예: 고객 요청):');
+    const reason = prompt('<?php echo addslashes(t('mall_admin.orders.cancel_reason_prompt')); ?>');
     if (reason === null) return;
     const trimmed = reason.trim();
-    if (!trimmed) { showFlash('취소 사유를 입력해주세요.', 'error'); return; }
+    if (!trimmed) { showFlash('<?php echo addslashes(t('mall_admin.orders.cancel_reason_required')); ?>', 'error'); return; }
     btn.disabled = true;
     const params = new URLSearchParams();
     params.set('order_id', MALL_CURRENT_ORDER_ID);
@@ -683,12 +682,12 @@ document.getElementById('modal-action-area').addEventListener('click', function 
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                showFlash('주문이 취소되었습니다.', 'success');
+                showFlash('<?php echo addslashes(t('mall_admin.orders.order_cancelled_msg')); ?>', 'success');
                 loadOrderDetail(data.data.order_id);
                 updateRowSummary(data.data.order_id, 'cancelled', '-');
             } else {
                 btn.disabled = false;
-                showFlash(data.error?.message || '처리에 실패했습니다.', 'error');
+                showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.order_chat.process_failed')); ?>', 'error');
             }
         });
 });

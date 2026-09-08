@@ -261,7 +261,7 @@ for ($i=0; $i<$MAX_DATA; $i++) {
 echo xmlRow2(14, xmlCells2([['TOTAL:','s_total',6],[(float)$cash_total,'s_total_amt',1,0,'Number'],['TOTAL:','s_total',6,0,'String',10],[(float)$consumable_total,'s_total_amt',1,0,'Number']]));
 echo xmlRow2(14, xmlCells2([['','s_empty',8],['CASH TOTAL AMOUNT','s_total',6,0,'String',10],[(float)$grand_total,'s_total_amt',1,0,'Number']]));
 // CHECK(좌) / OTHER EXPENSES 통합(우) 헤더
-echo xmlRow2(15, xmlCells2([['CHECK NO.','s_chkhd'],['SUPLIERS  (PAY THRU CHECK)','s_chkhd',5],['AMOUNT CHECK','s_chkhd',1],['CV NO.','s_chkhd',0,0,'String',10],['OTHER EXPENSES  (SALARY/ELECTRIC/WATER/RENT)','s_chkhd',5],['AMOUNT','s_chkhd',1]]));
+echo xmlRow2(15, xmlCells2([['CHECK NO.','s_chkhd'],['SUPLIERS  (PAY THRU CHECK)','s_chkhd',5],['AMOUNT CHECK','s_chkhd',1],['CV NO.','s_chkhd',0,0,'String',10],['OTHER EXPENSES  (SALARY/SSS/ELECTRIC/WATER/INTERNET/GARBAGE)','s_chkhd',5],['AMOUNT','s_chkhd',1]]));
 
 for ($i=0; $i<$MAX_CHECK; $i++) {
     $chk=$check_rows[$i]??null;

@@ -69,11 +69,11 @@ $cash_received = (int)ceil($total_floor / 1000) * 1000;
 $change_due = $cash_received - $total_floor;
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?php echo get_language(); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Picking Slip - <?php echo htmlspecialchars($order['order_number']); ?></title>
+    <title><?php echo t('mall_admin.picking_slip.title'); ?> - <?php echo htmlspecialchars($order['order_number']); ?></title>
     <link rel="icon" href="data:,">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/JsBarcode/3.11.5/JsBarcode.all.min.js"></script>
     <style>
@@ -101,22 +101,22 @@ $change_due = $cash_received - $total_floor;
     </style>
 </head>
 <body>
-    <h1>Picking Slip — <?php echo htmlspecialchars($order['order_number']); ?></h1>
+    <h1><?php echo t('mall_admin.picking_slip.title'); ?> — <?php echo htmlspecialchars($order['order_number']); ?></h1>
     <div class="meta">
-        Order Date: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?> ·
-        Recipient: <?php echo htmlspecialchars($order['member_name']); ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>) ·
-        Channel: <?php echo $order['channel'] === 'wholesale' ? 'Wholesale' : 'Retail'; ?>
+        <?php echo t('mall_admin.picking_slip.order_date'); ?>: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?> ·
+        <?php echo t('mall_admin.picking_slip.recipient'); ?>: <?php echo htmlspecialchars($order['member_name']); ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>) ·
+        <?php echo t('mall_admin.orders.channel'); ?>: <?php echo $order['channel'] === 'wholesale' ? t('mall_admin.orders.channel_wholesale') : t('mall_admin.orders.channel_retail'); ?>
     </div>
 
     <table>
         <thead>
             <tr>
-                <th>Photo</th>
-                <th>Barcode</th>
-                <th>Product</th>
-                <th class="qty">Qty</th>
-                <th class="num">Unit Price</th>
-                <th class="num">Amount</th>
+                <th><?php echo t('mall_admin.picking_slip.photo'); ?></th>
+                <th><?php echo t('mall_admin.picking_slip.barcode'); ?></th>
+                <th><?php echo t('mall_admin.picking_slip.product'); ?></th>
+                <th class="qty"><?php echo t('mall_admin.picking_slip.qty'); ?></th>
+                <th class="num"><?php echo t('mall_admin.receipt.unit_price'); ?></th>
+                <th class="num"><?php echo t('mall_admin.receipt.amount'); ?></th>
             </tr>
         </thead>
         <tbody>
@@ -136,7 +136,7 @@ $change_due = $cash_received - $total_floor;
                 </td>
                 <td class="names">
                     <?php echo htmlspecialchars($it['display_name_en'] ?: $it['product_name_snapshot']); ?>
-                    <?php if ($it['is_sold_out']): ?><span class="sold-out-badge">품절</span><?php endif; ?>
+                    <?php if ($it['is_sold_out']): ?><span class="sold-out-badge"><?php echo t('mall_admin.receipt.sold_out'); ?></span><?php endif; ?>
                 </td>
                 <td class="qty"><?php echo (int)$it['quantity']; ?></td>
                 <td class="num"><?php echo number_format((float)$it['unit_price_snapshot'], 2); ?></td>
@@ -146,10 +146,10 @@ $change_due = $cash_received - $total_floor;
             <?php foreach ($fresh_items as $fi):
                 $__fi_confirmed = $fi['actual_weight_g'] !== null;
                 $__fi_amount = $__fi_confirmed ? $fi['confirmed_price'] : $fi['estimated_price'];
-                // 새 lang 키 추가 대신, 이 페이지가 이미 t()에 의존하는 다른 진행중인 다국어 작업과
-                // 충돌하지 않도록 이 두 문구만 고정 한글 문자열로 둔다.
                 $__fi_qty = $fi['sale_type_snapshot'] === 'weight'
-                    ? ($__fi_confirmed ? $fi['actual_weight_g'] . 'g (확정)' : $fi['weight_g'] . 'g (예상)')
+                    ? ($__fi_confirmed
+                        ? $fi['actual_weight_g'] . 'g ' . t('mall_admin.picking_slip.fresh_confirmed_suffix')
+                        : $fi['weight_g'] . 'g ' . t('mall_admin.picking_slip.fresh_estimated_suffix'))
                     : (int)$fi['quantity'];
             ?>
             <tr<?php echo $fi['is_sold_out'] ? ' class="sold-out"' : ''; ?>>
@@ -157,7 +157,7 @@ $change_due = $cash_received - $total_floor;
                 <td class="barcode-cell"><span style="color:#999;">-</span></td>
                 <td class="names">
                     <?php echo htmlspecialchars($fi['product_name_snapshot']); ?>
-                    <?php if ($fi['is_sold_out']): ?><span class="sold-out-badge">품절</span><?php endif; ?>
+                    <?php if ($fi['is_sold_out']): ?><span class="sold-out-badge"><?php echo t('mall_admin.receipt.sold_out'); ?></span><?php endif; ?>
                 </td>
                 <td class="qty"><?php echo htmlspecialchars((string)$__fi_qty); ?></td>
                 <td class="num"><?php echo number_format((float)$fi['unit_price_snapshot'], 2); ?></td>
@@ -168,35 +168,35 @@ $change_due = $cash_received - $total_floor;
     </table>
 
     <div class="totals">
-        <div><span>Subtotal</span><span><?php echo number_format((float)$order['subtotal'], 2); ?></span></div>
-        <div><span>Discount</span><span>-<?php echo number_format((float)$order['discount_amount'], 2); ?></span></div>
-        <div><span>Shipping Fee</span><span><?php echo number_format((float)$order['shipping_fee'], 2); ?></span></div>
-        <div class="grand"><span>Grand Total</span><span><?php echo number_format((float)$order['total_amount'], 2); ?></span></div>
-        <div class="cash-row"><span>잔돈준비</span><span><?php echo number_format($change_due); ?></span></div>
-        <div class="cash-row"><span>합계 입금금액</span><span><?php echo number_format($cash_received); ?></span></div>
+        <div><span><?php echo t('mall_admin.receipt.subtotal'); ?></span><span><?php echo number_format((float)$order['subtotal'], 2); ?></span></div>
+        <div><span><?php echo t('mall_admin.receipt.discount'); ?></span><span>-<?php echo number_format((float)$order['discount_amount'], 2); ?></span></div>
+        <div><span><?php echo t('mall_admin.receipt.shipping_fee'); ?></span><span><?php echo number_format((float)$order['shipping_fee'], 2); ?></span></div>
+        <div class="grand"><span><?php echo t('mall_admin.picking_slip.grand_total'); ?></span><span><?php echo number_format((float)$order['total_amount'], 2); ?></span></div>
+        <div class="cash-row"><span><?php echo t('mall_admin.picking_slip.change_due'); ?></span><span><?php echo number_format($change_due); ?></span></div>
+        <div class="cash-row"><span><?php echo t('mall_admin.picking_slip.cash_received'); ?></span><span><?php echo number_format($cash_received); ?></span></div>
     </div>
 
     <table class="signoff">
         <thead>
             <tr>
-                <th>Prepared By</th>
-                <th>Delivery Driver</th>
-                <th>Cashier</th>
+                <th><?php echo t('mall_admin.picking_slip.prepared_by'); ?></th>
+                <th><?php echo t('mall_admin.picking_slip.delivery_driver'); ?></th>
+                <th><?php echo t('mall_admin.picking_slip.cashier'); ?></th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td>
-                    <div>Name: ________________________</div>
-                    <div class="sig-line">Signature: ________________________</div>
+                    <div><?php echo t('mall_admin.picking_slip.name'); ?>: ________________________</div>
+                    <div class="sig-line"><?php echo t('mall_admin.picking_slip.signature'); ?>: ________________________</div>
                 </td>
                 <td>
-                    <div>Name: ________________________</div>
-                    <div class="sig-line">Signature: ________________________</div>
+                    <div><?php echo t('mall_admin.picking_slip.name'); ?>: ________________________</div>
+                    <div class="sig-line"><?php echo t('mall_admin.picking_slip.signature'); ?>: ________________________</div>
                 </td>
                 <td>
-                    <div>Name: ________________________</div>
-                    <div class="sig-line">Signature: ________________________</div>
+                    <div><?php echo t('mall_admin.picking_slip.name'); ?>: ________________________</div>
+                    <div class="sig-line"><?php echo t('mall_admin.picking_slip.signature'); ?>: ________________________</div>
                 </td>
             </tr>
         </tbody>

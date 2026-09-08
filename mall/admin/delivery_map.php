@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
 
@@ -14,11 +15,11 @@ require_permission('mall_management', '../../admin/index.php');
 $current_page = 'delivery_map.php';
 ?>
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="<?php echo get_language(); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>실시간 배송 지도 - HOME K MART 쇼핑몰</title>
+    <title><?php echo t('mall_admin.delivery_map.page_title'); ?> - HOME K MART <?php echo t('mall_admin.title'); ?></title>
     <link rel="icon" href="data:,">
     <link href="../../admin/css/style.css" rel="stylesheet">
     <link href="../../admin/css/design-system.css" rel="stylesheet">
@@ -27,8 +28,8 @@ $current_page = 'delivery_map.php';
 <body class="bg-gray-50 min-h-screen">
 <?php include __DIR__ . '/partials/sidebar.php'; ?>
 <main class="p-6">
-    <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-map-location-dot mr-2"></i>실시간 배송 지도</h1>
-    <p class="text-xs text-gray-400 mb-3">배송중 상태인 기사만 표시됩니다. 15초마다 자동 갱신.</p>
+    <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-map-location-dot mr-2"></i><?php echo t('mall_admin.nav.delivery_map'); ?></h1>
+    <p class="text-xs text-gray-400 mb-3"><?php echo t('mall_admin.delivery_map.hint'); ?></p>
     <div id="delivery-map" style="height:70vh;border-radius:8px;border:1px solid #e5e7eb;"></div>
 </main>
 

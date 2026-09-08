@@ -153,10 +153,10 @@ $is_future = $next_date > $today;
         'check_sup'       => ['label'=>'SUPPLIERS',      'sub'=>'PAY THRU CHECK',
                               'color'=>['bg'=>'#fff7ed','border'=>'#fed7aa','text'=>'#c2410c'],
                               'place'=>'grid-column:1;grid-row:2/4'],
-        'other_exp_check' => ['label'=>'OTHER EXPENSES', 'sub'=>'SALARY / ELECTRIC / WATER / RENT — CHECK (수표)',
+        'other_exp_check' => ['label'=>'OTHER EXPENSES', 'sub'=>'SALARY, SSS, ELECTRIC, WATER, INTERNET, GARBAGE — CHECK (수표)',
                               'color'=>['bg'=>'#faf5ff','border'=>'#e9d5ff','text'=>'#7e22ce'],
                               'place'=>'grid-column:2;grid-row:2'],
-        'other_exp_cash'  => ['label'=>'OTHER EXPENSES', 'sub'=>'SALARY / ELECTRIC / WATER / RENT — CASH (현금)',
+        'other_exp_cash'  => ['label'=>'OTHER EXPENSES', 'sub'=>'SALARY, SSS, ELECTRIC, WATER, INTERNET, GARBAGE — CASH (현금)',
                               'color'=>['bg'=>'#fdf4ff','border'=>'#f0abfc','text'=>'#86198f'],
                               'place'=>'grid-column:2;grid-row:3'],
     ];

@@ -20,7 +20,7 @@ $months_en = ['','January','February','March','April','May','June','July','Augus
 $month_label = $months_en[$month] . ' ' . $year;
 
 function e($s) { return htmlspecialchars((string)($s??''), ENT_QUOTES, 'UTF-8'); }
-function a($n) { return $n ? number_format((float)$n,2) : ''; }
+function a($n) { $n=(float)$n; return $n ? (($n<0?'-':'').number_format(abs($n),2)) : ''; }
 
 // Build grid
 $grid   = [];

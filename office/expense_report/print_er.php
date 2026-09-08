@@ -320,7 +320,7 @@ window.addEventListener('load', function () {
   <td colspan="2" class="h-colhd bg-orange">AMOUNT CHECK</td>
   <td class="gap"></td>
   <td class="h-colhd bg-orange">CV NO.</td>
-  <td colspan="6" class="h-colhd bg-orange">OTHER EXPENSES&nbsp;&nbsp;(SALARY/ELECTRIC/WATER/RENT)</td>
+  <td colspan="6" class="h-colhd bg-orange">OTHER EXPENSES&nbsp;&nbsp;(SALARY/SSS/ELECTRIC/WATER/INTERNET/GARBAGE)</td>
   <td colspan="2" class="h-colhd bg-orange">AMOUNT</td>
 </tr>
 

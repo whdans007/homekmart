@@ -72,18 +72,9 @@ body:not(.redesigned) main { padding: var(--space-5); }
   font: 700 10px/16px var(--font-sans); text-align: center;
 }
 
-/* ── 홈 전용 상단바(로고+알림/장바구니+검색 진입까지 한 덩어리로 스크롤에 고정) ──
-   디자인 원본처럼 로고행+검색버튼을 같은 sticky 배경 블록 안에 둔다(다른 화면의 .mall-topbar와 달리
-   테두리 없이 이어지고, 검색 버튼까지 같이 붙어 스크롤된다). */
-.home-topbar {
-  position: sticky; top: 0; z-index: 30;
-  background: var(--bg-normal);
-  padding: calc(var(--space-3) + env(safe-area-inset-top, 0px)) var(--space-5) var(--space-3);
-}
-.home-topbar .row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.home-topbar .logo-plate { display: inline-flex; padding: 3px 7px; border-radius: var(--radius-sm); }
-.home-topbar .logo-plate img { height: 36px; display: block; }
-.home-topbar .icons { display: flex; gap: var(--space-4); align-items: center; }
+/* ── 홈 검색 진입 버튼 감싸는 여백(다른 화면과 동일하게 상단은 공용 .mall-topbar가 담당하므로
+   여기서는 좌우 여백 + 헤더와의 간격만 잡는다) ────────────── */
+.home-search-wrap { padding: var(--space-3) var(--space-5) 0; }
 
 /* ── 검색 진입 버튼 ─────────────────────────────────────── */
 .search-entry {

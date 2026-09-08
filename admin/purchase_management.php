@@ -431,7 +431,7 @@ th[data-column="actions"] { min-width: 150px !important; }
                                 <?php endif; ?>
                             </h3>
                             <p class="text-sm text-gray-600"><?php echo htmlspecialchars($row['supplier_name']); ?></p>
-                            <p class="text-xs text-gray-400 mt-0.5"><?php echo htmlspecialchars($row['store_name'] ?? '미지정'); ?></p>
+                            <p class="text-xs text-gray-400 mt-0.5"><?php echo htmlspecialchars($row['store_name'] ?? t('purchase.unassigned')); ?></p>
                         </div>
                         <div class="text-right">
                             <p class="text-base font-bold text-primary-600"><?php echo number_format($row['total_amount'], 2); ?>원</p>
@@ -491,16 +491,16 @@ th[data-column="actions"] { min-width: 150px !important; }
                 <form method="get" action="purchase_management.php" class="flex items-center w-full">
                     <div class="relative flex-1 sm:flex-none">
                         <input type="text" name="search" value="<?php echo htmlspecialchars($search_term); ?>"
-                               placeholder="거래처명 검색"
+                               placeholder="<?php echo t('purchase.supplier_name_search_placeholder'); ?>"
                                class="pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 w-full sm:w-48">
                         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
                     </div>
                     <button type="submit" class="ml-2 flex-shrink-0 inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                        검색
+                        <?php echo t('common.search'); ?>
                     </button>
                     <?php if ($search_term !== ''): ?>
                     <a href="purchase_management.php" class="ml-2 flex-shrink-0 inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
-                        <i class="fas fa-times mr-1"></i>초기화
+                        <i class="fas fa-times mr-1"></i><?php echo t('purchase.reset'); ?>
                     </a>
                     <?php endif; ?>
                 </form>
@@ -514,14 +514,14 @@ th[data-column="actions"] { min-width: 150px !important; }
                 <?php endif; ?>
                 <a href="purchase_from_logistics.php" class="relative inline-flex items-center px-4 py-2 border border-indigo-300 rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                     <i class="fas fa-truck-loading mr-2"></i>
-                    물류센터 입고분 매입등록
+                    <?php echo t('purchase.logistics_purchase_register'); ?>
                     <?php if ($logistics_pending_count > 0): ?>
                     <span class="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white"><?php echo $logistics_pending_count; ?></span>
                     <?php endif; ?>
                 </a>
                 <a href="purchase_from_store_transfer.php" class="relative inline-flex items-center px-4 py-2 border border-teal-300 rounded-md shadow-sm text-sm font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
                     <i class="fas fa-right-left mr-2"></i>
-                    타점 이동 매입등록
+                    <?php echo t('purchase.store_transfer_purchase_register'); ?>
                     <?php if ($store_transfer_pending_count > 0): ?>
                     <span class="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white"><?php echo $store_transfer_pending_count; ?></span>
                     <?php endif; ?>
@@ -538,12 +538,12 @@ th[data-column="actions"] { min-width: 150px !important; }
                     <tr>
                         <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high mobile-hidden" data-column="number"><?php echo t('purchase.number'); ?></th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high" data-column="datetime"><?php echo t('purchase.date_time'); ?></th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high mobile-hidden" data-column="store">점포</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high mobile-hidden" data-column="store"><?php echo t('common.store'); ?></th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high mobile-show" data-column="supplier"><?php echo t('purchase.supplier'); ?></th>
                         <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-medium tablet-hidden mobile-hidden" data-column="total_items"><?php echo t('purchase.total_items'); ?></th>
                         <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-medium tablet-hidden mobile-hidden" data-column="total_pieces"><?php echo t('purchase.total_pieces'); ?></th>
                         <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high mobile-hidden" data-column="amount"><?php echo t('purchase.purchase_amount'); ?></th>
-                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-medium mobile-hidden" data-column="confirmed">확정상태</th>
+                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-medium mobile-hidden" data-column="confirmed"><?php echo t('purchase.confirm_status_header'); ?></th>
                         <th class="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border border-gray-100 priority-high mobile-hidden" data-column="actions"><?php echo t('common.actions'); ?></th>
                     </tr>
                 </thead>
@@ -555,7 +555,7 @@ th[data-column="actions"] { min-width: 150px !important; }
                             <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 clickable-row" data-purchase-id="<?php echo $row['purchase_id']; ?>">
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center border border-gray-100 priority-high mobile-hidden" data-column="number"><?php echo $row_number++; ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-100 priority-high" data-column="datetime"><?php echo htmlspecialchars($row['purchase_datetime']); ?></td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-100 priority-high mobile-hidden" data-column="store"><?php echo htmlspecialchars($row['store_name'] ?? '미지정'); ?></td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-100 priority-high mobile-hidden" data-column="store"><?php echo htmlspecialchars($row['store_name'] ?? t('purchase.unassigned')); ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border border-gray-100 priority-high mobile-show" data-column="supplier"><?php echo htmlspecialchars($row['supplier_name']); ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-100 priority-medium tablet-hidden mobile-hidden" data-column="total_items"><?php echo htmlspecialchars($row['total_items']); ?></td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right border border-gray-100 priority-medium tablet-hidden mobile-hidden" data-column="total_pieces">
@@ -567,12 +567,12 @@ th[data-column="actions"] { min-width: 150px !important; }
                                     <?php if ($row['is_confirmed']): ?>
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                             <i class="fas fa-check-circle mr-1"></i>
-                                            매입확정
+                                            <?php echo t('purchase.purchase_confirmed'); ?>
                                         </span>
                                     <?php else: ?>
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                                             <i class="fas fa-clock mr-1"></i>
-                                            미확정
+                                            <?php echo t('purchase.unconfirmed_status'); ?>
                                         </span>
                                     <?php endif; ?>
                                 </td>
@@ -580,7 +580,7 @@ th[data-column="actions"] { min-width: 150px !important; }
                                     <?php if ($row['is_confirmed']): ?>
                                         <span class="inline-flex items-center px-3 py-1 text-xs font-medium text-green-700 bg-green-100 border border-green-200 rounded-md">
                                             <i class="fas fa-check mr-1"></i>
-                                            매입확정
+                                            <?php echo t('purchase.purchase_confirmed'); ?>
                                         </span>
                                     <?php else: ?>
                                         <a href="purchase_price_change.php?purchase_id=<?php echo $row['purchase_id']; ?>"

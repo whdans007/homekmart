@@ -381,35 +381,38 @@ $conn->close();
                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                         <i class="fas fa-search text-gray-400 text-sm"></i>
                     </div>
-                    <input type="search" 
-                           name="search" 
-                           placeholder="SKU, 상품명(한글/영문) 검색..."
-                           class="block w-full rounded-md border-gray-300 pl-10 pr-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500" 
+                    <input type="search"
+                           name="search"
+                           placeholder="<?php echo htmlspecialchars(t('purchase_product.search_placeholder')); ?>"
+                           class="block w-full rounded-md border-gray-300 pl-10 pr-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
                            value="<?php echo htmlspecialchars($search_term); ?>">
                 </div>
-                
+
                 <!-- 검색 버튼 -->
                 <button type="submit" class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <i class="fas fa-search mr-1"></i>
-                    검색
+                    <?php echo htmlspecialchars(t('common.search')); ?>
                 </button>
-                
+
                 <!-- 초기화 버튼 -->
                 <?php if (!empty($search_term)): ?>
-                <a href="?<?php echo build_url_params($display_mode, $display_mode === 'date' ? $selected_date : null, ''); ?>" 
+                <a href="?<?php echo build_url_params($display_mode, $display_mode === 'date' ? $selected_date : null, ''); ?>"
                    class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                     <i class="fas fa-times mr-1"></i>
-                    초기화
+                    <?php echo htmlspecialchars(t('purchase.reset')); ?>
                 </a>
                 <?php endif; ?>
             </form>
-            
+
             <!-- 검색 결과 정보 -->
             <?php if (!empty($search_term)): ?>
             <div class="mt-2 text-sm text-gray-600">
                 <i class="fas fa-info-circle mr-1"></i>
-                '<strong><?php echo htmlspecialchars($search_term); ?></strong>' 검색 결과: 
-                <span class="font-medium"><?php echo count($purchase_products); ?>개</span> 상품
+                <?php echo str_replace(
+                    ['{term}', '{count}'],
+                    [htmlspecialchars($search_term), count($purchase_products)],
+                    htmlspecialchars(t('purchase_product.search_result_label'))
+                ); ?>
             </div>
             <?php endif; ?>
         </div>
@@ -431,20 +434,20 @@ $conn->close();
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-3">
                             <span class="text-sm font-medium text-blue-900">
-                                <span id="selected-count">0</span>개 상품 선택됨
+                                <span id="selected-count">0</span><span id="selected-count-label-suffix"><?php echo htmlspecialchars(str_replace('{count}', '', t('purchase_product.selected_count_label'))); ?></span>
                             </span>
                             <button type="button" id="clear-selection" class="text-xs text-blue-600 hover:text-blue-800 underline">
-                                선택 해제
+                                <?php echo htmlspecialchars(t('purchase_product.clear_selection_button')); ?>
                             </button>
                         </div>
                         <div class="flex space-x-2">
                             <button type="button" id="bulk-category-btn" class="inline-flex items-center px-3 py-2 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
                                 <i class="fas fa-sitemap mr-1"></i>
-                                카테고리 일괄등록
+                                <?php echo htmlspecialchars(t('purchase_product.bulk_category_button')); ?>
                             </button>
                             <button type="button" id="bulk-brand-btn" class="inline-flex items-center px-3 py-2 border border-transparent text-xs font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
                                 <i class="fas fa-tags mr-1"></i>
-                                브랜드 일괄등록
+                                <?php echo htmlspecialchars(t('purchase_product.bulk_brand_button')); ?>
                             </button>
                         </div>
                     </div>
@@ -476,7 +479,7 @@ $conn->close();
                             <?php echo t('purchase.purchase_date'); ?>
                         </th>
                         <th scope="col" class="px-2 py-2 text-left text-xs font-semibold text-gray-700 uppercase w-20">
-                            거래처
+                            <?php echo t('purchase_product.supplier'); ?>
                         </th>
                         <?php endif; ?>
                         <th scope="col" class="px-2 py-2 text-left text-xs font-semibold text-gray-700 uppercase w-16">

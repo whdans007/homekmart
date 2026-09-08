@@ -18,6 +18,18 @@ function mall_session_start() {
     if (session_status() === PHP_SESSION_ACTIVE) {
         return;
     }
+    // 기본값(수명 0=세션 쿠키)이면 앱을 껐다 켤 때마다 로그아웃되므로, 로그아웃 전까지
+    // 로그인이 유지되도록 쿠키 수명을 30일로 늘린다(서버측 세션 GC도 함께 늘려야 실제로 유지됨).
+    $lifetime = 60 * 60 * 24 * 30;
+    ini_set('session.gc_maxlifetime', (string)$lifetime);
+    session_set_cookie_params([
+        'lifetime' => $lifetime,
+        'path' => '/',
+        'domain' => '',
+        'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_name(MALL_SESSION_NAME);
     session_start();
 }

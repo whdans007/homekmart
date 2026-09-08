@@ -87,16 +87,16 @@ if (!has_permission('purchase_management')) {
             <div class="flex flex-wrap items-center gap-3 text-sm text-gray-600">
                 <i class="fas fa-tag text-orange-400"></i>
                 <label class="flex items-center gap-1">
-                    <span class="whitespace-nowrap">행사명</span>
-                    <input type="text" id="event-name" placeholder="예) 5월 특가 (선택)"
+                    <span class="whitespace-nowrap"><?php echo t('price_adjustment.event_name_label'); ?></span>
+                    <input type="text" id="event-name" placeholder="<?php echo htmlspecialchars(t('price_adjustment.event_name_placeholder')); ?>"
                         class="border border-gray-300 rounded px-2 py-1 text-sm w-44 focus:outline-none focus:ring-1 focus:ring-orange-400">
                 </label>
                 <label class="flex items-center gap-1">
-                    <span class="whitespace-nowrap">종료일</span>
+                    <span class="whitespace-nowrap"><?php echo t('price_adjustment.event_end_date_label'); ?></span>
                     <input type="date" id="event-end-date"
                         class="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400">
                 </label>
-                <span class="text-xs text-gray-400">※ 종료일을 설정하면 해당 날짜에 자동으로 기존 가격으로 복원됩니다.</span>
+                <span class="text-xs text-gray-400"><?php echo t('price_adjustment.event_end_date_hint'); ?></span>
             </div>
         </div>
 
@@ -139,7 +139,7 @@ if (!has_permission('purchase_management')) {
                             <?php echo t('price_adjustment.col_margin'); ?>
                         </th>
                         <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-16">
-                            상태
+                            <?php echo t('price_adjustment.col_status'); ?>
                         </th>
                         <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-10">
                         </th>
@@ -159,33 +159,33 @@ if (!has_permission('purchase_management')) {
     <div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="px-4 py-3 border-b border-gray-200 bg-orange-50 flex items-center justify-between">
             <h2 class="text-sm font-semibold text-orange-700">
-                <i class="fas fa-tags mr-2"></i>행사가격 관리
+                <i class="fas fa-tags mr-2"></i><?php echo t('price_adjustment.event_management_title'); ?>
             </h2>
             <button id="refresh-events-btn"
                 class="text-xs text-orange-600 hover:text-orange-800 flex items-center gap-1">
-                <i class="fas fa-sync-alt"></i> 새로고침
+                <i class="fas fa-sync-alt"></i> <?php echo t('price_adjustment.refresh_button'); ?>
             </button>
         </div>
         <div id="events-loading" class="py-8 text-center text-gray-400 text-sm">
-            <i class="fas fa-spinner fa-spin mr-2"></i>불러오는 중...
+            <i class="fas fa-spinner fa-spin mr-2"></i><?php echo t('price_adjustment.loading_events'); ?>
         </div>
         <div id="events-empty" class="hidden py-10 text-center text-gray-400 text-sm">
-            <i class="fas fa-calendar-times text-2xl mb-2 block"></i>등록된 행사가격이 없습니다.
+            <i class="fas fa-calendar-times text-2xl mb-2 block"></i><?php echo t('price_adjustment.no_events'); ?>
         </div>
         <div id="events-table-wrap" class="hidden overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">SKU</th>
-                        <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">상품명</th>
-                        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">기존원가</th>
-                        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">행사원가</th>
-                        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">기존판매가</th>
-                        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">행사판매가</th>
-                        <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">행사명</th>
-                        <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">종료일</th>
-                        <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">상태</th>
-                        <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">액션</th>
+                        <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-24"><?php echo t('price_adjustment.col_sku'); ?></th>
+                        <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"><?php echo t('price_adjustment.col_product_name'); ?></th>
+                        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-28"><?php echo t('price_adjustment.col_original_cost'); ?></th>
+                        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-28"><?php echo t('price_adjustment.col_event_cost'); ?></th>
+                        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-28"><?php echo t('price_adjustment.col_original_selling'); ?></th>
+                        <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-28"><?php echo t('price_adjustment.col_event_selling'); ?></th>
+                        <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-32"><?php echo t('price_adjustment.event_name_label'); ?></th>
+                        <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-24"><?php echo t('price_adjustment.event_end_date_label'); ?></th>
+                        <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-16"><?php echo t('price_adjustment.col_status'); ?></th>
+                        <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-28"><?php echo t('price_adjustment.col_action'); ?></th>
                     </tr>
                 </thead>
                 <tbody id="events-tbody" class="divide-y divide-gray-100"></tbody>
@@ -291,7 +291,7 @@ function buildRow(p) {
             <i class="fas fa-circle text-xs"></i>
         </td>
         <td class="px-3 py-3 text-center">
-            <button class="remove-row-btn text-gray-300 hover:text-red-500 transition-colors" title="목록에서 제거">
+            <button class="remove-row-btn text-gray-300 hover:text-red-500 transition-colors" title="<?php echo htmlspecialchars(t('price_adjustment.remove_row_tooltip')); ?>">
                 <i class="fas fa-times"></i>
             </button>
         </td>
@@ -333,7 +333,7 @@ function addProductToList(p) {
 
 function updateRowCount() {
     const count = document.querySelectorAll('.product-row').length;
-    document.getElementById('result-count').textContent = `목록: ${count}개`;
+    document.getElementById('result-count').textContent = '<?php echo addslashes(t('price_adjustment.result_count_label')); ?>'.replace('{count}', count);
     if (count === 0) {
         document.getElementById('results-area').classList.add('hidden');
         document.getElementById('table-toolbar').classList.add('hidden');
@@ -356,7 +356,7 @@ async function doSearch() {
 
     const searchBtn = document.getElementById('search-btn');
     searchBtn.disabled = true;
-    searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>검색 중...';
+    searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i><?php echo addslashes(t('price_adjustment.searching_text')); ?>';
 
     try {
         const resp = await fetch(`ajax_search_products.php?term=${encodeURIComponent(term)}&limit=10`);
@@ -373,7 +373,7 @@ async function doSearch() {
         searchInput.value = '';
         closePreview();
     } catch (e) {
-        alert('검색 중 오류가 발생했습니다.');
+        alert('<?php echo addslashes(t('price_adjustment.js_search_error')); ?>');
     } finally {
         searchBtn.disabled = false;
         searchBtn.innerHTML = '<i class="fas fa-search mr-2"></i><?php echo t('price_adjustment.search_button'); ?>';
@@ -431,11 +431,11 @@ async function saveAll() {
                 setTimeout(() => { row.remove(); updateRowCount(); }, 800);
             } else {
                 statusCell.innerHTML = '<i class="fas fa-times-circle text-red-500 text-xs"></i>';
-                errors.push(result.message || '저장 실패');
+                errors.push(result.message || '<?php echo addslashes(t('price_adjustment.js_save_failed')); ?>');
             }
         } catch (e) {
             statusCell.innerHTML = '<i class="fas fa-times-circle text-red-500 text-xs"></i>';
-            errors.push('네트워크 오류');
+            errors.push('<?php echo addslashes(t('price_adjustment.js_network_error')); ?>');
         }
     }
 
@@ -446,7 +446,10 @@ async function saveAll() {
         const msg = '<?php echo t('price_adjustment.save_success_count'); ?>'.replace('{n}', successCount);
         showSummary('success', msg);
     } else {
-        const msg = `${successCount}개 저장 완료. 실패 ${errors.length}개: ${errors.join(', ')}`;
+        const msg = '<?php echo addslashes(t('price_adjustment.js_save_summary_partial')); ?>'
+            .replace('{success}', successCount)
+            .replace('{failCount}', errors.length)
+            .replace('{errors}', errors.join(', '));
         showSummary('error', msg);
     }
     loadEvents();
@@ -575,7 +578,7 @@ async function loadEvents() {
         if (!data.success) throw new Error(data.message);
         renderEvents(data.events || []);
         if (data.auto_ended > 0) {
-            showSummary('success', `종료일이 지난 행사 ${data.auto_ended}건이 자동 종료되었습니다.`);
+            showSummary('success', '<?php echo addslashes(t('price_adjustment.js_auto_ended_message')); ?>'.replace('{count}', data.auto_ended));
         }
     } catch (e) {
         document.getElementById('events-loading').classList.add('hidden');
@@ -599,8 +602,8 @@ function renderEvents(events) {
             : 'bg-gray-50 text-gray-400 hover:bg-gray-100 transition-colors';
 
         const statusBadge = isActive
-            ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">진행중</span>'
-            : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-500">종료</span>';
+            ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700"><?php echo addslashes(t('price_adjustment.status_active')); ?></span>'
+            : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-500"><?php echo addslashes(t('price_adjustment.status_ended')); ?></span>';
 
         const endDateStr = ev.end_date
             ? `<span class="${isActive && ev.end_date ? 'text-red-500 font-medium' : ''}">${ev.end_date}</span>`
@@ -609,15 +612,15 @@ function renderEvents(events) {
         const actionBtns = isActive
             ? `<button onclick="endEvent(${ev.id})"
                     class="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 mr-1">
-                    <i class="fas fa-stop-circle mr-1"></i>종료
+                    <i class="fas fa-stop-circle mr-1"></i><?php echo addslashes(t('price_adjustment.status_ended')); ?>
                </button>
                <button onclick="deleteEvent(${ev.id})"
                     class="text-xs px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200">
-                    <i class="fas fa-trash mr-1"></i>삭제
+                    <i class="fas fa-trash mr-1"></i><?php echo addslashes(t('common.delete')); ?>
                </button>`
             : `<button onclick="deleteEvent(${ev.id})"
                     class="text-xs px-2 py-1 bg-gray-100 text-gray-500 rounded hover:bg-gray-200">
-                    <i class="fas fa-trash mr-1"></i>삭제
+                    <i class="fas fa-trash mr-1"></i><?php echo addslashes(t('common.delete')); ?>
                </button>`;
 
         tr.innerHTML = `
@@ -644,7 +647,7 @@ function renderEvents(events) {
 }
 
 async function endEvent(id) {
-    if (!confirm('행사를 종료하고 기존 가격으로 복원하시겠습니까?')) return;
+    if (!confirm('<?php echo addslashes(t('price_adjustment.js_confirm_end_event')); ?>')) return;
     try {
         const resp = await fetch('ajax_end_price_event.php', {
             method: 'POST',
@@ -655,12 +658,12 @@ async function endEvent(id) {
         showSummary(data.success ? 'success' : 'error', data.message);
         if (data.success) loadEvents();
     } catch (e) {
-        showSummary('error', '오류가 발생했습니다.');
+        showSummary('error', '<?php echo addslashes(t('price_adjustment.js_generic_error')); ?>');
     }
 }
 
 async function deleteEvent(id) {
-    if (!confirm('이 행사를 삭제하시겠습니까?\n진행 중인 행사라면 기존 가격으로 자동 복원됩니다.')) return;
+    if (!confirm(<?php echo json_encode(t('price_adjustment.js_confirm_delete_event')); ?>)) return;
     try {
         const resp = await fetch('ajax_delete_price_event.php', {
             method: 'POST',
@@ -671,7 +674,7 @@ async function deleteEvent(id) {
         showSummary(data.success ? 'success' : 'error', data.message);
         if (data.success) loadEvents();
     } catch (e) {
-        showSummary('error', '오류가 발생했습니다.');
+        showSummary('error', '<?php echo addslashes(t('price_adjustment.js_generic_error')); ?>');
     }
 }
 

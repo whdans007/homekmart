@@ -25,7 +25,7 @@ $conn = get_db_connection();
 // 해당 업체의 결제 완료 배치를 전체 기간에서 최신순으로 보여준다.
 if ($action === 'preview') {
     $stmt = $conn->prepare(
-        "SELECT id, entry_date, amount, notes, paid_date, receipt_id, file_path, file_mime
+        "SELECT id, entry_date, amount, notes, paid_date, receipt_id, file_path, file_mime, entry_type
          FROM deferred_entries
          WHERE store_id=? AND supplier=? AND status='paid'
          ORDER BY paid_date DESC, receipt_id DESC, entry_date ASC, id ASC"
@@ -52,7 +52,7 @@ if ($action === 'preview') {
         $ts = strtotime($e['entry_date']);
         $batches[$key]['items'][] = [
             'id'        => (int)$e['id'],
-            'label'     => date('M j', $ts),
+            'label'     => date('M j', $ts) . (($e['entry_type'] ?? 'purchase') === 'return' ? ' (Return)' : ''),
             'amount'    => (float)$e['amount'],
             'notes'     => $e['notes'] ?? '',
             'file_path' => $e['file_path'] ?? null,

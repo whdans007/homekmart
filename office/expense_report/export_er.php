@@ -197,7 +197,7 @@ echo xmlRow(14, xmlCells([
 // CHECK(좌) / OTHER EXPENSES 통합(우) 헤더
 echo xmlRow(15, xmlCells([
     ['CHECK NO.', 's_chkhd'], ['SUPLIERS  (PAY THRU CHECK)', 's_chkhd', 5], ['AMOUNT CHECK', 's_chkhd', 1],
-    ['CV NO.', 's_chkhd', 0, 0, 'String', 10], ['OTHER EXPENSES  (SALARY/ELECTRIC/WATER/RENT)', 's_chkhd', 5], ['AMOUNT', 's_chkhd', 1],
+    ['CV NO.', 's_chkhd', 0, 0, 'String', 10], ['OTHER EXPENSES  (SALARY/SSS/ELECTRIC/WATER/INTERNET/GARBAGE)', 's_chkhd', 5], ['AMOUNT', 's_chkhd', 1],
 ]));
 
 for ($i = 0; $i < $MAX_CHECK; $i++) {

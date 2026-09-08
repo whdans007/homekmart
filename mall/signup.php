@@ -167,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['google_pending'] ?? '') ==
 </head>
 <body>
     <div class="auth-wrap">
-        <div class="auth-logo"><img src="/logo/homekmart_logo.png" alt="HOME K MART"></div>
+        <div class="auth-logo"><a href="/mall/index.php"><img src="/logo/homekmart_logo.png" alt="HOME K MART"></a></div>
         <div class="auth-card">
             <?php if ($error_message): ?>
                 <div class="alert-error"><i class="fas fa-exclamation-circle"></i><span><?php echo htmlspecialchars($error_message); ?></span></div>
@@ -249,13 +249,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['google_pending'] ?? '') ==
             </form>
 
             <div class="auth-divider">또는</div>
-            <div class="google-btn-wrap">
+            <div class="google-btn-wrap" id="googleWebBtnWrap">
                 <div id="g_id_onload"
                      data-client_id="<?php echo htmlspecialchars(MALL_GOOGLE_CLIENT_ID); ?>"
                      data-callback="mallHandleGoogleCredential">
                 </div>
                 <div class="g_id_signin" data-type="standard" data-shape="pill" data-width="320" data-text="signup_with"></div>
             </div>
+            <button type="button" id="googleNativeBtn" class="btn btn-block" style="display:none;border:1px solid var(--line-normal);background:var(--bg-normal);color:var(--label-normal);">
+                <i class="fab fa-google"></i> Google로 가입하기
+            </button>
             <?php endif; ?>
 
             <div class="login-row">이미 계정이 있으신가요? <a href="login.php">로그인</a></div>
@@ -270,9 +273,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['google_pending'] ?? '') ==
             });
         });
 
-        function mallHandleGoogleCredential(response) {
+        function mallSubmitGoogleCredential(credential) {
             const params = new URLSearchParams();
-            params.set('credential', response.credential);
+            params.set('credential', credential);
             fetch('/mall/ajax/google_auth.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
                 .then(r => r.json())
                 .then(data => {
@@ -286,6 +289,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['google_pending'] ?? '') ==
                 })
                 .catch(() => alert('구글 로그인 중 오류가 발생했습니다'));
         }
+
+        function mallHandleGoogleCredential(response) {
+            mallSubmitGoogleCredential(response.credential);
+        }
+
+        // 앱(Capacitor WebView) 안에서는 구글이 GIS 로그인 버튼 렌더링을 막기 때문에
+        // 네이티브 Credential Manager 기반 로그인(@capgo/capacitor-social-login)으로 대체한다.
+        (function () {
+            var isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+            if (!isNative) return;
+
+            var webBtnWrap = document.getElementById('googleWebBtnWrap');
+            var nativeBtn = document.getElementById('googleNativeBtn');
+            if (webBtnWrap) webBtnWrap.style.display = 'none';
+            if (nativeBtn) nativeBtn.style.display = '';
+
+            var SocialLogin = window.Capacitor.Plugins && window.Capacitor.Plugins.SocialLogin;
+            if (!SocialLogin || !nativeBtn) return;
+
+            SocialLogin.initialize({
+                google: { webClientId: '<?php echo htmlspecialchars(MALL_GOOGLE_CLIENT_ID); ?>' }
+            });
+
+            nativeBtn.addEventListener('click', function () {
+                nativeBtn.disabled = true;
+                SocialLogin.login({ provider: 'google', options: {} })
+                    .then(function (res) {
+                        var idToken = res && res.result && res.result.idToken;
+                        if (!idToken) throw new Error('no idToken in login result');
+                        mallSubmitGoogleCredential(idToken);
+                    })
+                    .catch(function (e) {
+                        console.error('native google login failed', e);
+                        alert('구글 로그인에 실패했습니다');
+                    })
+                    .finally(function () { nativeBtn.disabled = false; });
+            });
+        })();
     </script>
 </body>
 </html>

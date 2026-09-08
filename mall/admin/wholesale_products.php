@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
 
@@ -21,11 +22,11 @@ $items = $conn->query(
 $conn->close();
 ?>
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="<?php echo get_language(); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>도매 상품 노출 - HOME K MART 쇼핑몰</title>
+    <title><?php echo t('mall_admin.wholesale_products.page_title'); ?> - HOME K MART <?php echo t('mall_admin.title'); ?></title>
     <link rel="icon" href="data:,">
     <link href="../../admin/css/style.css" rel="stylesheet">
     <link href="../../admin/css/design-system.css" rel="stylesheet">
@@ -34,32 +35,32 @@ $conn->close();
 <body class="bg-gray-50 min-h-screen">
 <?php include __DIR__ . '/partials/sidebar.php'; ?>
 <main class="p-6">
-        <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-warehouse mr-2"></i>도매 상품 노출 관리</h1>
+        <h1 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-warehouse mr-2"></i><?php echo t('mall_admin.wholesale_products.page_title'); ?></h1>
         <div id="flash-area"></div>
 
         <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
             <table class="min-w-full text-xs">
                 <thead class="bg-gray-100 text-gray-600">
                     <tr>
-                        <th class="px-3 py-2 text-left">도매 상품명</th>
-                        <th class="px-3 py-2 text-left">도매가</th>
-                        <th class="px-3 py-2 text-left">상태</th>
-                        <th class="px-3 py-2 text-left">몰 노출</th>
+                        <th class="px-3 py-2 text-left"><?php echo t('mall_admin.wholesale_products.name'); ?></th>
+                        <th class="px-3 py-2 text-left"><?php echo t('mall_admin.wholesale_products.price'); ?></th>
+                        <th class="px-3 py-2 text-left"><?php echo t('common.status'); ?></th>
+                        <th class="px-3 py-2 text-left"><?php echo t('mall_admin.wholesale_products.visible'); ?></th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php if (empty($items)): ?>
-                    <tr><td colspan="4" class="px-3 py-6 text-center text-gray-400">등록된 도매 상품이 없습니다.</td></tr>
+                    <tr><td colspan="4" class="px-3 py-6 text-center text-gray-400"><?php echo t('mall_admin.wholesale_products.empty'); ?></td></tr>
                 <?php endif; ?>
                 <?php foreach ($items as $it): ?>
                     <tr class="border-t border-gray-100">
                         <td class="px-3 py-2"><?php echo htmlspecialchars($it['wholesale_name_ko'] ?? ''); ?></td>
                         <td class="px-3 py-2"><?php echo number_format((float)$it['wholesale_price'], 2); ?></td>
-                        <td class="px-3 py-2"><?php echo $it['wp_active'] ? '<span class="text-green-600">활성</span>' : '<span class="text-gray-400">비활성</span>'; ?></td>
+                        <td class="px-3 py-2"><?php echo $it['wp_active'] ? '<span class="text-green-600">' . t('common.active') . '</span>' : '<span class="text-gray-400">' . t('common.inactive') . '</span>'; ?></td>
                         <td class="px-3 py-2">
                             <label class="inline-flex items-center gap-1 cursor-pointer">
                                 <input type="checkbox" class="visibility-toggle" data-id="<?php echo (int)$it['id']; ?>" <?php echo $it['is_visible'] ? 'checked' : ''; ?>>
-                                <span>노출</span>
+                                <span><?php echo t('mall_admin.wholesale_products.visible'); ?></span>
                             </label>
                         </td>
                     </tr>
@@ -88,7 +89,7 @@ document.querySelectorAll('.visibility-toggle').forEach(function (cb) {
             .then(data => {
                 if (!data.success) {
                     cb.checked = !cb.checked;
-                    showFlash(data.error?.message || '오류가 발생했습니다.', 'error');
+                    showFlash(data.error?.message || '<?php echo addslashes(t('common.error_occurred')); ?>', 'error');
                 }
             });
     });

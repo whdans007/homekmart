@@ -31,6 +31,7 @@ if ($filter === 'out') {
                    b.name_en AS brand_name,
                    COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                    0 AS total_stock,
+                   NULL AS earliest_expiry,
                    (SELECT s.name
                     FROM lc_inventory li
                     JOIN lc_inbound ib2 ON li.inbound_id = ib2.id
@@ -104,7 +105,7 @@ $conn->close();
 
 $headers = [
     'Brand', 'Product Name', 'Capacity', 'Barcode', 'Unit',
-    'Current Stock', 'Min Stock', 'Status', 'Supplier',
+    'Expiry Date', 'Current Stock', 'Min Stock', 'Supplier',
 ];
 $textCols = [4]; // Barcode
 
@@ -117,17 +118,15 @@ $title = $titles[$filter] ?? 'Inventory';
 
 $rows = [];
 foreach ($list as $row) {
-    $isOut = $row['total_stock'] <= 0;
-    $isLow = !$isOut && $row['min_stock'] > 0 && $row['total_stock'] <= $row['min_stock'];
     $rows[] = [
         $row['brand_name'] ?? '',
         $row['product_name'],
         $row['capacity'] ?? '',
         $row['barcode'] ?? '',
         $row['unit'],
+        $row['earliest_expiry'] ?? '',
         (string)$row['total_stock'],
         (string)$row['min_stock'],
-        $isOut ? 'Out of Stock' : ($isLow ? 'Low Stock' : 'Normal'),
         $row['latest_supplier'] ?? '',
     ];
 }
