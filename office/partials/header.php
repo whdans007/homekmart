@@ -127,7 +127,6 @@ $is_dtr       = str_contains($uri, '/deferred_tracker/');
 $_nav_today   = date('Y-m-d');
 $_nav_year    = date('Y');
 $_nav_month   = date('n');
-$is_pos2      = $is_sales && str_contains($uri, 'pos2_entry');
 $is_pos       = $is_sales && str_contains($uri, 'daily_entry');
 $is_dk        = $is_sales && str_contains($uri, 'dk_entry');
 $is_ws        = $is_sales && str_contains($uri, 'ws_entry');
@@ -219,7 +218,7 @@ aside .menu-item { font-size: 11px; padding-top: 4px; padding-bottom: 4px; }
     <!-- Sales 섹션 (blue) -->
     <div class="rounded-lg px-1.5 py-2" style="background:#eff6ff;">
       <p class="menu-section-header flex items-center justify-between px-2 py-1 mb-1 text-xs font-semibold uppercase tracking-wider rounded cursor-pointer" data-section="sales" style="background:#dbeafe;color:#1d4ed8;" title="Click to toggle">Sales <span class="menu-toggle-icon font-bold text-sm">-</span></p>
-      <?php nav_link($office_nav_base.'sales/monthly_report.php', 'fa-solid fa-chart-bar', 'Sales Report', $is_sales && !$is_pos && !$is_pos2 && !$is_dk && !$is_ws && !$is_credit && !$is_transfer, 'sales'); ?>
+      <?php nav_link($office_nav_base.'sales/monthly_report.php', 'fa-solid fa-chart-bar', 'Sales Report', $is_sales && !$is_pos && !$is_dk && !$is_ws && !$is_credit && !$is_transfer, 'sales'); ?>
       <?php nav_link($office_nav_base.'sales/daily_entry.php?date='.$_nav_today, 'fa-solid fa-cash-register', 'POS', $is_pos, 'sales'); ?>
       <?php nav_link($office_nav_base.'sales/dk_entry.php?date='.$_nav_today, 'fa-solid fa-motorcycle', 'Delivery K', $is_dk, 'sales'); ?>
       <?php nav_link($office_nav_base.'sales/ws_entry.php?date='.$_nav_today, 'fa-solid fa-boxes-stacked', 'Whole Sale', $is_ws, 'sales'); ?>

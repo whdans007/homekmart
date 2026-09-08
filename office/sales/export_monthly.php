@@ -1,4 +1,5 @@
 <?php
+// Design Ref: homekmart-store-config §5.2
 ob_start();
 require_once __DIR__ . '/../lib/office_helper.php';
 require_office_permission();
@@ -42,7 +43,7 @@ function xesc(string $v): string {
 }
 function xnum(float $n, bool $zeroBlank = true): string {
     if ($zeroBlank && $n == 0) return '';
-    return number_format($n, 2);
+    return number_format($n, 2, '.', '');
 }
 function xrow(int $h, string $cells): string {
     return '<Row ss:Height="' . $h . '">' . $cells . "</Row>\n";
@@ -87,37 +88,35 @@ $xml .= '<Style ss:ID="s_hdr"><Alignment ss:Horizontal="Center" ss:Vertical="Cen
 // Date cell
 $xml .= '<Style ss:ID="s_date"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="9"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
 // Data number
-$xml .= '<Style ss:ID="s_num"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="9"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
+$xml .= '<Style ss:ID="s_num"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0.00"/><Font ss:FontName="Arial" ss:Size="9"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
 // Sales total (red bg)
-$xml .= '<Style ss:ID="s_tot"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="9" ss:Bold="1" ss:Color="#991b1b"/><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
+$xml .= '<Style ss:ID="s_tot"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0.00"/><Font ss:FontName="Arial" ss:Size="9" ss:Bold="1" ss:Color="#991b1b"/><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
 // Negative net
-$xml .= '<Style ss:ID="s_neg"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="9" ss:Color="#dc2626"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
+$xml .= '<Style ss:ID="s_neg"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0.00"/><Font ss:FontName="Arial" ss:Size="9" ss:Color="#dc2626"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
 // Grand total row
-$xml .= '<Style ss:ID="s_grand"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="9" ss:Bold="1"/><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>' . "\n";
+$xml .= '<Style ss:ID="s_grand"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0.00"/><Font ss:FontName="Arial" ss:Size="9" ss:Bold="1"/><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>' . "\n";
 $xml .= '<Style ss:ID="s_grand_date"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="9" ss:Bold="1"/><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>' . "\n";
 $xml .= '</Styles>' . "\n";
 
 // Worksheet
 $xml .= '<Worksheet ss:Name="Sales Report">' . "\n";
 $xml .= '<Table ss:DefaultRowHeight="16">' . "\n";
-// Column widths: Date(120) + 2×GY + 2×MRN + 2×MID + DK + POS + CreditInvoice + WS + SalesTotal + Purchase + StoreExp + Transfer + Net
-$widths = [120, 72,72, 72,72, 72,72, 72, 72,82, 72, 85, 78, 78, 78, 82];
+// 날짜 + 가변 POS 열 + 나머지 매출 항목
+$widths = array_merge([120], array_fill(0, count($report['pos_keys']), 72), [72, 72, 82, 72, 85, 78, 78, 78, 82]);
 foreach ($widths as $w) { $xml .= '<Column ss:Width="' . $w . '"/>' . "\n"; }
 
-// Row 1: Title (spans all 16 cols → MergeAcross=15)
+// 제목은 현재 보고서 전체 열에 걸쳐 병합
 $report_title = 'HOME K MART' . ($store_display !== '' ? ' ' . $store_display : '') . ' SALES REPORT';
-$xml .= xrow(26, xcell($report_title, 's_title', 15));
+$xml .= xrow(26, xcell($report_title, 's_title', count($widths) - 1));
 // Row 2: Month label
-$xml .= xrow(18, xcell($month_label, 's_month', 15));
+$xml .= xrow(18, xcell($month_label, 's_month', count($widths) - 1));
 // Row 3: Headers (single row, simplified — no MergeDown)
-$hdr_cells =
-    xcell('DATE',          's_hdr') .
-    xcell('GY POS1',       's_hdr') .
-    xcell('GY POS2',       's_hdr') .
-    xcell('MRN POS1',      's_hdr') .
-    xcell('MRN POS2',      's_hdr') .
-    xcell('MID POS1',      's_hdr') .
-    xcell('MID POS2',      's_hdr') .
+$hdr_cells = xcell('DATE', 's_hdr');
+foreach ($report['pos_keys'] as $pos_key) {
+    [$shift_key, $pos_label] = explode('_', $pos_key, 2);
+    $hdr_cells .= xcell(strtoupper($shift_key === 'morning' ? 'MRN' : $shift_key) . ' ' . strtoupper($pos_label), 's_hdr');
+}
+$hdr_cells .=
     xcell('DELIVERY K',    's_hdr') .
     xcell('POS (외상)',     's_hdr') .
     xcell('거래명세서',      's_hdr') .
@@ -135,14 +134,13 @@ for ($d = 1; $d <= $days; $d++) {
     $dow = $days_en[date('w', mktime(0,0,0,$month,$d,$year))];
     $lbl = date('M j', mktime(0,0,0,$month,$d,$year)) . ' ' . $dow;
     $ns  = 's_num';
+    $pos_cells = '';
+    foreach ($report['pos_keys'] as $pos_key) {
+        $pos_cells .= xcell(xnum($r[$pos_key]), $ns, 0, 'Number');
+    }
     $xml .= xrow(16,
         xcell($lbl, 's_date') .
-        xcell(xnum($r['gy1']), $ns, 0, 'Number') .
-        xcell(xnum($r['gy2']), $ns, 0, 'Number') .
-        xcell(xnum($r['mo1']), $ns, 0, 'Number') .
-        xcell(xnum($r['mo2']), $ns, 0, 'Number') .
-        xcell(xnum($r['mi1']), $ns, 0, 'Number') .
-        xcell(xnum($r['mi2']), $ns, 0, 'Number') .
+        $pos_cells .
         xcell(xnum($r['dk']),  $ns, 0, 'Number') .
         xcell(xnum($r['pc']),  $ns, 0, 'Number') .
         xcell(xnum($r['cd']),  $ns, 0, 'Number') .
@@ -156,14 +154,13 @@ for ($d = 1; $d <= $days; $d++) {
 }
 
 // Total row
+$pos_total_cells = '';
+foreach ($report['pos_keys'] as $pos_key) {
+    $pos_total_cells .= xcell(xnum($col_totals[$pos_key], false), 's_grand', 0, 'Number');
+}
 $xml .= xrow(18,
     xcell('TOTAL', 's_grand_date') .
-    xcell(xnum($col_totals['gy_pos1'], false), 's_grand', 0, 'Number') .
-    xcell(xnum($col_totals['gy_pos2'], false), 's_grand', 0, 'Number') .
-    xcell(xnum($col_totals['morning_pos1'], false), 's_grand', 0, 'Number') .
-    xcell(xnum($col_totals['morning_pos2'], false), 's_grand', 0, 'Number') .
-    xcell(xnum($col_totals['mid_pos1'], false), 's_grand', 0, 'Number') .
-    xcell(xnum($col_totals['mid_pos2'], false), 's_grand', 0, 'Number') .
+    $pos_total_cells .
     xcell(xnum($col_totals['delivery_k'],  false), 's_grand', 0, 'Number') .
     xcell(xnum($col_totals['pos_credit'],  false), 's_grand', 0, 'Number') .
     xcell(xnum($col_totals['credit_doc'],  false), 's_grand', 0, 'Number') .

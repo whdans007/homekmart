@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/office_helper.php';
+require_once __DIR__ . '/../../lib/store_config_helper.php';
 
 $schedule_id = (int)($_GET['schedule_id'] ?? 0);
 $year        = (int)($_GET['year']  ?? date('Y'));
@@ -64,7 +65,7 @@ for ($d = $date_from; $d <= $date_to; $d++) {
 
 $roles       = get_job_roles();
 $shifts      = ['morning' => 'MORNING', 'mid' => 'MID', 'gy' => 'GY'];
-$shift_times = ['morning' => '8AM~5PM', 'mid' => '3PM~12AM', 'gy' => '11PM~8AM'];
+$shift_times = array_map(fn($shift) => $shift['display'], get_store_shifts($store_id)); // Design Ref: homekmart-store-config §5.3
 
 // 확정 화면과 동일한 색상 팔레트
 $shift_att_colors = [
@@ -107,15 +108,25 @@ $role_colors = [
     'supervisor'   => ['bg' => '#b45309', 'color' => '#ffffff', 'border' => '#92400e'],
     'admin'        => ['bg' => '#374151', 'color' => '#ffffff', 'border' => '#1f2937'],
 ];
-$time_color_map = [
-    '8AM~5PM'  => ['bg' => '#fef9c3', 'color' => '#854d0e', 'border' => '#854d0e'],
-    '3PM~12AM' => ['bg' => '#dbeafe', 'color' => '#1d4ed8', 'border' => '#1d4ed8'],
-    '11PM~8AM' => ['bg' => '#fff7ed', 'color' => '#c2410c', 'border' => '#c2410c'],
+// Design Ref: homekmart-store-config §5.3 FR-F2-11 — 색상 맵의 키를 시간 리터럴이 아니라 shift_key로 삼는다.
+// 점포별 근무시간이 바뀌어도 supervisor_shift_time 값이 어느 shift(gy/morning/mid)의 시간과
+// 일치하는지로 색을 찾으므로 색상이 유지된다. 3교대 외 장시간 커버(8AM~8PM 등)는 시간 리터럴 그대로 유지.
+$shift_key_time_colors = [
+    'morning' => ['bg' => '#fef9c3', 'color' => '#854d0e', 'border' => '#854d0e'],
+    'mid'     => ['bg' => '#dbeafe', 'color' => '#1d4ed8', 'border' => '#1d4ed8'],
+    'gy'      => ['bg' => '#fff7ed', 'color' => '#c2410c', 'border' => '#c2410c'],
+];
+$extended_time_colors = [
     '8AM~8PM'  => ['bg' => '#f5f3ff', 'color' => '#7e22ce', 'border' => '#7e22ce'],
     '8PM~8AM'  => ['bg' => '#fce7f3', 'color' => '#9d174d', 'border' => '#9d174d'],
     '8AM-8PM'  => ['bg' => '#f5f3ff', 'color' => '#7e22ce', 'border' => '#7e22ce'],
     '8PM-8AM'  => ['bg' => '#fce7f3', 'color' => '#9d174d', 'border' => '#9d174d'],
 ];
+$store_shift_display  = get_store_shifts($store_id);
+$shift_key_by_display = [];
+foreach ($store_shift_display as $sk => $sv) {
+    $shift_key_by_display[$sv['display']] = $sk;
+}
 
 $period_label = $period === 'first' ? '1~15' : "16~{$days_in_month}";
 ?>
@@ -225,7 +236,11 @@ if (!$has_any) continue; // 배정 직원 없는 직무는 생략
 
             if ($att === 'present') {
                 if ($sup_override) {
-                    $c = $time_color_map[$s['sup_time']] ?? ['bg' => '#1d4ed8', 'color' => '#ffffff', 'border' => '#1e3a8a'];
+                    $sup_key = $shift_key_by_display[$s['sup_time']] ?? null;
+                    $c = $sup_key !== null
+                        ? ($shift_key_time_colors[$sup_key] ?? null)
+                        : ($extended_time_colors[$s['sup_time']] ?? null);
+                    $c = $c ?? ['bg' => '#1d4ed8', 'color' => '#ffffff', 'border' => '#1e3a8a'];
                 } else {
                     $base = $shift_att_colors[$shift_key] ?? $att_colors['present'];
                     $c = array_merge($base, ['border' => $base['color']]);

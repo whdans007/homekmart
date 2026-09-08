@@ -1,4 +1,6 @@
 <?php
+// Design Ref: homekmart-store-config §5.2
+require_once __DIR__ . '/../../lib/store_config_helper.php';
 // Design Ref: §6.2 — Monthly report matching image format
 $page_title      = 'Sales Report';
 $css_base        = '../../admin/';
@@ -100,9 +102,13 @@ $days_en = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   <thead>
     <tr>
       <th class="col-date" rowspan="2">DATE</th>
-      <th colspan="2">GY<br><span style="font-weight:normal;font-size:9px;">12:00AM-8:00AM</span></th>
-      <th colspan="2">MORNING<br><span style="font-weight:normal;font-size:9px;">8:00AM-5:00PM</span></th>
-      <th colspan="2">MID<br><span style="font-weight:normal;font-size:9px;">5:00PM-12:00AM</span></th>
+      <?php $report_shifts = get_store_shifts($store_id);
+      foreach (STORE_SHIFT_KEYS as $shift_key):
+        $shift_config = $report_shifts[$shift_key];
+        $shift_columns = array_filter($report['pos_keys'], fn($key) => strpos($key, $shift_key . '_pos') === 0);
+      ?>
+      <th colspan="<?php echo count($shift_columns); ?>"><?php echo htmlspecialchars($shift_config['label']); ?><br><span style="font-weight:normal;font-size:9px;"><?php echo htmlspecialchars(format_shift_time($shift_config['start_time'], $shift_config['end_time'], 'dash')); ?></span></th>
+      <?php endforeach; ?>
       <th>DELIVERY K</th>
       <th>POS<br><span style="font-weight:normal;font-size:9px;">외상</span></th>
       <th>거래명세서<br><span style="font-weight:normal;font-size:9px;">Credit Invoice</span></th>
@@ -114,9 +120,9 @@ $days_en = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
       <th>NET<br>(매출-지출)</th>
     </tr>
     <tr>
-      <th>POS 1</th><th>POS 2</th>
-      <th>POS 1</th><th>POS 2</th>
-      <th>POS 1</th><th>POS 2</th>
+      <?php foreach ($report['pos_keys'] as $pos_key): ?>
+      <th>POS <?php echo (int)substr($pos_key, strrpos($pos_key, 'pos') + 3); ?></th>
+      <?php endforeach; ?>
       <th colspan="9"></th>
     </tr>
   </thead>
@@ -133,12 +139,9 @@ $days_en = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
       <?php echo date('M j', strtotime($dt)); ?> <?php echo $dow; ?>
       <?php if ($is_today) echo ' <span class="text-xs text-blue-500">●</span>'; ?>
     </td>
-    <td class="<?php echo !$r['gy1'] ? 'zero':'' ?>"><?php echo fmtC($r['gy1']); ?></td>
-    <td class="<?php echo !$r['gy2'] ? 'zero':'' ?>"><?php echo fmtC($r['gy2']); ?></td>
-    <td class="<?php echo !$r['mo1'] ? 'zero':'' ?>"><?php echo fmtC($r['mo1']); ?></td>
-    <td class="<?php echo !$r['mo2'] ? 'zero':'' ?>"><?php echo fmtC($r['mo2']); ?></td>
-    <td class="<?php echo !$r['mi1'] ? 'zero':'' ?>"><?php echo fmtC($r['mi1']); ?></td>
-    <td class="<?php echo !$r['mi2'] ? 'zero':'' ?>"><?php echo fmtC($r['mi2']); ?></td>
+    <?php foreach ($report['pos_keys'] as $pos_key): ?>
+    <td class="<?php echo !$r[$pos_key] ? 'zero' : ''; ?>"><?php echo fmtC($r[$pos_key]); ?></td>
+    <?php endforeach; ?>
     <td class="<?php echo !$r['dk'] ? 'zero':'' ?>"><?php echo fmtC($r['dk']); ?></td>
     <td class="<?php echo !$r['pc'] ? 'zero':'' ?>"><?php echo fmtC($r['pc']); ?></td>
     <td class="<?php echo !$r['cd'] ? 'zero':'' ?>"><?php echo fmtC($r['cd']); ?></td>
@@ -153,12 +156,9 @@ $days_en = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   <!-- Total Row -->
   <tr class="row-sum">
     <td class="col-date text-left">TOTAL</td>
-    <td><?php echo fmtT($col_totals['gy_pos1']); ?></td>
-    <td><?php echo fmtT($col_totals['gy_pos2']); ?></td>
-    <td><?php echo fmtT($col_totals['morning_pos1']); ?></td>
-    <td><?php echo fmtT($col_totals['morning_pos2']); ?></td>
-    <td><?php echo fmtT($col_totals['mid_pos1']); ?></td>
-    <td><?php echo fmtT($col_totals['mid_pos2']); ?></td>
+    <?php foreach ($report['pos_keys'] as $pos_key): ?>
+    <td><?php echo fmtT($col_totals[$pos_key]); ?></td>
+    <?php endforeach; ?>
     <td><?php echo fmtT($col_totals['delivery_k']); ?></td>
     <td><?php echo fmtT($col_totals['pos_credit']); ?></td>
     <td><?php echo fmtT($col_totals['credit_doc']); ?></td>
@@ -173,12 +173,9 @@ $days_en = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   <?php $div = $days_with_sales > 0 ? $days_with_sales : 1; ?>
   <tr class="row-avg">
     <td class="col-date text-left">AVG / DAY<br><span style="color:#93c5fd;font-size:9px;"><?php echo $days_with_sales; ?>영업일</span></td>
-    <td><?php echo fmtT($col_totals['gy_pos1']/$div); ?></td>
-    <td><?php echo fmtT($col_totals['gy_pos2']/$div); ?></td>
-    <td><?php echo fmtT($col_totals['morning_pos1']/$div); ?></td>
-    <td><?php echo fmtT($col_totals['morning_pos2']/$div); ?></td>
-    <td><?php echo fmtT($col_totals['mid_pos1']/$div); ?></td>
-    <td><?php echo fmtT($col_totals['mid_pos2']/$div); ?></td>
+    <?php foreach ($report['pos_keys'] as $pos_key): ?>
+    <td><?php echo fmtT($col_totals[$pos_key]/$div); ?></td>
+    <?php endforeach; ?>
     <td><?php echo fmtT($col_totals['delivery_k']/$div); ?></td>
     <td><?php echo fmtT($col_totals['pos_credit']/$div); ?></td>
     <td><?php echo fmtT($col_totals['credit_doc']/$div); ?></td>

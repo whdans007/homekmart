@@ -5,18 +5,21 @@
 // 반영되어 있으므로 임의로 계산식을 변경하지 않는다.
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/daily_report_helper.php';
+require_once __DIR__ . '/../../lib/store_config_helper.php';
 
 /**
  * 지정 점포/연월의 월간 판매 리포트 데이터를 집계합니다.
  * @param int $store_id
  * @param int $year
  * @param int $month
- * @return array{days:int, days_with_sales:int, rows:array, col_totals:array,
+ * @return array{days:int, days_with_sales:int, rows:array, col_totals:array, pos_keys:array,
  *               retail_total:float, wholesale_total:float, sales_total_s:float,
  *               avg_daily:float, avg_retail:float, avg_wholesale:float,
  *               purchase_ratio:float, expense_ratio:float, net_margin:float,
  *               retail_pct:float, wholesale_pct:float, delivery_k_pct:float,
  *               credit_doc_pct:float, whole_sale_pct:float}
+ *         `pos_keys`는 이 점포의 pos_count 기준 "{shift}_pos{n}" 키 목록(gy_pos1, gy_pos2, ... 순서 보장) —
+ *         화면/엑셀에서 열을 렌더할 때 이 배열을 순회한다(Design Ref: homekmart-store-config §4.2).
  */
 function get_monthly_sales_report(int $store_id, int $year, int $month): array {
     $days = (int)date('t', mktime(0, 0, 0, $month, 1, $year));
@@ -254,34 +257,42 @@ function get_monthly_sales_report(int $store_id, int $year, int $month): array {
     $conn->close();
 
     // Build rows + totals
-    $col_totals = array_fill_keys([
-        'gy_pos1','gy_pos2','morning_pos1','morning_pos2','mid_pos1','mid_pos2',
+    // Design Ref: homekmart-store-config §4.2 — POS 열은 점포별 pos_count 기준 가변.
+    // 키 형식은 pos_preload_date()와 동일한 "{shift}_pos{n}"을 유지한다(daily_entry.php JS와 공유).
+    $max_pos  = get_store_pos_count($store_id);
+    $pos_keys = [];
+    foreach (STORE_SHIFT_KEYS as $shift) {
+        for ($p = 1; $p <= $max_pos; $p++) {
+            $pos_keys[] = "{$shift}_pos{$p}";
+        }
+    }
+
+    $col_totals = array_fill_keys(array_merge($pos_keys, [
         'delivery_k','pos_credit','credit_doc','whole_sale','sales_total','purchase','equip','transfer','net'
-    ], 0.0);
+    ]), 0.0);
 
     $rows = [];
     for ($d = 1; $d <= $days; $d++) {
-        $s  = $sales_by_day[$d] ?? [];
-        $gy1= (float)($s['gy_pos1']??0);
-        $gy2= (float)($s['gy_pos2']??0);
-        $mo1= (float)($s['morning_pos1']??0);
-        $mo2= (float)($s['morning_pos2']??0);
-        $mi1= (float)($s['mid_pos1']??0);
-        $mi2= (float)($s['mid_pos2']??0);
+        $s = $sales_by_day[$d] ?? [];
+        $pos_vals = [];
+        $retail_day = 0.0;
+        foreach ($pos_keys as $k) {
+            $v = (float)($s[$k] ?? 0);
+            $pos_vals[$k] = $v;
+            $retail_day  += $v;
+        }
         $dk = (float)($s['delivery_k']??0);
         $pc = $pos_credit_by_day[$d] ?? 0.0; // §4 POS 외상 (정보용 · SALES TOTAL 제외)
         $cd = $credit_doc_by_day[$d] ?? 0.0; // §4 거래명세서 (SALES TOTAL 포함)
         $ws = $ws_by_day[$d] ?? 0.0; // §5 Whole Sale — wholesale_sales 등록 전체 합계 (pick 여부 무관, 즉시 반영)
-        $st = $gy1+$gy2+$mo1+$mo2+$mi1+$mi2+$dk+$cd+$ws; // 거래명세서 포함, POS 외상 제외
+        $st = $retail_day+$dk+$cd+$ws; // 거래명세서 포함, POS 외상 제외
         $pu = $purchase_by_day[$d] ?? 0.0;
         $eq = $equip_by_day[$d]    ?? 0.0;
         $tr = $transfer_by_day[$d] ?? 0.0;
         $net= $st - $pu - $eq - $tr;
-        $rows[$d] = compact('gy1','gy2','mo1','mo2','mi1','mi2','dk','pc','cd','ws','st','pu','eq','tr','net');
+        $rows[$d] = $pos_vals + compact('dk','pc','cd','ws','st','pu','eq','tr','net');
         // accumulate
-        $col_totals['gy_pos1']    += $gy1; $col_totals['gy_pos2']     += $gy2;
-        $col_totals['morning_pos1']+=$mo1; $col_totals['morning_pos2']+=$mo2;
-        $col_totals['mid_pos1']   += $mi1; $col_totals['mid_pos2']    += $mi2;
+        foreach ($pos_keys as $k) { $col_totals[$k] += $pos_vals[$k]; }
         $col_totals['delivery_k'] += $dk;  $col_totals['pos_credit']  += $pc;
         $col_totals['credit_doc'] += $cd;  $col_totals['whole_sale']  += $ws;
         $col_totals['sales_total']+= $st;  $col_totals['purchase']    += $pu;
@@ -290,9 +301,8 @@ function get_monthly_sales_report(int $store_id, int $year, int $month): array {
     }
 
     // Summary statistics
-    $retail_total    = $col_totals['gy_pos1'] + $col_totals['gy_pos2']
-                     + $col_totals['morning_pos1'] + $col_totals['morning_pos2']
-                     + $col_totals['mid_pos1'] + $col_totals['mid_pos2'];
+    $retail_total = 0.0;
+    foreach ($pos_keys as $k) { $retail_total += $col_totals[$k]; }
     $wholesale_total = $col_totals['delivery_k'] + $col_totals['credit_doc'] + $col_totals['whole_sale'];
     $sales_total_s   = $col_totals['sales_total'];
     $days_with_sales = count(array_filter($rows, fn($r) => $r['st'] > 0));
@@ -310,7 +320,7 @@ function get_monthly_sales_report(int $store_id, int $year, int $month): array {
     $whole_sale_pct   = $sales_total_s > 0 ? $col_totals['whole_sale']  / $sales_total_s * 100 : 0;
 
     return compact(
-        'days', 'days_with_sales', 'rows', 'col_totals',
+        'days', 'days_with_sales', 'rows', 'col_totals', 'pos_keys',
         'retail_total', 'wholesale_total', 'sales_total_s',
         'avg_daily', 'avg_retail', 'avg_wholesale',
         'purchase_ratio', 'expense_ratio', 'net_margin',

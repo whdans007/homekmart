@@ -1,4 +1,5 @@
 <?php
+// Design Ref: homekmart-store-config §5.2
 // Design Ref: sales-report-main-office — exports the exact same get_monthly_sales_report()
 // data shown on screen (sales_report.php) to Excel. office/sales/export_monthly.php uses the
 // old expected_cash basis, which doesn't match the on-screen figures, so it's kept separate
@@ -46,7 +47,7 @@ function xesc(string $v): string {
 }
 function xnum(float $n, bool $zeroBlank = true): string {
     if ($zeroBlank && $n == 0) return '';
-    return number_format($n, 2);
+    return number_format($n, 2, '.', '');
 }
 function xrow(int $h, string $cells): string {
     return '<Row ss:Height="' . $h . '">' . $cells . "</Row>\n";
@@ -77,29 +78,27 @@ $xml .= '<Style ss:ID="s_title"><Alignment ss:Horizontal="Center" ss:Vertical="C
 $xml .= '<Style ss:ID="s_month"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#2e86c1" ss:Pattern="Solid"/></Style>' . "\n";
 $xml .= '<Style ss:ID="s_hdr"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Font ss:FontName="Arial" ss:Size="8" ss:Bold="1"/><Interior ss:Color="#f3f4f6" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>' . "\n";
 $xml .= '<Style ss:ID="s_date"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="9"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
-$xml .= '<Style ss:ID="s_num"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="9"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
-$xml .= '<Style ss:ID="s_tot"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="9" ss:Bold="1" ss:Color="#991b1b"/><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
-$xml .= '<Style ss:ID="s_neg"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="9" ss:Color="#dc2626"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
-$xml .= '<Style ss:ID="s_grand"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="9" ss:Bold="1"/><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>' . "\n";
+$xml .= '<Style ss:ID="s_num"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0.00"/><Font ss:FontName="Arial" ss:Size="9"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
+$xml .= '<Style ss:ID="s_tot"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0.00"/><Font ss:FontName="Arial" ss:Size="9" ss:Bold="1" ss:Color="#991b1b"/><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
+$xml .= '<Style ss:ID="s_neg"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0.00"/><Font ss:FontName="Arial" ss:Size="9" ss:Color="#dc2626"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#dddddd"/></Borders></Style>' . "\n";
+$xml .= '<Style ss:ID="s_grand"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0.00"/><Font ss:FontName="Arial" ss:Size="9" ss:Bold="1"/><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>' . "\n";
 $xml .= '<Style ss:ID="s_grand_date"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="9" ss:Bold="1"/><Interior ss:Color="#fee2e2" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="2"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>' . "\n";
 $xml .= '</Styles>' . "\n";
 
 $xml .= '<Worksheet ss:Name="Sales Report">' . "\n";
 $xml .= '<Table ss:DefaultRowHeight="16">' . "\n";
-$widths = [120, 72,72, 72,72, 72,72, 72, 72,82, 72, 85, 78, 78, 78, 82];
+$widths = array_merge([120], array_fill(0, count($report['pos_keys']), 72), [72, 72, 82, 72, 85, 78, 78, 78, 82]);
 foreach ($widths as $w) { $xml .= '<Column ss:Width="' . $w . '"/>' . "\n"; }
 
 $report_title = 'HOME K MART' . ($store_display !== '' ? ' ' . $store_display : '') . ' SALES REPORT';
-$xml .= xrow(26, xcell($report_title, 's_title', 15));
-$xml .= xrow(18, xcell($month_label, 's_month', 15));
-$hdr_cells =
-    xcell('DATE',        's_hdr') .
-    xcell('GY POS1',     's_hdr') .
-    xcell('GY POS2',     's_hdr') .
-    xcell('MRN POS1',    's_hdr') .
-    xcell('MRN POS2',    's_hdr') .
-    xcell('MID POS1',    's_hdr') .
-    xcell('MID POS2',    's_hdr') .
+$xml .= xrow(26, xcell($report_title, 's_title', count($widths) - 1));
+$xml .= xrow(18, xcell($month_label, 's_month', count($widths) - 1));
+$hdr_cells = xcell('DATE', 's_hdr');
+foreach ($report['pos_keys'] as $pos_key) {
+    [$shift_key, $pos_label] = explode('_', $pos_key, 2);
+    $hdr_cells .= xcell(strtoupper($shift_key === 'morning' ? 'MRN' : $shift_key) . ' ' . strtoupper($pos_label), 's_hdr');
+}
+$hdr_cells .=
     xcell('DELIVERY K',  's_hdr') .
     xcell('POS (Credit)', 's_hdr') .
     xcell('Credit Invoice', 's_hdr') .
@@ -116,14 +115,13 @@ for ($d = 1; $d <= $days; $d++) {
     $dt  = mktime(0, 0, 0, $month, $d, $year);
     $lbl = date('M j', $dt) . ' ' . $days_en[date('w', $dt)];
     $ns  = 's_num';
+    $pos_cells = '';
+    foreach ($report['pos_keys'] as $pos_key) {
+        $pos_cells .= xcell(xnum($r[$pos_key]), $ns, 0, 'Number');
+    }
     $xml .= xrow(16,
         xcell($lbl, 's_date') .
-        xcell(xnum($r['gy1']), $ns, 0, 'Number') .
-        xcell(xnum($r['gy2']), $ns, 0, 'Number') .
-        xcell(xnum($r['mo1']), $ns, 0, 'Number') .
-        xcell(xnum($r['mo2']), $ns, 0, 'Number') .
-        xcell(xnum($r['mi1']), $ns, 0, 'Number') .
-        xcell(xnum($r['mi2']), $ns, 0, 'Number') .
+        $pos_cells .
         xcell(xnum($r['dk']),  $ns, 0, 'Number') .
         xcell(xnum($r['pc']),  $ns, 0, 'Number') .
         xcell(xnum($r['cd']),  $ns, 0, 'Number') .
@@ -136,14 +134,13 @@ for ($d = 1; $d <= $days; $d++) {
     );
 }
 
+$pos_total_cells = '';
+foreach ($report['pos_keys'] as $pos_key) {
+    $pos_total_cells .= xcell(xnum($totals[$pos_key], false), 's_grand', 0, 'Number');
+}
 $xml .= xrow(18,
     xcell('TOTAL', 's_grand_date') .
-    xcell(xnum($totals['gy_pos1'],     false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['gy_pos2'],     false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['morning_pos1'],false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['morning_pos2'],false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['mid_pos1'],    false), 's_grand', 0, 'Number') .
-    xcell(xnum($totals['mid_pos2'],    false), 's_grand', 0, 'Number') .
+    $pos_total_cells .
     xcell(xnum($totals['delivery_k'],  false), 's_grand', 0, 'Number') .
     xcell(xnum($totals['pos_credit'],  false), 's_grand', 0, 'Number') .
     xcell(xnum($totals['credit_doc'],  false), 's_grand', 0, 'Number') .

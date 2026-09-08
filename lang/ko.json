@@ -2917,5 +2917,21 @@
     "margin_save_success": "마진율이 저장되었습니다.",
     "margin_save_failed": "마진율 저장에 실패했습니다.",
     "margin_invalid_rate": "마진율은 0 이상 500 이하의 숫자로 입력해 주세요."
+  },
+  "store_config": {
+    "pos_section_title": "포스 설정",
+    "pos_count_label": "포스 대수",
+    "pos_help": "대수를 늘리면 매출 정산 화면에 POS 칸이 추가됩니다. 이미 입력된 POS는 줄일 수 없습니다.",
+    "shift_section_title": "근무시간 설정",
+    "shift_help": "종료가 시작보다 이르면 자정을 넘기는 근무로 처리됩니다.",
+    "label_label": "표시명",
+    "start_label": "시작",
+    "end_label": "종료",
+    "shift_gy": "야간 (GY)",
+    "shift_morning": "오전",
+    "shift_mid": "중간",
+    "saved": "점포 설정이 저장되었습니다.",
+    "invalid_pos_count": "포스 대수는 1~{max} 사이의 정수로 입력해주세요.",
+    "cell_count": "{count}칸"
   }
 }

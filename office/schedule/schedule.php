@@ -3,6 +3,7 @@ $page_title      = 'Day Off Schedule';
 $css_base        = '../../admin/';
 $office_nav_base = '../';
 require_once __DIR__ . '/../partials/header.php';
+require_once __DIR__ . '/../../lib/store_config_helper.php';
 
 $store_id      = get_office_store_id();
 $year          = (int)($_GET['year']  ?? date('Y'));
@@ -93,7 +94,31 @@ $conn->close();
 $roles  = get_job_roles();
 $shifts = ['morning' => 'MORNING', 'mid' => 'MID', 'gy' => 'GY'];
 $shift_colors = ['morning' => '#854d0e', 'mid' => '#1e40af', 'gy' => '#6b21a8'];
-$shift_times  = ['morning' => '8AM~5PM', 'mid' => '3PM~12AM', 'gy' => '11PM~8AM'];
+$shift_times = array_map(fn($shift) => $shift['display'], get_store_shifts($store_id)); // Design Ref: homekmart-store-config §5.3
+// Design Ref: homekmart-store-config §5.3 FR-F2-12 — $is_morning_cover 판정은 하드코딩된 '3PM~12AM'
+// 문자열이 아니라 이 점포의 실제 mid 근무시간 표시값과 비교해야 시간 변경 후에도 깨지지 않는다.
+$store_shift_display = get_store_shifts($store_id);
+$store_mid_display   = $store_shift_display['mid']['display'] ?? '';
+
+// Design Ref: homekmart-store-config §5.3 — 근무시간 오버라이드 빠른선택(draft leave popup)은
+// 점포별 실제 근무시간 기준으로 옵션을 생성해야 한다. 하드코딩된 시간 문자열을 그대로 두면
+// ajax_save_schedule.php의 동적 화이트리스트를 통과 못 해 저장이 조용히 실패한다.
+$shift_time_opt_colors = [
+    'morning' => ['bg' => '#fef9c3', 'color' => '#854d0e'],
+    'mid'     => ['bg' => '#dbeafe', 'color' => '#1d4ed8'],
+    'gy'      => ['bg' => '#fff7ed', 'color' => '#c2410c'],
+];
+$dynamic_time_opts = [];
+$shift_key_by_display = [];
+foreach (STORE_SHIFT_KEYS as $sk) {
+    $display = $store_shift_display[$sk]['display'] ?? '';
+    $dynamic_time_opts["time_{$sk}"] = [
+        'display' => $display,
+        'bg'      => $shift_time_opt_colors[$sk]['bg'],
+        'color'   => $shift_time_opt_colors[$sk]['color'],
+    ];
+    $shift_key_by_display[$display] = $sk;
+}
 
 $att_labels = [
     'present'     => '✓ Present',
@@ -359,7 +384,7 @@ body > div.flex-1 > div { padding-left:4px !important; padding-right:4px !import
                   <!-- working: shift time + click for attendance popup -->
                   <?php
                   $is_cashier_mid   = $is_cashier && ($shift_key === 'mid');
-                  $is_morning_cover = ($shift_key === 'morning') && ($sup_time === '3PM~12AM');
+                  $is_morning_cover = ($shift_key === 'morning') && ($sup_time !== '') && ($sup_time === $store_mid_display);
                   $sup_override     = (($is_supv || $is_cashier_mid || $is_morning_cover) && $sup_time);
                   $display_time     = $sup_override ? $sup_time : $stime;
                   if ($attendance === 'present') {
@@ -415,16 +440,20 @@ body > div.flex-1 > div { padding-left:4px !important; padding-right:4px !import
               <?php else: ?>
                 <!-- edit mode: working -->
                 <?php
-                $time_badge_map = [
-                    '8AM~5PM'  => ['bg'=>'#fef9c3','color'=>'#854d0e','bdr'=>'#854d0e55'],
-                    '3PM~12AM' => ['bg'=>'#dbeafe','color'=>'#1d4ed8','bdr'=>'#1d4ed855'],
-                    '11PM~8AM' => ['bg'=>'#fff7ed','color'=>'#c2410c','bdr'=>'#c2410c55'],
+                // Design Ref: homekmart-store-config §5.3 FR-F2-11 — 시간 리터럴이 아니라 shift_key로 색상 조회
+                $time_badge_map_ext = [
                     '8AM~8PM'  => ['bg'=>'#f5f3ff','color'=>'#7e22ce','bdr'=>'#7e22ce55'],
                     '8PM~8AM'  => ['bg'=>'#fce7f3','color'=>'#9d174d','bdr'=>'#9d174d55'],
                     '8AM-8PM'  => ['bg'=>'#f5f3ff','color'=>'#7e22ce','bdr'=>'#7e22ce55'],
                     '8PM-8AM'  => ['bg'=>'#fce7f3','color'=>'#9d174d','bdr'=>'#9d174d55'],
                 ];
-                $tb = $time_badge_map[$sup_time] ?? ['bg'=>'#f3e8ff','color'=>'#7e22ce','bdr'=>'#c4b5fd55'];
+                $tb_shift_key = $shift_key_by_display[$sup_time] ?? null;
+                if ($tb_shift_key !== null) {
+                    $tbc = $shift_time_opt_colors[$tb_shift_key];
+                    $tb  = ['bg' => $tbc['bg'], 'color' => $tbc['color'], 'bdr' => $tbc['color'] . '55'];
+                } else {
+                    $tb = $time_badge_map_ext[$sup_time] ?? ['bg'=>'#f3e8ff','color'=>'#7e22ce','bdr'=>'#c4b5fd55'];
+                }
                 $badge_bg = $tb['bg']; $badge_color = $tb['color']; $badge_bdr = $tb['bdr'];
                 $show_badge = !empty($sup_time);
                 ?>
@@ -474,12 +503,12 @@ body > div.flex-1 > div { padding-left:4px !important; padding-right:4px !import
       ['value'=>'sick_leave',    'label'=>'💊 Sick Leave'],
       ['value'=>'sil',           'label'=>'💵 SIL'],
       ['value'=>'suspension',    'label'=>'⛔ Suspension'],
-      ['value'=>'time_8am_5pm',  'label'=>'⏰ 8AM~5PM'],
-      ['value'=>'time_3pm_12am', 'label'=>'⏰ 3PM~12AM'],
-      ['value'=>'time_11pm_8am', 'label'=>'⏰ 11PM~8AM'],
-      ['value'=>'time_8am_8pm',  'label'=>'⏰ 8AM~8PM'],
-      ['value'=>'time_8pm_8am',  'label'=>'⏰ 8PM~8AM'],
   ];
+  foreach ($dynamic_time_opts as $tkey => $topt) {
+      $leave_panel_opts[] = ['value' => $tkey, 'label' => '⏰ ' . $topt['display']];
+  }
+  $leave_panel_opts[] = ['value'=>'time_8am_8pm', 'label'=>'⏰ 8AM~8PM'];
+  $leave_panel_opts[] = ['value'=>'time_8pm_8am', 'label'=>'⏰ 8PM~8AM'];
   foreach ($leave_panel_opts as $lopt):
   ?>
   <div class="leave-opt" data-value="<?php echo $lopt['value'];?>"
@@ -739,15 +768,17 @@ const LEAVE_STYLES = {
     sil:           {isOff:1, att:'sil',        bg:'#ccfbf1',     color:'#0f766e'},
     suspension:    {isOff:1, att:'suspension', bg:'#f3e8ff',     color:'#7e22ce'},
     early_leave:   {isOff:1, att:'early_leave',bg:'#ffedd5',     color:'#9a3412'},
-    time_8am_5pm:  {isOff:0, att:'present',    bg:'#fef9c3',     color:'#854d0e', supTime:'8AM~5PM'},
-    time_3pm_12am: {isOff:0, att:'present',    bg:'#dbeafe',     color:'#1d4ed8', supTime:'3PM~12AM'},
-    time_11pm_8am: {isOff:0, att:'present',    bg:'#fff7ed',     color:'#c2410c', supTime:'11PM~8AM'},
+    <?php foreach ($dynamic_time_opts as $tkey => $topt): ?>
+    <?php echo json_encode($tkey); ?>: {isOff:0, att:'present', bg:<?php echo json_encode($topt['bg']); ?>, color:<?php echo json_encode($topt['color']); ?>, supTime:<?php echo json_encode($topt['display']); ?>},
+    <?php endforeach; ?>
     time_8am_8pm:  {isOff:0, att:'present',    bg:'#f5f3ff',     color:'#7e22ce', supTime:'8AM~8PM'},
     time_8pm_8am:  {isOff:0, att:'present',    bg:'#fce7f3',     color:'#9d174d', supTime:'8PM~8AM'},
 };
 const LEAVE_LABELS = {
     work:'Work', present:'Day Off', vacation:'Vacation', sick_leave:'Sick Leave', sil:'SIL', suspension:'Suspension',
-    time_8am_5pm:'8AM~5PM', time_3pm_12am:'3PM~12AM', time_11pm_8am:'11PM~8AM',
+    <?php foreach ($dynamic_time_opts as $tkey => $topt): ?>
+    <?php echo json_encode($tkey); ?>: <?php echo json_encode($topt['display']); ?>,
+    <?php endforeach; ?>
     time_8am_8pm:'8AM~8PM', time_8pm_8am:'8PM~8AM',
 };
 

@@ -15,7 +15,7 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
 // 현재 열려있는 셀(shift/pos_no) — 이 셀에서 이미 선택한 항목은 "다른 곳에서 사용됨"으로 취급하지 않는다.
 $cur_shift  = (string)($_GET['shift'] ?? '');
 $cur_pos    = (int)($_GET['pos_no'] ?? 0);
-$has_cur    = pos_valid_shift($cur_shift) && pos_valid_pos($cur_pos);
+$has_cur    = pos_valid_shift($cur_shift) && store_valid_pos_no($store_id, $cur_pos);
 
 $items = [];
 $conn  = get_db_connection();

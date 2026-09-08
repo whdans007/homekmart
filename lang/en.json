@@ -2837,5 +2837,21 @@
     "margin_save_success": "Margin rate saved.",
     "margin_save_failed": "Failed to save margin rate.",
     "margin_invalid_rate": "Please enter a margin rate between 0 and 500."
+  },
+  "store_config": {
+    "pos_section_title": "POS settings",
+    "pos_count_label": "Number of POS terminals",
+    "pos_help": "Increasing the count adds POS cells to sales reconciliation. POS terminals with existing entries cannot be removed.",
+    "shift_section_title": "Shift hours",
+    "shift_help": "An end time earlier than the start time is treated as an overnight shift.",
+    "label_label": "Display name",
+    "start_label": "Start",
+    "end_label": "End",
+    "shift_gy": "Graveyard (GY)",
+    "shift_morning": "Morning",
+    "shift_mid": "Mid",
+    "saved": "Store settings saved.",
+    "invalid_pos_count": "Enter a whole number between 1 and {max} for the POS count.",
+    "cell_count": "{count} cells"
   }
 }

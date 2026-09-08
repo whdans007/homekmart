@@ -12,7 +12,7 @@ $sale_date = post_date('sale_date');
 $shift     = post_str('shift');
 $pos_no    = post_int('pos_no');
 
-if (!$sale_date || !pos_valid_shift($shift) || !pos_valid_pos($pos_no)) {
+if (!$sale_date || !pos_valid_shift($shift) || !store_valid_pos_no($store_id, $pos_no)) {
     echo json_encode(['success'=>false, 'error'=>'Invalid cell parameters']); exit;
 }
 
@@ -172,15 +172,9 @@ try {
     $up->execute();
     $up->close();
 
-    // sales_daily 칸 동시 갱신 (셀 Total = total_amount). shift/pos_no는 화이트리스트 검증 완료 → 컬럼 안전
-    $col = "{$shift}_pos{$pos_no}";
-    $sd = $conn->prepare(
-        "INSERT INTO sales_daily (store_id, sale_date, `{$col}`) VALUES (?,?,?)
-         ON DUPLICATE KEY UPDATE `{$col}`=VALUES(`{$col}`), updated_at=NOW()"
-    );
-    $sd->bind_param('isd', $store_id, $sale_date, $r['total_amount']);
-    $sd->execute();
-    $sd->close();
+    // Design Ref: homekmart-store-config §3.4 — sales_daily의 gy_pos1~mid_pos2 미러 컬럼은
+    // pos2_entry.php(삭제됨) 전용이었다. 권위 소스는 sales_pos_reconciliation이며 모든 리포트가
+    // 그쪽을 읽으므로(office/lib/sales_report_helper.php, daily_report_helper.php) 더 이상 미러링하지 않는다.
 
     $conn->commit();
 } catch (Throwable $ex) {

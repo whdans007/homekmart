@@ -8,7 +8,7 @@ $store_id = get_office_store_id();
 $date     = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'] ?? '') ? $_GET['date'] : date('Y-m-d');
 $shift    = $_GET['shift'] ?? '';
 $pos_no   = (int)($_GET['pos_no'] ?? 0);
-if (!pos_valid_shift($shift) || !pos_valid_pos($pos_no)) { http_response_code(400); exit('Invalid cell parameters'); }
+if (!pos_valid_shift($shift) || !store_valid_pos_no($store_id, $pos_no)) { http_response_code(400); exit('Invalid cell parameters'); }
 
 $conn = get_db_connection();
 $store_row  = $conn->query("SELECT name FROM stores WHERE id={$store_id} LIMIT 1")?->fetch_assoc();
@@ -59,9 +59,9 @@ $manager_name = get_store_manager_name($store_id) ?: '-';
 
 $nf = fn($n) => number_format((float)$n);
 $shift_cells = [
-    'morning'=>['MORNING','8:00AM-5:00PM'],
-    'mid'    =>['MIDSHIFT','5:00 PM - 12:00 AM'],
-    'gy'     =>['GY','12:00 AM -8:00 AM'],
+    'morning'=>['MORNING',format_shift_time(get_store_shifts($store_id)['morning']['start_time'], get_store_shifts($store_id)['morning']['end_time'], 'dash')],
+    'mid'    =>['MIDSHIFT',format_shift_time(get_store_shifts($store_id)['mid']['start_time'], get_store_shifts($store_id)['mid']['end_time'], 'dash')],
+    'gy'     =>['GY',format_shift_time(get_store_shifts($store_id)['gy']['start_time'], get_store_shifts($store_id)['gy']['end_time'], 'dash')],
 ];
 // 빈 줄 패딩 (양식 느낌)
 // §5 WHOLE SALES 가 기본 3줄을 초과하면 늘어난 줄 수만큼 §4 SUBSIDIARY COMPANY CREDITS의

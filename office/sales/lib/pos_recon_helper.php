@@ -4,6 +4,7 @@
 // 모든 금액은 서버에서 권위적으로 재계산한다(클라이언트 값 불신).
 
 require_once __DIR__ . '/../../lib/office_helper.php';
+require_once __DIR__ . '/../../../lib/store_config_helper.php';
 
 // ── 상수 ────────────────────────────────────────────────
 // 권종 집합 (POS Shift Entry v10 기준)
@@ -16,6 +17,8 @@ const POS_STARTING_TARGET = 10000;
 const POS_SHIFTS = ['gy', 'morning', 'mid'];
 
 function pos_valid_shift(string $s): bool { return in_array($s, POS_SHIFTS, true); }
+
+/** @deprecated 점포별 POS 상한을 반영하지 않는다. store_valid_pos_no($store_id, $n)을 사용할 것. */
 function pos_valid_pos(int $n): bool { return $n === 1 || $n === 2; }
 
 /**
@@ -208,8 +211,9 @@ function pos_read_reconciliation(mysqli $conn, int $store_id, string $sale_date,
  */
 function pos_preload_date(mysqli $conn, int $store_id, string $sale_date): array {
     $out = [];
+    $max_pos = get_store_pos_count($store_id);
     foreach (POS_SHIFTS as $shift) {
-        for ($pos = 1; $pos <= 2; $pos++) {
+        for ($pos = 1; $pos <= $max_pos; $pos++) {
             $key = "{$shift}_pos{$pos}";
             $out[$key] = [
                 'cash'      => pos_read_cash_counts($conn, $store_id, $sale_date, $shift, $pos),

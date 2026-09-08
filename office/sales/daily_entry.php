@@ -1,4 +1,7 @@
 <?php
+// Design Ref: homekmart-store-config §5.2 / §5.3
+require_once __DIR__ . '/../../lib/store_config_helper.php';
+require_once __DIR__ . '/../../lib/lang_helper.php';
 // Design Ref: §6 / module-4 — POS 셀 버튼 + Shift Entry 모달 (POS Shift Entry v10 디자인 충실 재현)
 $page_title      = 'POS Entry';
 $css_base        = '../../admin/';
@@ -42,10 +45,12 @@ $days_en  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 $dow      = $days_en[date('w', strtotime($date))];
 $sales_tab = 'pos';
 
+$pos_count = get_store_pos_count($store_id);
+$store_shifts = get_store_shifts($store_id);
 $shifts = [
-    'gy'      => ['label'=>'GY',      'time'=>'12:00AM–8:00AM', 'icon'=>'fa-moon',     'color'=>'#a78bfa'],
-    'morning' => ['label'=>'Morning', 'time'=>'8:00AM–5:00PM',  'icon'=>'fa-sun',      'color'=>'#fbbf24'],
-    'mid'     => ['label'=>'Mid',     'time'=>'5:00PM–12:00AM', 'icon'=>'fa-cloud-sun','color'=>'#fb923c'],
+    'gy'      => ['label'=>'GY',      'time'=>format_shift_time($store_shifts['gy']['start_time'], $store_shifts['gy']['end_time'], 'dash'), 'icon'=>'fa-moon',     'color'=>'#a78bfa'],
+    'morning' => ['label'=>'Morning', 'time'=>format_shift_time($store_shifts['morning']['start_time'], $store_shifts['morning']['end_time'], 'dash'),  'icon'=>'fa-sun',      'color'=>'#fbbf24'],
+    'mid'     => ['label'=>'Mid',     'time'=>format_shift_time($store_shifts['mid']['start_time'], $store_shifts['mid']['end_time'], 'dash'), 'icon'=>'fa-cloud-sun','color'=>'#fb923c'],
 ];
 ?>
 <?php require __DIR__ . '/partials/sales_nav.php'; ?>
@@ -128,7 +133,7 @@ $shifts = [
 <!-- POS Grid -->
 <div class="s-card overflow-x-auto mb-4">
   <table class="s-table">
-    <thead><tr><th class="shift-col" style="width:200px">SHIFT</th><th>POS 1</th><th>POS 2</th><th style="width:130px">SUBTOTAL</th></tr></thead>
+    <thead><tr><th class="shift-col" style="width:200px">SHIFT</th><?php for ($pos = 1; $pos <= $pos_count; $pos++): ?><th>POS <?php echo $pos; ?></th><?php endfor; ?><th style="width:130px">SUBTOTAL</th></tr></thead>
     <tbody>
       <?php foreach ($shifts as $sk => $sm): ?>
       <tr>
@@ -139,7 +144,7 @@ $shifts = [
             <div class="text-xs text-gray-400"><?php echo $sm['time']; ?></div></span>
           </span>
         </td>
-        <?php for ($pos = 1; $pos <= 2; $pos++): $key = "{$sk}_pos{$pos}"; ?>
+        <?php for ($pos = 1; $pos <= $pos_count; $pos++): $key = "{$sk}_pos{$pos}"; ?>
         <td class="text-center" id="cell_<?php echo $key; ?>"></td>
         <?php endfor; ?>
         <td class="text-right font-bold" style="color:#16a34a;background:#f0fdf4;white-space:nowrap" id="sub_<?php echo $sk; ?>">0.00</td>
@@ -153,7 +158,7 @@ $shifts = [
   <div class="s-card px-5 py-4 flex items-center justify-between" style="background:#16a34a">
     <div><div class="text-xs" style="color:#bbf7d0">POS TOTAL <span style="color:#86efac">(deposit + other + expenses + POS credit)</span></div>
       <div id="day_total" class="text-2xl font-bold text-white num">₱ 0.00</div></div>
-    <div class="text-xs" style="color:#bbf7d0">6 cells</div>
+    <div class="text-xs" style="color:#bbf7d0"><?php echo htmlspecialchars(t('store_config.cell_count', ['count' => count(STORE_SHIFT_KEYS) * $pos_count])); ?></div>
   </div>
   <div class="s-card px-5 py-4" style="background:#4338ca">
     <div class="text-xs" style="color:#c7d2fe">WHOLE SALE <span style="color:#a5b4fc">(그 날 전체)</span></div>
@@ -360,7 +365,8 @@ const EXPENSE_CATS = [
   {key:'포인트 사용', label:'Points Used', isPoint:true}
 ];
 const SHIFT_LABEL = {gy:'GY', morning:'Morning', mid:'Mid'};
-const SHIFT_TIME  = {gy:'12AM–8AM', morning:'8AM–5PM', mid:'5PM–12AM'};
+const SHIFT_TIME = <?php echo json_encode(array_map(fn($shift) => $shift['time'], $shifts), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+const POS_COUNT = <?php echo $pos_count; ?>;
 let PRELOAD = <?php echo json_encode($preload, JSON_UNESCAPED_UNICODE); ?>;
 const WHOLESALE_DAY_TOTAL   = <?php echo json_encode($wholesale_day_total); ?>;
 const DELIVERY_K_DAY_TOTAL  = <?php echo json_encode($delivery_k_day_total); ?>;
@@ -407,7 +413,7 @@ function renderGrid(){
   let day=0;
   for(const sk of ['gy','morning','mid']){
     let sub=0;
-    for(let p=1;p<=2;p++){
+    for(let p=1;p<=POS_COUNT;p++){
       const key=sk+'_pos'+p, d=(PRELOAD[key]||{}), r=d.recon;
       const td=document.getElementById('cell_'+key);
       if(r && parseFloat(r.total_amount)>0){

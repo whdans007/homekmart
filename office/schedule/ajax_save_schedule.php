@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/office_helper.php';
+require_once __DIR__ . '/../../lib/store_config_helper.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -31,8 +32,10 @@ if (!$year || !$month || !in_array($period, ['first', 'second']) || empty($items
 }
 
 $valid_roles  = get_job_roles();
-$valid_shifts = ['morning', 'mid', 'gy'];
-$valid_sup_times = ['8AM~5PM', '3PM~12AM', '11PM~8AM', '8AM~8PM', '8PM~8AM', '8AM-8PM', '8PM-8AM'];
+$valid_shifts = STORE_SHIFT_KEYS;
+// Design Ref: homekmart-store-config §5.3 FR-F2-14 — 점포별 근무시간 표시값 + 기존 보조 시간(장시간 커버) 병행 허용
+$store_shift_displays = array_column(get_store_shifts($store_id), 'display');
+$valid_sup_times = array_merge($store_shift_displays, ['8AM~8PM', '8PM~8AM', '8AM-8PM', '8PM-8AM']);
 
 try {
     $conn = get_db_connection();

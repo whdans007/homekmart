@@ -386,11 +386,10 @@ if ((has_permission('product_management') || in_array($_SESSION['role'] ?? '', [
                             <span class="ml-2 inline-flex items-center justify-center px-1.5 py-0.5 font-bold leading-none text-white rounded-full" style="font-size:10px;background:#dc2626;"><?php echo $pending_store_change_count; ?></span>
                             <?php endif; ?>
                         </a>
-                        <?php if (!in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
+                        <!-- Design Ref: homekmart-store-config — super_admin도 포스/근무시간 설정을 위해 접근 가능해야 함 -->
                         <a href="my_store.php" class="<?php echo ($current_page == 'my_store.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-store mr-2 text-xs w-4 text-center"></i>내 지점 정보
                         </a>
-                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
 
@@ -462,9 +461,7 @@ if ((has_permission('product_management') || in_array($_SESSION['role'] ?? '', [
             <?php if ($can_approve_store_changes): ?>
             <p class="px-2 pt-2 text-xs font-semibold uppercase tracking-wider" style="color:#115e59;"><?php echo t('navigation.store_change_approval_section'); ?></p>
             <a href="store_change_requests.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('navigation.store_change_request'); ?><?php if ($pending_store_change_count > 0): ?> <span class="inline-flex items-center justify-center px-1.5 py-0.5 font-bold leading-none text-white rounded-full" style="font-size:10px;background:#dc2626;"><?php echo $pending_store_change_count; ?></span><?php endif; ?></a>
-            <?php if (!in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
             <a href="my_store.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md">내 지점 정보</a>
-            <?php endif; ?>
             <?php endif; ?>
             <?php if (has_permission('product_management') || in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
             <p class="px-2 pt-2 text-xs font-semibold uppercase tracking-wider" style="color:#1d4ed8;"><?php echo t('navigation.product_management_section'); ?></p>

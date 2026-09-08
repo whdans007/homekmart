@@ -4,6 +4,7 @@
 // 이 파일의 함수를 통해서만 데이터에 접근한다. 직접 SQL을 작성하지 않는다.
 require_once __DIR__ . '/office_helper.php';
 require_once __DIR__ . '/../../lib/lang_helper.php';
+require_once __DIR__ . '/../../lib/store_config_helper.php';
 
 // ── 기타지출 12개 고정 카테고리 (참고 이미지 서식 순서/키는 고정, 표시 텍스트만 언어별 번역) ──
 function get_daily_report_categories(): array {
@@ -23,15 +24,17 @@ function get_daily_report_categories(): array {
     ];
 }
 
-// Plan SC: 3교대(gy/morning/mid) x POS1/POS2 현금/크레딧/도매(참고 서식 컬럼명 "도매")
+// Design Ref: homekmart-store-config §5.3 — 3교대(gy/morning/mid) x POS 1~N 현금/크레딧/도매(참고 서식 컬럼명 "도매")
+// 교대 시간 표시와 POS 대수는 store_config_helper.php(점포별 설정)를 통해 조회한다.
 function get_daily_pos_summary(mysqli $conn, int $store_id, string $date): array {
-    $shift_labels = ['gy' => '12AM-8AM', 'morning' => '8AM-5PM', 'mid' => '5PM-12AM'];
+    $shifts   = get_store_shifts($store_id);
+    $max_pos  = get_store_pos_count($store_id);
     $cells = [];
-    foreach ([1, 2] as $pos_no) {
-        foreach ($shift_labels as $shift => $label) {
+    for ($pos_no = 1; $pos_no <= $max_pos; $pos_no++) {
+        foreach ($shifts as $shift => $s) {
             $cells["{$pos_no}_{$shift}"] = [
                 'pos' => $pos_no, 'shift' => $shift,
-                'label' => "포스{$pos_no}({$label})",
+                'label' => "포스{$pos_no}({$s['display']})",
                 'cash' => 0.0, 'credit' => 0.0, 'delivery_slip' => 0.0, 'total' => 0.0,
             ];
         }
