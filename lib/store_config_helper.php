@@ -210,7 +210,7 @@ function save_store_shifts(int $store_id, array $shifts, ?int $updated_by = null
             $start = $s['start'] . ':00';
             $end   = $s['end'] . ':00';
             $sort  = STORE_SHIFT_DEFAULTS[$key]['sort_order'];
-            $stmt->bind_param('ississi', $store_id, $key, $label, $start, $end, $sort, $updated_by);
+            $stmt->bind_param('issssii', $store_id, $key, $label, $start, $end, $sort, $updated_by);
             if (!$stmt->execute()) {
                 throw new Exception($stmt->error);
             }
