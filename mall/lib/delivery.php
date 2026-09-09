@@ -10,6 +10,7 @@
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/fresh_order.php';
+require_once __DIR__ . '/push.php';
 
 /**
  * 주문의 현재(종료되지 않은) 배정 행을 조회합니다.
@@ -42,7 +43,7 @@ function mall_driver_list_active() {
                 (SELECT COUNT(*) FROM mall_order_driver_assignments a
                  WHERE a.driver_id = d.id AND a.status IN ('assigned', 'delivering', 'arrived')) AS active_count
          FROM mall_drivers d
-         WHERE d.is_active = 1
+         WHERE d.is_active = 1 AND d.is_available = 1
          ORDER BY d.name"
     );
     return $result->fetch_all(MYSQLI_ASSOC);
@@ -123,6 +124,7 @@ function mall_order_assign_driver($order_id, $driver_id) {
         $update->close();
 
         $conn->commit();
+        mall_push_notify_driver($driver_id, $order_id, '새 배달이 배정되었습니다', '배달 목록에서 주문을 확인해 주세요.');
         return ['success' => true];
     } catch (Exception $e) {
         $conn->rollback();

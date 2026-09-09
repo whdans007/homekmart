@@ -8,6 +8,7 @@
  */
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../../config/db_config.php';
+require_once __DIR__ . '/push.php';
 
 /**
  * 메시지를 발송합니다. 배송기사가 배정된 주문은 같은 대화방에 3자(고객/관리자/기사)로 참여한다.
@@ -44,6 +45,11 @@ function mall_order_chat_send($order_id, $sender_type, $sender_id, $message) {
 
     // 누가 보내든(고객/관리자/기사) 새 메시지가 오면 종료된 채팅방도 다시 "진행중"으로 돌아간다.
     mall_order_chat_reopen($order_id);
+
+    // 관리자/기사가 보낸 메시지만 고객 앱으로 푸시한다(mall_push_notify_order_message 내부에서
+    // sender_type === 'member'는 즉시 리턴). 실패해도 이 함수의 성공 응답에는 영향 없다(내부에서
+    // 모든 예외를 삼킴 — mall-order-chat-push.design.md §8).
+    mall_push_notify_order_message($order_id, $sender_type, $message);
 
     $row_stmt = $conn->prepare('SELECT id, created_at FROM mall_order_messages WHERE id = ?');
     $row_stmt->bind_param('i', $id);

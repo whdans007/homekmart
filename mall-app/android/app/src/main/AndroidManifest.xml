@@ -27,9 +27,22 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- 주문톡 푸시(FCM) — 알림 트레이 기본 아이콘/색상. 채널 ID는 지정하지 않는다: FCM Android SDK가
+             앱이 자체 채널을 만들지 않았을 때 자동으로 기본 채널을 생성해 그 위에 표시하므로(Android 8+
+             필수 요건), 별도 네이티브 채널 생성 코드 없이도 정상 동작한다(mall-order-chat-push.design.md
+             §6.1 대비 구현 시 결정 사항 — 채널 이름 커스터마이즈는 후속 범위). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_notify" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
     </application>
 
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 13(API 33)+에서 알림 표시 전 런타임 동의가 필요(targetSdkVersion 36) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

@@ -20,6 +20,7 @@ $active_nav = 'chat';
 if ($order_id > 0) {
     // ---- 채팅창 모드 ---- 특정 주문의 대화방이므로 목록으로 돌아갈 수 있게 뒤로가기 헤더를 쓴다.
     $mall_show_back = true;
+    $hide_mall_footer = true;
     $conn = get_db_connection();
     $stmt = $conn->prepare('SELECT id, order_number, created_at FROM mall_orders WHERE id = ? AND member_id = ?');
     $stmt->bind_param('ii', $order_id, $member['id']);
@@ -50,8 +51,10 @@ if ($order_id > 0) {
     require_once __DIR__ . '/partials/header.php';
 ?>
 <style>
+.mall-shell { height: 100vh; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.mall-shell > main { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .chat-header { padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--line-alternative); font: 700 15px var(--font-sans); }
-.chat-list { padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: 10px; min-height: 50vh; }
+.chat-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: 10px; }
 .chat-bubble { max-width: 78%; padding: 10px 14px; border-radius: var(--radius-lg); font: var(--t-label2) var(--font-sans); line-height: 1.45; }
 .chat-bubble .time { display: block; margin-top: 4px; font-size: 11px; color: var(--label-assistive); }
 .chat-bubble .read-tag { display: block; margin-top: 1px; font-size: 10px; color: var(--primary-normal); text-align: right; }
@@ -60,7 +63,7 @@ if ($order_id > 0) {
 .chat-bubble.mine .time { color: rgba(255,255,255,0.75); }
 .chat-bubble.theirs { align-self: flex-start; background: var(--bg-alternative); color: var(--label-normal); border-bottom-left-radius: 4px; }
 .chat-empty { padding: var(--space-6) var(--space-5); text-align: center; color: var(--label-assistive); font: var(--t-label2) var(--font-sans); }
-.chat-input-bar { position: sticky; bottom: 0; display: flex; gap: 8px; padding: var(--space-3) var(--space-5); background: var(--bg-normal); border-top: 1px solid var(--line-alternative); }
+.chat-input-bar { flex: 0 0 auto; display: flex; gap: 8px; padding: var(--space-3) var(--space-5); background: var(--bg-normal); border-top: 1px solid var(--line-alternative); }
 .chat-input-bar input[type="text"] { flex: 1; border: 1px solid var(--line-normal); border-radius: var(--radius-md); padding: 10px 14px; font: var(--t-label2) var(--font-sans); }
 .chat-input-bar button { padding: 0 18px; border-radius: var(--radius-md); background: var(--primary-normal); color: var(--static-white); font-weight: 700; border: none; }
 .chat-input-bar button:disabled { opacity: 0.5; }
@@ -91,6 +94,9 @@ if ($order_id > 0) {
 <script>
 (function () {
     var ORDER_ID = <?php echo (int)$order_id; ?>;
+    // mall/partials/footer.php의 푸시 pushNotificationReceived 리스너가 "지금 열려있는 채팅창과
+    // 같은 주문인지" 비교하고, 같으면 이 함수를 호출해 트레이 알림 없이 조용히 새로고침한다.
+    window.ORDER_ID = ORDER_ID;
     var CSRF_TOKEN = <?php echo json_encode($csrf_token); ?>;
     var lastId = <?php echo empty($messages) ? 0 : (int)end($messages)['id']; ?>;
     var list = document.getElementById('chat-list');
@@ -119,8 +125,14 @@ if ($order_id > 0) {
         var roleTag = mine ? '' : '<span class="role-tag">' + escapeHtml(roleLabels[m.sender_type] || m.sender_type) + '</span>';
         bubble.innerHTML = roleTag + escapeHtml(m.message).replace(/\n/g, '<br>') + '<span class="time">' + m.created_at.substring(0, 16) + '</span>';
         list.appendChild(bubble);
-        list.scrollTop = list.scrollHeight;
+        scrollToLatest();
         if (mine && m.id) myLastId = m.id;
+    }
+
+    function scrollToLatest() {
+        window.requestAnimationFrame(function () {
+            list.scrollTop = list.scrollHeight;
+        });
     }
 
     // 내(고객)가 보낸 마지막 메시지에만 "읽음" 표시를 갱신한다(매장이 읽었을 때).
@@ -150,11 +162,15 @@ if ($order_id > 0) {
             })
             .finally(function () { if (polling) setTimeout(poll, 5000); });
     }
+    window.mallOrderChatRefresh = poll;
     setTimeout(poll, 5000);
 
     document.addEventListener('visibilitychange', function () {
         polling = document.visibilityState === 'visible';
-        if (polling) poll();
+        if (polling) {
+            scrollToLatest();
+            poll();
+        }
     });
 
     function send() {
@@ -182,7 +198,8 @@ if ($order_id > 0) {
     sendBtn.addEventListener('click', send);
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
 
-    list.scrollTop = list.scrollHeight;
+    scrollToLatest();
+    window.addEventListener('load', scrollToLatest, { once: true });
 })();
 </script>
 <?php

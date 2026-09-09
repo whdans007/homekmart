@@ -46,8 +46,39 @@ try {
 
 $chat_unread = mall_order_chat_unread_total_for_admin();
 
+$latest_chat = null;
+try {
+    $stmt = mall_get_db_connection()->prepare(
+        "SELECT msg.id, msg.order_id, msg.message, msg.sender_type,
+                o.order_number, mem.name AS member_name
+         FROM mall_order_messages msg
+         INNER JOIN mall_orders o ON o.id = msg.order_id
+         INNER JOIN mall_members mem ON mem.id = o.member_id
+         WHERE msg.sender_type IN ('member', 'driver')
+           AND msg.is_read_by_admin = 0
+         ORDER BY msg.id DESC
+         LIMIT 1"
+    );
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if ($row) {
+        $latest_chat = [
+            'id' => (int)$row['id'],
+            'order_id' => (int)$row['order_id'],
+            'order_number' => (string)$row['order_number'],
+            'member_name' => (string)$row['member_name'],
+            'sender_type' => (string)$row['sender_type'],
+            'message' => mb_substr(preg_replace('/\s+/u', ' ', trim((string)$row['message'])), 0, 100),
+        ];
+    }
+} catch (Throwable $e) {
+    $latest_chat = null;
+}
+
 echo json_encode(['success' => true, 'data' => [
     'pending_orders' => $pending_orders,
     'delivering_orders' => $delivering_orders,
     'chat_unread' => $chat_unread,
+    'latest_chat' => $latest_chat,
 ]]);

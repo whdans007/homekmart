@@ -10,6 +10,9 @@
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../../config/db_config.php';
 
+define('MALL_MEMBER_REMEMBER_COOKIE', 'MALLMEMBER_REMEMBER');
+define('MALL_MEMBER_REMEMBER_LIFETIME', 60 * 60 * 24 * 365 * 5);
+
 /**
  * mall 전용 세션을 시작합니다. 이미 시작된 세션이 있으면 아무 것도 하지 않습니다.
  * @return void
@@ -32,6 +35,45 @@ function mall_session_start() {
     ]);
     session_name(MALL_SESSION_NAME);
     session_start();
+
+    if (empty($_SESSION['mall_member_id']) && !empty($_COOKIE[MALL_MEMBER_REMEMBER_COOKIE])) {
+        try {
+            $raw = (string)$_COOKIE[MALL_MEMBER_REMEMBER_COOKIE];
+            $hash = hash('sha256', $raw);
+            $conn = get_db_connection();
+            $stmt = $conn->prepare(
+                'SELECT t.member_id, m.member_type FROM mall_member_login_tokens t
+                 INNER JOIN mall_members m ON m.id = t.member_id
+                 WHERE t.token_hash = ? AND t.expires_at > NOW() AND m.is_active = 1 LIMIT 1'
+            );
+            $stmt->bind_param('s', $hash); $stmt->execute();
+            $row = $stmt->get_result()->fetch_assoc(); $stmt->close();
+            if ($row) {
+                $_SESSION['mall_member_id'] = (int)$row['member_id'];
+                $_SESSION['mall_member_type'] = $row['member_type'];
+                $expires = date('Y-m-d H:i:s', time() + MALL_MEMBER_REMEMBER_LIFETIME);
+                $touch = $conn->prepare('UPDATE mall_member_login_tokens SET last_used_at=NOW(), expires_at=? WHERE token_hash=?');
+                $touch->bind_param('ss', $expires, $hash); $touch->execute(); $touch->close();
+                setcookie(MALL_MEMBER_REMEMBER_COOKIE, $raw, ['expires'=>time()+MALL_MEMBER_REMEMBER_LIFETIME,'path'=>'/','secure'=>true,'httponly'=>true,'samesite'=>'Lax']);
+            } else {
+                setcookie(MALL_MEMBER_REMEMBER_COOKIE, '', time()-3600, '/', '', true, true);
+            }
+        } catch (Throwable $e) { error_log('mall member remember login: '.$e->getMessage()); }
+    }
+}
+
+function mall_member_issue_remember_token($member_id) {
+    try {
+        $raw = bin2hex(random_bytes(32));
+        $hash = hash('sha256', $raw);
+        $expires = date('Y-m-d H:i:s', time() + MALL_MEMBER_REMEMBER_LIFETIME);
+        $conn = get_db_connection();
+        $stmt = $conn->prepare('INSERT INTO mall_member_login_tokens (member_id,token_hash,expires_at) VALUES (?,?,?)');
+        $stmt->bind_param('iss', $member_id, $hash, $expires); $stmt->execute(); $stmt->close();
+        setcookie(MALL_MEMBER_REMEMBER_COOKIE, $raw, ['expires'=>time()+MALL_MEMBER_REMEMBER_LIFETIME,'path'=>'/','secure'=>true,'httponly'=>true,'samesite'=>'Lax']);
+    } catch (Throwable $e) {
+        error_log('mall member issue remember token: '.$e->getMessage());
+    }
 }
 
 /**
@@ -143,6 +185,7 @@ function mall_attempt_login($email, $password) {
         session_regenerate_id(true);
         $_SESSION['mall_member_id'] = $row['id'];
         $_SESSION['mall_member_type'] = $row['member_type'];
+        mall_member_issue_remember_token((int)$row['id']);
 
         return ['success' => true, 'member' => mall_current_member()];
     } catch (Exception $e) {
@@ -228,6 +271,7 @@ function mall_google_login($google) {
 
         session_regenerate_id(true);
         $_SESSION['mall_member_id'] = $row['id'];
+        mall_member_issue_remember_token((int)$row['id']);
 
         return mall_current_member();
     } catch (Exception $e) {
@@ -299,6 +343,7 @@ function mall_google_signup($google, $member_type, $business_name = '', $busines
 
         session_regenerate_id(true);
         $_SESSION['mall_member_id'] = $member_id;
+        mall_member_issue_remember_token((int)$member_id);
 
         return ['success' => true, 'member' => mall_current_member()];
     } catch (Exception $e) {
@@ -313,6 +358,15 @@ function mall_google_signup($google, $member_type, $business_name = '', $busines
  */
 function mall_logout() {
     mall_session_start();
+    if (!empty($_COOKIE[MALL_MEMBER_REMEMBER_COOKIE])) {
+        try {
+            $hash = hash('sha256', (string)$_COOKIE[MALL_MEMBER_REMEMBER_COOKIE]);
+            $conn = get_db_connection();
+            $stmt = $conn->prepare('DELETE FROM mall_member_login_tokens WHERE token_hash=?');
+            $stmt->bind_param('s', $hash); $stmt->execute(); $stmt->close();
+        } catch (Throwable $e) { error_log('mall member remember logout: '.$e->getMessage()); }
+        setcookie(MALL_MEMBER_REMEMBER_COOKIE, '', time()-3600, '/', '', true, true);
+    }
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
         $params = session_get_cookie_params();

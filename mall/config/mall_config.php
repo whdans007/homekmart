@@ -35,6 +35,32 @@ define('MALL_GOOGLE_CLIENT_ID', '502848247391-99k1krmshe9el3408l7itpc1nd8hrni4.a
 // — 이 키는 프론트엔드 <script> 태그에 그대로 노출되므로 리퍼러 제한이 없으면 다른 사이트에서 도용될 수 있다.
 define('MALL_GOOGLE_MAPS_API_KEY', 'AIzaSyDikJKww3XN6xmh2F0NSL7eGZqbKkDiAEk');
 
+// FCM(HTTP v1) 주문톡 푸시 발송용 서비스 계정 키 파일 경로. 이 값 자체는 비밀이 아니라 "어디서
+// 읽을지"만 담는 경로이므로 커밋해도 안전하다 — 실제 비밀(개인키)은 이 경로가 가리키는 파일에만
+// 있고 그 파일은 .gitignore로 반드시 제외한다(config/firebase_service_account.example.json 참고).
+// 운영 환경에서는 환경변수 MALL_FCM_SERVICE_ACCOUNT_FILE로 웹루트 바깥 경로를 지정하는 것을
+// 강력히 권장한다(예: /home/uXXXXXXX/secrets/firebase_service_account.json). 환경변수가 없으면
+// 아래 기본값(config/firebase_service_account.json)을 쓰며, 파일이 없으면 mall/lib/push.php가
+// 조용히 푸시 발송을 건너뛴다(주문톡 채팅 자체는 영향 없음).
+$mall_fcm_env_path = trim((string)getenv('MALL_FCM_SERVICE_ACCOUNT_FILE'));
+$mall_fcm_service_account_candidates = array_values(array_filter([
+    $mall_fcm_env_path,
+    '/home/u622428657/domains/homekmart.net/secrets/firebase_service_account.json',
+    '/home/u622428657/domains/homkmart.net/secrets/firebase_service_account.json',
+    '/u622428657/domains/homekmart.net/secrets/firebase_service_account.json',
+    '/u622428657/domains/homkmart.net/secrets/firebase_service_account.json',
+    '/home/u622428657/secrets/firebase_service_account.json',
+]));
+$mall_fcm_service_account_file = $mall_fcm_service_account_candidates[0] ?? '';
+foreach ($mall_fcm_service_account_candidates as $mall_fcm_candidate) {
+    if (is_file($mall_fcm_candidate)) {
+        $mall_fcm_service_account_file = $mall_fcm_candidate;
+        break;
+    }
+}
+define('MALL_FCM_SERVICE_ACCOUNT_FILE', $mall_fcm_service_account_file);
+unset($mall_fcm_env_path, $mall_fcm_service_account_candidates, $mall_fcm_service_account_file, $mall_fcm_candidate);
+
 /**
  * 기본 배송비 / 무료배송 기준금액. mall/admin/discount_rules.php에서 system_settings에 저장한
  * 값을 읽어온다 — 관리자가 값을 아직 저장하지 않았거나 DB 조회에 실패하면 아래 기본값을 쓴다.

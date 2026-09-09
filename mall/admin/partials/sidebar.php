@@ -110,6 +110,41 @@ document.querySelectorAll('.mall-lang-btn').forEach(function (btn) {
     // 배달 관리는 "지금 몇 건 배송중인지" 참고용 숫자라 늘어나도 알림음은 울리지 않는다
     // (접수대기 주문/주문톡 안읽음만 응대가 필요한 알림 대상).
     var ALERT_KEYS = ['orders.php', 'order_chat.php'];
+    var lastChatMessageId = null;
+    var audioContext = null;
+    var voiceAlerts = {
+        '고객님 메시지': new Audio('/mall/assets/audio/message.wav'),
+        '주문이 접수되었습니다': new Audio('/mall/assets/audio/order_received.wav')
+    };
+    Object.keys(voiceAlerts).forEach(function (key) {
+        voiceAlerts[key].preload = 'auto';
+    });
+
+    // Browsers allow sound/notification permission only after a user gesture.
+    // The first click in the admin screen unlocks audio and asks once for permission.
+    function enableRealtimeAlerts() {
+        try {
+            var Ctx = window.AudioContext || window.webkitAudioContext;
+            if (Ctx && !audioContext) audioContext = new Ctx();
+            if (audioContext && audioContext.state === 'suspended') audioContext.resume().catch(function () {});
+        } catch (e) {}
+        Object.keys(voiceAlerts).forEach(function (key) {
+            var audio = voiceAlerts[key];
+            audio.volume = 0;
+            var unlocked = audio.play();
+            if (unlocked && unlocked.then) {
+                unlocked.then(function () {
+                    audio.pause();
+                    audio.currentTime = 0;
+                    audio.volume = 1;
+                }).catch(function () { audio.volume = 1; });
+            }
+        });
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().catch(function () {});
+        }
+    }
+    document.addEventListener('pointerdown', enableRealtimeAlerts, { once: true });
 
     function playTone(ctx, delaySec) {
         var osc = ctx.createOscillator();
@@ -129,7 +164,8 @@ document.querySelectorAll('.mall-lang-btn').forEach(function (btn) {
         try {
             var Ctx = window.AudioContext || window.webkitAudioContext;
             if (!Ctx) return;
-            var ctx = new Ctx();
+            var ctx = audioContext || new Ctx();
+            audioContext = ctx;
             var play = function () { playTone(ctx, 0); playTone(ctx, 0.4); };
             if (ctx.state === 'suspended' && ctx.resume) {
                 ctx.resume().then(play).catch(function () {});
@@ -137,6 +173,49 @@ document.querySelectorAll('.mall-lang-btn').forEach(function (btn) {
                 play();
             }
         } catch (e) {}
+    }
+
+    function speakAlert(text) {
+        var recorded = voiceAlerts[text];
+        if (recorded) {
+            recorded.pause();
+            recorded.currentTime = 0;
+            recorded.volume = 1;
+            var playback = recorded.play();
+            if (playback && playback.catch) playback.catch(function () {});
+            return;
+        }
+        try {
+            if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
+            var utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ko-KR';
+            utterance.rate = 0.92;
+            utterance.pitch = 1.05;
+            utterance.volume = 1;
+            var koreanVoice = window.speechSynthesis.getVoices().find(function (voice) {
+                return /^ko(?:-|_)/i.test(voice.lang || '');
+            });
+            if (koreanVoice) utterance.voice = koreanVoice;
+            window.speechSynthesis.speak(utterance);
+        } catch (e) {}
+    }
+
+    function notifyChat(chat) {
+        if (!chat) return;
+        beep();
+        window.setTimeout(function () { speakAlert('고객님 메시지'); }, 550);
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        var sender = chat.sender_type === 'driver' ? '배송기사' : (chat.member_name || '고객');
+        var notification = new Notification('새 주문톡 · ' + sender, {
+            body: (chat.order_number ? chat.order_number + '\n' : '') + (chat.message || '새 메시지가 도착했습니다.'),
+            icon: '/logo/homekmart_logo.png',
+            tag: 'mall-order-chat-' + chat.id
+        });
+        notification.onclick = function () {
+            window.focus();
+            window.location.href = 'order_chat.php?order_id=' + encodeURIComponent(chat.order_id);
+            notification.close();
+        };
     }
 
     function updateBadge(key, count) {
@@ -160,17 +239,34 @@ document.querySelectorAll('.mall-lang-btn').forEach(function (btn) {
                     'order_chat.php': data.data.chat_unread,
                     'deliveries.php': data.data.delivering_orders
                 };
+                var orderIncreased = counts['orders.php'] > (lastCounts['orders.php'] || 0);
                 var increased = false;
                 Object.keys(counts).forEach(function (key) {
                     if (ALERT_KEYS.indexOf(key) !== -1 && counts[key] > (lastCounts[key] || 0)) increased = true;
                     updateBadge(key, counts[key]);
                 });
-                if (increased) beep();
+                var latestChat = data.data.latest_chat || null;
+                var chatAlerted = false;
+                if (lastChatMessageId === null) {
+                    // Establish a baseline so old unread messages do not alert on page load.
+                    lastChatMessageId = latestChat ? Number(latestChat.id) : 0;
+                } else if (latestChat && Number(latestChat.id) > lastChatMessageId) {
+                    lastChatMessageId = Number(latestChat.id);
+                    notifyChat(latestChat);
+                    chatAlerted = true;
+                }
+                if (orderIncreased) {
+                    beep();
+                    window.setTimeout(function () { speakAlert('주문이 접수되었습니다'); }, 550);
+                } else if (increased && !chatAlerted) {
+                    beep();
+                }
                 lastCounts = counts;
             })
             .catch(function () {});
     }
 
-    setInterval(pollBadges, 30000);
+    pollBadges();
+    setInterval(pollBadges, 5000);
 })();
 </script>

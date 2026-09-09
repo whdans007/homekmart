@@ -1,0 +1,25 @@
+{
+  "appId": "net.homekmart.driver",
+  "appName": "HOME K MART Driver",
+  "webDir": "www",
+  "server": {
+    "url": "https://homekmart.net/mall/driver/",
+    "androidScheme": "https",
+    "allowNavigation": [
+      "homekmart.net",
+      "*.homekmart.net"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
+    }
+  }
+}

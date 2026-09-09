@@ -26,3 +26,11 @@ Thumbs.db
 
 # DB 접속정보 백업본 (접속정보 노출 방지 — git 추적 제외)
 config/db_config - *.php
+
+# 주문톡 FCM 푸시 — 서비스 계정 키(개인키 포함, 탈취 시 프로젝트 전체 발송권한 노출) — 절대 커밋 금지
+# config/firebase_service_account.example.json(형식 예시)만 커밋하고 실 파일은 서버에 직접 배치한다.
+config/firebase_service_account.json
+
+# 로컬 Firebase 원본 키 보관 폴더와 기기 진단 캡처
+/2.google-services/
+/driver-app/device-screen.png

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- tailwind.config.js의 primary-600(#2563eb)과 동일 — 알림 트레이 아이콘 틴트 색상 -->
+    <color name="notification_color">#2563EB</color>
+</resources>

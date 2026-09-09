@@ -9,6 +9,7 @@ require_once __DIR__ . '/../lib/driver.php';
 require_once __DIR__ . '/../lib/delivery.php';
 require_once __DIR__ . '/../lib/address.php';
 require_once __DIR__ . '/../lib/order_chat.php';
+require_once __DIR__ . '/../lib/csrf.php';
 
 mall_driver_require_login('/mall/driver/login.php');
 $driver = mall_driver_current();
@@ -39,6 +40,9 @@ $active_driver_nav = 'list';
     <style>
         body { padding-bottom: 76px; }
         .driver-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--line-alternative); }
+        .work-toggle { margin: 12px 20px 0; padding: 12px 14px; display:flex; align-items:center; justify-content:space-between; border-radius:12px; background:#fff; border:1px solid var(--line-alternative); }
+        .work-toggle button { border:0; border-radius:999px; padding:8px 14px; font-weight:700; color:#fff; cursor:pointer; }
+        .work-toggle button.on { background:#16a34a; } .work-toggle button.off { background:#6b7280; }
         .list-tabs { display: flex; border-bottom: 1px solid var(--line-alternative); }
         .list-tab-btn { flex: 1; padding: 12px 0; text-align: center; font: 700 13px var(--font-sans); color: var(--label-alternative); background: none; border: none; border-bottom: 2px solid transparent; }
         .list-tab-btn.active { color: var(--primary-normal); border-bottom-color: var(--primary-normal); }
@@ -58,6 +62,11 @@ $active_driver_nav = 'list';
     <div class="driver-header">
         <div style="font:700 1rem var(--font-sans);"><i class="fas fa-motorcycle"></i> <?php echo htmlspecialchars($driver['name']); ?>님</div>
         <a href="/mall/driver/logout.php" style="font:var(--t-caption1) var(--font-sans);color:var(--label-alternative);">로그아웃</a>
+    </div>
+
+    <div class="work-toggle">
+        <div><strong>근무 상태</strong><div id="work-help" style="font-size:11px;color:#6b7280"><?php echo $driver['is_available'] ? '새 배달을 받을 수 있습니다.' : '새 배달 배정에서 제외됩니다.'; ?></div></div>
+        <button id="work-toggle-btn" class="<?php echo $driver['is_available'] ? 'on' : 'off'; ?>"><?php echo $driver['is_available'] ? '근무 중' : '근무 종료'; ?></button>
     </div>
 
     <div class="list-tabs">
@@ -128,6 +137,17 @@ $active_driver_nav = 'list';
     <?php require __DIR__ . '/partials/nav.php'; ?>
 
 <script>
+var driverAvailable = <?php echo $driver['is_available'] ? 'true' : 'false'; ?>;
+document.getElementById('work-toggle-btn').addEventListener('click', function () {
+    var btn = this, next = !driverAvailable; btn.disabled = true;
+    var p = new URLSearchParams(); p.set('is_available', next ? '1' : '0'); p.set('csrf_token', <?php echo json_encode(mall_csrf_token()); ?>);
+    fetch('/mall/driver/ajax/update_availability.php', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()})
+      .then(function(r){return r.json();}).then(function(d){
+        btn.disabled=false; if(!d.success){alert(d.error && d.error.message || '오류가 발생했습니다.');return;}
+        driverAvailable=next; btn.className=next?'on':'off'; btn.textContent=next?'근무 중':'근무 종료';
+        document.getElementById('work-help').textContent=next?'새 배달을 받을 수 있습니다.':'새 배달 배정에서 제외됩니다.';
+      }).catch(function(){btn.disabled=false; alert('네트워크 오류가 발생했습니다.');});
+});
 document.querySelectorAll('.list-tab-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
         document.querySelectorAll('.list-tab-btn').forEach(b => b.classList.remove('active'));

@@ -2,13 +2,22 @@
     <?php
     $__lang_qs_ko = array_merge($_GET, ['lang' => 'ko']);
     $__lang_qs_en = array_merge($_GET, ['lang' => 'en']);
+
+    // 주문톡 푸시(FCM) 기기토큰 등록용 — 로그인된 페이지에서만 CSRF 토큰을 노출한다(비로그인 상태는
+    // register_device_token.php가 401로 거부하므로 등록 시도 자체를 만들지 않는다).
+    // require_once이므로 header.php가 이미 auth.php/csrf.php를 불러왔어도 중복 부작용 없음.
+    require_once __DIR__ . '/../lib/auth.php';
+    require_once __DIR__ . '/../lib/csrf.php';
+    $__mall_push_csrf_token = mall_is_logged_in() ? mall_csrf_token() : null;
     ?>
+    <?php if (empty($hide_mall_footer)): ?>
     <footer style="text-align:center;padding:var(--space-5) var(--space-5) var(--space-6);color:var(--label-assistive);font:var(--t-caption1) var(--font-sans);">
         &copy; <?php echo date('Y'); ?> HOME K MART ·
         <a href="?<?php echo htmlspecialchars(http_build_query($__lang_qs_ko)); ?>" style="color:<?php echo ($mall_lang ?? 'en') === 'ko' ? 'var(--label-normal)' : 'var(--label-assistive)'; ?>;font-weight:<?php echo ($mall_lang ?? 'en') === 'ko' ? '700' : '500'; ?>;">한국어</a>
         ·
         <a href="?<?php echo htmlspecialchars(http_build_query($__lang_qs_en)); ?>" style="color:<?php echo ($mall_lang ?? 'en') === 'en' ? 'var(--label-normal)' : 'var(--label-assistive)'; ?>;font-weight:<?php echo ($mall_lang ?? 'en') === 'en' ? '700' : '500'; ?>;">English</a>
     </footer>
+    <?php endif; ?>
 </div>
 <?php if (!empty($show_bottom_nav)): ?>
 <?php include __DIR__ . '/bottom_nav.php'; ?>
@@ -160,6 +169,92 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
         } else {
             CapApp.minimizeApp();
         }
+    });
+})();
+
+// 주문톡 푸시(FCM) — 등록/수신/탭 딥링크
+// Design Ref: mall-order-chat-push.design.md §6.2
+(function () {
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform || !window.Capacitor.isNativePlatform()) return;
+    var Push = window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+    if (!Push) return;
+
+    // Android launcher badges reflect notifications still present in the system
+    // tray. Clear delivered notifications whenever the app is opened/resumed so
+    // a message that the member already checked does not leave a stale badge.
+    function mallClearDeliveredPushNotifications() {
+        Push.removeAllDeliveredNotifications().catch(function () { /* ignore */ });
+    }
+    mallClearDeliveredPushNotifications();
+    var PushApp = window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (PushApp) {
+        PushApp.addListener('resume', mallClearDeliveredPushNotifications);
+    }
+
+    var MALL_PUSH_CSRF_TOKEN = <?php echo json_encode($__mall_push_csrf_token); ?>;
+    // 비로그인 상태(로그인/회원가입 화면 등)에서는 등록/리스너를 아예 걸지 않는다 —
+    // register_device_token.php가 401로 거부할 뿐 아니라, 로그인 전 권한 팝업을 띄우는 것도
+    // 사용자 경험상 바람직하지 않다.
+    if (!MALL_PUSH_CSRF_TOKEN) return;
+
+    function mallRegisterDeviceToken(token) {
+        // server.url 방식이라 페이지 이동마다 웹뷰 문서 전체가 새로 로드되어 이 리스너도 매번 다시
+        // 걸린다 — 토큰이 지난번과 같으면 굳이 다시 POST하지 않는다(서버 upsert 자체는 멱등이지만
+        // 불필요한 요청/쓰기를 줄임). localStorage 접근 실패(사생활 보호 모드 등)는 무시하고 등록은
+        // 계속 진행한다(최악의 경우 중복 등록일 뿐 기능 손실은 없음).
+        try {
+            // Always re-register: the server-side token row can be removed by a
+            // migration/restore or must be reassigned after a member change.
+        } catch (e) { /* localStorage 접근 불가 — 매번 등록해도 안전(서버 upsert) */ }
+
+        var params = new URLSearchParams();
+        params.set('token', token);
+        params.set('platform', 'android');
+        params.set('csrf_token', MALL_PUSH_CSRF_TOKEN);
+        fetch('/mall/ajax/register_device_token.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            if (data && data.success) {
+                try { window.localStorage && localStorage.setItem('mall_fcm_token', token); } catch (e) { /* 무시 */ }
+            }
+        }).catch(function () { /* 네트워크 실패는 무시 — 다음 페이지 로드/토큰 갱신 시 재시도됨 */ });
+    }
+
+    Push.addListener('registration', function (token) {
+        if (token && token.value) mallRegisterDeviceToken(token.value);
+    });
+    Push.addListener('registrationError', function (err) {
+        console.error('mall push registrationError', err);
+    });
+
+    // 포그라운드 수신 — 트레이 알림은 백그라운드/종료 상태에서만 OS가 자동 표시하므로(Android 표준
+    // 동작), 여기서는 현재 열려있는 주문톡 채팅창과 같은 주문이면 조용히 새로고침만 한다.
+    Push.addListener('pushNotificationReceived', function (notification) {
+        var orderId = notification && notification.data && notification.data.order_id;
+        if (orderId && window.ORDER_ID && Number(orderId) === Number(window.ORDER_ID)
+            && typeof window.mallOrderChatRefresh === 'function') {
+            window.mallOrderChatRefresh();
+        }
+    });
+
+    // 알림 탭(백그라운드/종료 상태에서 눌러 앱 진입) — 해당 주문 채팅창으로 딥링크.
+    // order_chat.php는 로그인 필수(mall_require_login)라 세션 만료 시에는 로그인 화면으로 안전하게 빠진다.
+    Push.addListener('pushNotificationActionPerformed', function (action) {
+        mallClearDeliveredPushNotifications();
+        var orderId = action && action.notification && action.notification.data && action.notification.data.order_id;
+        if (orderId) {
+            window.location.href = '/mall/order_chat.php?order_id=' + encodeURIComponent(orderId);
+        }
+    });
+
+    Push.requestPermissions().then(function (res) {
+        if (res && res.receive === 'granted') {
+            Push.register();
+        }
+    }).catch(function (err) {
+        console.error('mall push requestPermissions error', err);
     });
 })();
 </script>

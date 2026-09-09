@@ -1,0 +1,28 @@
+{
+  "_설명": "실제 값이 아닙니다. Firebase Console에서 Android 앱(package_name: net.homekmart.mall)을 등록하고 다운로드한 google-services.json을 이 파일과 같은 디렉토리(mall-app/android/app/)에 그대로 배치하세요. 디버그/릴리스 키스토어 각각의 SHA-1·SHA-256 지문을 Firebase 프로젝트 설정에 등록해야 소셜 로그인/푸시가 정상 동작합니다. 이 예시 파일은 .gitignore(app/google-services.json)에 걸리지 않으므로 실제 값을 채워 저장하지 마세요.",
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "your-firebase-project-id",
+    "storage_bucket": "your-firebase-project-id.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": {
+          "package_name": "net.homekmart.mall"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        { "current_key": "REPLACE_ME" }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
