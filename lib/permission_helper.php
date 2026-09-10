@@ -200,6 +200,8 @@ function check_legacy_permission($permission, $role) {
         'logistics_outbound_management'  => ['super_admin', 'admin'],
         'logistics_inventory_management' => ['super_admin', 'admin'],
         'mall_management' => ['super_admin', 'admin'],
+        'foodpang_management' => ['super_admin', 'admin'],
+        'foodpang_wholesale_management' => ['super_admin', 'admin'],
     ];
 
     return isset($legacy_permissions[$permission]) &&
@@ -249,6 +251,8 @@ function get_user_permissions($user_id = null) {
                 'logistics_outbound_management' => true,
                 'logistics_inventory_management' => true,
                 'mall_management' => true,
+                'foodpang_management' => true,
+                'foodpang_wholesale_management' => true,
             ];
         }
 
@@ -280,7 +284,7 @@ function get_all_permission_keys() {
         'wholesale_management', 'store_transfer_management', 'customer_management', 'delivery_management',
         'settings', 'shop_access', 'barcode_management', 'accounting_management',
         'logistics_purchase_management', 'logistics_outbound_management', 'logistics_inventory_management',
-        'mall_management',
+        'mall_management', 'foodpang_management', 'foodpang_wholesale_management',
     ];
 }
 
@@ -368,6 +372,8 @@ function get_legacy_default_permissions($role) {
             'logistics_outbound_management' => true,
             'logistics_inventory_management' => true,
             'mall_management' => true,
+            'foodpang_management' => true,
+            'foodpang_wholesale_management' => true,
         ],
         'admin' => [
             'admin_access' => true,
@@ -388,6 +394,8 @@ function get_legacy_default_permissions($role) {
             'logistics_outbound_management' => true,
             'logistics_inventory_management' => true,
             'mall_management' => true,
+            'foodpang_management' => true,
+            'foodpang_wholesale_management' => true,
         ],
         'manager' => [
             'admin_access' => true,
@@ -480,6 +488,8 @@ function get_permission_label($permission) {
         'logistics_outbound_management' => '물류 출고 관리',
         'logistics_inventory_management' => '물류 재고 현황',
         'mall_management' => '쇼핑몰 관리',
+        'foodpang_management' => 'Foodpang 관리',
+        'foodpang_wholesale_management' => 'Foodpang 도매 매핑 관리',
     ];
     
     return $labels[$permission] ?? $permission;
@@ -534,7 +544,7 @@ function require_permission($required_permission, $redirect_url = 'index.php') {
         ];
         
         // 상대 경로를 절대 경로로 변환
-        if (!preg_match('#^https?://#', $redirect_url)) {
+        if (!preg_match('#^https?://#', $redirect_url) && strpos($redirect_url, '/') !== 0) {
             // 현재 디렉토리를 기준으로 한 상대 경로 처리
             $current_dir = dirname($_SERVER['PHP_SELF']);
             if ($current_dir !== '/') {

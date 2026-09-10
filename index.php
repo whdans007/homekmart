@@ -18,6 +18,7 @@ if (!is_logged_in()) {
 $is_super_admin = (($_SESSION['role'] ?? '') === 'super_admin');
 $is_main_office_admin = is_main_office_admin();
 $can_access_mall_admin = has_permission('mall_management');
+$can_access_foodpang_admin = has_permission('foodpang_management');
 $current_user_info = get_user_info();
 $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '';
 ?>
@@ -121,6 +122,7 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
         .card-icon.lookup    { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
         .card-icon.mainoffice { background: linear-gradient(135deg, #4f46e5, #6366f1); }
         .card-icon.malladmin { background: linear-gradient(135deg, #db2777, #f472b6); }
+        .card-icon.foodpang  { background: linear-gradient(135deg, #e11d48, #fb7185); }
         .card-icon.system    { background: linear-gradient(135deg, #475569, #64748b); }
         .card-label {
             font-size: 1.1rem;
@@ -306,6 +308,18 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
                 <div>
                     <div class="card-label">쇼핑몰 관리자</div>
                     <div class="card-desc">Mall Orders / Products<br>Members Management</div>
+                </div>
+            </a>
+            <?php endif; ?>
+
+            <?php if ($can_access_foodpang_admin): ?>
+            <a href="foodpang/admin/dashboard.php" class="menu-card">
+                <div class="card-icon foodpang">
+                    <i class="fas fa-motorcycle"></i>
+                </div>
+                <div>
+                    <div class="card-label">Foodpang</div>
+                    <div class="card-desc">Foodpang Channel<br>Product Curation</div>
                 </div>
             </a>
             <?php endif; ?>
