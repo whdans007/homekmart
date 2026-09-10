@@ -17,7 +17,7 @@ $current_page = 'drivers.php';
 
 $conn = get_db_connection();
 $drivers = $conn->query(
-    'SELECT id, name, phone, vehicle_info, is_active, driver_type FROM mall_drivers ORDER BY name'
+    'SELECT id, name, phone, vehicle_info, is_active, driver_type, approval_status FROM mall_drivers ORDER BY FIELD(approval_status, "pending", "approved", "rejected"), name'
 )->fetch_all(MYSQLI_ASSOC);
 $conn->close();
 
@@ -65,7 +65,7 @@ $stats = mall_driver_stats();
                     <td class="px-3 py-2"><?php echo $d['driver_type'] === 'external' ? t('mall_admin.drivers.type_external') : t('mall_admin.drivers.type_internal'); ?></td>
                     <td class="px-3 py-2">
                         <button type="button" class="toggle-active-btn px-2 py-1 text-xs font-semibold rounded-md <?php echo $d['is_active'] ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'; ?>">
-                            <?php echo $d['is_active'] ? t('common.active') : t('common.inactive'); ?>
+                            <?php echo ($d['approval_status'] ?? 'approved') === 'pending' ? '가입 승인' : ($d['is_active'] ? t('common.active') : t('common.inactive')); ?>
                         </button>
                     </td>
                     <td class="px-3 py-2 whitespace-nowrap manage-cell">

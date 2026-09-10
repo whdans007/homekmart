@@ -121,8 +121,8 @@ function mall_driver_current() {
     try {
         $conn = mall_get_db_connection();
         $stmt = $conn->prepare(
-            'SELECT id, name, phone, driver_type, vehicle_info, is_active, is_available
-             FROM mall_drivers WHERE id = ? AND is_active = 1'
+            'SELECT id, name, phone, driver_type, vehicle_info, is_active, is_available, approval_status
+             FROM mall_drivers WHERE id = ? AND is_active = 1 AND approval_status = "approved"'
         );
         $stmt->bind_param('i', $_SESSION['mall_driver_id']);
         $stmt->execute();
@@ -148,15 +148,21 @@ function mall_driver_attempt_login($phone, $password) {
     try {
         $conn = mall_get_db_connection();
         $stmt = $conn->prepare(
-            'SELECT id, password_hash, is_active FROM mall_drivers WHERE phone = ?'
+            'SELECT id, password_hash, is_active, approval_status FROM mall_drivers WHERE phone = ?'
         );
         $stmt->bind_param('s', $phone);
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
         $stmt->close();
 
-        if (!$row || !$row['is_active'] || !password_verify($password, $row['password_hash'])) {
+        if (!$row || !password_verify($password, $row['password_hash'])) {
             return ['success' => false, 'error' => 'INVALID_CREDENTIALS'];
+        }
+        if (($row['approval_status'] ?? 'approved') === 'pending') {
+            return ['success' => false, 'error' => 'PENDING_APPROVAL'];
+        }
+        if (($row['approval_status'] ?? 'approved') !== 'approved' || !$row['is_active']) {
+            return ['success' => false, 'error' => 'INACTIVE'];
         }
 
         session_regenerate_id(true);
@@ -166,6 +172,34 @@ function mall_driver_attempt_login($phone, $password) {
         return ['success' => true, 'driver' => mall_driver_current()];
     } catch (Exception $e) {
         error_log('mall_driver_attempt_login error: ' . $e->getMessage());
+        return ['success' => false, 'error' => 'SERVER_ERROR'];
+    }
+}
+
+function mall_driver_signup($name, $phone, $password, $vehicle_info) {
+    $name = trim($name);
+    $phone = trim($phone);
+    $vehicle_info = trim($vehicle_info);
+    if ($name === '' || $phone === '' || strlen($password) < 8) {
+        return ['success' => false, 'error' => 'VALIDATION_ERROR'];
+    }
+    try {
+        $conn = mall_get_db_connection();
+        $check = $conn->prepare('SELECT id FROM mall_drivers WHERE phone = ?');
+        $check->bind_param('s', $phone);
+        $check->execute();
+        $exists = $check->get_result()->fetch_assoc();
+        $check->close();
+        if ($exists) return ['success' => false, 'error' => 'DUPLICATE_PHONE'];
+
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $stmt = $conn->prepare("INSERT INTO mall_drivers (name, phone, password_hash, vehicle_info, driver_type, is_active, is_available, approval_status) VALUES (?, ?, ?, ?, 'external', 0, 0, 'pending')");
+        $stmt->bind_param('ssss', $name, $phone, $hash, $vehicle_info);
+        $stmt->execute();
+        $stmt->close();
+        return ['success' => true];
+    } catch (Throwable $e) {
+        error_log('mall_driver_signup: ' . $e->getMessage());
         return ['success' => false, 'error' => 'SERVER_ERROR'];
     }
 }

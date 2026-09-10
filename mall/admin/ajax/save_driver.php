@@ -63,7 +63,7 @@ try {
 
         case 'toggle_active':
             $id = (int)($_POST['id'] ?? 0);
-            $stmt = $conn->prepare('UPDATE mall_drivers SET is_active = NOT is_active WHERE id = ?');
+            $stmt = $conn->prepare("UPDATE mall_drivers SET is_available = IF(approval_status = 'pending', 1, is_available), is_active = IF(approval_status = 'pending', 1, NOT is_active), approval_status = IF(approval_status = 'pending', 'approved', approval_status) WHERE id = ?");
             $stmt->bind_param('i', $id);
             $stmt->execute();
             $stmt->close();

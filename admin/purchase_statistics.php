@@ -20,20 +20,68 @@ if (!has_permission('purchase_management')) {
 
 $conn = get_db_connection();
 
-// 현재 연월 기준
-$current_year = date('Y');
-$current_month = date('n');
+// 조회 방식: calendar(이번 달 1일~말일, 기본값) / cycle26(전월 26일~이번달 25일 정산주기)
+$view_mode = (($_GET['view'] ?? '') === 'cycle26') ? 'cycle26' : 'calendar';
 
-// 최근 3개월 계산
-$months = [];
-for ($i = 0; $i < 3; $i++) {
-    $month = $current_month - $i;
-    $year = $current_year;
-    if ($month <= 0) {
-        $month += 12;
-        $year--;
+$today_year = (int)date('Y');
+$today_month = (int)date('n');
+$today_day = (int)date('j');
+
+// 최근 3개 구간 계산 (조회 방식에 따라 달력월 또는 26일 정산주기)
+$periods = [];
+if ($view_mode === 'cycle26') {
+    // 오늘이 26일 이상이면 이번 달 26일이 현재 주기의 시작, 26일 미만이면 지난 달 26일이 현재 주기의 시작.
+    $cycle_start_year = $today_year;
+    $cycle_start_month = $today_month;
+    if ($today_day < 26) {
+        $cycle_start_month--;
+        if ($cycle_start_month <= 0) {
+            $cycle_start_month += 12;
+            $cycle_start_year--;
+        }
     }
-    $months[] = ['year' => $year, 'month' => $month];
+    for ($i = 0; $i < 3; $i++) {
+        $sy = $cycle_start_year;
+        $sm = $cycle_start_month - $i;
+        while ($sm <= 0) {
+            $sm += 12;
+            $sy--;
+        }
+        $ey = $sy;
+        $em = $sm + 1;
+        if ($em > 12) {
+            $em -= 12;
+            $ey++;
+        }
+        $periods[] = [
+            'start' => sprintf('%04d-%02d-26', $sy, $sm),
+            'end' => sprintf('%04d-%02d-25', $ey, $em),
+            'label' => "{$sy}년 {$sm}월26일~{$em}월25일",
+            'short_label' => "{$sm}/26~{$em}/25",
+        ];
+    }
+    $period_captions = ['이번 주기', '지난 주기', '2주기 전'];
+    $total_label = '3주기 총 합계';
+    $table_total_label = '3주기 합계';
+} else {
+    for ($i = 0; $i < 3; $i++) {
+        $m = $today_month - $i;
+        $y = $today_year;
+        while ($m <= 0) {
+            $m += 12;
+            $y--;
+        }
+        $start = sprintf('%04d-%02d-01', $y, $m);
+        $periods[] = [
+            'start' => $start,
+            'end' => date('Y-m-t', strtotime($start)),
+            'label' => "{$y}년 {$m}월",
+            'short_label' => "{$m}월",
+        ];
+    }
+    $period_captions = ['이번 달', '지난 달', '2달 전'];
+    $total_label = '3개월 총 합계';
+    $table_total_label = '3개월 합계';
 }
 
 // 점포 필터 조건 생성
@@ -56,23 +104,24 @@ if ($has_deleted_at) {
     $soft_delete_filter = ' AND p.deleted_at IS NULL';
 }
 
-// 업체별 월별 매입 금액 쿼리
+// 업체별 구간별(달력월 또는 26일 정산주기) 매입 금액 쿼리
+// 날짜 범위(BETWEEN)로 비교하므로 calendar/cycle26 두 조회 방식 모두 동일한 쿼리 구조를 쓴다.
 $monthly_stats_sql = "SELECT
     s.id AS supplier_id,
     s.name AS supplier_name,
-    SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) AS month1_amount,
-    SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) AS month2_amount,
-    SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) AS month3_amount,
-    COUNT(DISTINCT CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.purchase_id END) AS month1_count,
-    COUNT(DISTINCT CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.purchase_id END) AS month2_count,
-    COUNT(DISTINCT CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.purchase_id END) AS month3_count
+    SUM(CASE WHEN p.purchase_date BETWEEN ? AND ? THEN p.total_amount ELSE 0 END) AS month1_amount,
+    SUM(CASE WHEN p.purchase_date BETWEEN ? AND ? THEN p.total_amount ELSE 0 END) AS month2_amount,
+    SUM(CASE WHEN p.purchase_date BETWEEN ? AND ? THEN p.total_amount ELSE 0 END) AS month3_amount,
+    COUNT(DISTINCT CASE WHEN p.purchase_date BETWEEN ? AND ? THEN p.purchase_id END) AS month1_count,
+    COUNT(DISTINCT CASE WHEN p.purchase_date BETWEEN ? AND ? THEN p.purchase_id END) AS month2_count,
+    COUNT(DISTINCT CASE WHEN p.purchase_date BETWEEN ? AND ? THEN p.purchase_id END) AS month3_count
 FROM suppliers s
 LEFT JOIN purchases p ON s.id = p.supplier_id {$store_filter} {$soft_delete_filter}
 GROUP BY s.id, s.name
-HAVING SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) > 0
-    OR SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) > 0
-    OR SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) > 0
-ORDER BY SUM(CASE WHEN YEAR(p.purchase_date) = ? AND MONTH(p.purchase_date) = ? THEN p.total_amount ELSE 0 END) DESC";
+HAVING SUM(CASE WHEN p.purchase_date BETWEEN ? AND ? THEN p.total_amount ELSE 0 END) > 0
+    OR SUM(CASE WHEN p.purchase_date BETWEEN ? AND ? THEN p.total_amount ELSE 0 END) > 0
+    OR SUM(CASE WHEN p.purchase_date BETWEEN ? AND ? THEN p.total_amount ELSE 0 END) > 0
+ORDER BY SUM(CASE WHEN p.purchase_date BETWEEN ? AND ? THEN p.total_amount ELSE 0 END) DESC";
 
 $monthly_stats = [];
 $monthly_totals = [
@@ -82,27 +131,35 @@ $monthly_totals = [
 
 $stats_stmt = $conn->prepare($monthly_stats_sql);
 if ($stats_stmt) {
+    // mysqli bind_param은 SQL 텍스트에 등장하는 ? 순서대로 위치 기반 바인딩된다.
+    // {$store_filter}(점포 필터의 ?)는 SELECT 절 12개 바로 다음, JOIN ON 절에 위치하므로
+    // HAVING/ORDER BY보다 먼저 값을 넣어야 한다. (예전엔 store 파라미터를 배열 맨 뒤에
+    // 붙여서 super_admin이 아닌 사용자는 결과가 거의 항상 비어버리는 버그가 있었다.)
     $stats_params = [
-        // SELECT 절 (6개 조건 x 2 = 12개)
-        $months[0]['year'], $months[0]['month'],
-        $months[1]['year'], $months[1]['month'],
-        $months[2]['year'], $months[2]['month'],
-        $months[0]['year'], $months[0]['month'],
-        $months[1]['year'], $months[1]['month'],
-        $months[2]['year'], $months[2]['month'],
-        // HAVING 절 (3개 조건 x 2 = 6개)
-        $months[0]['year'], $months[0]['month'],
-        $months[1]['year'], $months[1]['month'],
-        $months[2]['year'], $months[2]['month'],
-        // ORDER BY 절 (1개 조건 x 2 = 2개 - 이번 달만)
-        $months[0]['year'], $months[0]['month']
+        // SELECT 절 (3개 구간 x 2(시작/끝) x 2(금액/건수) = 12개)
+        $periods[0]['start'], $periods[0]['end'],
+        $periods[1]['start'], $periods[1]['end'],
+        $periods[2]['start'], $periods[2]['end'],
+        $periods[0]['start'], $periods[0]['end'],
+        $periods[1]['start'], $periods[1]['end'],
+        $periods[2]['start'], $periods[2]['end'],
     ];
-    $stats_types = 'iiiiiiiiiiiiiiiiiiii'; // 20개
+    $stats_types = 'ssssssssssss'; // 12개 (날짜 문자열)
 
+    // store_filter의 ?는 SELECT 절 바로 다음(JOIN ON 절)에 나오므로 여기서 이어붙인다.
     if (!empty($store_params)) {
         $stats_params = array_merge($stats_params, $store_params);
         $stats_types .= $store_param_types;
     }
+
+    // HAVING 절 (3개 구간 x 2 = 6개) + ORDER BY 절 (1개 구간 x 2 = 2개 - 첫번째 구간만)
+    $stats_params = array_merge($stats_params, [
+        $periods[0]['start'], $periods[0]['end'],
+        $periods[1]['start'], $periods[1]['end'],
+        $periods[2]['start'], $periods[2]['end'],
+        $periods[0]['start'], $periods[0]['end'],
+    ]);
+    $stats_types .= 'ssssssss'; // 8개
 
     $stats_stmt->bind_param($stats_types, ...$stats_params);
     $stats_stmt->execute();
@@ -199,28 +256,42 @@ $grand_count = $monthly_totals['count1'] + $monthly_totals['count2'] + $monthly_
 <div class="w-full px-2 sm:px-3 md:px-4 py-6">
     <!-- 페이지 헤더 -->
     <div class="mb-6">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between flex-wrap gap-3">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900">
                     <i class="fas fa-chart-line text-indigo-600 mr-2"></i>
                     매입 통계
                 </h1>
-                <p class="text-sm text-gray-600 mt-1">업체별 월별 매입 금액을 확인합니다</p>
+                <p class="text-sm text-gray-600 mt-1">업체별 매입 금액을 확인합니다</p>
             </div>
             <a href="purchase_management.php" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                 <i class="fas fa-arrow-left mr-2"></i>
                 매입 목록
             </a>
         </div>
+        <!-- 조회 방식 전환: 이번 달(달력월) / 전월 26일부터(정산주기) -->
+        <div class="mt-4 inline-flex rounded-md shadow-sm" role="group">
+            <a href="?view=calendar"
+               class="px-4 py-2 text-sm font-medium border rounded-l-md <?php echo $view_mode === 'calendar' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'; ?>">
+                <i class="fas fa-calendar-day mr-1.5"></i>이번 달
+            </a>
+            <a href="?view=cycle26"
+               class="px-4 py-2 text-sm font-medium border-t border-b border-r rounded-r-md <?php echo $view_mode === 'cycle26' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'; ?>">
+                <i class="fas fa-calendar-week mr-1.5"></i>전월 26일부터
+            </a>
+        </div>
+        <?php if ($view_mode === 'cycle26'): ?>
+        <p class="mt-2 text-xs text-gray-500"><i class="fas fa-circle-info mr-1"></i>매월 26일~다음 달 25일을 한 정산주기로 계산합니다. (현재 주기: <?php echo htmlspecialchars($periods[0]['label']); ?>)</p>
+        <?php endif; ?>
     </div>
 
     <!-- 월별 요약 카드 -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <!-- 이번 달 -->
+        <!-- 첫번째 구간 (이번 달 / 이번 주기) -->
         <div class="stat-card month-current">
             <div class="stat-label">
                 <i class="fas fa-calendar-day mr-1"></i>
-                <?php echo $months[0]['year']; ?>년 <?php echo $months[0]['month']; ?>월 (이번 달)
+                <?php echo htmlspecialchars($periods[0]['label']); ?> (<?php echo $period_captions[0]; ?>)
             </div>
             <div class="stat-value"><?php echo number_format($monthly_totals['month1'], 2); ?></div>
             <div class="stat-count"><?php echo number_format($monthly_totals['count1']); ?>건 매입</div>
@@ -229,11 +300,11 @@ $grand_count = $monthly_totals['count1'] + $monthly_totals['count2'] + $monthly_
             </div>
         </div>
 
-        <!-- 지난 달 -->
+        <!-- 두번째 구간 (지난 달 / 지난 주기) -->
         <div class="stat-card month-prev1">
             <div class="stat-label">
                 <i class="fas fa-calendar-alt mr-1"></i>
-                <?php echo $months[1]['year']; ?>년 <?php echo $months[1]['month']; ?>월
+                <?php echo htmlspecialchars($periods[1]['label']); ?>
             </div>
             <div class="stat-value"><?php echo number_format($monthly_totals['month2'], 2); ?></div>
             <div class="stat-count"><?php echo number_format($monthly_totals['count2']); ?>건 매입</div>
@@ -242,11 +313,11 @@ $grand_count = $monthly_totals['count1'] + $monthly_totals['count2'] + $monthly_
             </div>
         </div>
 
-        <!-- 2달 전 -->
+        <!-- 세번째 구간 (2달 전 / 2주기 전) -->
         <div class="stat-card month-prev2">
             <div class="stat-label">
                 <i class="fas fa-calendar mr-1"></i>
-                <?php echo $months[2]['year']; ?>년 <?php echo $months[2]['month']; ?>월
+                <?php echo htmlspecialchars($periods[2]['label']); ?>
             </div>
             <div class="stat-value"><?php echo number_format($monthly_totals['month3'], 2); ?></div>
             <div class="stat-count"><?php echo number_format($monthly_totals['count3']); ?>건 매입</div>
@@ -255,11 +326,11 @@ $grand_count = $monthly_totals['count1'] + $monthly_totals['count2'] + $monthly_
             </div>
         </div>
 
-        <!-- 3개월 합계 -->
+        <!-- 전체 합계 -->
         <div class="stat-card total">
             <div class="stat-label">
                 <i class="fas fa-calculator mr-1"></i>
-                3개월 총 합계
+                <?php echo $total_label; ?>
             </div>
             <div class="stat-value"><?php echo number_format($grand_total, 2); ?></div>
             <div class="stat-count"><?php echo number_format($grand_count); ?>건 매입 / <?php echo count($monthly_stats); ?>개 업체</div>
@@ -291,17 +362,17 @@ $grand_count = $monthly_totals['count1'] + $monthly_totals['count2'] + $monthly_
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-12">No</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">거래처명</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider bg-green-600">
-                            <?php echo $months[0]['month']; ?>월
-                            <span class="block text-xs font-normal opacity-75">(이번 달)</span>
+                            <?php echo htmlspecialchars($periods[0]['short_label']); ?>
+                            <span class="block text-xs font-normal opacity-75">(<?php echo $period_captions[0]; ?>)</span>
                         </th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider bg-blue-50">
-                            <?php echo $months[1]['month']; ?>월
+                            <?php echo htmlspecialchars($periods[1]['short_label']); ?>
                         </th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider bg-orange-50">
-                            <?php echo $months[2]['month']; ?>월
+                            <?php echo htmlspecialchars($periods[2]['short_label']); ?>
                         </th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider bg-gray-100">
-                            3개월 합계
+                            <?php echo $table_total_label; ?>
                         </th>
                         <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">비율</th>
                     </tr>
@@ -393,7 +464,7 @@ $grand_count = $monthly_totals['count1'] + $monthly_totals['count2'] + $monthly_
             <div class="text-gray-500">
                 <i class="fas fa-chart-bar text-4xl text-gray-400 mb-4"></i>
                 <p class="text-lg">매입 데이터가 없습니다</p>
-                <p class="text-sm mt-2">최근 3개월간의 매입 내역이 없습니다</p>
+                <p class="text-sm mt-2"><?php echo htmlspecialchars($periods[2]['label']); ?> ~ <?php echo htmlspecialchars($periods[0]['label']); ?> 기간의 매입 내역이 없습니다</p>
             </div>
         </div>
         <?php endif; ?>

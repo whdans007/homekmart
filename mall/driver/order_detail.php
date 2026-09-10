@@ -4,6 +4,7 @@
  * Design Ref: mall-delivery-dispatch.design.md §5.4, §7 — IDOR 방지(본인 배정건만), 상태별 버튼 1개만 노출
  */
 require_once __DIR__ . '/../lib/driver.php';
+require_once __DIR__ . '/partials/i18n.php';
 require_once __DIR__ . '/../lib/delivery.php';
 require_once __DIR__ . '/../lib/csrf.php';
 
@@ -352,5 +353,6 @@ document.getElementById('chat-input').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') document.getElementById('chat-send-btn').click();
 });
 </script>
+<?php driver_i18n_ui(); ?>
 </body>
 </html>

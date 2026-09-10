@@ -7,6 +7,7 @@ require_once __DIR__ . '/../lib/driver.php';
 require_once __DIR__ . '/../lib/delivery.php';
 require_once __DIR__ . '/../lib/order_chat.php';
 require_once __DIR__ . '/../lib/csrf.php';
+require_once __DIR__ . '/partials/i18n.php';
 
 mall_driver_require_login('/mall/driver/login.php');
 $driver = mall_driver_current();
@@ -188,6 +189,7 @@ if ($order_id > 0) {
     list.scrollTop = list.scrollHeight;
 })();
 </script>
+<?php driver_i18n_ui(); ?>
 </body>
 </html>
 <?php

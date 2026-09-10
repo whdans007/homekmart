@@ -20,6 +20,11 @@
         "sound",
         "alert"
       ]
+    },
+    "SystemBars": {
+      "style": "DARK",
+      "statusBarColor": "#FFFFFF",
+      "navigationBarColor": "#FFFFFF"
     }
   }
 }

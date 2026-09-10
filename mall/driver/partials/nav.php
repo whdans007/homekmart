@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/../../lib/order_chat.php';
 require_once __DIR__ . '/../../lib/csrf.php';
+require_once __DIR__ . '/i18n.php';
 $__driver_chat_unread = mall_order_chat_unread_total_for_driver($driver['id']);
 $__driver_push_csrf = mall_csrf_token();
 ?>
@@ -21,6 +22,10 @@ $__driver_push_csrf = mall_csrf_token();
             <?php endif; ?>
         </span>
         <span>채팅</span>
+    </a>
+    <a href="/mall/driver/settings.php" class="<?php echo ($active_driver_nav ?? '') === 'settings' ? 'active' : ''; ?>">
+        <span class="bottom-nav-icon-wrap"><i class="fas fa-gear" style="font-size:20px;"></i></span>
+        <span>설정</span>
     </a>
 </nav>
 <script>
@@ -41,3 +46,4 @@ $__driver_push_csrf = mall_csrf_token();
     Push.requestPermissions().then(function (r) { if (r.receive === 'granted') Push.register(); });
 })();
 </script>
+<?php driver_i18n_ui(); ?>
