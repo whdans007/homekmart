@@ -626,19 +626,16 @@ if (isset($_SESSION['flash'])) {
             <div class="flex-1 overflow-hidden">
                 <div class="p-4">
                     <div id="selected-product-info" class="mb-4 p-3 bg-gray-50 rounded-lg">
-                        <div class="font-medium text-gray-900" id="purchase-product-name">상품명</div>
+                        <div class="font-medium text-gray-900" id="purchase-product-name"><?php echo t('store_transfer.product_name_placeholder'); ?></div>
                         <div class="text-sm text-gray-600" id="purchase-product-sku">SKU: -</div>
+                        <div class="mt-1 text-sm text-gray-600" id="purchase-product-pieces-per-box">
+                            <?php echo t('store_transfer.pieces_per_box_detail'); ?>: -
+                        </div>
                     </div>
                     
                     <div class="mb-4">
                         <div class="flex items-center justify-between mb-3">
                             <h4 class="text-sm font-medium text-gray-900"><?php echo t('store_transfer.recent_purchase_history'); ?></h4>
-                            <div class="flex gap-1 text-xs">
-                                <button type="button" id="btn-mode-box" onclick="setPriceMode('box')"
-                                        class="px-2 py-1 rounded border border-blue-500 bg-blue-500 text-white">박스원가</button>
-                                <button type="button" id="btn-mode-unit" onclick="setPriceMode('unit')"
-                                        class="px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50">낱개가격</button>
-                            </div>
                         </div>
                         <div id="purchase-history-list" class="space-y-2">
                             <!-- 매입 이력이 여기에 표시됩니다 -->
@@ -661,12 +658,12 @@ if (isset($_SESSION['flash'])) {
                         <button type="button" id="manual-price-input-btn"
                                 class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 text-sm">
                             <i class="fas fa-edit mr-2"></i>
-                            박스원가 직접 입력
+                            <?php echo t('store_transfer.manual_box_cost'); ?>
                         </button>
                         <button type="button" id="manual-unit-price-btn"
                                 class="flex-1 px-4 py-2 border border-purple-400 text-purple-700 rounded-md hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 text-sm">
                             <i class="fas fa-cubes mr-2"></i>
-                            낱개가격 직접 입력
+                            <?php echo t('store_transfer.manual_unit_cost'); ?>
                         </button>
                     </div>
                 </div>
@@ -709,7 +706,39 @@ const translations = {
     database_error: '<?php echo addslashes(t("store_transfer.js_database_error")); ?>',
     network_error: '<?php echo addslashes(t("store_transfer.js_network_error")); ?>',
     no_available_products: '<?php echo addslashes(t("store_transfer.js_no_available_products")); ?>',
-    enter_box_cost: '<?php echo addslashes(t("store_transfer.js_enter_box_cost")); ?>'
+    enter_box_cost: '<?php echo addslashes(t("store_transfer.js_enter_box_cost")); ?>',
+    enter_unit_cost: '<?php echo addslashes(t("store_transfer.js_enter_unit_cost")); ?>',
+    invalid_number: '<?php echo addslashes(t("store_transfer.js_invalid_number")); ?>',
+    invalid_price: '<?php echo addslashes(t("store_transfer.js_invalid_price")); ?>',
+    products_found: '<?php echo addslashes(t("store_transfer.js_products_found")); ?>',
+    error_prefix: '<?php echo addslashes(t("store_transfer.js_error_prefix")); ?>',
+    cost_label: '<?php echo addslashes(t("store_transfer.js_cost_label")); ?>',
+    stock_label: '<?php echo addslashes(t("store_transfer.js_stock_label")); ?>',
+    pieces_per_box_label: '<?php echo addslashes(t("store_transfer.js_pieces_per_box_label")); ?>',
+    pieces_per_box_detail: '<?php echo addslashes(t("store_transfer.pieces_per_box_detail")); ?>',
+    box_cost_label: '<?php echo addslashes(t("store_transfer.box_cost_label")); ?>',
+    unit_cost_label: '<?php echo addslashes(t("store_transfer.unit_cost_label")); ?>',
+    piece_suffix: '<?php echo addslashes(t("store_transfer.js_piece_suffix")); ?>',
+    unit_badge: '<?php echo addslashes(t("store_transfer.js_unit_badge")); ?>',
+    select_price: '<?php echo addslashes(t("store_transfer.js_select_price")); ?>',
+    select_price_tooltip: '<?php echo addslashes(t("store_transfer.js_select_price_tooltip")); ?>',
+    select_purchase_price_add: '<?php echo addslashes(t("store_transfer.js_select_purchase_price_add")); ?>',
+    change_purchase_price: '<?php echo addslashes(t("store_transfer.js_change_purchase_price")); ?>',
+    quantity_label: '<?php echo addslashes(t("store_transfer.js_quantity_label")); ?>',
+    purchase_type_label: '<?php echo addslashes(t("store_transfer.js_purchase_type_label")); ?>',
+    receipt_date_label: '<?php echo addslashes(t("store_transfer.receipt_date_label")); ?>',
+    supplier_label: '<?php echo addslashes(t("store_transfer.supplier_label")); ?>',
+    box_type: '<?php echo addslashes(t("store_transfer.js_box_type")); ?>',
+    individual_type: '<?php echo addslashes(t("store_transfer.js_individual_type")); ?>',
+    product_not_found: '<?php echo addslashes(t("store_transfer.js_product_not_found")); ?>',
+    product_read_error: '<?php echo addslashes(t("store_transfer.js_product_read_error")); ?>',
+    pack_update_failed: '<?php echo addslashes(t("store_transfer.js_pack_update_failed")); ?>',
+    unknown_error: '<?php echo addslashes(t("store_transfer.js_unknown_error")); ?>',
+    pack_update_network_error: '<?php echo addslashes(t("store_transfer.js_pack_update_network_error")); ?>',
+    source_change_confirm: '<?php echo addslashes(t("store_transfer.js_source_change_confirm")); ?>',
+    response_parse_error: '<?php echo addslashes(t("store_transfer.js_response_parse_error")); ?>',
+    transfer_id_not_found: '<?php echo addslashes(t("store_transfer.js_transfer_id_not_found")); ?>',
+    delete_button: '<?php echo addslashes(t("store_transfer.delete_button")); ?>'
 };
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -760,6 +789,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const purchaseHistoryEmpty = document.getElementById('purchase-history-empty');
     const purchaseProductName = document.getElementById('purchase-product-name');
     const purchaseProductSku = document.getElementById('purchase-product-sku');
+    const purchaseProductPiecesPerBox = document.getElementById('purchase-product-pieces-per-box');
     const manualPriceInputBtn = document.getElementById('manual-price-input-btn');
     const useDefaultPriceBtn = document.getElementById('use-default-price-btn');
     const purchaseModalTitle = document.getElementById('purchase-modal-title');
@@ -895,7 +925,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function updateProductSearch() {
         // Clear cart when source store changes
-        if (cart.length > 0 && !confirm('Changing the source store will delete all products in the current cart. Do you want to continue?')) {
+        if (cart.length > 0 && !confirm(translations.source_change_confirm)) {
             return false;
         }
         cart = [];
@@ -948,7 +978,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (e) {
                 console.error('JSON 파싱 오류:', e);
                 console.log('원본 응답:', responseText);
-                throw new Error('서버 응답을 파싱할 수 없습니다: ' + responseText.substring(0, 100));
+                throw new Error(translations.response_parse_error + ': ' + responseText.substring(0, 100));
             }
         })
         .then(data => {
@@ -956,7 +986,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (data.success && data.products) {
                 displayProductResults(data.products);
-                searchStatus.textContent = data.products.length + ' products found';
+                searchStatus.textContent = translations.products_found.replace('{count}', data.products.length);
                 searchStatus.className = 'mt-2 text-sm text-green-600';
 
                 // 바코드 스캐너 입력 시 검색 결과가 1개면 자동으로 매입가 선택 모달 표시
@@ -1031,7 +1061,7 @@ document.addEventListener('DOMContentLoaded', function() {
             searchStatus.textContent = errorMessage;
             searchStatus.className = 'mt-2 text-sm text-red-600';
 
-            productSearchResults.innerHTML = '<div class="p-3 text-sm text-red-500">오류: ' + errorMessage + '</div>';
+            productSearchResults.innerHTML = '<div class="p-3 text-sm text-red-500">' + translations.error_prefix + ': ' + errorMessage + '</div>';
             productSearchResults.classList.remove('hidden');
         });
     }
@@ -1054,7 +1084,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="text-sm text-gray-600">${product.name_ko && product.name_en && product.name_ko !== product.name_en ? product.name_ko : ''}</div>
                     <div class="text-xs text-gray-500 mt-1">
-                        SKU: ${product.sku} | 원가: ${parseFloat(product.cost_price).toFixed(2)} | 재고: ${product.available_quantity}개 | 박스포장: ${product.pieces_per_box || 1}개
+                        SKU: ${product.sku} | ${translations.cost_label}: ${parseFloat(product.cost_price).toFixed(2)} | ${translations.stock_label}: ${product.available_quantity}${translations.piece_suffix} | ${translations.pieces_per_box_label}: ${product.pieces_per_box || 1}${translations.piece_suffix}
                     </div>
                 </div>
             `;
@@ -1070,7 +1100,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.showPurchaseHistoryBeforeAdd(this);
                 } catch (error) {
                     console.error('상품 선택 중 오류:', error);
-                    alert('Error selecting product: ' + error.message);
+                    alert(translations.product_read_error + ': ' + error.message);
                 }
             });
         });
@@ -1166,7 +1196,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                        step="0.01"
                                        onchange="updateBoxPrice(${index}, this.value)"
                                        onblur="updateBoxPrice(${index}, this.value)">
-                                ${item.price_type === 'unit' ? '<span class="text-xs text-purple-600 font-medium">낱개</span>' : ''}
+                                ${item.price_type === 'unit' ? '<span class="text-xs text-purple-600 font-medium">' + translations.unit_badge + '</span>' : ''}
                             </div>
                         </td>
                         
@@ -1175,8 +1205,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             <button type="button" 
                                     onclick="showPurchaseHistoryModal('${item.product_id}', '${(item.name_ko || item.name_en || 'N/A').replace(/'/g, '&apos;')}', '${item.sku}', getFromStoreId())"
                                     class="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-1 whitespace-nowrap"
-                                    title="매입 이력에서 가격 선택">
-                                <i class="fas fa-history mr-1"></i>선택
+                                    title="${translations.select_price_tooltip}">
+                                <i class="fas fa-history mr-1"></i>${translations.select_price}
                             </button>
                         </td>
                         
@@ -1263,12 +1293,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 // searchStatus.className = 'mt-2 text-sm text-green-600';
             } else {
                 console.error('박스포장수량 업데이트 실패:', data.error);
-                alert('박스포장수량 업데이트 실패: ' + (data.error || '알 수 없는 오류'));
+                alert(translations.pack_update_failed + ': ' + (data.error || translations.unknown_error));
             }
         })
         .catch(error => {
             console.error('박스포장수량 업데이트 오류:', error);
-            alert('박스포장수량 업데이트 중 네트워크 오류가 발생했습니다.');
+            alert(translations.pack_update_network_error);
         });
     };
     
@@ -1381,8 +1411,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="text-xs text-gray-500 mt-1 flex flex-wrap gap-2">
                                 <span><i class="fas fa-barcode mr-1"></i>${product.sku}</span>
                                 <span class="text-blue-600 font-medium"><i class="fas fa-coins mr-1"></i>${parseFloat(product.cost_price).toFixed(2)}</span>
-                                <span><i class="fas fa-box mr-1"></i>재고 ${product.available_quantity}개</span>
-                                <span><i class="fas fa-cubes mr-1"></i>박스포장 ${product.pieces_per_box || 1}개</span>
+                                <span><i class="fas fa-box mr-1"></i>${translations.stock_label} ${product.available_quantity}${translations.piece_suffix}</span>
+                                <span><i class="fas fa-cubes mr-1"></i>${translations.pieces_per_box_label} ${product.pieces_per_box || 1}${translations.piece_suffix}</span>
                             </div>
                         </div>
                         <div class="text-green-500 ml-2">
@@ -1480,12 +1510,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             if (!productId) {
-                alert('상품 정보를 찾을 수 없습니다.');
+                alert(translations.product_not_found);
                 return;
             }
         } catch (error) {
             console.error('상품 데이터 추출 중 오류:', error);
-            alert('상품 데이터를 읽는 중 오류가 발생했습니다: ' + error.message);
+            alert(translations.product_read_error + ': ' + error.message);
             return;
         }
         
@@ -1532,17 +1562,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // pieces_per_box 설정
         currentPiecesPerBox = window.pendingProductToAdd ? (window.pendingProductToAdd.piecesPerBox || 1) : 1;
+        purchaseProductPiecesPerBox.textContent = translations.pieces_per_box_detail + ': ' + currentPiecesPerBox + translations.piece_suffix;
 
         // 가격 모드 초기화 (박스원가 기본)
         currentPriceMode = 'box';
         lastLoadedHistory = null;
-        const boxBtn = document.getElementById('btn-mode-box');
-        const unitBtn = document.getElementById('btn-mode-unit');
-        if (boxBtn) boxBtn.className = 'px-2 py-1 rounded border border-blue-500 bg-blue-500 text-white';
-        if (unitBtn) unitBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
 
         // 모달 제목 업데이트 (새 상품 추가용)
-        purchaseModalTitle.innerHTML = '<i class="fas fa-plus mr-2 text-green-500"></i>매입가 선택 후 추가';
+        purchaseModalTitle.innerHTML = '<i class="fas fa-plus mr-2 text-green-500"></i>' + translations.select_purchase_price_add;
 
         // 모달 표시 (전역 변수 사용)
         window.purchaseHistoryModal.classList.remove('hidden');
@@ -1562,21 +1589,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // pieces_per_box와 price_type을 기존 cart 항목에서 가져오기
         const cartItem = window.cart.find(ci => ci.product_id == productId);
         currentPiecesPerBox = cartItem ? (cartItem.pieces_per_box || 1) : 1;
+        purchaseProductPiecesPerBox.textContent = translations.pieces_per_box_detail + ': ' + currentPiecesPerBox + translations.piece_suffix;
         lastLoadedHistory = null;
         const existingPriceType = cartItem ? (cartItem.price_type || 'box') : 'box';
         currentPriceMode = existingPriceType;
-        const boxBtn = document.getElementById('btn-mode-box');
-        const unitBtn = document.getElementById('btn-mode-unit');
-        if (existingPriceType === 'unit') {
-            if (boxBtn) boxBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
-            if (unitBtn) unitBtn.className = 'px-2 py-1 rounded border border-purple-500 bg-purple-500 text-white';
-        } else {
-            if (boxBtn) boxBtn.className = 'px-2 py-1 rounded border border-blue-500 bg-blue-500 text-white';
-            if (unitBtn) unitBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
-        }
 
         // 모달 제목 업데이트 (기존 상품 가격 변경용)
-        purchaseModalTitle.innerHTML = '<i class="fas fa-history mr-2 text-blue-500"></i>매입가 변경';
+        purchaseModalTitle.innerHTML = '<i class="fas fa-history mr-2 text-blue-500"></i>' + translations.change_purchase_price;
 
         // 모달 표시 (전역 변수 사용)
         window.purchaseHistoryModal.classList.remove('hidden');
@@ -1620,34 +1639,38 @@ document.addEventListener('DOMContentLoaded', function() {
         lastLoadedHistory = historyData;
         let html = '';
         const piecesPerBox = currentPiecesPerBox || 1;
-        const isUnitMode = currentPriceMode === 'unit';
 
         historyData.forEach((item, index) => {
             const boxCost = parseFloat(item.box_cost);
             const unitPrice = piecesPerBox > 1 ? boxCost / piecesPerBox : boxCost;
-            const displayPrice = isUnitMode ? unitPrice.toFixed(2) : item.box_cost_formatted;
-            const priceLabel = isUnitMode ? '낱개가격' : '박스원가';
-            const selectPrice = isUnitMode ? unitPrice : boxCost;
 
             html += `
                 <div class="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
                     <div class="flex justify-between items-start mb-2">
                         <div class="flex-1">
                             <div class="text-sm font-medium text-gray-900">
-                                ${item.purchase_date_formatted} | ${item.supplier_name || 'N/A'}
+                                ${translations.receipt_date_label} : ${item.purchase_date_formatted}
                             </div>
-                            <div class="text-xs text-gray-600 mt-1">
-                                ${priceLabel}: <strong class="${isUnitMode ? 'text-purple-700' : 'text-gray-900'}">${displayPrice}</strong>
-                                ${isUnitMode ? '<span class="text-purple-500">(낱개)</span>' : ''} |
-                                수량: ${item.quantity}개 |
-                                유형: ${item.purchase_type === 'box' ? '박스' : '개별'}
+                            <div class="mt-1 text-xs text-gray-600">
+                                ${translations.supplier_label} : ${item.supplier_name || 'N/A'}
                             </div>
                         </div>
-                        <button type="button"
-                                onclick="selectPurchasePrice('${selectPrice}')"
-                                class="ml-3 px-3 py-1 ${isUnitMode ? 'bg-purple-500 hover:bg-purple-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-xs rounded focus:outline-none focus:ring-2 focus:ring-offset-1">
-                            선택
-                        </button>
+                        <div class="ml-3 flex flex-col sm:flex-row gap-1 shrink-0">
+                            <button type="button"
+                                    onclick="selectPurchasePrice('${boxCost}', 'box')"
+                                    class="min-w-24 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 whitespace-nowrap"
+                                    style="color: #ffffff;">
+                                <span class="block font-semibold" style="color: #ffffff;">${item.box_cost_formatted}</span>
+                                <span class="block mt-0.5 text-[13px] opacity-90" style="color: #ffffff;">${translations.box_cost_label}</span>
+                            </button>
+                            <button type="button"
+                                    onclick="selectPurchasePrice('${unitPrice}', 'unit')"
+                                    class="min-w-24 px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-sm rounded focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1 whitespace-nowrap"
+                                    style="color: #ffffff;">
+                                <span class="block font-semibold" style="color: #ffffff;">${formatNumberWithCommas(unitPrice.toFixed(2))}</span>
+                                <span class="block mt-0.5 text-[13px] opacity-90" style="color: #ffffff;">${translations.unit_cost_label}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -1657,28 +1680,14 @@ document.addEventListener('DOMContentLoaded', function() {
         purchaseHistoryList.classList.remove('hidden');
     }
 
-    window.setPriceMode = function(mode) {
-        currentPriceMode = mode;
-        const boxBtn = document.getElementById('btn-mode-box');
-        const unitBtn = document.getElementById('btn-mode-unit');
-        if (mode === 'box') {
-            boxBtn.className = 'px-2 py-1 rounded border border-blue-500 bg-blue-500 text-white';
-            unitBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
-        } else {
-            boxBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
-            unitBtn.className = 'px-2 py-1 rounded border border-purple-500 bg-purple-500 text-white';
-        }
-        if (lastLoadedHistory && lastLoadedHistory.length > 0) {
-            displayPurchaseHistory(lastLoadedHistory);
-        }
-    };
-
-    window.selectPurchasePrice = function(boxCost) {
-        const price = parseFloat(boxCost);
+    window.selectPurchasePrice = function(selectedPrice, priceMode) {
+        const price = parseFloat(selectedPrice);
         if (isNaN(price) || price <= 0) {
-            alert('Invalid price.');
+            alert(translations.invalid_price);
             return;
         }
+
+        currentPriceMode = priceMode === 'unit' ? 'unit' : 'box';
 
         const selectedProduct = window.currentSelectedProduct || currentSelectedProduct;
         if (selectedProduct) {
@@ -1756,17 +1765,13 @@ document.addEventListener('DOMContentLoaded', function() {
         currentPriceMode = 'box';
         lastLoadedHistory = null;
         currentPiecesPerBox = 1;
-        const boxBtn = document.getElementById('btn-mode-box');
-        const unitBtn = document.getElementById('btn-mode-unit');
-        if (boxBtn) boxBtn.className = 'px-2 py-1 rounded border border-blue-500 bg-blue-500 text-white';
-        if (unitBtn) unitBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
         if (window.pendingProductToAdd) {
             window.pendingProductToAdd = null;
         }
     });
 
     manualPriceInputBtn.addEventListener('click', function() {
-        const price = prompt('박스원가를 입력하세요:', '');
+        const price = prompt(translations.enter_box_cost, '');
         if (price !== null) {
             const numericPrice = parseFloat(price);
             if (!isNaN(numericPrice) && numericPrice > 0) {
@@ -1781,7 +1786,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.purchaseHistoryModal.classList.add('hidden');
                 }
             } else {
-                alert('올바른 숫자를 입력해주세요.');
+                alert(translations.invalid_number);
             }
         }
     });
@@ -1789,7 +1794,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const manualUnitPriceBtn = document.getElementById('manual-unit-price-btn');
     if (manualUnitPriceBtn) {
         manualUnitPriceBtn.addEventListener('click', function() {
-            const price = prompt('낱개가격을 입력하세요:', '');
+            const price = prompt(translations.enter_unit_cost, '');
             if (price !== null) {
                 const numericPrice = parseFloat(price);
                 if (!isNaN(numericPrice) && numericPrice > 0) {
@@ -1804,7 +1809,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         window.purchaseHistoryModal.classList.add('hidden');
                     }
                 } else {
-                    alert('올바른 숫자를 입력해주세요.');
+                    alert(translations.invalid_number);
                 }
             }
         });
@@ -1830,10 +1835,6 @@ document.addEventListener('DOMContentLoaded', function() {
             currentPriceMode = 'box';
             lastLoadedHistory = null;
             currentPiecesPerBox = 1;
-            const boxBtn = document.getElementById('btn-mode-box');
-            const unitBtn = document.getElementById('btn-mode-unit');
-            if (boxBtn) boxBtn.className = 'px-2 py-1 rounded border border-blue-500 bg-blue-500 text-white';
-            if (unitBtn) unitBtn.className = 'px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50';
             if (window.pendingProductToAdd) {
                 window.pendingProductToAdd = null;
             }
@@ -1877,10 +1878,10 @@ window.deleteTransfer = function() {
     
     
     if (!transferId) {
-        alert('Store transfer ID to delete not found.');
+        alert(translations.transfer_id_not_found);
         if (deleteBtn) {
             deleteBtn.disabled = false;
-            deleteBtn.innerHTML = '<i class="fas fa-trash mr-1"></i>삭제';
+            deleteBtn.innerHTML = '<i class="fas fa-trash mr-1"></i>' + translations.delete_button;
         }
         return;
     }
