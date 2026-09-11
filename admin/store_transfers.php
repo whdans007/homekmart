@@ -491,7 +491,7 @@ if (isset($_SESSION['flash'])) {
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                                            placeholder="<?php echo t('store_transfer.search_product_placeholder'); ?>"
                                            autocomplete="off">
-                                    <div id="product_search_results" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto hidden">
+                                    <div id="product_search_results" role="listbox" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto hidden">
                                         <!-- 검색 결과가 여기에 표시됩니다 -->
                                     </div>
                                 </div>
@@ -530,7 +530,8 @@ if (isset($_SESSION['flash'])) {
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('product.name'); ?></th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('common.quantity'); ?></th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('product.pieces_per_box'); ?></th>
-                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('product.box_cost'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('store_transfer.cost_type_column'); ?></th>
+                                                <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('store_transfer.cost_column'); ?></th>
                                                 <th class="px-2 py-3 text-center text-xs font-semibold text-gray-700"><?php echo t('product.purchase_price'); ?></th>
                                                 <th class="px-2 py-3 text-right text-xs font-semibold text-gray-700"><?php echo t('common.total'); ?></th>
                                                 <th class="px-2 py-3 text-left text-xs font-semibold text-gray-700"><?php echo t('common.remarks'); ?></th>
@@ -799,10 +800,14 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentPriceMode = 'box'; // 'box' or 'unit'
     let lastLoadedHistory = null;
     let currentPiecesPerBox = 1;
+    let selectedSearchResultIndex = -1;
+    let selectedSearchResultProductId = null;
     
     // 상품 검색
     productSearch.addEventListener('input', function() {
         const query = this.value.trim();
+        selectedSearchResultIndex = -1;
+        selectedSearchResultProductId = null;
 
         clearTimeout(searchTimeout);
 
@@ -816,10 +821,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
     });
 
-    // 바코드 스캐너 Enter 키 방지 (폼 제출 방지)
+    function updateSearchResultSelection(items) {
+        items.forEach(function(item, index) {
+            const isSelected = index === selectedSearchResultIndex;
+            item.classList.toggle('bg-blue-50', isSelected);
+            item.classList.toggle('ring-2', isSelected);
+            item.classList.toggle('ring-inset', isSelected);
+            item.classList.toggle('ring-blue-400', isSelected);
+            item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+        });
+
+        if (selectedSearchResultIndex >= 0 && items[selectedSearchResultIndex]) {
+            selectedSearchResultProductId = items[selectedSearchResultIndex].dataset.id;
+            items[selectedSearchResultIndex].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    // 검색 결과 키보드 이동 및 바코드 스캐너 Enter 처리
     productSearch.addEventListener('keydown', function(e) {
+        const resultItems = Array.from(productSearchResults.querySelectorAll('.product-item'));
+
+        if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && resultItems.length > 0 && !productSearchResults.classList.contains('hidden')) {
+            e.preventDefault();
+            clearTimeout(searchTimeout);
+
+            if (e.key === 'ArrowDown') {
+                selectedSearchResultIndex = (selectedSearchResultIndex + 1) % resultItems.length;
+            } else {
+                selectedSearchResultIndex = selectedSearchResultIndex <= 0
+                    ? resultItems.length - 1
+                    : selectedSearchResultIndex - 1;
+            }
+
+            updateSearchResultSelection(resultItems);
+            return;
+        }
+
         if (e.key === 'Enter') {
-            e.preventDefault(); // 폼 제출 방지
+            e.preventDefault();
+
+            if (selectedSearchResultIndex >= 0 && resultItems[selectedSearchResultIndex]) {
+                resultItems[selectedSearchResultIndex].click();
+                selectedSearchResultIndex = -1;
+                selectedSearchResultProductId = null;
+                return false;
+            }
 
             const query = this.value.trim();
             if (query.length >= 2) {
@@ -910,6 +956,44 @@ document.addEventListener('DOMContentLoaded', function() {
     // Make cart and related functions globally accessible
     window.cart = cart;
     window.updateCart = updateCart;
+
+    function focusCartQuantity(productId) {
+        requestAnimationFrame(function() {
+            const quantityInput = cartList.querySelector('.cart-quantity-input[data-product-id="' + productId + '"]');
+            if (quantityInput) {
+                quantityInput.focus();
+                quantityInput.select();
+            }
+        });
+    }
+
+    cartList.addEventListener('keydown', function(event) {
+        if (event.key !== 'Enter') {
+            return;
+        }
+
+        const input = event.target;
+        const productId = input.dataset.productId;
+
+        if (input.classList.contains('cart-quantity-input')) {
+            event.preventDefault();
+            input.blur();
+            requestAnimationFrame(function() {
+                const costInput = cartList.querySelector('.cart-cost-input[data-product-id="' + productId + '"]');
+                if (costInput) {
+                    costInput.focus();
+                    costInput.select();
+                }
+            });
+        } else if (input.classList.contains('cart-cost-input')) {
+            event.preventDefault();
+            input.blur();
+            requestAnimationFrame(function() {
+                productSearch.focus();
+                productSearch.select();
+            });
+        }
+    });
     
     // Make DOM elements globally accessible
     window.productSearchResults = productSearchResults;
@@ -1022,6 +1106,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         window.cart[existingIndex].quantity = newQuantity;
                         window.cart[existingIndex].total_price = window.cart[existingIndex].quantity * window.cart[existingIndex].unit_cost_price;
                         window.updateCart();
+                        focusCartQuantity(product.id);
                         return;
                     }
 
@@ -1070,7 +1155,9 @@ document.addEventListener('DOMContentLoaded', function() {
         let html = '';
         products.forEach(function(product) {
             html += `
-                <div class="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 product-item" 
+                <div class="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0 product-item outline-none"
+                     role="option"
+                     aria-selected="false"
                      data-id="${product.id}" 
                      data-sku="${product.sku}"
                      data-name-ko="${product.name_ko || ''}"
@@ -1092,10 +1179,23 @@ document.addEventListener('DOMContentLoaded', function() {
         
         productSearchResults.innerHTML = html;
         productSearchResults.classList.remove('hidden');
+
+        const renderedItems = Array.from(productSearchResults.querySelectorAll('.product-item'));
+        selectedSearchResultIndex = selectedSearchResultProductId === null
+            ? -1
+            : renderedItems.findIndex(function(item) {
+                return item.dataset.id === selectedSearchResultProductId;
+            });
+        if (selectedSearchResultIndex < 0) {
+            selectedSearchResultProductId = null;
+        }
+        updateSearchResultSelection(renderedItems);
         
         // 상품 선택 이벤트 - 매입 이력 조회 후 추가
-        document.querySelectorAll('.product-item').forEach(function(item) {
+        renderedItems.forEach(function(item) {
             item.addEventListener('click', function() {
+                selectedSearchResultIndex = -1;
+                selectedSearchResultProductId = null;
                 try {
                     window.showPurchaseHistoryBeforeAdd(this);
                 } catch (error) {
@@ -1140,6 +1240,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         updateCart();
+        focusCartQuantity(productId);
         productSearchResults.classList.add('hidden');
         productSearch.value = '';
     }
@@ -1168,7 +1269,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- 수량 -->
                         <td class="px-2 py-3 text-center">
                             <input type="number"
-                                   class="w-20 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                   class="cart-quantity-input no-number-spinner w-20 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                   data-product-id="${item.product_id}"
                                    value="${item.quantity}"
                                    min="0.01"
                                    step="0.01"
@@ -1179,24 +1281,31 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- 박스포장수량 -->
                         <td class="px-2 py-3 text-center">
                             <input type="number" 
-                                   class="w-20 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500" 
+                                   class="no-number-spinner w-20 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                                    value="${item.pieces_per_box || 1}"
                                    min="1"
                                    onchange="updatePiecesPerBox(${index}, this.value)"
                                    onblur="updatePiecesPerBox(${index}, this.value)">
                         </td>
                         
-                        <!-- 박스원가/낱개가격 -->
+                        <!-- 원가 구분 -->
+                        <td class="px-2 py-3 text-center">
+                            <span class="inline-flex px-2 py-1 rounded-full text-xs font-semibold ${item.price_type === 'unit' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">
+                                ${item.price_type === 'unit' ? translations.unit_badge : translations.box_type}
+                            </span>
+                        </td>
+
+                        <!-- 원가 -->
                         <td class="px-2 py-3 text-center">
                             <div class="flex flex-col items-center gap-1">
                                 <input type="number"
-                                       class="w-24 px-2 py-1 text-sm text-center border ${item.price_type === 'unit' ? 'border-purple-400' : 'border-gray-300'} rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                       class="cart-cost-input no-number-spinner w-24 px-2 py-1 text-sm text-center border ${item.price_type === 'unit' ? 'border-purple-400' : 'border-gray-300'} rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                       data-product-id="${item.product_id}"
                                        value="${parseFloat(item.unit_cost_price).toFixed(2)}"
                                        min="0"
                                        step="0.01"
                                        onchange="updateBoxPrice(${index}, this.value)"
                                        onblur="updateBoxPrice(${index}, this.value)">
-                                ${item.price_type === 'unit' ? '<span class="text-xs text-purple-600 font-medium">' + translations.unit_badge + '</span>' : ''}
                             </div>
                         </td>
                         
@@ -1537,6 +1646,7 @@ document.addEventListener('DOMContentLoaded', function() {
             window.cart[existingIndex].quantity = newQuantity;
             window.cart[existingIndex].total_price = window.cart[existingIndex].quantity * window.cart[existingIndex].unit_cost_price;
             window.updateCart();
+            focusCartQuantity(productId);
 
             // 검색 결과만 숨기고 모달은 유지
             window.productSearchResults.classList.add('hidden');
@@ -1731,6 +1841,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 장바구니 업데이트
         updateCart();
+        focusCartQuantity(product.productId);
 
         console.log('상품이 장바구니에 추가되었습니다:', cart);
 
@@ -1965,6 +2076,18 @@ function updateToStoreOptions() {
 .modal-product-item:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 수량 입력란의 숫자 증감 버튼 숨김 */
+.no-number-spinner {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.no-number-spinner::-webkit-outer-spin-button,
+.no-number-spinner::-webkit-inner-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
 }
 
 /* 모달 애니메이션 */

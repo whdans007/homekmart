@@ -1615,6 +1615,8 @@
     "unit_cost_label": "낱개원가",
     "manual_box_cost": "박스원가 직접 입력",
     "manual_unit_cost": "낱개원가 직접 입력",
+    "cost_type_column": "원가구분",
+    "cost_column": "원가",
     "pcs_per_box_column": "포장단위",
     "signature_column": "싸인",
     "route_label": "점포 이동"
