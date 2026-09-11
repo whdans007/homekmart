@@ -8,7 +8,7 @@ kw_session_start();
 kw_require_staff();
 
 $search = trim($_GET['search'] ?? '');
-$filter = $_GET['filter'] ?? 'all'; // all | expiring | low | out
+$filter = $_GET['filter'] ?? 'all'; // all | expiring | expired | low | negative | out
 
 $conn = get_lc_db();
 
@@ -42,7 +42,9 @@ if ($filter === 'out') {
     $list = $st->get_result()->fetch_all(MYSQLI_ASSOC);
     $st->close();
 } else {
-    $conds  = ["i.quantity_remain > 0"];
+    // inventory.php와 동일하게 0이 아닌 모든 LOT을 집계한다.
+    // 음수 조정 LOT도 현재고 계산과 검색 결과에서 제외되지 않아야 한다.
+    $conds  = ["i.quantity_remain <> 0"];
     $params = [];
     $types  = '';
 
@@ -53,8 +55,12 @@ if ($filter === 'out') {
     }
     if ($filter === 'expiring') {
         $conds[] = "MIN(i.expiry_date) BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 90 DAY)";
+    } elseif ($filter === 'expired') {
+        $conds[] = "MIN(i.expiry_date) < CURDATE()";
     } elseif ($filter === 'low') {
         $conds[] = "SUM(i.quantity_remain) <= MIN(p.min_stock) AND MIN(p.min_stock) > 0";
+    } elseif ($filter === 'negative') {
+        $conds[] = "SUM(i.quantity_remain) < 0";
     }
 
     $where = 'WHERE ' . implode(' AND ', array_filter($conds, fn($c) => !str_starts_with($c, 'MIN(') && !str_starts_with($c, 'SUM(')));
@@ -69,13 +75,15 @@ if ($filter === 'out') {
                    SUM(i.quantity_remain) AS total_stock,
                    COUNT(i.id)            AS lot_count,
                    MIN(i.expiry_date)     AS earliest_expiry,
-                   DATEDIFF(MIN(i.expiry_date), CURDATE()) AS days_left
+                   DATEDIFF(MIN(i.expiry_date), CURDATE()) AS days_left,
+                   MAX(ib.inbound_date)   AS latest_inbound,
+                   MAX(i.inbound_id)      AS latest_inbound_id
             FROM kw_inventory i
             JOIN kw_products p ON i.product_id = p.id
             JOIN kw_inbound ib ON i.inbound_id = ib.id
             $where
             GROUP BY p.id $having
-            ORDER BY earliest_expiry ASC, p.name_en ASC";
+            ORDER BY latest_inbound DESC, latest_inbound_id DESC, p.name_en ASC";
     $st = $conn->prepare($sql);
     if ($params) { $st->bind_param($types, ...$params); }
     $st->execute();

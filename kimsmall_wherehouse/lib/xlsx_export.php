@@ -2,7 +2,15 @@
 // 의존성 없는 최소 XLSX 다운로드 헬퍼 (vendor의 PhpSpreadsheet에는 Writer가 없음)
 
 function kw_xml_escape(string $v): string {
-    return htmlspecialchars($v, ENT_XML1 | ENT_COMPAT, 'UTF-8');
+    // XML 1.0에서 허용되지 않는 제어문자가 셀 값에 포함되면 Excel이
+    // 해당 지점 이후의 행을 복구 과정에서 누락시킬 수 있으므로 제거한다.
+    $v = preg_replace(
+        '/[^\x{0009}\x{000A}\x{000D}\x{0020}-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]/u',
+        '',
+        $v
+    ) ?? '';
+
+    return htmlspecialchars($v, ENT_XML1 | ENT_COMPAT | ENT_SUBSTITUTE, 'UTF-8');
 }
 
 /**
