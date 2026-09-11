@@ -7,6 +7,9 @@ $__c = $card;
 $__price = $__c['price'];
 $__out_of_stock = $__c['stock'] <= 0;
 $__img = $__c['image_path'] ? '/mall/' . htmlspecialchars($__c['image_path']) : '/logo/homekmart_logo.png';
+$__cart_state = ($cart_quantities ?? [])[$__c['product_id']] ?? null;
+$__cart_qty = $__cart_state ? (int)$__cart_state['quantity'] : 0;
+$__cart_item_id = $__cart_state ? (int)$__cart_state['cart_item_id'] : '';
 ?>
 <div class="product-row-item">
     <a href="/mall/product.php?id=<?php echo (int)$__c['product_id']; ?>">
@@ -30,7 +33,14 @@ $__img = $__c['image_path'] ? '/mall/' . htmlspecialchars($__c['image_path']) : 
             <?php if ($__out_of_stock): ?>
                 <span class="badge-oos" style="position:static;">품절</span>
             <?php else: ?>
-                <button type="button" class="quick-add-btn add-to-cart-quick" data-product-id="<?php echo (int)$__c['product_id']; ?>">담기</button>
+                <div class="pcard-action product-row-cart-action" data-pcard-action data-product-id="<?php echo (int)$__c['product_id']; ?>" data-stock="<?php echo (int)$__c['stock']; ?>">
+                    <button type="button" class="pcard-add-btn quick-add-btn" <?php echo $__cart_qty > 0 ? 'style="display:none;"' : ''; ?>>담기</button>
+                    <div class="pcard-stepper qty-stepper qty-stepper-sm" data-cart-item-id="<?php echo htmlspecialchars((string)$__cart_item_id); ?>" <?php echo $__cart_qty > 0 ? '' : 'style="display:none;"'; ?>>
+                        <button type="button" class="pcard-dec" aria-label="수량 줄이기"><svg><use href="#i-minus"></use></svg></button>
+                        <span class="qty qty-value"><?php echo $__cart_qty; ?></span>
+                        <button type="button" class="pcard-inc" aria-label="수량 늘리기"><svg><use href="#i-plus"></use></svg></button>
+                    </div>
+                </div>
             <?php endif; ?>
         </div>
     </div>

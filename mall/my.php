@@ -54,6 +54,16 @@ if ($member) {
         <a href="/mall/signup.php" class="btn btn-primary" style="flex:1;">회원가입</a>
     </div>
 </div>
+<div class="my-menu">
+    <a href="/mall/app_download.php">
+        <span style="display:flex;align-items:center;gap:8px;"><i class="fab fa-android" aria-hidden="true" style="color:var(--brand-green);"></i>앱 다운로드 / Download App</span>
+        <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg>
+    </a>
+    <a href="/mall/settings.php">
+        <span style="display:flex;align-items:center;gap:8px;"><i class="fas fa-gear" aria-hidden="true" style="color:var(--label-alternative);"></i>환경설정 / Settings</span>
+        <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg>
+    </a>
+</div>
 <?php else: ?>
 
 <div class="my-profile-card">
@@ -85,7 +95,14 @@ if ($member) {
 <div class="my-menu">
     <a href="/mall/mypage/profile.php">회원정보수정 <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg></a>
     <a href="/mall/address.php">배송지 관리 <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg></a>
-    <a href="/mall/settings.php">환경설정 <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg></a>
+    <a href="/mall/app_download.php">
+        <span style="display:flex;align-items:center;gap:8px;"><i class="fab fa-android" aria-hidden="true" style="color:var(--brand-green);"></i>앱 다운로드 / Download App</span>
+        <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg>
+    </a>
+    <a href="/mall/settings.php">
+        <span style="display:flex;align-items:center;gap:8px;"><i class="fas fa-gear" aria-hidden="true" style="color:var(--label-alternative);"></i>환경설정 / Settings</span>
+        <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg>
+    </a>
     <div class="menu-row disabled">고객센터 <span class="tag-soon">준비중</span></div>
     <div class="menu-row disabled">알림설정 <span class="tag-soon">준비중</span></div>
     <a href="/mall/logout.php" style="color:var(--brand-red);">로그아웃</a>

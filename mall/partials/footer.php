@@ -1,8 +1,5 @@
     </main>
     <?php
-    $__lang_qs_ko = array_merge($_GET, ['lang' => 'ko']);
-    $__lang_qs_en = array_merge($_GET, ['lang' => 'en']);
-
     // 주문톡 푸시(FCM) 기기토큰 등록용 — 로그인된 페이지에서만 CSRF 토큰을 노출한다(비로그인 상태는
     // register_device_token.php가 401로 거부하므로 등록 시도 자체를 만들지 않는다).
     // require_once이므로 header.php가 이미 auth.php/csrf.php를 불러왔어도 중복 부작용 없음.
@@ -12,10 +9,7 @@
     ?>
     <?php if (empty($hide_mall_footer)): ?>
     <footer style="text-align:center;padding:var(--space-5) var(--space-5) var(--space-6);color:var(--label-assistive);font:var(--t-caption1) var(--font-sans);">
-        &copy; <?php echo date('Y'); ?> HOME K MART ·
-        <a href="?<?php echo htmlspecialchars(http_build_query($__lang_qs_ko)); ?>" style="color:<?php echo ($mall_lang ?? 'en') === 'ko' ? 'var(--label-normal)' : 'var(--label-assistive)'; ?>;font-weight:<?php echo ($mall_lang ?? 'en') === 'ko' ? '700' : '500'; ?>;">한국어</a>
-        ·
-        <a href="?<?php echo htmlspecialchars(http_build_query($__lang_qs_en)); ?>" style="color:<?php echo ($mall_lang ?? 'en') === 'en' ? 'var(--label-normal)' : 'var(--label-assistive)'; ?>;font-weight:<?php echo ($mall_lang ?? 'en') === 'en' ? '700' : '500'; ?>;">English</a>
+        &copy; <?php echo date('Y'); ?> HOME K MART
     </footer>
     <?php endif; ?>
 </div>

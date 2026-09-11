@@ -6,6 +6,11 @@ $mall_redesigned = true;
 $show_bottom_nav = true;
 $active_nav = 'search';
 require_once __DIR__ . '/partials/header.php';
+require_once __DIR__ . '/lib/cart.php';
+
+$cart_member_id = $member ? (int)$member['id'] : null;
+$cart_guest_token = $member ? null : mall_guest_token();
+$cart_quantities = mall_cart_get_quantities_by_product($cart_member_id, $cart_guest_token);
 
 $q = trim($_GET['q'] ?? '');
 $sort = $_GET['sort'] ?? 'default'; // default(관련도) | price_asc(낮은가격순) | newest(최신순)

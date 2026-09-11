@@ -73,7 +73,7 @@ if (!empty($category_filter_ids)) {
 
 $curated_stmt = $conn->prepare(
     "SELECT fp.id, fp.product_id, fp.display_name, fp.display_name_en, fp.selling_price_override,
-            fp.is_active, fp.is_sold_out, fp.display_order,
+            fp.is_active, fp.is_sold_out, fp.display_order, fp.category_id,
             p.name_ko, p.name_en AS product_name_en, p.sku,
             inv.selling_price AS original_selling_price, inv.quantity AS real_stock_quantity
      FROM foodpang_products fp
@@ -137,7 +137,7 @@ $conn->close();
                     // (카테고리 관리 모달의 두 입력창은 언어와 무관하게 항상 둘 다 채워서 보여준다 - 편집용이므로 유지)
                     $cat_nav_label = (get_language() === 'en' && !empty($cat['name_en'])) ? $cat['name_en'] : $cat['name'];
                 ?>
-                <a href="?cat_id=<?php echo (int)$cat['id']; ?>" data-category-id="<?php echo (int)$cat['id']; ?>"
+                <a href="?cat_id=<?php echo (int)$cat['id']; ?>" data-category-id="<?php echo (int)$cat['id']; ?>" data-product-count="<?php echo (int)$cat['product_count']; ?>"
                    class="flex items-center justify-between px-2 py-1.5 rounded text-xs font-medium <?php echo $selected_category_id === (int)$cat['id'] ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'; ?>">
                     <span><?php echo htmlspecialchars($cat_nav_label); ?></span>
                     <span class="text-xs text-gray-400"><?php echo (int)$cat['product_count']; ?></span>
@@ -188,8 +188,8 @@ $conn->close();
                         <tr><td colspan="7" class="px-3 py-8 text-center text-gray-400"><?php echo t('foodpang_admin.empty_curated'); ?></td></tr>
                         <?php endif; ?>
                         <?php foreach ($curated as $c): ?>
-                        <tr class="foodpang-row" draggable="true" data-foodpang-id="<?php echo (int)$c['id']; ?>">
-                            <td class="px-2 py-2 text-gray-300 cursor-move text-center"><i class="fas fa-grip-vertical"></i></td>
+                        <tr class="foodpang-row" data-foodpang-id="<?php echo (int)$c['id']; ?>" data-category-id="<?php echo (int)$c['category_id']; ?>">
+                            <td class="foodpang-drag-handle px-2 py-2 text-gray-300 cursor-move text-center" draggable="true" title="카테고리로 끌어서 이동하거나 위아래로 순서를 변경하세요"><i class="fas fa-grip-vertical"></i></td>
                             <td class="px-3 py-2">
                                 <div class="font-medium text-gray-800"><?php echo htmlspecialchars($c['name_ko']); ?></div>
                                 <div class="text-xs text-gray-400 font-mono"><?php echo htmlspecialchars($c['sku'] ?? '-'); ?></div>
@@ -256,6 +256,8 @@ $conn->close();
 
 <style>
 .foodpang-row.drag-over { background: #fdf2f8; }
+.foodpang-row.is-dragging { opacity: .45; }
+.foodpang-category-drop-target { outline: 2px dashed #db2777; outline-offset: 2px; background:#fdf2f8 !important; color:#9d174d !important; }
 .foodpang-category-item.drag-over { border-top: 2px solid #db2777; }
 .foodpang-category-item .edit-category-name, .foodpang-category-item .pending-name { -webkit-user-drag: none; }
 .foodpang-products-layout { display:grid; grid-template-columns:13rem minmax(0,1fr) 24rem; gap:1rem; align-items:start; }
@@ -540,8 +542,19 @@ $conn->close();
 
     // ---- 드래그앤드롭 순서 변경 ----
     let dragSrc = null;
-    document.querySelectorAll('.foodpang-row[draggable="true"]').forEach(function (row) {
-        row.addEventListener('dragstart', function () { dragSrc = row; });
+    document.querySelectorAll('.foodpang-row').forEach(function (row) {
+        const handle = row.querySelector('.foodpang-drag-handle');
+        handle.addEventListener('dragstart', function (e) {
+            dragSrc = row;
+            row.classList.add('is-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', row.dataset.foodpangId);
+        });
+        handle.addEventListener('dragend', function () {
+            row.classList.remove('is-dragging');
+            document.querySelectorAll('.foodpang-category-drop-target').forEach(el => el.classList.remove('foodpang-category-drop-target'));
+            dragSrc = null;
+        });
         row.addEventListener('dragover', function (e) { e.preventDefault(); row.classList.add('drag-over'); });
         row.addEventListener('dragleave', function () { row.classList.remove('drag-over'); });
         row.addEventListener('drop', function (e) {
@@ -552,6 +565,54 @@ $conn->close();
                 if (isAfter) { row.after(dragSrc); } else { row.before(dragSrc); }
                 saveOrder();
             }
+        });
+    });
+
+    // 상품의 그립을 좌측 카테고리에 놓으면 Foodpang 카테고리를 즉시 변경한다.
+    document.querySelectorAll('aside a[data-category-id]').forEach(function (categoryLink) {
+        categoryLink.addEventListener('dragover', function (e) {
+            if (!dragSrc) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            categoryLink.classList.add('foodpang-category-drop-target');
+        });
+        categoryLink.addEventListener('dragleave', function () {
+            categoryLink.classList.remove('foodpang-category-drop-target');
+        });
+        categoryLink.addEventListener('drop', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            categoryLink.classList.remove('foodpang-category-drop-target');
+            if (!dragSrc) return;
+
+            const movedRow = dragSrc;
+            const oldCategoryId = Number(movedRow.dataset.categoryId || 0);
+            const newCategoryId = Number(categoryLink.dataset.categoryId || 0);
+            if (!newCategoryId || oldCategoryId === newCategoryId) return;
+
+            postForm('move_category', {
+                foodpang_product_id: movedRow.dataset.foodpangId,
+                category_id: newCategoryId
+            }).then(function (res) {
+                if (!res.success) {
+                    showFlash((res.error && res.error.message) || '카테고리 변경에 실패했습니다.', 'error');
+                    return;
+                }
+                movedRow.dataset.categoryId = String(newCategoryId);
+                document.querySelectorAll('aside a[data-category-id]').forEach(function (link) {
+                    const linkCategoryId = Number(link.dataset.categoryId);
+                    let count = Number(link.dataset.productCount || 0);
+                    if (linkCategoryId === oldCategoryId) count = Math.max(0, count - 1);
+                    if (linkCategoryId === newCategoryId) count++;
+                    link.dataset.productCount = String(count);
+                    const badge = link.querySelector('span:last-child');
+                    if (badge) badge.textContent = String(count);
+                });
+                if (selectedCategoryId && selectedCategoryId !== newCategoryId) {
+                    movedRow.remove();
+                }
+                showFlash('상품 카테고리를 변경했습니다.', 'success');
+            });
         });
     });
 

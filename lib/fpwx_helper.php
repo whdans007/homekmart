@@ -64,6 +64,12 @@ function fpwx_field_specs($sheet_type) {
         'sales_code'   => ['headers' => ['판매코드', '판매 코드', 'sales code', 'salescode', 'sales_code'], 'fallback_col' => 'A'],
         'base_code'    => ['headers' => ['기본코드', '기준코드', '베이스코드', 'base code', 'basecode', 'base_code'], 'fallback_col' => 'B'],
         'product_name' => ['headers' => ['상품명', '품명', 'product name', 'item name', 'productname'], 'fallback_col' => 'T'],
+        'product_id'   => ['headers' => ['상품id', '상품 id', '상품아이디', 'product id', 'product_id'], 'fallback_col' => null],
+        'pms_status'   => ['headers' => ['pms상태', 'pms 상태', '상태', 'pms status', 'pms_status'], 'fallback_col' => null],
+        'category'     => ['headers' => ['카테고리명', '상품카테고리', '상품 카테고리', 'category name'], 'fallback_col' => null],
+        'category_large' => ['headers' => ['대분류', '1차분류', '대카테고리', 'category large'], 'fallback_col' => null],
+        'category_middle' => ['headers' => ['중분류', '2차분류', '중카테고리', 'category middle'], 'fallback_col' => null],
+        'category_small' => ['headers' => ['소분류', '3차분류', '소카테고리', 'category small'], 'fallback_col' => null],
     ];
 }
 
@@ -116,7 +122,7 @@ function fpwx_build_column_map($sheet, array $field_specs) {
                 }
             }
         }
-        $column_map[$field] = $found_col ?: $spec['fallback_col'];
+        $column_map[$field] = $found_col ?: ($spec['fallback_col'] ?? null);
     }
     return $column_map;
 }
@@ -159,7 +165,9 @@ function fpwx_extract_rows($sheet, array $field_specs) {
     for ($row = 2; $row <= $highest_row; $row++) {
         $fields = [];
         foreach ($field_specs as $field => $spec) {
-            $fields[$field] = fpwx_cell_string($sheet, $column_map[$field], $row);
+            $fields[$field] = $column_map[$field] !== null
+                ? fpwx_cell_string($sheet, $column_map[$field], $row)
+                : '';
         }
 
         // 완전히 빈 행은 건너뜀
@@ -178,6 +186,100 @@ function fpwx_extract_rows($sheet, array $field_specs) {
         $rows[] = ['row_number' => $row, 'fields' => $fields, 'raw' => $raw];
     }
     return $rows;
+}
+
+/**
+ * PMS에서 사용중인 상품을 Barcode 시트의 바코드(SKU)로 HKM 상품에 등록한다.
+ * 같은 SKU의 기존 상품은 중복 생성하지 않으며, 카테고리가 비어 있을 때만 PMS 카테고리를 채운다.
+ */
+function fpwx_import_active_pms_products(PDO $pdo, array $barcode_rows, array $pms_rows, $user_id) {
+    $barcode_by_sales_code = [];
+    foreach ($barcode_rows as $row) {
+        $sales_code = trim((string)($row['fields']['sales_code'] ?? ''));
+        $barcode = trim((string)($row['fields']['barcode'] ?? ''));
+        if ($sales_code !== '' && $barcode !== '') {
+            $barcode_by_sales_code[$sales_code] = $barcode;
+        }
+    }
+
+    $stats = ['active_rows' => 0, 'created' => 0, 'existing' => 0, 'skipped' => 0, 'categories_created' => 0];
+    $find_product = $pdo->prepare('SELECT id, category_id FROM products WHERE sku = ? LIMIT 1');
+    $insert_product = $pdo->prepare(
+        'INSERT INTO products (sku, name_ko, name_en, category_id, is_active, pieces_per_box, status, last_modified_by_user_id)
+         VALUES (?, ?, ?, ?, 1, 1, "active", ?)'
+    );
+    $fill_category = $pdo->prepare('UPDATE products SET category_id = ?, last_modified_by_user_id = ? WHERE id = ? AND category_id IS NULL');
+
+    $pdo->beginTransaction();
+    try {
+        foreach ($pms_rows as $row) {
+            $fields = $row['fields'];
+            $status = preg_replace('/\s+/u', '', mb_strtolower(trim((string)($fields['pms_status'] ?? ''))));
+            if ($status !== '사용중') {
+                continue;
+            }
+            $stats['active_rows']++;
+
+            $sales_code = trim((string)($fields['sales_code'] ?? ''));
+            $sku = $barcode_by_sales_code[$sales_code] ?? '';
+            $name = trim((string)($fields['product_name'] ?? ''));
+            if ($sku === '' || $name === '') {
+                $stats['skipped']++;
+                continue;
+            }
+
+            $category_path = array_values(array_filter([
+                trim((string)($fields['category_large'] ?? '')),
+                trim((string)($fields['category_middle'] ?? '')),
+                trim((string)($fields['category_small'] ?? '')),
+            ], static fn($value) => $value !== ''));
+            if (!$category_path && trim((string)($fields['category'] ?? '')) !== '') {
+                $category_path[] = trim((string)$fields['category']);
+            }
+            $category_id = fpwx_find_or_create_category_path($pdo, $category_path, $stats);
+
+            $find_product->execute([$sku]);
+            $existing = $find_product->fetch(PDO::FETCH_ASSOC);
+            if ($existing) {
+                $stats['existing']++;
+                if ($category_id && empty($existing['category_id'])) {
+                    $fill_category->execute([$category_id, $user_id, $existing['id']]);
+                }
+                continue;
+            }
+
+            $insert_product->execute([$sku, $name, $name, $category_id, $user_id]);
+            $stats['created']++;
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+    return $stats;
+}
+
+/** PMS의 대/중/소분류 경로를 기존 categories 계층에서 찾거나 생성한다. */
+function fpwx_find_or_create_category_path(PDO $pdo, array $names, array &$stats) {
+    $parent_id = null;
+    foreach ($names as $name) {
+        if ($parent_id === null) {
+            $find = $pdo->prepare('SELECT id FROM categories WHERE name = ? AND parent_id IS NULL LIMIT 1');
+            $find->execute([$name]);
+        } else {
+            $find = $pdo->prepare('SELECT id FROM categories WHERE name = ? AND parent_id = ? LIMIT 1');
+            $find->execute([$name, $parent_id]);
+        }
+        $category_id = $find->fetchColumn();
+        if (!$category_id) {
+            $insert = $pdo->prepare('INSERT INTO categories (name, parent_id) VALUES (?, ?)');
+            $insert->execute([$name, $parent_id]);
+            $category_id = $pdo->lastInsertId();
+            $stats['categories_created']++;
+        }
+        $parent_id = (int)$category_id;
+    }
+    return $parent_id;
 }
 
 /**

@@ -3,7 +3,7 @@
  * Foodpang 외부 도매 XLSX 업로드 화면.
  * Barcode / PMS_스냅샷 시트를 파싱하여 fpwx_raw_* 테이블에 불변 스냅샷으로 저장하고,
  * 정규화 테이블을 갱신한 뒤 결정론적 매칭을 실행한다.
- * 원본 Foodpang 데이터나 기존 mall/products 테이블은 절대 변경하지 않는다.
+ * PMS 상태가 사용중인 상품은 Barcode 시트의 바코드를 SKU로 products에 등록한다.
  */
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
@@ -47,6 +47,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $existing_batch = fpwx_find_batch_by_hash($pdo, $hash);
                 if ($existing_batch) {
+                    // 원본 배치는 중복 저장하지 않지만 상품/카테고리 가져오기는 멱등하게 다시 실행한다.
+                    $sheets = fpwx_load_workbook_sheets($file['tmp_name']);
+                    $barcode_rows = fpwx_extract_rows($sheets['barcode_sheet'], fpwx_field_specs('barcode'));
+                    $pms_rows = fpwx_extract_rows($sheets['pms_sheet'], fpwx_field_specs('pms'));
+                    $product_import = fpwx_import_active_pms_products(
+                        $pdo,
+                        $barcode_rows,
+                        $pms_rows,
+                        $_SESSION['user_id']
+                    );
                     $result = [
                         'duplicate' => true,
                         'batch_id' => $existing_batch['id'],
@@ -55,6 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'pms_row_count' => $existing_batch['pms_row_count'],
                         'auto_matched' => $existing_batch['auto_matched_count'],
                         'exceptions' => $existing_batch['exception_count'],
+                        'product_import' => $product_import,
                     ];
                 } else {
                     $sheets = fpwx_load_workbook_sheets($file['tmp_name']);
@@ -74,6 +85,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'uploaded_by' => $_SESSION['user_id'],
                         ]);
 
+                        $product_import = fpwx_import_active_pms_products(
+                            $pdo,
+                            $barcode_rows,
+                            $pms_rows,
+                            $_SESSION['user_id']
+                        );
                         $sales_codes = fpwx_rebuild_normalized_products($pdo, $batch_id);
                         $match_result = fpwx_run_matching($pdo, $batch_id, $sales_codes);
                         fpwx_finalize_batch($pdo, $batch_id, $match_result['auto_matched'], $match_result['exceptions']);
@@ -86,6 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'pms_row_count' => count($pms_rows),
                             'auto_matched' => $match_result['auto_matched'],
                             'exceptions' => $match_result['exceptions'],
+                            'product_import' => $product_import,
                         ];
                     }
                 }
@@ -132,6 +150,12 @@ $current_page = 'wholesale_upload.php';
         <li><?php echo t('foodpang_wholesale.col_pms_rows'); ?>: <?php echo (int)$result['pms_row_count']; ?></li>
         <li><?php echo t('foodpang_wholesale.col_auto_matched'); ?>: <?php echo (int)$result['auto_matched']; ?></li>
         <li><?php echo t('foodpang_wholesale.col_exceptions'); ?>: <?php echo (int)$result['exceptions']; ?></li>
+        <?php if (isset($result['product_import'])): ?>
+        <li>사용중 상품 신규 등록: <?php echo (int)$result['product_import']['created']; ?></li>
+        <li>기존 상품 확인: <?php echo (int)$result['product_import']['existing']; ?></li>
+        <li>바코드/상품명 누락으로 제외: <?php echo (int)$result['product_import']['skipped']; ?></li>
+        <li>신규 카테고리 등록: <?php echo (int)$result['product_import']['categories_created']; ?></li>
+        <?php endif; ?>
     </ul>
     <?php if ((int)$result['exceptions'] > 0): ?>
     <a href="wholesale_review.php?batch_id=<?php echo (int)$result['batch_id']; ?>" class="inline-block mt-2 font-semibold underline"><?php echo t('foodpang_wholesale.go_review'); ?></a>

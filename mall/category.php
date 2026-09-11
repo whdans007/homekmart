@@ -6,6 +6,12 @@ $mall_redesigned = true;
 $show_bottom_nav = true;
 $active_nav = 'category';
 require_once __DIR__ . '/partials/header.php';
+require_once __DIR__ . '/lib/cart.php';
+
+// 카테고리 목록을 처음 열 때도 현재 장바구니 상태를 반영한다.
+$cart_member_id = $member ? (int)$member['id'] : null;
+$cart_guest_token = $member ? null : mall_guest_token();
+$cart_quantities = mall_cart_get_quantities_by_product($cart_member_id, $cart_guest_token);
 
 $category_id = isset($_GET['id']) && $_GET['id'] !== '' ? (int)$_GET['id'] : null;
 $sub_id = isset($_GET['sub']) && $_GET['sub'] !== '' ? (int)$_GET['sub'] : null;

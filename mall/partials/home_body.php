@@ -35,6 +35,22 @@ $__tile_palette = ['#0066FF', '#00752E', '#C8102E', '#B87503', '#7C3AED', '#0891
 $__conn = mall_get_db_connection();
 $__home_categories = $__conn->query('SELECT id, name, name_en FROM categories WHERE parent_id IS NULL ORDER BY sort_order, name')->fetch_all(MYSQLI_ASSOC);
 
+// 로그인 회원의 기본 배송지. 이전 데이터에 기본 플래그가 없더라도 최근 등록 주소를 대신 표시한다.
+$__home_address = null;
+if ($member) {
+    $__addr_stmt = $__conn->prepare(
+        'SELECT detail_address, barangay, city, region, landmark
+         FROM mall_addresses
+         WHERE member_id = ?
+         ORDER BY is_default DESC, created_at DESC
+         LIMIT 1'
+    );
+    $__addr_stmt->bind_param('i', $member['id']);
+    $__addr_stmt->execute();
+    $__home_address = $__addr_stmt->get_result()->fetch_assoc() ?: null;
+    $__addr_stmt->close();
+}
+
 // 다시 담을 시간 — 관리자가 고르는 섹션이 아니라 회원별로 다른 개인화 데이터라 항상 고정으로 붙는다(비로그인이면 생략).
 $__recent_cards = [];
 if ($member) {
@@ -58,6 +74,7 @@ if ($member) {
         $__recent_cards = mall_build_product_cards($__recent_rows, $member, $__channel, $mall_lang);
     }
 }
+$__conn->close();
 ?>
 
 <div class="home-search-wrap">
@@ -73,8 +90,26 @@ if ($member) {
 
 <a href="/mall/address.php" class="address-row">
     <svg class="pin"><use href="#i-location"></use></svg>
-    <span class="short">배송지 미설정</span>
-    <span class="change">배송지 등록하기</span>
+    <?php if ($__home_address): ?>
+        <?php
+        $__home_address_label = trim((string)($__home_address['detail_address'] ?? ''));
+        if ($__home_address_label === '') {
+            $__home_address_label = trim(implode(' ', array_filter([
+                $__home_address['barangay'] ?? '',
+                $__home_address['city'] ?? '',
+                $__home_address['region'] ?? '',
+            ])));
+        }
+        if ($__home_address_label === '') {
+            $__home_address_label = trim((string)($__home_address['landmark'] ?? ''));
+        }
+        ?>
+        <span class="short"><?php echo htmlspecialchars($__home_address_label ?: '등록된 배송지'); ?></span>
+        <span class="change">배송지 변경</span>
+    <?php else: ?>
+        <span class="short">배송지 미설정</span>
+        <span class="change">배송지 등록하기</span>
+    <?php endif; ?>
     <svg class="chev"><use href="#i-chev-right"></use></svg>
 </a>
 

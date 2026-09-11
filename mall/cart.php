@@ -55,6 +55,8 @@ require_once __DIR__ . '/partials/header.php';
 .summary-card { margin: var(--space-4) var(--space-5) 0; }
 .summary-row { display: flex; justify-content: space-between; font: var(--t-label1) var(--font-sans); color: var(--label-neutral); padding: 4px 0; }
 .summary-row.total { border-top: 1px solid var(--line-normal); margin-top: 8px; padding-top: 12px; font: 700 18px var(--font-sans); color: var(--label-normal); }
+.cart-actions .btn { flex: 1; min-width: 0; padding-left: var(--space-3); padding-right: var(--space-3); }
+.cart-continue-btn { border: 1px solid var(--primary-normal); background: var(--bg-normal); color: var(--primary-normal); }
 </style>
 
 <h1 style="font:var(--t-heading2) var(--font-sans);padding:var(--space-4) var(--space-5) 0;">장바구니</h1>
@@ -149,8 +151,9 @@ require_once __DIR__ . '/partials/header.php';
     <div class="summary-row total"><span>예상 합계</span><span id="cart-total"><?php echo number_format($combined_total, 2); ?></span></div>
 </div>
 
-<div class="sticky-cta">
-    <a href="/mall/order_checkout.php" class="btn btn-primary btn-block">주문하기</a>
+<div class="sticky-cta cart-actions">
+    <a href="/mall/category.php" class="btn cart-continue-btn">계속 쇼핑하기</a>
+    <a href="/mall/order_checkout.php" class="btn btn-primary">주문하기</a>
 </div>
 <?php endif; ?>
 

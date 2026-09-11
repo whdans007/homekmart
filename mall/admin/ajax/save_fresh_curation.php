@@ -189,13 +189,13 @@ try {
             json_error('VALIDATION_ERROR', '이미지 파일을 확인해주세요');
         }
 
-        $allowed_mimes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        $allowed_mimes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/avif' => 'avif'];
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime = finfo_file($finfo, $_FILES['image']['tmp_name']);
         finfo_close($finfo);
 
         if (!isset($allowed_mimes[$mime])) {
-            json_error('VALIDATION_ERROR', 'JPG/PNG/WEBP 이미지만 업로드할 수 있습니다');
+            json_error('VALIDATION_ERROR', 'JPG/PNG/WEBP/AVIF 이미지만 업로드할 수 있습니다');
         }
         if ($_FILES['image']['size'] > 5 * 1024 * 1024) {
             json_error('VALIDATION_ERROR', '이미지 크기는 5MB 이하여야 합니다');

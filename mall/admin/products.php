@@ -65,16 +65,17 @@ if (!in_array($selected_store_id, $store_ids, true)) {
 }
 
 // 좌측 카테고리 메뉴 (대분류만 표시, 드래그앤드롭으로 정한 sort_order 순)
-// product_count: 대분류 + 그 하위 소분류에 걸린 "실제 몰에 큐레이션된(mall_products)" 상품 수.
+// product_count: 대분류 + 그 하위 소분류에 걸린 일반 큐레이션 상품과 신선상품의 합계.
 // products.category_id만으로 세면 큐레이션에서 삭제된 상품(category_id는 안 지워짐)까지 잡혀서
-// 실제 큐레이션 목록과 숫자가 안 맞았기 때문에, mall_products와 LEFT JOIN해서 실제 등록 건만 센다.
+// 일반상품은 mall_products에 실제 등록된 건만 세고, 신선상품은 카테고리가 배정된 건을 함께 센다.
 $cat_count_stmt = $conn->prepare(
     "SELECT c.id, c.name, c.name_en,
-            COUNT(DISTINCT mp.id) AS product_count
+            COUNT(DISTINCT mp.id) + COUNT(DISTINCT mfp.id) AS product_count
      FROM categories c
      LEFT JOIN categories sub ON sub.parent_id = c.id
-     LEFT JOIN products p ON (p.category_id = c.id OR p.category_id = sub.id) AND p.is_active = 1
+     LEFT JOIN products p ON (p.category_id = c.id OR p.category_id = sub.id)
      LEFT JOIN mall_products mp ON mp.product_id = p.id AND mp.store_id = ?
+     LEFT JOIN mall_fresh_products mfp ON (mfp.category_id = c.id OR mfp.category_id = sub.id)
      WHERE c.parent_id IS NULL
      GROUP BY c.id, c.name, c.name_en
      ORDER BY c.sort_order, c.name"
@@ -87,10 +88,12 @@ $cat_count_stmt->close();
 // 전체 소분류(모든 대분류의 하위)를 대분류별로 묶어서 한 번에 가져온다.
 // 사이드바(선택된 대분류의 소분류 필터 목록)와 카테고리 관리 모달(전체 트리) 양쪽에서 공용으로 쓴다.
 $all_sub_stmt = $conn->prepare(
-    "SELECT c.id, c.name, c.name_en, c.parent_id, COUNT(DISTINCT mp.id) AS product_count
+    "SELECT c.id, c.name, c.name_en, c.parent_id,
+            COUNT(DISTINCT mp.id) + COUNT(DISTINCT mfp.id) AS product_count
      FROM categories c
-     LEFT JOIN products p ON p.category_id = c.id AND p.is_active = 1
+     LEFT JOIN products p ON p.category_id = c.id
      LEFT JOIN mall_products mp ON mp.product_id = p.id AND mp.store_id = ?
+     LEFT JOIN mall_fresh_products mfp ON mfp.category_id = c.id
      WHERE c.parent_id IS NOT NULL
      GROUP BY c.id, c.name, c.name_en, c.parent_id
      ORDER BY c.parent_id, c.sort_order, c.name"
@@ -282,7 +285,7 @@ if ($selected_home_slot && empty($home_slot_membership[$selected_home_slot])) {
                 mp.retail_discount_allowed, mp.wholesale_discount_allowed,
                 mp.wholesale_reference_price AS wholesale_reference_price_override,
                 mp.cost_price_override, mp.selling_price_override,
-                p.name_ko, p.sku, inv.cost_price AS original_cost_price, inv.selling_price AS original_selling_price,
+                p.name_ko, p.sku, p.category_id, inv.cost_price AS original_cost_price, inv.selling_price AS original_selling_price,
                 mp.is_sold_out, inv.quantity AS real_stock_quantity,
                 mp.promo_type, mp.promo_value,
                 (SELECT COUNT(*) FROM mall_product_images WHERE product_id = p.id) AS image_count
@@ -330,7 +333,7 @@ if ($selected_home_slot && empty($home_slot_membership[$selected_home_slot])) {
                 mp.retail_discount_allowed, mp.wholesale_discount_allowed,
                 mp.wholesale_reference_price AS wholesale_reference_price_override,
                 mp.cost_price_override, mp.selling_price_override,
-                p.name_ko, p.sku, inv.cost_price AS original_cost_price, inv.selling_price AS original_selling_price,
+                p.name_ko, p.sku, p.category_id, inv.cost_price AS original_cost_price, inv.selling_price AS original_selling_price,
                 mp.is_sold_out, inv.quantity AS real_stock_quantity,
                 (SELECT COUNT(*) FROM mall_product_images WHERE product_id = mp.product_id) AS image_count
          FROM mall_products mp
@@ -367,6 +370,7 @@ if (!$selected_home_slot) {
             'id' => null,
             'fresh_id' => (int)$fc['id'],
             'product_id' => null,
+            'category_id' => (int)$fc['category_id'],
             'sku' => $fc['code'],
             'name_ko' => $fc['name_ko'],
             'name_en' => $fc['name_en'],
@@ -418,6 +422,8 @@ $conn->close();
         .category-item.drag-over { border-top: 2px solid #2563eb; }
         .category-item a { -webkit-user-drag: none; }
         .curated-row.drag-over { border-top: 2px solid #2563eb; }
+        .curated-row.is-dragging { opacity: .45; }
+        .mall-category-drop-target { outline: 2px dashed #2563eb; outline-offset: 2px; background:#eff6ff !important; color:#1d4ed8 !important; }
         .edit-display-order::-webkit-outer-spin-button,
         .edit-display-order::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .edit-display-order { -moz-appearance: textfield; }
@@ -465,7 +471,7 @@ $conn->close();
             <ul class="space-y-1">
                 <?php foreach ($mall_categories as $cat): ?>
                 <li>
-                    <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['cat_id' => $cat['id']])); ?>"
+                    <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['cat_id' => $cat['id']])); ?>" data-drop-category-id="<?php echo (int)$cat['id']; ?>"
                        class="block px-2 py-1.5 rounded text-xs font-medium <?php echo $selected_category_id === (int)$cat['id'] ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'; ?>">
                         <?php echo htmlspecialchars($cat['name']); ?> <span class="text-gray-400">(<?php echo (int)$cat['product_count']; ?>)</span>
                     </a>
@@ -475,7 +481,7 @@ $conn->close();
                     <ul class="space-y-1">
                         <?php foreach ($sub_categories as $sub): ?>
                         <li>
-                            <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['cat_id' => $selected_category_id, 'sub_id' => $sub['id']])); ?>"
+                            <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['cat_id' => $selected_category_id, 'sub_id' => $sub['id']])); ?>" data-drop-category-id="<?php echo (int)$sub['id']; ?>"
                                class="block px-2 py-1 rounded text-xs font-medium <?php echo $selected_sub_id === (int)$sub['id'] ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'; ?>">
                                 <?php echo htmlspecialchars($sub['name']); ?> <span class="text-gray-400">(<?php echo (int)$sub['product_count']; ?>)</span>
                             </a>
@@ -518,10 +524,10 @@ $conn->close();
                     <tr>
                         <th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.sort_order'); ?></th>
                         <th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.product_name'); ?></th>
-                        <th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.display_name'); ?></th>
-                        <th class="px-3 py-2 text-right"><?php echo t('mall_admin.products.cost_price'); ?></th>
-                        <th class="px-3 py-2 text-right"><?php echo t('mall_admin.products.wholesale_reference_price'); ?></th>
-                        <th class="px-3 py-2 text-right"><?php echo t('mall_admin.products.reference_selling_price'); ?></th>
+                        <th class="px-3 py-2 text-left w-52"><?php echo t('mall_admin.products.display_name'); ?></th>
+                        <th class="px-1 py-2 text-right w-16 leading-tight"><?php echo t('mall_admin.products.cost_price'); ?></th>
+                        <th class="px-1 py-2 text-right w-16 leading-tight"><?php echo t('mall_admin.products.wholesale_reference_price'); ?></th>
+                        <th class="px-1 py-2 text-right w-16 leading-tight"><?php echo t('mall_admin.products.reference_selling_price'); ?></th>
                         <th class="px-3 py-2 text-left"><?php echo t('mall_admin.home_layout.visible'); ?></th>
                         <th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.stock_sold_out'); ?></th>
                         <th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.discount'); ?></th>
@@ -577,12 +583,12 @@ $conn->close();
                     <?php else: ?>
                     <tr class="curated-row border-t border-gray-100"
                         <?php if ($__row_type === 'fresh'): ?>
-                        data-row-type="fresh" data-fresh-product-id="<?php echo (int)$c['fresh_id']; ?>" draggable="true"
+                        data-row-type="fresh" data-fresh-product-id="<?php echo (int)$c['fresh_id']; ?>" data-category-id="<?php echo (int)($c['category_id'] ?? 0); ?>"
                         <?php else: ?>
-                        data-mall-product-id="<?php echo (int)$c['id']; ?>" <?php echo $selected_home_slot ? '' : 'draggable="true"'; ?>
+                        data-mall-product-id="<?php echo (int)$c['id']; ?>" data-product-id="<?php echo (int)$c['product_id']; ?>" data-category-id="<?php echo (int)($c['category_id'] ?? 0); ?>"
                         <?php endif; ?>>
                         <td class="px-3 py-2 whitespace-nowrap">
-                            <?php if (!$selected_home_slot): ?><i class="fas fa-grip-vertical text-gray-300 cursor-grab" title="<?php echo htmlspecialchars(t('mall_admin.products.drag_to_reorder')); ?>"></i><?php endif; ?>
+                            <?php if (!$selected_home_slot): ?><i class="mall-product-drag-handle fas fa-grip-vertical text-gray-300 cursor-grab" draggable="true" title="카테고리로 끌어서 이동하거나 위아래로 순서를 변경하세요"></i><?php endif; ?>
                             <input type="number" min="0" max="999" class="edit-display-order border border-gray-300 rounded px-2 py-1 w-10" value="<?php echo (int)$c['display_order']; ?>" <?php echo $selected_home_slot ? 'title="' . htmlspecialchars(t('mall_admin.products.slot_order_title')) . '"' : ''; ?>>
                         </td>
                         <td class="px-3 py-2">
@@ -590,26 +596,26 @@ $conn->close();
                             <?php echo htmlspecialchars($c['name_ko']); ?>
                             <?php if ($__row_type === 'fresh'): ?><span class="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700"><?php echo t('mall_fresh_products.fresh_product_label'); ?></span><?php endif; ?>
                         </td>
-                        <td class="px-3 py-2">
+                        <td class="px-3 py-2 w-52">
                             <div class="flex flex-col gap-1">
-                                <div class="flex items-center gap-1"><span class="text-gray-400 text-[11px] flex-shrink-0"><?php echo t('mall_admin.products.lang_ko_short'); ?>:</span><input type="text" class="edit-display-name border border-gray-300 rounded px-2 py-1 w-32" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.korean')); ?>" value="<?php echo htmlspecialchars($c['display_name'] ?? ''); ?>"></div>
-                                <div class="flex items-center gap-1"><span class="text-gray-400 text-[11px] flex-shrink-0"><?php echo t('mall_admin.products.lang_en_short'); ?>:</span><input type="text" class="edit-display-name-en border border-gray-300 rounded px-2 py-1 w-32" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.english')); ?>" value="<?php echo htmlspecialchars($c['display_name_en'] ?? ''); ?>"></div>
+                                <div class="flex items-center gap-1"><span class="text-gray-400 text-[11px] flex-shrink-0"><?php echo t('mall_admin.products.lang_ko_short'); ?>:</span><input type="text" class="edit-display-name border border-gray-300 rounded px-2 py-1 w-48" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.korean')); ?>" value="<?php echo htmlspecialchars($c['display_name'] ?? ''); ?>"></div>
+                                <div class="flex items-center gap-1"><span class="text-gray-400 text-[11px] flex-shrink-0"><?php echo t('mall_admin.products.lang_en_short'); ?>:</span><input type="text" class="edit-display-name-en border border-gray-300 rounded px-2 py-1 w-48" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.english')); ?>" value="<?php echo htmlspecialchars($c['display_name_en'] ?? ''); ?>"></div>
                             </div>
                         </td>
-                        <td class="px-3 py-2 text-right">
-                            <input type="number" step="0.01" min="0" class="edit-cost-price border border-gray-300 rounded px-2 py-1 w-20 text-right font-mono" value="<?php echo $effective_cost_price !== null ? $effective_cost_price : ''; ?>">
+                        <td class="px-1 py-2 text-right w-16">
+                            <input type="number" step="0.01" min="0" class="edit-cost-price border border-gray-300 rounded px-1 py-1 w-16 text-right font-mono" value="<?php echo $effective_cost_price !== null ? $effective_cost_price : ''; ?>">
                             <?php if ($cost_price_override !== null): ?>
                             <div class="text-gray-400 mt-0.5"><?php echo t('mall_admin.products.original'); ?>: <?php echo $original_cost_price !== null ? number_format($original_cost_price, 2) : '-'; ?></div>
                             <?php endif; ?>
                         </td>
-                        <td class="px-3 py-2 text-right">
-                            <input type="number" step="0.01" min="0" class="edit-wholesale-reference-price border border-gray-300 rounded px-2 py-1 w-20 text-right font-mono" value="<?php echo $effective_wholesale_reference_price !== null ? $effective_wholesale_reference_price : ''; ?>">
+                        <td class="px-1 py-2 text-right w-16">
+                            <input type="number" step="0.01" min="0" class="edit-wholesale-reference-price border border-gray-300 rounded px-1 py-1 w-16 text-right font-mono" value="<?php echo $effective_wholesale_reference_price !== null ? $effective_wholesale_reference_price : ''; ?>">
                             <?php if ($wholesale_reference_override !== null): ?>
                             <div class="text-gray-400 mt-0.5"><?php echo t('mall_admin.products.original'); ?>: <?php echo $original_wholesale_reference_price !== null ? number_format($original_wholesale_reference_price, 2) : '-'; ?></div>
                             <?php endif; ?>
                         </td>
-                        <td class="px-3 py-2 text-right">
-                            <input type="number" step="0.01" min="0" class="edit-selling-price border border-gray-300 rounded px-2 py-1 w-20 text-right font-mono" value="<?php echo $effective_selling_price !== null ? $effective_selling_price : ''; ?>">
+                        <td class="px-1 py-2 text-right w-16">
+                            <input type="number" step="0.01" min="0" class="edit-selling-price border border-gray-300 rounded px-1 py-1 w-16 text-right font-mono" value="<?php echo $effective_selling_price !== null ? $effective_selling_price : ''; ?>">
                             <div class="selling-price-original-hint text-gray-400 mt-0.5" style="<?php echo $selling_price_override !== null ? '' : 'display:none;'; ?>"><?php echo t('mall_admin.products.original'); ?>: <?php echo $original_selling_price !== null ? number_format($original_selling_price, 2) : '-'; ?></div>
                             <?php if ($__row_type === 'fresh'): ?>
                             <div class="text-gray-400 mt-0.5"><?php echo $c['sale_type'] === 'piece' ? htmlspecialchars(t('mall_fresh_products.price_label_piece')) : htmlspecialchars(t('mall_fresh_products.price_label_weight')); ?></div>
@@ -686,9 +692,9 @@ $conn->close();
                             <?php endif; ?>
                             <div class="mt-1 flex items-center gap-1.5">
                                 <label class="text-blue-600 cursor-pointer text-[11px]">
-                                    <?php echo t('mall_admin.products.add_photo'); ?><input type="file" class="<?php echo $__row_type === 'fresh' ? 'fresh-image-upload-input' : 'image-upload-input'; ?> hidden" data-<?php echo $__row_type === 'fresh' ? 'fresh-product-id' : 'product-id'; ?>="<?php echo $__row_type === 'fresh' ? (int)$c['fresh_id'] : (int)$c['product_id']; ?>" accept="image/jpeg,image/png,image/webp">
+                                    <?php echo t('mall_admin.products.add_photo'); ?><input type="file" class="<?php echo $__row_type === 'fresh' ? 'fresh-image-upload-input' : 'image-upload-input'; ?> hidden" data-<?php echo $__row_type === 'fresh' ? 'fresh-product-id' : 'product-id'; ?>="<?php echo $__row_type === 'fresh' ? (int)$c['fresh_id'] : (int)$c['product_id']; ?>" accept="image/jpeg,image/png,image/webp,image/avif,.avif">
                                 </label>
-                                <a href="https://www.google.com/search?tbm=isch&q=<?php echo urlencode($c['name_ko']); ?>" target="_blank" rel="noopener noreferrer" class="text-gray-500 hover:text-blue-600 text-[11px]"><?php echo t('mall_admin.products.search_photo'); ?></a>
+                                <a href="https://www.google.com/search?tbm=isch&q=<?php echo urlencode(trim($c['name_ko'] . ' png')); ?>" target="_blank" rel="noopener noreferrer" class="text-gray-500 hover:text-blue-600 text-[11px]"><?php echo t('mall_admin.products.search_photo'); ?></a>
                             </div>
                         </td>
                     </tr>
@@ -1527,8 +1533,20 @@ document.querySelectorAll('.subcategory-list').forEach(function (subList) {
 let curatedDragSrcRow = null;
 function curatedRowType(row) { return row.dataset.rowType === 'fresh' ? 'fresh' : 'general'; }
 function attachCuratedDragHandlers() {
-    document.querySelectorAll('.curated-row[draggable="true"]').forEach(function (row) {
-        row.addEventListener('dragstart', function () { curatedDragSrcRow = row; });
+    document.querySelectorAll('.curated-row').forEach(function (row) {
+        const handle = row.querySelector('.mall-product-drag-handle');
+        if (!handle) return;
+        handle.addEventListener('dragstart', function (e) {
+            curatedDragSrcRow = row;
+            row.classList.add('is-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', row.dataset.mallProductId || row.dataset.freshProductId || '');
+        });
+        handle.addEventListener('dragend', function () {
+            row.classList.remove('is-dragging');
+            document.querySelectorAll('.mall-category-drop-target').forEach(el => el.classList.remove('mall-category-drop-target'));
+            curatedDragSrcRow = null;
+        });
         row.addEventListener('dragover', function (e) { e.preventDefault(); row.classList.add('drag-over'); });
         row.addEventListener('dragleave', function () { row.classList.remove('drag-over'); });
         row.addEventListener('drop', function (e) {
@@ -1547,6 +1565,56 @@ function attachCuratedDragHandlers() {
     });
 }
 attachCuratedDragHandlers();
+
+// 정렬 그립을 좌측 카테고리에 드롭하면 일반/신선상품의 실제 카테고리를 변경한다.
+document.querySelectorAll('aside a[data-drop-category-id]').forEach(function (categoryLink) {
+    categoryLink.addEventListener('dragover', function (e) {
+        if (!curatedDragSrcRow) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        categoryLink.classList.add('mall-category-drop-target');
+    });
+    categoryLink.addEventListener('dragleave', function () {
+        categoryLink.classList.remove('mall-category-drop-target');
+    });
+    categoryLink.addEventListener('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        categoryLink.classList.remove('mall-category-drop-target');
+        if (!curatedDragSrcRow) return;
+
+        const movedRow = curatedDragSrcRow;
+        const categoryId = parseInt(categoryLink.dataset.dropCategoryId, 10) || 0;
+        if (!categoryId || categoryId === (parseInt(movedRow.dataset.categoryId, 10) || 0)) return;
+
+        const params = new URLSearchParams();
+        params.set('category_id', categoryId);
+        params.set('csrf_token', window.MALL_CSRF_TOKEN);
+        let endpoint;
+        if (curatedRowType(movedRow) === 'fresh') {
+            endpoint = 'ajax/save_fresh_curation.php';
+            params.set('action', 'assign_category');
+            params.set('mall_fresh_product_id', movedRow.dataset.freshProductId);
+        } else {
+            endpoint = 'ajax/save_retail_product.php';
+            params.set('action', 'move_category');
+            params.set('product_id', movedRow.dataset.productId);
+        }
+
+        fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        }).then(r => r.json()).then(function (data) {
+            if (data.success) {
+                showFlash('상품 카테고리를 변경했습니다.', 'success');
+                setTimeout(function () { window.location.reload(); }, 350);
+            } else {
+                showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.move_register_failed')); ?>', 'error');
+            }
+        });
+    });
+});
 
 function saveCuratedOrder() {
     const body = document.getElementById('curated-products-body');

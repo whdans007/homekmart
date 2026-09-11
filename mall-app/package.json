@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "android:sync": "cap sync android",
+    "android:open": "cap open android",
+    "build:test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-test.ps1"
   },
   "keywords": [],
   "author": "",

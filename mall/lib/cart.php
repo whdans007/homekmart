@@ -80,6 +80,7 @@ function mall_cart_get_quantities_by_product($member_id, $guest_token) {
     $stmt->execute();
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
+    $conn->close();
 
     $by_product = [];
     foreach ($rows as $row) {

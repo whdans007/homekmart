@@ -268,6 +268,10 @@ body:not(.redesigned) main { padding: var(--space-5); }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .product-row-item .bottom-row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+.product-row-cart-action { width: 104px; margin-top: 0; flex-shrink: 0; }
+.product-row-cart-action .pcard-add-btn { height: 32px; border-radius: var(--radius-full); background: var(--primary-normal); color: var(--static-white); border: none; }
+.product-row-cart-action .pcard-stepper { height: 32px; border-radius: var(--radius-full); }
+.product-row-cart-action .pcard-stepper button { width: 30px; }
 
 /* ── 빠른 담기 / 수량 스테퍼 ────────────────────────────── */
 .quick-add-btn {

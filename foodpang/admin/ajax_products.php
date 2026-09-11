@@ -1,6 +1,6 @@
 <?php
 /**
- * Foodpang 상품 큐레이션 AJAX 엔드포인트 (search/add/update/delete/reorder).
+ * Foodpang 상품 큐레이션 AJAX 엔드포인트 (search/add/update/delete/reorder/move_category).
  * foodpang_products 테이블만 다루며 mall_products에는 절대 접근하지 않는다 —
  * Mall 큐레이션과 완전히 분리되어 있음을 보장한다.
  */
@@ -502,6 +502,45 @@ try {
         );
         $stmt->bind_param('ssdiiii', $display_name, $display_name_en, $selling_price_override, $is_active, $is_sold_out, $foodpang_product_id, $store_id);
         $stmt->execute();
+        $stmt->close();
+        $conn->close();
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    if ($action === 'move_category') {
+        $foodpang_product_id = (int)($_POST['foodpang_product_id'] ?? 0);
+        $category_id = (int)($_POST['category_id'] ?? 0);
+        if ($foodpang_product_id <= 0 || $category_id <= 0) {
+            $conn->close();
+            foodpang_json_error('VALIDATION_ERROR', '상품과 카테고리를 확인해주세요');
+        }
+
+        $category_check = $conn->prepare('SELECT id FROM foodpang_categories WHERE id = ? AND store_id = ?');
+        $category_check->bind_param('ii', $category_id, $store_id);
+        $category_check->execute();
+        $valid_category = (bool)$category_check->get_result()->fetch_assoc();
+        $category_check->close();
+        if (!$valid_category) {
+            $conn->close();
+            foodpang_json_error('VALIDATION_ERROR', '유효하지 않은 카테고리입니다');
+        }
+
+        $stmt = $conn->prepare('UPDATE foodpang_products SET category_id = ? WHERE id = ? AND store_id = ?');
+        $stmt->bind_param('iii', $category_id, $foodpang_product_id, $store_id);
+        $stmt->execute();
+        if ($stmt->affected_rows < 1) {
+            $verify = $conn->prepare('SELECT id FROM foodpang_products WHERE id = ? AND store_id = ? AND category_id = ?');
+            $verify->bind_param('iii', $foodpang_product_id, $store_id, $category_id);
+            $verify->execute();
+            $already_moved = (bool)$verify->get_result()->fetch_assoc();
+            $verify->close();
+            if (!$already_moved) {
+                $stmt->close();
+                $conn->close();
+                foodpang_json_error('NOT_FOUND', '큐레이션 상품을 찾을 수 없습니다', 404);
+            }
+        }
         $stmt->close();
         $conn->close();
         echo json_encode(['success' => true]);

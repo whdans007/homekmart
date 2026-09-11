@@ -37,9 +37,13 @@ require_once __DIR__ . '/partials/header.php';
 .address-card .head { display: flex; align-items: center; gap: 8px; font: var(--t-label1) var(--font-sans); color: var(--label-normal); margin-bottom: 4px; }
 .address-card .default-badge { font: 700 11px var(--font-sans); color: var(--primary-normal); background: var(--primary-bg); padding: 2px 8px; border-radius: var(--radius-full); }
 .address-card .body { font: var(--t-caption1) var(--font-sans); color: var(--label-alternative); margin-bottom: var(--space-3); }
-.address-card .actions { display: flex; gap: 12px; font: var(--t-caption1) var(--font-sans); }
+.address-card .actions { display: flex; align-items: center; gap: 12px; font: var(--t-caption1) var(--font-sans); }
 .address-card .actions a, .address-card .actions button { color: var(--label-alternative); background: none; border: none; padding: 0; cursor: pointer; }
 .address-card .actions button.danger { color: var(--brand-red); }
+.address-card .actions .addr-default-btn {
+    margin-left: auto; padding: 7px 12px; border-radius: var(--radius-full);
+    background: var(--primary-normal); color: var(--static-white); font-weight: 700;
+}
 </style>
 
 <?php if ($is_form_mode): ?>
@@ -259,10 +263,10 @@ require_once __DIR__ . '/partials/header.php';
         </div>
         <div class="actions">
             <a href="/mall/address.php?edit=<?php echo (int)$addr['id']; ?>">수정</a>
+            <button type="button" class="addr-delete-btn danger" data-id="<?php echo (int)$addr['id']; ?>">삭제</button>
             <?php if (!$addr['is_default']): ?>
                 <button type="button" class="addr-default-btn" data-id="<?php echo (int)$addr['id']; ?>">기본으로 설정</button>
             <?php endif; ?>
-            <button type="button" class="addr-delete-btn danger" data-id="<?php echo (int)$addr['id']; ?>">삭제</button>
         </div>
     </div>
     <?php endforeach; ?>
