@@ -79,7 +79,7 @@ function fresh_purchase_row_display(array $row): array
     if ($row['weight_kg'] !== null) {
         return [
             'composition' => number_format((float)$row['weight_kg'], 3) . 'kg',
-            'unit_cost' => number_format((float)$row['unit_cost_per_100g'], 2) . ' / 100g',
+            'unit_cost' => number_format((float)$row['unit_cost_per_100g'], 2) . ' / kg',
         ];
     }
     return ['composition' => '-', 'unit_cost' => '-'];

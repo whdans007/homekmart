@@ -13,7 +13,7 @@ if (!has_permission('product_management') && !in_array($_SESSION['role'] ?? '', 
 
 $conn = get_db_connection();
 
-$stmt = $conn->prepare("SELECT id, code, name_ko, name_en, sale_type, pkg_weight_kg, pkg_pieces_per_box FROM mall_fresh_products WHERE status = 'active' ORDER BY name_ko");
+$stmt = $conn->prepare("SELECT id, code, name_ko, name_en, sale_type, pkg_weight_kg, pkg_pieces_per_box, unit_type FROM mall_fresh_products WHERE status = 'active' ORDER BY name_ko");
 $stmt->execute();
 $masters = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
@@ -50,14 +50,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $placeholders = implode(',', array_fill(0, count($masterIds), '?'));
         $typeStr = str_repeat('i', count($masterIds));
-        $masterStmt = $conn->prepare("SELECT id, sale_type, fresh_category FROM mall_fresh_products WHERE id IN ($placeholders)");
+        $masterStmt = $conn->prepare("SELECT id, sale_type, fresh_category, pkg_weight_kg FROM mall_fresh_products WHERE id IN ($placeholders)");
         $masterStmt->bind_param($typeStr, ...$masterIds);
         $masterStmt->execute();
         $saleTypeById = [];
         $freshCategoryById = [];
+        $pkgWeightById = [];
         foreach ($masterStmt->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
             $saleTypeById[(int)$row['id']] = $row['sale_type'];
             $freshCategoryById[(int)$row['id']] = $row['fresh_category'];
+            $pkgWeightById[(int)$row['id']] = (float)($row['pkg_weight_kg'] ?? 0);
         }
         $masterStmt->close();
 
@@ -72,10 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $qtyRaw = $item['quantity'] ?? '';
-            if ($qtyRaw === '' || !ctype_digit((string)$qtyRaw) || (int)$qtyRaw <= 0) {
+            if ($qtyRaw === '' || !is_numeric($qtyRaw) || (float)$qtyRaw <= 0) {
                 throw new InvalidArgumentException($lineNo . '번째 항목: 수량을 확인해 주세요.');
             }
-            $qty = (int)$qtyRaw;
+            $qty = round((float)$qtyRaw, 2);
 
             $boxCostRaw = $item['box_cost'] ?? '';
             if ($boxCostRaw === '' || !is_numeric($boxCostRaw) || (float)$boxCostRaw < 0) {
@@ -97,16 +99,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new InvalidArgumentException($lineNo . '번째 항목: 박스당 개수를 확인해 주세요.');
                 }
                 $boxPiecesPerBox = (int)$boxPiecesRaw;
-                $piecesPerBox = $boxPiecesPerBox * $qty;
+                $piecesPerBox = (int)round($boxPiecesPerBox * $qty);
                 $unitCostPerPiece = round($totalCost / $piecesPerBox, 2);
             } else {
-                $boxWeightRaw = $item['box_weight_kg'] ?? '';
-                if ($boxWeightRaw === '' || !is_numeric($boxWeightRaw) || (float)$boxWeightRaw <= 0) {
-                    throw new InvalidArgumentException($lineNo . '번째 항목: 박스당 무게를 확인해 주세요.');
+                // 저울 상품에는 박스당 무게가 없으므로 검증하지 않고 수량(kg)을 그대로 사용한다.
+                $masterPkgWeight = $pkgWeightById[$masterId] ?? 0;
+                if ($masterPkgWeight > 0) {
+                    $boxWeightRaw = $item['box_weight_kg'] ?? '';
+                    if ($boxWeightRaw === '' || !is_numeric($boxWeightRaw) || (float)$boxWeightRaw <= 0) {
+                        throw new InvalidArgumentException($lineNo . '번째 항목: 박스당 무게를 올바르게 입력해 주세요.');
+                    }
+                    $boxWeightKg = round((float)$boxWeightRaw, 3);
+                    $weightKg = round($boxWeightKg * $qty, 3);
+                    $unitCostPer100g = $weightKg > 0 ? round($totalCost / $weightKg, 2) : null;
+                } else {
+                    $boxWeightKg = null;
+                    $weightKg = round((float)$qty, 2);
+                    $unitCostPer100g = $boxCost;
                 }
-                $boxWeightKg = (float)$boxWeightRaw;
-                $weightKg = round($boxWeightKg * $qty, 3);
-                $unitCostPer100g = round($totalCost / ($weightKg * 10), 2);
             }
 
             $validatedRows[] = [
@@ -151,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($validatedRows as $sortOrder => $row) {
             $sortOrder++;
             $insertStmt->bind_param(
-                'iiiiisididdidddi',
+                'iiiiisddiddidddi',
                 $batchId, $sortOrder, $storeId, $supplierId, $row['master_id'], $purchaseDate,
                 $row['quantity_boxes'], $row['box_weight_kg'], $row['box_pieces_per_box'], $row['box_cost'],
                 $row['weight_kg'], $row['pieces_per_box'], $row['total_cost'], $row['unit_cost_per_100g'], $row['unit_cost_per_piece'],
@@ -227,15 +237,17 @@ $flash = fresh_admin_take_flash();
 function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'); }
 ?>
 <div class="w-full px-2 sm:px-3 md:px-4 py-8">
-    <div class="flex justify-between items-center mb-4">
-        <h1 class="text-lg font-bold"><i class="fas fa-truck-ramp-box mr-2"></i><?php echo fph(t('mall_fresh_products.purchase_link_title')); ?></h1>
-        <div class="flex items-center gap-3">
+    <section class="mb-6 overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-gray-400">
+        <div class="flex flex-col gap-3 border-b border-gray-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <h1 class="text-lg font-semibold text-gray-900"><i class="fas fa-truck-ramp-box mr-2"></i><?php echo fph(t('mall_fresh_products.purchase_link_title')); ?></h1>
+            <div class="flex items-center gap-2">
             <?php if ($masters): ?>
-                <button type="submit" form="fresh-purchase-form" class="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700"><?php echo fph(t('common.save')); ?></button>
+                <button type="submit" form="fresh-purchase-form" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"><i class="fas fa-save mr-1"></i><?php echo fph(t('common.save')); ?></button>
             <?php endif; ?>
-            <a href="fresh_purchase_items.php" class="text-blue-700 text-sm"><i class="fas fa-arrow-left mr-1"></i><?php echo fph(t('mall_fresh_products.purchase_history_title')); ?></a>
+                <a href="fresh_purchase_items.php" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"><i class="fas fa-times mr-1"></i><?php echo fph(t('common.cancel')); ?></a>
+            </div>
         </div>
-    </div>
+    </section>
 
     <?php if ($flash): ?>
         <div class="mb-4 p-3 rounded border <?php echo $flash['type'] === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'; ?>"><?php echo fph($flash['message']); ?></div>
@@ -244,11 +256,13 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
     <?php if (!$masters): ?>
         <div class="p-3 bg-amber-50 rounded max-w-3xl"><?php echo fph(t('mall_fresh_products.masters_missing_notice')); ?></div>
     <?php else: ?>
-    <form method="post" id="fresh-purchase-form" class="bg-white shadow rounded-lg p-6">
+    <form method="post" id="fresh-purchase-form">
         <input type="hidden" name="supplier_id" id="supplier_id_input" value="">
         <input type="hidden" name="items_json" id="items_json_input" value="">
 
-        <div class="mb-4">
+        <section class="relative z-30 mb-6 rounded-lg bg-white shadow-lg ring-1 ring-gray-400">
+        <div class="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-2">
+        <div>
             <label class="block text-xs font-semibold text-gray-600 mb-1"><?php echo fph(t('mall_fresh_products.select_supplier_label')); ?> *</label>
             <div id="supplier-search-section" class="relative max-w-xl">
                 <div class="relative">
@@ -265,12 +279,14 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
             <p id="supplier-hint" class="text-xs text-gray-400 mt-1"><?php echo fph(t('mall_fresh_products.select_supplier_first_hint')); ?></p>
         </div>
 
-        <div class="mb-4 max-w-xs">
+        <div>
             <label class="block text-xs font-semibold text-gray-600 mb-1"><?php echo fph(t('mall_fresh_products.purchase_date_label')); ?> *</label>
             <input type="date" name="purchase_date" id="purchase-date" required value="<?php echo date('Y-m-d'); ?>" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
         </div>
+        </div>
+        </section>
 
-        <div id="line-entry-section" class="hidden border-t border-gray-100 pt-4">
+        <section id="line-entry-section" class="hidden relative z-20 mb-6 rounded-lg bg-white px-6 py-5 shadow-lg ring-1 ring-gray-400">
             <label class="block text-xs font-semibold text-gray-600 mb-1"><?php echo fph(t('mall_fresh_products.fresh_product_label')); ?></label>
             <div id="master-search-section" class="relative">
                 <div class="relative">
@@ -281,37 +297,98 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
                 <div id="master-results" class="hidden absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"></div>
             </div>
             <p class="text-xs text-gray-400 mt-1"><?php echo fph(t('mall_fresh_products.search_product_to_add_hint')); ?></p>
-        </div>
+        </section>
 
-        <div class="mt-6 border-t border-gray-100 pt-4">
-            <h3 class="text-sm font-semibold text-gray-700 mb-2"><?php echo fph(t('mall_fresh_products.add_item_section_title')); ?></h3>
+        <section class="overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-gray-400">
+            <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                <h3 class="text-sm font-semibold text-gray-700"><?php echo fph(t('mall_fresh_products.add_item_section_title')); ?></h3>
+                <div class="flex gap-6 text-sm font-semibold text-gray-700">
+                    <span><?php echo fph(t('mall_fresh_products.total_items_count_label')); ?>: <span id="totals-count">0</span></span>
+                    <span><?php echo fph(t('mall_fresh_products.batch_total_cost_label')); ?>: <span id="totals-cost">0.00</span></span>
+                </div>
+            </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full text-sm">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
+                            <th class="w-14 px-3 py-2 text-center text-xs font-semibold text-gray-700">순번</th>
                             <th class="px-3 py-2 text-left text-xs font-semibold text-gray-700"><?php echo fph(t('mall_fresh_products.fresh_product_label')); ?></th>
                             <th class="px-3 py-2 text-right text-xs font-semibold text-gray-700"><?php echo fph(t('mall_fresh_products.quantity_boxes_label')); ?></th>
-                            <th class="px-3 py-2 text-right text-xs font-semibold text-gray-700"><?php echo fph(t('mall_fresh_products.box_composition_label')); ?></th>
                             <th class="px-3 py-2 text-right text-xs font-semibold text-gray-700"><?php echo fph(t('mall_fresh_products.total_cost_label')); ?></th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold text-gray-700"><?php echo fph(t('mall_fresh_products.composition_label')); ?></th>
                             <th class="px-3 py-2 text-right text-xs font-semibold text-gray-700"><?php echo fph(t('mall_fresh_products.unit_cost_label')); ?></th>
                             <th class="px-3 py-2 text-right text-xs font-semibold text-gray-700"><?php echo fph(t('mall_fresh_products.line_total_cost_label')); ?></th>
                             <th class="px-3 py-2"></th>
                         </tr>
                     </thead>
                     <tbody id="items-tbody">
-                        <tr id="no-items-row"><td colspan="7" class="px-3 py-8 text-center text-gray-500"><?php echo fph(t('mall_fresh_products.no_items_added')); ?></td></tr>
+                        <tr id="no-items-row"><td colspan="8" class="px-3 py-8 text-center text-gray-500"><?php echo fph(t('mall_fresh_products.no_items_added')); ?></td></tr>
                     </tbody>
                 </table>
             </div>
-            <div class="flex justify-end gap-6 mt-3 text-sm font-semibold text-gray-700">
-                <span><?php echo fph(t('mall_fresh_products.total_items_count_label')); ?>: <span id="totals-count">0</span></span>
-                <span><?php echo fph(t('mall_fresh_products.batch_total_cost_label')); ?>: <span id="totals-cost">0.00</span></span>
-            </div>
-        </div>
+        </section>
 
-        <div class="mt-6"><button type="submit" class="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700"><?php echo fph(t('common.save')); ?></button></div>
+        <div class="mt-4 flex justify-end gap-2">
+            <a href="fresh_purchase_items.php" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"><i class="fas fa-times mr-1"></i><?php echo fph(t('common.cancel')); ?></a>
+            <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"><i class="fas fa-save mr-1"></i><?php echo fph(t('common.save')); ?></button>
+        </div>
     </form>
     <?php endif; ?>
+</div>
+
+<div id="fresh-product-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="fresh-product-modal-title">
+    <div class="fixed inset-0 bg-gray-900 bg-opacity-50" data-close-fresh-modal></div>
+    <div class="relative flex min-h-full items-center justify-center p-4">
+        <section class="relative w-full max-w-3xl rounded-lg bg-white shadow-xl">
+            <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+                <h2 id="fresh-product-modal-title" class="text-lg font-bold text-gray-800"><i class="fas fa-apple-whole mr-2"></i><?php echo fph(t('mall_fresh_products.register_title')); ?></h2>
+                <button type="button" data-close-fresh-modal class="text-gray-400 hover:text-gray-700" aria-label="<?php echo fph(t('common.cancel')); ?>"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <form id="fresh-product-modal-form" class="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
+                <div id="fresh-product-modal-error" class="hidden md:col-span-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-600"><?php echo fph(t('mall_fresh_products.code')); ?> *</label>
+                    <div class="flex gap-1">
+                        <input id="modal-code-input" name="code" required maxlength="50" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono">
+                        <button type="button" id="modal-generate-code" class="whitespace-nowrap rounded-md bg-blue-700 px-2 py-2 text-xs text-white hover:bg-blue-800" style="background-color:#1d4ed8 !important;color:#ffffff !important;"><?php echo fph(t('mall_fresh_products.auto_generate_code')); ?></button>
+                    </div>
+                </div>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-600"><?php echo fph(t('mall_fresh_products.name_ko')); ?> *</label>
+                    <div class="flex gap-1">
+                        <input id="modal-name-ko-input" name="name_ko" required maxlength="255" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+                        <button type="button" id="modal-translate" class="whitespace-nowrap rounded-md bg-blue-700 px-2 py-2 text-xs text-white hover:bg-blue-800" style="background-color:#1d4ed8 !important;color:#ffffff !important;"><?php echo fph(t('product.translate')); ?></button>
+                    </div>
+                </div>
+                <div><label class="mb-1 block text-xs font-semibold text-gray-600"><?php echo fph(t('mall_fresh_products.name_en')); ?></label><input id="modal-name-en-input" name="name_en" maxlength="255" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"></div>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-600"><?php echo fph(t('mall_fresh_products.category_label')); ?> *</label>
+                    <select name="fresh_category" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+                        <option value=""><?php echo fph(t('common.select')); ?></option>
+                        <?php foreach (fresh_category_options() as $code => $label): ?>
+                            <option value="<?php echo fph($code); ?>"><?php echo fph($label); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-gray-600"><?php echo fph(t('mall_fresh_products.sale_type_label')); ?> *</label>
+                    <div class="flex h-[38px] items-center gap-3">
+                        <label class="flex items-center gap-1 text-sm"><input type="radio" name="sale_type" value="weight" id="modal-sale-weight" checked> <?php echo fph(t('mall_fresh_products.sale_type_weight')); ?></label>
+                        <label class="flex items-center gap-1 text-sm"><input type="radio" name="sale_type" value="piece" id="modal-sale-piece"> <?php echo fph(t('mall_fresh_products.sale_type_piece')); ?></label>
+                    </div>
+                </div>
+                <div id="modal-unit-step-row"><label class="mb-1 block text-xs font-semibold text-gray-600"><?php echo fph(t('mall_fresh_products.unit_step_g')); ?></label><input value="100" readonly class="w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600"></div>
+                <div id="modal-pkg-weight-row"><label class="mb-1 block text-xs font-semibold text-gray-600"><?php echo fph(t('mall_fresh_products.box_weight_kg_label')); ?></label><input type="number" step="0.001" min="0" name="pkg_weight_kg" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"></div>
+                <div id="modal-pkg-pieces-row"><label class="mb-1 block text-xs font-semibold text-gray-600"><?php echo fph(t('mall_fresh_products.pieces_per_box_label')); ?></label><input type="number" step="1" min="0" name="pkg_pieces_per_box" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"></div>
+                <div><label id="modal-price-label" class="mb-1 block text-xs font-semibold text-gray-600"><?php echo fph(t('mall_fresh_products.price_label_weight')); ?> *</label><input name="price_per_100g" type="number" min="0" step="0.01" required value="0.00" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"></div>
+                <div><label class="mb-1 block text-xs font-semibold text-gray-600"><?php echo fph(t('common.status')); ?></label><select name="status" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"><option value="active"><?php echo fph(t('common.active')); ?></option><option value="inactive"><?php echo fph(t('common.inactive')); ?></option></select></div>
+                <div class="flex justify-end gap-2 border-t border-gray-100 pt-4 md:col-span-2">
+                    <button type="button" data-close-fresh-modal class="rounded-md border border-gray-300 px-4 py-2 text-sm"><?php echo fph(t('common.cancel')); ?></button>
+                    <button type="submit" id="modal-save-product" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"><?php echo fph(t('mall_fresh_products.register')); ?></button>
+                </div>
+            </form>
+        </section>
+    </div>
 </div>
 <script>
 (function () {
@@ -325,7 +402,20 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         noSearchResults: <?php echo json_encode(t('mall_fresh_products.no_search_results')); ?>,
         selectSupplierFirst: <?php echo json_encode(t('mall_fresh_products.select_supplier_first')); ?>,
         selectMasterForRow: <?php echo json_encode(t('mall_fresh_products.select_master_for_row')); ?>,
-        noItemsAdded: <?php echo json_encode(t('mall_fresh_products.no_items_added')); ?>
+        noItemsAdded: <?php echo json_encode(t('mall_fresh_products.no_items_added')); ?>,
+        registerProduct: <?php echo json_encode(t('mall_fresh_products.register_title')); ?>,
+        registerSuccess: <?php echo json_encode(t('mall_fresh_products.register_success')); ?>,
+        saveFailed: <?php echo json_encode(t('mall_fresh_products.save_failed')); ?>,
+        priceLabelWeight: <?php echo json_encode(t('mall_fresh_products.price_label_weight')); ?>,
+        priceLabelPiece: <?php echo json_encode(t('mall_fresh_products.price_label_piece')); ?>,
+        generatingCode: <?php echo json_encode(t('mall_fresh_products.generating_code')); ?>,
+        autoGenerateCode: <?php echo json_encode(t('mall_fresh_products.auto_generate_code')); ?>,
+        codeGenerateFailed: <?php echo json_encode(t('mall_fresh_products.code_generate_failed')); ?>,
+        enterKoreanName: <?php echo json_encode(t('product.enter_korean_name')); ?>,
+        translating: <?php echo json_encode(t('product.translating')); ?>,
+        translationFailed: <?php echo json_encode(t('product.translation_failed')); ?>,
+        translationError: <?php echo json_encode(t('product.translation_error')); ?>,
+        translateLabel: <?php echo json_encode(t('product.translate')); ?>
     };
 
     const supplierIdInput = document.getElementById('supplier_id_input');
@@ -461,6 +551,9 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         supplierChip.classList.remove('hidden');
         supplierHint.classList.add('hidden');
         lineEntrySection.classList.remove('hidden');
+        requestAnimationFrame(function () {
+            masterSearchInput.focus();
+        });
     }
 
     supplierClearBtn.addEventListener('click', function () {
@@ -484,6 +577,17 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         addMasterRow(masterMatches[idx]);
     });
 
+    function freshProductRegisterButtonHtml() {
+        return '<div class="sticky bottom-0 border-t border-gray-200 bg-white px-3 py-2">' +
+            '<button type="button" class="open-fresh-product-modal flex w-full items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">' +
+            '<i class="fas fa-plus mr-1"></i>' + escapeHtml(I18N.registerProduct) + '</button></div>';
+    }
+
+    function bindFreshProductRegisterButton() {
+        const button = masterResults.querySelector('.open-fresh-product-modal');
+        if (button) { button.addEventListener('click', openFreshProductModal); }
+    }
+
     masterSearchInput.addEventListener('input', function () {
         const term = this.value.trim().toLowerCase();
         if (!term) { masterResults.classList.add('hidden'); masterResults.innerHTML = ''; return; }
@@ -492,8 +596,10 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         }).slice(0, 20);
         masterMatches = matches;
         if (!matches.length) {
-            masterResults.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500">' + escapeHtml(I18N.noSearchResults) + '</div>';
+            masterResults.innerHTML = '<div class="px-3 py-3 text-sm text-gray-500">' + escapeHtml(I18N.noSearchResults) + '</div>' +
+                freshProductRegisterButtonHtml();
             masterResults.classList.remove('hidden');
+            bindFreshProductRegisterButton();
             return;
         }
         masterResults.innerHTML = matches.map(function (m, idx) {
@@ -501,12 +607,13 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
                 '<div class="font-medium text-gray-900">[' + escapeHtml(m.code) + '] ' + escapeHtml(m.name_ko) + '</div>' +
                 '<div class="text-xs text-gray-500">' + escapeHtml(m.name_en || '') + '</div>' +
                 '</div>';
-        }).join('');
+        }).join('') + freshProductRegisterButtonHtml();
         masterResults.classList.remove('hidden');
         masterResults.querySelectorAll('.client-result').forEach(function (el, idx) {
             el.addEventListener('click', function () { addMasterRow(matches[idx]); });
             el.addEventListener('mouseenter', function () { masterNav.setHighlightIndex(idx); });
         });
+        bindFreshProductRegisterButton();
         masterNav.reset();
     });
     document.addEventListener('click', function (e) {
@@ -530,9 +637,115 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         masterResults.innerHTML = '';
     }
 
+    const freshProductModal = document.getElementById('fresh-product-modal');
+    const freshProductModalForm = document.getElementById('fresh-product-modal-form');
+    const freshProductModalError = document.getElementById('fresh-product-modal-error');
+    const modalNameKoInput = document.getElementById('modal-name-ko-input');
+    const modalNameEnInput = document.getElementById('modal-name-en-input');
+    const modalCodeInput = document.getElementById('modal-code-input');
+    const modalSaleWeight = document.getElementById('modal-sale-weight');
+    const modalSalePiece = document.getElementById('modal-sale-piece');
+
+    function syncModalSaleType() {
+        const isPiece = modalSalePiece.checked;
+        document.getElementById('modal-price-label').textContent = (isPiece ? I18N.priceLabelPiece : I18N.priceLabelWeight) + ' *';
+        document.getElementById('modal-unit-step-row').style.display = isPiece ? 'none' : '';
+        document.getElementById('modal-pkg-weight-row').style.display = isPiece ? 'none' : '';
+        document.getElementById('modal-pkg-pieces-row').style.display = isPiece ? '' : 'none';
+    }
+
+    function openFreshProductModal() {
+        freshProductModalForm.reset();
+        freshProductModalForm.elements.price_per_100g.value = '0.00';
+        modalSaleWeight.checked = true;
+        modalNameKoInput.value = masterSearchInput.value.trim();
+        freshProductModalError.classList.add('hidden');
+        freshProductModalError.textContent = '';
+        syncModalSaleType();
+        freshProductModal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        document.getElementById('modal-generate-code').click();
+        modalNameKoInput.focus();
+    }
+
+    function closeFreshProductModal() {
+        freshProductModal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        masterSearchInput.focus();
+    }
+
+    modalSaleWeight.addEventListener('change', syncModalSaleType);
+    modalSalePiece.addEventListener('change', syncModalSaleType);
+    document.querySelectorAll('[data-close-fresh-modal]').forEach(function (el) { el.addEventListener('click', closeFreshProductModal); });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !freshProductModal.classList.contains('hidden')) { closeFreshProductModal(); }
+    });
+    syncModalSaleType();
+
+    document.getElementById('modal-generate-code').addEventListener('click', function () {
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = I18N.generatingCode;
+        fetch('ajax_generate_fresh_code.php')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.ok) { modalCodeInput.value = data.code; }
+                else { throw new Error(data.error || I18N.codeGenerateFailed); }
+            })
+            .catch(function (error) { alert(I18N.codeGenerateFailed + ': ' + error.message); })
+            .finally(function () { btn.disabled = false; btn.textContent = I18N.autoGenerateCode; });
+    });
+
+    document.getElementById('modal-translate').addEventListener('click', function () {
+        const text = modalNameKoInput.value.trim();
+        if (!text) { alert(I18N.enterKoreanName); return; }
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = I18N.translating;
+        fetch('ajax_translate.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'text=' + encodeURIComponent(text) + '&target_lang=EN'
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success) { modalNameEnInput.value = data.translated_text; }
+                else { throw new Error(data.message || I18N.translationFailed); }
+            })
+            .catch(function (error) { alert(I18N.translationError + ': ' + error.message); })
+            .finally(function () { btn.disabled = false; btn.textContent = I18N.translateLabel; });
+    });
+
+    freshProductModalForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const saveButton = document.getElementById('modal-save-product');
+        saveButton.disabled = true;
+        freshProductModalError.classList.add('hidden');
+        fetch('ajax_create_fresh_product.php', { method: 'POST', body: new FormData(freshProductModalForm) })
+            .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+            .then(function (result) {
+                if (!result.ok || !result.data.ok) { throw new Error(result.data.error || I18N.saveFailed); }
+                const product = result.data.product;
+                if (product.status === 'active') {
+                    MASTERS.push(product);
+                    addMasterRow(product);
+                } else {
+                    masterSearchInput.value = '';
+                    masterResults.classList.add('hidden');
+                }
+                closeFreshProductModal();
+                alert(result.data.message || I18N.registerSuccess);
+            })
+            .catch(function (error) {
+                freshProductModalError.textContent = error.message || I18N.saveFailed;
+                freshProductModalError.classList.remove('hidden');
+            })
+            .finally(function () { saveButton.disabled = false; });
+    });
+
     function computeItemTotals(item) {
         const master = findMaster(item.masterId);
-        const qty = parseInt(item.quantity, 10) || 0;
+        const qty = parseFloat(item.quantity) || 0;
         const boxCost = parseFloat(item.boxCost);
         const totalCost = (qty > 0 && boxCost >= 0) ? qty * boxCost : 0;
         let unitCost = null;
@@ -540,9 +753,11 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
             if (master.sale_type === 'piece') {
                 const totalPieces = qty * (parseInt(item.boxPieces, 10) || 0);
                 unitCost = totalPieces > 0 ? totalCost / totalPieces : null;
-            } else {
+            } else if ((parseFloat(master.pkg_weight_kg) || 0) > 0) {
                 const totalWeight = qty * (parseFloat(item.boxWeightKg) || 0);
-                unitCost = totalWeight > 0 ? totalCost / (totalWeight * 10) : null;
+                unitCost = totalWeight > 0 ? totalCost / totalWeight : null;
+            } else {
+                unitCost = boxCost >= 0 ? boxCost : null;
             }
         }
         return { master: master, totalCost: totalCost, unitCost: unitCost };
@@ -557,13 +772,24 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         }
     }
 
+    function refreshItemSequence() {
+        itemsTbody.querySelectorAll('.item-sequence').forEach(function (cell, index) {
+            cell.textContent = index + 1;
+        });
+    }
+
     function appendItemRow(item) {
         if (itemsTbody.contains(noItemsRow)) { noItemsRow.remove(); }
         const master = findMaster(item.masterId);
+        const isBoxWeight = !!master && master.sale_type === 'weight' && (parseFloat(master.pkg_weight_kg) || 0) > 0;
 
         const tr = document.createElement('tr');
         tr.className = 'border-t border-gray-100 align-top';
         tr.dataset.uid = item.uid;
+
+        const tdSequence = document.createElement('td');
+        tdSequence.className = 'item-sequence px-3 py-2 text-center text-sm font-semibold text-gray-500';
+        tr.appendChild(tdSequence);
 
         const tdMaster = document.createElement('td');
         tdMaster.className = 'px-3 py-2';
@@ -577,30 +803,40 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         const tdQty = document.createElement('td');
         tdQty.className = 'px-3 py-2 text-right';
         const qtyInput = document.createElement('input');
-        qtyInput.type = 'number'; qtyInput.step = '1'; qtyInput.min = '1';
+        qtyInput.type = 'text'; qtyInput.inputMode = 'decimal';
         qtyInput.value = item.quantity;
         qtyInput.className = 'w-20 border border-gray-300 rounded-md px-2 py-1.5 text-sm text-right';
         tdQty.appendChild(qtyInput);
         tr.appendChild(tdQty);
 
         const tdComposition = document.createElement('td');
-        tdComposition.className = 'px-3 py-2 text-right';
+        tdComposition.className = 'px-3 py-2 text-right whitespace-nowrap';
         const weightInput = document.createElement('input');
         weightInput.type = 'number'; weightInput.step = '0.001'; weightInput.min = '0.001';
         weightInput.placeholder = <?php echo json_encode(t('mall_fresh_products.box_weight_kg_label')); ?>;
-        weightInput.className = 'w-28 border border-gray-300 rounded-md px-2 py-1.5 text-sm text-right';
+        weightInput.className = 'w-20 border border-gray-300 rounded-md px-2 py-1.5 text-sm text-right';
         const piecesInput = document.createElement('input');
         piecesInput.type = 'number'; piecesInput.step = '1'; piecesInput.min = '1';
         piecesInput.placeholder = <?php echo json_encode(t('mall_fresh_products.pieces_per_box_label')); ?>;
-        piecesInput.className = 'w-28 border border-gray-300 rounded-md px-2 py-1.5 text-sm text-right';
+        piecesInput.className = 'w-20 border border-gray-300 rounded-md px-2 py-1.5 text-sm text-right';
         weightInput.value = item.boxWeightKg || '';
         piecesInput.value = item.boxPieces || '';
-        weightInput.classList.toggle('hidden', !!master && master.sale_type === 'piece');
+        weightInput.classList.toggle('hidden', !isBoxWeight);
         piecesInput.classList.toggle('hidden', !master || master.sale_type !== 'piece');
+        const weightSuffix = document.createElement('span');
+        weightSuffix.textContent = ' kg/box';
+        weightSuffix.className = isBoxWeight ? 'ml-1 text-xs text-gray-500' : 'hidden';
+        const piecesSuffix = document.createElement('span');
+        piecesSuffix.textContent = ' pcs/box';
+        piecesSuffix.className = master && master.sale_type === 'piece' ? 'ml-1 text-xs text-gray-500' : 'hidden';
+        const compositionEmpty = document.createElement('span');
+        compositionEmpty.textContent = '-';
+        compositionEmpty.className = (master && master.sale_type === 'piece') || isBoxWeight ? 'hidden' : 'text-gray-400';
         tdComposition.appendChild(weightInput);
+        tdComposition.appendChild(weightSuffix);
         tdComposition.appendChild(piecesInput);
-        tr.appendChild(tdComposition);
-
+        tdComposition.appendChild(piecesSuffix);
+        tdComposition.appendChild(compositionEmpty);
         const tdCost = document.createElement('td');
         tdCost.className = 'px-3 py-2 text-right';
         const costInput = document.createElement('input');
@@ -609,6 +845,7 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         costInput.className = 'w-24 border border-gray-300 rounded-md px-2 py-1.5 text-sm text-right';
         tdCost.appendChild(costInput);
         tr.appendChild(tdCost);
+        tr.appendChild(tdComposition);
 
         const tdUnitCost = document.createElement('td');
         tdUnitCost.className = 'px-3 py-2 text-right text-gray-600';
@@ -627,6 +864,7 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         delBtn.addEventListener('click', function () {
             items = items.filter(function (it) { return it.uid !== item.uid; });
             tr.remove();
+            refreshItemSequence();
             updateFooterTotals();
         });
         tdDelete.appendChild(delBtn);
@@ -634,12 +872,16 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
 
         function refreshRow() {
             const result = computeItemTotals(item);
-            tdUnitCost.textContent = result.unitCost !== null ? result.unitCost.toFixed(2) : '-';
+            let unitSuffix = 'kg';
+            if (master && master.sale_type === 'piece') {
+                unitSuffix = master.unit_type === 'pack' ? 'pack' : 'pcs';
+            }
+            tdUnitCost.textContent = result.unitCost !== null ? result.unitCost.toFixed(2) + ' / ' + unitSuffix : '-';
             tdLineTotal.textContent = result.totalCost.toFixed(2);
             updateFooterTotals();
         }
 
-        qtyInput.addEventListener('input', function () { item.quantity = parseInt(this.value, 10) || 0; refreshRow(); });
+        qtyInput.addEventListener('input', function () { item.quantity = parseFloat(this.value) || 0; refreshRow(); });
         weightInput.addEventListener('input', function () { item.boxWeightKg = parseFloat(this.value) || null; refreshRow(); });
         piecesInput.addEventListener('input', function () { item.boxPieces = parseInt(this.value, 10) || null; refreshRow(); });
         costInput.addEventListener('input', function () { item.boxCost = parseFloat(this.value) || 0; refreshRow(); });
@@ -647,9 +889,13 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         qtyInput.addEventListener('keydown', function (event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                const compositionInput = weightInput.classList.contains('hidden') ? piecesInput : weightInput;
-                compositionInput.focus();
-                compositionInput.select();
+                if (master && master.sale_type === 'piece') {
+                    piecesInput.focus();
+                    piecesInput.select();
+                } else {
+                    costInput.focus();
+                    costInput.select();
+                }
             }
         });
         [weightInput, piecesInput].forEach(function (input) {
@@ -670,6 +916,7 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         });
 
         itemsTbody.appendChild(tr);
+        refreshItemSequence();
         refreshRow();
         qtyInput.focus();
         qtyInput.select();
@@ -684,7 +931,7 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
             const it = items[i];
             const master = findMaster(it.masterId);
             if (!master) { e.preventDefault(); alert((i + 1) + '번째 항목: ' + I18N.selectMasterForRow); return; }
-            const qty = parseInt(it.quantity, 10);
+            const qty = parseFloat(it.quantity);
             if (!(qty > 0)) { e.preventDefault(); alert((i + 1) + '번째 항목: 수량을 올바르게 입력해 주세요.'); return; }
             if (!(parseFloat(it.boxCost) >= 0)) { e.preventDefault(); alert((i + 1) + '번째 항목: 박스당 원가를 올바르게 입력해 주세요.'); return; }
 
@@ -696,9 +943,15 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
             if (master.sale_type === 'piece') {
                 if (!(parseInt(it.boxPieces, 10) > 0)) { e.preventDefault(); alert((i + 1) + '번째 항목: 박스당 개수를 올바르게 입력해 주세요.'); return; }
                 row.box_pieces = parseInt(it.boxPieces, 10);
-            } else {
-                if (!(parseFloat(it.boxWeightKg) > 0)) { e.preventDefault(); alert((i + 1) + '번째 항목: 박스당 무게를 올바르게 입력해 주세요.'); return; }
+            } else if ((parseFloat(master.pkg_weight_kg) || 0) > 0) {
+                if (!(parseFloat(it.boxWeightKg) > 0)) {
+                    e.preventDefault();
+                    alert((i + 1) + '번째 항목: 박스당 무게를 올바르게 입력해 주세요.');
+                    return;
+                }
                 row.box_weight_kg = parseFloat(it.boxWeightKg);
+            } else {
+                row.box_weight_kg = null;
             }
             payload.push(row);
         }
