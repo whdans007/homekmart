@@ -14,6 +14,33 @@ $current_page = 'products.php';
 $search = trim($_GET['q'] ?? '');
 // 상품 검색 섹션의 탭 — 일반상품(products/mall_products) / 신선상품(mall_fresh_products)
 $search_tab = ($_GET['search_tab'] ?? 'general') === 'fresh' ? 'fresh' : 'general';
+// 신선상품 탭 전용: 과일/채소/정육/수산 고정 분류 버튼 — 검색어 없이도 분류 전체 상품을 바로 볼 수 있게 한다.
+$selected_fresh_cat = $_GET['fresh_cat'] ?? '';
+if (!array_key_exists($selected_fresh_cat, fresh_category_options())) {
+    $selected_fresh_cat = null;
+}
+// 좌측 카테고리명이 신선상품 고정분류(과일/채소/정육/수산) 명칭을 포함하면, 그 카테고리를 클릭했을 때
+// 우측 상품검색 패널이 자동으로 "신선상품" 탭 + 해당 분류로 전환되도록 매핑한다(예: "수산물" → seafood).
+// 카테고리명은 관리자 화면 언어와 무관하게 항상 한글로 저장되어 있어(categories.name), fresh_category_options()의
+// t() 결과(현재 언어에 따라 영문으로 바뀔 수 있음)로 비교하면 언어가 English일 때 매칭이 깨진다.
+// 그래서 언어 설정과 무관하게 한글/영문 키워드를 고정으로 두고 매칭한다.
+function mall_fresh_category_code_for_name(string $category_name): ?string {
+    static $keywords_by_code = [
+        'fruit' => ['과일', 'fruit'],
+        'vegetable' => ['채소', 'vegetable'],
+        'meat' => ['정육', '육류', 'meat'],
+        'seafood' => ['수산', 'seafood'],
+    ];
+    $name_lower = mb_strtolower($category_name);
+    foreach ($keywords_by_code as $code => $keywords) {
+        foreach ($keywords as $keyword) {
+            if (mb_strpos($name_lower, mb_strtolower($keyword)) !== false) {
+                return $code;
+            }
+        }
+    }
+    return null;
+}
 $selected_category_id = isset($_GET['cat_id']) && $_GET['cat_id'] !== '' ? (int)$_GET['cat_id'] : null;
 $selected_sub_id = isset($_GET['sub_id']) && $_GET['sub_id'] !== '' ? (int)$_GET['sub_id'] : null;
 $can_manage_categories = has_permission('category_management');
@@ -208,15 +235,32 @@ if (!$selected_home_slot && $search !== '') {
 // 일반상품과 동일하게 좌측에서 선택한 카테고리($add_target_category_id) 기준이다.
 // mall_fresh_products는 점포 구분이 없는 몰 전체 단일 카탈로그라 store_id 필터는 적용하지 않는다.
 $fresh_search_results = [];
-if (!$selected_home_slot && $search_tab === 'fresh' && $search !== '') {
-    $fresh_like = '%' . $search . '%';
+if (!$selected_home_slot && $search_tab === 'fresh' && ($search !== '' || $selected_fresh_cat)) {
+    $fresh_where = ["status = 'active'"];
+    $fresh_types = '';
+    $fresh_params = [];
+    if ($search !== '') {
+        $fresh_like = '%' . $search . '%';
+        $fresh_where[] = '(code LIKE ? OR name_ko LIKE ? OR name_en LIKE ?)';
+        $fresh_types .= 'sss';
+        array_push($fresh_params, $fresh_like, $fresh_like, $fresh_like);
+    }
+    if ($selected_fresh_cat) {
+        $fresh_where[] = 'fresh_category = ?';
+        $fresh_types .= 's';
+        $fresh_params[] = $selected_fresh_cat;
+    }
+    // 분류 버튼만으로 전체 상품을 볼 때는 검색어가 없을 수 있으니 넉넉히 보여준다.
+    $fresh_limit = $search !== '' ? 50 : 500;
     $fresh_search_stmt = $conn->prepare(
         "SELECT id, code, name_ko, name_en, fresh_category, sale_type, price_per_100g, category_id
          FROM mall_fresh_products
-         WHERE status = 'active' AND (code LIKE ? OR name_ko LIKE ? OR name_en LIKE ?)
-         ORDER BY name_ko LIMIT 50"
+         WHERE " . implode(' AND ', $fresh_where) . "
+         ORDER BY name_ko LIMIT {$fresh_limit}"
     );
-    $fresh_search_stmt->bind_param('sss', $fresh_like, $fresh_like, $fresh_like);
+    if ($fresh_types !== '') {
+        $fresh_search_stmt->bind_param($fresh_types, ...$fresh_params);
+    }
     $fresh_search_stmt->execute();
     $fresh_search_results = $fresh_search_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $fresh_search_stmt->close();
@@ -470,8 +514,12 @@ $conn->close();
             </ul>
             <ul class="space-y-1">
                 <?php foreach ($mall_categories as $cat): ?>
+                <?php
+                    $__cat_fresh_code = mall_fresh_category_code_for_name($cat['name']);
+                    $__cat_extra_qs = $__cat_fresh_code ? ['search_tab' => 'fresh', 'fresh_cat' => $__cat_fresh_code] : [];
+                ?>
                 <li>
-                    <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['cat_id' => $cat['id']])); ?>" data-drop-category-id="<?php echo (int)$cat['id']; ?>"
+                    <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['cat_id' => $cat['id']], $__cat_extra_qs)); ?>" data-drop-category-id="<?php echo (int)$cat['id']; ?>"
                        class="block px-2 py-1.5 rounded text-xs font-medium <?php echo $selected_category_id === (int)$cat['id'] ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'; ?>">
                         <?php echo htmlspecialchars($cat['name']); ?> <span class="text-gray-400">(<?php echo (int)$cat['product_count']; ?>)</span>
                     </a>
@@ -481,7 +529,7 @@ $conn->close();
                     <ul class="space-y-1">
                         <?php foreach ($sub_categories as $sub): ?>
                         <li>
-                            <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['cat_id' => $selected_category_id, 'sub_id' => $sub['id']])); ?>" data-drop-category-id="<?php echo (int)$sub['id']; ?>"
+                            <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['cat_id' => $selected_category_id, 'sub_id' => $sub['id']], $__cat_extra_qs)); ?>" data-drop-category-id="<?php echo (int)$sub['id']; ?>"
                                class="block px-2 py-1 rounded text-xs font-medium <?php echo $selected_sub_id === (int)$sub['id'] ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'; ?>">
                                 <?php echo htmlspecialchars($sub['name']); ?> <span class="text-gray-400">(<?php echo (int)$sub['product_count']; ?>)</span>
                             </a>
@@ -781,16 +829,32 @@ $conn->close();
             </div>
             <?php endif; ?>
             <?php if ($search_tab === 'fresh'): ?>
+            <?php
+                $__fresh_cat_qs = $__tab_qs;
+                $__fresh_cat_qs['search_tab'] = 'fresh';
+                if ($search !== '') { $__fresh_cat_qs['q'] = $search; }
+            ?>
+            <div class="flex gap-1 mb-3 flex-wrap">
+                <?php foreach (fresh_category_options() as $__fc_code => $__fc_label): ?>
+                <a href="?<?php echo http_build_query(array_merge($__fresh_cat_qs, ['fresh_cat' => $__fc_code])); ?>"
+                   class="px-3 py-1.5 rounded text-xs font-semibold border <?php echo $selected_fresh_cat === $__fc_code ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100'; ?>"><?php echo htmlspecialchars($__fc_label); ?></a>
+                <?php endforeach; ?>
+                <?php if ($selected_fresh_cat): ?>
+                <a href="?<?php echo http_build_query(array_diff_key($__fresh_cat_qs, ['fresh_cat' => true])); ?>"
+                   class="px-3 py-1.5 rounded text-xs font-semibold border bg-white text-gray-400 border-gray-200 hover:bg-gray-100"><?php echo t('common.all'); ?></a>
+                <?php endif; ?>
+            </div>
             <form method="get" class="flex gap-1 mb-3">
                 <input type="hidden" name="search_tab" value="fresh">
                 <?php if ($selected_category_id): ?><input type="hidden" name="cat_id" value="<?php echo (int)$selected_category_id; ?>"><?php endif; ?>
                 <?php if ($selected_sub_id): ?><input type="hidden" name="sub_id" value="<?php echo (int)$selected_sub_id; ?>"><?php endif; ?>
                 <?php if ($selected_store_id !== (int)MALL_STORE_ID): ?><input type="hidden" name="store_id" value="<?php echo (int)$selected_store_id; ?>"><?php endif; ?>
+                <?php if ($selected_fresh_cat): ?><input type="hidden" name="fresh_cat" value="<?php echo htmlspecialchars($selected_fresh_cat); ?>"><?php endif; ?>
                 <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="<?php echo htmlspecialchars(t('mall_fresh_products.search_placeholder')); ?>"
                        class="border border-gray-300 rounded-md px-2 py-1 text-xs w-full">
                 <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md"><?php echo t('common.search'); ?></button>
             </form>
-            <?php if ($search !== ''): ?>
+            <?php if ($search !== '' || $selected_fresh_cat): ?>
             <table class="min-w-full text-xs">
                 <thead class="bg-gray-100 text-gray-600">
                     <tr><th class="px-3 py-2 text-left"><?php echo t('product.name'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_fresh_products.category_label'); ?></th><th class="px-3 py-2 text-right"><?php echo t('mall_admin.products.fresh_unit_price'); ?></th><th class="px-3 py-2 text-left"><?php echo t('common.actions'); ?></th></tr>
