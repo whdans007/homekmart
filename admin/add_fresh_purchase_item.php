@@ -404,7 +404,6 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         selectMasterForRow: <?php echo json_encode(t('mall_fresh_products.select_master_for_row')); ?>,
         noItemsAdded: <?php echo json_encode(t('mall_fresh_products.no_items_added')); ?>,
         registerProduct: <?php echo json_encode(t('mall_fresh_products.register_title')); ?>,
-        registerSuccess: <?php echo json_encode(t('mall_fresh_products.register_success')); ?>,
         saveFailed: <?php echo json_encode(t('mall_fresh_products.save_failed')); ?>,
         priceLabelWeight: <?php echo json_encode(t('mall_fresh_products.price_label_weight')); ?>,
         priceLabelPiece: <?php echo json_encode(t('mall_fresh_products.price_label_piece')); ?>,
@@ -734,7 +733,6 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
                     masterResults.classList.add('hidden');
                 }
                 closeFreshProductModal();
-                alert(result.data.message || I18N.registerSuccess);
             })
             .catch(function (error) {
                 freshProductModalError.textContent = error.message || I18N.saveFailed;
@@ -887,31 +885,36 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         costInput.addEventListener('input', function () { item.boxCost = parseFloat(this.value) || 0; refreshRow(); });
 
         qtyInput.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                if (master && master.sale_type === 'piece') {
-                    piecesInput.focus();
-                    piecesInput.select();
-                } else {
-                    costInput.focus();
-                    costInput.select();
-                }
-            }
+            if (event.key !== 'Enter') { return; }
+            event.preventDefault();
+            costInput.focus();
+            costInput.select();
         });
+        function focusSearch() {
+            masterSearchInput.value = '';
+            masterSearchInput.focus();
+        }
+
         [weightInput, piecesInput].forEach(function (input) {
             input.addEventListener('keydown', function (event) {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    costInput.focus();
-                    costInput.select();
+                    focusSearch();
                 }
             });
         });
         costInput.addEventListener('keydown', function (event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                masterSearchInput.value = '';
-                masterSearchInput.focus();
+                if (!weightInput.classList.contains('hidden')) {
+                    weightInput.focus();
+                    weightInput.select();
+                } else if (!piecesInput.classList.contains('hidden')) {
+                    piecesInput.focus();
+                    piecesInput.select();
+                } else {
+                    focusSearch();
+                }
             }
         });
 

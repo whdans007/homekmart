@@ -333,6 +333,9 @@ if ((has_permission('product_management') || in_array($_SESSION['role'] ?? '', [
                         <a href="fresh_purchase_items.php" class="<?php echo ($current_page == 'fresh_purchase_items.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-truck-ramp-box mr-2 text-xs w-4 text-center"></i><?php echo t('navigation.fresh_purchase_items'); ?>
                         </a>
+                        <a href="fresh_product_history.php" class="<?php echo ($current_page == 'fresh_product_history.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-history mr-2 text-xs w-4 text-center"></i><?php echo t('mall_fresh_products.product_history_title'); ?>
+                        </a>
                         <?php if (in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
                         <a href="fresh_margin_management.php" class="<?php echo ($current_page == 'fresh_margin_management.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-percent mr-2 text-xs w-4 text-center"></i><?php echo t('mall_fresh_products.margin_management_link'); ?>
@@ -448,6 +451,7 @@ if ((has_permission('product_management') || in_array($_SESSION['role'] ?? '', [
             <p class="px-2 pt-2 text-xs font-semibold uppercase tracking-wider" style="color:#4d7c0f;"><?php echo t('navigation.fresh_products_section'); ?></p>
             <a href="fresh_products.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('navigation.fresh_products'); ?></a>
             <a href="fresh_purchase_items.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('navigation.fresh_purchase_items'); ?></a>
+            <a href="fresh_product_history.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('mall_fresh_products.product_history_title'); ?></a>
             <?php if (in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
             <a href="fresh_margin_management.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 rounded-md"><?php echo t('mall_fresh_products.margin_management_link'); ?></a>
             <?php endif; ?>

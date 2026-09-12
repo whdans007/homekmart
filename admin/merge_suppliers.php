@@ -1,8 +1,12 @@
 <?php
 // Design Ref: supplier_management.php — 같은 회사가 이름을 다르게(오타 등) 중복 등록한 경우
-// 여러 공급처를 하나로 통합하는 기능. purchases.supplier_id(ID 참조)와 office 모듈의
+// 여러 공급처를 하나로 통합하는 기능. purchases.supplier_id/fresh_purchase_batches.supplier_id/
+// fresh_purchase_items.supplier_id(모두 ID 참조)와 office 모듈의
 // office_receipts/office_product_purchases/office_equipment_purchases.supplier_name(텍스트 사본)을
 // 모두 대표 공급처 기준으로 맞춘 뒤, 나머지 공급처 행을 삭제한다.
+// suppliers.id를 FK로 참조하는 테이블을 새로 추가하면 이 목록에도 반드시 추가해야 통합 시
+// "Cannot delete or update a parent row" 오류가 나지 않는다.
+$ID_REF_TABLES = ['purchases', 'fresh_purchase_batches', 'fresh_purchase_items'];
 $page_title = "공급처 통합 - HOME K MART";
 require_once __DIR__ . '/partials/header.php';
 
@@ -46,10 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'execu
 
         $pdo->beginTransaction();
 
-        // 1) 메인 admin 매입(purchases.supplier_id) — ID 참조라 그대로 재배정
+        // 1) supplier_id를 ID로 직접 참조하는 테이블들 — 그대로 재배정(순서대로 FK 위반 없음)
         $ph2 = implode(',', array_fill(0, count($other_ids), '?'));
-        $pdo->prepare("UPDATE purchases SET supplier_id=? WHERE supplier_id IN ({$ph2})")
-            ->execute(array_merge([$canonical_id], $other_ids));
+        foreach ($ID_REF_TABLES as $tbl) {
+            $pdo->prepare("UPDATE {$tbl} SET supplier_id=? WHERE supplier_id IN ({$ph2})")
+                ->execute(array_merge([$canonical_id], $other_ids));
+        }
 
         foreach ($other_ids as $oid) {
             $old_name = $names[$oid];
@@ -117,9 +123,12 @@ if (count($candidates) !== count($ids)) {
 
 // 공급처별 실제 사용 건수 (통합 영향 미리보기)
 foreach ($candidates as &$c) {
-    $cnt_stmt = $pdo->prepare("SELECT COUNT(*) FROM purchases WHERE supplier_id=?");
-    $cnt_stmt->execute([$c['id']]);
-    $cnt = (int)$cnt_stmt->fetchColumn();
+    $cnt = 0;
+    foreach ($ID_REF_TABLES as $tbl) {
+        $cnt_stmt = $pdo->prepare("SELECT COUNT(*) FROM {$tbl} WHERE supplier_id=?");
+        $cnt_stmt->execute([$c['id']]);
+        $cnt += (int)$cnt_stmt->fetchColumn();
+    }
 
     foreach ($OFFICE_TEXT_TABLES as $tbl) {
         $cnt_stmt = $pdo->prepare("SELECT COUNT(*) FROM {$tbl} WHERE supplier_name=?");
