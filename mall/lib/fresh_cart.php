@@ -31,9 +31,16 @@ function mall_fresh_cart_owner_clause($member_id, $guest_token) {
  */
 function mall_fresh_product_get($mall_fresh_product_id) {
     $conn = mall_get_db_connection();
+    // 큐레이션 화면(mall/admin/products.php)의 "가격 설정" 모달은 낱개/무게 상품 모두 "수량/무게
+    // 기준 총액"을 selling_price_override에 그대로 저장한다(사용자 확정, 2026-09-12) — 이 값은
+    // 실제 몰 주문화면(고객이 개별 수량/무게를 직접 고르는 화면)의 단가 계산과 단위가 안 맞을 수
+    // 있어, 스토어프론트가 수량 고정 판매로 바뀌기 전까지는 고객 결제에 반영하지 않는다(관리자
+    // 화면 표시 전용). 진열명(display_name_override)은 텍스트라 단위 문제가 없어 그대로 반영한다.
     $stmt = $conn->prepare(
-        'SELECT id, name_ko, name_en, sale_type, price_per_100g, status, is_sold_out
-         FROM mall_fresh_products WHERE id = ?'
+        "SELECT id, COALESCE(display_name_override, name_ko) AS name_ko,
+                COALESCE(display_name_en_override, name_en) AS name_en, sale_type,
+                price_per_100g, status, is_sold_out
+         FROM mall_fresh_products WHERE id = ?"
     );
     $stmt->bind_param('i', $mall_fresh_product_id);
     $stmt->execute();
@@ -156,7 +163,10 @@ function mall_fresh_cart_get_summary($member_id, $guest_token) {
     $conn = mall_get_db_connection();
     $stmt = $conn->prepare(
         "SELECT ci.id AS cart_item_id, ci.mall_fresh_product_id, ci.weight_g, ci.quantity,
-                mfp.name_ko, mfp.name_en, mfp.sale_type, mfp.price_per_100g, mfp.status, mfp.is_sold_out, mfp.image_url
+                COALESCE(mfp.display_name_override, mfp.name_ko) AS name_ko,
+                COALESCE(mfp.display_name_en_override, mfp.name_en) AS name_en,
+                mfp.sale_type, mfp.price_per_100g,
+                mfp.status, mfp.is_sold_out, mfp.image_url
          FROM mall_fresh_cart_items ci
          INNER JOIN mall_fresh_products mfp ON mfp.id = ci.mall_fresh_product_id
          WHERE ci.{$owner_sql}

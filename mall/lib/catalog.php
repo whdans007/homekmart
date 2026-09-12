@@ -149,9 +149,16 @@ function mall_get_eligible_fresh_products($category_id = null, $search = '', $li
         $types .= 'sss';
     }
 
-    $sql = 'SELECT id, name_ko, name_en, sale_type, price_per_100g, image_url, display_order
+    // selling_price_override는 관리자가 수량/무게 기준으로 계산한 총액이라 실제 몰 주문화면(고객이
+    // 개별 수량/무게를 직접 고르는 화면)의 단가 계산과 단위가 안 맞을 수 있어 제외한다 — 스토어프론트가
+    // 수량 고정 판매로 바뀌기 전까지는 원본 price_per_100g만 고객에게 보여준다.
+    $sql = "SELECT id,
+                   COALESCE(display_name_override, name_ko) AS name_ko,
+                   COALESCE(display_name_en_override, name_en) AS name_en,
+                   sale_type, price_per_100g,
+                   image_url, display_order
             FROM mall_fresh_products
-            WHERE ' . implode(' AND ', $where) . '
+            WHERE " . implode(' AND ', $where) . '
             ORDER BY display_order, id DESC
             LIMIT ?';
     $params[] = $limit;

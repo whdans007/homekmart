@@ -283,6 +283,8 @@ if (!$selected_home_slot) {
     $fresh_curated_stmt = $conn->prepare(
         "SELECT mfp.id, mfp.code, mfp.name_ko, mfp.name_en, mfp.fresh_category, mfp.sale_type, mfp.price_per_100g,
                 mfp.status, mfp.image_url, mfp.display_order, mfp.cost_price_override, mfp.wholesale_reference_price_override,
+                mfp.selling_price_override, mfp.selling_weight_reference_g,
+                mfp.display_name_override, mfp.display_name_en_override,
                 mfp.is_sold_out, mfp.retail_discount_allowed, mfp.wholesale_discount_allowed, cc.name AS category_name,
                 (SELECT fpi.unit_cost_per_100g FROM fresh_purchase_items fpi
                  WHERE fpi.mall_fresh_product_id = mfp.id
@@ -418,12 +420,13 @@ if (!$selected_home_slot) {
             'sku' => $fc['code'],
             'name_ko' => $fc['name_ko'],
             'name_en' => $fc['name_en'],
-            'display_name' => $fc['name_ko'],
-            'display_name_en' => $fc['name_en'],
+            'display_name' => $fc['display_name_override'] ?? $fc['name_ko'],
+            'display_name_en' => $fc['display_name_en_override'] ?? $fc['name_en'],
             'sale_type' => $fc['sale_type'],
             'display_order' => (int)$fc['display_order'],
             'cost_price_override' => $fc['cost_price_override'],
-            'selling_price_override' => null,
+            'selling_price_override' => $fc['selling_price_override'],
+            'selling_weight_reference_g' => $fc['selling_weight_reference_g'],
             'wholesale_reference_price_override' => $fc['wholesale_reference_price_override'],
             'original_cost_price' => $latest_purchase_cost,
             'original_selling_price' => $fc['price_per_100g'],
@@ -593,9 +596,11 @@ $conn->close();
                         $__row_type = $c['row_type'] ?? 'general';
                         // 신선상품 행은 mall_products 큐레이션/inventory 개념이 없어, $curated 배열에 담을 때
                         // 이미 원가/기준도매가/판매가/재고/할인 등을 일반상품과 같은 키 이름으로 정규화해뒀다
-                        // (원가/기준도매가는 mall_fresh_products의 override 컬럼 + 최근 매입원가를 "오리지널"로,
-                        //  판매가는 override 개념 없이 price_per_100g을 그대로 "오리지널"로 취급). 그래서 아래
-                        // 계산/렌더링 로직은 행 종류와 무관하게 동일하게 재사용된다.
+                        // (원가/기준도매가/판매가 모두 mall_fresh_products의 override 컬럼을 "값"으로,
+                        //  최근 매입원가/price_per_100g(admin/fresh_products.php 마스터 값)을 "오리지널"로
+                        //  취급 — 판매가도 원가/도매가와 동일하게 override 컬럼이 있어 원본을 건드리지 않고
+                        //  큐레이션에서 자유롭게 덮어쓸 수 있다). 그래서 아래 계산/렌더링 로직은 행 종류와
+                        // 무관하게 동일하게 재사용된다.
                         $original_cost_price = $c['original_cost_price'] !== null ? (float)$c['original_cost_price'] : null;
                         $original_selling_price = $c['original_selling_price'] !== null ? (float)$c['original_selling_price'] : null;
                         // 기준도매가는 소숫점 이하를 항상 올림 처리한다(원가 x 마진율 계산 결과에 끝수가 남지 않도록).
@@ -632,6 +637,10 @@ $conn->close();
                     <tr class="curated-row border-t border-gray-100"
                         <?php if ($__row_type === 'fresh'): ?>
                         data-row-type="fresh" data-fresh-product-id="<?php echo (int)$c['fresh_id']; ?>" data-category-id="<?php echo (int)($c['category_id'] ?? 0); ?>"
+                        data-original-cost-price="<?php echo $original_cost_price !== null ? $original_cost_price : ''; ?>"
+                        data-original-selling-price="<?php echo $original_selling_price !== null ? $original_selling_price : ''; ?>"
+                        data-sale-type="<?php echo htmlspecialchars($c['sale_type'] ?? ''); ?>"
+                        data-selling-weight-reference-g="<?php echo $c['selling_weight_reference_g'] !== null ? (int)$c['selling_weight_reference_g'] : ''; ?>"
                         <?php else: ?>
                         data-mall-product-id="<?php echo (int)$c['id']; ?>" data-product-id="<?php echo (int)$c['product_id']; ?>" data-category-id="<?php echo (int)($c['category_id'] ?? 0); ?>"
                         <?php endif; ?>>
@@ -667,6 +676,7 @@ $conn->close();
                             <div class="selling-price-original-hint text-gray-400 mt-0.5" style="<?php echo $selling_price_override !== null ? '' : 'display:none;'; ?>"><?php echo t('mall_admin.products.original'); ?>: <?php echo $original_selling_price !== null ? number_format($original_selling_price, 2) : '-'; ?></div>
                             <?php if ($__row_type === 'fresh'): ?>
                             <div class="text-gray-400 mt-0.5"><?php echo $c['sale_type'] === 'piece' ? htmlspecialchars(t('mall_fresh_products.price_label_piece')) : htmlspecialchars(t('mall_fresh_products.price_label_weight')); ?></div>
+                            <button type="button" class="open-price-calc-btn mt-1 px-2 py-1 bg-blue-600 text-white rounded text-xs whitespace-nowrap" data-product-name="<?php echo htmlspecialchars($c['name_ko']); ?>"><?php echo t('mall_admin.products.price_calc_title'); ?></button>
                             <?php endif; ?>
                         </td>
                         <td class="px-3 py-2"><input type="checkbox" class="edit-is-active" <?php echo $c['is_active'] ? 'checked' : ''; ?>></td>
@@ -1000,7 +1010,49 @@ $conn->close();
     </div>
     <?php endif; ?>
 
+    <div id="price-calc-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden z-50 items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="price-calc-title">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b border-gray-100">
+                <h3 id="price-calc-title" class="text-sm font-bold text-gray-800"><?php echo t('mall_admin.products.price_calc_title'); ?> — <span id="price-calc-product-name"></span></h3>
+                <button type="button" id="price-calc-close" class="text-gray-400 hover:text-gray-700" aria-label="<?php echo htmlspecialchars(t('mall_admin.products.price_calc_close')); ?>"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-4">
+                <div class="flex items-center gap-2">
+                    <label id="price-calc-quantity-label" for="price-calc-quantity" class="text-sm font-semibold"></label>
+                    <button type="button" id="price-calc-minus" class="px-3 py-1 border border-gray-300 rounded" aria-label="<?php echo htmlspecialchars(t('mall_admin.products.price_calc_decrease')); ?>">−</button>
+                    <input id="price-calc-quantity" type="number" min="1" step="1" value="1" class="border border-gray-300 rounded px-2 py-1 w-24 text-right">
+                    <button type="button" id="price-calc-plus" class="px-3 py-1 border border-gray-300 rounded" aria-label="<?php echo htmlspecialchars(t('mall_admin.products.price_calc_increase')); ?>">+</button>
+                </div>
+                <?php foreach (['cost' => 'cost_price', 'wholesale' => 'wholesale_reference_price', 'selling' => 'reference_selling_price'] as $price_calc_key => $price_calc_label): ?>
+                <fieldset class="border border-gray-200 rounded p-3">
+                    <legend class="text-sm font-semibold px-1"><?php echo t('mall_admin.products.' . $price_calc_label); ?></legend>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="text-xs text-gray-600"><span class="price-calc-unit-label"></span>
+                            <input id="price-calc-<?php echo $price_calc_key; ?>-unit" type="number" min="0" step="0.01" disabled class="mt-1 w-full border border-gray-300 rounded px-2 py-1 text-right font-mono bg-gray-100 text-gray-500">
+                        </label>
+                        <label class="text-xs text-gray-600"><span class="price-calc-total-label"></span>
+                            <input id="price-calc-<?php echo $price_calc_key; ?>-total" type="number" min="0" step="0.01" class="mt-1 w-full border border-gray-300 rounded px-2 py-1 text-right font-mono disabled:bg-gray-100" <?php echo $price_calc_key === 'cost' ? 'aria-describedby="price-calc-cost-unavailable"' : ''; ?>>
+                        </label>
+                    </div>
+                    <?php if ($price_calc_key === 'wholesale'): ?>
+                    <button type="button" id="price-calc-wholesale-auto" class="mt-2 px-2 py-1 bg-blue-600 text-white rounded text-xs"><?php echo t('mall_admin.products.price_calc_wholesale_auto'); ?></button>
+                    <?php endif; ?>
+                </fieldset>
+                <?php endforeach; ?>
+                <p id="price-calc-cost-unavailable" class="hidden text-xs text-amber-600"><?php echo t('mall_admin.products.price_calc_cost_unavailable'); ?></p>
+                <p class="text-xs text-gray-500"><?php echo t('mall_admin.products.price_calc_rounding_hint'); ?></p>
+                <p class="text-xs text-gray-500"><?php echo t('mall_admin.products.price_calc_save_hint'); ?></p>
+            </div>
+            <div class="flex justify-end gap-2 p-4 border-t border-gray-100">
+                <button type="button" id="price-calc-cancel" class="px-3 py-2 border border-gray-300 rounded text-sm"><?php echo t('mall_admin.products.price_calc_cancel'); ?></button>
+                <button type="button" id="price-calc-apply" class="px-3 py-2 bg-blue-600 text-white rounded text-sm"><?php echo t('mall_admin.products.price_calc_apply'); ?></button>
+            </div>
+        </div>
+    </div>
+
 <script>
+window.MALL_WHOLESALE_MARKUP_RATE = <?php echo json_encode($wholesale_reference_markup_rate); ?>;
+
 function showFlash(message, type, duration) {
     const area = document.getElementById('flash-area');
     const color = type === 'error' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-green-100 text-green-700 border-green-300';
@@ -1149,8 +1201,8 @@ document.querySelectorAll('.save-curated-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
         const row = btn.closest('tr');
         if (row.dataset.rowType === 'fresh') {
-            // 신선상품 행 — 표시명/판매가는 mall_fresh_products 원본을 직접 수정(오버라이드 개념 없음),
-            // 원가/기준도매가는 일반상품과 동일하게 override 컬럼에 저장(오리지널=최근 매입원가 대비 다를 때만).
+            // 신선상품 행 — 표시명/노출상태는 mall_fresh_products 원본에 직접 반영. 원가/기준도매가/판매가
+            // 3개는 전부 override 컬럼에 저장(오리지널과 다를 때만 — 서버가 판단).
             const freshParams = new URLSearchParams();
             freshParams.set('action', 'update');
             freshParams.set('mall_fresh_product_id', row.dataset.freshProductId);
@@ -1159,6 +1211,7 @@ document.querySelectorAll('.save-curated-btn').forEach(function (btn) {
             freshParams.set('cost_price', row.querySelector('.edit-cost-price').value);
             freshParams.set('wholesale_reference_price', row.querySelector('.edit-wholesale-reference-price').value);
             freshParams.set('price_per_100g', row.querySelector('.edit-selling-price').value);
+            freshParams.set('selling_weight_reference_g', row.dataset.sellingWeightReferenceG || '');
             freshParams.set('is_active', row.querySelector('.edit-is-active').checked ? '1' : '0');
             freshParams.set('is_sold_out', row.querySelector('.edit-is-sold-out').checked ? '1' : '0');
             freshParams.set('retail_discount_allowed', row.querySelector('.edit-retail-discount-allowed').checked ? '1' : '0');
@@ -1739,6 +1792,231 @@ document.querySelectorAll('.fresh-image-upload-input').forEach(function (input) 
                 if (data.success) { window.location.reload(); } else { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.upload_failed')); ?>', 'error'); }
             });
     });
+});
+// 모달은 단가만 표에 적용하고 실제 저장은 기존 저장 버튼에 맡긴다.
+const priceCalcModal = document.getElementById('price-calc-modal');
+const priceCalcQuantity = document.getElementById('price-calc-quantity');
+const priceCalcLabels = <?php echo json_encode([
+    'pieceQuantity' => t('mall_admin.products.price_calc_quantity'),
+    'weightQuantity' => t('mall_admin.products.price_calc_weight'),
+    'originalPiece' => t('mall_admin.products.price_calc_original_piece'),
+    'originalWeight' => t('mall_admin.products.price_calc_original_weight'),
+    'appliedPiece' => t('mall_admin.products.price_calc_applied_piece'),
+    'appliedWeight' => t('mall_admin.products.price_calc_applied_weight'),
+], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+const priceCalcPairs = [
+    { key: 'cost', selector: '.edit-cost-price' },
+    { key: 'wholesale', selector: '.edit-wholesale-reference-price' },
+    { key: 'selling', selector: '.edit-selling-price' }
+].map(function (pair) {
+    pair.unit = document.getElementById('price-calc-' + pair.key + '-unit');
+    pair.total = document.getElementById('price-calc-' + pair.key + '-total');
+    pair.divisor = 1;
+    pair.original = null;
+    pair.unitLabel = pair.unit.closest('label').querySelector('.price-calc-unit-label');
+    pair.totalLabel = pair.total.closest('label').querySelector('.price-calc-total-label');
+    pair.value = '';
+    return pair;
+});
+let currentTargetRow = null;
+let priceCalcTrigger = null;
+let priceCalcStep = 1;
+let priceCalcIsWeight = false;
+let priceCalcRawQuantity = 1;
+
+function priceCalcNumber(value) {
+    if (String(value).trim() === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function priceCalcMoney(value) {
+    const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+    return Number.isFinite(rounded) ? rounded.toFixed(2) : null;
+}
+
+// 왼쪽(오리지널)은 읽기전용 표시라 더 이상 편집 이벤트가 없다 — 오른쪽(현재 적용가)만 직접 입력한다.
+function recalcFromTotal(pair) {
+    const total = priceCalcNumber(pair.total.value);
+    if (total === null) return;
+    const unit = priceCalcMoney(total / (priceCalcRawQuantity / pair.divisor));
+    if (unit === null) return;
+    pair.value = unit;
+}
+
+function updatePriceCalcQuantity(normalize = true) {
+    const quantity = priceCalcNumber(priceCalcQuantity.value);
+    let factor;
+    if (normalize || priceCalcStep === 1) {
+        factor = Math.max(1, Math.round((quantity ?? priceCalcStep) / priceCalcStep));
+        if (!Number.isSafeInteger(factor * priceCalcStep)) return;
+        priceCalcQuantity.value = factor * priceCalcStep;
+    } else {
+        // Keep partial weight input intact; invalid input retains the previous preview.
+        if (quantity === null || quantity <= 0) return;
+        factor = quantity / priceCalcStep;
+        if (!Number.isFinite(factor) || factor <= 0) return;
+    }
+    priceCalcRawQuantity = factor * priceCalcStep;
+    // 수량/무게를 실제로 바꾸는 순간부터는 항상 기준원가(오리지널)를 기준으로 다시 계산한다 — 표에
+    // 예전부터 들어있던 "현재 적용가"는 모달을 처음 열 때 그대로 보여주는 용도일 뿐, 수량이 바뀌면
+    // 더 이상 계산 기준으로 쓰지 않는다(사용자 확정, 2026-09-12).
+    // 매입 이력이 없어 오리지널이 없는 경우(주로 원가/도매가)에는 되돌아갈 기준이 없으므로, 지금까지
+    // 쓰던 값(pair.value)을 기준으로 계속 계산한다 — 이전에는 여기서 그냥 멈춰서 수량을 바꿔도
+    // 원가/도매가 "현재 적용가"가 갱신되지 않는 버그가 있었다(2026-09-12 수정).
+    priceCalcPairs.forEach(function (pair) {
+        if (pair.original !== null) {
+            pair.value = priceCalcMoney(pair.original);
+        }
+        const value = priceCalcNumber(pair.value);
+        if (value === null) return;
+        const total = priceCalcMoney(value * (priceCalcRawQuantity / pair.divisor));
+        if (total !== null) pair.total.value = total;
+    });
+}
+
+function closePriceCalcModal() {
+    priceCalcModal.classList.add('hidden');
+    priceCalcModal.classList.remove('flex');
+    currentTargetRow = null;
+    if (priceCalcTrigger) priceCalcTrigger.focus();
+    priceCalcTrigger = null;
+}
+
+function openPriceCalcModal(row) {
+    if (row.dataset.rowType !== 'fresh') return;
+    if (currentTargetRow) closePriceCalcModal();
+    currentTargetRow = row;
+    priceCalcTrigger = row.querySelector('.open-price-calc-btn');
+    priceCalcIsWeight = row.dataset.saleType === 'weight';
+    priceCalcStep = 1;
+    // 이 상품에 마지막으로 저장해둔 수량/무게(선택 판매 단위 기준값)가 있으면 그걸 기본값으로 쓰고,
+    // 없으면 무게 상품은 100g, 낱개 상품은 1개로 시작한다. 저장은 "표에 적용" 시 row.dataset에
+    // 반영되고, 실제 DB 저장은 기존 저장 버튼을 눌러야 이뤄진다(낱개/무게 모두 동일하게 지원).
+    const savedQuantity = priceCalcNumber(row.dataset.sellingWeightReferenceG ?? '');
+    priceCalcRawQuantity = savedQuantity ?? (priceCalcIsWeight ? 100 : 1);
+    priceCalcQuantity.min = priceCalcStep;
+    priceCalcQuantity.step = priceCalcStep;
+    priceCalcQuantity.value = priceCalcRawQuantity;
+    document.getElementById('price-calc-product-name').textContent = row.querySelector('.edit-display-name').value || priceCalcTrigger.dataset.productName;
+    document.getElementById('price-calc-quantity-label').textContent = priceCalcIsWeight ? priceCalcLabels.weightQuantity : priceCalcLabels.pieceQuantity;
+    const originalCost = priceCalcNumber(row.dataset.originalCostPrice ?? '');
+    const originalSelling = priceCalcNumber(row.dataset.originalSellingPrice ?? '');
+    const markupRate = Number(window.MALL_WHOLESALE_MARKUP_RATE);
+    const originalWholesale = (originalCost !== null && Number.isFinite(markupRate)) ? Math.ceil(originalCost * (1 + markupRate / 100)) : null;
+    const originalByKey = { cost: originalCost, wholesale: originalWholesale, selling: originalSelling };
+    // 매입 이력이 없어도(원가 오리지널 없음) 오른쪽(현재 적용가)은 계속 직접 입력할 수 있다 —
+    // 참고용 안내 문구만 보여준다.
+    document.getElementById('price-calc-cost-unavailable').classList.toggle('hidden', originalCost !== null);
+    priceCalcPairs.forEach(function (pair) {
+        pair.divisor = priceCalcIsWeight ? 1000 : 1;
+        pair.original = originalByKey[pair.key];
+        // 왼쪽 = 오리지널(매입원가/마스터 판매가 기준, 읽기전용) — 절대 수정하지 않는다.
+        pair.unit.value = pair.original !== null ? priceCalcMoney(pair.original) : '';
+        pair.unitLabel.textContent = priceCalcIsWeight ? priceCalcLabels.originalWeight : priceCalcLabels.originalPiece;
+        pair.totalLabel.textContent = priceCalcIsWeight ? priceCalcLabels.appliedWeight : priceCalcLabels.appliedPiece;
+        // 오른쪽(현재 적용가): 표 값이 오리지널과 실질적으로 다르면(=예전에 이 계산기로 저장해둔
+        // "이 수량/무게 기준 가격") 그 값을 그대로 보여준다. 표 값이 오리지널과 같으면(아직 한 번도
+        // 계산해본 적 없는 상품) 오리지널 기준으로 지금 수량/무게에 맞춰 새로 계산해 보여준다 —
+        // 마스터 원가/판매가(kg당·1개당)를 그대로 "이 무게의 가격"인 것처럼 보여주면 안 되기 때문.
+        // 수량/무게를 실제로 바꾸면 그 다음부터는 항상 오리지널 기준으로 재계산된다(updatePriceCalcQuantity
+        // 참고, 사용자 확정 2026-09-12).
+        const currentApplied = priceCalcNumber(row.querySelector(pair.selector).value);
+        const factor = priceCalcRawQuantity / pair.divisor;
+        const isOverridden = currentApplied !== null && pair.original !== null && Math.abs(currentApplied - pair.original) > 0.005;
+        if (isOverridden && factor > 0) {
+            pair.value = priceCalcMoney(currentApplied / factor);
+            pair.total.value = priceCalcMoney(currentApplied);
+        } else if (pair.original !== null) {
+            pair.value = priceCalcMoney(pair.original);
+            pair.total.value = factor > 0 ? priceCalcMoney(pair.original * factor) : '';
+        } else {
+            pair.value = currentApplied !== null ? priceCalcMoney(currentApplied) : '';
+            pair.total.value = currentApplied !== null ? priceCalcMoney(currentApplied) : '';
+        }
+    });
+    priceCalcModal.classList.remove('hidden');
+    priceCalcModal.classList.add('flex');
+    priceCalcQuantity.focus();
+}
+
+function recalcWholesaleFromCost() {
+    // 현재 원가 칸(오른쪽, 현재 적용가)에 지금 보이는 값을 기준으로 도매가를 계산한다.
+    const cost = priceCalcNumber(priceCalcPairs[0].total.value);
+    const markup = Number(window.MALL_WHOLESALE_MARKUP_RATE);
+    if (cost === null || !Number.isFinite(markup)) return;
+    const wholesale = Math.ceil(cost * (1 + markup / 100));
+    const value = priceCalcMoney(wholesale);
+    if (wholesale < 0 || value === null) return;
+    priceCalcPairs[1].total.value = value;
+    const factor = priceCalcRawQuantity / priceCalcPairs[1].divisor;
+    if (factor > 0) priceCalcPairs[1].value = priceCalcMoney(wholesale / factor);
+}
+
+function applyToRow() {
+    if (!currentTargetRow) return;
+    priceCalcPairs.forEach(function (pair) {
+        // 낱개/무게 모두 "지금 입력한 수량/무게 기준 총액"(오른쪽, 현재 적용가)을 그대로 적용한다
+        // (사용자 확정, 2026-09-12). 실제 몰 주문화면은 아직 개별 수량/무게로 결제되므로, 수량을
+        // 1(무게는 기본 100g)이 아닌 값으로 저장한 상품은 스토어프론트 반영 전까지 주의가 필요하다.
+        const value = priceCalcNumber(pair.total.value);
+        currentTargetRow.querySelector(pair.selector).value = value === null ? pair.value : priceCalcMoney(value);
+    });
+    // 이번에 쓴 수량/무게를 행에 기억시켜, 다음에 이 상품의 가격 설정을 다시 열 때 기본값(무게
+    // 100g/낱개 1개) 대신 이 값으로 시작하게 한다(낱개/무게 모두 동일). 실제 DB 저장은 기존 저장
+    // 버튼을 눌러야 이뤄진다.
+    currentTargetRow.dataset.sellingWeightReferenceG = String(priceCalcRawQuantity);
+    closePriceCalcModal();
+}
+
+// 공용 모달의 리스너는 로드 시 한 번만 등록한다.
+document.querySelectorAll('.open-price-calc-btn').forEach(function (button) {
+    button.addEventListener('click', function () { openPriceCalcModal(button.closest('tr')); });
+});
+priceCalcPairs.forEach(function (pair) {
+    // 왼쪽(오리지널)은 읽기전용이라 리스너가 없다 — 오른쪽(현재 적용가)만 직접 입력한다.
+    pair.total.addEventListener('input', function () { recalcFromTotal(pair); });
+    pair.total.addEventListener('change', function () {
+        const value = priceCalcNumber(pair.total.value);
+        if (value !== null && priceCalcMoney(value) !== null) pair.total.value = priceCalcMoney(value);
+    });
+});
+priceCalcQuantity.addEventListener('input', function () {
+    updatePriceCalcQuantity(false);
+});
+priceCalcQuantity.addEventListener('change', function () {
+    updatePriceCalcQuantity();
+});
+document.getElementById('price-calc-minus').addEventListener('click', function () {
+    priceCalcQuantity.value = priceCalcRawQuantity - priceCalcStep;
+    updatePriceCalcQuantity();
+});
+document.getElementById('price-calc-plus').addEventListener('click', function () {
+    priceCalcQuantity.value = priceCalcRawQuantity + priceCalcStep;
+    updatePriceCalcQuantity();
+});
+document.getElementById('price-calc-wholesale-auto').addEventListener('click', recalcWholesaleFromCost);
+document.getElementById('price-calc-apply').addEventListener('click', applyToRow);
+document.getElementById('price-calc-close').addEventListener('click', closePriceCalcModal);
+document.getElementById('price-calc-cancel').addEventListener('click', closePriceCalcModal);
+priceCalcModal.addEventListener('click', function (e) {
+    if (e.target === priceCalcModal) closePriceCalcModal();
+});
+document.addEventListener('keydown', function (e) {
+    if (!currentTargetRow) return;
+    if (e.key === 'Escape') closePriceCalcModal();
+    if (e.key === 'Tab') {
+        const controls = Array.from(priceCalcModal.querySelectorAll('button, input')).filter(function (control) { return !control.disabled; });
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    }
 });
 </script>
 </body>

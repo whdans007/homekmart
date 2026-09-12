@@ -70,19 +70,20 @@ try {
     }
 
     if ($action === 'update') {
-        // "큐레이션된 상품" 통합 테이블의 신선상품 행. 일반상품(save_retail_product.php의 update)과 최대한
-        // 동일한 구조로 맞춘다: 표시명/판매단가/노출상태는 mall_fresh_products 원본에 직접 반영하고(점포별
-        // 오버라이드 개념이 없음), 원가/기준도매가만 "오리지널(최근 매입원가)"과 다를 때만 override 컬럼에 저장한다.
+        // "큐레이션된 상품" 통합 테이블의 신선상품 행. Display Name(진열명)/원가/기준도매가/판매가
+        // 전부 override 컬럼에만 저장하고, 원본(name_ko/name_en, price_per_100g — admin/fresh_products.php
+        // 마스터 목록이 보여주는 값 및 최근 매입원가)은 절대 덮어쓰지 않는다.
+        // "오리지널"과 제출값이 같으면 override를 null로 되돌려 "오리지널 그대로 사용" 상태를 유지한다.
         $mall_fresh_product_id = (int)($_POST['mall_fresh_product_id'] ?? 0);
-        $name_ko = trim($_POST['name_ko'] ?? '');
-        $name_en = trim($_POST['name_en'] ?? '');
+        $display_name = trim($_POST['name_ko'] ?? '');
+        $display_name_en = trim($_POST['name_en'] ?? '');
         $price_per_100g_raw = trim($_POST['price_per_100g'] ?? '');
         $is_active = ($_POST['is_active'] ?? '0') === '1';
         $is_sold_out = ($_POST['is_sold_out'] ?? '0') === '1';
         $retail_discount_allowed = ($_POST['retail_discount_allowed'] ?? '0') === '1';
         $wholesale_discount_allowed = ($_POST['wholesale_discount_allowed'] ?? '0') === '1';
 
-        if ($mall_fresh_product_id <= 0 || $name_ko === '') {
+        if ($mall_fresh_product_id <= 0 || $display_name === '') {
             json_error('VALIDATION_ERROR', '입력값을 확인해주세요');
         }
         if ($price_per_100g_raw === '' || !is_numeric($price_per_100g_raw) || (float)$price_per_100g_raw < 0) {
@@ -100,7 +101,19 @@ try {
             json_error('VALIDATION_ERROR', '가격은 0 이상이어야 합니다');
         }
 
-        $lookup = $conn->prepare('SELECT sale_type FROM mall_fresh_products WHERE id = ?');
+        // 가격 설정 모달이 마지막으로 사용한 수량(낱개 상품, 개수)/무게(무게 상품, g) — 순수 관리자
+        // 편의값. 매입/주문에는 전혀 영향 없고, 다음에 모달을 열 때 기본값(1개/100g) 대신 이 값으로
+        // 미리 채워주는 용도로만 쓰인다.
+        $selling_weight_reference_raw = trim($_POST['selling_weight_reference_g'] ?? '');
+        $selling_weight_reference_g = null;
+        if ($selling_weight_reference_raw !== '') {
+            if (!ctype_digit($selling_weight_reference_raw) || (int)$selling_weight_reference_raw <= 0) {
+                json_error('VALIDATION_ERROR', '수량/무게는 1 이상의 정수여야 합니다');
+            }
+            $selling_weight_reference_g = (int)$selling_weight_reference_raw;
+        }
+
+        $lookup = $conn->prepare('SELECT sale_type, price_per_100g, name_ko, name_en FROM mall_fresh_products WHERE id = ?');
         $lookup->bind_param('i', $mall_fresh_product_id);
         $lookup->execute();
         $fp_row = $lookup->get_result()->fetch_assoc();
@@ -110,6 +123,13 @@ try {
             json_error('VALIDATION_ERROR', '신선상품을 찾을 수 없습니다');
         }
         $sale_type = $fp_row['sale_type'];
+        // "오리지널" 판매가 = admin/fresh_products.php가 보여주는 원본 price_per_100g. 이 값은 이 화면에서
+        // 절대 UPDATE하지 않는다 — 제출값이 이것과 다를 때만 selling_price_override에 저장한다.
+        $original_price_per_100g = (float)$fp_row['price_per_100g'];
+        // "오리지널" 상품명 = admin/fresh_products.php가 보여주는 원본 name_ko/name_en. 이 값도 이
+        // 화면에서 절대 UPDATE하지 않는다 — Display Name(진열명)은 별도 override 컬럼에만 저장한다.
+        $original_name_ko = (string)$fp_row['name_ko'];
+        $original_name_en = (string)($fp_row['name_en'] ?? '');
 
         // "오리지널" 원가 = 이 신선상품의 최근 매입 단위원가(무게 상품은 100g당, 낱개 상품은 개당).
         $cost_col = $sale_type === 'piece' ? 'unit_cost_per_piece' : 'unit_cost_per_100g';
@@ -138,11 +158,15 @@ try {
         };
         $cost_price_override = $values_equal($submitted_cost_price, $original_cost_price) ? null : $submitted_cost_price;
         $wholesale_reference_price_override = $values_equal($submitted_wholesale_reference_price, $original_wholesale_reference_price) ? null : $submitted_wholesale_reference_price;
+        $selling_price_override = $values_equal($price_per_100g, $original_price_per_100g) ? null : $price_per_100g;
+        $display_name_override = $display_name === $original_name_ko ? null : $display_name;
+        $display_name_en_override = $display_name_en === $original_name_en ? null : $display_name_en;
 
         $stmt = $conn->prepare(
             'UPDATE mall_fresh_products
-             SET name_ko = ?, name_en = ?, price_per_100g = ?, status = ?,
-                 cost_price_override = ?, wholesale_reference_price_override = ?,
+             SET display_name_override = ?, display_name_en_override = ?, status = ?,
+                 cost_price_override = ?, wholesale_reference_price_override = ?, selling_price_override = ?,
+                 selling_weight_reference_g = ?,
                  is_sold_out = ?, retail_discount_allowed = ?, wholesale_discount_allowed = ?
              WHERE id = ?'
         );
@@ -150,9 +174,10 @@ try {
         $retail_discount_allowed_int = $retail_discount_allowed ? 1 : 0;
         $wholesale_discount_allowed_int = $wholesale_discount_allowed ? 1 : 0;
         $stmt->bind_param(
-            'ssdsddiiii',
-            $name_ko, $name_en, $price_per_100g, $status,
-            $cost_price_override, $wholesale_reference_price_override,
+            'sssdddiiiii',
+            $display_name_override, $display_name_en_override, $status,
+            $cost_price_override, $wholesale_reference_price_override, $selling_price_override,
+            $selling_weight_reference_g,
             $is_sold_out_int, $retail_discount_allowed_int, $wholesale_discount_allowed_int, $mall_fresh_product_id
         );
         $stmt->execute();
