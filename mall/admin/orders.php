@@ -249,7 +249,7 @@ var MALL_STATUS_COLORS = {
     arrived: 'bg-green-100 text-green-800', completed: 'bg-green-100 text-green-800',
     cancelled: 'bg-gray-100 text-gray-500', delivery_failed: 'bg-red-100 text-red-700'
 };
-var MALL_HAPPY_PATH = ['pending', 'preparing', 'ready', 'assigned', 'delivering', 'arrived', 'completed'];
+var MALL_HAPPY_PATH = ['pending', 'confirmed', 'preparing', 'ready', 'assigned', 'delivering', 'arrived', 'completed'];
 var MALL_CURRENT_ORDER_ID = null;
 
 function showFlash(message, type) {
@@ -319,7 +319,7 @@ function loadOrderDetail(orderId) {
 
 // 각 단계 키에 해당하는 mall_orders/최신 배정 타임스탬프 필드명
 var MALL_STEP_TIME_FIELD = {
-    pending: 'created_at', preparing: 'confirmed_at', ready: 'ready_at',
+    pending: 'created_at', confirmed: 'confirmed_at', preparing: 'confirmed_at', ready: 'ready_at',
     assigned: 'assigned_at', delivering: 'delivering_at', arrived: 'arrived_at', completed: 'completed_at'
 };
 

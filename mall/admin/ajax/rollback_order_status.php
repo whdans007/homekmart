@@ -15,7 +15,7 @@ $conn->begin_transaction();
 try {
     $stmt = $conn->prepare('SELECT status, current_driver_id FROM mall_orders WHERE id = ? FOR UPDATE');
     $stmt->bind_param('i', $order_id); $stmt->execute(); $order = $stmt->get_result()->fetch_assoc(); $stmt->close();
-    $previous = ['confirmed'=>'pending','preparing'=>'confirmed','ready'=>'preparing','assigned'=>'ready','delivering'=>'assigned','arrived'=>'delivering','completed'=>'arrived'];
+    $previous = ['confirmed'=>'pending','preparing'=>'pending','ready'=>'preparing','assigned'=>'ready','delivering'=>'assigned','arrived'=>'delivering','completed'=>'arrived'];
     if (!$order || !isset($previous[$order['status']])) throw new RuntimeException('이전 단계로 되돌릴 수 없는 상태입니다.');
     $from = $order['status']; $to = $previous[$from];
     if (in_array($from, ['assigned','delivering','arrived','completed'], true) && !empty($order['current_driver_id'])) {
