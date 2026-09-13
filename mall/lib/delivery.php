@@ -187,6 +187,7 @@ function mall_order_reassign_driver($order_id, $new_driver_id) {
         $update->close();
 
         $conn->commit();
+        mall_push_notify_order_message($order_id, 'driver', '배송시작');
         return ['success' => true];
     } catch (Exception $e) {
         $conn->rollback();
@@ -239,6 +240,7 @@ function mall_delivery_start($driver_id, $order_id) {
         $order_update->close();
 
         $conn->commit();
+        mall_push_notify_order_message($order_id, 'driver', '배달도착');
         return ['success' => true];
     } catch (Exception $e) {
         $conn->rollback();
