@@ -9,6 +9,7 @@ require_once __DIR__ . '/i18n.php';
 $__driver_chat_unread = mall_order_chat_unread_total_for_driver($driver['id']);
 $__driver_push_csrf = mall_csrf_token();
 ?>
+<style>body{width:100%;max-width:480px;margin:0 auto;}</style>
 <nav class="bottom-nav">
     <a href="/mall/driver/index.php" class="<?php echo ($active_driver_nav ?? '') === 'list' ? 'active' : ''; ?>">
         <span class="bottom-nav-icon-wrap"><i class="fas fa-truck-fast" style="font-size:20px;"></i></span>

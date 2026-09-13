@@ -37,7 +37,7 @@ $active_driver_nav = 'list';
     <link rel="stylesheet" href="/mall/css/wanted-tokens.css">
     <link rel="stylesheet" href="/mall/css/mall.css">
     <style>
-        body { padding-bottom: 76px; }
+        body { width:100%; max-width:480px; min-height:100vh; margin:0 auto; padding-bottom:76px; }
         .driver-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--line-alternative); }
         .list-tabs { display: flex; border-bottom: 1px solid var(--line-alternative); }
         .list-tab-btn { flex: 1; padding: 12px 0; text-align: center; font: 700 13px var(--font-sans); color: var(--label-alternative); background: none; border: none; border-bottom: 2px solid transparent; }
