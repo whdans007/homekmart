@@ -200,6 +200,15 @@ function mall_fcm_get_access_token() {
  * @return array{ok:bool, invalid_token:bool}
  */
 function mall_fcm_send($access_token, $project_id, $device_token, $title, $body, array $data = []) {
+    $sound = 'default';
+    $channel_id = 'default';
+    if ($body === '배달시작' || $body === '배송이 시작되었습니다.') {
+        $sound = 'delivery_started'; $channel_id = 'delivery_start';
+    } elseif ($body === '배달도착' || $body === '배달이 도착했습니다.') {
+        $sound = 'delivery_arrived'; $channel_id = 'delivery_arrived';
+    } elseif ($body === '배송이 완료되었습니다. 이용해 주셔서 감사합니다.') {
+        $sound = 'delivery_completed'; $channel_id = 'delivery_completed';
+    }
     $message = [
         'message' => [
             'token' => $device_token,
@@ -211,7 +220,8 @@ function mall_fcm_send($access_token, $project_id, $device_token, $title, $body,
             'android' => [
                 'priority' => 'high',
                 'notification' => [
-                    'sound' => 'default',
+                    'sound' => $sound,
+                    'channel_id' => $channel_id,
                 ],
             ],
         ],
