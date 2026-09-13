@@ -79,7 +79,7 @@ $total_floor = (int)floor((float)$order['total_amount']);
 $cash_received = (int)ceil($total_floor / 1000) * 1000;
 $change_due = $cash_received - $total_floor;
 $shipping_address = trim(implode(' ', array_filter([$order['ship_detail_address'] ?? '', $order['ship_barangay'] ?? '', $order['ship_city'] ?? '', $order['ship_region'] ?? ''])));
-$picking_title_address = trim(implode(' ', array_filter([$order['ship_detail_address'] ?? '', $order['ship_barangay'] ?? ''])));
+$picking_title_address = trim((string)($order['ship_detail_address'] ?? ''));
 if (!empty($order['ship_landmark'])) {
     $picking_title_address .= ($picking_title_address !== '' ? ' ' : '') . '(' . $order['ship_landmark'] . ')';
 }
