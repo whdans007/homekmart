@@ -173,12 +173,9 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
     var Push = window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
     if (!Push) return;
 
-    // Android launcher badges reflect notifications still present in the system
-    // tray. Clear delivered notifications whenever the app is opened/resumed so
-    // a message that the member already checked does not leave a stale badge.
-    function mallClearDeliveredPushNotifications() {
-        Push.removeAllDeliveredNotifications().catch(function () { /* ignore */ });
-    }
+    // 푸시 수신 후 앱이 이미 열려 있으면 서버의 읽지 않은 메시지 수를 다시
+    // 조회해야 주문톡 배지가 즉시 갱신됩니다.
+    var mallPushRefreshPending = false;
     function mallPlayDeliveryArrivalAlert() {
         try {
             var recorded = window.__mallArrivalAudio || (window.__mallArrivalAudio = new Audio('/mall/assets/delivery_arrived.wav?v=1'));
@@ -260,10 +257,13 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
         } catch (e) { /* 음성 기능 미지원 시 푸시 알림은 그대로 표시 */ }
     }
     window.mallPlayDeliveryStartAlert = mallPlayDeliveryStartAlert;
-    mallClearDeliveredPushNotifications();
     var PushApp = window.Capacitor.Plugins && window.Capacitor.Plugins.App;
     if (PushApp) {
-        PushApp.addListener('resume', mallClearDeliveredPushNotifications);
+        PushApp.addListener('resume', function () {
+            if (!mallPushRefreshPending) return;
+            mallPushRefreshPending = false;
+            window.location.reload();
+        });
     }
 
     var MALL_PUSH_CSRF_TOKEN = <?php echo json_encode($__mall_push_csrf_token); ?>;
@@ -307,6 +307,7 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
     // 포그라운드 수신 — 트레이 알림은 백그라운드/종료 상태에서만 OS가 자동 표시하므로(Android 표준
     // 동작), 여기서는 현재 열려있는 주문톡 채팅창과 같은 주문이면 조용히 새로고침만 한다.
     Push.addListener('pushNotificationReceived', function (notification) {
+        mallPushRefreshPending = true;
         var orderId = notification && notification.data && notification.data.order_id;
         if (orderId && notification.data.type === 'delivery_status') {
             var notificationBody = (notification && (notification.body || notification.title)) || '';
@@ -329,7 +330,6 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
     // 알림 탭(백그라운드/종료 상태에서 눌러 앱 진입) — 해당 주문 채팅창으로 딥링크.
     // order_chat.php는 로그인 필수(mall_require_login)라 세션 만료 시에는 로그인 화면으로 안전하게 빠진다.
     Push.addListener('pushNotificationActionPerformed', function (action) {
-        mallClearDeliveredPushNotifications();
         var orderId = action && action.notification && action.notification.data && action.notification.data.order_id;
         if (orderId) {
             var isDelivery = action.notification.data.type === 'delivery_status';
