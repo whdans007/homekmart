@@ -81,7 +81,7 @@ $status_color = [
         .order-row { cursor: pointer; }
         .order-row:hover { background: #f9fafb; }
         #order-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
-        #order-modal { background: #fff; border-radius: 10px; max-width: 640px; width: 100%; max-height: 90vh; overflow-y: auto; }
+        #order-modal { background: #fff; border-radius: 10px; max-width: 760px; width: 100%; max-height: 90vh; overflow-y: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid #e5e7eb; }
         .modal-section { padding: 16px; border-bottom: 1px solid #f3f4f6; }
         .modal-section:last-child { border-bottom: none; }
