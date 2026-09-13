@@ -222,6 +222,7 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
             }
         } catch (e) { /* 기기에서 음성 기능을 지원하지 않아도 알림 자체는 유지 */ }
     }
+    window.mallPlayDeliveryArrivalAlert = mallPlayDeliveryArrivalAlert;
     mallClearDeliveredPushNotifications();
     var PushApp = window.Capacitor.Plugins && window.Capacitor.Plugins.App;
     if (PushApp) {
@@ -289,7 +290,8 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
         var orderId = action && action.notification && action.notification.data && action.notification.data.order_id;
         if (orderId) {
             var isDelivery = action.notification.data.type === 'delivery_status';
-            window.location.href = (isDelivery ? '/mall/order_detail.php?id=' : '/mall/order_chat.php?order_id=') + encodeURIComponent(orderId);
+            var arrival = isDelivery && (action.notification.body === '배달이 도착했습니다.' || action.notification.body === '배달도착');
+            window.location.href = (isDelivery ? '/mall/order_detail.php?id=' : '/mall/order_chat.php?order_id=') + encodeURIComponent(orderId) + (arrival ? '&arrival_alert=1' : '');
         }
     });
 

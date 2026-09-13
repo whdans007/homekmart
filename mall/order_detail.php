@@ -217,6 +217,11 @@ document.getElementById('delivery-arrival-ack')?.addEventListener('click', funct
     if (typeof window.mallStopDeliveryArrivalAlert === 'function') window.mallStopDeliveryArrivalAlert();
     this.textContent = '확인 완료'; this.disabled = true;
 });
+<?php if ($order['status'] === 'arrived' && isset($_GET['arrival_alert'])): ?>
+setTimeout(function () {
+    if (typeof window.mallPlayDeliveryArrivalAlert === 'function') window.mallPlayDeliveryArrivalAlert();
+}, 500);
+<?php endif; ?>
 </script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
