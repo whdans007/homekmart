@@ -126,9 +126,10 @@ function mall_cat_label($cat, $mall_lang) {
                             <div class="bottom-row">
                                 <div class="price-row" style="margin-top:0;">
                                     <span class="final"><?php echo number_format((float)$fresh['price_per_100g'], 2); ?></span>
-                                    <span style="font:var(--t-caption1) var(--font-sans);color:var(--label-alternative);">/ <?php echo $fresh['sale_type'] === 'weight' ? '100g' : '개'; ?></span>
                                 </div>
-                                <a class="quick-add-btn" href="/mall/fresh_product.php?id=<?php echo (int)$fresh['id']; ?>">담기</a>
+                                <div class="pcard-action product-row-cart-action">
+                                    <a class="pcard-add-btn quick-add-btn" href="/mall/fresh_product.php?id=<?php echo (int)$fresh['id']; ?>">담기</a>
+                                </div>
                             </div>
                         </div>
                     </div>

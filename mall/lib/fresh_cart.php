@@ -1,11 +1,12 @@
 <?php
+require_once __DIR__ . '/fresh_pricing.php';
 /**
  * 신선상품 전용 장바구니 유스케이스 (Application Layer)
  * Design Ref: mall-fresh-products.design.md §3.2, §9, §10 — mall/lib/cart.php와 대칭되는 함수형 헬퍼.
  *
  * 정가상품 mall_cart_items와 완전히 분리된 mall_fresh_cart_items를 다룬다. 신선상품은 채널(retail/
- * wholesale) 구분이 없는 단일가라 channel 파라미터가 없다. sale_type(weight/piece)에 따라 weight_g
- * 또는 quantity 중 하나만 채워진다.
+ * wholesale) 구분이 없는 단일가라 channel 파라미터가 없다. 신규 담기는 모두 quantity를 사용한다.
+ * 상품의 매입 방식과 관계없이 고객은 설정된 판매 구성 1개 단위로 주문한다.
  *
  * cart.php와 마찬가지로 회원가입 없이도 쓸 수 있어야 하므로 모든 함수가 $member_id/$guest_token을
  * 함께 받는다(둘 중 하나만 채우고 나머지는 null — member_id 우선).
@@ -31,15 +32,11 @@ function mall_fresh_cart_owner_clause($member_id, $guest_token) {
  */
 function mall_fresh_product_get($mall_fresh_product_id) {
     $conn = mall_get_db_connection();
-    // 큐레이션 화면(mall/admin/products.php)의 "가격 설정" 모달은 낱개/무게 상품 모두 "수량/무게
-    // 기준 총액"을 selling_price_override에 그대로 저장한다(사용자 확정, 2026-09-12) — 이 값은
-    // 실제 몰 주문화면(고객이 개별 수량/무게를 직접 고르는 화면)의 단가 계산과 단위가 안 맞을 수
-    // 있어, 스토어프론트가 수량 고정 판매로 바뀌기 전까지는 고객 결제에 반영하지 않는다(관리자
-    // 화면 표시 전용). 진열명(display_name_override)은 텍스트라 단위 문제가 없어 그대로 반영한다.
+    // The configured selling amount is the price of one purchasable unit.
     $stmt = $conn->prepare(
         "SELECT id, COALESCE(display_name_override, name_ko) AS name_ko,
                 COALESCE(display_name_en_override, name_en) AS name_en, sale_type,
-                price_per_100g, status, is_sold_out
+                price_per_100g, selling_price_override, selling_weight_reference_g, status, is_sold_out
          FROM mall_fresh_products WHERE id = ?"
     );
     $stmt->bind_param('i', $mall_fresh_product_id);
@@ -47,12 +44,16 @@ function mall_fresh_product_get($mall_fresh_product_id) {
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     $conn->close();
+    if ($row) {
+        $row['price_per_100g'] = mall_fresh_sale_unit_price($row);
+        $row['sale_type'] = 'piece';
+    }
     return $row ?: null;
 }
 
 /**
- * 신선상품을 장바구니에 담습니다(최종값 지정 — 무게 스테퍼 UX에 맞춰 "더하기"가 아니라 이미 담긴
- * 값을 덮어씁니다). sale_type이 weight면 $weight_g(100의 배수)를, piece면 $quantity(정수)를 넘깁니다.
+ * 신선상품을 장바구니에 담습니다(최종 수량 지정). $weight_g는 null,
+ * $quantity는 양의 정수만 허용하며 기존 무게 장바구니도 다시 담으면 낱개 수량으로 교체됩니다.
  * @param int|null $member_id
  * @param string|null $guest_token
  * @param int $mall_fresh_product_id
@@ -73,18 +74,9 @@ function mall_fresh_cart_add($member_id, $guest_token, $mall_fresh_product_id, $
         return ['success' => false, 'error' => 'SOLD_OUT'];
     }
 
-    if ($product['sale_type'] === 'weight') {
-        $weight_g = (int)$weight_g;
-        if ($weight_g <= 0 || $weight_g % 100 !== 0) {
-            return ['success' => false, 'error' => 'VALIDATION_ERROR'];
-        }
-        $quantity = null;
-    } else {
-        $quantity = (int)$quantity;
-        if ($quantity <= 0) {
-            return ['success' => false, 'error' => 'VALIDATION_ERROR'];
-        }
-        $weight_g = null;
+    $quantity = filter_var($quantity, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 2147483647]]);
+    if ($weight_g !== null || $quantity === false) {
+        return ['success' => false, 'error' => 'VALIDATION_ERROR'];
     }
 
     $conn = mall_get_db_connection();
@@ -99,9 +91,7 @@ function mall_fresh_cart_add($member_id, $guest_token, $mall_fresh_product_id, $
     $stmt->close();
     $conn->close();
 
-    $estimated_price = $product['sale_type'] === 'weight'
-        ? round($weight_g / 100 * (float)$product['price_per_100g'], 2)
-        : round((float)$product['price_per_100g'] * $quantity, 2);
+    $estimated_price = round((float)$product['price_per_100g'] * $quantity, 2);
 
     return ['success' => true, 'data' => ['weight_g' => $weight_g, 'quantity' => $quantity, 'estimated_price' => $estimated_price]];
 }
@@ -165,7 +155,7 @@ function mall_fresh_cart_get_summary($member_id, $guest_token) {
         "SELECT ci.id AS cart_item_id, ci.mall_fresh_product_id, ci.weight_g, ci.quantity,
                 COALESCE(mfp.display_name_override, mfp.name_ko) AS name_ko,
                 COALESCE(mfp.display_name_en_override, mfp.name_en) AS name_en,
-                mfp.sale_type, mfp.price_per_100g,
+                mfp.sale_type, mfp.price_per_100g, mfp.selling_price_override, mfp.selling_weight_reference_g,
                 mfp.status, mfp.is_sold_out, mfp.image_url
          FROM mall_fresh_cart_items ci
          INNER JOIN mall_fresh_products mfp ON mfp.id = ci.mall_fresh_product_id
@@ -183,22 +173,17 @@ function mall_fresh_cart_get_summary($member_id, $guest_token) {
     $has_sold_out = false;
 
     foreach ($rows as $row) {
-        $sold_out = (int)$row['is_sold_out'] === 1 || $row['status'] !== 'active';
+        $requires_readd = $row['weight_g'] !== null || (int)$row['quantity'] <= 0;
+        $sold_out = (int)$row['is_sold_out'] === 1 || $row['status'] !== 'active' || $requires_readd;
         if ($sold_out) {
             $has_sold_out = true;
         }
-        $unit_price = (float)$row['price_per_100g'];
-        // sale_type이 아니라 카트 행 자체에 실제로 채워진 컬럼으로 분기한다 — 담은 뒤 관리자가
-        // 상품의 sale_type을 바꿔도(admin/edit_fresh_product.php) 이 장바구니 행은 담을 당시의
-        // weight_g/quantity를 그대로 들고 있으므로, 현재 sale_type을 신뢰하면 반대쪽 컬럼이 NULL이라
-        // 금액이 0으로 잘못 계산될 수 있다.
-        if ($row['weight_g'] !== null) {
-            $estimated_price = round((int)$row['weight_g'] / 100 * $unit_price, 2);
-        } else {
-            $estimated_price = round($unit_price * (int)$row['quantity'], 2);
-        }
+        $unit_price = mall_fresh_sale_unit_price($row);
+        $estimated_price = $requires_readd ? 0.0 : round($unit_price * (int)$row['quantity'], 2);
         $items[] = array_merge($row, [
             'unit_price' => $unit_price,
+            'sale_type' => 'piece',
+            'requires_readd' => $requires_readd,
             'estimated_price' => $estimated_price,
             'sold_out' => $sold_out,
         ]);
@@ -250,8 +235,10 @@ function mall_fresh_cart_merge_guest_into_member($member_id, $guest_token) {
             }
         }
 
-        mall_fresh_cart_add($member_id, null, $product_id, $weight_g, $quantity);
-        mall_fresh_cart_remove(null, $guest_token, (int)$item['id']);
+        $result = mall_fresh_cart_add($member_id, null, $product_id, $weight_g, $quantity);
+        if ($result['success']) {
+            mall_fresh_cart_remove(null, $guest_token, (int)$item['id']);
+        }
     }
     $member_stmt->close();
     $conn->close();

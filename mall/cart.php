@@ -109,18 +109,18 @@ require_once __DIR__ . '/partials/header.php';
         <img class="thumb" src="<?php echo htmlspecialchars($item['image_url'] ?: '/logo/homekmart_logo.png'); ?>" alt="">
         <div class="info">
             <div class="name"><span class="badge badge-green">신선</span> <?php echo htmlspecialchars(($mall_lang === 'en' && !empty($item['name_en'])) ? $item['name_en'] : $item['name_ko']); ?></div>
-            <?php if ($item['sold_out']): ?>
+            <?php if ($item['requires_readd']): ?>
+                <div class="unit-price">낱개 판매로 변경되었습니다. 수량을 선택해 다시 담아주세요.</div>
+                <a href="/mall/fresh_product.php?id=<?php echo (int)$item['mall_fresh_product_id']; ?>" class="btn btn-primary">다시 담기</a>
+            <?php elseif ($item['sold_out']): ?>
                 <div style="color:var(--brand-red);font:var(--t-caption1) var(--font-sans);">품절 — 삭제 후 주문해주세요</div>
-            <?php elseif ($item['sale_type'] === 'weight'): ?>
-                <div class="unit-price"><?php echo number_format($item['unit_price'], 2); ?> / 100g · <?php echo (int)$item['weight_g']; ?>g</div>
-                <div class="unit-price">예상금액이며 실제 무게에 따라 달라질 수 있습니다.</div>
             <?php else: ?>
                 <div class="unit-price"><?php echo number_format($item['unit_price'], 2); ?> / 개 · <?php echo (int)$item['quantity']; ?>개</div>
             <?php endif; ?>
             <div class="row-bottom">
-                <span class="badge <?php echo $item['sale_type'] === 'weight' ? 'badge-blue' : 'badge-green'; ?>"><?php echo $item['sale_type'] === 'weight' ? '무게상품' : '낱개상품'; ?></span>
+                <span class="badge badge-green">낱개상품</span>
                 <div style="display:flex;align-items:center;gap:10px;">
-                    <div class="line-total"><?php echo $item['sale_type'] === 'weight' ? '예상 ' : ''; ?><?php echo number_format($item['estimated_price'], 2); ?></div>
+                    <div class="line-total"><?php echo $item['requires_readd'] ? '-' : number_format($item['estimated_price'], 2); ?></div>
                     <button class="remove-btn fresh-remove-btn" title="삭제"><svg style="width:18px;height:18px;"><use href="#i-close"></use></svg></button>
                 </div>
             </div>

@@ -32,7 +32,6 @@ $show_bottom_nav = true;
 require_once __DIR__ . '/partials/header.php';
 
 $display_name = ($mall_lang === 'en' && !empty($product['name_en'])) ? $product['name_en'] : $product['name_ko'];
-$is_weight = $product['sale_type'] === 'weight';
 $is_sold_out = (int)$product['is_sold_out'] === 1;
 $unit_price = (float)$product['price_per_100g'];
 $member_id = $member ? (int)$member['id'] : null;
@@ -68,19 +67,15 @@ $image_src = $image_url !== '' ? $image_url : '/logo/homekmart_logo.png';
     <h1 class="fp-name"><?php echo htmlspecialchars($product['name_ko']); ?></h1>
     <?php if (!empty($product['name_en'])): ?><div class="fp-name-en"><?php echo htmlspecialchars($product['name_en']); ?></div><?php endif; ?>
     <div class="fp-price"><?php echo number_format($unit_price, 2); ?></div>
-    <div class="fp-help"><?php echo $is_weight ? '100g당 가격' : '개당 가격'; ?></div>
-    <?php if ($is_weight): ?>
-    <div class="fp-estimate"><span>예상금액</span><strong id="fresh-estimated-price"><?php echo number_format($unit_price, 2); ?></strong></div>
-    <p class="fp-help">예상금액이며 실제 무게에 따라 달라질 수 있습니다.</p>
-    <?php endif; ?>
+    <div class="fp-help">개당 가격</div>
 </div>
 
 <div class="sticky-cta" style="flex-direction:column;align-items:stretch;gap:10px;">
     <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font:600 14px/1 var(--font-sans);"><?php echo $is_weight ? '무게' : '수량'; ?></span>
+        <span style="font:600 14px/1 var(--font-sans);">수량</span>
         <div class="qty-stepper">
             <button type="button" id="fresh-minus" <?php echo $is_sold_out ? 'disabled' : ''; ?>><svg><use href="#i-minus"></use></svg></button>
-            <span class="qty-value" id="fresh-value"><?php echo $is_weight ? '100g' : '1'; ?></span>
+            <span class="qty-value" id="fresh-value">1</span>
             <button type="button" id="fresh-plus" <?php echo $is_sold_out ? 'disabled' : ''; ?>><svg><use href="#i-plus"></use></svg></button>
         </div>
     </div>
@@ -89,22 +84,18 @@ $image_src = $image_url !== '' ? $image_url : '/logo/homekmart_logo.png';
 <?php if (!$is_sold_out): ?>
 <script>
 (function () {
-    const isWeight = <?php echo $is_weight ? 'true' : 'false'; ?>;
-    const unitPrice = <?php echo json_encode($unit_price); ?>;
-    let value = isWeight ? 100 : 1;
+    let value = 1;
     const valueEl = document.getElementById('fresh-value');
-    const estimateEl = document.getElementById('fresh-estimated-price');
     function render() {
-        valueEl.textContent = isWeight ? value + 'g' : value;
-        if (estimateEl) estimateEl.textContent = (unitPrice * value / 100).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+        valueEl.textContent = value;
     }
-    document.getElementById('fresh-minus').addEventListener('click', function () { if (value > (isWeight ? 100 : 1)) { value -= isWeight ? 100 : 1; render(); } });
-    document.getElementById('fresh-plus').addEventListener('click', function () { value += isWeight ? 100 : 1; render(); });
+    document.getElementById('fresh-minus').addEventListener('click', function () { if (value > 1) { value--; render(); } });
+    document.getElementById('fresh-plus').addEventListener('click', function () { if (value < 2147483647) { value++; render(); } });
     document.getElementById('add-fresh-btn').addEventListener('click', function () {
         const btn = this;
         const params = new URLSearchParams();
         params.set('mall_fresh_product_id', '<?php echo $product_id; ?>');
-        params.set(isWeight ? 'weight_g' : 'quantity', value);
+        params.set('quantity', value);
         params.set('csrf_token', '<?php echo htmlspecialchars($csrf_token, ENT_QUOTES); ?>');
         btn.disabled = true;
         fetch('/mall/ajax/add_fresh_to_cart.php', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()})

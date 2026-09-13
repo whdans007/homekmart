@@ -33,17 +33,9 @@ if ((int)$product['is_sold_out'] === 1) {
 }
 
 $weight_g = null;
-$quantity = null;
-if ($product['sale_type'] === 'weight') {
-    $weight_g = (int)($_POST['weight_g'] ?? 0);
-    if ($weight_g <= 0 || $weight_g % 100 !== 0) {
-        json_error('VALIDATION_ERROR', '무게는 100g 단위로 선택해주세요');
-    }
-} else {
-    $quantity = (int)($_POST['quantity'] ?? 0);
-    if ($quantity <= 0) {
-        json_error('VALIDATION_ERROR', '수량을 확인해주세요');
-    }
+$quantity = filter_var($_POST['quantity'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 2147483647]]);
+if (isset($_POST['weight_g']) || $quantity === false) {
+    json_error('VALIDATION_ERROR', '수량은 1개 이상의 정수로 선택해주세요');
 }
 
 $result = mall_fresh_cart_add($member_id, $guest_token, $product_id, $weight_g, $quantity);

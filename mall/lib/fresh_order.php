@@ -3,10 +3,8 @@
  * 신선상품 전용 주문 유스케이스 (Application Layer)
  * Design Ref: mall-fresh-products.design.md §3.3, §4.2, §4.3, §9, §10
  *
- * mall_order_items(정가상품)와 완전히 분리된 mall_fresh_order_items를 다룬다. weight 타입은 주문 시
- * estimated_price만 채워지고(actual_weight_g/confirmed_price는 NULL), 준비중 단계에서 실측 입력 후
- * confirmed_price가 채워진다. piece 타입은 가격이 이미 고정이라 INSERT 시점에 confirmed_price까지
- * estimated_price와 동일하게 즉시 채운다(실측 단계 없음).
+ * 신규 주문은 모두 낱개 수량과 고정 판매가로 저장하며 confirmed_price를 즉시 확정한다.
+ * 기존 weight 주문의 실측 확인 함수는 과거 주문 처리를 위해 유지한다.
  *
  * 주의: mall_fresh_confirm_weight()는 mall/lib/order.php의 mall_recalculate_order_totals()를
  * 호출한다. 순환 require를 피하기 위해 이 파일은 order.php를 require하지 않으므로, 이 파일을 쓰는
@@ -41,11 +39,13 @@ function mall_fresh_create_order_items($conn, $order_id, $member_id, $summary) {
         if ($item['sold_out']) {
             continue;
         }
-        $sale_type = $item['sale_type'];
-        $weight_g = $sale_type === 'weight' ? (int)$item['weight_g'] : null;
-        $quantity = $sale_type === 'piece' ? (int)$item['quantity'] : null;
-        // piece는 가격이 이미 고정이라 확정금액을 즉시 채운다(실측 단계가 없음).
-        $confirmed_price = $sale_type === 'piece' ? $item['estimated_price'] : null;
+        $quantity = filter_var($item['quantity'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 2147483647]]);
+        if ($item['weight_g'] !== null || $quantity === false) {
+            throw new InvalidArgumentException('신선상품을 낱개 수량으로 다시 담아주세요.');
+        }
+        $sale_type = 'piece';
+        $weight_g = null;
+        $confirmed_price = $item['estimated_price'];
 
         $item_stmt->bind_param(
             'iissdiidd',

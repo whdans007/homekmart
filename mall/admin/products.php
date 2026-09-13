@@ -1901,7 +1901,10 @@ function openPriceCalcModal(row) {
     document.getElementById('price-calc-product-name').textContent = row.querySelector('.edit-display-name').value || priceCalcTrigger.dataset.productName;
     document.getElementById('price-calc-quantity-label').textContent = priceCalcIsWeight ? priceCalcLabels.weightQuantity : priceCalcLabels.pieceQuantity;
     const originalCost = priceCalcNumber(row.dataset.originalCostPrice ?? '');
-    const originalSelling = priceCalcNumber(row.dataset.originalSellingPrice ?? '');
+    // The calculator's selling baseline is receipt unit cost plus 40%, rounded up.
+    // Keep the stored master price separate when detecting an existing applied price.
+    const storedOriginalSelling = priceCalcNumber(row.dataset.originalSellingPrice ?? '');
+    const originalSelling = originalCost !== null ? Math.ceil(originalCost * 1.4) : null;
     const markupRate = Number(window.MALL_WHOLESALE_MARKUP_RATE);
     const originalWholesale = (originalCost !== null && Number.isFinite(markupRate)) ? Math.ceil(originalCost * (1 + markupRate / 100)) : null;
     const originalByKey = { cost: originalCost, wholesale: originalWholesale, selling: originalSelling };
@@ -1911,7 +1914,7 @@ function openPriceCalcModal(row) {
     priceCalcPairs.forEach(function (pair) {
         pair.divisor = priceCalcIsWeight ? 1000 : 1;
         pair.original = originalByKey[pair.key];
-        // 왼쪽 = 오리지널(매입원가/마스터 판매가 기준, 읽기전용) — 절대 수정하지 않는다.
+        // 왼쪽 = 매입 단위원가 기준 오리지널(판매가는 원가 + 40%, 읽기전용).
         pair.unit.value = pair.original !== null ? priceCalcMoney(pair.original) : '';
         pair.unitLabel.textContent = priceCalcIsWeight ? priceCalcLabels.originalWeight : priceCalcLabels.originalPiece;
         pair.totalLabel.textContent = priceCalcIsWeight ? priceCalcLabels.appliedWeight : priceCalcLabels.appliedPiece;
@@ -1923,7 +1926,8 @@ function openPriceCalcModal(row) {
         // 참고, 사용자 확정 2026-09-12).
         const currentApplied = priceCalcNumber(row.querySelector(pair.selector).value);
         const factor = priceCalcRawQuantity / pair.divisor;
-        const isOverridden = currentApplied !== null && pair.original !== null && Math.abs(currentApplied - pair.original) > 0.005;
+        const storedOriginal = pair.key === 'selling' ? storedOriginalSelling : pair.original;
+        const isOverridden = currentApplied !== null && storedOriginal !== null && Math.abs(currentApplied - storedOriginal) > 0.005;
         if (isOverridden && factor > 0) {
             pair.value = priceCalcMoney(currentApplied / factor);
             pair.total.value = priceCalcMoney(currentApplied);

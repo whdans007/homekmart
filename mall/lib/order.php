@@ -52,6 +52,11 @@ function mall_create_order($member_id, $member, $requested_channel, $memo = '') 
         ];
     }
 
+    foreach ($fresh_summary['items'] as $fresh_item) {
+        if (!empty($fresh_item['requires_readd'])) {
+            return ['success' => false, 'error' => ['code' => 'VALIDATION_ERROR', 'message' => '신선상품이 낱개 판매로 변경되었습니다. 수량을 선택해 다시 담아주세요.']];
+        }
+    }
     if ($fresh_summary['has_sold_out']) {
         return ['success' => false, 'error' => ['code' => 'SOLD_OUT', 'message' => '품절된 신선상품이 있습니다']];
     }
