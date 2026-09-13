@@ -23,7 +23,8 @@ function mall_driver_session_start() {
     }
     session_name(MALL_DRIVER_SESSION_NAME);
     // 기사 앱은 매일 사용하는 전용 단말이므로 브라우저 종료 후에도 30일간 로그인을 유지한다.
-    $lifetime = 60 * 60 * 24 * 30;
+    // Keep the driver session until the driver explicitly logs out.
+    $lifetime = MALL_DRIVER_REMEMBER_LIFETIME;
     ini_set('session.gc_maxlifetime', (string)$lifetime);
     session_set_cookie_params([
         'lifetime' => $lifetime,
