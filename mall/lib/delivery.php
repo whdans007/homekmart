@@ -344,6 +344,7 @@ function mall_delivery_complete($driver_id, $order_id) {
         $order_update->close();
 
         $conn->commit();
+        mall_push_notify_order_message($order_id, 'driver', '배송이 완료되었습니다. 이용해 주셔서 감사합니다.');
         return ['success' => true];
     } catch (Exception $e) {
         $conn->rollback();
