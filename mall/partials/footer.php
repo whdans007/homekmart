@@ -227,6 +227,10 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
     // 동작), 여기서는 현재 열려있는 주문톡 채팅창과 같은 주문이면 조용히 새로고침만 한다.
     Push.addListener('pushNotificationReceived', function (notification) {
         var orderId = notification && notification.data && notification.data.order_id;
+        if (orderId && notification.data.type === 'delivery_status') {
+            var message = notification.body === '배달도착' ? '배달도착' : '배송시작';
+            mallToast(message, '/mall/order_detail.php?id=' + encodeURIComponent(orderId), '주문 보기');
+        }
         if (orderId && window.ORDER_ID && Number(orderId) === Number(window.ORDER_ID)
             && typeof window.mallOrderChatRefresh === 'function') {
             window.mallOrderChatRefresh();
@@ -239,7 +243,8 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
         mallClearDeliveredPushNotifications();
         var orderId = action && action.notification && action.notification.data && action.notification.data.order_id;
         if (orderId) {
-            window.location.href = '/mall/order_chat.php?order_id=' + encodeURIComponent(orderId);
+            var isDelivery = action.notification.data.type === 'delivery_status';
+            window.location.href = (isDelivery ? '/mall/order_detail.php?id=' : '/mall/order_chat.php?order_id=') + encodeURIComponent(orderId);
         }
     });
 
