@@ -60,12 +60,6 @@ $page = min($page, $totalPages);
 $offset = ($page - 1) * $perPage;
 
 $sql = 'SELECT p.id AS product_id, p.code, p.name_ko, p.name_en, p.unit_type,
-                   p.cost_price_override, p.wholesale_reference_price_override,
-                   COALESCE(p.selling_price_override, p.price_per_100g) AS reference_selling_price,
-                   (SELECT CASE WHEN p.sale_type = \'piece\' THEN recent.unit_cost_per_piece ELSE recent.unit_cost_per_100g END
-                    FROM fresh_purchase_items recent
-                    WHERE recent.mall_fresh_product_id = p.id
-                    ORDER BY recent.purchase_date DESC, recent.id DESC LIMIT 1) AS latest_unit_cost,
                    COALESCE(b.purchase_date, i.purchase_date) AS purchase_date,
                    i.quantity_boxes, i.box_cost, i.pieces_per_box, i.total_cost,
                    i.unit_cost_per_100g, i.unit_cost_per_piece,
@@ -81,7 +75,7 @@ $stmt->close();
 $conn->close();
 $baseParams = ['q' => $search, 'fresh_category' => $categoryFilter];
 if ($productId > 0) { $baseParams['product_id'] = $productId; }
-$columns = ['mall_fresh_products.history_date', 'mall_fresh_products.history_product_name', 'mall_fresh_products.history_purchase_quantity', 'mall_fresh_products.history_purchase_cost', 'mall_fresh_products.line_total_cost_label', 'mall_fresh_products.unit_cost_label', 'mall_admin.products.wholesale_reference_price', 'mall_admin.products.reference_selling_price', 'mall_fresh_products.history_supplier_name', 'mall_fresh_products.history_store_name'];
+$columns = ['mall_fresh_products.history_date', 'mall_fresh_products.history_product_name', 'mall_fresh_products.history_purchase_quantity', 'mall_fresh_products.history_purchase_cost', 'mall_fresh_products.line_total_cost_label', 'mall_fresh_products.unit_cost_label', 'mall_fresh_products.history_wholesale_price', 'mall_fresh_products.history_selling_price', 'mall_fresh_products.history_supplier_name', 'mall_fresh_products.history_store_name'];
 ?>
 <div class="w-full px-2 sm:px-3 md:px-4 py-8">
     <div class="bg-white shadow-lg rounded-lg overflow-hidden ring-1 ring-gray-400">
@@ -119,10 +113,10 @@ $columns = ['mall_fresh_products.history_date', 'mall_fresh_products.history_pro
                     <?php foreach ($rows as $row):
                         $nameKo = trim((string)($row['name_ko'] ?? ''));
                         $nameEn = trim((string)($row['name_en'] ?? ''));
-                        // Match the current reference prices shown in mall/admin/products.php.
-                        $referenceCost = $row['cost_price_override'] ?? $row['latest_unit_cost'];
-                        $referenceWholesale = $row['wholesale_reference_price_override']
-                            ?? ($referenceCost !== null ? ceil((float)$referenceCost * (1 + $referenceMarkupRate / 100)) : null);
+                        // Both reference prices use the same receipt unit cost displayed in this row.
+                        $referenceCost = $row['pieces_per_box'] !== null ? $row['unit_cost_per_piece'] : $row['unit_cost_per_100g'];
+                        $referenceWholesale = $referenceCost !== null ? ceil((float)$referenceCost * (1 + $referenceMarkupRate / 100)) : null;
+                        $referenceSelling = $referenceCost !== null ? ceil((float)$referenceCost * 1.4) : null;
                     ?>
                         <tr class="border-b border-gray-100 hover:bg-gray-50">
                             <td class="px-6 py-2 whitespace-nowrap"><?php echo fhh($row['purchase_date']); ?></td>
@@ -140,7 +134,7 @@ $columns = ['mall_fresh_products.history_date', 'mall_fresh_products.history_pro
                             <td class="px-6 py-2 whitespace-nowrap"><?php echo number_format((float)$row['total_cost'], 2); ?></td>
                             <td class="px-6 py-2 whitespace-nowrap"><?php echo fhh(fresh_history_unit_cost($row)); ?></td>
                             <td class="px-6 py-2 whitespace-nowrap"><?php echo $referenceWholesale !== null ? number_format((float)$referenceWholesale, 2) : '-'; ?></td>
-                            <td class="px-6 py-2 whitespace-nowrap"><?php echo $row['reference_selling_price'] !== null ? number_format((float)$row['reference_selling_price'], 2) : '-'; ?></td>
+                            <td class="px-6 py-2 whitespace-nowrap"><?php echo $referenceSelling !== null ? number_format((float)$referenceSelling, 2) : '-'; ?></td>
                             <td class="px-6 py-2"><?php echo fhh($row['supplier_name'] ?? '-'); ?></td>
                             <td class="px-6 py-2"><?php echo fhh($row['store_name'] ?? '-'); ?></td>
                         </tr>
