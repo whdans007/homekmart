@@ -177,11 +177,13 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
     // 조회해야 주문톡 배지가 즉시 갱신됩니다.
     var mallPushRefreshPending = false;
     function mallPlayDeliveryArrivalAlert() {
+        var startArrivalMusic = null;
         try {
             var recorded = window.__mallArrivalAudio || (window.__mallArrivalAudio = new Audio('/mall/assets/delivery_arrived.wav?v=1'));
             recorded.currentTime = 0;
+            recorded.onended = function () { if (startArrivalMusic) startArrivalMusic(); };
             var playback = recorded.play();
-            if (playback && playback.catch) playback.catch(function () {});
+            if (playback && playback.catch) playback.catch(function () { if (startArrivalMusic) startArrivalMusic(); });
         } catch (e) {}
         window.mallStopDeliveryArrivalAlert = function () {
             if (window.__mallArrivalTimer) { clearInterval(window.__mallArrivalTimer); window.__mallArrivalTimer = null; }
@@ -200,7 +202,10 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
                     gain.gain.setValueAtTime(0.08, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
                     osc.connect(gain).connect(music.destination); osc.start(now); osc.stop(now + 0.35);
                 };
-                playNote(); window.__mallArrivalTimer = setInterval(playNote, 900);
+                startArrivalMusic = function () {
+                    if (window.__mallArrivalTimer) return;
+                    playNote(); window.__mallArrivalTimer = setInterval(playNote, 900);
+                };
             }
         } catch (e) {}
         try {
@@ -215,6 +220,7 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
                 window.speechSynthesis.cancel();
                 var utterance = new SpeechSynthesisUtterance('배달이 도착했습니다.');
                 utterance.lang = 'ko-KR'; utterance.rate = 0.95;
+                utterance.onend = function () { if (startArrivalMusic) startArrivalMusic(); };
                 window.speechSynthesis.speak(utterance);
             }
         } catch (e) { /* 기기에서 음성 기능을 지원하지 않아도 알림 자체는 유지 */ }
