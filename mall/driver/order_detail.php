@@ -74,6 +74,7 @@ $csrf_token = mall_csrf_token();
         body { padding-bottom: 132px; }
         /* 배송 진행 버튼은 하단 탭바 바로 위에 고정한다. */
         .driver-action-cta { position: fixed; left: 50%; bottom: calc(58px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: 100%; max-width: 480px; z-index: 45; padding: 8px 16px; }
+        .driver-chat-card { margin-bottom: 92px; }
         .driver-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--line-alternative); }
         .section-card { margin: var(--space-4) var(--space-5) 0; padding: var(--space-4); border: 1px solid var(--line-alternative); border-radius: var(--radius-lg); }
         .section-card h2 { font: var(--t-label1) var(--font-sans); margin: 0 0 8px; }
@@ -148,7 +149,7 @@ $csrf_token = mall_csrf_token();
         </div>
     </div>
 
-    <div class="section-card">
+    <div class="section-card driver-chat-card">
         <h2>주문톡</h2>
         <div id="chat-msg-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
         <div style="display:flex;gap:8px;margin-top:8px;">
