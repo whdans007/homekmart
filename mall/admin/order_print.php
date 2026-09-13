@@ -1,7 +1,7 @@
 <?php
 /**
- * 피킹슬립 인쇄 전용 페이지
- * Design Ref: mall-delivery-dispatch.design.md §5.4 — 사진/바코드/한·영 상품명/수량/단가/금액 + 합계
+ * ?쇳궧?щ┰ ?몄뇙 ?꾩슜 ?섏씠吏
+ * Design Ref: mall-delivery-dispatch.design.md 짠5.4 ???ъ쭊/諛붿퐫???쑣룹쁺 ?곹뭹紐??섎웾/?④?/湲덉븸 + ?⑷퀎
  */
 require_once __DIR__ . '/../../lib/session_helper.php';
 require_once __DIR__ . '/../../lib/permission_helper.php';
@@ -25,15 +25,15 @@ function print_en($key) {
     return is_string($value) ? $value : $key;
 }
 
-// 이 페이지는 화면 전체가 PHP 블록 안에서 데이터에 의존하므로, 여기서 처리되지 않은 예외가 나면
-// 본문을 한 글자도 출력하지 못한 채(에러 표시가 꺼진 운영 서버에서는) 완전히 빈 화면이 된다.
-// 그래서 다른 mall/admin/ajax/*.php와 동일하게 try/catch로 감싸 원인을 화면에 보여준다.
+// ???섏씠吏???붾㈃ ?꾩껜媛 PHP 釉붾줉 ?덉뿉???곗씠?곗뿉 ?섏〈?섎?濡? ?ш린??泥섎━?섏? ?딆? ?덉쇅媛 ?섎㈃
+// 蹂몃Ц????湲?먮룄 異쒕젰?섏? 紐삵븳 梨??먮윭 ?쒖떆媛 爰쇱쭊 ?댁쁺 ?쒕쾭?먯꽌?? ?꾩쟾??鍮??붾㈃???쒕떎.
+// 洹몃옒???ㅻⅨ mall/admin/ajax/*.php? ?숈씪?섍쾶 try/catch濡?媛먯떥 ?먯씤???붾㈃??蹂댁뿬以??
 try {
     $conn = get_db_connection();
     $stmt = $conn->prepare(
         'SELECT o.id, o.order_number, o.channel, o.subtotal, o.discount_amount, o.shipping_fee, o.total_amount, o.created_at,
                 o.ship_recipient_name, o.ship_phone, o.ship_region, o.ship_city, o.ship_barangay, o.ship_detail_address, o.ship_landmark,
-                m.name AS member_name, m.phone
+                m.name AS member_name, m.english_name AS member_english_name, m.phone
          FROM mall_orders o
          INNER JOIN mall_members m ON m.id = o.member_id
          WHERE o.id = ?'
@@ -65,8 +65,8 @@ try {
     $items_stmt->close();
     $conn->close();
 
-    // 신선상품 라인(mall_fresh_order_items) — 정가상품과 완전히 분리된 테이블이라 별도 조회한다.
-    // Design Ref: mall-fresh-products.design.md §5.4.
+    // ?좎꽑?곹뭹 ?쇱씤(mall_fresh_order_items) ???뺢??곹뭹怨??꾩쟾??遺꾨━???뚯씠釉붿씠??蹂꾨룄 議고쉶?쒕떎.
+    // Design Ref: mall-fresh-products.design.md 짠5.4.
     $fresh_items = mall_fresh_order_items_get_by_order($order_id);
 } catch (Throwable $e) {
     error_log('order_print.php error: ' . $e->getMessage());
@@ -78,6 +78,7 @@ try {
 $total_floor = (int)floor((float)$order['total_amount']);
 $cash_received = (int)ceil($total_floor / 1000) * 1000;
 $change_due = $cash_received - $total_floor;
+$shipping_address = trim(implode(' ', array_filter([$order['ship_detail_address'] ?? '', $order['ship_barangay'] ?? '', $order['ship_city'] ?? '', $order['ship_region'] ?? ''])));
 ?>
 <!DOCTYPE html>
 <html lang="<?php echo get_language(); ?>">
@@ -112,16 +113,12 @@ $change_due = $cash_received - $total_floor;
     </style>
 </head>
 <body>
-    <h1><?php echo print_en('mall_admin.picking_slip.title'); ?> — <?php echo htmlspecialchars($order['order_number']); ?></h1>
+    <h1><?php echo print_en('mall_admin.picking_slip.title'); ?> — <?php echo htmlspecialchars($shipping_address !== '' ? $shipping_address : $order['order_number']); ?></h1>
     <div class="meta">
-        <?php echo print_en('mall_admin.picking_slip.order_date'); ?>: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?> ·
-        <?php echo print_en('mall_admin.picking_slip.recipient'); ?>: <?php echo htmlspecialchars($order['member_name']); ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>) ·
-        <?php echo print_en('mall_admin.orders.channel'); ?>: <?php echo $order['channel'] === 'wholesale' ? print_en('mall_admin.orders.channel_wholesale') : print_en('mall_admin.orders.channel_retail'); ?>
-        <?php $shipping_address = trim(implode(' ', array_filter([
-            $order['ship_detail_address'] ?? '', $order['ship_barangay'] ?? '',
-            $order['ship_city'] ?? '', $order['ship_region'] ?? ''
-        ]))); ?>
-        <?php if ($shipping_address !== ''): ?> 쨌 <?php echo htmlspecialchars(print_en('mall_admin.orders.shipping_address')); ?>: <?php echo htmlspecialchars($shipping_address); ?><?php if (!empty($order['ship_landmark'])): ?> (<?php echo htmlspecialchars($order['ship_landmark']); ?>)<?php endif; ?><?php endif; ?>
+        <div><?php echo print_en('mall_admin.picking_slip.order_date'); ?>: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?></div>
+        <div><?php echo print_en('mall_admin.picking_slip.recipient'); ?>: <?php echo htmlspecialchars($order['member_name']); ?><?php if (!empty($order['member_english_name'])): ?> (<?php echo htmlspecialchars($order['member_english_name']); ?>)<?php endif; ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>)</div>
+        <div><?php echo print_en('mall_admin.orders.channel'); ?>: <?php echo $order['channel'] === 'wholesale' ? print_en('mall_admin.orders.channel_wholesale') : print_en('mall_admin.orders.channel_retail'); ?></div>
+        <?php if ($shipping_address !== ''): ?><div><?php echo htmlspecialchars(print_en('mall_admin.orders.shipping_address')); ?>: <?php echo htmlspecialchars($shipping_address); ?><?php if (!empty($order['ship_landmark'])): ?> (<?php echo htmlspecialchars($order['ship_landmark']); ?>)<?php endif; ?></div><?php endif; ?>
     </div>
 
     <table>
