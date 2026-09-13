@@ -14,6 +14,16 @@ require_permission('mall_management', '../../admin/index.php');
 
 $order_id = (int)($_GET['id'] ?? 0);
 
+// Printing is always in English, regardless of the admin session language.
+function print_en($key) {
+    $value = load_translations('en');
+    foreach (explode('.', $key) as $part) {
+        if (!is_array($value) || !array_key_exists($part, $value)) return $key;
+        $value = $value[$part];
+    }
+    return is_string($value) ? $value : $key;
+}
+
 try {
     $conn = get_db_connection();
     $stmt = $conn->prepare(
@@ -67,7 +77,7 @@ $has_discount = (float)$order['discount_amount'] > 0;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo t('mall_admin.receipt.title'); ?> - <?php echo htmlspecialchars($order['order_number']); ?></title>
+    <title><?php echo print_en('mall_admin.receipt.title'); ?> - <?php echo htmlspecialchars($order['order_number']); ?></title>
     <link rel="icon" href="data:,">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/JsBarcode/3.11.5/JsBarcode.all.min.js"></script>
     <style>
@@ -90,21 +100,21 @@ $has_discount = (float)$order['discount_amount'] > 0;
     </style>
 </head>
 <body>
-    <h1><?php echo t('mall_admin.receipt.title'); ?> — <?php echo htmlspecialchars($order['order_number']); ?></h1>
+    <h1><?php echo print_en('mall_admin.receipt.title'); ?> — <?php echo htmlspecialchars($order['order_number']); ?></h1>
     <div class="meta">
-        <?php echo t('mall_admin.receipt.order_datetime'); ?>: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?> ·
-        <?php echo t('mall_admin.receipt.customer'); ?>: <?php echo htmlspecialchars($order['member_name']); ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>)
+        <?php echo print_en('mall_admin.receipt.order_datetime'); ?>: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?> ·
+        <?php echo print_en('mall_admin.receipt.customer'); ?>: <?php echo htmlspecialchars($order['member_name']); ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>)
     </div>
 
     <table>
         <thead>
             <tr>
-                <th><?php echo t('mall_admin.receipt.no'); ?></th>
-                <th><?php echo t('mall_admin.receipt.item'); ?></th>
-                <th><?php echo t('mall_admin.picking_slip.barcode'); ?></th>
-                <th class="num"><?php echo t('mall_admin.receipt.unit_price'); ?></th>
-                <th><?php echo t('common.quantity'); ?></th>
-                <th class="num"><?php echo t('mall_admin.receipt.amount'); ?></th>
+                <th><?php echo print_en('mall_admin.receipt.no'); ?></th>
+                <th><?php echo print_en('mall_admin.receipt.item'); ?></th>
+                <th><?php echo print_en('mall_admin.picking_slip.barcode'); ?></th>
+                <th class="num"><?php echo print_en('mall_admin.receipt.unit_price'); ?></th>
+                <th><?php echo print_en('common.quantity'); ?></th>
+                <th class="num"><?php echo print_en('mall_admin.receipt.amount'); ?></th>
             </tr>
         </thead>
         <tbody>
@@ -113,7 +123,7 @@ $has_discount = (float)$order['discount_amount'] > 0;
                 <td class="center"><?php echo $i + 1; ?></td>
                 <td>
                     <?php echo htmlspecialchars($it['product_name_snapshot']); ?>
-                    <?php if ($it['is_sold_out']): ?><span class="sold-out-badge"><?php echo t('mall_admin.receipt.sold_out'); ?></span><?php endif; ?>
+                    <?php if ($it['is_sold_out']): ?><span class="sold-out-badge"><?php echo print_en('mall_admin.receipt.sold_out'); ?></span><?php endif; ?>
                     <?php if (!empty($it['display_name_en'])): ?>
                         <span class="name-en"><?php echo htmlspecialchars($it['display_name_en']); ?></span>
                     <?php endif; ?>
@@ -154,12 +164,12 @@ $has_discount = (float)$order['discount_amount'] > 0;
     </table>
 
     <div class="totals">
-        <div><span><?php echo t('mall_admin.receipt.subtotal'); ?></span><span><?php echo number_format((float)$order['subtotal'], 2); ?></span></div>
+        <div><span><?php echo print_en('mall_admin.receipt.subtotal'); ?></span><span><?php echo number_format((float)$order['subtotal'], 2); ?></span></div>
         <?php if ($has_discount): ?>
-        <div><span><?php echo t('mall_admin.receipt.discount'); ?></span><span>-<?php echo number_format((float)$order['discount_amount'], 2); ?></span></div>
+        <div><span><?php echo print_en('mall_admin.receipt.discount'); ?></span><span>-<?php echo number_format((float)$order['discount_amount'], 2); ?></span></div>
         <?php endif; ?>
-        <div><span><?php echo t('mall_admin.receipt.shipping_fee'); ?></span><span><?php echo number_format((float)$order['shipping_fee'], 2); ?></span></div>
-        <div class="grand"><span><?php echo t('mall_admin.orders.total'); ?></span><span><?php echo number_format((float)$order['total_amount'], 2); ?></span></div>
+        <div><span><?php echo print_en('mall_admin.receipt.shipping_fee'); ?></span><span><?php echo number_format((float)$order['shipping_fee'], 2); ?></span></div>
+        <div class="grand"><span><?php echo print_en('mall_admin.orders.total'); ?></span><span><?php echo number_format((float)$order['total_amount'], 2); ?></span></div>
     </div>
 <script>
 document.querySelectorAll('.barcode').forEach(function (el) {

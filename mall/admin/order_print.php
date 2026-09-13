@@ -15,6 +15,16 @@ require_permission('mall_management', '../../admin/index.php');
 
 $order_id = (int)($_GET['id'] ?? 0);
 
+// Printing is always in English, regardless of the admin session language.
+function print_en($key) {
+    $value = load_translations('en');
+    foreach (explode('.', $key) as $part) {
+        if (!is_array($value) || !array_key_exists($part, $value)) return $key;
+        $value = $value[$part];
+    }
+    return is_string($value) ? $value : $key;
+}
+
 // 이 페이지는 화면 전체가 PHP 블록 안에서 데이터에 의존하므로, 여기서 처리되지 않은 예외가 나면
 // 본문을 한 글자도 출력하지 못한 채(에러 표시가 꺼진 운영 서버에서는) 완전히 빈 화면이 된다.
 // 그래서 다른 mall/admin/ajax/*.php와 동일하게 try/catch로 감싸 원인을 화면에 보여준다.
@@ -74,7 +84,7 @@ $change_due = $cash_received - $total_floor;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo t('mall_admin.picking_slip.title'); ?> - <?php echo htmlspecialchars($order['order_number']); ?></title>
+    <title><?php echo print_en('mall_admin.picking_slip.title'); ?> - <?php echo htmlspecialchars($order['order_number']); ?></title>
     <link rel="icon" href="data:,">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/JsBarcode/3.11.5/JsBarcode.all.min.js"></script>
     <style>
@@ -102,27 +112,27 @@ $change_due = $cash_received - $total_floor;
     </style>
 </head>
 <body>
-    <h1><?php echo t('mall_admin.picking_slip.title'); ?> — <?php echo htmlspecialchars($order['order_number']); ?></h1>
+    <h1><?php echo print_en('mall_admin.picking_slip.title'); ?> — <?php echo htmlspecialchars($order['order_number']); ?></h1>
     <div class="meta">
-        <?php echo t('mall_admin.picking_slip.order_date'); ?>: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?> ·
-        <?php echo t('mall_admin.picking_slip.recipient'); ?>: <?php echo htmlspecialchars($order['member_name']); ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>) ·
-        <?php echo t('mall_admin.orders.channel'); ?>: <?php echo $order['channel'] === 'wholesale' ? t('mall_admin.orders.channel_wholesale') : t('mall_admin.orders.channel_retail'); ?>
+        <?php echo print_en('mall_admin.picking_slip.order_date'); ?>: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?> ·
+        <?php echo print_en('mall_admin.picking_slip.recipient'); ?>: <?php echo htmlspecialchars($order['member_name']); ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>) ·
+        <?php echo print_en('mall_admin.orders.channel'); ?>: <?php echo $order['channel'] === 'wholesale' ? print_en('mall_admin.orders.channel_wholesale') : print_en('mall_admin.orders.channel_retail'); ?>
         <?php $shipping_address = trim(implode(' ', array_filter([
             $order['ship_detail_address'] ?? '', $order['ship_barangay'] ?? '',
             $order['ship_city'] ?? '', $order['ship_region'] ?? ''
         ]))); ?>
-        <?php if ($shipping_address !== ''): ?> 쨌 <?php echo htmlspecialchars(t('mall_admin.orders.shipping_address')); ?>: <?php echo htmlspecialchars($shipping_address); ?><?php if (!empty($order['ship_landmark'])): ?> (<?php echo htmlspecialchars($order['ship_landmark']); ?>)<?php endif; ?><?php endif; ?>
+        <?php if ($shipping_address !== ''): ?> 쨌 <?php echo htmlspecialchars(print_en('mall_admin.orders.shipping_address')); ?>: <?php echo htmlspecialchars($shipping_address); ?><?php if (!empty($order['ship_landmark'])): ?> (<?php echo htmlspecialchars($order['ship_landmark']); ?>)<?php endif; ?><?php endif; ?>
     </div>
 
     <table>
         <thead>
             <tr>
-                <th><?php echo t('mall_admin.picking_slip.photo'); ?></th>
-                <th><?php echo t('mall_admin.picking_slip.barcode'); ?></th>
-                <th><?php echo t('mall_admin.picking_slip.product'); ?></th>
-                <th class="qty"><?php echo t('mall_admin.picking_slip.qty'); ?></th>
-                <th class="num"><?php echo t('mall_admin.receipt.unit_price'); ?></th>
-                <th class="num"><?php echo t('mall_admin.receipt.amount'); ?></th>
+                <th><?php echo print_en('mall_admin.picking_slip.photo'); ?></th>
+                <th><?php echo print_en('mall_admin.picking_slip.barcode'); ?></th>
+                <th><?php echo print_en('mall_admin.picking_slip.product'); ?></th>
+                <th class="qty"><?php echo print_en('mall_admin.picking_slip.qty'); ?></th>
+                <th class="num"><?php echo print_en('mall_admin.receipt.unit_price'); ?></th>
+                <th class="num"><?php echo print_en('mall_admin.receipt.amount'); ?></th>
             </tr>
         </thead>
         <tbody>
@@ -143,7 +153,7 @@ $change_due = $cash_received - $total_floor;
                 <td class="names">
                     <div><?php echo htmlspecialchars($it['product_name_snapshot']); ?></div>
                     <?php if (!empty($it['product_name_en'])): ?><div class="name-en"><?php echo htmlspecialchars($it['product_name_en']); ?></div><?php endif; ?>
-                    <?php if ($it['is_sold_out']): ?><span class="sold-out-badge"><?php echo t('mall_admin.receipt.sold_out'); ?></span><?php endif; ?>
+                    <?php if ($it['is_sold_out']): ?><span class="sold-out-badge"><?php echo print_en('mall_admin.receipt.sold_out'); ?></span><?php endif; ?>
                 </td>
                 <td class="qty"><?php echo (int)$it['quantity']; ?></td>
                 <td class="num"><?php echo number_format((float)$it['unit_price_snapshot'], 2); ?></td>
@@ -155,8 +165,8 @@ $change_due = $cash_received - $total_floor;
                 $__fi_amount = $__fi_confirmed ? $fi['confirmed_price'] : $fi['estimated_price'];
                 $__fi_qty = $fi['sale_type_snapshot'] === 'weight'
                     ? ($__fi_confirmed
-                        ? $fi['actual_weight_g'] . 'g ' . t('mall_admin.picking_slip.fresh_confirmed_suffix')
-                        : $fi['weight_g'] . 'g ' . t('mall_admin.picking_slip.fresh_estimated_suffix'))
+                        ? $fi['actual_weight_g'] . 'g ' . print_en('mall_admin.picking_slip.fresh_confirmed_suffix')
+                        : $fi['weight_g'] . 'g ' . print_en('mall_admin.picking_slip.fresh_estimated_suffix'))
                     : (int)$fi['quantity'];
             ?>
             <tr<?php echo $fi['is_sold_out'] ? ' class="sold-out"' : ''; ?>>
@@ -172,7 +182,7 @@ $change_due = $cash_received - $total_floor;
                 <td class="names">
                     <div><?php echo htmlspecialchars($fi['product_name_snapshot']); ?></div>
                     <?php if (!empty($fi['product_name_en'])): ?><div class="name-en"><?php echo htmlspecialchars($fi['product_name_en']); ?></div><?php endif; ?>
-                    <?php if ($fi['is_sold_out']): ?><span class="sold-out-badge"><?php echo t('mall_admin.receipt.sold_out'); ?></span><?php endif; ?>
+                    <?php if ($fi['is_sold_out']): ?><span class="sold-out-badge"><?php echo print_en('mall_admin.receipt.sold_out'); ?></span><?php endif; ?>
                 </td>
                 <td class="qty"><?php echo htmlspecialchars((string)$__fi_qty); ?></td>
                 <td class="num"><?php echo number_format((float)$fi['unit_price_snapshot'], 2); ?></td>
@@ -183,35 +193,35 @@ $change_due = $cash_received - $total_floor;
     </table>
 
     <div class="totals">
-        <div><span><?php echo t('mall_admin.receipt.subtotal'); ?></span><span><?php echo number_format((float)$order['subtotal'], 2); ?></span></div>
-        <div><span><?php echo t('mall_admin.receipt.discount'); ?></span><span>-<?php echo number_format((float)$order['discount_amount'], 2); ?></span></div>
-        <div><span><?php echo t('mall_admin.receipt.shipping_fee'); ?></span><span><?php echo number_format((float)$order['shipping_fee'], 2); ?></span></div>
-        <div class="grand"><span><?php echo t('mall_admin.picking_slip.grand_total'); ?></span><span><?php echo number_format((float)$order['total_amount'], 2); ?></span></div>
-        <div class="cash-row"><span><?php echo t('mall_admin.picking_slip.change_due'); ?></span><span><?php echo number_format($change_due); ?></span></div>
-        <div class="cash-row"><span><?php echo t('mall_admin.picking_slip.cash_received'); ?></span><span><?php echo number_format($cash_received); ?></span></div>
+        <div><span><?php echo print_en('mall_admin.receipt.subtotal'); ?></span><span><?php echo number_format((float)$order['subtotal'], 2); ?></span></div>
+        <div><span><?php echo print_en('mall_admin.receipt.discount'); ?></span><span>-<?php echo number_format((float)$order['discount_amount'], 2); ?></span></div>
+        <div><span><?php echo print_en('mall_admin.receipt.shipping_fee'); ?></span><span><?php echo number_format((float)$order['shipping_fee'], 2); ?></span></div>
+        <div class="grand"><span><?php echo print_en('mall_admin.picking_slip.grand_total'); ?></span><span><?php echo number_format((float)$order['total_amount'], 2); ?></span></div>
+        <div class="cash-row"><span><?php echo print_en('mall_admin.picking_slip.change_due'); ?></span><span><?php echo number_format($change_due); ?></span></div>
+        <div class="cash-row"><span><?php echo print_en('mall_admin.picking_slip.cash_received'); ?></span><span><?php echo number_format($cash_received); ?></span></div>
     </div>
 
     <table class="signoff">
         <thead>
             <tr>
-                <th><?php echo t('mall_admin.picking_slip.prepared_by'); ?></th>
-                <th><?php echo t('mall_admin.picking_slip.delivery_driver'); ?></th>
-                <th><?php echo t('mall_admin.picking_slip.cashier'); ?></th>
+                <th><?php echo print_en('mall_admin.picking_slip.prepared_by'); ?></th>
+                <th><?php echo print_en('mall_admin.picking_slip.delivery_driver'); ?></th>
+                <th><?php echo print_en('mall_admin.picking_slip.cashier'); ?></th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td>
-                    <div><?php echo t('mall_admin.picking_slip.name'); ?>: ________________________</div>
-                    <div class="sig-line"><?php echo t('mall_admin.picking_slip.signature'); ?>: ________________________</div>
+                    <div><?php echo print_en('mall_admin.picking_slip.name'); ?>: ________________________</div>
+                    <div class="sig-line"><?php echo print_en('mall_admin.picking_slip.signature'); ?>: ________________________</div>
                 </td>
                 <td>
-                    <div><?php echo t('mall_admin.picking_slip.name'); ?>: ________________________</div>
-                    <div class="sig-line"><?php echo t('mall_admin.picking_slip.signature'); ?>: ________________________</div>
+                    <div><?php echo print_en('mall_admin.picking_slip.name'); ?>: ________________________</div>
+                    <div class="sig-line"><?php echo print_en('mall_admin.picking_slip.signature'); ?>: ________________________</div>
                 </td>
                 <td>
-                    <div><?php echo t('mall_admin.picking_slip.name'); ?>: ________________________</div>
-                    <div class="sig-line"><?php echo t('mall_admin.picking_slip.signature'); ?>: ________________________</div>
+                    <div><?php echo print_en('mall_admin.picking_slip.name'); ?>: ________________________</div>
+                    <div class="sig-line"><?php echo print_en('mall_admin.picking_slip.signature'); ?>: ________________________</div>
                 </td>
             </tr>
         </tbody>
