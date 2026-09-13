@@ -22,6 +22,7 @@ try {
     $conn = get_db_connection();
     $stmt = $conn->prepare(
         'SELECT o.id, o.order_number, o.channel, o.subtotal, o.discount_amount, o.shipping_fee, o.total_amount, o.created_at,
+                o.ship_recipient_name, o.ship_phone, o.ship_region, o.ship_city, o.ship_barangay, o.ship_detail_address, o.ship_landmark,
                 m.name AS member_name, m.phone
          FROM mall_orders o
          INNER JOIN mall_members m ON m.id = o.member_id
@@ -106,6 +107,11 @@ $change_due = $cash_received - $total_floor;
         <?php echo t('mall_admin.picking_slip.order_date'); ?>: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?> ·
         <?php echo t('mall_admin.picking_slip.recipient'); ?>: <?php echo htmlspecialchars($order['member_name']); ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>) ·
         <?php echo t('mall_admin.orders.channel'); ?>: <?php echo $order['channel'] === 'wholesale' ? t('mall_admin.orders.channel_wholesale') : t('mall_admin.orders.channel_retail'); ?>
+        <?php $shipping_address = trim(implode(' ', array_filter([
+            $order['ship_detail_address'] ?? '', $order['ship_barangay'] ?? '',
+            $order['ship_city'] ?? '', $order['ship_region'] ?? ''
+        ]))); ?>
+        <?php if ($shipping_address !== ''): ?> 쨌 <?php echo htmlspecialchars(t('mall_admin.orders.shipping_address')); ?>: <?php echo htmlspecialchars($shipping_address); ?><?php if (!empty($order['ship_landmark'])): ?> (<?php echo htmlspecialchars($order['ship_landmark']); ?>)<?php endif; ?><?php endif; ?>
     </div>
 
     <table>
