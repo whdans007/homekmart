@@ -89,11 +89,20 @@ function mall_fresh_cart_add($member_id, $guest_token, $mall_fresh_product_id, $
     $stmt->bind_param('isiii', $member_id_param, $guest_token, $mall_fresh_product_id, $weight_g, $quantity);
     $stmt->execute();
     $stmt->close();
+    $idStmt = $conn->prepare($member_id ? 'SELECT id FROM mall_fresh_cart_items WHERE member_id = ? AND mall_fresh_product_id = ?' : 'SELECT id FROM mall_fresh_cart_items WHERE guest_token = ? AND mall_fresh_product_id = ?');
+    if ($member_id) {
+        $idStmt->bind_param('ii', $member_id_param, $mall_fresh_product_id);
+    } else {
+        $idStmt->bind_param('si', $guest_token, $mall_fresh_product_id);
+    }
+    $idStmt->execute();
+    $cart_item_id = (int)($idStmt->get_result()->fetch_assoc()['id'] ?? 0);
+    $idStmt->close();
     $conn->close();
 
     $estimated_price = round((float)$product['price_per_100g'] * $quantity, 2);
 
-    return ['success' => true, 'data' => ['weight_g' => $weight_g, 'quantity' => $quantity, 'estimated_price' => $estimated_price]];
+    return ['success' => true, 'data' => ['cart_item_id' => $cart_item_id, 'weight_g' => $weight_g, 'quantity' => $quantity, 'estimated_price' => $estimated_price]];
 }
 
 /**

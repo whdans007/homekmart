@@ -7,11 +7,24 @@ $show_bottom_nav = true;
 $active_nav = 'category';
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/lib/cart.php';
+require_once __DIR__ . '/lib/fresh_cart.php';
+require_once __DIR__ . '/lib/csrf.php';
 
 // 카테고리 목록을 처음 열 때도 현재 장바구니 상태를 반영한다.
 $cart_member_id = $member ? (int)$member['id'] : null;
 $cart_guest_token = $member ? null : mall_guest_token();
 $cart_quantities = mall_cart_get_quantities_by_product($cart_member_id, $cart_guest_token);
+$fresh_cart_summary = mall_fresh_cart_get_summary($cart_member_id, $cart_guest_token);
+$fresh_cart_quantities = [];
+foreach ($fresh_cart_summary['items'] as $fresh_cart_item) {
+    if (!$fresh_cart_item['requires_readd']) {
+        $fresh_cart_quantities[(int)$fresh_cart_item['mall_fresh_product_id']] = [
+            'quantity' => (int)$fresh_cart_item['quantity'],
+            'cart_item_id' => (int)$fresh_cart_item['cart_item_id'],
+        ];
+    }
+}
+$fresh_csrf_token = mall_csrf_token();
 
 $category_id = isset($_GET['id']) && $_GET['id'] !== '' ? (int)$_GET['id'] : null;
 $sub_id = isset($_GET['sub']) && $_GET['sub'] !== '' ? (int)$_GET['sub'] : null;
@@ -115,7 +128,8 @@ function mall_cat_label($cat, $mall_lang) {
                     $fresh_name = ($mall_lang === 'en' && !empty($fresh['name_en'])) ? $fresh['name_en'] : $fresh['name_ko'];
                     $fresh_image = $fresh['image_url'] ?: '/logo/homekmart_logo.png';
                     ?>
-                    <div class="product-row-item">
+                    <?php $freshCart = $fresh_cart_quantities[(int)$fresh['id']] ?? ['quantity' => 0, 'cart_item_id' => 0]; ?>
+                    <div class="product-row-item fresh-category-row" data-fresh-product-id="<?php echo (int)$fresh['id']; ?>" data-fresh-quantity="<?php echo (int)$freshCart['quantity']; ?>" data-fresh-cart-item-id="<?php echo (int)$freshCart['cart_item_id']; ?>">
                         <a href="/mall/fresh_product.php?id=<?php echo (int)$fresh['id']; ?>">
                             <img class="thumb" src="<?php echo htmlspecialchars($fresh_image); ?>" alt="<?php echo htmlspecialchars($fresh_name); ?>">
                         </a>
@@ -127,8 +141,13 @@ function mall_cat_label($cat, $mall_lang) {
                                 <div class="price-row" style="margin-top:0;">
                                     <span class="final"><?php echo number_format((float)$fresh['price_per_100g'], 2); ?></span>
                                 </div>
-                                <div class="pcard-action product-row-cart-action">
-                                    <a class="pcard-add-btn quick-add-btn" href="/mall/fresh_product.php?id=<?php echo (int)$fresh['id']; ?>">담기</a>
+                                <div class="pcard-action product-row-cart-action fresh-category-action">
+                                    <button type="button" class="pcard-add-btn quick-add-btn fresh-add-btn" <?php echo $freshCart['quantity'] > 0 ? 'style="display:none;"' : ''; ?>>담기</button>
+                                    <div class="pcard-stepper qty-stepper qty-stepper-sm fresh-qty-stepper" <?php echo $freshCart['quantity'] > 0 ? '' : 'style="display:none;"'; ?>>
+                                        <button type="button" class="pcard-dec" aria-label="수량 줄이기"><svg><use href="#i-minus"></use></svg></button>
+                                        <span class="qty qty-value"><?php echo (int)$freshCart['quantity']; ?></span>
+                                        <button type="button" class="pcard-inc" aria-label="수량 늘리기"><svg><use href="#i-plus"></use></svg></button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -138,5 +157,55 @@ function mall_cat_label($cat, $mall_lang) {
         <?php endif; ?>
     </div>
 </div>
+
+<script>
+(function () {
+    const csrfToken = <?php echo json_encode($fresh_csrf_token); ?>;
+    document.querySelectorAll('.fresh-category-row').forEach(function (row) {
+        const productId = row.dataset.freshProductId;
+        let cartItemId = parseInt(row.dataset.freshCartItemId || '0', 10) || 0;
+        const addBtn = row.querySelector('.fresh-add-btn');
+        const stepper = row.querySelector('.fresh-qty-stepper');
+        const qtyEl = stepper.querySelector('.qty-value');
+        let quantity = parseInt(row.dataset.freshQuantity || '0', 10) || 0;
+        function render() {
+            qtyEl.textContent = quantity;
+            addBtn.style.display = quantity > 0 ? 'none' : 'flex';
+            stepper.style.display = quantity > 0 ? 'flex' : 'none';
+        }
+        function save(nextQuantity) {
+            if (nextQuantity < 1 || nextQuantity > 2147483647) {
+                if (nextQuantity < 1) { quantity = 0; render(); }
+                return;
+            }
+            addBtn.disabled = true;
+            const params = new URLSearchParams({ mall_fresh_product_id: productId, quantity: String(nextQuantity), csrf_token: csrfToken });
+            fetch('/mall/ajax/add_fresh_to_cart.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    if (!data.success) { mallToast(data.error?.message || '장바구니 담기에 실패했습니다'); return; }
+                    quantity = nextQuantity;
+                    if (data.data.cart_item_id) { cartItemId = parseInt(data.data.cart_item_id, 10); }
+                    render();
+                    mallUpdateCartBadge(data.data.cart_count);
+                })
+                .catch(function () { mallToast('장바구니 담기에 실패했습니다'); })
+                .finally(function () { addBtn.disabled = false; });
+        }
+        addBtn.addEventListener('click', function () { save(1); });
+        stepper.querySelector('.pcard-inc').addEventListener('click', function () { save(quantity + 1); });
+        stepper.querySelector('.pcard-dec').addEventListener('click', function () {
+            if (quantity > 1) { save(quantity - 1); return; }
+            if (!cartItemId) { quantity = 0; render(); return; }
+            const params = new URLSearchParams({ cart_item_id: String(cartItemId), csrf_token: csrfToken });
+            fetch('/mall/ajax/remove_fresh_cart_item.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+                .then(function (response) { return response.json(); })
+                .then(function (data) { if (!data.success) { mallToast(data.error?.message || '삭제에 실패했습니다'); return; } quantity = 0; cartItemId = 0; render(); mallUpdateCartBadge(data.data.cart_count); })
+                .catch(function () { mallToast('삭제에 실패했습니다'); });
+        });
+        render();
+    });
+})();
+</script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
