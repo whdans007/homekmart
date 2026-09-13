@@ -69,9 +69,9 @@ require_once __DIR__ . '/partials/header.php';
         <?php if ($order['status'] === 'assigned'): ?>
             <i class="fas fa-box"></i> 배송기사가 배정되었습니다. 곧 출발할 예정입니다.
         <?php elseif ($order['status'] === 'delivering'): ?>
-            <i class="fas fa-truck"></i> 배송 중입니다.
+            <i class="fas fa-truck"></i> 배달이 시작되었습니다.
         <?php elseif ($order['status'] === 'arrived'): ?>
-            <i class="fas fa-circle-check"></i> 기사님이 도착했습니다!
+            <i class="fas fa-circle-check"></i> 배달도착
         <?php endif; ?>
     </p>
     <?php if ($order['status'] === 'cancelled'): ?>
