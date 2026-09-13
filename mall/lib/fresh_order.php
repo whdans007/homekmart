@@ -70,9 +70,12 @@ function mall_fresh_create_order_items($conn, $order_id, $member_id, $summary) {
 function mall_fresh_order_items_get_by_order($order_id) {
     $conn = mall_get_db_connection();
     $stmt = $conn->prepare(
-        'SELECT id, mall_fresh_product_id, product_name_snapshot, sale_type_snapshot, unit_price_snapshot,
-                weight_g, actual_weight_g, quantity, estimated_price, confirmed_price, is_sold_out
-         FROM mall_fresh_order_items WHERE order_id = ? ORDER BY id'
+        'SELECT foi.id, foi.mall_fresh_product_id, foi.product_name_snapshot, COALESCE(mfp.display_name_en_override, mfp.name_en) AS product_name_en,
+                foi.sale_type_snapshot, foi.unit_price_snapshot,
+                foi.weight_g, foi.actual_weight_g, foi.quantity, foi.estimated_price, foi.confirmed_price, foi.is_sold_out
+         FROM mall_fresh_order_items foi
+         LEFT JOIN mall_fresh_products mfp ON mfp.id = foi.mall_fresh_product_id
+         WHERE foi.order_id = ? ORDER BY foi.id'
     );
     $stmt->bind_param('i', $order_id);
     $stmt->execute();
