@@ -339,7 +339,7 @@ function mall_delivery_mark_arrived($driver_id, $order_id) {
         mall_delivery_save_progress_message($conn, $order_id, $driver_id, '배달도착');
         $conn->commit();
         mall_order_chat_reopen($order_id);
-        mall_push_notify_order_message($order_id, 'driver', '배달도착');
+        mall_push_notify_order_message($order_id, 'driver', '배달상품이 도착했습니다.');
         return ['success' => true];
     } catch (Exception $e) {
         $conn->rollback();
