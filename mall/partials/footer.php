@@ -309,12 +309,16 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
     Push.addListener('pushNotificationReceived', function (notification) {
         var orderId = notification && notification.data && notification.data.order_id;
         if (orderId && notification.data.type === 'delivery_status') {
-            var deliveryMessages = ['배달시작', '배달도착', '배달이 도착했습니다.', '배송이 완료되었습니다. 이용해 주셔서 감사합니다.'];
-            var message = deliveryMessages.indexOf(notification.body) !== -1 ? notification.body : '배송 상태가 변경되었습니다.';
+            var notificationBody = (notification && (notification.body || notification.title)) || '';
+            if (notification && notification.data) {
+                notificationBody = notificationBody || notification.data.message || notification.data.body || '';
+            }
+            var deliveryMessages = ['배달시작', '배송이 시작되었습니다.', '배달도착', '배달이 도착했습니다.', '배송이 완료되었습니다. 이용해 주셔서 감사합니다.'];
+            var message = deliveryMessages.indexOf(notificationBody) !== -1 ? notificationBody : '배송 상태가 변경되었습니다.';
             mallToast(message, '/mall/order_detail.php?id=' + encodeURIComponent(orderId), '주문 보기');
-            if (notification.body === '배달이 도착했습니다.' || notification.body === '배달도착') mallPlayDeliveryArrivalAlert();
-            if (notification.body === '배송이 완료되었습니다. 이용해 주셔서 감사합니다.') mallPlayDeliveryCompletionAlert();
-            if (notification.body === '배달시작') mallPlayDeliveryStartAlert();
+            if (notificationBody === '배달이 도착했습니다.' || notificationBody === '배달도착') mallPlayDeliveryArrivalAlert();
+            if (notificationBody === '배송이 완료되었습니다. 이용해 주셔서 감사합니다.') mallPlayDeliveryCompletionAlert();
+            if (notificationBody === '배달시작' || notificationBody === '배송이 시작되었습니다.') mallPlayDeliveryStartAlert();
         }
         if (orderId && window.ORDER_ID && Number(orderId) === Number(window.ORDER_ID)
             && typeof window.mallOrderChatRefresh === 'function') {
@@ -329,9 +333,10 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
         var orderId = action && action.notification && action.notification.data && action.notification.data.order_id;
         if (orderId) {
             var isDelivery = action.notification.data.type === 'delivery_status';
-            var arrival = isDelivery && (action.notification.body === '배달이 도착했습니다.' || action.notification.body === '배달도착');
-            var completion = isDelivery && action.notification.body === '배송이 완료되었습니다. 이용해 주셔서 감사합니다.';
-            var started = isDelivery && action.notification.body === '배달시작';
+            var actionBody = (action.notification.body || (action.notification.data && (action.notification.data.message || action.notification.data.body)) || '');
+            var arrival = isDelivery && (actionBody === '배달이 도착했습니다.' || actionBody === '배달도착');
+            var completion = isDelivery && actionBody === '배송이 완료되었습니다. 이용해 주셔서 감사합니다.';
+            var started = isDelivery && (actionBody === '배달시작' || actionBody === '배송이 시작되었습니다.');
             var alertQuery = arrival ? '&arrival_alert=1' : (completion ? '&completion_alert=1' : (started ? '&start_alert=1' : ''));
             window.location.href = (isDelivery ? '/mall/order_detail.php?id=' : '/mall/order_chat.php?order_id=') + encodeURIComponent(orderId) + alertQuery;
         }
