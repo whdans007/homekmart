@@ -186,6 +186,26 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
             var playback = recorded.play();
             if (playback && playback.catch) playback.catch(function () {});
         } catch (e) {}
+        window.mallStopDeliveryArrivalAlert = function () {
+            if (window.__mallArrivalTimer) { clearInterval(window.__mallArrivalTimer); window.__mallArrivalTimer = null; }
+            if (window.__mallArrivalContext) { window.__mallArrivalContext.close().catch(function () {}); window.__mallArrivalContext = null; }
+        };
+        window.mallStopDeliveryArrivalAlert();
+        try {
+            var MusicCtx = window.AudioContext || window.webkitAudioContext;
+            if (MusicCtx) {
+                var music = new MusicCtx();
+                window.__mallArrivalContext = music;
+                var notes = [659.25, 783.99, 987.77, 783.99];
+                var playNote = function () {
+                    var osc = music.createOscillator(), gain = music.createGain(), now = music.currentTime;
+                    osc.frequency.value = notes[Math.floor(Math.random() * notes.length)];
+                    gain.gain.setValueAtTime(0.08, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                    osc.connect(gain).connect(music.destination); osc.start(now); osc.stop(now + 0.35);
+                };
+                playNote(); window.__mallArrivalTimer = setInterval(playNote, 900);
+            }
+        } catch (e) {}
         try {
             var AudioCtx = window.AudioContext || window.webkitAudioContext;
             if (AudioCtx) {

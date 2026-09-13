@@ -72,6 +72,7 @@ require_once __DIR__ . '/partials/header.php';
             <i class="fas fa-truck"></i> 배달이 시작되었습니다.
         <?php elseif ($order['status'] === 'arrived'): ?>
             <i class="fas fa-circle-check"></i> 배달도착
+            <button type="button" id="delivery-arrival-ack" class="btn btn-primary" style="display:block;margin-top:8px;padding:6px 12px;font-size:12px;">확인했습니다</button>
         <?php endif; ?>
     </p>
     <?php if ($order['status'] === 'cancelled'): ?>
@@ -210,5 +211,12 @@ setInterval(mallPollOrderTracking, 15000);
 mallPollOrderTracking();
 </script>
 <?php endif; ?>
+
+<script>
+document.getElementById('delivery-arrival-ack')?.addEventListener('click', function () {
+    if (typeof window.mallStopDeliveryArrivalAlert === 'function') window.mallStopDeliveryArrivalAlert();
+    this.textContent = '확인 완료'; this.disabled = true;
+});
+</script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
