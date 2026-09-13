@@ -122,7 +122,6 @@ $picking_title_address = trim($picking_title_address !== '' ? $picking_title_add
     <div class="meta">
         <div><?php echo print_en('mall_admin.picking_slip.order_date'); ?>: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?></div>
         <div><?php echo print_en('mall_admin.picking_slip.recipient'); ?>: <?php echo htmlspecialchars($order['member_name']); ?><?php if (!empty($order['member_english_name'])): ?> (<?php echo htmlspecialchars($order['member_english_name']); ?>)<?php endif; ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>)</div>
-        <div><?php echo print_en('mall_admin.orders.channel'); ?>: <?php echo $order['channel'] === 'wholesale' ? print_en('mall_admin.orders.channel_wholesale') : print_en('mall_admin.orders.channel_retail'); ?></div>
         <?php if ($shipping_address !== ''): ?><div><?php echo htmlspecialchars(print_en('mall_admin.orders.shipping_address')); ?>: <?php echo htmlspecialchars($shipping_address); ?><?php if (!empty($order['ship_landmark'])): ?> (<?php echo htmlspecialchars($order['ship_landmark']); ?>)<?php endif; ?></div><?php endif; ?>
     </div>
 
