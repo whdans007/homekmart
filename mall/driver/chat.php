@@ -59,7 +59,7 @@ if ($order_id > 0) {
     <link rel="stylesheet" href="/mall/css/wanted-tokens.css">
     <link rel="stylesheet" href="/mall/css/mall.css">
     <style>
-        body { display: flex; flex-direction: column; width:100%; max-width:480px; height:100vh; margin:0 auto; padding-bottom:0; }
+        body { display: flex; flex-direction: column; width:100%; max-width:480px; height:calc(100vh - 76px - env(safe-area-inset-bottom, 0px)); margin:0 auto; padding-bottom:0; }
         .driver-header { display: flex; align-items: center; gap: 10px; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--line-alternative); flex-shrink: 0; }
         #chat-list { flex: 1; overflow-y: auto; padding: var(--space-4) var(--space-5) 90px; display: flex; flex-direction: column; gap: 10px; }
         .chat-bubble { max-width: 78%; padding: 10px 14px; border-radius: var(--radius-lg); font: var(--t-label2) var(--font-sans); line-height: 1.45; }
