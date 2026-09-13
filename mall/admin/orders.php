@@ -101,6 +101,8 @@ $status_color = [
         #print-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
         #print-modal { background: #fff; border-radius: 10px; max-width: 900px; width: 100%; height: 85vh; display: flex; flex-direction: column; }
         #print-modal-iframe { flex: 1; width: 100%; border: none; border-radius: 0 0 10px 10px; }
+        #fresh-price-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; z-index: 70; padding: 16px; }
+        #fresh-price-modal { background: #fff; border-radius: 10px; width: 100%; max-width: 360px; padding: 18px; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -218,6 +220,23 @@ $status_color = [
             </div>
         </div>
         <iframe id="print-modal-iframe" src="about:blank"></iframe>
+    </div>
+</div>
+
+<div id="fresh-price-modal-backdrop">
+    <div id="fresh-price-modal" role="dialog" aria-modal="true" aria-labelledby="fresh-price-modal-title">
+        <div class="flex items-center justify-between mb-3">
+            <h2 id="fresh-price-modal-title" class="font-bold text-sm">신선상품 가격 변경</h2>
+            <button type="button" id="fresh-price-modal-close" class="text-gray-400 hover:text-gray-700" style="font-size:20px;line-height:1;">&times;</button>
+        </div>
+        <div id="fresh-price-modal-product" class="text-xs text-gray-500 mb-2"></div>
+        <label class="block text-xs text-gray-600">포장 1개 판매가
+            <input type="number" id="fresh-price-modal-input" min="0" step="0.01" class="mt-1 w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right">
+        </label>
+        <div class="flex justify-end gap-2 mt-4">
+            <button type="button" id="fresh-price-modal-cancel" class="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-md">취소</button>
+            <button type="button" id="fresh-price-modal-save" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white rounded-md">저장</button>
+        </div>
     </div>
 </div>
 
@@ -583,12 +602,11 @@ function renderItems(order, items, freshItems) {
                 actionCell = '<span class="px-2 py-1 rounded-md bg-red-100 text-red-700 font-semibold mr-1">품절됨</span>' +
                     '<button type="button" class="mark-fresh-sold-out-btn px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-blue-100 font-semibold" data-fresh-order-item-id="' + fi.id + '" data-sold-out="0">품절 해제</button>';
             } else {
-                actionCell = '<input type="number" min="0" step="0.01" value="' + Number(fi.unit_price_snapshot).toFixed(2) + '" class="fresh-order-price-input border border-gray-300 rounded px-1.5 py-1 w-20 text-right" data-fresh-order-item-id="' + fi.id + '">' +
-                    '<button type="button" class="save-fresh-order-price-btn px-2 py-1 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 font-semibold ml-1" data-fresh-order-item-id="' + fi.id + '">가격 저장</button>' +
+                actionCell =
                     '<button type="button" class="mark-fresh-sold-out-btn px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-red-100 font-semibold ml-1" data-fresh-order-item-id="' + fi.id + '" data-sold-out="1">품절 처리</button>';
             }
             html += '<tr class="border-t border-gray-200">' +
-                '<td class="px-2 py-1" style="' + strike + '">' + escapeHtml(fi.product_name_snapshot) + ' <span class="px-1.5 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700">신선</span></td>' +
+                '<td class="px-2 py-1" style="' + strike + '"><button type="button" class="fresh-price-open text-left hover:underline" data-fresh-order-item-id="' + fi.id + '" data-product-name="' + escapeHtml(fi.product_name_snapshot) + '" data-unit-price="' + Number(fi.unit_price_snapshot).toFixed(2) + '">' + escapeHtml(fi.product_name_snapshot) + '</button> <span class="px-1.5 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700">신선</span></td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">' + Number(fi.unit_price_snapshot).toFixed(2) + '</td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">-</td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">' + qtyCell + '</td>' +
@@ -608,16 +626,13 @@ function renderItems(order, items, freshItems) {
 }
 
 document.getElementById('modal-items').addEventListener('click', function (e) {
-    const freshPriceBtn = e.target.closest('.save-fresh-order-price-btn');
+    const freshPriceBtn = e.target.closest('.fresh-price-open');
     if (freshPriceBtn) {
-        const input = document.querySelector('.fresh-order-price-input[data-fresh-order-item-id="' + freshPriceBtn.dataset.freshOrderItemId + '"]');
-        const params = new URLSearchParams({ mall_fresh_order_item_id: freshPriceBtn.dataset.freshOrderItemId, unit_price: input.value, csrf_token: window.MALL_CSRF_TOKEN });
-        freshPriceBtn.disabled = true;
-        fetch('ajax/update_fresh_order_item_price.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() }).then(r => r.json()).then(data => {
-            freshPriceBtn.disabled = false;
-            if (!data.success) { showFlash(data.error?.message || '가격 변경에 실패했습니다.', 'error'); return; }
-            showFlash('신선상품 가격을 변경했습니다.', 'success'); loadOrderDetail(data.data.order_id);
-        }).catch(() => { freshPriceBtn.disabled = false; showFlash('가격 변경에 실패했습니다.', 'error'); });
+        document.getElementById('fresh-price-modal-product').textContent = freshPriceBtn.dataset.productName;
+        document.getElementById('fresh-price-modal-input').value = freshPriceBtn.dataset.unitPrice;
+        document.getElementById('fresh-price-modal-save').dataset.freshOrderItemId = freshPriceBtn.dataset.freshOrderItemId;
+        document.getElementById('fresh-price-modal-backdrop').style.display = 'flex';
+        document.getElementById('fresh-price-modal-input').focus();
         return;
     }
     const freshSoldBtn = e.target.closest('.mark-fresh-sold-out-btn');
@@ -652,6 +667,33 @@ document.getElementById('modal-items').addEventListener('click', function (e) {
                 showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.order_chat.process_failed')); ?>', 'error');
             }
         });
+});
+
+function closeFreshPriceModal() {
+    document.getElementById('fresh-price-modal-backdrop').style.display = 'none';
+}
+document.getElementById('fresh-price-modal-close').addEventListener('click', closeFreshPriceModal);
+document.getElementById('fresh-price-modal-cancel').addEventListener('click', closeFreshPriceModal);
+document.getElementById('fresh-price-modal-backdrop').addEventListener('click', function (e) {
+    if (e.target === this) closeFreshPriceModal();
+});
+document.getElementById('fresh-price-modal-save').addEventListener('click', function () {
+    const btn = this;
+    const input = document.getElementById('fresh-price-modal-input');
+    const price = Number(input.value);
+    if (!Number.isFinite(price) || price < 0) { showFlash('판매가를 확인해주세요.', 'error'); return; }
+    btn.disabled = true;
+    const params = new URLSearchParams({ mall_fresh_order_item_id: btn.dataset.freshOrderItemId, unit_price: price.toFixed(2), csrf_token: window.MALL_CSRF_TOKEN });
+    fetch('ajax/update_fresh_order_item_price.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) { showFlash(data.error?.message || '가격 변경에 실패했습니다.', 'error'); return; }
+            closeFreshPriceModal();
+            showFlash('신선상품 가격을 변경했습니다.', 'success');
+            loadOrderDetail(data.data.order_id);
+        })
+        .catch(() => showFlash('가격 변경에 실패했습니다.', 'error'))
+        .finally(() => { btn.disabled = false; });
 });
 
 // 신선상품 weight 타입 라인 실측 확정. Design Ref: mall-fresh-products.design.md §4.2, §5.4.
