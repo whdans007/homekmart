@@ -61,9 +61,10 @@ try {
     }
 
     $items_stmt = $conn->prepare(
-        'SELECT oi.id AS order_item_id, oi.product_id, oi.product_name_snapshot, oi.unit_price_snapshot,
+        'SELECT oi.id AS order_item_id, oi.product_id, oi.product_name_snapshot, p.name_en AS product_name_en, oi.unit_price_snapshot,
                 oi.discount_rate_snapshot, oi.quantity, oi.line_total, oi.is_sold_out
          FROM mall_order_items oi
+         LEFT JOIN products p ON p.id = oi.product_id
          WHERE oi.order_id = ? ORDER BY oi.id'
     );
     $items_stmt->bind_param('i', $order_id);

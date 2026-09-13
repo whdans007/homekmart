@@ -571,7 +571,7 @@ function renderItems(order, items, freshItems) {
             const strike = soldOut ? 'text-decoration:line-through;color:#9ca3af;' : '';
             html += '<tr class="border-t border-gray-200">' +
                 '<td class="px-2 py-1 text-center">-</td>' +
-                '<td class="px-2 py-1" style="' + strike + '">' + escapeHtml(it.product_name_snapshot) + '</td>' +
+                '<td class="px-2 py-1" style="' + strike + '"><div>' + escapeHtml(it.product_name_snapshot) + '</div>' + (it.product_name_en ? '<div class="text-gray-500 text-[11px]">' + escapeHtml(it.product_name_en) + '</div>' : '') + '</td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">' + Number(it.unit_price_snapshot).toFixed(2) + '</td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">' + Number(it.discount_rate_snapshot).toFixed(2) + '%</td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">' + it.quantity + '</td>' +
