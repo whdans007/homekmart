@@ -61,7 +61,7 @@ if ($order_id > 0) {
     <style>
         body { display: flex; flex-direction: column; width:100%; max-width:480px; height:100vh; margin:0 auto; padding-bottom:0; }
         .driver-header { display: flex; align-items: center; gap: 10px; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--line-alternative); flex-shrink: 0; }
-        #chat-list { flex: 1; overflow-y: auto; padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: 10px; }
+        #chat-list { flex: 1; overflow-y: auto; padding: var(--space-4) var(--space-5) 90px; display: flex; flex-direction: column; gap: 10px; }
         .chat-bubble { max-width: 78%; padding: 10px 14px; border-radius: var(--radius-lg); font: var(--t-label2) var(--font-sans); line-height: 1.45; }
         .chat-bubble .time { display: block; margin-top: 4px; font-size: 11px; color: var(--label-assistive); }
         .chat-bubble .read-tag { display: block; margin-top: 1px; font-size: 10px; color: var(--primary-normal); text-align: right; }
@@ -70,7 +70,7 @@ if ($order_id > 0) {
         .chat-bubble.mine .time { color: rgba(255,255,255,0.75); }
         .chat-bubble.theirs { align-self: flex-start; background: var(--bg-alternative); color: var(--label-normal); }
         .chat-empty { margin: auto; text-align: center; color: var(--label-assistive); font: var(--t-label2) var(--font-sans); }
-        .chat-input-bar { flex-shrink: 0; display: flex; gap: 8px; padding: var(--space-3) var(--space-5); border-top: 1px solid var(--line-alternative); }
+        .chat-input-bar { position: fixed; left:50%; bottom:58px; transform:translateX(-50%); width:100%; max-width:480px; z-index:45; display:flex; gap:8px; padding:var(--space-3) var(--space-5); background:var(--bg-normal); border-top:1px solid var(--line-alternative); }
         .chat-input-bar input { flex: 1; border: 1px solid var(--line-normal); border-radius: var(--radius-md); padding: 10px 14px; }
         .chat-input-bar button { padding: 0 18px; border-radius: var(--radius-md); background: var(--primary-normal); color: #fff; font-weight: 700; border: none; }
     </style>
