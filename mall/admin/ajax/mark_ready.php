@@ -10,6 +10,7 @@ require_once __DIR__ . '/../../../lib/permission_helper.php';
 require_once __DIR__ . '/../../../config/db_config.php';
 require_once __DIR__ . '/../../lib/csrf.php';
 require_once __DIR__ . '/../../lib/delivery.php';
+require_once __DIR__ . '/../../lib/order_chat.php';
 
 function json_error($code, $message, $http = 400) {
     http_response_code($http);
@@ -41,6 +42,10 @@ $error_messages = [
 $result = mall_order_mark_ready($order_id);
 if (!$result['success']) {
     json_error($result['error'], $error_messages[$result['error']] ?? '처리 중 오류가 발생했습니다');
+}
+
+if (!empty($_SESSION['user_id'])) {
+    mall_order_chat_send($order_id, 'admin', (int)$_SESSION['user_id'], '상품 준비가 완료되었습니다.');
 }
 
 echo json_encode(['success' => true, 'data' => ['order_id' => $order_id, 'status' => 'ready']]);

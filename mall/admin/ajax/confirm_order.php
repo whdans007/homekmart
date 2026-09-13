@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../../lib/session_helper.php';
 require_once __DIR__ . '/../../../lib/permission_helper.php';
 require_once __DIR__ . '/../../../config/db_config.php';
 require_once __DIR__ . '/../../lib/csrf.php';
+require_once __DIR__ . '/../../lib/order_chat.php';
 
 function json_error($code, $message, $http = 400) {
     http_response_code($http);
@@ -64,6 +65,10 @@ try {
     $row = $result_stmt->get_result()->fetch_assoc();
     $result_stmt->close();
     $conn->close();
+
+    if (!empty($_SESSION['user_id'])) {
+        mall_order_chat_send($order_id, 'admin', (int)$_SESSION['user_id'], '주문이 접수되었습니다.');
+    }
 
     echo json_encode(['success' => true, 'data' => ['order_id' => $order_id, 'status' => 'preparing', 'estimated_ready_at' => $row['estimated_ready_at']]]);
 } catch (Exception $e) {

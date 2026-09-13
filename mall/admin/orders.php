@@ -385,7 +385,21 @@ function renderProgress(order) {
             (time ? '<div class="step-time">' + time + '</div>' : '') + '</div>';
     });
     html += '</div>';
+    if (stepIndex > 0) {
+        html += '<button type="button" id="rollback-status-btn" class="mt-2 px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200">이전 단계로 되돌리기</button>';
+    }
     container.innerHTML = html;
+    const rollbackBtn = document.getElementById('rollback-status-btn');
+    if (rollbackBtn) rollbackBtn.addEventListener('click', function () {
+        if (!confirm('현재 진행상태를 이전 단계로 되돌리시겠습니까?')) return;
+        const params = new URLSearchParams({ order_id: order.id, csrf_token: window.MALL_CSRF_TOKEN });
+        fetch('ajax/rollback_order_status.php', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: params.toString() })
+            .then(r => r.json()).then(data => {
+                if (!data.success) { showFlash(data.error?.message || '상태를 되돌릴 수 없습니다.', 'error'); return; }
+                showFlash('이전 단계로 되돌렸습니다.', 'success');
+                loadOrderDetail(order.id);
+            });
+    });
 }
 
 function renderActionArea(order, activeDrivers, defaultPrepMinutes, freshItems) {
