@@ -98,13 +98,13 @@ $picking_title_address = trim($picking_title_address !== '' ? $picking_title_add
         h1 { font-size: 1.1rem; margin: 0 0 0.25rem; }
         .meta { font-size: 0.8rem; color: #555; margin-bottom: 1rem; }
         table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-        th, td { border: 1px solid #ccc; padding: 0 8px; text-align: left; vertical-align: middle; }
+        th, td { border: 1px solid #ccc; padding: 0 8px; text-align: left; vertical-align: middle; line-height: 1; }
         th { background: #f3f4f6; padding: 6px 8px; text-align: center; }
         td.num { text-align: right; }
         td.barcode-cell { text-align: center; }
         th.qty, td.qty { background: #fde2e7; font-weight: 700; font-size: 15.5px; text-align: center; }
         .thumb { display: block; width: 38px; height: 38px; object-fit: cover; border: 1px solid #ddd; }
-        .names { font-weight: 700; }
+        .names { font-weight: 700; line-height: 1.15; }
         .totals { margin-top: 1rem; width: 260px; margin-left: auto; font-size: 0.85rem; }
         .totals div { display: flex; justify-content: space-between; padding: 3px 0; }
         .totals .grand { font-weight: 700; font-size: 1rem; border-top: 1px solid #333; margin-top: 4px; padding-top: 6px; }
