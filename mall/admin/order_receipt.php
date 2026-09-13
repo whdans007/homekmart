@@ -37,8 +37,9 @@ try {
 
     $items_stmt = $conn->prepare(
         'SELECT oi.product_name_snapshot, oi.unit_price_snapshot, oi.quantity, oi.line_total, oi.is_sold_out,
-                mp.display_name_en
+                p.sku AS barcode, COALESCE(mp.display_name_en, p.name_en) AS display_name_en
          FROM mall_order_items oi
+         LEFT JOIN products p ON p.id = oi.product_id
          LEFT JOIN mall_products mp ON mp.product_id = oi.product_id
          WHERE oi.order_id = ?
          ORDER BY oi.id'
@@ -68,6 +69,7 @@ $has_discount = (float)$order['discount_amount'] > 0;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo t('mall_admin.receipt.title'); ?> - <?php echo htmlspecialchars($order['order_number']); ?></title>
     <link rel="icon" href="data:,">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/JsBarcode/3.11.5/JsBarcode.all.min.js"></script>
     <style>
         body { font-family: -apple-system, "Malgun Gothic", sans-serif; margin: 0; padding: 1.5rem; color: #111; }
         h1 { font-size: 1.1rem; margin: 0 0 0.25rem; }
@@ -83,6 +85,8 @@ $has_discount = (float)$order['discount_amount'] > 0;
         tr.sold-out td { color: #9ca3af; text-decoration: line-through; }
         tr.sold-out .sold-out-badge { display: inline-block; margin-left: 6px; padding: 2px 6px; font-size: 0.7rem; font-weight: 700; color: #b91c1c; background: #fee2e2; border-radius: 4px; text-decoration: none; }
         .name-en { display: block; font-size: 0.72rem; color: #666; }
+        .barcode-cell { text-align: center; }
+        .barcode { max-width: 130px; height: 32px; }
     </style>
 </head>
 <body>
@@ -97,6 +101,7 @@ $has_discount = (float)$order['discount_amount'] > 0;
             <tr>
                 <th><?php echo t('mall_admin.receipt.no'); ?></th>
                 <th><?php echo t('mall_admin.receipt.item'); ?></th>
+                <th><?php echo t('mall_admin.picking_slip.barcode'); ?></th>
                 <th class="num"><?php echo t('mall_admin.receipt.unit_price'); ?></th>
                 <th><?php echo t('common.quantity'); ?></th>
                 <th class="num"><?php echo t('mall_admin.receipt.amount'); ?></th>
@@ -112,6 +117,10 @@ $has_discount = (float)$order['discount_amount'] > 0;
                     <?php if (!empty($it['display_name_en'])): ?>
                         <span class="name-en"><?php echo htmlspecialchars($it['display_name_en']); ?></span>
                     <?php endif; ?>
+                </td>
+                <td class="barcode-cell">
+                    <?php if (!empty($it['barcode'])): ?><svg class="barcode" data-code="<?php echo htmlspecialchars($it['barcode']); ?>"></svg>
+                    <?php else: ?><span style="color:#999;">-</span><?php endif; ?>
                 </td>
                 <td class="num"><?php echo number_format((float)$it['unit_price_snapshot'], 2); ?></td>
                 <td class="center"><?php echo (int)$it['quantity']; ?></td>
@@ -129,7 +138,12 @@ $has_discount = (float)$order['discount_amount'] > 0;
                 <td class="center"><?php echo count($items) + $j + 1; ?></td>
                 <td>
                     <?php echo htmlspecialchars($fi['product_name_snapshot']); ?>
+                    <?php if (!empty($fi['product_name_en'])): ?><span class="name-en"><?php echo htmlspecialchars($fi['product_name_en']); ?></span><?php endif; ?>
                     <?php if ($fi['is_sold_out']): ?><span class="sold-out-badge">품절</span><?php endif; ?>
+                </td>
+                <td class="barcode-cell">
+                    <?php if (!empty($fi['barcode'])): ?><svg class="barcode" data-code="<?php echo htmlspecialchars($fi['barcode']); ?>"></svg>
+                    <?php else: ?><span style="color:#999;">-</span><?php endif; ?>
                 </td>
                 <td class="num"><?php echo number_format((float)$fi['unit_price_snapshot'], 2); ?></td>
                 <td class="center"><?php echo htmlspecialchars((string)$__fi_qty); ?></td>
@@ -147,5 +161,11 @@ $has_discount = (float)$order['discount_amount'] > 0;
         <div><span><?php echo t('mall_admin.receipt.shipping_fee'); ?></span><span><?php echo number_format((float)$order['shipping_fee'], 2); ?></span></div>
         <div class="grand"><span><?php echo t('mall_admin.orders.total'); ?></span><span><?php echo number_format((float)$order['total_amount'], 2); ?></span></div>
     </div>
+<script>
+document.querySelectorAll('.barcode').forEach(function (el) {
+    try { JsBarcode(el, el.dataset.code, { format: 'CODE128', width: 1.2, height: 28, fontSize: 9, margin: 1 }); }
+    catch (e) { el.outerHTML = '<span style="color:#999;">' + el.dataset.code + '</span>'; }
+});
+</script>
 </body>
 </html>

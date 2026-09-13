@@ -71,6 +71,7 @@ function mall_fresh_order_items_get_by_order($order_id) {
     $conn = mall_get_db_connection();
     $stmt = $conn->prepare(
         'SELECT foi.id, foi.mall_fresh_product_id, foi.product_name_snapshot, COALESCE(mfp.display_name_en_override, mfp.name_en) AS product_name_en,
+                mfp.code AS barcode, mfp.image_url,
                 foi.sale_type_snapshot, foi.unit_price_snapshot,
                 foi.weight_g, foi.actual_weight_g, foi.quantity, foi.estimated_price, foi.confirmed_price, foi.is_sold_out
          FROM mall_fresh_order_items foi

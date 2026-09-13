@@ -41,7 +41,7 @@ try {
 
     $items_stmt = $conn->prepare(
         "SELECT oi.product_id, oi.product_name_snapshot, oi.unit_price_snapshot, oi.discount_rate_snapshot, oi.quantity, oi.line_total, oi.is_sold_out,
-                p.sku AS barcode, mp.display_name_en,
+                p.sku AS barcode, COALESCE(mp.display_name_en, p.name_en) AS product_name_en,
                 (SELECT image_path FROM mall_product_images WHERE product_id = oi.product_id ORDER BY sort_order LIMIT 1) AS image_path
          FROM mall_order_items oi
          LEFT JOIN products p ON p.id = oi.product_id
@@ -135,7 +135,8 @@ $change_due = $cash_received - $total_floor;
                     <?php endif; ?>
                 </td>
                 <td class="names">
-                    <?php echo htmlspecialchars($it['display_name_en'] ?: $it['product_name_snapshot']); ?>
+                    <div><?php echo htmlspecialchars($it['product_name_snapshot']); ?></div>
+                    <?php if (!empty($it['product_name_en'])): ?><div class="name-en"><?php echo htmlspecialchars($it['product_name_en']); ?></div><?php endif; ?>
                     <?php if ($it['is_sold_out']): ?><span class="sold-out-badge"><?php echo t('mall_admin.receipt.sold_out'); ?></span><?php endif; ?>
                 </td>
                 <td class="qty"><?php echo (int)$it['quantity']; ?></td>
@@ -153,10 +154,18 @@ $change_due = $cash_received - $total_floor;
                     : (int)$fi['quantity'];
             ?>
             <tr<?php echo $fi['is_sold_out'] ? ' class="sold-out"' : ''; ?>>
-                <td></td>
-                <td class="barcode-cell"><span style="color:#999;">-</span></td>
+                <td>
+                    <?php if (!empty($fi['image_url'])): ?>
+                        <img class="thumb" src="<?php echo htmlspecialchars($fi['image_url']); ?>" alt="">
+                    <?php else: ?><span style="color:#999;">-</span><?php endif; ?>
+                </td>
+                <td class="barcode-cell">
+                    <?php if (!empty($fi['barcode'])): ?><svg class="barcode" data-code="<?php echo htmlspecialchars($fi['barcode']); ?>"></svg>
+                    <?php else: ?><span style="color:#999;">-</span><?php endif; ?>
+                </td>
                 <td class="names">
-                    <?php echo htmlspecialchars($fi['product_name_snapshot']); ?>
+                    <div><?php echo htmlspecialchars($fi['product_name_snapshot']); ?></div>
+                    <?php if (!empty($fi['product_name_en'])): ?><div class="name-en"><?php echo htmlspecialchars($fi['product_name_en']); ?></div><?php endif; ?>
                     <?php if ($fi['is_sold_out']): ?><span class="sold-out-badge"><?php echo t('mall_admin.receipt.sold_out'); ?></span><?php endif; ?>
                 </td>
                 <td class="qty"><?php echo htmlspecialchars((string)$__fi_qty); ?></td>
