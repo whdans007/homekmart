@@ -254,10 +254,10 @@ function mall_delivery_start($driver_id, $order_id) {
         $order_update->execute();
         $order_update->close();
 
-        mall_delivery_save_progress_message($conn, $order_id, $driver_id, '배송시작');
+        mall_delivery_save_progress_message($conn, $order_id, $driver_id, '배달시작');
         $conn->commit();
         mall_order_chat_reopen($order_id);
-        mall_push_notify_order_message($order_id, 'driver', '배송시작');
+        mall_push_notify_order_message($order_id, 'driver', '배달시작');
         return ['success' => true];
     } catch (Exception $e) {
         $conn->rollback();

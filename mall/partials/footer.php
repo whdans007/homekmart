@@ -228,7 +228,7 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
     Push.addListener('pushNotificationReceived', function (notification) {
         var orderId = notification && notification.data && notification.data.order_id;
         if (orderId && notification.data.type === 'delivery_status') {
-            var deliveryMessages = ['배송시작', '배달도착', '배송이 완료되었습니다. 이용해 주셔서 감사합니다.'];
+            var deliveryMessages = ['배달시작', '배달도착', '배송이 완료되었습니다. 이용해 주셔서 감사합니다.'];
             var message = deliveryMessages.indexOf(notification.body) !== -1 ? notification.body : '배송 상태가 변경되었습니다.';
             mallToast(message, '/mall/order_detail.php?id=' + encodeURIComponent(orderId), '주문 보기');
         }
