@@ -73,7 +73,7 @@ $csrf_token = mall_csrf_token();
     <style>
         body { width: 100%; max-width: 480px; min-height: calc(100vh - 130px); margin: 0 auto; padding-bottom: 132px; background: var(--bg-normal); }
         /* 배송 진행 버튼은 하단 탭바 바로 위에 고정한다. */
-        .driver-action-cta { position: fixed; left: 50%; bottom: calc(38px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: 100%; max-width: 480px; z-index: 45; padding: 0 16px; }
+        .driver-action-cta { position: fixed; left: 50%; bottom: calc(58px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: 100%; max-width: 480px; z-index: 45; padding: 0 16px; }
         .driver-chat-card { margin-bottom: 156px; }
         .driver-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--line-alternative); }
         .section-card { margin: var(--space-4) var(--space-5) 0; padding: var(--space-4); border: 1px solid var(--line-alternative); border-radius: var(--radius-lg); }
