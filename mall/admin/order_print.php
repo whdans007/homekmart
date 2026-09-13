@@ -79,6 +79,11 @@ $total_floor = (int)floor((float)$order['total_amount']);
 $cash_received = (int)ceil($total_floor / 1000) * 1000;
 $change_due = $cash_received - $total_floor;
 $shipping_address = trim(implode(' ', array_filter([$order['ship_detail_address'] ?? '', $order['ship_barangay'] ?? '', $order['ship_city'] ?? '', $order['ship_region'] ?? ''])));
+$picking_title_address = trim(implode(' ', array_filter([$order['ship_detail_address'] ?? '', $order['ship_barangay'] ?? ''])));
+if (!empty($order['ship_landmark'])) {
+    $picking_title_address .= ($picking_title_address !== '' ? ' ' : '') . '(' . $order['ship_landmark'] . ')';
+}
+$picking_title_address = trim($picking_title_address !== '' ? $picking_title_address : $shipping_address);
 ?>
 <!DOCTYPE html>
 <html lang="<?php echo get_language(); ?>">
@@ -113,7 +118,7 @@ $shipping_address = trim(implode(' ', array_filter([$order['ship_detail_address'
     </style>
 </head>
 <body>
-    <h1><?php echo print_en('mall_admin.picking_slip.title'); ?> — <?php echo htmlspecialchars($shipping_address !== '' ? $shipping_address : $order['order_number']); ?></h1>
+    <h1><?php echo print_en('mall_admin.picking_slip.title'); ?> — <?php echo htmlspecialchars($picking_title_address !== '' ? $picking_title_address : $order['order_number']); ?></h1>
     <div class="meta">
         <div><?php echo print_en('mall_admin.picking_slip.order_date'); ?>: <?php echo htmlspecialchars(substr($order['created_at'], 0, 16)); ?></div>
         <div><?php echo print_en('mall_admin.picking_slip.recipient'); ?>: <?php echo htmlspecialchars($order['member_name']); ?><?php if (!empty($order['member_english_name'])): ?> (<?php echo htmlspecialchars($order['member_english_name']); ?>)<?php endif; ?> (<?php echo htmlspecialchars($order['phone'] ?? ''); ?>)</div>
