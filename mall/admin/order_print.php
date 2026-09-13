@@ -103,7 +103,7 @@ $picking_title_address = trim($picking_title_address !== '' ? $picking_title_add
         td.num { text-align: right; }
         td.barcode-cell { text-align: center; }
         th.qty, td.qty { background: #fde2e7; font-weight: 700; font-size: 15.5px; text-align: center; }
-        .thumb { display: block; width: 48px; height: 48px; object-fit: cover; border: 1px solid #ddd; }
+        .thumb { display: block; width: 38px; height: 38px; object-fit: cover; border: 1px solid #ddd; }
         .names { font-weight: 700; }
         .totals { margin-top: 1rem; width: 260px; margin-left: auto; font-size: 0.85rem; }
         .totals div { display: flex; justify-content: space-between; padding: 3px 0; }
