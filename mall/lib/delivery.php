@@ -116,6 +116,11 @@ function mall_order_assign_driver($order_id, $driver_id) {
     if ($order['status'] !== 'ready') {
         return ['success' => false, 'error' => 'INVALID_STATE_TRANSITION'];
     }
+    // Legacy rollback rows marked as ready are no longer active assignments.
+    $stale = $conn->prepare("DELETE FROM mall_order_driver_assignments WHERE order_id = ? AND status = 'ready'");
+    $stale->bind_param('i', $order_id);
+    $stale->execute();
+    $stale->close();
     if (mall_delivery_get_active_assignment($order_id)) {
         return ['success' => false, 'error' => 'ALREADY_ASSIGNED'];
     }

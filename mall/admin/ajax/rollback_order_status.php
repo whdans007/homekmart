@@ -18,7 +18,10 @@ try {
     $previous = ['confirmed'=>'pending','preparing'=>'pending','ready'=>'preparing','assigned'=>'ready','delivering'=>'assigned','arrived'=>'delivering','completed'=>'arrived'];
     if (!$order || !isset($previous[$order['status']])) throw new RuntimeException('이전 단계로 되돌릴 수 없는 상태입니다.');
     $from = $order['status']; $to = $previous[$from];
-    if (in_array($from, ['assigned','delivering','arrived','completed'], true) && !empty($order['current_driver_id'])) {
+    if ($from === 'assigned' && !empty($order['current_driver_id'])) {
+        $a = $conn->prepare('DELETE FROM mall_order_driver_assignments WHERE order_id = ? AND driver_id = ? AND status = ?');
+        $a->bind_param('iis', $order_id, $order['current_driver_id'], $from); $a->execute(); $a->close();
+    } elseif (in_array($from, ['delivering','arrived','completed'], true) && !empty($order['current_driver_id'])) {
         $a = $conn->prepare('UPDATE mall_order_driver_assignments SET status = ? WHERE order_id = ? AND driver_id = ? AND status = ?');
         $a->bind_param('siis', $to, $order_id, $order['current_driver_id'], $from); $a->execute(); $a->close();
     }
