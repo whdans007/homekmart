@@ -71,7 +71,7 @@ $csrf_token = mall_csrf_token();
     <link rel="stylesheet" href="/mall/css/wanted-tokens.css">
     <link rel="stylesheet" href="/mall/css/mall.css">
     <style>
-        body { padding-bottom: 132px; }
+        body { width: 100%; max-width: 480px; min-height: 100vh; margin: 0 auto; padding-bottom: 132px; background: var(--bg-normal); }
         /* 배송 진행 버튼은 하단 탭바 바로 위에 고정한다. */
         .driver-action-cta { position: fixed; left: 50%; bottom: calc(58px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: 100%; max-width: 480px; z-index: 45; padding: 0 16px; }
         .driver-chat-card { margin-bottom: 156px; }
