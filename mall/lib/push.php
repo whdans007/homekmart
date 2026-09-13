@@ -1,26 +1,23 @@
 <?php
 /**
- * 주문톡 FCM(HTTP v1) 푸시 발송 (Application Layer)
- * Design Ref: mall-order-chat-push.design.md §3(인증), §4(토큰 모델), §8(실패격리)
+ * 二쇰Ц??FCM(HTTP v1) ?몄떆 諛쒖넚 (Application Layer)
+ * Design Ref: mall-order-chat-push.design.md 짠3(?몄쬆), 짠4(?좏겙 紐⑤뜽), 짠8(?ㅽ뙣寃⑸━)
  *
- * 이 파일의 모든 공개 진입점(mall_push_notify_order_message)은 어떤 예외도 상위로 던지지 않는다 —
- * 서비스 계정 키 미배치, FCM 장애, 네트워크 오류 등 어떤 이유로든 주문톡 메시지 발송(INSERT) 자체를
- * 실패시키면 안 된다(mall_order_chat_send가 이 함수를 호출한 뒤 그대로 성공 응답을 반환하기 때문).
+ * ???뚯씪??紐⑤뱺 怨듦컻 吏꾩엯??mall_push_notify_order_message)? ?대뼡 ?덉쇅???곸쐞濡??섏?吏 ?딅뒗???? * ?쒕퉬??怨꾩젙 ??誘몃같移? FCM ?μ븷, ?ㅽ듃?뚰겕 ?ㅻ쪟 ???대뼡 ?댁쑀濡쒕뱺 二쇰Ц??硫붿떆吏 諛쒖넚(INSERT) ?먯껜瑜? * ?ㅽ뙣?쒗궎硫????쒕떎(mall_order_chat_send媛 ???⑥닔瑜??몄텧????洹몃?濡??깃났 ?묐떟??諛섑솚?섍린 ?뚮Ц).
  *
- * 라이브러리 의존성 없음: 이 저장소에는 Google API 클라이언트/firebase-php-jwt 등이 없으므로
- * OAuth2 서비스 계정 JWT를 PHP 내장 openssl_sign()으로 직접 서명한다(§3.2).
+ * ?쇱씠釉뚮윭由??섏〈???놁쓬: ????μ냼?먮뒗 Google API ?대씪?댁뼵??firebase-php-jwt ?깆씠 ?놁쑝誘濡? * OAuth2 ?쒕퉬??怨꾩젙 JWT瑜?PHP ?댁옣 openssl_sign()?쇰줈 吏곸젒 ?쒕챸?쒕떎(짠3.2).
  */
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../../config/db_config.php';
 
-/** FCM 액세스 토큰 파일 캐시 경로(웹루트 바깥 임시디렉토리 — 절대 정적 서빙되지 않는다). */
+/** FCM ?≪꽭???좏겙 ?뚯씪 罹먯떆 寃쎈줈(?밸（??諛붽묑 ?꾩떆?붾젆?좊━ ???덈? ?뺤쟻 ?쒕튃?섏? ?딅뒗??. */
 function mall_fcm_token_cache_path() {
     return sys_get_temp_dir() . '/homekmart_mall_fcm_token_cache.json';
 }
 
 /**
- * 캐시된 액세스 토큰을 반환한다. 만료 60초 전부터는 재사용하지 않고 null을 반환해 미리 갱신을 유도한다
- * (네트워크 지연/서버 간 시계 오차 여유).
+ * 罹먯떆???≪꽭???좏겙??諛섑솚?쒕떎. 留뚮즺 60珥??꾨??곕뒗 ?ъ궗?⑺븯吏 ?딄퀬 null??諛섑솚??誘몃━ 媛깆떊???좊룄?쒕떎
+ * (?ㅽ듃?뚰겕 吏???쒕쾭 媛??쒓퀎 ?ㅼ감 ?ъ쑀).
  * @return string|null
  */
 function mall_fcm_get_cached_access_token() {
@@ -43,9 +40,9 @@ function mall_fcm_get_cached_access_token() {
 }
 
 /**
- * 새로 발급받은 액세스 토큰을 파일 캐시에 저장한다(플록으로 동시요청 경쟁 방지).
+ * ?덈줈 諛쒓툒諛쏆? ?≪꽭???좏겙???뚯씪 罹먯떆????ν븳???뚮줉?쇰줈 ?숈떆?붿껌 寃쎌웳 諛⑹?).
  * @param string $access_token
- * @param int $expires_in 초 단위(보통 3600)
+ * @param int $expires_in 珥??⑥쐞(蹂댄넻 3600)
  * @return void
  */
 function mall_fcm_store_cached_access_token($access_token, $expires_in) {
@@ -68,19 +65,18 @@ function mall_fcm_store_cached_access_token($access_token, $expires_in) {
 }
 
 /**
- * 서비스 계정 키 파일(JSON)을 읽어 반환한다. 파일이 없거나 형식이 잘못됐으면 null(요청당 1회만 시도 —
- * static 캐시로 반복 발송 시 매번 디스크 I/O + 에러로그 폭주를 막는다).
+ * ?쒕퉬??怨꾩젙 ???뚯씪(JSON)???쎌뼱 諛섑솚?쒕떎. ?뚯씪???녾굅???뺤떇???섎せ?먯쑝硫?null(?붿껌??1?뚮쭔 ?쒕룄 ?? * static 罹먯떆濡?諛섎났 諛쒖넚 ??留ㅻ쾲 ?붿뒪??I/O + ?먮윭濡쒓렇 ??＜瑜?留됰뒗??.
  * @return array{private_key:string, client_email:string, project_id:string}|null
  */
 function mall_fcm_load_service_account() {
-    static $cached = null; // null=아직 안 읽음, false=실패 확정, array=성공
+    static $cached = null; // null=?꾩쭅 ???쎌쓬, false=?ㅽ뙣 ?뺤젙, array=?깃났
     if ($cached !== null) {
         return $cached === false ? null : $cached;
     }
 
     $path = defined('MALL_FCM_SERVICE_ACCOUNT_FILE') ? MALL_FCM_SERVICE_ACCOUNT_FILE : '';
     if ($path === '' || !is_file($path)) {
-        error_log('mall_fcm_load_service_account: 서비스 계정 키 파일이 없습니다(' . $path . ') — 주문톡 푸시를 건너뜁니다.');
+        error_log('mall_fcm_load_service_account: ?쒕퉬??怨꾩젙 ???뚯씪???놁뒿?덈떎(' . $path . ') ??二쇰Ц???몄떆瑜?嫄대꼫?곷땲??');
         $cached = false;
         return null;
     }
@@ -88,7 +84,7 @@ function mall_fcm_load_service_account() {
     $raw = @file_get_contents($path);
     $data = $raw !== false ? json_decode($raw, true) : null;
     if (!is_array($data) || empty($data['private_key']) || empty($data['client_email']) || empty($data['project_id'])) {
-        error_log('mall_fcm_load_service_account: 서비스 계정 키 파일 형식이 올바르지 않습니다(' . $path . ').');
+        error_log('mall_fcm_load_service_account: ?쒕퉬??怨꾩젙 ???뚯씪 ?뺤떇???щ컮瑜댁? ?딆뒿?덈떎(' . $path . ').');
         $cached = false;
         return null;
     }
@@ -97,17 +93,16 @@ function mall_fcm_load_service_account() {
     return $data;
 }
 
-/** RFC 4648 base64url 인코딩(JWT 세그먼트용, 패딩 없음). */
+/** RFC 4648 base64url ?몄퐫??JWT ?멸렇癒쇳듃?? ?⑤뵫 ?놁쓬). */
 function mall_fcm_base64url($raw) {
     return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
 }
 
 /**
- * 서비스 계정으로 자체 서명 JWT(RS256)를 만든다(OAuth2 JWT Bearer Flow의 assertion 값).
+ * ?쒕퉬??怨꾩젙?쇰줈 ?먯껜 ?쒕챸 JWT(RS256)瑜?留뚮뱺??OAuth2 JWT Bearer Flow??assertion 媛?.
  * @param array{private_key:string, client_email:string} $service_account
  * @return string
- * @throws Exception 서명 실패 시
- */
+ * @throws Exception ?쒕챸 ?ㅽ뙣 ?? */
 function mall_fcm_build_jwt($service_account) {
     $now = time();
     $header = ['alg' => 'RS256', 'typ' => 'JWT'];
@@ -124,16 +119,16 @@ function mall_fcm_build_jwt($service_account) {
     $signature = '';
     $signed = openssl_sign($unsigned, $signature, $service_account['private_key'], 'SHA256');
     if (!$signed) {
-        throw new Exception('FCM JWT 서명 실패(openssl_sign)');
+        throw new Exception('FCM JWT ?쒕챸 ?ㅽ뙣(openssl_sign)');
     }
 
     return $unsigned . '.' . mall_fcm_base64url($signature);
 }
 
 /**
- * JWT Bearer Flow로 Google OAuth2 액세스 토큰을 새로 발급받아 캐시에 저장한다.
- * 연결 2초/전체 3초 타임아웃 — FCM/Google 응답 지연이 채팅 발송 응답을 과도하게 붙잡지 않도록 한다
- * (mall_verify_google_id_token()의 curl 타임아웃 선례와 동일한 방어).
+ * JWT Bearer Flow濡?Google OAuth2 ?≪꽭???좏겙???덈줈 諛쒓툒諛쏆븘 罹먯떆????ν븳??
+ * ?곌껐 2珥??꾩껜 3珥???꾩븘????FCM/Google ?묐떟 吏?곗씠 梨꾪똿 諛쒖넚 ?묐떟??怨쇰룄?섍쾶 遺숈옟吏 ?딅룄濡??쒕떎
+ * (mall_verify_google_id_token()??curl ??꾩븘???좊?? ?숈씪??諛⑹뼱).
  * @param array $service_account
  * @return string|null
  */
@@ -157,13 +152,13 @@ function mall_fcm_fetch_access_token($service_account) {
     curl_close($ch);
 
     if ($response === false || $http_code !== 200) {
-        error_log('mall_fcm_fetch_access_token 실패: http=' . $http_code . ' curl_error=' . $curl_error);
+        error_log('mall_fcm_fetch_access_token ?ㅽ뙣: http=' . $http_code . ' curl_error=' . $curl_error);
         return null;
     }
 
     $data = json_decode($response, true);
     if (!is_array($data) || empty($data['access_token'])) {
-        error_log('mall_fcm_fetch_access_token: 응답 형식이 올바르지 않습니다.');
+        error_log('mall_fcm_fetch_access_token: ?묐떟 ?뺤떇???щ컮瑜댁? ?딆뒿?덈떎.');
         return null;
     }
 
@@ -172,8 +167,7 @@ function mall_fcm_fetch_access_token($service_account) {
 }
 
 /**
- * 유효한 액세스 토큰을 반환한다(캐시 우선, 없거나 만료 임박이면 새로 발급). 실패 시 null —
- * 호출측은 null이면 발송을 조용히 건너뛰어야 한다.
+ * ?좏슚???≪꽭???좏겙??諛섑솚?쒕떎(罹먯떆 ?곗꽑, ?녾굅??留뚮즺 ?꾨컯?대㈃ ?덈줈 諛쒓툒). ?ㅽ뙣 ??null ?? * ?몄텧痢≪? null?대㈃ 諛쒖넚??議곗슜??嫄대꼫?곗뼱???쒕떎.
  * @return string|null
  */
 function mall_fcm_get_access_token() {
@@ -196,13 +190,13 @@ function mall_fcm_get_access_token() {
 }
 
 /**
- * FCM HTTP v1 messages:send 엔드포인트로 단일 기기에 알림을 발송한다.
+ * FCM HTTP v1 messages:send ?붾뱶?ъ씤?몃줈 ?⑥씪 湲곌린???뚮┝??諛쒖넚?쒕떎.
  * @param string $access_token
  * @param string $project_id
  * @param string $device_token FCM registration token
  * @param string $title
  * @param string $body
- * @param array<string,string> $data 딥링크 등에 쓰는 커스텀 data payload(문자열만)
+ * @param array<string,string> $data ?λ쭅???깆뿉 ?곕뒗 而ㅼ뒪? data payload(臾몄옄?대쭔)
  * @return array{ok:bool, invalid_token:bool}
  */
 function mall_fcm_send($access_token, $project_id, $device_token, $title, $body, array $data = []) {
@@ -238,7 +232,7 @@ function mall_fcm_send($access_token, $project_id, $device_token, $title, $body,
     curl_close($ch);
 
     if ($response === false) {
-        error_log('mall_fcm_send curl 오류: ' . $curl_error);
+        error_log('mall_fcm_send curl ?ㅻ쪟: ' . $curl_error);
         return ['ok' => false, 'invalid_token' => false];
     }
     if ($http_code === 200) {
@@ -247,24 +241,24 @@ function mall_fcm_send($access_token, $project_id, $device_token, $title, $body,
 
     $decoded = json_decode($response, true);
     $status = is_array($decoded) ? ($decoded['error']['status'] ?? '') : '';
-    // 토큰 자체가 더 이상 유효하지 않은 경우만 비활성화 대상으로 표시한다(그 외 오류는 일시적일 수 있음).
+    // ?좏겙 ?먯껜媛 ???댁긽 ?좏슚?섏? ?딆? 寃쎌슦留?鍮꾪솢?깊솕 ??곸쑝濡??쒖떆?쒕떎(洹????ㅻ쪟???쇱떆?곸씪 ???덉쓬).
     $invalid_token = $http_code === 404 || in_array($status, ['UNREGISTERED', 'NOT_FOUND', 'INVALID_ARGUMENT'], true);
 
-    error_log('mall_fcm_send 실패: http=' . $http_code . ' status=' . $status . ' body=' . substr((string)$response, 0, 300));
+    error_log('mall_fcm_send ?ㅽ뙣: http=' . $http_code . ' status=' . $status . ' body=' . substr((string)$response, 0, 300));
     return ['ok' => false, 'invalid_token' => $invalid_token];
 }
 
 /**
- * 주문톡에 새 메시지가 등록된 뒤 호출하는 진입점. 관리자/기사가 보낸 메시지만 고객(mall_members)
- * 앱으로 푸시한다 — 고객이 보낸 메시지는 관리자(데스크톱 웹)/기사(모바일 웹) 쪽에 Capacitor 앱이
- * 없으므로 이번 범위에서 푸시 대상이 아니다(mall-order-chat-push.design.md §0, §2).
+ * 二쇰Ц?≪뿉 ??硫붿떆吏媛 ?깅줉?????몄텧?섎뒗 吏꾩엯?? 愿由ъ옄/湲곗궗媛 蹂대궦 硫붿떆吏留?怨좉컼(mall_members)
+ * ?깆쑝濡??몄떆?쒕떎 ??怨좉컼??蹂대궦 硫붿떆吏??愿由ъ옄(?곗뒪?ы넲 ??/湲곗궗(紐⑤컮???? 履쎌뿉 Capacitor ?깆씠
+ * ?놁쑝誘濡??대쾲 踰붿쐞?먯꽌 ?몄떆 ??곸씠 ?꾨땲??mall-order-chat-push.design.md 짠0, 짠2).
  *
- * 이 함수는 절대 예외를 던지지 않는다 — 호출부(mall_order_chat_send)가 이 함수의 성공/실패와 무관하게
- * 항상 정상적으로 메시지 INSERT 성공 응답을 반환할 수 있어야 한다.
+ * ???⑥닔???덈? ?덉쇅瑜??섏?吏 ?딅뒗?????몄텧遺(mall_order_chat_send)媛 ???⑥닔???깃났/?ㅽ뙣? 臾닿??섍쾶
+ * ??긽 ?뺤긽?곸쑝濡?硫붿떆吏 INSERT ?깃났 ?묐떟??諛섑솚?????덉뼱???쒕떎.
  *
  * @param int $order_id
  * @param string $sender_type 'member'|'admin'|'driver'
- * @param string $message 원문 메시지(알림 본문 생성에 사용, 100자로 트렁케이션)
+ * @param string $message ?먮Ц 硫붿떆吏(?뚮┝ 蹂몃Ц ?앹꽦???ъ슜, 100?먮줈 ?몃쟻耳?댁뀡)
  * @return void
  */
 function mall_push_notify_order_message($order_id, $sender_type, $message) {
@@ -274,7 +268,7 @@ function mall_push_notify_order_message($order_id, $sender_type, $message) {
             $stmt = $conn->prepare('SELECT current_driver_id FROM mall_orders WHERE id = ?');
             $stmt->bind_param('i', $order_id); $stmt->execute();
             $row = $stmt->get_result()->fetch_assoc(); $stmt->close();
-            if (!empty($row['current_driver_id'])) mall_push_notify_driver((int)$row['current_driver_id'], $order_id, '고객님 메시지', $message);
+            if (!empty($row['current_driver_id'])) mall_push_notify_driver((int)$row['current_driver_id'], $order_id, '怨좉컼??硫붿떆吏', $message);
         } catch (Throwable $e) { error_log('driver chat push: '.$e->getMessage()); }
         return;
     }
@@ -310,8 +304,8 @@ function mall_push_notify_order_message($order_id, $sender_type, $message) {
         if ($service_account === null) {
             return;
         }
-
-        $title = $sender_type === 'driver' ? '배송기사 메시지' : 'HOME K MART 주문톡';
+        $is_delivery_status = $sender_type === 'driver' && in_array(trim($message), ['배송시작', '배달도착'], true);
+        $title = $is_delivery_status ? '배송 알림' : ($sender_type === 'driver' ? '배송기사 메시지' : 'HOME K MART 주문톡');
         $body = mb_substr(preg_replace('/\s+/u', ' ', trim($message)), 0, 100);
 
         $deactivate_stmt = $conn->prepare('UPDATE mall_device_tokens SET is_active = 0 WHERE id = ?');
@@ -323,7 +317,7 @@ function mall_push_notify_order_message($order_id, $sender_type, $message) {
                 $row['token'],
                 $title,
                 $body,
-                ['type' => 'order_chat', 'order_id' => (string)$order_id]
+                ['type' => $is_delivery_status ? 'delivery_status' : 'order_chat', 'order_id' => (string)$order_id]
             );
 
             if (!$result['ok'] && $result['invalid_token']) {
