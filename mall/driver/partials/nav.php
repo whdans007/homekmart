@@ -41,7 +41,13 @@ $__driver_push_csrf = mall_csrf_token();
     });
     Push.addListener('pushNotificationActionPerformed', function (action) {
         var data = action && action.notification && action.notification.data;
-        if (data && data.order_id) location.href = '/mall/driver/order_detail.php?id=' + encodeURIComponent(data.order_id);
+        if (data && data.order_id) location.href = '/mall/driver/index.php';
+    });
+    Push.addListener('pushNotificationReceived', function (notification) {
+        var data = notification && notification.data;
+        if (data && data.order_id) {
+            location.href = '/mall/driver/index.php';
+        }
     });
     Push.requestPermissions().then(function (r) { if (r.receive === 'granted') Push.register(); });
 })();
