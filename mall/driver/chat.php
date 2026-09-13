@@ -70,7 +70,7 @@ if ($order_id > 0) {
         .chat-bubble.mine .time { color: rgba(255,255,255,0.75); }
         .chat-bubble.theirs { align-self: flex-start; background: var(--bg-alternative); color: var(--label-normal); }
         .chat-empty { margin: auto; text-align: center; color: var(--label-assistive); font: var(--t-label2) var(--font-sans); }
-        .chat-input-bar { position: fixed; left:50%; bottom:58px; transform:translateX(-50%); width:100%; max-width:480px; z-index:45; display:flex; gap:8px; padding:var(--space-3) var(--space-5); background:var(--bg-normal); border-top:1px solid var(--line-alternative); }
+        .chat-input-bar { position: fixed; left:50%; bottom:calc(76px + env(safe-area-inset-bottom, 0px)); transform:translateX(-50%); width:100%; max-width:480px; z-index:45; display:flex; gap:8px; padding:var(--space-3) var(--space-5); background:var(--bg-normal); border-top:1px solid var(--line-alternative); }
         .chat-input-bar input { flex: 1; border: 1px solid var(--line-normal); border-radius: var(--radius-md); padding: 10px 14px; }
         .chat-input-bar button { padding: 0 18px; border-radius: var(--radius-md); background: var(--primary-normal); color: #fff; font-weight: 700; border: none; }
     </style>
