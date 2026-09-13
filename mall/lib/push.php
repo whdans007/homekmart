@@ -310,7 +310,7 @@ function mall_push_notify_order_message($order_id, $sender_type, $message) {
             error_log('mall_customer_push order=' . (int)$order_id . ' result=credentials_unavailable');
             return;
         }
-        $is_delivery_status = $sender_type === 'driver' && in_array(trim($message), ['배달시작', '배달도착', '배달상품이 도착했습니다.', '배송이 완료되었습니다. 이용해 주셔서 감사합니다.'], true);
+        $is_delivery_status = $sender_type === 'driver' && in_array(trim($message), ['배달시작', '배달도착', '배달이 도착했습니다.', '배송이 완료되었습니다. 이용해 주셔서 감사합니다.'], true);
         $title = $is_delivery_status ? '배송 알림' : ($sender_type === 'driver' ? '배송기사 메시지' : 'HOME K MART 주문톡');
         $body = mb_substr(preg_replace('/\s+/u', ' ', trim($message)), 0, 100);
 

@@ -181,6 +181,12 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
     }
     function mallPlayDeliveryArrivalAlert() {
         try {
+            var recorded = window.__mallArrivalAudio || (window.__mallArrivalAudio = new Audio('/mall/assets/delivery_arrived.wav?v=1'));
+            recorded.currentTime = 0;
+            var playback = recorded.play();
+            if (playback && playback.catch) playback.catch(function () {});
+        } catch (e) {}
+        try {
             var AudioCtx = window.AudioContext || window.webkitAudioContext;
             if (AudioCtx) {
                 var ctx = new AudioCtx(), osc = ctx.createOscillator(), gain = ctx.createGain();
@@ -190,7 +196,7 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
             }
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
-                var utterance = new SpeechSynthesisUtterance('배달상품이 도착했습니다.');
+                var utterance = new SpeechSynthesisUtterance('배달이 도착했습니다.');
                 utterance.lang = 'ko-KR'; utterance.rate = 0.95;
                 window.speechSynthesis.speak(utterance);
             }
@@ -245,10 +251,10 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
     Push.addListener('pushNotificationReceived', function (notification) {
         var orderId = notification && notification.data && notification.data.order_id;
         if (orderId && notification.data.type === 'delivery_status') {
-            var deliveryMessages = ['배달시작', '배달도착', '배달상품이 도착했습니다.', '배송이 완료되었습니다. 이용해 주셔서 감사합니다.'];
+            var deliveryMessages = ['배달시작', '배달도착', '배달이 도착했습니다.', '배송이 완료되었습니다. 이용해 주셔서 감사합니다.'];
             var message = deliveryMessages.indexOf(notification.body) !== -1 ? notification.body : '배송 상태가 변경되었습니다.';
             mallToast(message, '/mall/order_detail.php?id=' + encodeURIComponent(orderId), '주문 보기');
-            if (notification.body === '배달상품이 도착했습니다.' || notification.body === '배달도착') mallPlayDeliveryArrivalAlert();
+            if (notification.body === '배달이 도착했습니다.' || notification.body === '배달도착') mallPlayDeliveryArrivalAlert();
         }
         if (orderId && window.ORDER_ID && Number(orderId) === Number(window.ORDER_ID)
             && typeof window.mallOrderChatRefresh === 'function') {
