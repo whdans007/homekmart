@@ -54,7 +54,7 @@ try {
          FROM mall_order_messages msg
          INNER JOIN mall_orders o ON o.id = msg.order_id
          INNER JOIN mall_members mem ON mem.id = o.member_id
-         WHERE msg.sender_type IN ('member', 'driver')
+         WHERE msg.sender_type = 'member'
            AND msg.is_read_by_admin = 0
          ORDER BY msg.id DESC
          LIMIT 1"
