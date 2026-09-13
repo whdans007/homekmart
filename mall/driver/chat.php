@@ -189,6 +189,7 @@ if ($order_id > 0) {
     list.scrollTop = list.scrollHeight;
 })();
 </script>
+<?php $active_driver_nav = 'chat'; require __DIR__ . '/partials/nav.php'; ?>
 <?php driver_i18n_ui(); ?>
 </body>
 </html>
