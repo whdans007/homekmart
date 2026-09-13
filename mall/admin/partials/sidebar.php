@@ -252,13 +252,17 @@ document.querySelectorAll('.mall-lang-btn').forEach(function (btn) {
                     lastChatMessageId = latestChat ? Number(latestChat.id) : 0;
                 } else if (latestChat && Number(latestChat.id) > lastChatMessageId) {
                     lastChatMessageId = Number(latestChat.id);
-                    notifyChat(latestChat);
-                    chatAlerted = true;
+                    // 배달기사/시스템 진행 메시지는 관리자 알림 대상이 아닙니다.
+                    // 고객(member)이 보낸 메시지만 음성·효과음·브라우저 알림을 표시합니다.
+                    if (latestChat.sender_type === 'member') {
+                        notifyChat(latestChat);
+                        chatAlerted = true;
+                    }
                 }
                 if (orderIncreased) {
                     beep();
                     window.setTimeout(function () { speakAlert('주문이 접수되었습니다'); }, 550);
-                } else if (increased && !chatAlerted) {
+                } else if (increased && !chatAlerted && latestChat && latestChat.sender_type === 'member') {
                     beep();
                 }
                 lastCounts = counts;
