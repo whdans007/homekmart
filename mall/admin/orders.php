@@ -605,8 +605,8 @@ function renderItems(order, items, freshItems) {
                 actionCell =
                     '<button type="button" class="mark-fresh-sold-out-btn px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-red-100 font-semibold ml-1" data-fresh-order-item-id="' + fi.id + '" data-sold-out="1">품절 처리</button>';
             }
-            html += '<tr class="border-t border-gray-200">' +
-                '<td class="px-2 py-1" style="' + strike + '"><button type="button" class="fresh-price-open text-left hover:underline" data-fresh-order-item-id="' + fi.id + '" data-product-name="' + escapeHtml(fi.product_name_snapshot) + '" data-unit-price="' + Number(fi.unit_price_snapshot).toFixed(2) + '">' + escapeHtml(fi.product_name_snapshot) + '</button> <span class="px-1.5 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700">신선</span></td>' +
+            html += '<tr class="border-t border-gray-200 fresh-price-row" data-fresh-order-item-id="' + fi.id + '" data-product-name="' + escapeHtml(fi.product_name_snapshot) + '" data-unit-price="' + Number(fi.unit_price_snapshot).toFixed(2) + '" style="cursor:pointer;">' +
+                '<td class="px-2 py-1" style="' + strike + '">' + escapeHtml(fi.product_name_snapshot) + ' <span class="px-1.5 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700">신선</span></td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">' + Number(fi.unit_price_snapshot).toFixed(2) + '</td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">-</td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">' + qtyCell + '</td>' +
@@ -626,11 +626,11 @@ function renderItems(order, items, freshItems) {
 }
 
 document.getElementById('modal-items').addEventListener('click', function (e) {
-    const freshPriceBtn = e.target.closest('.fresh-price-open');
-    if (freshPriceBtn) {
-        document.getElementById('fresh-price-modal-product').textContent = freshPriceBtn.dataset.productName;
-        document.getElementById('fresh-price-modal-input').value = freshPriceBtn.dataset.unitPrice;
-        document.getElementById('fresh-price-modal-save').dataset.freshOrderItemId = freshPriceBtn.dataset.freshOrderItemId;
+    const freshPriceRow = e.target.closest('.fresh-price-row');
+    if (freshPriceRow && !e.target.closest('button')) {
+        document.getElementById('fresh-price-modal-product').textContent = freshPriceRow.dataset.productName;
+        document.getElementById('fresh-price-modal-input').value = freshPriceRow.dataset.unitPrice;
+        document.getElementById('fresh-price-modal-save').dataset.freshOrderItemId = freshPriceRow.dataset.freshOrderItemId;
         document.getElementById('fresh-price-modal-backdrop').style.display = 'flex';
         document.getElementById('fresh-price-modal-input').focus();
         return;
