@@ -227,6 +227,11 @@ setTimeout(function () {
     if (typeof window.mallPlayDeliveryCompletionAlert === 'function') window.mallPlayDeliveryCompletionAlert();
 }, 500);
 <?php endif; ?>
+<?php if ($order['status'] === 'delivering' && isset($_GET['start_alert'])): ?>
+setTimeout(function () {
+    if (typeof window.mallPlayDeliveryStartAlert === 'function') window.mallPlayDeliveryStartAlert();
+}, 500);
+<?php endif; ?>
 </script>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

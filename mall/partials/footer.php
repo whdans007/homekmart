@@ -242,6 +242,24 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
         } catch (e) { /* 음성 기능 미지원 시 푸시 알림은 그대로 표시 */ }
     }
     window.mallPlayDeliveryCompletionAlert = mallPlayDeliveryCompletionAlert;
+    // 배송시작 알림 음성
+    function mallPlayDeliveryStartAlert() {
+        try {
+            var recorded = window.__mallStartAudio || (window.__mallStartAudio = new Audio('/mall/assets/delivery_started.wav?v=1'));
+            recorded.currentTime = 0;
+            var playback = recorded.play();
+            if (playback && playback.catch) playback.catch(function () {});
+        } catch (e) {}
+        try {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                var utterance = new SpeechSynthesisUtterance('배송이 시작되었습니다.');
+                utterance.lang = 'ko-KR'; utterance.rate = 0.95;
+                window.speechSynthesis.speak(utterance);
+            }
+        } catch (e) { /* 음성 기능 미지원 시 푸시 알림은 그대로 표시 */ }
+    }
+    window.mallPlayDeliveryStartAlert = mallPlayDeliveryStartAlert;
     mallClearDeliveredPushNotifications();
     var PushApp = window.Capacitor.Plugins && window.Capacitor.Plugins.App;
     if (PushApp) {
@@ -296,6 +314,7 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
             mallToast(message, '/mall/order_detail.php?id=' + encodeURIComponent(orderId), '주문 보기');
             if (notification.body === '배달이 도착했습니다.' || notification.body === '배달도착') mallPlayDeliveryArrivalAlert();
             if (notification.body === '배송이 완료되었습니다. 이용해 주셔서 감사합니다.') mallPlayDeliveryCompletionAlert();
+            if (notification.body === '배달시작') mallPlayDeliveryStartAlert();
         }
         if (orderId && window.ORDER_ID && Number(orderId) === Number(window.ORDER_ID)
             && typeof window.mallOrderChatRefresh === 'function') {
@@ -312,7 +331,8 @@ document.querySelectorAll('[data-deal-timer-value]').forEach(function (el) {
             var isDelivery = action.notification.data.type === 'delivery_status';
             var arrival = isDelivery && (action.notification.body === '배달이 도착했습니다.' || action.notification.body === '배달도착');
             var completion = isDelivery && action.notification.body === '배송이 완료되었습니다. 이용해 주셔서 감사합니다.';
-            var alertQuery = arrival ? '&arrival_alert=1' : (completion ? '&completion_alert=1' : '');
+            var started = isDelivery && action.notification.body === '배달시작';
+            var alertQuery = arrival ? '&arrival_alert=1' : (completion ? '&completion_alert=1' : (started ? '&start_alert=1' : ''));
             window.location.href = (isDelivery ? '/mall/order_detail.php?id=' : '/mall/order_chat.php?order_id=') + encodeURIComponent(orderId) + alertQuery;
         }
     });
