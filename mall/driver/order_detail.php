@@ -71,7 +71,7 @@ $csrf_token = mall_csrf_token();
     <link rel="stylesheet" href="/mall/css/wanted-tokens.css">
     <link rel="stylesheet" href="/mall/css/mall.css">
     <style>
-        .driver-header { display: flex; align-items: center; gap: 10px; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--line-alternative); }
+        .driver-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--line-alternative); }
         .section-card { margin: var(--space-4) var(--space-5) 0; padding: var(--space-4); border: 1px solid var(--line-alternative); border-radius: var(--radius-lg); }
         .section-card h2 { font: var(--t-label1) var(--font-sans); margin: 0 0 8px; }
         .item-row { display: flex; justify-content: space-between; font: var(--t-label2) var(--font-sans); padding: 4px 0; }
@@ -89,8 +89,14 @@ $csrf_token = mall_csrf_token();
 </head>
 <body>
     <div class="driver-header">
-        <a href="/mall/driver/index.php" style="color:var(--label-normal);"><i class="fas fa-arrow-left"></i></a>
-        <span style="font:700 1rem var(--font-sans);"><?php echo htmlspecialchars($order['order_number']); ?></span>
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            <a href="/mall/driver/index.php" style="color:var(--label-normal);"><i class="fas fa-arrow-left"></i></a>
+            <span style="font:700 1rem var(--font-sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?php echo htmlspecialchars($order['order_number']); ?></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;white-space:nowrap;">
+            <span style="font:var(--t-caption1) var(--font-sans);color:var(--label-alternative);"><?php echo htmlspecialchars($driver['name']); ?>님</span>
+            <a href="/mall/driver/logout.php" style="font:var(--t-caption1) var(--font-sans);color:var(--label-alternative);">로그아웃</a>
+        </div>
     </div>
 
     <div id="action-result"></div>
