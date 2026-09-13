@@ -289,7 +289,7 @@ function closeOrderModal() {
 function openPrintModal(orderId, type) {
     const src = type === 'receipt' ? 'order_receipt.php?id=' : 'order_print.php?id=';
     document.getElementById('print-modal-title').textContent = type === 'receipt' ? '<?php echo addslashes(t('mall_admin.receipt.title')); ?>' : '<?php echo addslashes(t('mall_admin.picking_slip.title')); ?>';
-    document.getElementById('print-modal-iframe').src = src + encodeURIComponent(orderId);
+    document.getElementById('print-modal-iframe').src = src + encodeURIComponent(orderId) + '&v=' + Date.now();
     document.getElementById('print-modal-backdrop').style.display = 'flex';
 }
 

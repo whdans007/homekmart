@@ -102,8 +102,10 @@ $picking_title_address = trim($picking_title_address !== '' ? $picking_title_add
         th { background: #f3f4f6; padding: 6px 8px; text-align: center; }
         td.num { text-align: right; }
         td.barcode-cell { text-align: center; }
+        tbody tr { height: 40px; }
+        tbody td { height: 40px; padding-top: 0; padding-bottom: 0; }
         th.qty, td.qty { background: #fde2e7; font-weight: 700; font-size: 15.5px; text-align: center; }
-        .thumb { display: block; width: 38px; height: 38px; object-fit: cover; border: 1px solid #ddd; }
+        .thumb { display: block; width: 38px; height: 38px; object-fit: cover; border: 1px solid #ddd; margin: 0; }
         .names { font-weight: 700; line-height: 1.15; }
         .totals { margin-top: 1rem; width: 260px; margin-left: auto; font-size: 0.85rem; }
         .totals div { display: flex; justify-content: space-between; padding: 3px 0; }
