@@ -42,6 +42,7 @@ $items_stmt->execute();
 $items = $items_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $items_stmt->close();
 $conn->close();
+$fresh_items = mall_fresh_order_items_get_by_order($order_id);
 
 // 주문 확정 시점에 mall_orders에 저장해둔 배송지 스냅샷을 사용한다(이후 회원이 기본 배송지를
 // 바꿔도 과거 주문 표시는 영향받지 않는다). 스냅샷 도입 이전 주문은 ship_recipient_name이 NULL이다.
@@ -124,6 +125,9 @@ $csrf_token = mall_csrf_token();
         <h2>상품 목록</h2>
         <?php foreach ($items as $it): ?>
             <div class="item-row"><span><?php echo htmlspecialchars($it['product_name_snapshot']); ?></span><span>× <?php echo (int)$it['quantity']; ?></span></div>
+        <?php endforeach; ?>
+        <?php foreach ($fresh_items as $it): ?>
+            <div class="item-row"><span><span class="badge badge-green">신선</span> <?php echo htmlspecialchars($it['product_name_snapshot']); ?></span><span>× <?php echo (int)$it['quantity']; ?></span></div>
         <?php endforeach; ?>
         <?php if ((float)$order['shipping_fee'] > 0): ?>
             <div class="item-row" style="border-top:1px solid var(--line-normal);margin-top:6px;padding-top:6px;color:var(--label-alternative);">
