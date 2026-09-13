@@ -292,16 +292,19 @@ function mall_push_notify_order_message($order_id, $sender_type, $message) {
         $tokens = $token_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $token_stmt->close();
         if (empty($tokens)) {
+            error_log('mall_customer_push order=' . (int)$order_id . ' result=no_active_device_tokens');
             return;
         }
 
         $access_token = mall_fcm_get_access_token();
         if ($access_token === null) {
+            error_log('mall_customer_push order=' . (int)$order_id . ' result=oauth_unavailable');
             return;
         }
 
         $service_account = mall_fcm_load_service_account();
         if ($service_account === null) {
+            error_log('mall_customer_push order=' . (int)$order_id . ' result=credentials_unavailable');
             return;
         }
         $is_delivery_status = $sender_type === 'driver' && in_array(trim($message), ['배송시작', '배달도착', '배송이 완료되었습니다. 이용해 주셔서 감사합니다.'], true);
@@ -325,6 +328,7 @@ function mall_push_notify_order_message($order_id, $sender_type, $message) {
                 $deactivate_stmt->bind_param('i', $token_id);
                 $deactivate_stmt->execute();
             }
+            error_log('mall_customer_push order=' . (int)$order_id . ' device_id=' . (int)$row['id'] . ' result=' . ($result['ok'] ? 'fcm_accepted' : 'send_failed'));
         }
         $deactivate_stmt->close();
     } catch (Throwable $e) {

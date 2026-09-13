@@ -11,6 +11,17 @@ require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/fresh_order.php';
 require_once __DIR__ . '/push.php';
+require_once __DIR__ . '/order_chat.php';
+
+// Save the progress message in the same transaction as the delivery status.
+function mall_delivery_save_progress_message($conn, $order_id, $driver_id, $message) {
+    $stmt = $conn->prepare("INSERT INTO mall_order_messages
+        (order_id, sender_type, sender_driver_id, message, is_read_by_member, is_read_by_admin, is_read_by_driver)
+        VALUES (?, 'driver', ?, ?, 0, 0, 1)");
+    $stmt->bind_param('iis', $order_id, $driver_id, $message);
+    $stmt->execute();
+    $stmt->close();
+}
 
 /**
  * 주문의 현재(종료되지 않은) 배정 행을 조회합니다.
@@ -228,9 +239,14 @@ function mall_delivery_start($driver_id, $order_id) {
     $conn = mall_get_db_connection();
     $conn->begin_transaction();
     try {
-        $update = $conn->prepare("UPDATE mall_order_driver_assignments SET status = 'delivering', delivering_at = NOW() WHERE id = ?");
+        $update = $conn->prepare("UPDATE mall_order_driver_assignments SET status = 'delivering', delivering_at = NOW() WHERE id = ? AND status = 'assigned'");
         $update->bind_param('i', $check['assignment']['id']);
         $update->execute();
+        if ($update->affected_rows !== 1) {
+            $update->close();
+            $conn->rollback();
+            return ['success' => false, 'error' => 'INVALID_STATE_TRANSITION'];
+        }
         $update->close();
 
         $order_update = $conn->prepare("UPDATE mall_orders SET status = 'delivering' WHERE id = ?");
@@ -238,7 +254,9 @@ function mall_delivery_start($driver_id, $order_id) {
         $order_update->execute();
         $order_update->close();
 
+        mall_delivery_save_progress_message($conn, $order_id, $driver_id, '배송시작');
         $conn->commit();
+        mall_order_chat_reopen($order_id);
         mall_push_notify_order_message($order_id, 'driver', '배송시작');
         return ['success' => true];
     } catch (Exception $e) {
@@ -298,9 +316,14 @@ function mall_delivery_mark_arrived($driver_id, $order_id) {
     $conn = mall_get_db_connection();
     $conn->begin_transaction();
     try {
-        $update = $conn->prepare("UPDATE mall_order_driver_assignments SET status = 'arrived', arrived_at = NOW() WHERE id = ?");
+        $update = $conn->prepare("UPDATE mall_order_driver_assignments SET status = 'arrived', arrived_at = NOW() WHERE id = ? AND status = 'delivering'");
         $update->bind_param('i', $check['assignment']['id']);
         $update->execute();
+        if ($update->affected_rows !== 1) {
+            $update->close();
+            $conn->rollback();
+            return ['success' => false, 'error' => 'INVALID_STATE_TRANSITION'];
+        }
         $update->close();
 
         $order_update = $conn->prepare("UPDATE mall_orders SET status = 'arrived' WHERE id = ?");
@@ -308,7 +331,9 @@ function mall_delivery_mark_arrived($driver_id, $order_id) {
         $order_update->execute();
         $order_update->close();
 
+        mall_delivery_save_progress_message($conn, $order_id, $driver_id, '배달도착');
         $conn->commit();
+        mall_order_chat_reopen($order_id);
         mall_push_notify_order_message($order_id, 'driver', '배달도착');
         return ['success' => true];
     } catch (Exception $e) {
@@ -333,9 +358,14 @@ function mall_delivery_complete($driver_id, $order_id) {
     $conn = mall_get_db_connection();
     $conn->begin_transaction();
     try {
-        $update = $conn->prepare("UPDATE mall_order_driver_assignments SET status = 'completed', completed_at = NOW() WHERE id = ?");
+        $update = $conn->prepare("UPDATE mall_order_driver_assignments SET status = 'completed', completed_at = NOW() WHERE id = ? AND status = 'arrived'");
         $update->bind_param('i', $check['assignment']['id']);
         $update->execute();
+        if ($update->affected_rows !== 1) {
+            $update->close();
+            $conn->rollback();
+            return ['success' => false, 'error' => 'INVALID_STATE_TRANSITION'];
+        }
         $update->close();
 
         $order_update = $conn->prepare("UPDATE mall_orders SET status = 'completed' WHERE id = ?");
@@ -343,7 +373,9 @@ function mall_delivery_complete($driver_id, $order_id) {
         $order_update->execute();
         $order_update->close();
 
+        mall_delivery_save_progress_message($conn, $order_id, $driver_id, '배송이 완료되었습니다. 이용해 주셔서 감사합니다.');
         $conn->commit();
+        mall_order_chat_reopen($order_id);
         mall_push_notify_order_message($order_id, 'driver', '배송이 완료되었습니다. 이용해 주셔서 감사합니다.');
         return ['success' => true];
     } catch (Exception $e) {
