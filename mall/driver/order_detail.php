@@ -357,6 +357,7 @@ document.getElementById('chat-input').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') document.getElementById('chat-send-btn').click();
 });
 </script>
+<?php $active_driver_nav = 'list'; require __DIR__ . '/partials/nav.php'; ?>
 <?php driver_i18n_ui(); ?>
 </body>
 </html>
