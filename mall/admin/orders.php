@@ -560,16 +560,17 @@ function renderCustomer(order) {
 function renderItems(order, items, freshItems) {
     freshItems = freshItems || [];
     let html = '<table class="min-w-full text-xs"><thead><tr class="text-gray-500">' +
-        '<th class="px-2 py-1 text-left"><?php echo addslashes(t('mall_admin.picking_slip.product')); ?></th><th class="px-2 py-1 text-right"><?php echo addslashes(t('mall_admin.receipt.unit_price')); ?></th>' +
+        '<th class="px-2 py-1 text-center">구분</th><th class="px-2 py-1 text-left"><?php echo addslashes(t('mall_admin.picking_slip.product')); ?></th><th class="px-2 py-1 text-right"><?php echo addslashes(t('mall_admin.receipt.unit_price')); ?></th>' +
         '<th class="px-2 py-1 text-right"><?php echo addslashes(t('mall_admin.discount_rules.discount_rate')); ?></th><th class="px-2 py-1 text-right"><?php echo addslashes(t('common.quantity')); ?></th>' +
         '<th class="px-2 py-1 text-right"><?php echo addslashes(t('mall_admin.receipt.amount')); ?></th><th class="px-2 py-1 text-center"><?php echo addslashes(t('mall_admin.orders.stock')); ?></th></tr></thead><tbody>';
     if (!items.length && !freshItems.length) {
-        html += '<tr><td colspan="6" class="px-2 py-3 text-center text-gray-400"><?php echo addslashes(t('mall_admin.orders.no_items')); ?></td></tr>';
+        html += '<tr><td colspan="7" class="px-2 py-3 text-center text-gray-400"><?php echo addslashes(t('mall_admin.orders.no_items')); ?></td></tr>';
     } else {
         items.forEach(function (it) {
             const soldOut = Number(it.is_sold_out) === 1;
             const strike = soldOut ? 'text-decoration:line-through;color:#9ca3af;' : '';
             html += '<tr class="border-t border-gray-200">' +
+                '<td class="px-2 py-1 text-center">-</td>' +
                 '<td class="px-2 py-1" style="' + strike + '">' + escapeHtml(it.product_name_snapshot) + '</td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">' + Number(it.unit_price_snapshot).toFixed(2) + '</td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">' + Number(it.discount_rate_snapshot).toFixed(2) + '%</td>' +
@@ -606,7 +607,8 @@ function renderItems(order, items, freshItems) {
                     '<button type="button" class="mark-fresh-sold-out-btn px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-red-100 font-semibold ml-1" data-fresh-order-item-id="' + fi.id + '" data-sold-out="1">품절 처리</button>';
             }
             html += '<tr class="border-t border-gray-200 fresh-price-row" data-fresh-order-item-id="' + fi.id + '" data-product-name="' + escapeHtml(fi.product_name_snapshot) + '" data-unit-price="' + Number(fi.unit_price_snapshot).toFixed(2) + '" style="cursor:pointer;">' +
-                '<td class="px-2 py-1" style="' + strike + '"><div>' + escapeHtml(fi.product_name_snapshot) + '</div>' + (fi.product_name_en ? '<div class="text-gray-500 text-[11px]">' + escapeHtml(fi.product_name_en) + '</div>' : '') + ' <span class="px-1.5 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700">신선</span></td>' +
+                '<td class="px-2 py-1 text-center"><span class="px-1.5 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700">신선</span></td>' +
+                '<td class="px-2 py-1" style="' + strike + '"><div>' + escapeHtml(fi.product_name_snapshot) + '</div>' + (fi.product_name_en ? '<div class="text-gray-500 text-[11px]">' + escapeHtml(fi.product_name_en) + '</div>' : '') + '</td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">' + Number(fi.unit_price_snapshot).toFixed(2) + '</td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">-</td>' +
                 '<td class="px-2 py-1 text-right" style="' + strike + '">' + qtyCell + '</td>' +
