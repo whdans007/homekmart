@@ -386,17 +386,12 @@ function renderActionArea(order, activeDrivers, defaultPrepMinutes, freshItems) 
 
     if (order.status === 'pending') {
         area.innerHTML =
-            '<button type="button" id="act-confirm-btn" class="px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-md hover:bg-green-700"><?php echo addslashes(t('mall_admin.orders.confirm_order')); ?></button>' +
-            cancelBtnHtml +
-            '<div id="act-confirm-form" class="flex items-center gap-1 mt-2" hidden>' +
+            '<div id="act-confirm-form" class="flex items-center gap-1 flex-wrap">' +
                 '<input type="number" id="act-prep-minutes" class="border border-gray-300 rounded px-1 py-0.5 w-20 text-xs" min="0" step="1" value="' + defaultPrepMinutes + '">' +
                 '<span class="text-xs text-gray-500"><?php echo addslashes(t('mall_admin.orders.minutes_unit')); ?></span>' +
-                '<button type="button" id="act-confirm-submit" class="px-2 py-1 text-xs font-semibold bg-green-600 text-white rounded-md hover:bg-green-700"><?php echo addslashes(t('common.confirm')); ?></button>' +
+                '<button type="button" id="act-confirm-submit" class="px-2 py-1 text-xs font-semibold bg-green-600 text-white rounded-md hover:bg-green-700"><?php echo addslashes(t('mall_admin.orders.confirm_order')); ?></button>' +
+                cancelBtnHtml +
             '</div>';
-        document.getElementById('act-confirm-btn').addEventListener('click', function () {
-            document.getElementById('act-confirm-btn').hidden = true;
-            document.getElementById('act-confirm-form').hidden = false;
-        });
         document.getElementById('act-confirm-submit').addEventListener('click', function () {
             const btn = this;
             btn.disabled = true;
@@ -669,13 +664,14 @@ document.getElementById('modal-items').addEventListener('click', function (e) {
 document.getElementById('modal-action-area').addEventListener('click', function (e) {
     const btn = e.target.closest('.act-cancel-order-btn');
     if (!btn || !MALL_CURRENT_ORDER_ID) return;
+    const orderId = MALL_CURRENT_ORDER_ID;
     const reason = prompt('<?php echo addslashes(t('mall_admin.orders.cancel_reason_prompt')); ?>');
     if (reason === null) return;
     const trimmed = reason.trim();
     if (!trimmed) { showFlash('<?php echo addslashes(t('mall_admin.orders.cancel_reason_required')); ?>', 'error'); return; }
     btn.disabled = true;
     const params = new URLSearchParams();
-    params.set('order_id', MALL_CURRENT_ORDER_ID);
+    params.set('order_id', orderId);
     params.set('reason', trimmed);
     params.set('csrf_token', window.MALL_CSRF_TOKEN);
     fetch('ajax/cancel_order.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
@@ -689,6 +685,10 @@ document.getElementById('modal-action-area').addEventListener('click', function 
                 btn.disabled = false;
                 showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.order_chat.process_failed')); ?>', 'error');
             }
+        })
+        .catch(function () {
+            btn.disabled = false;
+            showFlash('<?php echo addslashes(t('mall_admin.order_chat.process_failed')); ?>', 'error');
         });
 });
 
