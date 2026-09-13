@@ -580,14 +580,12 @@ function renderItems(order, items, freshItems) {
             }
             let actionCell;
             if (soldOut) {
-                actionCell = '<span class="px-2 py-1 rounded-md bg-red-100 text-red-700 font-semibold">품절됨</span>';
-            } else if (!isWeight) {
-                actionCell = '<span class="text-gray-400">-</span>';
-            } else if (confirmed) {
-                actionCell = '<span class="px-2 py-1 rounded-md bg-green-100 text-green-700 font-semibold">실측완료</span>';
+                actionCell = '<span class="px-2 py-1 rounded-md bg-red-100 text-red-700 font-semibold mr-1">품절됨</span>' +
+                    '<button type="button" class="mark-fresh-sold-out-btn px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-blue-100 font-semibold" data-fresh-order-item-id="' + fi.id + '" data-sold-out="0">품절 해제</button>';
             } else {
-                actionCell = '<input type="number" min="1" class="confirm-fresh-weight-input border border-gray-300 rounded px-1.5 py-1 w-16 text-right" placeholder="g" style="display:inline-block;">' +
-                    '<button type="button" class="confirm-fresh-weight-btn px-2 py-1 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 font-semibold ml-1" data-mall-fresh-order-item-id="' + fi.id + '">확정</button>';
+                actionCell = '<input type="number" min="0" step="0.01" value="' + Number(fi.unit_price_snapshot).toFixed(2) + '" class="fresh-order-price-input border border-gray-300 rounded px-1.5 py-1 w-20 text-right" data-fresh-order-item-id="' + fi.id + '">' +
+                    '<button type="button" class="save-fresh-order-price-btn px-2 py-1 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 font-semibold ml-1" data-fresh-order-item-id="' + fi.id + '">가격 저장</button>' +
+                    '<button type="button" class="mark-fresh-sold-out-btn px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-red-100 font-semibold ml-1" data-fresh-order-item-id="' + fi.id + '" data-sold-out="1">품절 처리</button>';
             }
             html += '<tr class="border-t border-gray-200">' +
                 '<td class="px-2 py-1" style="' + strike + '">' + escapeHtml(fi.product_name_snapshot) + ' <span class="px-1.5 py-0.5 rounded text-xs bg-emerald-100 text-emerald-700">신선</span></td>' +
@@ -610,6 +608,30 @@ function renderItems(order, items, freshItems) {
 }
 
 document.getElementById('modal-items').addEventListener('click', function (e) {
+    const freshPriceBtn = e.target.closest('.save-fresh-order-price-btn');
+    if (freshPriceBtn) {
+        const input = document.querySelector('.fresh-order-price-input[data-fresh-order-item-id="' + freshPriceBtn.dataset.freshOrderItemId + '"]');
+        const params = new URLSearchParams({ mall_fresh_order_item_id: freshPriceBtn.dataset.freshOrderItemId, unit_price: input.value, csrf_token: window.MALL_CSRF_TOKEN });
+        freshPriceBtn.disabled = true;
+        fetch('ajax/update_fresh_order_item_price.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() }).then(r => r.json()).then(data => {
+            freshPriceBtn.disabled = false;
+            if (!data.success) { showFlash(data.error?.message || '가격 변경에 실패했습니다.', 'error'); return; }
+            showFlash('신선상품 가격을 변경했습니다.', 'success'); loadOrderDetail(data.data.order_id);
+        }).catch(() => { freshPriceBtn.disabled = false; showFlash('가격 변경에 실패했습니다.', 'error'); });
+        return;
+    }
+    const freshSoldBtn = e.target.closest('.mark-fresh-sold-out-btn');
+    if (freshSoldBtn) {
+        const soldOut = freshSoldBtn.dataset.soldOut === '1';
+        if (!confirm(soldOut ? '이 신선상품을 품절 처리하시겠습니까?' : '품절 처리를 해제하시겠습니까?')) return;
+        const params = new URLSearchParams({ mall_fresh_order_item_id: freshSoldBtn.dataset.freshOrderItemId, sold_out: soldOut ? '1' : '0', csrf_token: window.MALL_CSRF_TOKEN });
+        freshSoldBtn.disabled = true;
+        fetch('ajax/mark_fresh_sold_out.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() }).then(r => r.json()).then(data => {
+            if (!data.success) { freshSoldBtn.disabled = false; showFlash(data.error?.message || '품절 처리에 실패했습니다.', 'error'); return; }
+            showFlash(soldOut ? '신선상품을 품절 처리했습니다.' : '품절 처리를 해제했습니다.', 'success'); loadOrderDetail(data.data.order_id);
+        }).catch(() => { freshSoldBtn.disabled = false; showFlash('품절 처리에 실패했습니다.', 'error'); });
+        return;
+    }
     const btn = e.target.closest('.mark-sold-out-btn');
     if (!btn) return;
     const soldOut = btn.dataset.soldOut === '1';
