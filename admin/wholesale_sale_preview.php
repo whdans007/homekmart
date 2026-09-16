@@ -968,7 +968,8 @@ if (isset($_SESSION['flash'])) {
 }
 </style>
 
-<script src="../public/js/lib/html2pdf.bundle.min.js"></script>
+<script id="html2pdf-script" src="../public/js/lib/html2pdf.bundle.min.js"
+        onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.3/html2pdf.bundle.min.js';"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const printBtn = document.getElementById('print-btn');
@@ -977,6 +978,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const cancelDelete = document.getElementById('cancel-delete');
     const confirmDelete = document.getElementById('confirm-delete');
     const deleteForm = document.getElementById('delete-form');
+
+    function loadHtml2Pdf() {
+        if (typeof window.html2pdf === 'function') return Promise.resolve(window.html2pdf);
+        return new Promise(function(resolve, reject) {
+            const script = document.getElementById('html2pdf-script');
+            if (!script) return reject(new Error('PDF library script is missing'));
+            const finish = function() {
+                if (typeof window.html2pdf === 'function') resolve(window.html2pdf);
+                else reject(new Error('PDF library did not initialize'));
+            };
+            script.addEventListener('load', finish, { once: true });
+            script.addEventListener('error', function() { reject(new Error('PDF library failed to load')); }, { once: true });
+            // Handles a script that already failed before this handler was attached.
+            setTimeout(finish, 0);
+        });
+    }
     
     // 인쇄 미리보기와 PDF가 동일한 명세서 내용을 사용한다.
     function renderPrintContent() {
@@ -1144,14 +1161,17 @@ document.addEventListener('DOMContentLoaded', function() {
         pdfBtn.addEventListener('click', async function() {
             const content = renderPrintContent();
             if (!content) return;
-            if (typeof html2pdf !== 'function') {
+            let pdfFactory;
+            try {
+                pdfFactory = await loadHtml2Pdf();
+            } catch (error) {
                 alert(<?php echo json_encode(t('wholesale_sale_preview.pdf_load_error'), JSON_UNESCAPED_UNICODE); ?>);
                 return;
             }
 
             pdfBtn.disabled = true;
             try {
-                await html2pdf().set({
+                await pdfFactory().set({
                     margin: 8,
                     filename: 'wholesale-sale-<?php echo (int)$sale_id; ?>.pdf',
                     image: { type: 'jpeg', quality: 0.98 },
