@@ -811,6 +811,9 @@ if (isset($_SESSION['flash'])) {
         <div class="sticky top-0 z-10 bg-white rounded-t-lg mx-auto px-4 py-3 flex items-center justify-between border-b" style="max-width: 810px;">
             <h3 class="text-lg font-semibold text-gray-900"><?php echo t('wholesale_sale_preview.print_preview_title'); ?></h3>
             <div class="flex items-center gap-3">
+                <button type="button" id="modal-pdf-btn" class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-file-pdf mr-2"></i><?php echo t('wholesale_sale_preview.pdf_download_btn'); ?>
+                </button>
                 <button id="modal-print-btn" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">
                     <i class="fas fa-print mr-2"></i><?php echo t('wholesale_sale_preview.print_btn'); ?>
                 </button>
@@ -963,6 +966,7 @@ if (isset($_SESSION['flash'])) {
 }
 </style>
 
+<script src="../public/js/lib/html2pdf.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const printBtn = document.getElementById('print-btn');
@@ -1135,6 +1139,35 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 인쇄 미리보기 모달 - 인쇄 버튼
+    const modalPdfBtn = document.getElementById('modal-pdf-btn');
+    if (modalPdfBtn) {
+        modalPdfBtn.addEventListener('click', async function() {
+            const content = document.getElementById('print-preview-content');
+            if (!content || !content.firstElementChild) return;
+            if (typeof html2pdf !== 'function') {
+                alert(<?php echo json_encode(t('wholesale_sale_preview.pdf_load_error'), JSON_UNESCAPED_UNICODE); ?>);
+                return;
+            }
+
+            modalPdfBtn.disabled = true;
+            try {
+                await html2pdf().set({
+                    margin: 8,
+                    filename: 'wholesale-sale-<?php echo (int)$sale_id; ?>.pdf',
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                    pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', '.invoice-logo'] }
+                }).from(content).save();
+            } catch (error) {
+                console.error('PDF download failed:', error);
+                alert(<?php echo json_encode(t('wholesale_sale_preview.pdf_save_error'), JSON_UNESCAPED_UNICODE); ?>);
+            } finally {
+                modalPdfBtn.disabled = false;
+            }
+        });
+    }
+
     const modalPrintBtn = document.getElementById('modal-print-btn');
     if (modalPrintBtn) {
         modalPrintBtn.addEventListener('click', function() {
