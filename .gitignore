@@ -20,6 +20,13 @@ uploads/
 Thumbs.db
 *.tmp
 
+# DB 백업 덤프 (.htaccess는 접근 차단용이라 예외로 추적 유지)
+backups/*
+!backups/.htaccess
+
+# 원격 개발 서버(VSCode Remote-SSH) 바이너리 — 환경별 캐시, git 추적 불필요
+.vscode-server/
+
 # 루트 참고용 스크린샷 (git 추적 제외)
 /지출 엑셀 서식.png
 /일일보고.png
