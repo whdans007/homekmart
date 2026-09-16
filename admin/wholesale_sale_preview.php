@@ -458,6 +458,9 @@ if (isset($_SESSION['flash'])) {
                         <a href="wholesale_sales.php?edit=<?php echo $sale_id; ?>" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
                             <i class="fas fa-edit mr-1.5"></i><?php echo t('common.edit'); ?>
                         </a>
+                        <button type="button" id="pdf-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-file-pdf mr-1.5"></i><?php echo t('wholesale_sale_preview.pdf_download_btn'); ?>
+                        </button>
                         <button id="print-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
                             <i class="fas fa-print mr-1.5"></i><?php echo t('common.print'); ?>
                         </button>
@@ -811,9 +814,6 @@ if (isset($_SESSION['flash'])) {
         <div class="sticky top-0 z-10 bg-white rounded-t-lg mx-auto px-4 py-3 flex items-center justify-between border-b" style="max-width: 810px;">
             <h3 class="text-lg font-semibold text-gray-900"><?php echo t('wholesale_sale_preview.print_preview_title'); ?></h3>
             <div class="flex items-center gap-3">
-                <button type="button" id="modal-pdf-btn" class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <i class="fas fa-file-pdf mr-2"></i><?php echo t('wholesale_sale_preview.pdf_download_btn'); ?>
-                </button>
                 <button id="modal-print-btn" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">
                     <i class="fas fa-print mr-2"></i><?php echo t('wholesale_sale_preview.print_btn'); ?>
                 </button>
@@ -847,9 +847,11 @@ if (isset($_SESSION['flash'])) {
 .print-preview-wrapper .product-table th.qty-cell,
 .print-preview-wrapper .product-table td.qty-cell { font-size: 11px !important; }
 
-/* 거래명세서 글자색 검정 통일 (화면) - 상단 버튼 포함 모두 검정 */
+/* 거래명세서 글자색 검정 통일 (PDF 버튼 제외) */
 #invoice-content,
 #invoice-content * { color: #000 !important; }
+#invoice-content #pdf-btn,
+#invoice-content #pdf-btn * { color: #fff !important; }
 
 /* 인쇄 미리보기 모달 스타일 - 폰트 9px 통일 */
 .print-preview-wrapper {
@@ -976,36 +978,34 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmDelete = document.getElementById('confirm-delete');
     const deleteForm = document.getElementById('delete-form');
     
+    // 인쇄 미리보기와 PDF가 동일한 명세서 내용을 사용한다.
+    function renderPrintContent() {
+        const invoiceContent = document.getElementById('invoice-content');
+        const printPreviewContent = document.getElementById('print-preview-content');
+        if (!invoiceContent || !printPreviewContent) return null;
+
+        const clone = invoiceContent.cloneNode(true);
+        const actionBtns = clone.querySelector('#preview-action-buttons');
+        if (actionBtns) actionBtns.remove();
+        const taxControls = clone.querySelector('.tax-controls');
+        if (taxControls) taxControls.remove();
+        const unpaidBadge = clone.querySelector('#unpaid-status-badge');
+        if (unpaidBadge) unpaidBadge.remove();
+        const titleText = clone.querySelector('#invoice-title-text');
+        if (titleText) titleText.remove();
+        clone.querySelectorAll('.cost-col').forEach(function(el) { el.remove(); });
+        printPreviewContent.innerHTML = clone.outerHTML;
+        return printPreviewContent;
+    }
+
     // 인쇄 버튼 - 모달 팝업으로 미리보기
     if (printBtn) {
         printBtn.addEventListener('click', function() {
-            const invoiceContent = document.getElementById('invoice-content');
-            if (!invoiceContent) return;
-
-            // 모달 열기
+            if (!renderPrintContent()) return;
             const printModal = document.getElementById('print-preview-modal');
-            const printPreviewContent = document.getElementById('print-preview-content');
-
-            if (printModal && printPreviewContent) {
-                // 복제본에서 액션 버튼(Edit/Print/Cancel Sale/Back to List) 제거 후 미리보기에 표시
-                const clone = invoiceContent.cloneNode(true);
-                const actionBtns = clone.querySelector('#preview-action-buttons');
-                if (actionBtns) actionBtns.remove();
-                // VAT/EWT 체크박스 컨트롤은 미리보기/인쇄에서 제외 (계산 결과 행은 유지)
-                const taxControls = clone.querySelector('.tax-controls');
-                if (taxControls) taxControls.remove();
-                // '미결제' 상태 배지는 인쇄/미리보기에서 제외 (화면에서는 계속 표시)
-                const unpaidBadge = clone.querySelector('#unpaid-status-badge');
-                if (unpaidBadge) unpaidBadge.remove();
-                // 명세서 제목(Transaction Statement)은 인쇄/미리보기에서 제외 (화면에서는 계속 표시)
-                const titleText = clone.querySelector('#invoice-title-text');
-                if (titleText) titleText.remove();
-                // 원가 열은 화면 전용 — 인쇄/미리보기에서는 제외
-                clone.querySelectorAll('.cost-col').forEach(function(el) { el.remove(); });
-                printPreviewContent.innerHTML = clone.outerHTML;
-                printModal.classList.remove('hidden');
-                document.body.style.overflow = 'hidden';
-            }
+            if (!printModal) return;
+            printModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
         });
     }
     
@@ -1138,18 +1138,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // 인쇄 미리보기 모달 - 인쇄 버튼
-    const modalPdfBtn = document.getElementById('modal-pdf-btn');
-    if (modalPdfBtn) {
-        modalPdfBtn.addEventListener('click', async function() {
-            const content = document.getElementById('print-preview-content');
-            if (!content || !content.firstElementChild) return;
+    // 거래명세서 화면에서 인쇄용 내용을 바로 PDF로 저장한다.
+    const pdfBtn = document.getElementById('pdf-btn');
+    if (pdfBtn) {
+        pdfBtn.addEventListener('click', async function() {
+            const content = renderPrintContent();
+            if (!content) return;
             if (typeof html2pdf !== 'function') {
                 alert(<?php echo json_encode(t('wholesale_sale_preview.pdf_load_error'), JSON_UNESCAPED_UNICODE); ?>);
                 return;
             }
 
-            modalPdfBtn.disabled = true;
+            pdfBtn.disabled = true;
             try {
                 await html2pdf().set({
                     margin: 8,
@@ -1163,11 +1163,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('PDF download failed:', error);
                 alert(<?php echo json_encode(t('wholesale_sale_preview.pdf_save_error'), JSON_UNESCAPED_UNICODE); ?>);
             } finally {
-                modalPdfBtn.disabled = false;
+                pdfBtn.disabled = false;
             }
         });
     }
 
+    // 인쇄 미리보기 모달 - 인쇄 버튼
     const modalPrintBtn = document.getElementById('modal-print-btn');
     if (modalPrintBtn) {
         modalPrintBtn.addEventListener('click', function() {
@@ -1319,6 +1320,7 @@ document.addEventListener('DOMContentLoaded', function() {
     nav,
     footer,
     .no-print,
+    #pdf-btn,
     #print-btn,
     #delete-btn,
     #delete-modal,
