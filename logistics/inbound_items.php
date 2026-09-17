@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Inbound Items List - Logistics Center';
+$page_title = t('logistics.inbound_items.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/inbound_helper.php';
@@ -37,8 +37,8 @@ main { overflow: hidden !important; }
 
     <!-- Page Header -->
     <div class="flex items-center justify-between shrink-0 px-4 py-2">
-        <h2 class="text-xl font-bold text-gray-900">Inbound Items List</h2>
-        <p class="text-sm text-gray-500">Total: <?php echo number_format($total); ?> items</p>
+        <h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.inbound_items.title')); ?></h2>
+        <p class="text-sm text-gray-500"><?php echo htmlspecialchars(t('logistics.inbound_items.total_items', ['count' => number_format($total)])); ?></p>
     </div>
 
     <!-- Filter Panel -->
@@ -46,7 +46,7 @@ main { overflow: hidden !important; }
         <div class="flex flex-wrap items-center gap-2">
             <input type="text" name="search"
                    value="<?php echo htmlspecialchars($filters['search']); ?>"
-                   placeholder="Search by supplier, product name, or barcode"
+                   placeholder="<?php echo htmlspecialchars(t('logistics.inbound_items.search_placeholder')); ?>"
                    class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-64">
             <input type="date" name="date_from"
                    value="<?php echo htmlspecialchars($filters['date_from']); ?>"
@@ -55,18 +55,18 @@ main { overflow: hidden !important; }
                    value="<?php echo htmlspecialchars($filters['date_to']); ?>"
                    class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             <button type="submit" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700 font-medium transition-colors">
-                <i class="fas fa-search mr-1"></i>Search
+                <i class="fas fa-search mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_items.search')); ?>
             </button>
             <a href="<?php echo LC_BASE; ?>/inbound_items.php" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200 font-medium transition-colors">
-                <i class="fas fa-redo mr-1"></i>Reset
+                <i class="fas fa-redo mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_items.reset')); ?>
             </a>
             <a href="<?php echo LC_BASE; ?>/export_inbound_items.php?<?php echo http_build_query(['search'=>$filters['search'],'date_from'=>$filters['date_from'],'date_to'=>$filters['date_to']]); ?>"
                class="px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 font-medium transition-colors">
-                <i class="fas fa-file-excel mr-1"></i>Excel Download
+                <i class="fas fa-file-excel mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_items.excel_download')); ?>
             </a>
             <button type="button" onclick="openPrintPreview()"
                class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 font-medium transition-colors">
-                <i class="fas fa-print mr-1"></i>Print
+                <i class="fas fa-print mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_items.print')); ?>
             </button>
         </div>
     </form>
@@ -81,23 +81,23 @@ main { overflow: hidden !important; }
 
     <!-- Results Table -->
     <div id="tableCard" class="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0 mx-4">
-        <div class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500 shrink-0">Total <?php echo number_format($total); ?> items</div>
+        <div class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500 shrink-0"><?php echo htmlspecialchars(t('logistics.inbound_items.total_items', ['count' => number_format($total)])); ?></div>
         <div id="tableScrollBody" class="overflow-auto flex-1 min-h-0">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 sticky top-0 z-10">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium w-12">#</th>
-                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Category</th>
-                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Brand</th>
-                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
-                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Capacity</th>
-                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Unit</th>
-                        <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">PKG</th>
-                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Unit Barcode</th>
-                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Supplier</th>
-                        <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Cost Price</th>
-                        <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Qty</th>
-                        <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Inbound Date</th>
+                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_items.category')); ?></th>
+                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_items.brand')); ?></th>
+                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_items.product_name')); ?></th>
+                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_items.capacity')); ?></th>
+                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_items.unit')); ?></th>
+                        <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_items.pkg')); ?></th>
+                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_items.unit_barcode')); ?></th>
+                        <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_items.supplier')); ?></th>
+                        <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_items.cost_price')); ?></th>
+                        <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_items.quantity')); ?></th>
+                        <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_items.inbound_date')); ?></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -153,7 +153,7 @@ main { overflow: hidden !important; }
         <div id="tablePagination" class="px-4 py-3 border-t border-gray-100 flex items-center justify-center gap-1 shrink-0">
             <?php if ($block_start > 1): ?>
             <a href="<?php echo LC_BASE; ?>/inbound_items.php?<?php echo http_build_query(array_merge($filters, ['page' => $block_start - $window])); ?>"
-               class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="Previous 10 pages">
+           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="<?php echo htmlspecialchars(t('logistics.inbound_items.previous_pages')); ?>">
                 <i class="fas fa-angle-double-left text-xs"></i>
             </a>
             <?php endif; ?>
@@ -184,7 +184,7 @@ main { overflow: hidden !important; }
 
             <?php if ($block_end < $total_pages): ?>
             <a href="<?php echo LC_BASE; ?>/inbound_items.php?<?php echo http_build_query(array_merge($filters, ['page' => $block_end + 1])); ?>"
-               class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="Next 10 pages">
+           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="<?php echo htmlspecialchars(t('logistics.inbound_items.next_pages')); ?>">
                 <i class="fas fa-angle-double-right text-xs"></i>
             </a>
             <?php endif; ?>
@@ -198,7 +198,7 @@ main { overflow: hidden !important; }
     <div class="absolute inset-0 bg-black bg-opacity-50"></div>
     <div class="relative bg-white rounded-xl shadow-xl w-full max-w-5xl mx-4 flex flex-col" style="height:90vh">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-print text-blue-600 mr-2"></i>Print Preview</h3>
+    <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-print text-blue-600 mr-2"></i><?php echo htmlspecialchars(t('logistics.inbound_items.print_preview')); ?></h3>
             <div class="flex items-center gap-2">
                 <button type="button" onclick="printPreviewFrame()"
                         class="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">

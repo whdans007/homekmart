@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Inbound Details - Logistics Center';
+$page_title = t('logistics.inbound_detail.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/inventory_helper.php';
@@ -38,9 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
         $st->bind_param('sii', $now, $uid, $batch_id);
         $st->execute();
         $conn->close();
-        lc_set_flash('success', 'The record has been locked for editing.');
+        lc_set_flash('success', t('logistics.inbound_detail.locked_success'));
     } catch (Exception $e) {
-        lc_set_flash('error', 'DB Error: ' . $e->getMessage());
+        lc_set_flash('error', t('logistics.inbound_detail.db_error') . ': ' . $e->getMessage());
     }
     header('Location: ' . LC_BASE . '/inbound_detail.php?batch_id=' . $batch_id . $return_q);
     exit;
@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_batch') {
     lc_verify_csrf();
     if (!lc_is_admin()) {
-        lc_set_flash('error', 'Access denied.');
+        lc_set_flash('error', t('logistics.inbound_detail.access_denied'));
         header('Location: ' . LC_BASE . '/inbound_detail.php?batch_id=' . $batch_id . $return_q); exit;
     }
     try {
@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 
         if ($used > 0) {
             $conn->close();
-            lc_set_flash('error', 'Cannot delete: this batch has already been used for outbound shipments.');
+            lc_set_flash('error', t('logistics.inbound_detail.delete_used'));
             header('Location: ' . LC_BASE . '/inbound_detail.php?batch_id=' . $batch_id . $return_q); exit;
         }
 
@@ -82,12 +82,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         $st = $conn->prepare("DELETE FROM lc_inbound_batches WHERE id = ?");
         $st->bind_param('i', $batch_id); $st->execute(); $st->close();
         $conn->commit(); $conn->close();
-        lc_set_flash('success', 'Inbound batch #' . $batch_id . ' deleted.');
+        lc_set_flash('success', t('logistics.inbound_detail.deleted', ['id' => $batch_id]));
         // 삭제 성공: 들어온 검색 목록(있으면)으로 복귀, 없으면 Inbound Management로.
         header('Location: ' . $back_url); exit;
     } catch (Exception $e) {
         if (isset($conn)) { $conn->rollback(); $conn->close(); }
-        lc_set_flash('error', 'DB Error: ' . $e->getMessage());
+        lc_set_flash('error', t('logistics.inbound_detail.db_error') . ': ' . $e->getMessage());
         header('Location: ' . LC_BASE . '/inbound_detail.php?batch_id=' . $batch_id . $return_q); exit;
     }
 }
@@ -103,9 +103,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'uncon
         $st->bind_param('i', $batch_id);
         $st->execute();
         $conn->close();
-        lc_set_flash('success', 'The edit lock has been released.');
+        lc_set_flash('success', t('logistics.inbound_detail.unlocked_success'));
     } catch (Exception $e) {
-        lc_set_flash('error', 'DB Error: ' . $e->getMessage());
+        lc_set_flash('error', t('logistics.inbound_detail.db_error') . ': ' . $e->getMessage());
     }
     header('Location: ' . LC_BASE . '/inbound_detail.php?batch_id=' . $batch_id . $return_q);
     exit;
@@ -128,7 +128,7 @@ try {
 
     if (!$batch) {
         $conn->close();
-        lc_set_flash('error', 'Inbound record not found.');
+        lc_set_flash('error', t('logistics.inbound_detail.not_found'));
         header('Location: ' . $back_url); exit;
     }
 
@@ -153,29 +153,29 @@ try {
 
     $conn->close();
 } catch (Exception $e) {
-    lc_set_flash('error', 'DB Error:' . $e->getMessage());
+    lc_set_flash('error', t('logistics.inbound_detail.db_error') . ':' . $e->getMessage());
     header('Location: ' . LC_BASE . '/inbound.php'); exit;
 }
 $locked = (bool)$batch['is_confirmed'];
 ?>
 <div class="flex items-center gap-3 mb-6 flex-wrap">
     <a id="backLink" href="<?php echo htmlspecialchars($back_url); ?>" class="text-gray-400 hover:text-gray-600"><i class="fas fa-arrow-left"></i></a>
-    <h2 class="text-xl font-bold text-gray-900">Inbound Details</h2>
+<h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.inbound_detail.title')); ?></h2>
     <?php if (lc_is_admin()): ?>
     <form method="post" class="inline ml-auto">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="delete_batch">
         <input type="hidden" name="return" value="<?php echo htmlspecialchars($return_url); ?>">
         <button type="submit"
-                onclick="return confirm('Permanently delete inbound batch #<?php echo $batch_id; ?>?\nIt cannot be deleted if any of its stock has already been shipped out.')"
+ onclick="return confirm(<?php echo json_encode(t('logistics.inbound_detail.delete_confirm', ['id' => $batch_id])); ?>)"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold rounded-lg transition-colors">
-            <i class="fas fa-trash"></i> Delete Batch
+<i class="fas fa-trash"></i> <?php echo htmlspecialchars(t('logistics.inbound_detail.delete_batch')); ?>
         </button>
     </form>
     <?php endif; ?>
     <?php if ($batch['is_confirmed']): ?>
     <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full">
-        <i class="fas fa-lock"></i> Locked
+<i class="fas fa-lock"></i> <?php echo htmlspecialchars(t('logistics.inbound_detail.locked')); ?>
         <?php if (!empty($batch['confirmed_at'])): ?>
         <span class="font-normal opacity-70">· <?php echo $batch['confirmed_at']; ?></span>
         <?php endif; ?>
@@ -186,18 +186,18 @@ $locked = (bool)$batch['is_confirmed'];
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="unconfirm">
-        <button type="submit" onclick="return confirm('Are you sure you want to unlock this record for editing?')"
+<button type="submit" onclick="return confirm(<?php echo json_encode(t('logistics.inbound_detail.unlock_confirm')); ?>)"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-teal-50 text-gray-500 hover:text-teal-600 border border-gray-200 hover:border-teal-200 text-xs font-semibold rounded-lg transition-colors">
-            <i class="fas fa-unlock"></i> Unlock
+<i class="fas fa-unlock"></i> <?php echo htmlspecialchars(t('logistics.inbound_detail.unlock')); ?>
         </button>
     </form>
     <?php else: ?>
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="confirm">
-        <button type="submit" onclick="return confirm('Lock this inbound record for editing?\nOnce locked, items, locations, suppliers, and quantities cannot be modified.')"
+<button type="submit" onclick="return confirm(<?php echo json_encode(t('logistics.inbound_detail.lock_confirm')); ?>)"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-lg transition-colors">
-            <i class="fas fa-lock"></i> Lock
+<i class="fas fa-lock"></i> <?php echo htmlspecialchars(t('logistics.inbound_detail.lock')); ?>
         </button>
     </form>
     <?php endif; ?>
@@ -224,15 +224,15 @@ $locked = (bool)$batch['is_confirmed'];
 <div class="bg-white rounded-lg border border-gray-200 p-5 mb-5">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
         <div>
-            <p class="text-xs text-gray-500 mb-1">Inbound Date</p>
+<p class="text-xs text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_detail.inbound_date')); ?></p>
             <p class="font-semibold text-gray-900"><?php echo date('d M Y', strtotime($batch['inbound_date'])); ?></p>
         </div>
         <div>
-            <p class="text-xs text-gray-500 mb-1">Supplier</p>
+<p class="text-xs text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_detail.supplier')); ?></p>
             <div class="flex items-center gap-1.5">
                 <span id="supplierName" class="font-semibold text-gray-900"><?php echo htmlspecialchars($batch['supplier_name'] ?? '-'); ?></span>
                 <?php if (!$batch['is_confirmed']): ?>
-                <button type="button" onclick="openSupplierModal()" title="Change Supplier"
+<button type="button" onclick="openSupplierModal()" title="<?php echo htmlspecialchars(t('logistics.inbound_detail.change_supplier')); ?>"
                         class="text-gray-300 hover:text-teal-500 transition-colors">
                     <i class="fas fa-pen text-xs"></i>
                 </button>
@@ -240,11 +240,11 @@ $locked = (bool)$batch['is_confirmed'];
             </div>
         </div>
         <div>
-            <p class="text-xs text-gray-500 mb-1">Total Amount</p>
+<p class="text-xs text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_detail.total_amount')); ?></p>
             <p class="font-semibold text-gray-900" id="totalAmountDisplay"><?php echo number_format($total_amount, 2); ?></p>
         </div>
         <div>
-            <p class="text-xs text-gray-500 mb-1">Registered By</p>
+<p class="text-xs text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_detail.registered_by')); ?></p>
             <p class="font-semibold text-gray-900"><?php echo htmlspecialchars($batch['created_by_name'] ?? '-'); ?></p>
         </div>
     </div>
@@ -263,13 +263,13 @@ $locked = (bool)$batch['is_confirmed'];
 <!-- 상품 목록 (add 스타일 편집 그리드 + 행별 자동저장) -->
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
     <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-        <span class="text-sm text-gray-500">Total <?php echo count($items); ?> items · <?php echo number_format($total_qty); ?> units
-            <?php if (!$locked): ?><span class="ml-2 text-xs text-gray-400"><i class="fas fa-bolt text-amber-400 mr-1"></i>Edits save automatically</span><?php endif; ?>
+<span class="text-sm text-gray-500"><?php echo htmlspecialchars(t('logistics.inbound_detail.items_summary', ['items' => count($items), 'units' => number_format($total_qty)])); ?>
+            <?php if (!$locked): ?><span class="ml-2 text-xs text-gray-400"><i class="fas fa-bolt text-amber-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_detail.auto_save')); ?></span><?php endif; ?>
         </span>
         <?php if (!$locked): ?>
         <a href="<?php echo LC_BASE; ?>/inbound_add.php?batch_id=<?php echo $batch_id; ?>"
            class="text-xs text-teal-600 hover:text-teal-800 font-medium">
-            <i class="fas fa-plus mr-1"></i>Add More Items
+            <i class="fas fa-plus mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_detail.add_items')); ?>
         </a>
         <?php endif; ?>
     </div>
@@ -278,26 +278,26 @@ $locked = (bool)$batch['is_confirmed'];
             <thead class="bg-gray-50 border-b border-gray-100">
                 <tr>
                     <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium" style="width:2rem">#</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium" style="width:14rem">Product</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20">Capacity</th>
-                    <th class="px-3 py-2 text-center text-xs text-gray-500 font-medium w-16">Unit</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-14">PKG</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium" style="width:8rem">Expiry Date</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20">QTY(PCS)</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20">QTY(BOX)</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24">PRICE(PCS)</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24">PRICE(BOX)</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24">Location</th>
-                    <th class="px-3 py-2 text-center text-xs text-orange-400 font-medium w-16">Discount</th>
-                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-24">COST(PCS)</th>
-                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-24">COST(BOX)</th>
-                    <th class="px-3 py-2 text-left text-xs text-teal-700 font-semibold w-28">Total</th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium" style="width:14rem"><?php echo htmlspecialchars(t('logistics.inbound_detail.product')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20"><?php echo htmlspecialchars(t('logistics.inbound_detail.capacity')); ?></th>
+                    <th class="px-3 py-2 text-center text-xs text-gray-500 font-medium w-16"><?php echo htmlspecialchars(t('logistics.inbound_detail.unit')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-14"><?php echo htmlspecialchars(t('logistics.inbound_detail.pkg')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium" style="width:8rem"><?php echo htmlspecialchars(t('logistics.inbound_detail.expiry_date')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20"><?php echo htmlspecialchars(t('logistics.inbound_detail.qty_pcs')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20"><?php echo htmlspecialchars(t('logistics.inbound_detail.qty_box')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24"><?php echo htmlspecialchars(t('logistics.inbound_detail.price_pcs')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24"><?php echo htmlspecialchars(t('logistics.inbound_detail.price_box')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24"><?php echo htmlspecialchars(t('logistics.inbound_detail.location')); ?></th>
+                    <th class="px-3 py-2 text-center text-xs text-orange-400 font-medium w-16"><?php echo htmlspecialchars(t('logistics.inbound_detail.discount')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-24"><?php echo htmlspecialchars(t('logistics.inbound_detail.cost_pcs')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-24"><?php echo htmlspecialchars(t('logistics.inbound_detail.cost_box')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-teal-700 font-semibold w-28"><?php echo htmlspecialchars(t('logistics.inbound_detail.total')); ?></th>
                     <th class="px-3 py-2 w-7"></th>
                 </tr>
             </thead>
             <tbody id="itemsBody" class="divide-y divide-gray-100">
             <?php if (empty($items)): ?>
-            <tr><td colspan="16" class="px-4 py-8 text-center text-gray-400">No products registered.</td></tr>
+            <tr><td colspan="16" class="px-4 py-8 text-center text-gray-400"><?php echo htmlspecialchars(t('logistics.inbound_detail.empty')); ?></td></tr>
             <?php endif; ?>
             <?php foreach ($items as $idx => $row): ?>
             <?php
@@ -412,7 +412,7 @@ $locked = (bool)$batch['is_confirmed'];
                 <td class="px-3 py-2"><span class="row-total text-sm font-bold text-teal-800" id="subtotal-<?php echo $row['id']; ?>"><?php echo number_format($qty * $cost, 2); ?></span></td>
                 <td class="px-3 py-2 text-center">
                     <button type="button" onclick="deleteInboundItem(<?php echo $row['id']; ?>, this)"
-                            class="text-gray-300 hover:text-red-400 transition-colors" title="Delete"><i class="fas fa-times text-xs"></i></button>
+                            class="text-gray-300 hover:text-red-400 transition-colors" title="<?php echo htmlspecialchars(t('logistics.inbound_detail.delete')); ?>"><i class="fas fa-times text-xs"></i></button>
                 </td>
             </tr>
             <?php endif; ?>
@@ -421,7 +421,7 @@ $locked = (bool)$batch['is_confirmed'];
             <?php if (!empty($items)): ?>
             <tfoot class="bg-gray-50 border-t border-gray-200">
                 <tr>
-                    <td colspan="14" class="px-3 py-2 text-xs text-gray-500 text-right font-medium">Total</td>
+                    <td colspan="14" class="px-3 py-2 text-xs text-gray-500 text-right font-medium"><?php echo htmlspecialchars(t('logistics.inbound_detail.total')); ?></td>
                     <td class="px-3 py-2 font-bold text-teal-800" id="footerTotalDisplay"><?php echo number_format($total_amount, 2); ?></td>
                     <td></td>
                 </tr>
@@ -476,7 +476,7 @@ $locked = (bool)$batch['is_confirmed'];
         fetch(LC_BASE + '/ajax/quick_create_supplier.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.success) { supplierModalError(data.message || 'Failed to create supplier.'); return; }
+if (!data.success) { supplierModalError(data.message || <?php echo json_encode(t('logistics.inbound_detail.create_supplier_failed')); ?>); return; }
                 // 새 공급처를 드롭다운에 추가하고 선택 (저장은 Save 버튼으로 확정)
                 var sel = document.getElementById('supplierSelect');
                 var opt = new Option(data.supplier.name, data.supplier.id, true, true);
@@ -486,7 +486,7 @@ $locked = (bool)$batch['is_confirmed'];
                 document.getElementById('supplierAddRow').classList.add('hidden');
                 document.getElementById('supplierModalError').classList.add('hidden');
             })
-            .catch(function() { supplierModalError('Request failed.'); })
+.catch(function() { supplierModalError(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); })
             .finally(function() { btn.disabled = false; btn.textContent = 'Create'; });
     };
 
@@ -504,11 +504,11 @@ $locked = (bool)$batch['is_confirmed'];
         fetch(LC_BASE + '/ajax/update_batch_supplier.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.success) { supplierModalError(data.message || 'An error occurred.'); return; }
+if (!data.success) { supplierModalError(data.message || <?php echo json_encode(t('logistics.inbound_detail.error')); ?>); return; }
                 document.getElementById('supplierName').textContent = data.supplier_name || '-';
                 closeSupplierModal();
             })
-            .catch(function() { supplierModalError('Request failed.'); })
+.catch(function() { supplierModalError(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); })
             .finally(function() { btn.disabled = false; btn.textContent = 'Save'; });
     };
 
@@ -518,7 +518,7 @@ $locked = (bool)$batch['is_confirmed'];
 
     // ── 항목 삭제 ──────────────────────────────────────────────────────
     window.deleteInboundItem = function(inboundId, btn) {
-        if (!confirm('Delete this item?\nThis cannot be undone, and is only possible if it has not been shipped out yet.')) return;
+if (!confirm(<?php echo json_encode(t('logistics.inbound_detail.delete_item_confirm')); ?>)) return;
         btn.disabled = true;
         var fd = new FormData();
         fd.append('csrf_token', CSRF);
@@ -526,11 +526,11 @@ $locked = (bool)$batch['is_confirmed'];
         fetch(LC_BASE + '/ajax/delete_inbound_item.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.success) { alert(data.message || 'Delete failed'); btn.disabled = false; return; }
+if (!data.success) { alert(data.message || <?php echo json_encode(t('logistics.inbound_detail.delete_failed')); ?>); btn.disabled = false; return; }
                 if (data.remaining > 0) { location.reload(); }
                 else { location.href = LC_BASE + '/inbound.php'; }
             })
-            .catch(function() { alert('Request failed'); btn.disabled = false; });
+.catch(function() { alert(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); btn.disabled = false; });
     };
 
     // ── 행 계산 헬퍼 (add 그리드 로직 이식) ─────────────────────────────
@@ -707,7 +707,7 @@ $locked = (bool)$batch['is_confirmed'];
         fetch(LC_BASE + '/ajax/update_inbound_item.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.success) { alert(data.message || 'Save failed'); flashRow(row, false); return; }
+if (!data.success) { alert(data.message || <?php echo json_encode(t('logistics.inbound_detail.save_failed')); ?>); flashRow(row, false); return; }
                 // 서버 권위값으로 표시 동기화
                 var fc = row.querySelector('.row-final-cost');
                 var fb = row.querySelector('.row-final-cost-box');
@@ -720,7 +720,7 @@ $locked = (bool)$batch['is_confirmed'];
                 recalcTotals();
                 flashRow(row, true);
             })
-            .catch(function() { alert('Request failed'); flashRow(row, false); });
+.catch(function() { alert(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); flashRow(row, false); });
     }
 
     function saveLocation(row) {
@@ -732,8 +732,8 @@ $locked = (bool)$batch['is_confirmed'];
         fd.append('storage_location', val);
         fetch(LC_BASE + '/ajax/update_inventory_location.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
-            .then(function(data) { flashRow(row, !!data.success); if (!data.success) alert(data.message || 'Save failed'); })
-            .catch(function() { alert('Request failed'); flashRow(row, false); });
+.then(function(data) { flashRow(row, !!data.success); if (!data.success) alert(data.message || <?php echo json_encode(t('logistics.inbound_detail.save_failed')); ?>); })
+.catch(function() { alert(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); flashRow(row, false); });
     }
 
     // ── 자동저장 트리거 바인딩 ──────────────────────────────────────────
@@ -775,15 +775,15 @@ $locked = (bool)$batch['is_confirmed'];
 <div id="supplierModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-truck text-teal-600 mr-2"></i>Change Supplier</h3>
+            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-truck text-teal-600 mr-2"></i><?php echo htmlspecialchars(t('logistics.inbound_detail.change_supplier')); ?></h3>
             <button type="button" onclick="closeSupplierModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
         </div>
         <div class="px-6 py-5 space-y-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_detail.supplier')); ?></label>
                 <select id="supplierSelect"
                         class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500">
-                    <option value="">None</option>
+                    <option value=""><?php echo htmlspecialchars(t('logistics.inbound_detail.none')); ?></option>
                     <?php foreach ($suppliers as $s): ?>
                     <option value="<?php echo $s['id']; ?>" <?php echo $batch['supplier_id'] == $s['id'] ? 'selected' : ''; ?>>
                         <?php echo htmlspecialchars($s['name']); ?>
@@ -795,15 +795,15 @@ $locked = (bool)$batch['is_confirmed'];
             <div class="pt-3 border-t border-gray-100">
                 <button type="button" id="supplierAddToggle" onclick="toggleSupplierAdd()"
                         class="text-sm text-teal-600 hover:text-teal-800 font-medium">
-                    <i class="fas fa-plus mr-1"></i>Add New Supplier
+                    <i class="fas fa-plus mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_detail.add_supplier')); ?>
                 </button>
                 <div id="supplierAddRow" class="hidden mt-2 flex gap-2">
-                    <input type="text" id="newSupplierName" placeholder="New supplier name" autocomplete="off"
+                    <input type="text" id="newSupplierName" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_detail.new_supplier_placeholder')); ?>" autocomplete="off"
                            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                            onkeydown="if(event.key==='Enter'){event.preventDefault();createSupplier();}">
                     <button type="button" onclick="createSupplier()" id="newSupplierBtn"
                             class="shrink-0 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
-                        Create
+                        <?php echo htmlspecialchars(t('logistics.inbound_detail.create')); ?>
                     </button>
                 </div>
             </div>
@@ -813,11 +813,11 @@ $locked = (bool)$batch['is_confirmed'];
         <div class="flex gap-3 px-6 py-4 border-t border-gray-100">
             <button type="button" onclick="closeSupplierModal()"
                     class="flex-1 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                Cancel
+                <?php echo htmlspecialchars(t('logistics.inbound_detail.cancel')); ?>
             </button>
             <button type="button" onclick="saveSupplier()" id="supplierSaveBtn"
                     class="flex-1 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 transition-colors">
-                Save
+                <?php echo htmlspecialchars(t('logistics.inbound_detail.save')); ?>
             </button>
         </div>
     </div>

@@ -1,7 +1,7 @@
 <?php
 // Design Ref: box-pcs-unit.design.md §5.4 — 박스 개봉 페이지 (BOX→PCS 전환 + 파손 등록)
 // Plan FR-07/FR-08: BOX lot 선택 → 박스 수·파손 수 입력 → PCS lot 생성 + 파손 이력
-$page_title = 'Box Break - Logistics Center';
+$page_title = t('logistics.box_break.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/unit_helper.php';
@@ -40,8 +40,8 @@ try {
 <div class="flex items-center justify-between mb-5">
     <div class="flex items-center gap-3">
         <a href="<?php echo LC_BASE; ?>/inventory.php" class="text-gray-400 hover:text-gray-600"><i class="fas fa-arrow-left"></i></a>
-        <h2 class="text-lg font-bold text-gray-900"><i class="fas fa-box-open text-amber-500 mr-2"></i>Box Break</h2>
-        <span class="text-xs text-gray-400">Convert BOX/PACK stock into individual (PCS) stock. Damaged quantities will be excluded from the registration.</span>
+        <h2 class="text-lg font-bold text-gray-900"><i class="fas fa-box-open text-amber-500 mr-2"></i><?php echo htmlspecialchars(t('logistics.box_break.title')); ?></h2>
+        <span class="text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.box_break.description')); ?></span>
     </div>
 </div>
 
@@ -49,12 +49,12 @@ try {
 <div class="mb-4">
     <div class="flex gap-2">
         <input type="text" id="barcodeInput"
-               placeholder="Scan barcode or enter product name (Korean/English)..."
+               placeholder="<?php echo htmlspecialchars(t('logistics.box_break.search_placeholder')); ?>"
                autocomplete="off"
                class="flex-1 border-2 border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-colors">
         <button type="button" onclick="searchBarcode()"
                 class="px-5 py-2.5 bg-amber-500 text-white text-sm font-semibold rounded-lg hover:bg-amber-600 transition-colors whitespace-nowrap shadow-sm">
-            <i class="fas fa-search mr-1.5"></i>Search
+            <i class="fas fa-search mr-1.5"></i><?php echo htmlspecialchars(t('logistics.box_break.search')); ?>
         </button>
     </div>
     <div id="barcodeStatus" class="mt-2 hidden"></div>
@@ -66,30 +66,30 @@ try {
     <div class="flex items-center justify-between flex-wrap gap-2">
         <div>
             <p id="selProductName" class="font-semibold text-gray-900"></p>
-            <p class="text-xs text-gray-400 mt-0.5">Current stock: <span id="selProductStock" class="font-semibold text-teal-700"></span></p>
+            <p class="text-xs text-gray-400 mt-0.5"><?php echo htmlspecialchars(t('logistics.box_break.current_stock')); ?>: <span id="selProductStock" class="font-semibold text-teal-700"></span></p>
         </div>
-        <button type="button" onclick="clearProduct()" class="text-xs text-gray-400 hover:text-red-400"><i class="fas fa-times mr-1"></i>Change Product</button>
+        <button type="button" onclick="clearProduct()" class="text-xs text-gray-400 hover:text-red-400"><i class="fas fa-times mr-1"></i><?php echo htmlspecialchars(t('logistics.box_break.change_product')); ?></button>
     </div>
 </div>
 
 <!-- BOX lot 목록 -->
 <div id="lotsCard" class="hidden bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
     <div class="px-4 py-2.5 border-b border-gray-100">
-        <span class="text-sm font-medium text-gray-700">Select BOX/PACK Stock to Open <span class="text-xs text-gray-400 font-normal">(earliest expiry first)</span></span>
+        <span class="text-sm font-medium text-gray-700"><?php echo htmlspecialchars(t('logistics.box_break.select_stock')); ?> <span class="text-xs text-gray-400 font-normal"><?php echo htmlspecialchars(t('logistics.box_break.earliest_first')); ?></span></span>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 border-b border-gray-100">
                 <tr>
                     <th class="px-3 py-2 w-10"></th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Unit</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Lot Number</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Expiry Date</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Location</th>
-                    <th class="px-3 py-2 text-right text-xs text-gray-500 font-medium">Remaining</th>
-                    <th class="px-3 py-2 text-right text-xs text-gray-500 font-medium">Pieces per Unit</th>
-                    <th class="px-3 py-2 text-right text-xs text-gray-500 font-medium">BOX Cost</th>
-                    <th class="px-3 py-2 text-right text-xs text-teal-600 font-medium">PCS Cost</th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.unit')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.lot_number')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.expiry_date')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.location')); ?></th>
+                    <th class="px-3 py-2 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.remaining')); ?></th>
+                    <th class="px-3 py-2 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.pieces_per_unit')); ?></th>
+                    <th class="px-3 py-2 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.box_cost')); ?></th>
+                    <th class="px-3 py-2 text-right text-xs text-teal-600 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.pcs_cost')); ?></th>
                 </tr>
             </thead>
             <tbody id="lotsBody"></tbody>
@@ -99,25 +99,25 @@ try {
 
 <!-- 개봉 입력 폼 -->
 <div id="breakForm" class="hidden bg-white rounded-lg border-2 border-amber-300 p-5 mb-4">
-    <h3 class="text-sm font-bold text-gray-800 mb-4"><i class="fas fa-box-open text-amber-500 mr-1.5"></i>Box Break Details</h3>
+    <h3 class="text-sm font-bold text-gray-800 mb-4"><i class="fas fa-box-open text-amber-500 mr-1.5"></i><?php echo htmlspecialchars(t('logistics.box_break.details')); ?></h3>
     <div id="breakError" class="hidden bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 mb-3 text-sm text-red-700"></div>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1">Number of <span id="breakUnitLabel">Boxes</span> to Open <span class="text-red-500">*</span></label>
+            <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.box_break.number_to_open')); ?> <span id="breakUnitLabel"><?php echo htmlspecialchars(t('logistics.box_break.boxes')); ?></span> <span class="text-red-500">*</span></label>
             <input type="number" id="boxesInput" min="1" value="1"
                    oninput="updateBreakPreview()"
                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400">
-            <p class="text-xs text-gray-400 mt-0.5">Max <span id="maxBoxes">-</span></p>
+            <p class="text-xs text-gray-400 mt-0.5"><?php echo htmlspecialchars(t('logistics.box_break.max')); ?> <span id="maxBoxes">-</span></p>
         </div>
         <div>
-            <label class="block text-xs font-medium text-orange-500 mb-1">Damaged Quantity (PCS)</label>
+            <label class="block text-xs font-medium text-orange-500 mb-1"><?php echo htmlspecialchars(t('logistics.box_break.damaged_quantity')); ?></label>
             <input type="number" id="damagedInput" min="0" value="0"
                    oninput="updateBreakPreview()"
                    class="w-full border border-orange-200 rounded-md px-3 py-2 text-sm font-semibold text-center focus:outline-none focus:ring-2 focus:ring-orange-300">
-            <p class="text-xs text-gray-400 mt-0.5">Within the number of pieces opened</p>
+            <p class="text-xs text-gray-400 mt-0.5"><?php echo htmlspecialchars(t('logistics.box_break.damaged_help')); ?></p>
         </div>
         <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1">Notes</label>
+            <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.box_break.notes')); ?></label>
             <input type="text" id="breakNotes" placeholder="e.g. Damaged during transport"
                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
         </div>
@@ -129,36 +129,36 @@ try {
     <div class="flex gap-2 mt-4">
         <button type="button" id="breakSubmitBtn" onclick="submitBreak()"
                 class="px-6 py-2 bg-amber-500 text-white text-sm font-bold rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50">
-            <i class="fas fa-box-open mr-1.5"></i>Open Box
+            <i class="fas fa-box-open mr-1.5"></i><?php echo htmlspecialchars(t('logistics.box_break.open')); ?>
         </button>
         <button type="button" onclick="hideBreakForm()"
-                class="px-5 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200">Cancel</button>
+                class="px-5 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.box_break.cancel')); ?></button>
     </div>
 </div>
 
 <!-- 개봉/파손 이력 -->
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
     <div class="px-4 py-2.5 border-b border-gray-100">
-        <span class="text-sm font-medium text-gray-700">Recent Box Break / Damage History</span>
-        <span class="ml-2 text-xs text-gray-400 font-normal">Last 20 records</span>
+        <span class="text-sm font-medium text-gray-700"><?php echo htmlspecialchars(t('logistics.box_break.history')); ?></span>
+        <span class="ml-2 text-xs text-gray-400 font-normal"><?php echo htmlspecialchars(t('logistics.box_break.last_20')); ?></span>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 border-b border-gray-100">
                 <tr>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Date/Time</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Product</th>
-                    <th class="px-3 py-2 text-right text-xs text-gray-500 font-medium">Boxes Opened</th>
-                    <th class="px-3 py-2 text-right text-xs text-teal-600 font-medium">PCS Created</th>
-                    <th class="px-3 py-2 text-right text-xs text-red-500 font-medium">Damaged</th>
-                    <th class="px-3 py-2 text-right text-xs text-red-500 font-medium">Damage Loss</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Staff</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Notes</th>
+            <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.expiry_date')); ?></th>
+            <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.unit')); ?></th>
+            <th class="px-3 py-2 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.remaining')); ?></th>
+            <th class="px-3 py-2 text-right text-xs text-teal-600 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.pcs_cost')); ?></th>
+            <th class="px-3 py-2 text-right text-xs text-red-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.damaged')); ?></th>
+            <th class="px-3 py-2 text-right text-xs text-red-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.box_cost')); ?></th>
+            <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.notes')); ?></th>
+            <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.box_break.notes')); ?></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 <?php if (empty($history)): ?>
-                <tr><td colspan="8" class="px-4 py-6 text-center text-sm text-gray-400">No box break history.</td></tr>
+            <tr><td colspan="8" class="px-4 py-6 text-center text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.box_break.empty')); ?></td></tr>
                 <?php else: foreach ($history as $h): ?>
                 <tr class="hover:bg-gray-50">
                     <td class="px-3 py-2 text-xs text-gray-500 font-mono"><?php echo date('Y-m-d H:i', strtotime($h['created_at'])); ?></td>
@@ -212,7 +212,7 @@ try {
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 searchInFlight = false;
-                if (!data.success) { setStatus('error', "No products matching '" + q + "'."); return; }
+if (!data.success) { setStatus('error', <?php echo json_encode(t('logistics.box_break.empty')); ?>); return; }
                 if (data.products.length === 1) { selectProduct(data.products[0]); return; }
                 showMulti(data.products);
             })
@@ -290,7 +290,7 @@ try {
         hideBreakForm();
 
         if (currentLots.length === 0) {
-            body.innerHTML = '<tr><td colspan="9" class="px-4 py-6 text-center text-sm text-gray-400">No BOX/PACK stock available to open.</td></tr>';
+        body.innerHTML = '<tr><td colspan="9" class="px-4 py-6 text-center text-sm text-gray-400"><?php echo addslashes(t('logistics.box_break.no_stock')); ?></td></tr>';
             return;
         }
 
@@ -333,7 +333,7 @@ try {
         document.getElementById('maxBoxes').textContent = selectedLot.quantity_remain + ' ' + unit;
         document.getElementById('breakUnitLabel').textContent = (unit === 'PACK') ? 'Packs' : 'Boxes';
         if (parseInt(selectedLot.pieces_per_box, 10) <= 1) {
-            showBreakError('⚠ This product has no pieces-per-box setting. Opening will create only 1 PCS.'); // FR-11
+showBreakError('⚠ ' + <?php echo json_encode(t('logistics.box_break.description')); ?>); // FR-11
         }
         updateBreakPreview();
         boxesInput.focus();
@@ -372,8 +372,8 @@ try {
             return;
         }
         el.innerHTML =
-            '<i class="fas fa-arrow-right mr-1.5"></i>Open <strong>' + boxes + ' ' + (selectedLot.unit || 'BOX') + '</strong> → ' +
-            '<strong class="text-teal-700">Create ' + created + ' PCS</strong>' +
+'<i class="fas fa-arrow-right mr-1.5"></i><?php echo addslashes(t('logistics.box_break.open')); ?> <strong>' + boxes + ' ' + (selectedLot.unit || 'BOX') + '</strong> → ' +
+'<strong class="text-teal-700"><?php echo addslashes(t('logistics.box_break.pcs_cost')); ?> ' + created + ' PCS</strong>' +
             (damaged > 0 ? ' <span class="text-red-600">(damaged ' + damaged + ', loss ' + loss.toFixed(2) + ')</span>' : '') +
             (created === 0 ? ' <span class="text-red-600 font-bold">— All damaged: no PCS stock will be created</span>' : '');
     };
@@ -391,7 +391,7 @@ try {
         if (damaged < 0 || damaged > boxes * ppb) { showBreakError('Invalid damaged quantity.'); return; }
 
         var created = boxes * ppb - damaged;
-        if (!confirm('Open ' + boxes + ' ' + (selectedLot.unit || 'BOX') + '.\nCreate ' + created + ' PCS' + (damaged > 0 ? ' / Damaged ' + damaged : '') + '\nThis cannot be undone. Continue?')) return;
+    if (!confirm(<?php echo json_encode(t('logistics.box_break.confirm_open')); ?>.replace('{boxes}', boxes).replace('{unit}', selectedLot.unit || 'BOX').replace('{created}', created).replace('{damaged}', damaged > 0 ? ' / ' + <?php echo json_encode(t('logistics.box_break.damaged')); ?> + ' ' + damaged : ''))) return;
 
         var btn = document.getElementById('breakSubmitBtn');
         btn.disabled = true;
@@ -407,7 +407,7 @@ try {
         fetch(LC_BASE + '/ajax/box_break.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.success) { showBreakError(data.message || 'Failed to process the box break.'); btn.disabled = false; return; }
+if (!data.success) { showBreakError(data.message || <?php echo json_encode(t('logistics.box_break.empty')); ?>); btn.disabled = false; return; }
                 // Success — reload the page to refresh lot list/history (keep selected product)
                 window.location.href = LC_BASE + '/box_break.php' + (currentProduct ? '?product_id=' + currentProduct.id : '');
             })

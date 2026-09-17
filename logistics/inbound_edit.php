@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Edit Inbound - Logistics Center';
+$page_title = t('logistics.inbound_edit.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/unit_helper.php'; // Design Ref: box-pcs-unit §4.3
@@ -31,12 +31,12 @@ try {
     $form = $st->get_result()->fetch_assoc(); $st->close();
     if (!$form) {
         $conn->close();
-        lc_set_flash('error', 'Inbound record not found.');
+        lc_set_flash('error', t('logistics.inbound_edit.not_found'));
         header('Location: ' . $back_url); exit;
     }
     if ($form['is_confirmed']) {
         $conn->close();
-        lc_set_flash('error', 'This inbound record is locked and cannot be edited.');
+        lc_set_flash('error', t('logistics.inbound_edit.locked'));
         header('Location: ' . $back_url); exit;
     }
 
@@ -50,7 +50,7 @@ try {
     $suppliers = $conn->query("SELECT id, name FROM lc_suppliers ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
     $conn->close();
 } catch (Exception $e) {
-    lc_set_flash('error', 'DB Error:' . $e->getMessage());
+    lc_set_flash('error', t('logistics.inbound_edit.db_error') . ':' . $e->getMessage());
     header('Location: ' . $back_url); exit;
 }
 
@@ -80,14 +80,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ? lc_pcs_cost((float)$form['cost_price'], $form['pieces_per_box'])
         : round((float)$form['cost_price'], 4);
 
-    if (!$form['inbound_date']) $errors[] = 'Please enter the inbound date.';
-    if (!$form['product_id'])   $errors[] = 'Please select a product.';
-    if ($form['quantity'] <= 0) $errors[] = 'Quantity must be at least 1.';
+    if (!$form['inbound_date']) $errors[] = t('logistics.inbound_edit.date_required');
+    if (!$form['product_id'])   $errors[] = t('logistics.inbound_edit.product_required');
+    if ($form['quantity'] <= 0) $errors[] = t('logistics.inbound_edit.quantity_invalid');
 
     // 유통기한 필수 검사
     $expiry_required_map = array_column($products, 'requires_expiry', 'id');
     if (!empty($expiry_required_map[$form['product_id']]) && empty($form['expiry_date'])) {
-        $errors[] = 'Expiry date is required for this product.';
+        $errors[] = t('logistics.inbound_edit.expiry_required');
     }
 
     if (empty($errors)) {
@@ -122,23 +122,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $st->execute(); $st->close();
 
             $conn->commit(); $conn->close();
-            lc_set_flash('success', 'Updated successfully.');
+            lc_set_flash('success', t('logistics.inbound_edit.updated'));
             header('Location: ' . $back_url); exit;
         } catch (Exception $e) {
             $conn->rollback(); $conn->close();
-            $errors[] = 'DB Error:' . $e->getMessage();
+            $errors[] = t('logistics.inbound_edit.db_error') . ':' . $e->getMessage();
         }
     }
 }
 ?>
 <div class="flex items-center gap-3 mb-6">
     <a href="<?php echo $back_url; ?>" class="text-gray-400 hover:text-gray-600"><i class="fas fa-arrow-left"></i></a>
-    <h2 class="text-xl font-bold text-gray-900">Edit Inbound</h2>
+    <h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.inbound_edit.title')); ?></h2>
 </div>
 
 <?php if ($has_outbound): ?>
 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-sm text-yellow-800">
-    <i class="fas fa-exclamation-triangle mr-1"></i> This record has outbound history. Changing quantity may affect inventory.
+<i class="fas fa-exclamation-triangle mr-1"></i> <?php echo htmlspecialchars(t('logistics.inbound_edit.locked')); ?>
 </div>
 <?php endif; ?>
 
@@ -154,13 +154,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="grid grid-cols-2 gap-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Inbound Date</label>
+    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_edit.inbound_date')); ?></label>
                 <div class="w-full border border-gray-200 bg-gray-50 rounded-md px-3 py-2 text-sm text-gray-700">
                     <?php echo htmlspecialchars($form['inbound_date']); ?>
                 </div>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_edit.supplier')); ?></label>
                 <div class="w-full border border-gray-200 bg-gray-50 rounded-md px-3 py-2 text-sm text-gray-700">
                     <?php
                         $supplier_name = '-';
@@ -172,13 +172,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
         </div>
-        <p class="text-xs text-gray-400 -mt-2">Inbound date and supplier cannot be changed here. Edit them from the inbound batch detail page.</p>
+    <p class="text-xs text-gray-400 -mt-2"><?php echo htmlspecialchars(t('logistics.inbound_edit.date_supplier_locked')); ?></p>
 
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Product</label>
+    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_edit.product')); ?></label>
             <div class="w-full border border-gray-200 bg-gray-50 rounded-md px-3 py-2 text-sm text-gray-700">
                 <span class="font-medium"><?php echo htmlspecialchars($form['name_en'] . ($form['name_ko'] ? ' ('.$form['name_ko'].')' : '') . ' ['.$form['unit'].']'); ?></span>
-                <span class="ml-2 text-xs text-gray-500"><i class="fas fa-box mr-1"></i>1 BOX = <?php echo (int)$form['product_ppb']; ?> PCS</span>
+    <span class="ml-2 text-xs text-gray-500"><i class="fas fa-box mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_edit.box_equals_pcs', ['count' => (int)$form['product_ppb']])); ?></span>
                 <?php if (!empty($form['barcode_unit']) || !empty($form['barcode_box'])): ?>
                 <span class="block text-xs text-gray-400 font-mono mt-0.5">
                     <?php if (!empty($form['barcode_unit'])): ?><i class="fas fa-barcode mr-1"></i>PCS <?php echo htmlspecialchars($form['barcode_unit']); ?><?php endif; ?>
@@ -186,25 +186,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </span>
                 <?php endif; ?>
             </div>
-            <p class="text-xs text-gray-400 mt-0.5">Product cannot be changed here. Delete and re-register the item to use a different product.</p>
+    <p class="text-xs text-gray-400 mt-0.5"><?php echo htmlspecialchars(t('logistics.inbound_edit.product_locked')); ?></p>
         </div>
 
         <div class="grid grid-cols-3 gap-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Lot Number</label>
+    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_edit.lot_number')); ?></label>
                 <input type="text" name="lot_number" value="<?php echo htmlspecialchars($form['lot_number'] ?? ''); ?>"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_edit.expiry_date')); ?></label>
                 <input type="text" name="expiry_date" id="expiryDateInput"
                        value="<?php echo htmlspecialchars($form['expiry_date'] ?? ''); ?>"
                        placeholder="YYYYMMDD" maxlength="10" autocomplete="off"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
-                <span id="expiryReqBadge" class="<?php echo !empty($form['requires_expiry']) ? '' : 'hidden'; ?> text-xs font-semibold text-orange-600 mt-0.5 block">&#9888; Expiry Required</span>
+    <span id="expiryReqBadge" class="<?php echo !empty($form['requires_expiry']) ? '' : 'hidden'; ?> text-xs font-semibold text-orange-600 mt-0.5 block">&#9888; <?php echo htmlspecialchars(t('logistics.inbound_edit.expiry_required_label')); ?></span>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_edit.location')); ?></label>
                 <input type="text" name="storage_location" value="<?php echo htmlspecialchars($form['storage_location'] ?? ''); ?>"
                        placeholder="e.g. A-01-03"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
@@ -213,41 +213,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="grid grid-cols-2 gap-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Quantity <span class="text-red-500">*</span></label>
+    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_edit.quantity')); ?> <span class="text-red-500">*</span></label>
                 <input type="number" name="quantity" value="<?php echo $form['quantity']; ?>" min="1" required
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
             <div>
                 <!-- Design Ref: box-pcs-unit §5.4 — 입고 단위 (FR-13) -->
-                <label class="block text-sm font-medium text-teal-600 mb-1">Inbound Unit</label>
+    <label class="block text-sm font-medium text-teal-600 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_edit.inbound_unit')); ?></label>
                 <?php $cur_unit = $form['inbound_unit'] ?? 'PCS'; ?>
                 <select name="inbound_unit" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
                     <option value="BOX" <?php echo $cur_unit === 'BOX' ? 'selected' : ''; ?>>BOX</option>
                     <option value="PACK" <?php echo $cur_unit === 'PACK' ? 'selected' : ''; ?>>PACK</option>
                     <option value="PCS" <?php echo $cur_unit === 'PCS' ? 'selected' : ''; ?>>PCS</option>
                 </select>
-                <p class="text-xs text-gray-400 mt-0.5">If BOX is selected, PCS cost = Final Cost ÷ units per box (auto-calculated)</p>
+    <p class="text-xs text-gray-400 mt-0.5"><?php echo htmlspecialchars(t('logistics.inbound_edit.unit_cost_help')); ?></p>
             </div>
         </div>
 
         <!-- 원가 3개 필드 -->
         <div class="grid grid-cols-3 gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Input Cost</label>
+    <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_edit.input_cost')); ?></label>
                 <input type="number" name="regular_price" id="regularPriceInput"
                        value="<?php echo $form['regular_price'] ?? $form['cost_price']; ?>" step="0.01" min="0"
                        oninput="recalcFinalCost()"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
             <div>
-                <label class="block text-xs font-medium text-orange-500 mb-1">Discount Rate (%)</label>
+    <label class="block text-xs font-medium text-orange-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_edit.discount_rate')); ?></label>
                 <input type="number" name="discount_rate" id="discountRateInput"
                        value="<?php echo $form['discount_rate'] ?? 0; ?>" step="0.1" min="0" max="100"
                        oninput="recalcFinalCost()"
                        class="w-full border border-orange-200 rounded-md px-3 py-2 text-sm font-semibold text-center focus:outline-none focus:ring-2 focus:ring-orange-300">
             </div>
             <div>
-                <label class="block text-xs font-medium text-teal-600 mb-1">Final Cost <span class="text-gray-400 font-normal">(auto-calculated)</span></label>
+    <label class="block text-xs font-medium text-teal-600 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_edit.final_cost')); ?> <span class="text-gray-400 font-normal"><?php echo htmlspecialchars(t('logistics.inbound_edit.auto_calculated')); ?></span></label>
                 <div id="finalCostDisplay"
                      class="w-full border border-teal-200 bg-teal-50 rounded-md px-3 py-2 text-sm font-semibold text-teal-700">
                     <?php echo number_format($form['cost_price'], 2); ?>
@@ -257,16 +257,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_edit.notes')); ?></label>
             <input type="text" name="notes" value="<?php echo htmlspecialchars($form['notes'] ?? ''); ?>"
                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
         </div>
 
         <div class="flex gap-3 pt-2">
-            <button type="submit" class="px-6 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700">
+        <button type="submit" class="px-6 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700">
                 <i class="fas fa-save mr-2"></i>Save
             </button>
-            <a href="<?php echo $back_url; ?>" class="px-6 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">Cancel</a>
+        <a href="<?php echo $back_url; ?>" class="px-6 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.inbound_edit.cancel')); ?></a>
         </div>
     </form>
 </div>

@@ -12,6 +12,7 @@
  *   - 미리보기(변경 없음):  fix_inbound_supplier_sync.php
  *   - 실제 적용:            fix_inbound_supplier_sync.php?apply=1
  */
+require_once __DIR__ . '/../lib/lang_helper.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/auth.php';
 
@@ -21,7 +22,7 @@ header('Content-Type: text/plain; charset=utf-8');
 
 $apply = isset($_GET['apply']) && $_GET['apply'] == '1';
 $conn  = get_lc_db();
-if (!$conn) { echo "DB 연결 실패\n"; exit; }
+if (!$conn) { echo t('logistics.fix_inbound_supplier_sync.db_failed') . "\n"; exit; }
 
 // 배치 supplier_id 와 라인아이템 supplier_id 가 다른 행 조회
 $sql = "
@@ -38,8 +39,8 @@ $sql = "
 $res = $conn->query($sql);
 $rows = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 
-echo $apply ? "=== 적용 모드 ===\n" : "=== 미리보기 모드 (변경 없음, 적용하려면 ?apply=1) ===\n";
-echo "불일치 라인아이템: " . count($rows) . " 건\n\n";
+echo $apply ? t('logistics.fix_inbound_supplier_sync.apply_mode') . "\n" : t('logistics.fix_inbound_supplier_sync.preview_mode') . "\n";
+echo t('logistics.fix_inbound_supplier_sync.mismatch_count', ['count' => count($rows)]) . "\n\n";
 
 foreach ($rows as $r) {
     printf(
@@ -58,11 +59,11 @@ if ($apply && $rows) {
          SET i.supplier_id = b.supplier_id
          WHERE NOT (i.supplier_id <=> b.supplier_id)"
     );
-    echo "\n적용 완료. 변경된 행: " . $conn->affected_rows . " 건\n";
+echo "\n" . t('logistics.fix_inbound_supplier_sync.applied', ['count' => $conn->affected_rows]) . "\n";
 } elseif (!$apply && $rows) {
-    echo "\n적용하려면 URL 뒤에 ?apply=1 을 붙여 다시 실행하세요.\n";
+echo "\n" . t('logistics.fix_inbound_supplier_sync.apply_hint') . "\n";
 } else {
-    echo "\n보정할 데이터가 없습니다.\n";
+echo "\n" . t('logistics.fix_inbound_supplier_sync.no_data') . "\n";
 }
 
 $conn->close();

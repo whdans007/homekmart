@@ -1,6 +1,6 @@
 <?php
 // Design Ref: docs/02-design/features/inbound-damage-registration.design.md §4
-$page_title = 'Damaged Goods - Logistics Center';
+$page_title = t('logistics.inbound_damages.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/inbound_helper.php';
@@ -25,17 +25,17 @@ $db_error    = $result['error'] ?? null;
 ?>
 
 <div class="flex items-center justify-between mb-4">
-    <h1 class="text-lg font-bold text-gray-900"><i class="fas fa-triangle-exclamation mr-2 text-red-500"></i>Damaged Goods</h1>
+<h1 class="text-lg font-bold text-gray-900"><i class="fas fa-triangle-exclamation mr-2 text-red-500"></i><?php echo htmlspecialchars(t('logistics.inbound_damages.title')); ?></h1>
 </div>
 
 <!-- 요약 카드 -->
 <div class="grid grid-cols-2 gap-3 mb-4" style="max-width:36rem">
     <div class="bg-white rounded-xl border border-gray-200 p-4">
-        <p class="text-xs text-gray-400 mb-1">Total Damage Records</p>
+<p class="text-xs text-gray-400 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_damages.total_damage_records')); ?></p>
         <p class="text-xl font-bold text-gray-900"><?php echo number_format($summary['count']); ?></p>
     </div>
     <div class="bg-white rounded-xl border border-gray-200 p-4">
-        <p class="text-xs text-gray-400 mb-1">Total Loss</p>
+<p class="text-xs text-gray-400 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_damages.total_loss')); ?></p>
         <p class="text-xl font-bold text-red-600"><?php echo number_format($summary['total_cost_loss'], 2); ?></p>
     </div>
 </div>
@@ -44,17 +44,17 @@ $db_error    = $result['error'] ?? null;
 <form method="get" class="bg-white rounded-lg border border-gray-200 px-3 py-2 mb-4">
     <div class="flex flex-wrap items-center gap-2">
         <input type="text" name="search" value="<?php echo htmlspecialchars($filters['search']); ?>"
-               placeholder="Search by product or supplier"
+               placeholder="<?php echo htmlspecialchars(t('logistics.inbound_damages.search_placeholder')); ?>"
                class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-64">
         <input type="date" name="date_from" value="<?php echo htmlspecialchars($filters['date_from']); ?>"
                class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
         <input type="date" name="date_to" value="<?php echo htmlspecialchars($filters['date_to']); ?>"
                class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
         <button type="submit" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700 font-medium transition-colors">
-            <i class="fas fa-search mr-1"></i>Search
+            <i class="fas fa-search mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_damages.search')); ?>
         </button>
         <a href="<?php echo LC_BASE; ?>/inbound_damages.php" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200 font-medium transition-colors">
-            <i class="fas fa-redo mr-1"></i>Reset
+            <i class="fas fa-redo mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_damages.reset')); ?>
         </a>
     </div>
 </form>
@@ -66,22 +66,22 @@ $db_error    = $result['error'] ?? null;
 <?php endif; ?>
 
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
-    <div class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500">Total <?php echo number_format($total); ?> records</div>
+    <div class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500"><?php echo htmlspecialchars(t('logistics.inbound_damages.total_records', ['count' => number_format($total)])); ?></div>
     <?php if (empty($items)): ?>
     <div class="p-10 text-center text-gray-400">
         <i class="fas fa-box-open text-4xl mb-3 block"></i>
-        <p>No damage records found.</p>
+        <p><?php echo htmlspecialchars(t('logistics.inbound_damages.empty')); ?></p>
     </div>
     <?php else: ?>
     <table class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-100">
             <tr>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium w-28">Inbound Date</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium w-32">Supplier</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Product</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-28">Damaged Qty</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-28">Loss Amount</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Reason</th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium w-28"><?php echo htmlspecialchars(t('logistics.inbound_damages.inbound_date')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium w-32"><?php echo htmlspecialchars(t('logistics.inbound_damages.supplier')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_damages.product')); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-28"><?php echo htmlspecialchars(t('logistics.inbound_damages.damaged_quantity')); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-28"><?php echo htmlspecialchars(t('logistics.inbound_damages.loss_amount')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.inbound_damages.reason')); ?></th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">

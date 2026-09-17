@@ -79,6 +79,10 @@ Codex 리뷰(읽기 전용, 코드 미수정)를 거쳐 다음을 확정/반영�
    - `logistics/partials/footer.php`의 신규 주문 팝업(`showPopup`, DOM ID, localStorage 키, polling)은 **기존 함수명/DOM ID/전역 변수명을 그대로 유지**하고 화면에 보이는 텍스트 노드만 `t()`로 치환. JS 로직/구조 변경 금지.
 5. **print/export 언어 정책 (사용자 확정)** — 인쇄물(B6 print_*)과 엑셀 export(B6 export_*) 모두 **세션 언어를 그대로 따름**(다른 페이지와 동일 정책). 회계/외부 업로드 호환성보다 화면 언어와의 일관성을 우선.
 
+## 알려진 Codex 습관 (최종 병합 전 일괄 정리 필요)
+
+B3a에서 발견: 한 줄짜리 JS 콜백(`if (!data.success) {...}`, `.catch(function(){...})` 등)을 `t()`로 치환할 때 간헐적으로 **줄 앞 들여쓰기를 통째로 삭제**하는 습관이 있음(기능에는 영향 없음, `php -l`/로직 정상, 순수 스타일 문제). B3a의 `outbound.php` 2건은 Claude가 즉시 수정했으나, `inbound_detail.php`(약 10건), `box_break.php` 등 다른 파일에도 동일 패턴이 남아있을 수 있음. **배치마다 고치지 않고, 병합 전 `/code-review` 단계에서 전체 파일을 대상으로 들여쓰기 일괄 정리할 것.**
+
 ## 최종 배치 순서 (사용자 확정: 연속 자동 진행, 배치별 Claude 검증 후 다음 배치)
 
 B0 → B1 → B2a → B2b → B2c → B3a → B3b → B4a → B4b → B5 → B6 → B7

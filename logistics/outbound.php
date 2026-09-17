@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Outbound History - Logistics Center';
+$page_title = t('logistics.outbound.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/inventory_helper.php';
@@ -86,23 +86,23 @@ main { overflow: hidden !important; }
 
 <!-- 페이지 헤더 -->
 <div class="flex items-center justify-between shrink-0">
-    <h2 class="text-xl font-bold text-gray-900">Outbound History</h2>
+    <h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.outbound.title')); ?></h2>
 </div>
 
 <!-- 검색 폼 -->
 <form method="get" class="bg-white rounded-lg border border-gray-200 px-3 py-2 shrink-0">
     <div class="flex flex-wrap items-center gap-2">
         <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>"
-               placeholder="Search barcode, product or store name"
+               placeholder="<?php echo htmlspecialchars(t('logistics.outbound.search_placeholder')); ?>"
                class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-64">
         <button type="submit" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700">
-            <i class="fas fa-search mr-1"></i>Search
+            <i class="fas fa-search mr-1"></i><?php echo htmlspecialchars(t('logistics.outbound.search')); ?>
         </button>
         <?php if ($search): ?>
-        <a href="<?php echo LC_BASE; ?>/outbound.php" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200">Reset</a>
+        <a href="<?php echo LC_BASE; ?>/outbound.php" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.outbound.reset')); ?></a>
         <?php endif; ?>
         <button type="button" onclick="openPrintPreview()"
-           class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"><i class="fas fa-print mr-1"></i>Print</button>
+           class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"><i class="fas fa-print mr-1"></i><?php echo htmlspecialchars(t('logistics.outbound.print')); ?></button>
     </div>
 </form>
 
@@ -112,27 +112,27 @@ main { overflow: hidden !important; }
 
 <!-- 테이블 카드 -->
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
-    <div class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500 shrink-0">Total <?php echo number_format($total); ?></div>
+    <div class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500 shrink-0"><?php echo htmlspecialchars(t('logistics.outbound.total', ['count' => number_format($total)])); ?></div>
     <div class="overflow-auto flex-1 min-h-0">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 sticky top-0 z-10"><tr>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Order Number</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Outbound Date/Time</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Store</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Product Code</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Spec</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Expiry Date (by lot)</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Remaining Stock</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Quantity</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Unit Price</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Subtotal</th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.outbound.order_number')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.outbound.outbound_datetime')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.outbound.store')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.outbound.product_code')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.outbound.product_name')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.outbound.spec')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.outbound.expiry_by_lot')); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.outbound.remaining_stock')); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.outbound.quantity')); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.outbound.unit_price')); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.outbound.subtotal')); ?></th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php if (empty($list)): ?>
             <tr><td colspan="11" class="px-4 py-10 text-center text-gray-400">
                 <i class="fas fa-truck text-3xl mb-2 block text-gray-300"></i>
-                No outbound history.
+                <?php echo htmlspecialchars(t('logistics.outbound.empty')); ?>
             </td></tr>
             <?php endif; ?>
             <?php foreach ($list as $row): ?>
@@ -167,8 +167,8 @@ main { overflow: hidden !important; }
                     <div class="cell-edit hidden flex items-center justify-end gap-1">
                         <input type="number" min="0" step="0.01" class="cell-input border border-teal-400 rounded px-2 py-1 text-xs w-20 text-right focus:outline-none focus:ring-1 focus:ring-teal-500"
                                value="<?php echo $row['unit_price']; ?>">
-                        <button type="button" onclick="savePriceEdit(this)" class="px-2 py-1 bg-teal-600 text-white text-xs rounded hover:bg-teal-700">Save</button>
-                        <button type="button" onclick="cancelPriceEdit(this)" class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded hover:bg-gray-200">Cancel</button>
+        <button type="button" onclick="savePriceEdit(this)" class="px-2 py-1 bg-teal-600 text-white text-xs rounded hover:bg-teal-700"><?php echo htmlspecialchars(t('logistics.outbound.save')); ?></button>
+        <button type="button" onclick="cancelPriceEdit(this)" class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.outbound.cancel')); ?></button>
                     </div>
                 </td>
                 <td class="px-4 py-3 text-right font-bold subtotal-text" id="subtotal-<?php echo $row['item_id']; ?>"><?php echo number_format($row['subtotal'], 2); ?></td>
@@ -227,7 +227,7 @@ main { overflow: hidden !important; }
     <div class="absolute inset-0 bg-black bg-opacity-50"></div>
     <div class="relative bg-white rounded-xl shadow-xl w-full max-w-5xl mx-4 flex flex-col" style="height:90vh">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-print text-blue-600 mr-2"></i>Print Preview</h3>
+    <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-print text-blue-600 mr-2"></i><?php echo htmlspecialchars(t('logistics.outbound.print_preview')); ?></h3>
             <div class="flex items-center gap-2">
                 <button type="button" onclick="printPreviewFrame()"
                         class="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
@@ -288,14 +288,14 @@ main { overflow: hidden !important; }
         fetch(LC_BASE + '/ajax/update_outbound_price.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.success) { alert(data.message || 'Save failed'); return; }
+                if (!data.success) { alert(data.message || <?php echo json_encode(t('logistics.outbound.save_failed')); ?>); return; }
                 cell.querySelector('.price-text').textContent = data.unit_price_display;
                 input.value = data.unit_price;
                 var subtotalEl = document.getElementById('subtotal-' + itemId);
                 if (subtotalEl) subtotalEl.textContent = data.subtotal_display;
                 cancelPriceEdit(btn);
             })
-            .catch(function() { alert('Request failed'); })
+            .catch(function() { alert(<?php echo json_encode(t('logistics.outbound.request_failed')); ?>); })
             .finally(function() {
                 buttons.forEach(function(b) { b.disabled = false; });
                 btn.textContent = origText;
