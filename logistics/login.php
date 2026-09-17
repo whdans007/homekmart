@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
 
     if ($username === '' || $password === '') {
-        $error = 'Please enter your username and password.';
+        $error = t('logistics.login.missing_credentials');
     } else {
         try {
             $conn = get_lc_db();
@@ -43,11 +43,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Location: ' . LC_BASE . '/index.php');
                 exit;
             } else {
-                $error = 'Incorrect username or password.';
+                $error = t('logistics.login.invalid_credentials');
             }
         } catch (Exception $e) {
             error_log('logistics login error: ' . $e->getMessage());
-            $error = 'A database error occurred.';
+            $error = t('logistics.login.database_error');
         }
     }
 }
@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Logistics Center Login</title>
+    <title><?php echo htmlspecialchars(t('logistics.login.title')); ?></title>
     <link rel="icon" href="data:,">
     <link href="<?php echo LC_WEB_ROOT; ?>/admin/css/style.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -71,10 +71,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
             <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                Logistics Center
+                <?php echo htmlspecialchars(t('logistics.login.center_name')); ?>
             </h2>
             <p class="mt-2 text-center text-sm text-gray-600">
-                Sign in to the logistics management system
+                <?php echo htmlspecialchars(t('logistics.login.subtitle')); ?>
             </p>
         </div>
 
@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
 
                     <div>
-                        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                        <label for="username" class="block text-sm font-medium text-gray-700"><?php echo htmlspecialchars(t('logistics.login.username')); ?></label>
                         <div class="mt-1">
                             <input id="username" name="username" type="text" required autocomplete="username"
                                    value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>"
@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <label for="password" class="block text-sm font-medium text-gray-700"><?php echo htmlspecialchars(t('logistics.login.password')); ?></label>
                         <div class="mt-1">
                             <input id="password" name="password" type="password" required autocomplete="current-password"
                                    class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm">
@@ -112,14 +112,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <button type="submit"
                                 class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors">
                             <i class="fas fa-sign-in-alt mr-2"></i>
-                            Login
+                            <?php echo htmlspecialchars(t('logistics.login.submit')); ?>
                         </button>
                     </div>
                 </form>
 
                 <div class="mt-6 text-center">
                     <a href="/admin/login.php" class="text-sm text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-arrow-left mr-1"></i>General Admin Login
+                        <i class="fas fa-arrow-left mr-1"></i><?php echo htmlspecialchars(t('logistics.login.admin_login')); ?>
                     </a>
                 </div>
             </div>

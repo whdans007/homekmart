@@ -3,7 +3,7 @@
 require_once __DIR__ . '/lib/auth.php';
 lc_require_staff();
 
-$page_title = 'Dashboard - Logistics Center';
+$page_title = t('logistics.dashboard.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/inventory_helper.php';
@@ -93,12 +93,12 @@ try {
 ?>
 
 <div class="mb-6">
-    <h2 class="text-xl font-bold text-gray-900">Dashboard</h2>
-    <p class="text-sm text-gray-500 mt-1"><?php echo date('F j, Y'); ?></p>
+    <h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.dashboard.title')); ?></h2>
+    <p class="text-sm text-gray-500 mt-1"><?php echo htmlspecialchars(format_date(time(), 'long')); ?></p>
 </div>
 
 <?php if (isset($db_error)): ?>
-<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">DB Error: <?php echo htmlspecialchars($db_error); ?></div>
+<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm"><?php echo htmlspecialchars(t('logistics.dashboard.db_error')); ?>: <?php echo htmlspecialchars($db_error); ?></div>
 <?php else: ?>
 
 <!-- 요약 카드 -->
@@ -112,46 +112,46 @@ $low_zero_count = count($low_zero);
 ?>
 <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:0.5rem;margin-bottom:1.5rem;">
     <div class="bg-white rounded-lg border border-gray-200 px-3 py-2.5">
-        <p class="text-xs text-gray-400">Products</p>
+        <p class="text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.products')); ?></p>
         <p class="text-xl font-bold text-gray-800 mt-0.5"><?php echo number_format($total_products); ?></p>
-        <p class="text-xs text-teal-600">In stock: <?php echo $stocked_products; ?></p>
+        <p class="text-xs text-teal-600"><?php echo htmlspecialchars(t('logistics.dashboard.in_stock')); ?>: <?php echo $stocked_products; ?></p>
     </div>
     <div class="bg-white rounded-lg border border-<?php echo $pending_count > 0 ? 'blue' : 'gray'; ?>-200 px-3 py-2.5">
-        <p class="text-xs text-gray-400">Pending Orders</p>
+        <p class="text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.pending_orders')); ?></p>
         <p class="text-xl font-bold text-<?php echo $pending_count > 0 ? 'blue' : 'gray'; ?>-700 mt-0.5"><?php echo $pending_count; ?></p>
         <?php if ($pending_count > 0): ?>
-        <a href="<?php echo LC_BASE; ?>/orders.php?status=pending" class="text-xs text-blue-500 hover:underline">View →</a>
+        <a href="<?php echo LC_BASE; ?>/orders.php?status=pending" class="text-xs text-blue-500 hover:underline"><?php echo htmlspecialchars(t('logistics.dashboard.view')); ?></a>
         <?php else: ?>
-        <p class="text-xs text-gray-400">None</p>
+        <p class="text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.none')); ?></p>
         <?php endif; ?>
     </div>
     <div class="bg-white rounded-lg border border-<?php echo $low_in_count > 0 ? 'orange' : 'gray'; ?>-200 px-3 py-2.5">
-        <p class="text-xs text-gray-400">Low Stock</p>
+        <p class="text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.low_stock')); ?></p>
         <p class="text-xl font-bold text-<?php echo $low_in_count > 0 ? 'orange' : 'gray'; ?>-600 mt-0.5"><?php echo $low_in_count; ?></p>
-        <p class="text-xs text-<?php echo $low_in_count > 0 ? 'orange' : 'gray'; ?>-500"><?php echo $low_in_count > 0 ? 'Reorder needed' : 'OK'; ?></p>
+        <p class="text-xs text-<?php echo $low_in_count > 0 ? 'orange' : 'gray'; ?>-500"><?php echo htmlspecialchars($low_in_count > 0 ? t('logistics.dashboard.reorder_needed') : t('logistics.dashboard.ok')); ?></p>
     </div>
     <div class="bg-white rounded-lg border border-<?php echo $low_zero_count > 0 ? 'red' : 'gray'; ?>-200 px-3 py-2.5">
-        <p class="text-xs text-gray-400">Out of Stock</p>
+        <p class="text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.out_of_stock')); ?></p>
         <p class="text-xl font-bold text-<?php echo $low_zero_count > 0 ? 'red' : 'gray'; ?>-600 mt-0.5"><?php echo $low_zero_count; ?></p>
-        <p class="text-xs text-<?php echo $low_zero_count > 0 ? 'red' : 'gray'; ?>-500"><?php echo $low_zero_count > 0 ? 'Out of stock' : 'OK'; ?></p>
+        <p class="text-xs text-<?php echo $low_zero_count > 0 ? 'red' : 'gray'; ?>-500"><?php echo htmlspecialchars($low_zero_count > 0 ? t('logistics.dashboard.out_of_stock') : t('logistics.dashboard.ok')); ?></p>
     </div>
     <div class="bg-white rounded-lg border border-<?php echo count($expiry_list) > 0 ? 'yellow' : 'gray'; ?>-200 px-3 py-2.5">
-        <p class="text-xs text-gray-400">D-90 Approaching</p>
+        <p class="text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.d90_approaching')); ?></p>
         <p class="text-xl font-bold text-<?php echo count($expiry_list) > 0 ? 'yellow' : 'gray'; ?>-700 mt-0.5"><?php echo count($expiry_list); ?></p>
-        <p class="text-xs text-gray-400">By lot</p>
+        <p class="text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.by_lot')); ?></p>
     </div>
     <div class="bg-white rounded-lg border border-<?php echo $expired_count > 0 ? 'red' : 'gray'; ?>-200 px-3 py-2.5">
-        <p class="text-xs text-gray-400">Expired</p>
+        <p class="text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.expired')); ?></p>
         <p class="text-xl font-bold text-<?php echo $expired_count > 0 ? 'red' : 'gray'; ?>-700 mt-0.5"><?php echo $expired_count; ?></p>
-        <p class="text-xs text-<?php echo $expired_count > 0 ? 'red' : 'gray'; ?>-500"><?php echo $expired_count > 0 ? 'Immediate action needed' : 'None'; ?></p>
+        <p class="text-xs text-<?php echo $expired_count > 0 ? 'red' : 'gray'; ?>-500"><?php echo htmlspecialchars($expired_count > 0 ? t('logistics.dashboard.immediate_action_needed') : t('logistics.dashboard.none')); ?></p>
     </div>
     <div class="bg-white rounded-lg border border-<?php echo $approved_count > 0 ? 'purple' : 'gray'; ?>-200 px-3 py-2.5">
-        <p class="text-xs text-gray-400">Pending Outbound</p>
+        <p class="text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.pending_outbound')); ?></p>
         <p class="text-xl font-bold text-<?php echo $approved_count > 0 ? 'purple' : 'gray'; ?>-700 mt-0.5"><?php echo $approved_count; ?></p>
         <?php if ($approved_count > 0): ?>
-        <a href="<?php echo LC_BASE; ?>/orders.php?status=approved" class="text-xs text-purple-500 hover:underline">View →</a>
+        <a href="<?php echo LC_BASE; ?>/orders.php?status=approved" class="text-xs text-purple-500 hover:underline"><?php echo htmlspecialchars(t('logistics.dashboard.view')); ?></a>
         <?php else: ?>
-        <p class="text-xs text-gray-400">None</p>
+        <p class="text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.none')); ?></p>
         <?php endif; ?>
     </div>
 </div>
@@ -179,19 +179,19 @@ $low_zero_count = count($low_zero);
         <div class="bg-white rounded-lg border border-orange-200 overflow-hidden">
             <div class="px-4 py-3 border-b border-orange-100 flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-orange-800">
-                    <i class="fas fa-exclamation-circle mr-2"></i>Low Stock Products
-                    <span class="text-xs font-normal ml-1">(In stock, ≤ Min Stock)</span>
+                    <i class="fas fa-exclamation-circle mr-2"></i><?php echo htmlspecialchars(t('logistics.dashboard.low_stock_products')); ?>
+                    <span class="text-xs font-normal ml-1"><?php echo htmlspecialchars(t('logistics.dashboard.in_stock_min_stock')); ?></span>
                 </h3>
-                <a href="<?php echo LC_BASE; ?>/inventory.php?filter=low" class="text-xs text-orange-600 hover:underline">View All →</a>
+                <a href="<?php echo LC_BASE; ?>/inventory.php?filter=low" class="text-xs text-orange-600 hover:underline"><?php echo htmlspecialchars(t('logistics.dashboard.view_all')); ?></a>
             </div>
             <?php if (!empty($low_in_stock)): ?>
             <div class="overflow-x-auto dash-scroll dash-scroll-low">
                 <table class="w-full text-sm dash-list">
                     <thead class="bg-orange-50"><tr>
-                        <th class="px-4 py-2 text-left text-xs text-orange-700 font-medium whitespace-nowrap">Product Name</th>
-                        <th class="px-4 py-2 text-right text-xs text-orange-700 font-medium whitespace-nowrap">Current Stock</th>
-                        <th class="px-4 py-2 text-right text-xs text-orange-700 font-medium whitespace-nowrap">Min Stock</th>
-                        <th class="px-4 py-2 text-center text-xs text-orange-700 font-medium whitespace-nowrap">Shortage</th>
+                        <th class="px-4 py-2 text-left text-xs text-orange-700 font-medium whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.dashboard.product_name')); ?></th>
+                        <th class="px-4 py-2 text-right text-xs text-orange-700 font-medium whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.dashboard.current_stock')); ?></th>
+                        <th class="px-4 py-2 text-right text-xs text-orange-700 font-medium whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.dashboard.min_stock')); ?></th>
+                        <th class="px-4 py-2 text-center text-xs text-orange-700 font-medium whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.dashboard.shortage')); ?></th>
                     </tr></thead>
                     <tbody class="divide-y divide-orange-50">
                     <?php foreach ($low_in_stock as $row):
@@ -209,7 +209,7 @@ $low_zero_count = count($low_zero);
                         <td class="px-4 py-2 text-right text-gray-500"><?php echo number_format($row['min_stock']); ?></td>
                         <td class="px-4 py-2 text-center">
                             <span class="inline-block whitespace-nowrap text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
-                                +<?php echo number_format($shortage); ?> needed
+                                +<?php echo number_format($shortage); ?> <?php echo htmlspecialchars(t('logistics.dashboard.needed')); ?>
                             </span>
                         </td>
                     </tr>
@@ -218,7 +218,7 @@ $low_zero_count = count($low_zero);
                 </table>
             </div>
             <?php else: ?>
-            <div class="px-4 py-6 text-center text-sm text-gray-400">No low stock products in stock</div>
+            <div class="px-4 py-6 text-center text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.no_low_stock_in_stock')); ?></div>
             <?php endif; ?>
         </div>
 
@@ -226,19 +226,19 @@ $low_zero_count = count($low_zero);
         <div class="bg-white rounded-lg border border-red-200 overflow-hidden">
             <div class="px-4 py-3 border-b border-red-100 flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-red-800">
-                    <i class="fas fa-ban mr-2"></i>Out of Stock Products
-                    <span class="text-xs font-normal ml-1">(Stock 0)</span>
+                    <i class="fas fa-ban mr-2"></i><?php echo htmlspecialchars(t('logistics.dashboard.out_of_stock_products')); ?>
+                    <span class="text-xs font-normal ml-1"><?php echo htmlspecialchars(t('logistics.dashboard.stock_zero')); ?></span>
                 </h3>
-                <a href="<?php echo LC_BASE; ?>/inventory.php?filter=out" class="text-xs text-red-600 hover:underline">View All →</a>
+                <a href="<?php echo LC_BASE; ?>/inventory.php?filter=out" class="text-xs text-red-600 hover:underline"><?php echo htmlspecialchars(t('logistics.dashboard.view_all')); ?></a>
             </div>
             <?php if (!empty($low_zero)): ?>
             <div class="overflow-x-auto dash-scroll dash-scroll-low">
                 <table class="w-full text-sm dash-list">
                     <thead class="bg-red-50"><tr>
-                        <th class="px-4 py-2 text-left text-xs text-red-700 font-medium whitespace-nowrap">Product Name</th>
-                        <th class="px-4 py-2 text-right text-xs text-red-700 font-medium whitespace-nowrap">Current Stock</th>
-                        <th class="px-4 py-2 text-right text-xs text-red-700 font-medium whitespace-nowrap">Min Stock</th>
-                        <th class="px-4 py-2 text-center text-xs text-red-700 font-medium whitespace-nowrap">Status</th>
+                        <th class="px-4 py-2 text-left text-xs text-red-700 font-medium whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.dashboard.product_name')); ?></th>
+                        <th class="px-4 py-2 text-right text-xs text-red-700 font-medium whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.dashboard.current_stock')); ?></th>
+                        <th class="px-4 py-2 text-right text-xs text-red-700 font-medium whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.dashboard.min_stock')); ?></th>
+                        <th class="px-4 py-2 text-center text-xs text-red-700 font-medium whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.dashboard.status')); ?></th>
                     </tr></thead>
                     <tbody class="divide-y divide-red-50">
                     <?php foreach ($low_zero as $row): ?>
@@ -253,7 +253,7 @@ $low_zero_count = count($low_zero);
                         </td>
                         <td class="px-4 py-2 text-right text-gray-500"><?php echo number_format($row['min_stock']); ?></td>
                         <td class="px-4 py-2 text-center">
-                            <span class="inline-block whitespace-nowrap text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold">Out of stock</span>
+                            <span class="inline-block whitespace-nowrap text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold"><?php echo htmlspecialchars(t('logistics.dashboard.out_of_stock')); ?></span>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -261,7 +261,7 @@ $low_zero_count = count($low_zero);
                 </table>
             </div>
             <?php else: ?>
-            <div class="px-4 py-6 text-center text-sm text-gray-400">No out-of-stock products</div>
+            <div class="px-4 py-6 text-center text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.no_out_of_stock_products')); ?></div>
             <?php endif; ?>
         </div>
 
@@ -275,28 +275,28 @@ $low_zero_count = count($low_zero);
     <div class="bg-white rounded-lg border border-<?php echo $section_color; ?>-200 overflow-hidden">
         <div class="px-4 py-3 border-b border-<?php echo $section_color; ?>-100 flex items-center justify-between">
             <h3 class="text-sm font-semibold text-<?php echo $section_color; ?>-800">
-                <i class="fas fa-exclamation-triangle mr-2"></i>Expiry Approaching/Expired
-                <span class="text-xs font-normal ml-1">(within D-90)</span>
+                <i class="fas fa-exclamation-triangle mr-2"></i><?php echo htmlspecialchars(t('logistics.dashboard.expiry_approaching_expired')); ?>
+                <span class="text-xs font-normal ml-1"><?php echo htmlspecialchars(t('logistics.dashboard.within_d90')); ?></span>
             </h3>
             <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-400"><?php echo count($expiry_list); ?> items</span>
-                <a href="<?php echo LC_BASE; ?>/inventory.php?filter=expiring" class="text-xs text-<?php echo $section_color; ?>-600 hover:underline">View All →</a>
+                <span class="text-xs text-gray-400"><?php echo count($expiry_list); ?> <?php echo htmlspecialchars(t('logistics.dashboard.items')); ?></span>
+                <a href="<?php echo LC_BASE; ?>/inventory.php?filter=expiring" class="text-xs text-<?php echo $section_color; ?>-600 hover:underline"><?php echo htmlspecialchars(t('logistics.dashboard.view_all')); ?></a>
             </div>
         </div>
         <?php if (!empty($expiry_list)): ?>
         <div class="overflow-x-auto dash-scroll dash-scroll-expiry">
             <table class="w-full text-sm dash-list">
                 <thead class="bg-gray-50"><tr>
-                    <th class="px-4 py-2 text-left text-xs text-gray-500 font-medium whitespace-nowrap">Product Name</th>
-                    <th class="px-4 py-2 text-left text-xs text-gray-500 font-medium whitespace-nowrap">Expiry</th>
-                    <th class="px-4 py-2 text-right text-xs text-gray-500 font-medium whitespace-nowrap">Stock</th>
-                    <th class="px-4 py-2 text-center text-xs text-gray-500 font-medium whitespace-nowrap" style="width:5.5rem;min-width:5.5rem">D-day</th>
-                    <th class="px-4 py-2 text-center text-xs text-gray-500 font-medium whitespace-nowrap">Distribute</th>
+                    <th class="px-4 py-2 text-left text-xs text-gray-500 font-medium whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.dashboard.product_name')); ?></th>
+                    <th class="px-4 py-2 text-left text-xs text-gray-500 font-medium whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.dashboard.expiry')); ?></th>
+                    <th class="px-4 py-2 text-right text-xs text-gray-500 font-medium whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.dashboard.stock')); ?></th>
+                    <th class="px-4 py-2 text-center text-xs text-gray-500 font-medium whitespace-nowrap" style="width:5.5rem;min-width:5.5rem"><?php echo htmlspecialchars(t('logistics.dashboard.dday')); ?></th>
+                    <th class="px-4 py-2 text-center text-xs text-gray-500 font-medium whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.dashboard.distribute')); ?></th>
                 </tr></thead>
                 <tbody class="divide-y divide-gray-100">
                 <?php foreach ($expiry_list as $row):
                     $d = (int)$row['days_left'];
-                    if ($d < 0)       { $dday_label = 'Expired'; $dday_cls = 'bg-red-100 text-red-700 font-bold'; }
+                    if ($d < 0)       { $dday_label = t('logistics.dashboard.expired'); $dday_cls = 'bg-red-100 text-red-700 font-bold'; }
                     elseif ($d === 0) { $dday_label = 'D-0';     $dday_cls = 'bg-red-100 text-red-700 font-bold'; }
                     elseif ($d <= 30) { $dday_label = 'D-'.$d;   $dday_cls = 'bg-orange-100 text-orange-700 font-semibold'; }
                     else              { $dday_label = 'D-'.$d;   $dday_cls = 'bg-yellow-100 text-yellow-700'; }
@@ -315,7 +315,7 @@ $low_zero_count = count($low_zero);
                         <button type="button"
                                 onclick="openDistModal(<?php echo $row['product_id']; ?>, '<?php echo htmlspecialchars(addslashes($row['name'])); ?>', <?php echo (int)$row['stock']; ?>)"
                                 class="text-xs px-2 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded transition-colors">
-                            <i class="fas fa-store mr-1"></i>Distribute
+                            <i class="fas fa-store mr-1"></i><?php echo htmlspecialchars(t('logistics.dashboard.distribute')); ?>
                         </button>
                     </td>
                 </tr>
@@ -324,7 +324,7 @@ $low_zero_count = count($low_zero);
             </table>
         </div>
         <?php else: ?>
-        <div class="px-4 py-6 text-center text-sm text-gray-400">No products with approaching expiry</div>
+        <div class="px-4 py-6 text-center text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.dashboard.no_products_approaching_expiry')); ?></div>
         <?php endif; ?>
     </div>
 
@@ -335,15 +335,15 @@ $low_zero_count = count($low_zero);
 <?php if (lc_is_store_user() && !empty($my_orders)): ?>
 <div class="bg-white rounded-lg border border-gray-200">
     <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-        <h3 class="text-sm font-semibold text-gray-700">Recent Orders</h3>
-        <a href="<?php echo LC_BASE; ?>/orders.php" class="text-xs text-teal-600 hover:underline">View All</a>
+        <h3 class="text-sm font-semibold text-gray-700"><?php echo htmlspecialchars(t('logistics.dashboard.recent_orders')); ?></h3>
+        <a href="<?php echo LC_BASE; ?>/orders.php" class="text-xs text-teal-600 hover:underline"><?php echo htmlspecialchars(t('logistics.dashboard.view_all')); ?></a>
     </div>
     <div class="divide-y divide-gray-100">
     <?php foreach ($my_orders as $o): ?>
     <a href="<?php echo LC_BASE; ?>/order_detail.php?id=<?php echo $o['id']; ?>" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
         <div>
-            <span class="text-sm font-medium text-gray-800">Order #<?php echo $o['id']; ?></span>
-            <span class="ml-2 text-xs text-gray-500"><?php echo $o['order_date']; ?> · <?php echo $o['item_count']; ?> items</span>
+            <span class="text-sm font-medium text-gray-800"><?php echo htmlspecialchars(t('logistics.dashboard.order')); ?> #<?php echo $o['id']; ?></span>
+            <span class="ml-2 text-xs text-gray-500"><?php echo $o['order_date']; ?> · <?php echo $o['item_count']; ?> <?php echo htmlspecialchars(t('logistics.dashboard.item_suffix')); ?></span>
         </div>
         <span class="text-xs px-2 py-1 rounded-full font-medium <?php echo lc_status_class($o['status']); ?>">
             <?php echo lc_status_label($o['status']); ?>
@@ -361,16 +361,16 @@ $low_zero_count = count($low_zero);
     <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
         <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <div>
-                <h3 class="text-base font-bold text-gray-900">Store Distribution</h3>
+                <h3 class="text-base font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.dashboard.store_distribution')); ?></h3>
                 <p id="distProductName" class="text-xs text-gray-500 mt-0.5"></p>
             </div>
             <button onclick="closeDistModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
         </div>
         <div class="px-5 py-3 border-b border-gray-100 flex items-center gap-4 text-sm">
-            <div class="text-gray-600">Available Stock: <strong id="distStock" class="text-teal-700"></strong></div>
+            <div class="text-gray-600"><?php echo htmlspecialchars(t('logistics.dashboard.available_stock')); ?>: <strong id="distStock" class="text-teal-700"></strong></div>
             <div class="flex items-center gap-2">
-                <label class="text-gray-600 text-xs">Unit Price</label>
-                <input type="number" id="distUnitPrice" step="0.01" min="0" placeholder="0.00"
+                <label class="text-gray-600 text-xs"><?php echo htmlspecialchars(t('logistics.dashboard.unit_price')); ?></label>
+                <input type="number" id="distUnitPrice" step="0.01" min="0" placeholder="<?php echo htmlspecialchars(t('logistics.dashboard.unit_price_placeholder')); ?>"
                        class="w-28 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500">
             </div>
         </div>
@@ -379,18 +379,18 @@ $low_zero_count = count($low_zero);
         </div>
         <div class="px-5 py-3 border-t border-gray-100">
             <div class="mb-2">
-                <label class="text-xs text-gray-500">Notes</label>
-                <input type="text" id="distNotes" placeholder="e.g. Expiry-driven distribution"
+                <label class="text-xs text-gray-500"><?php echo htmlspecialchars(t('logistics.dashboard.notes')); ?></label>
+                <input type="text" id="distNotes" placeholder="<?php echo htmlspecialchars(t('logistics.dashboard.notes_placeholder')); ?>"
                        class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm mt-1 focus:outline-none focus:ring-1 focus:ring-teal-500">
             </div>
             <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-500">Distribution Total: <strong id="distTotal" class="text-teal-700">0</strong></span>
+                <span class="text-xs text-gray-500"><?php echo htmlspecialchars(t('logistics.dashboard.distribution_total')); ?>: <strong id="distTotal" class="text-teal-700">0</strong></span>
                 <div class="flex gap-2">
-                    <button onclick="closeDistModal()" class="px-4 py-2 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200">Cancel</button>
+                    <button onclick="closeDistModal()" class="px-4 py-2 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.dashboard.cancel')); ?></button>
                     <button onclick="submitDist()" id="distSubmitBtn"
                             class="px-4 py-2 text-sm bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 disabled:opacity-40"
                             disabled>
-                        <i class="fas fa-paper-plane mr-1"></i>Execute Distribution
+                        <i class="fas fa-paper-plane mr-1"></i><?php echo htmlspecialchars(t('logistics.dashboard.execute_distribution')); ?>
                     </button>
                 </div>
             </div>
@@ -430,18 +430,18 @@ $low_zero_count = count($low_zero);
             .then(r => r.json())
             .then(d => {
                 if (d.success) { stores = d.stores; renderStores(); }
-                else { document.getElementById('distBody').innerHTML = '<p class="text-red-500 text-sm">Failed to load store list</p>'; }
+                else { document.getElementById('distBody').innerHTML = '<p class="text-red-500 text-sm"><?php echo htmlspecialchars(t('logistics.dashboard.failed_load_stores')); ?></p>'; }
             });
     };
 
     function renderStores() {
         if (!stores.length) {
-            document.getElementById('distBody').innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No stores registered</p>';
+            document.getElementById('distBody').innerHTML = '<p class="text-gray-400 text-sm text-center py-4"><?php echo htmlspecialchars(t('logistics.dashboard.no_stores')); ?></p>';
             return;
         }
         var html = '<table class="w-full text-sm"><thead class="bg-gray-50"><tr>'
-            + '<th class="px-3 py-2 text-left text-xs text-gray-500">Store Name</th>'
-            + '<th class="px-3 py-2 text-right text-xs text-gray-500 w-28">Distribution Qty</th>'
+            + '<th class="px-3 py-2 text-left text-xs text-gray-500"><?php echo htmlspecialchars(t('logistics.dashboard.store_name')); ?></th>'
+            + '<th class="px-3 py-2 text-right text-xs text-gray-500 w-28"><?php echo htmlspecialchars(t('logistics.dashboard.distribution_qty')); ?></th>'
             + '</tr></thead><tbody class="divide-y divide-gray-100">';
         stores.forEach(function(s) {
             html += '<tr><td class="px-3 py-2 font-medium text-gray-800">' + esc(s.name) + '</td>'
@@ -478,21 +478,21 @@ $low_zero_count = count($low_zero);
 
         var btn = document.getElementById('distSubmitBtn');
         btn.disabled = true;
-        btn.textContent = 'Processing…';
+        btn.textContent = <?php echo json_encode(t('logistics.dashboard.processing'), JSON_UNESCAPED_UNICODE); ?>;
 
         fetch(LC_BASE + '/ajax/distribute_to_stores.php', { method: 'POST', body: fd })
             .then(r => r.json())
             .then(d => {
                 if (d.success) {
-                    alert('Distributed to ' + d.created + ' store(s). Orders created with approved status.');
+                    alert(<?php echo json_encode(t('logistics.dashboard.distribution_success'), JSON_UNESCAPED_UNICODE); ?>.replace('{count}', d.created));
                     closeDistModal();
                 } else {
-                    alert(d.message || 'An error occurred');
+                    alert(d.message || <?php echo json_encode(t('logistics.dashboard.distribution_error'), JSON_UNESCAPED_UNICODE); ?>);
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>Execute Distribution';
+                    btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>' + <?php echo json_encode(t('logistics.dashboard.execute_distribution'), JSON_UNESCAPED_UNICODE); ?>;
                 }
             })
-            .catch(() => { alert('Request failed'); btn.disabled = false; });
+            .catch(() => { alert(<?php echo json_encode(t('logistics.dashboard.request_failed'), JSON_UNESCAPED_UNICODE); ?>); btn.disabled = false; });
     };
 
     window.closeDistModal = function() {
