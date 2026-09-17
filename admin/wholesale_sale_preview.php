@@ -1237,12 +1237,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     cell.style.setProperty('vertical-align', 'middle', 'important');
                     cell.style.setProperty('line-height', '1.3', 'important');
                     const cellContent = document.createElement('div');
-                    cellContent.style.cssText = 'display:flex;align-items:center;width:100%;min-height:100%;';
+                    cellContent.style.cssText = 'display:flex;align-items:center;width:100%;min-height:0;height:auto;';
                     while (cell.firstChild) cellContent.appendChild(cell.firstChild);
                     cell.appendChild(cellContent);
                 });
                 captureHost.appendChild(captureClone);
                 document.body.appendChild(captureHost);
+                captureClone.querySelectorAll('th, td').forEach(function(cell) {
+                    const cellContent = cell.firstElementChild;
+                    if (!cellContent) return;
+                    const freeSpace = cell.clientHeight - cellContent.offsetHeight;
+                    if (freeSpace > 0) {
+                        cellContent.style.transform = 'translateY(' + (freeSpace / 2) + 'px)';
+                    }
+                });
 
                 const canvas = await window.html2canvas(captureHost, {
                     scale: 2,
