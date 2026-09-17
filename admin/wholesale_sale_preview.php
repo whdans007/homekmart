@@ -1224,12 +1224,28 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             imageBtn.disabled = true;
+            let captureHost;
             try {
-                const canvas = await window.html2canvas(content, {
+                // 인쇄 모달은 숨겨져 있으므로, 캡처할 때만 화면 밖의 표시 영역에 복제한다.
+                captureHost = document.createElement('div');
+                captureHost.style.cssText = 'position:fixed;left:-100000px;top:0;display:block;width:794px;background:#fff;z-index:9999;';
+                const captureClone = content.cloneNode(true);
+                captureClone.style.display = 'block';
+                captureClone.style.visibility = 'visible';
+                captureClone.style.width = '100%';
+                captureHost.appendChild(captureClone);
+                document.body.appendChild(captureHost);
+
+                const canvas = await window.html2canvas(captureHost, {
                     scale: 2,
                     useCORS: true,
                     backgroundColor: '#ffffff',
-                    logging: false
+                    logging: false,
+                    windowWidth: 794,
+                    onclone: function(clonedDocument) {
+                        const clonedHost = clonedDocument.body.lastElementChild;
+                        if (clonedHost) clonedHost.style.display = 'block';
+                    }
                 });
                 const blob = await new Promise(function(resolve, reject) {
                     canvas.toBlob(function(result) {
@@ -1250,6 +1266,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Image download failed:', error);
                 alert(<?php echo json_encode(t('wholesale_sale_preview.image_save_error'), JSON_UNESCAPED_UNICODE); ?>);
             } finally {
+                if (captureHost) captureHost.remove();
                 imageBtn.disabled = false;
             }
         });
