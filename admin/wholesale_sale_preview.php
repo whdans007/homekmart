@@ -968,8 +968,8 @@ if (isset($_SESSION['flash'])) {
 }
 </style>
 
-<script id="html2pdf-script" src="../public/js/lib/html2pdf.bundle.min.js"
-        onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.3/html2pdf.bundle.min.js';"></script>
+<script id="html2pdf-script" src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.3/html2pdf.bundle.min.js"
+        onerror="this.onerror=null;this.src='../public/js/lib/html2pdf.bundle.min.js';"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const printBtn = document.getElementById('print-btn');
