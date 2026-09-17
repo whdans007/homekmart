@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Order Details - Logistics Center';
+$page_title = t('logistics.order_detail.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/inventory_helper.php';
@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!$approved) {
                 $conn->rollback();
-                lc_set_flash('error', 'Only pending orders can be approved (it may already be processed).');
+                lc_set_flash('error', t('logistics.order_detail.only_pending_approve'));
             } else {
                 if (!lc_order_stock_allocated($conn, $id)) {
                     lc_allocate_order_stock($conn, $id, true);
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     "UPDATE lc_orders SET total_amount=(SELECT COALESCE(SUM(total_amount),0) FROM lc_order_items WHERE order_id=$id) WHERE id=$id"
                 );
                 $conn->commit();
-                lc_set_flash('success', 'Order approved.');
+                lc_set_flash('success', t('logistics.order_detail.order_approved'));
             }
 
         } elseif ($action === 'ship') {
@@ -58,9 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $st->bind_param('si', $now, $id);
             $st->execute();
             if ($st->affected_rows > 0) {
-                lc_set_flash('success', 'Outbound processing complete.');
+                lc_set_flash('success', t('logistics.order_detail.outbound_complete'));
             } else {
-                lc_set_flash('error', 'Only approved orders can be processed for outbound.');
+                lc_set_flash('error', t('logistics.order_detail.only_approved_ship'));
             }
             $st->close();
 
@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
             if (!$editable) {
-                lc_set_flash('error', 'Only orders before delivery can be modified (super admins can also modify delivered orders).');
+                lc_set_flash('error', t('logistics.order_detail.edit_not_allowed'));
             } else {
                 // 대책 C: pending 포함 모든 상태에서 이미 재고가 차감되어 있을 수 있음 → 항상 복원 후 재차감.
                 // (전환 이전 생성된 레거시 pending 주문처럼 차감 이력이 없으면 복원은 안전하게 무동작)
@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (!$has_items) {
                     $conn->rollback();
-                    lc_set_flash('error', 'At least 1 product must remain. Use order cancellation for full cancellation.');
+                    lc_set_flash('error', t('logistics.order_detail.minimum_item'));
                 } else {
                     // 변경된 수량으로 재차감(단가는 수동 입력값 유지 → $set_cost=false)
                     lc_allocate_order_stock($conn, $id, false);
@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                          WHERE id = $id"
                     );
                     $conn->commit();
-                    lc_set_flash('success', 'Order quantity updated.');
+                    lc_set_flash('success', t('logistics.order_detail.quantity_updated'));
                 }
             }
 
@@ -138,16 +138,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $cur = $stx->get_result()->fetch_assoc(); $stx->close();
 
             if (!$cur) {
-                lc_set_flash('error', 'Order not found.');
+                lc_set_flash('error', t('logistics.order_detail.order_not_found'));
             } elseif ($product_id <= 0 || $qty <= 0) {
-                lc_set_flash('error', 'Please select a product and enter a quantity of 1 or more.');
+                lc_set_flash('error', t('logistics.order_detail.product_quantity_required'));
             } else {
                 $stp = $conn->prepare("SELECT unit, pieces_per_box FROM lc_products WHERE id = ?");
                 $stp->bind_param('i', $product_id); $stp->execute();
                 $prod = $stp->get_result()->fetch_assoc(); $stp->close();
 
                 if (!$prod) {
-                    lc_set_flash('error', 'Product not found.');
+                    lc_set_flash('error', t('logistics.order_detail.product_not_found'));
                 } else {
                     $deduct_statuses = ['pending', 'approved', 'cancel_requested', 'shipped', 'delivered'];
                     $need_deduct = in_array($cur['status'], $deduct_statuses, true);
@@ -193,10 +193,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             "UPDATE lc_orders SET total_amount=(SELECT COALESCE(SUM(total_amount),0) FROM lc_order_items WHERE order_id=$id) WHERE id=$id"
                         );
                         $conn->commit();
-                        lc_set_flash('success', 'Item added.' . ($need_deduct ? ' Inventory deducted (FEFO).' : ''));
+                        lc_set_flash('success', t('logistics.order_detail.item_added') . ($need_deduct ? ' ' . t('logistics.order_detail.inventory_deducted_fefo') : ''));
                     } catch (Throwable $e) {
                         $conn->rollback();
-                        lc_set_flash('error', 'Failed to add item: ' . $e->getMessage());
+                        lc_set_flash('error', t('logistics.order_detail.item_add_failed', ['message' => $e->getMessage()]));
                     }
                 }
             }
@@ -207,14 +207,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $st->bind_param('si', $now, $id);
             $st->execute();
-            lc_set_flash('success', 'Delivery completed.');
+            lc_set_flash('success', t('logistics.order_detail.delivery_completed'));
 
         } elseif ($action === 'revert_approval') {
             // 승인(approved) 주문을 접수(pending) 상태로 되돌린다. 단계별 되돌리기 1단계.
             // 대책 C: 재고는 접수 시점에 이미 차감된 상태이므로 그대로 유지하고 상태만 되돌린다.
             // CENTER 소속 관리자/점장(센터장)만 가능
             if (!lc_is_admin()) {
-                lc_set_flash('error', 'Access denied.');
+                lc_set_flash('error', t('logistics.order_detail.access_denied'));
             } else {
                 $st = $conn->prepare(
                     "UPDATE lc_orders SET status='pending', approved_by=NULL, approved_at=NULL WHERE id=? AND status='approved'"
@@ -222,9 +222,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st->bind_param('i', $id);
                 $st->execute();
                 if ($st->affected_rows > 0) {
-                    lc_set_flash('success', 'Reverted to Pending status (inventory remains deducted).');
+                    lc_set_flash('success', t('logistics.order_detail.reverted_pending'));
                 } else {
-                    lc_set_flash('error', 'Only approved orders can be reverted.');
+                    lc_set_flash('error', t('logistics.order_detail.only_approved_revert'));
                 }
                 $st->close();
             }
@@ -234,7 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // 대책 C: 재고는 접수 시점에 이미 차감된 상태이므로 그대로 유지하고 상태만 되돌린다.
             // CENTER 소속 관리자/점장(센터장)만 가능
             if (!lc_is_admin()) {
-                lc_set_flash('error', 'Access denied.');
+                lc_set_flash('error', t('logistics.order_detail.access_denied'));
             } else {
                 $st = $conn->prepare(
                     "UPDATE lc_orders SET status='approved', shipped_at=NULL WHERE id=? AND status='shipped'"
@@ -242,9 +242,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st->bind_param('i', $id);
                 $st->execute();
                 if ($st->affected_rows > 0) {
-                    lc_set_flash('success', 'Reverted to Approved status (inventory remains deducted).');
+                    lc_set_flash('success', t('logistics.order_detail.reverted_approved'));
                 } else {
-                    lc_set_flash('error', 'Only shipped orders can be reverted.');
+                    lc_set_flash('error', t('logistics.order_detail.only_shipped_revert'));
                 }
                 $st->close();
             }
@@ -254,7 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // 대책 C: shipped 상태도 재고가 차감된 상태이므로 재고/ lot은 그대로 유지하고 상태만 되돌린다.
             // CENTER 소속 관리자/점장(센터장)만 가능
             if (!lc_is_admin()) {
-                lc_set_flash('error', 'Access denied.');
+                lc_set_flash('error', t('logistics.order_detail.access_denied'));
             } else {
                 $st = $conn->prepare(
                     "UPDATE lc_orders SET status='shipped', delivered_at=NULL WHERE id=? AND status='delivered'"
@@ -262,9 +262,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st->bind_param('i', $id);
                 $st->execute();
                 if ($st->affected_rows > 0) {
-                    lc_set_flash('success', 'Delivery reverted. The order returned to Shipped status (inventory remains deducted).');
+                    lc_set_flash('success', t('logistics.order_detail.delivery_reverted'));
                 } else {
-                    lc_set_flash('error', 'Only delivered orders can be reverted.');
+                    lc_set_flash('error', t('logistics.order_detail.only_delivered_revert'));
                 }
                 $st->close();
             }
@@ -281,11 +281,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st->close();
                 lc_restore_order_stock($conn, $id);
                 $conn->commit();
-                lc_set_flash('success', 'Order cancelled.');
+                lc_set_flash('success', t('logistics.order_detail.order_cancelled'));
             } else {
                 $st->close();
                 $conn->rollback();
-                lc_set_flash('error', 'This order cannot be cancelled.');
+                lc_set_flash('error', t('logistics.order_detail.cannot_cancel'));
             }
 
         } elseif ($action === 'approve_cancel') {
@@ -300,11 +300,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st->close();
                 lc_restore_order_stock($conn, $id);
                 $conn->commit();
-                lc_set_flash('success', 'Cancellation request approved.');
+                lc_set_flash('success', t('logistics.order_detail.cancellation_approved'));
             } else {
                 $st->close();
                 $conn->rollback();
-                lc_set_flash('error', 'No cancellation request to approve.');
+                lc_set_flash('error', t('logistics.order_detail.no_cancellation_request'));
             }
 
         } elseif ($action === 'reject_cancel') {
@@ -313,11 +313,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $st->bind_param('i', $id);
             $st->execute();
-            lc_set_flash('success', 'Cancellation request rejected. Order restored to approved status.');
+                lc_set_flash('success', t('logistics.order_detail.cancellation_rejected'));
 
         } elseif ($action === 'soft_delete') {
             if (!lc_is_admin()) {
-                lc_set_flash('error', 'Access denied.');
+                lc_set_flash('error', t('logistics.order_detail.access_denied'));
             } else {
                 $st = $conn->prepare(
                     "UPDATE lc_orders SET deleted_at=?, deleted_by=? WHERE id=? AND status IN ('cancelled','delivered') AND deleted_at IS NULL"
@@ -325,16 +325,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st->bind_param('sii', $now, $uid, $id);
                 $st->execute();
                 if ($st->affected_rows > 0) {
-                    lc_set_flash('success', "Order #" . str_pad($id, 4, '0', STR_PAD_LEFT) . " moved to trash. You can restore it from the Deleted tab in the order list.");
+                    lc_set_flash('success', t('logistics.order_detail.moved_to_trash', ['id' => str_pad($id, 4, '0', STR_PAD_LEFT)]));
                 } else {
-                    lc_set_flash('error', 'Only cancelled or delivered orders can be deleted.');
+                    lc_set_flash('error', t('logistics.order_detail.only_cancelled_delivered_delete'));
                 }
                 $st->close();
             }
 
         } elseif ($action === 'restore') {
             if (!lc_is_admin()) {
-                lc_set_flash('error', 'Access denied.');
+                lc_set_flash('error', t('logistics.order_detail.access_denied'));
             } else {
                 $st = $conn->prepare(
                     "UPDATE lc_orders SET deleted_at=NULL, deleted_by=NULL WHERE id=? AND deleted_at IS NOT NULL"
@@ -342,9 +342,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st->bind_param('i', $id);
                 $st->execute();
                 if ($st->affected_rows > 0) {
-                    lc_set_flash('success', "Order #" . str_pad($id, 4, '0', STR_PAD_LEFT) . " restored.");
+                    lc_set_flash('success', t('logistics.order_detail.order_restored', ['id' => str_pad($id, 4, '0', STR_PAD_LEFT)]));
                 } else {
-                    lc_set_flash('error', 'This order is not deleted.');
+                    lc_set_flash('error', t('logistics.order_detail.not_deleted'));
                 }
                 $st->close();
             }
@@ -353,7 +353,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn->close();
     } catch (Throwable $e) {
         if (isset($conn)) { $conn->rollback(); $conn->close(); }
-        lc_set_flash('error', 'DB Error: ' . $e->getMessage());
+        lc_set_flash('error', t('logistics.order_detail.db_error', ['message' => $e->getMessage()]));
     }
 
     $redirect = in_array($action, ['cancel', 'approve_cancel', 'soft_delete'])
@@ -386,21 +386,21 @@ try {
 
     if (!$order) {
         $conn->close();
-        lc_set_flash('error', 'Order not found.');
+        lc_set_flash('error', t('logistics.order_detail.order_not_found'));
         header('Location: ' . LC_BASE . '/orders.php'); exit;
     }
 
     // 점포 담당자는 본인 점포 주문만 조회
     if (lc_is_store_user() && $order['store_id'] != lc_current_store_id()) {
         $conn->close();
-        lc_set_flash('error', 'Access denied.');
+        lc_set_flash('error', t('logistics.order_detail.access_denied'));
         header('Location: ' . LC_BASE . '/orders.php'); exit;
     }
 
     // 삭제(휴지통)된 주문은 관리자만 조회 가능
     if ($order['deleted_at'] && !lc_is_admin()) {
         $conn->close();
-        lc_set_flash('error', 'Order not found.');
+        lc_set_flash('error', t('logistics.order_detail.order_not_found'));
         header('Location: ' . LC_BASE . '/orders.php'); exit;
     }
 
@@ -461,22 +461,33 @@ try {
 
     $conn->close();
 } catch (Exception $e) {
-    lc_set_flash('error', 'DB Error: ' . $e->getMessage());
+    lc_set_flash('error', t('logistics.order_detail.db_error', ['message' => $e->getMessage()]));
     header('Location: ' . LC_BASE . '/orders.php'); exit;
 }
 ?>
 
+<?php
+$status_labels = [
+    'pending' => t('logistics.order_detail.status_pending'),
+    'approved' => t('logistics.order_detail.status_approved'),
+    'shipped' => t('logistics.order_detail.status_shipped'),
+    'delivered' => t('logistics.order_detail.status_delivered'),
+    'cancelled' => t('logistics.order_detail.status_cancelled'),
+    'cancel_requested' => t('logistics.order_detail.status_cancel_requested'),
+];
+$status_label = $status_labels[$order['status']] ?? $order['status'];
+?>
 <div class="flex items-center gap-3 mb-6 no-print">
     <a href="<?php echo LC_BASE; ?>/orders.php" class="text-gray-400 hover:text-gray-600"><i class="fas fa-arrow-left"></i></a>
     <h2 class="text-xl font-bold text-gray-900">
-        Order #<?php echo str_pad($order['id'], 4, '0', STR_PAD_LEFT); ?>
+        <?php echo htmlspecialchars(t('logistics.order_detail.order_number', ['id' => str_pad($order['id'], 4, '0', STR_PAD_LEFT)])); ?>
     </h2>
     <span class="text-sm px-3 py-1 rounded-full font-medium <?php echo lc_status_class($order['status']); ?>">
-        <?php echo lc_status_label($order['status']); ?>
+        <?php echo htmlspecialchars($status_label); ?>
     </span>
     <?php if ($order['status'] === 'delivered' && !empty($order['delivered_at'])): ?>
     <div class="flex items-center gap-1 text-sm text-green-700 font-medium">
-        <i class="fas fa-check-circle"></i>Delivery confirmed: <?php echo htmlspecialchars($order['delivered_at']); ?>
+        <i class="fas fa-check-circle"></i><?php echo htmlspecialchars(t('logistics.order_detail.delivery_confirmed', ['date' => $order['delivered_at']])); ?>
     </div>
     <?php endif; ?>
 </div>
@@ -484,15 +495,15 @@ try {
 <?php if (!empty($order['deleted_at'])): ?>
 <div class="flex items-center justify-between gap-3 mb-6 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 no-print">
     <div>
-        <i class="fas fa-trash mr-2"></i>This order was moved to trash on <?php echo htmlspecialchars($order['deleted_at']); ?>
-        <?php if (!empty($order['deleted_by_name'])): ?> by <?php echo htmlspecialchars($order['deleted_by_name']); ?><?php endif; ?>.
+        <i class="fas fa-trash mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.moved_to_trash_on', ['date' => $order['deleted_at']])); ?>
+        <?php if (!empty($order['deleted_by_name'])): ?> <?php echo htmlspecialchars(t('logistics.order_detail.deleted_by', ['name' => $order['deleted_by_name']])); ?><?php endif; ?>.
     </div>
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="restore">
-        <button type="submit" onclick="return confirm('Restore this order?')"
+        <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.restore_confirm')), ENT_QUOTES); ?>)"
                 class="px-4 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 whitespace-nowrap">
-            <i class="fas fa-undo mr-1"></i>Restore
+            <i class="fas fa-undo mr-1"></i><?php echo htmlspecialchars(t('logistics.order_detail.restore')); ?>
         </button>
     </form>
 </div>
@@ -502,17 +513,17 @@ try {
 <div class="print-only" style="display:none;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #000;">
         <div>
-            <div style="font-size:1.4rem;font-weight:700;">Delivery Receipt</div>
+            <div style="font-size:1.4rem;font-weight:700;"><?php echo htmlspecialchars(t('logistics.order_detail.delivery_receipt')); ?></div>
             <div style="font-size:0.9rem;font-weight:600;margin-top:4px;"><?php echo htmlspecialchars($order['store_name'] ?? '-'); ?></div>
             <div style="font-size:0.85rem;margin-top:4px;">
-                Order #<?php echo str_pad($order['id'], 4, '0', STR_PAD_LEFT); ?>
+                <?php echo htmlspecialchars(t('logistics.order_detail.order_number', ['id' => str_pad($order['id'], 4, '0', STR_PAD_LEFT)])); ?>
                 &nbsp;·&nbsp;
-                Order Date: <?php echo htmlspecialchars($order['order_date'] . ' ' . date('H:i', strtotime($order['created_at']))); ?>
+                <?php echo htmlspecialchars(t('logistics.order_detail.order_date', ['date' => $order['order_date'] . ' ' . date('H:i', strtotime($order['created_at']))])); ?>
             </div>
         </div>
         <div style="text-align:right;font-size:0.8rem;color:#555;">
-            <div>Printed: <?php echo date('Y-m-d H:i'); ?></div>
-            <div>Home K Mart — Logistics Center</div>
+            <div><?php echo htmlspecialchars(t('logistics.order_detail.printed', ['date' => date('Y-m-d H:i')])); ?></div>
+            <div><?php echo htmlspecialchars(t('logistics.order_detail.home_kmart_logistics')); ?></div>
         </div>
     </div>
 </div>
@@ -547,7 +558,7 @@ try {
     @page {
         margin: 12mm 10mm;
         @bottom-center {
-            content: "Page " counter(page) " / " counter(pages);
+             content: counter(page) " / " counter(pages);
             font-size: 9px;
             color: #000;
         }
@@ -616,40 +627,40 @@ try {
 <!-- Order Information -->
 <div class="gap-3 mb-4 no-print" style="display:grid; grid-template-columns:3fr 7fr;">
     <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <h3 class="text-sm font-semibold text-gray-700 mb-3">Order Information</h3>
+        <h3 class="text-sm font-semibold text-gray-700 mb-3"><?php echo htmlspecialchars(t('logistics.order_detail.order_information')); ?></h3>
         <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
             <div>
-                <dt class="text-xs text-gray-400 mb-0.5">Store</dt>
+                <dt class="text-xs text-gray-400 mb-0.5"><?php echo htmlspecialchars(t('logistics.order_detail.store')); ?></dt>
                 <dd class="font-medium text-gray-800 truncate"><?php echo htmlspecialchars($order['store_name'] ?? '-'); ?></dd>
             </div>
             <div>
-                <dt class="text-xs text-gray-400 mb-0.5">Order Date</dt>
+                <dt class="text-xs text-gray-400 mb-0.5"><?php echo htmlspecialchars(t('logistics.order_detail.order_date_label')); ?></dt>
                 <dd class="text-gray-700"><?php echo htmlspecialchars($order['order_date'] . ' ' . date('H:i', strtotime($order['created_at']))); ?></dd>
             </div>
             <div>
-                <dt class="text-xs text-gray-400 mb-0.5">Ordered By</dt>
+                <dt class="text-xs text-gray-400 mb-0.5"><?php echo htmlspecialchars(t('logistics.order_detail.ordered_by')); ?></dt>
                 <dd class="text-gray-700 truncate"><?php echo htmlspecialchars($order['created_by_name'] ?? '-'); ?></dd>
             </div>
             <div>
-                <dt class="text-xs text-gray-400 mb-0.5">Order Total</dt>
+                <dt class="text-xs text-gray-400 mb-0.5"><?php echo htmlspecialchars(t('logistics.order_detail.order_total')); ?></dt>
                 <dd class="font-bold text-gray-900"><?php echo number_format($order['total_amount'], 2); ?></dd>
             </div>
             <?php if ($order['notes']): ?>
             <div class="col-span-2">
-                <dt class="text-xs text-gray-400 mb-0.5">Notes</dt>
+                <dt class="text-xs text-gray-400 mb-0.5"><?php echo htmlspecialchars(t('logistics.order_detail.notes')); ?></dt>
                 <dd class="text-gray-700"><?php echo htmlspecialchars($order['notes']); ?></dd>
             </div>
             <?php endif; ?>
         </dl>
     </div>
     <div class="bg-white rounded-lg border border-gray-200 p-4 no-print">
-        <h3 class="text-sm font-semibold text-gray-700 mb-3">Processing History</h3>
+        <h3 class="text-sm font-semibold text-gray-700 mb-3"><?php echo htmlspecialchars(t('logistics.order_detail.processing_history')); ?></h3>
         <?php
             $steps = [
-                ['label' => 'Received',  'time' => $order['created_at'],   'done' => true],
-                ['label' => 'Approved',  'time' => $order['approved_at'],  'done' => (bool)$order['approved_at'],  'sub' => $order['approved_by_name'] ?? ''],
-                ['label' => 'Shipped',   'time' => $order['shipped_at'],   'done' => (bool)$order['shipped_at']],
-                ['label' => 'Delivered', 'time' => $order['delivered_at'], 'done' => (bool)$order['delivered_at']],
+                ['label' => t('logistics.order_detail.status_received'),  'time' => $order['created_at'],   'done' => true],
+                ['label' => t('logistics.order_detail.status_approved'),  'time' => $order['approved_at'],  'done' => (bool)$order['approved_at'],  'sub' => $order['approved_by_name'] ?? ''],
+                ['label' => t('logistics.order_detail.status_shipped'),   'time' => $order['shipped_at'],   'done' => (bool)$order['shipped_at']],
+                ['label' => t('logistics.order_detail.status_delivered'), 'time' => $order['delivered_at'], 'done' => (bool)$order['delivered_at']],
             ];
             // 색상 기준: 지나간 완료 단계 = 연한 블루, 현재 최종 도달 단계만 = 보라색
             $lastDone = -1;
@@ -658,9 +669,9 @@ try {
             // 단계별 되돌리기: 각 단계는 바로 이전 단계로만 되돌릴 수 있다 (재고는 접수 시 이미 차감되어 그대로 유지).
             // CENTER 소속 관리자/점장(센터장)만 가능. 삭제된(휴지통) 주문은 제외.
             $revert_map = [
-                1 => ['action' => 'revert_approval', 'status' => 'approved',  'target' => 'Pending',  'confirm' => 'Revert this order to Pending status? The approval will be undone.'],
-                2 => ['action' => 'revert_ship',      'status' => 'shipped',   'target' => 'Approved', 'confirm' => 'Revert this order to Approved status? Outbound processing will be undone.'],
-                3 => ['action' => 'revert_delivery',  'status' => 'delivered', 'target' => 'Shipped',  'confirm' => 'Revert this order to Shipped status? Delivery completion will be undone.'],
+                1 => ['action' => 'revert_approval', 'status' => 'approved',  'target' => t('logistics.order_detail.status_pending'),  'confirm' => t('logistics.order_detail.revert_pending_confirm')],
+                2 => ['action' => 'revert_ship',      'status' => 'shipped',   'target' => t('logistics.order_detail.status_approved'), 'confirm' => t('logistics.order_detail.revert_approved_confirm')],
+                3 => ['action' => 'revert_delivery',  'status' => 'delivered', 'target' => t('logistics.order_detail.status_shipped'),  'confirm' => t('logistics.order_detail.revert_shipped_confirm')],
             ];
             $can_revert_steps = lc_is_admin() && empty($order['deleted_at']);
         ?>
@@ -693,7 +704,7 @@ try {
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
                         <input type="hidden" name="action" value="<?php echo $rv['action']; ?>">
                         <button type="submit" onclick="return confirm('<?php echo htmlspecialchars($rv['confirm'], ENT_QUOTES); ?>')"
-                                title="Revert to <?php echo $rv['target']; ?>"
+                        title="<?php echo htmlspecialchars(t('logistics.order_detail.revert_to', ['target' => $rv['target']])); ?>"
                                 class="text-gray-300 hover:text-orange-500 transition-colors" style="font-size:11px; line-height:1;">
                             <i class="fas fa-rotate-left"></i>
                         </button>
@@ -717,25 +728,25 @@ try {
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
     <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <h3 class="text-sm font-semibold text-gray-700">
-            Order Items
-            <span style="margin-left:6px;">Order #<?php echo str_pad($order['id'], 4, '0', STR_PAD_LEFT); ?></span>
+            <?php echo htmlspecialchars(t('logistics.order_detail.order_items')); ?>
+            <span style="margin-left:6px;"><?php echo htmlspecialchars(t('logistics.order_detail.order_number', ['id' => str_pad($order['id'], 4, '0', STR_PAD_LEFT)])); ?></span>
         </h3>
         <div class="flex items-center gap-2 no-print">
             <?php if (lc_is_staff() && empty($order['deleted_at'])): ?>
             <button type="button" onclick="openAddItemModal()"
                     class="inline-flex items-center px-3 py-1.5 bg-teal-600 text-white text-xs font-medium rounded-lg hover:bg-teal-700 whitespace-nowrap"
                     style="color:#fff;">
-                <i class="fas fa-plus mr-1"></i>Add Item
+                <i class="fas fa-plus mr-1"></i><?php echo htmlspecialchars(t('logistics.order_detail.add_item')); ?>
             </button>
             <?php endif; ?>
             <?php if ($order['status'] === 'pending' && lc_is_staff()): ?>
             <form method="post" class="inline-block">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
                 <input type="hidden" name="action" value="approve">
-                <button type="submit" onclick="return confirm('Approve this order? Inventory will be deducted (reserved) now.')"
+                <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.approve_confirm')), ENT_QUOTES); ?>)"
                         class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 whitespace-nowrap"
                         style="color:#fff;">
-                    <i class="fas fa-check mr-1"></i>Approve
+                    <i class="fas fa-check mr-1"></i><?php echo htmlspecialchars(t('logistics.order_detail.approve')); ?>
                 </button>
             </form>
             <?php endif; ?>
@@ -743,20 +754,20 @@ try {
             <form method="post" class="inline-block">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
                 <input type="hidden" name="action" value="ship">
-                <button type="submit" onclick="return confirm('Process outbound? (Inventory was already deducted at approval.)')"
+                <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.ship_confirm')), ENT_QUOTES); ?>)"
                         class="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700 whitespace-nowrap"
                         style="color:#fff;">
-                    <i class="fas fa-truck mr-1"></i>Process Outbound
+                    <i class="fas fa-truck mr-1"></i><?php echo htmlspecialchars(t('logistics.order_detail.process_outbound')); ?>
                 </button>
             </form>
             <?php endif; ?>
             <button onclick="window.print()" class="inline-flex items-center px-3 py-1.5 text-xs border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
-                <i class="fas fa-print mr-1"></i>Print
+                <i class="fas fa-print mr-1"></i><?php echo htmlspecialchars(t('logistics.order_detail.print')); ?>
             </button>
             <?php if ($can_edit_items): ?>
             <button type="button" id="editToggleBtn" onclick="toggleItemEdit()"
                     class="text-xs px-3 py-1.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
-                <i class="fas fa-edit mr-1"></i>Modify Quantity
+                <i class="fas fa-edit mr-1"></i><?php echo htmlspecialchars(t('logistics.order_detail.modify_quantity')); ?>
             </button>
             <?php endif; ?>
         </div>
@@ -767,16 +778,16 @@ try {
         <table class="w-full text-sm">
             <thead class="bg-gray-50"><tr>
                 <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:40px;white-space:nowrap;">#</th>
-                <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium" style="width:140px;">Barcode</th>
-                <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium" style="width:120px;">Brand</th>
-                <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
-                <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:90px;">Remaining Stock</th>
-                <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium qty-head" style="width:80px;font-size:16px;font-weight:700;background:#fecaca;-webkit-print-color-adjust:exact;print-color-adjust:exact;">Qty</th>
-                <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:80px;">Unit</th>
-                <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:80px;">PKG</th>
-                <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:130px;">Expiry</th>
-                <th class="px-2 py-3 text-right text-xs text-gray-500 font-medium whitespace-nowrap" style="width:120px;">Unit Price</th>
-                <th class="px-3 py-3 text-right text-xs text-gray-500 font-medium" style="width:130px;">Subtotal</th>
+                <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium" style="width:140px;"><?php echo htmlspecialchars(t('logistics.order_detail.barcode')); ?></th>
+                <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium" style="width:120px;"><?php echo htmlspecialchars(t('logistics.order_detail.brand')); ?></th>
+                <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.order_detail.product_name')); ?></th>
+                <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:90px;"><?php echo htmlspecialchars(t('logistics.order_detail.remaining_stock')); ?></th>
+                <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium qty-head" style="width:80px;font-size:16px;font-weight:700;background:#fecaca;-webkit-print-color-adjust:exact;print-color-adjust:exact;"><?php echo htmlspecialchars(t('logistics.order_detail.quantity')); ?></th>
+                <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:80px;"><?php echo htmlspecialchars(t('logistics.order_detail.unit')); ?></th>
+                <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:80px;"><?php echo htmlspecialchars(t('logistics.order_detail.pkg')); ?></th>
+                <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:130px;"><?php echo htmlspecialchars(t('logistics.order_detail.expiry')); ?></th>
+                <th class="px-2 py-3 text-right text-xs text-gray-500 font-medium whitespace-nowrap" style="width:120px;"><?php echo htmlspecialchars(t('logistics.order_detail.unit_price')); ?></th>
+                <th class="px-3 py-3 text-right text-xs text-gray-500 font-medium" style="width:130px;"><?php echo htmlspecialchars(t('logistics.order_detail.subtotal')); ?></th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php $row_no = 0; foreach ($items as $item): $row_no++; ?>
@@ -872,7 +883,7 @@ try {
             </tr>
             <?php endforeach; ?>
             <tr class="bg-gray-50">
-                <td colspan="10" class="px-4 py-3 text-right text-sm font-semibold text-gray-700">Total</td>
+                <td colspan="10" class="px-4 py-3 text-right text-sm font-semibold text-gray-700"><?php echo htmlspecialchars(t('logistics.order_detail.total')); ?></td>
                 <td class="px-4 py-3 text-right text-base font-bold text-gray-900"><?php echo number_format($order['total_amount'], 2); ?></td>
             </tr>
             </tbody>
@@ -888,14 +899,14 @@ try {
             <table class="w-full text-sm">
                 <thead class="bg-amber-50"><tr>
                     <th class="px-2 py-3 text-center text-xs text-amber-700 font-medium" style="width:40px;white-space:nowrap;">#</th>
-                    <th class="px-3 py-3 text-left text-xs text-amber-700 font-medium" style="width:140px;">Barcode</th>
-                    <th class="px-3 py-3 text-left text-xs text-amber-700 font-medium" style="width:120px;">Brand</th>
-                    <th class="px-3 py-3 text-left text-xs text-amber-700 font-medium">Product Name</th>
-                    <th class="px-2 py-3 text-center text-xs text-amber-700 font-medium" style="width:70px;">Qty</th>
-                    <th class="px-2 py-3 text-center text-xs text-amber-700 font-medium" style="width:70px;">Unit</th>
-                    <th class="px-4 py-3 text-right text-xs text-amber-700 font-medium">Unit Price</th>
-                    <th class="px-4 py-3 text-right text-xs text-amber-700 font-medium w-32">Modify Quantity</th>
-                    <th class="px-4 py-3 text-center text-xs text-amber-700 font-medium w-16">Delete</th>
+                    <th class="px-3 py-3 text-left text-xs text-amber-700 font-medium" style="width:140px;"><?php echo htmlspecialchars(t('logistics.order_detail.barcode')); ?></th>
+                    <th class="px-3 py-3 text-left text-xs text-amber-700 font-medium" style="width:120px;"><?php echo htmlspecialchars(t('logistics.order_detail.brand')); ?></th>
+                    <th class="px-3 py-3 text-left text-xs text-amber-700 font-medium"><?php echo htmlspecialchars(t('logistics.order_detail.product_name')); ?></th>
+                    <th class="px-2 py-3 text-center text-xs text-amber-700 font-medium" style="width:70px;"><?php echo htmlspecialchars(t('logistics.order_detail.quantity')); ?></th>
+                    <th class="px-2 py-3 text-center text-xs text-amber-700 font-medium" style="width:70px;"><?php echo htmlspecialchars(t('logistics.order_detail.unit')); ?></th>
+                    <th class="px-4 py-3 text-right text-xs text-amber-700 font-medium"><?php echo htmlspecialchars(t('logistics.order_detail.unit_price')); ?></th>
+                    <th class="px-4 py-3 text-right text-xs text-amber-700 font-medium w-32"><?php echo htmlspecialchars(t('logistics.order_detail.modify_quantity')); ?></th>
+                    <th class="px-4 py-3 text-center text-xs text-amber-700 font-medium w-16"><?php echo htmlspecialchars(t('logistics.order_detail.delete')); ?></th>
                 </tr></thead>
                 <tbody class="divide-y divide-gray-100">
                 <?php $erow = 0; foreach ($items as $item): $erow++; ?>
@@ -960,18 +971,18 @@ try {
             </table>
             <div class="px-4 py-3 border-t border-amber-100 bg-amber-50 flex items-center gap-3">
                 <p class="text-xs text-amber-700 flex-1">
-                    <i class="fas fa-info-circle mr-1"></i>Quantity 0 or delete: Remove that product. At least 1 item must remain.
+                    <i class="fas fa-info-circle mr-1"></i><?php echo htmlspecialchars(t('logistics.order_detail.quantity_zero_help')); ?>
                     <?php if (in_array($order['status'], ['shipped', 'delivered'], true)): ?>
-                    <br><i class="fas fa-triangle-exclamation mr-1"></i>This order was already <?php echo $order['status']; ?>. Saving will re-adjust already-deducted inventory to match the new quantities.
+                    <br><i class="fas fa-triangle-exclamation mr-1"></i><?php echo htmlspecialchars(t('logistics.order_detail.already_processed_help', ['status' => $status_label])); ?>
                     <?php endif; ?>
                 </p>
                 <button type="button" onclick="toggleItemEdit()"
                         class="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50">
-                    Cancel
+                    <?php echo htmlspecialchars(t('logistics.order_detail.cancel')); ?>
                 </button>
-                <button type="submit" onclick="return confirm('Do you want to save these changes?')"
+                <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.save_changes_confirm')), ENT_QUOTES); ?>)"
                         class="px-4 py-2 bg-amber-500 text-white text-sm font-semibold rounded-lg hover:bg-amber-600">
-                    <i class="fas fa-save mr-1"></i>Save
+                    <i class="fas fa-save mr-1"></i><?php echo htmlspecialchars(t('logistics.order_detail.save')); ?>
                 </button>
             </div>
         </form>
@@ -985,21 +996,21 @@ try {
     <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
         <thead>
             <tr>
-                <th style="width:50%; text-align:center; font-weight:700; padding:6px;">Prepared by</th>
-                <th style="width:50%; text-align:center; font-weight:700; padding:6px;">Received by</th>
+                <th style="width:50%; text-align:center; font-weight:700; padding:6px;"><?php echo htmlspecialchars(t('logistics.order_detail.prepared_by')); ?></th>
+                <th style="width:50%; text-align:center; font-weight:700; padding:6px;"><?php echo htmlspecialchars(t('logistics.order_detail.received_by')); ?></th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td style="padding:8px 10px; vertical-align:top;">
-                    <div>Name: <strong><?php echo htmlspecialchars($prepared_by); ?></strong></div>
+                    <div><?php echo htmlspecialchars(t('logistics.order_detail.name')); ?>: <strong><?php echo htmlspecialchars($prepared_by); ?></strong></div>
                     <div class="sign-space"></div>
-                    <div style="text-align:right;">Signature: _____________________</div>
+                    <div style="text-align:right;"><?php echo htmlspecialchars(t('logistics.order_detail.signature')); ?>: _____________________</div>
                 </td>
                 <td style="padding:8px 10px; vertical-align:top;">
-                    <div>Name: _____________________</div>
+                    <div><?php echo htmlspecialchars(t('logistics.order_detail.name')); ?>: _____________________</div>
                     <div class="sign-space"></div>
-                    <div style="text-align:right;">Signature: _____________________</div>
+                    <div style="text-align:right;"><?php echo htmlspecialchars(t('logistics.order_detail.signature')); ?>: _____________________</div>
                 </td>
             </tr>
         </tbody>
@@ -1015,11 +1026,11 @@ function toggleItemEdit() {
     if (isEdit) {
         edit.classList.add('hidden');
         view.classList.remove('hidden');
-        btn.innerHTML = '<i class="fas fa-edit mr-1"></i>Modify Quantity';
+        btn.innerHTML = '<i class="fas fa-edit mr-1"></i>' + <?php echo json_encode(t('logistics.order_detail.modify_quantity')); ?>;
     } else {
         view.classList.add('hidden');
         edit.classList.remove('hidden');
-        btn.innerHTML = '<i class="fas fa-times mr-1"></i>Cancel';
+        btn.innerHTML = '<i class="fas fa-times mr-1"></i>' + <?php echo json_encode(t('logistics.order_detail.cancel')); ?>;
     }
 }
 function setQtyZero(itemId) {
@@ -1035,82 +1046,82 @@ function setQtyZero(itemId) {
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="approve">
-        <button type="submit" onclick="return confirm('Approve this order? Inventory will be deducted (reserved) now.')"
+        <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.approve_confirm')), ENT_QUOTES); ?>)"
                 class="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
-            <i class="fas fa-check mr-2"></i>Approve
+            <i class="fas fa-check mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.approve')); ?>
         </button>
     </form>
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="cancel">
-        <button type="submit" onclick="return confirm('Do you want to cancel this order?')"
+                <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.cancel_confirm')), ENT_QUOTES); ?>)"
                 class="px-5 py-2 bg-red-100 text-red-700 text-sm font-medium rounded-lg hover:bg-red-200">
-            <i class="fas fa-times mr-2"></i>Cancel
+            <i class="fas fa-times mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.cancel')); ?>
         </button>
     </form>
     <?php elseif ($order['status'] === 'approved'): ?>
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="ship">
-        <button type="submit" onclick="return confirm('Process outbound? (Inventory was already deducted at approval.)')"
+                <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.ship_confirm')), ENT_QUOTES); ?>)"
                 class="px-5 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700">
-            <i class="fas fa-truck mr-2"></i>Process Outbound
+            <i class="fas fa-truck mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.process_outbound')); ?>
         </button>
     </form>
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="cancel">
-        <button type="submit" onclick="return confirm('Do you want to cancel this approved order?')"
+                <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.cancel_approved_confirm')), ENT_QUOTES); ?>)"
                 class="px-5 py-2 bg-red-100 text-red-700 text-sm font-medium rounded-lg hover:bg-red-200">
-            <i class="fas fa-times mr-2"></i>Cancel
+            <i class="fas fa-times mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.cancel')); ?>
         </button>
     </form>
     <?php if (lc_is_admin()): ?>
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="revert_approval">
-        <button type="submit" onclick="return confirm('Revert this order to Pending status? The approval will be undone.')"
+                <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.revert_pending_confirm')), ENT_QUOTES); ?>)"
                 class="px-5 py-2 bg-orange-100 text-orange-700 text-sm font-medium rounded-lg hover:bg-orange-200">
-            <i class="fas fa-rotate-left mr-2"></i>Revert to Pending
+            <i class="fas fa-rotate-left mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.revert_to', ['target' => t('logistics.order_detail.status_pending')])); ?>
         </button>
     </form>
     <?php endif; ?>
     <?php elseif ($order['status'] === 'cancel_requested'): ?>
     <div class="w-full bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 mb-3 text-sm text-orange-800">
-        <i class="fas fa-exclamation-circle mr-2"></i>Store requested cancellation. Approving will cancel the order.
+        <i class="fas fa-exclamation-circle mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.store_cancel_requested')); ?>
     </div>
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="approve_cancel">
-        <button type="submit" onclick="return confirm('Approve the cancellation request? The order will be cancelled.')"
+            <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.approve_cancellation_confirm')), ENT_QUOTES); ?>)"
                 class="px-5 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">
-            <i class="fas fa-check mr-2"></i>Approve Cancellation
+            <i class="fas fa-check mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.approve_cancellation')); ?>
         </button>
     </form>
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="reject_cancel">
-        <button type="submit" onclick="return confirm('Reject the cancellation request and restore to approved status?')"
+            <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.reject_cancellation_confirm')), ENT_QUOTES); ?>)"
                 class="px-5 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
-            <i class="fas fa-undo mr-2"></i>Reject Cancellation
+            <i class="fas fa-undo mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.reject_cancellation')); ?>
         </button>
     </form>
     <?php elseif ($order['status'] === 'shipped'): ?>
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="deliver">
-        <button type="submit" onclick="return confirm('Mark as delivery completed?')"
+        <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.deliver_confirm')), ENT_QUOTES); ?>)"
                 class="px-5 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
-            <i class="fas fa-check-double mr-2"></i>Delivery Completed
+            <i class="fas fa-check-double mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.delivery_completed')); ?>
         </button>
     </form>
     <?php if (lc_is_admin()): ?>
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="revert_ship">
-        <button type="submit" onclick="return confirm('Revert this order to Approved status? Outbound processing will be undone.')"
+        <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.revert_approved_confirm')), ENT_QUOTES); ?>)"
                 class="px-5 py-2 bg-orange-100 text-orange-700 text-sm font-medium rounded-lg hover:bg-orange-200">
-            <i class="fas fa-rotate-left mr-2"></i>Revert to Approved
+            <i class="fas fa-rotate-left mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.revert_to', ['target' => t('logistics.order_detail.status_approved')])); ?>
         </button>
     </form>
     <?php endif; ?>
@@ -1119,9 +1130,9 @@ function setQtyZero(itemId) {
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="revert_delivery">
-        <button type="submit" onclick="return confirm('Revert this order to Shipped status? Delivery completion will be undone.')"
+        <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.revert_shipped_confirm')), ENT_QUOTES); ?>)"
                 class="px-5 py-2 bg-orange-100 text-orange-700 text-sm font-medium rounded-lg hover:bg-orange-200">
-            <i class="fas fa-rotate-left mr-2"></i>Revert to Shipped
+            <i class="fas fa-rotate-left mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.revert_to', ['target' => t('logistics.order_detail.status_shipped')])); ?>
         </button>
     </form>
     <?php endif; ?>
@@ -1129,9 +1140,9 @@ function setQtyZero(itemId) {
     <form method="post" class="inline">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="soft_delete">
-        <button type="submit" onclick="return confirm('Move this order to trash? It can be restored later from the Deleted tab in the order list.')"
+        <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_detail.delete_confirm')), ENT_QUOTES); ?>)"
                 class="px-5 py-2 bg-red-100 text-red-700 text-sm font-medium rounded-lg hover:bg-red-200">
-            <i class="fas fa-trash mr-2"></i>Delete
+            <i class="fas fa-trash mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.delete')); ?>
         </button>
     </form>
     <?php endif; ?>
@@ -1184,7 +1195,7 @@ function setQtyZero(itemId) {
 <div id="addItemModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 no-print">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-plus text-teal-600 mr-2"></i>Add Item</h3>
+            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-plus text-teal-600 mr-2"></i><?php echo htmlspecialchars(t('logistics.order_detail.add_item')); ?></h3>
             <button type="button" onclick="closeAddItemModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
         </div>
         <form method="post" class="px-6 py-5 space-y-4">
@@ -1193,9 +1204,9 @@ function setQtyZero(itemId) {
             <input type="hidden" name="product_id" id="addItemProductId" value="">
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Product <span class="text-red-500">*</span></label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.order_detail.product')); ?> <span class="text-red-500">*</span></label>
                 <div class="relative">
-                    <input type="text" id="addItemSearch" autocomplete="off" placeholder="Search barcode or product name..."
+                    <input type="text" id="addItemSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.order_detail.search_product_placeholder')); ?>"
                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                     <div id="addItemDropdown" class="hidden absolute z-20 top-full left-0 right-0 mt-1"></div>
                 </div>
@@ -1203,7 +1214,7 @@ function setQtyZero(itemId) {
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Quantity <span class="text-red-500">*</span></label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.order_detail.quantity')); ?> <span class="text-red-500">*</span></label>
                 <input type="number" name="quantity" id="addItemQty" min="1" value="1"
                        class="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
@@ -1211,20 +1222,20 @@ function setQtyZero(itemId) {
             <div class="text-xs <?php echo $add_deducts ? 'text-orange-700 bg-orange-50 border border-orange-200' : 'text-gray-500 bg-gray-50 border border-gray-200'; ?> rounded-lg px-3 py-2">
                 <i class="fas fa-info-circle mr-1"></i>
                 <?php if ($add_deducts): ?>
-                This order's stock is already deducted. The added item will be deducted from inventory now (FEFO), and its cost will be finalized automatically.
+                <?php echo htmlspecialchars(t('logistics.order_detail.add_item_deducted_help')); ?>
                 <?php else: ?>
-                The item will be added to the order. Inventory will be deducted and cost finalized when the order is approved.
+                <?php echo htmlspecialchars(t('logistics.order_detail.add_item_pending_help')); ?>
                 <?php endif; ?>
             </div>
 
             <div class="flex gap-3 pt-1">
                 <button type="button" onclick="closeAddItemModal()"
                         class="flex-1 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                    Cancel
+                    <?php echo htmlspecialchars(t('logistics.order_detail.cancel')); ?>
                 </button>
                 <button type="submit" id="addItemSubmit" disabled
                         class="flex-1 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                    <i class="fas fa-plus mr-1"></i>Add
+                    <i class="fas fa-plus mr-1"></i><?php echo htmlspecialchars(t('logistics.order_detail.add')); ?>
                 </button>
             </div>
         </form>
@@ -1315,18 +1326,18 @@ function setQtyZero(itemId) {
         var header = document.createElement('div');
         header.className = 'flex items-center justify-between px-4 py-2.5 bg-teal-600 text-white';
         header.innerHTML =
-            '<span class="font-semibold text-sm"><i class="fas fa-boxes mr-2"></i>' + _results.length + ' products found</span>' +
+            '<span class="font-semibold text-sm"><i class="fas fa-boxes mr-2"></i>' + <?php echo json_encode(t('logistics.order_detail.products_found')); ?>.replace('{count}', _results.length) + '</span>' +
             '<span class="text-xs text-teal-200 flex items-center gap-1.5">' +
-            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs">↑↓</kbd> Move' +
-            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1">Enter</kbd> Add' +
-            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1">Esc</kbd> Close' +
+            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs">↑↓</kbd> ' + <?php echo json_encode(t('logistics.order_detail.move')); ?> +
+            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1">Enter</kbd> ' + <?php echo json_encode(t('logistics.order_detail.add')); ?> +
+            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1">Esc</kbd> ' + <?php echo json_encode(t('logistics.order_detail.close')); ?> +
             '</span>';
         panel.appendChild(header);
 
         if (!_results.length) {
             var empty = document.createElement('div');
             empty.className = 'px-4 py-4 text-sm text-gray-400 text-center';
-            empty.textContent = 'No results';
+            empty.textContent = <?php echo json_encode(t('logistics.order_detail.no_results')); ?>;
             panel.appendChild(empty);
             dropEl.appendChild(panel);
             dropEl.classList.remove('hidden');
@@ -1355,7 +1366,7 @@ function setQtyZero(itemId) {
                 '</td>' +
                 '<td class="px-3 py-3 w-20 text-right">' +
                     '<span class="add-badge inline-flex items-center gap-1 px-3 py-1 bg-teal-600 text-white text-xs font-semibold rounded-lg">' +
-                    '<i class="fas fa-plus text-xs"></i>Add</span>' +
+                    '<i class="fas fa-plus text-xs"></i>' + <?php echo json_encode(t('logistics.order_detail.add')); ?> + '</span>' +
                 '</td>';
             tr.addEventListener('click', function() { selectProduct(p); });
             tr.addEventListener('mouseenter', function() { if (mouseSelectEnabled) setActiveRow(idx); });
