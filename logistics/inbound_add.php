@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Register Inbound - Logistics Center';
+$page_title = t('logistics.inbound_add.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/unit_helper.php'; // Design Ref: box-pcs-unit §4.3
@@ -32,7 +32,7 @@ try {
         $st->close();
         if ($existing_batch && $existing_batch['is_confirmed']) {
             $conn->close();
-            lc_set_flash('error', 'This inbound record is locked and items cannot be added.');
+            lc_set_flash('error', t('logistics.inbound_add.locked'));
             header('Location: ' . LC_BASE . '/inbound_detail.php?batch_id=' . $existing_batch_id); exit;
         }
         if ($existing_batch) {
@@ -105,15 +105,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $damaged_qtys       = $_POST['damaged_qty']       ?? []; // Design Ref: inbound-damage-registration.design.md §3.3
     $damage_reasons     = $_POST['damage_reason']     ?? [];
 
-    if (!$form['inbound_date']) $errors[] = 'Please enter the inbound date.';
+    if (!$form['inbound_date']) $errors[] = t('logistics.inbound_add.date_required');
 
     // Supplier 필수 + DB 일치 검증
     if (empty($form['supplier_id'])) {
-        $errors[] = 'Please select a supplier.';
+        $errors[] = t('logistics.inbound_add.supplier_required');
     } else {
         $valid_supplier_ids = array_map('intval', array_column($suppliers, 'id'));
         if (!in_array($form['supplier_id'], $valid_supplier_ids, true)) {
-            $errors[] = 'Selected supplier is invalid. Please select a supplier from the list.';
+            $errors[] = t('logistics.inbound_add.supplier_invalid');
             $form['supplier_id'] = null;
         }
     }
@@ -130,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $qty = (int)($quantities[$i] ?? 0);
         if (!$pid) continue;
         if ($qty <= 0) {
-            $errors[] = "Check the quantity for item #" . ($i + 1) . ".";
+            $errors[] = t('logistics.inbound_add.quantity_invalid', ['index' => $i + 1]);
             $error_fields[$i] = 'quantity';
             continue;
         }
@@ -147,13 +147,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Design Ref: inbound-damage-registration.design.md §3.3 — 파손 수량은 해당 행의 입고 단위와 동일
         $damaged = max(0, (int)($damaged_qtys[$i] ?? 0));
         if ($damaged > $qty) {
-            $errors[] = "Item #" . ($i + 1) . ": Damaged quantity cannot exceed the inbound quantity.";
+            $errors[] = t('logistics.inbound_add.damaged_exceeds', ['index' => $i + 1]);
             $error_fields[$i] = 'damaged_qty';
             continue;
         }
         $damage_reason = trim($damage_reasons[$i] ?? '');
         if ($damaged > 0 && $damage_reason === '') {
-            $errors[] = "Item #" . ($i + 1) . ": Please enter a damage reason.";
+            $errors[] = t('logistics.inbound_add.damage_reason_required', ['index' => $i + 1]);
             $error_fields[$i] = 'damage_reason';
             continue;
         }
@@ -177,13 +177,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
     }
 
-    if (empty($valid_items) && empty($errors)) $errors[] = 'Please register at least 1 product.';
+    if (empty($valid_items) && empty($errors)) $errors[] = t('logistics.inbound_add.product_required');
 
     // 유통기한 필수 상품 검사
     $expiry_required_map = array_column($products, 'requires_expiry', 'id');
     foreach ($valid_items as $i => $item) {
         if (!empty($expiry_required_map[$item['product_id']]) && empty($item['expiry_date'])) {
-            $errors[] = "Item #" . ($i + 1) . ": Expiry date is required for this product.";
+            $errors[] = t('logistics.inbound_add.expiry_required', ['index' => $i + 1]);
             $error_fields[$item['_idx']] = 'expiry_date';
         }
     }
@@ -203,7 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $lock_check->close();
                 if ($lock_row && $lock_row['is_confirmed']) {
                     $conn->rollback(); $conn->close();
-                    lc_set_flash('error', 'This inbound record is locked and items cannot be added.');
+                    lc_set_flash('error', t('logistics.inbound_add.locked'));
                     header('Location: ' . LC_BASE . '/inbound_detail.php?batch_id=' . $existing_batch_id); exit;
                 }
                 $batch_id = $existing_batch_id;
@@ -280,13 +280,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->commit();
             $conn->close();
 
-            lc_set_flash('success', count($valid_items) . ' inbound record(s) registered.');
+            lc_set_flash('success', t('logistics.inbound_add.registered', ['count' => count($valid_items)]));
             header('Location: ' . LC_BASE . '/inbound_detail.php?batch_id=' . $batch_id);
             exit;
         } catch (Exception $e) {
             $conn->rollback();
             $conn->close();
-            $errors[] = 'DB Error:' . $e->getMessage();
+            $errors[] = t('logistics.inbound_add.db_error') . ': ' . $e->getMessage();
         }
     }
 }
@@ -302,7 +302,7 @@ foreach ($products as $p) {
 $back_url   = $existing_batch_id
     ? LC_BASE . '/inbound_detail.php?batch_id=' . $existing_batch_id
     : LC_BASE . '/inbound.php';
-$page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id : 'Register Inbound';
+$page_label = $existing_batch_id ? t('logistics.inbound_add.add_items_title', ['id' => $existing_batch_id]) : t('logistics.inbound_add.title');
 ?>
 <style>
 #itemsBody input[type=number]::-webkit-outer-spin-button,
@@ -319,9 +319,9 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
     </div>
     <div class="flex gap-2">
         <button type="submit" form="inboundForm" class="px-5 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
-            <i class="fas fa-save mr-1.5"></i>Register
+            <i class="fas fa-save mr-1.5"></i><?php echo htmlspecialchars(t('logistics.inbound_add.register')); ?>
         </button>
-        <a href="<?php echo $back_url; ?>" class="px-5 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200">Cancel</a>
+        <a href="<?php echo $back_url; ?>" class="px-5 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.inbound_add.cancel')); ?></a>
     </div>
 </div>
 
@@ -345,9 +345,9 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
 <!-- 공급업체 + 날인율 + 날짜 -->
 <div class="flex gap-4 mb-4">
     <div class="flex-1 relative" id="supplierWrapper">
-        <label class="block text-xs font-medium text-gray-500 mb-1">Supplier</label>
+        <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.supplier')); ?></label>
         <input type="hidden" name="supplier_id" id="supplierIdInput" value="<?php echo (int)$form['supplier_id']; ?>">
-        <input type="text" id="supplierSearch" autocomplete="off" placeholder="Search supplier..."
+        <input type="text" id="supplierSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.supplier_search_placeholder')); ?>"
                value="<?php
                    if ($form['supplier_id']) {
                        foreach ($suppliers as $s) {
@@ -359,19 +359,19 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
         <div id="supplierPanel" class="hidden absolute z-30 top-full left-0 right-0 mt-1"></div>
     </div>
     <div class="w-36">
-        <label class="block text-xs font-medium text-gray-500 mb-1">Discount Rate (%)</label>
+        <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.discount_rate')); ?></label>
         <div class="flex items-center gap-1">
             <input type="number" id="discountRate" min="0" max="100" step="0.1"
-                   value="<?php echo $form['discount_rate']; ?>" placeholder="0"
+                   value="<?php echo $form['discount_rate']; ?>" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.zero')); ?>"
                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 text-center font-semibold">
             <span class="text-gray-400 text-sm font-medium">%</span>
         </div>
         <p id="discountHint" class="text-xs text-orange-500 mt-0.5 <?php echo $form['discount_rate'] > 0 ? '' : 'hidden'; ?>">
-            <?php echo $form['discount_rate']; ?>% discount applied
+            <?php echo htmlspecialchars(t('logistics.inbound_add.discount_applied', ['rate' => $form['discount_rate']])); ?>
         </p>
     </div>
     <div class="w-40">
-        <label class="block text-xs font-medium text-gray-500 mb-1">Inbound Date <span class="text-red-500">*</span></label>
+        <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.inbound_date')); ?> <span class="text-red-500">*</span></label>
         <input type="date" name="inbound_date" value="<?php echo $form['inbound_date']; ?>" required
                class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
     </div>
@@ -381,16 +381,16 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
 <div class="mb-4">
     <div class="flex gap-2">
         <input type="text" id="barcodeInput"
-               placeholder="Scan barcode or enter product name (Korean/English)..."
+               placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.barcode_placeholder')); ?>"
                autocomplete="off"
                class="flex-1 border-2 border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-colors">
         <button type="button" onclick="searchBarcode()"
                 class="px-5 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 active:bg-teal-800 transition-colors whitespace-nowrap shadow-sm">
-            <i class="fas fa-search mr-1.5"></i>Search
+            <i class="fas fa-search mr-1.5"></i><?php echo htmlspecialchars(t('logistics.inbound_add.search')); ?>
         </button>
         <button type="button" onclick="openCameraScanner()"
                 class="px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 active:bg-indigo-800 transition-colors whitespace-nowrap shadow-sm"
-                title="Scan barcode with camera">
+                title="<?php echo htmlspecialchars(t('logistics.inbound_add.camera_scan_title')); ?>">
             <i class="fas fa-camera"></i>
         </button>
     </div>
@@ -402,9 +402,9 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
     <div class="px-4 py-2.5 border-b border-gray-100">
         <span class="text-sm font-medium text-gray-700">
-            Inbound Product List
+            <?php echo htmlspecialchars(t('logistics.inbound_add.product_list')); ?>
             <?php if (!empty($existing_items)): ?>
-            <span class="ml-2 text-xs text-gray-400 font-normal"><?php echo count($existing_items); ?> existing included</span>
+            <span class="ml-2 text-xs text-gray-400 font-normal"><?php echo htmlspecialchars(t('logistics.inbound_add.existing_included', ['count' => count($existing_items)])); ?></span>
             <?php endif; ?>
         </span>
     </div>
@@ -413,22 +413,22 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
             <thead class="bg-gray-50 border-b border-gray-100">
                 <tr>
                     <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium" style="width:2rem;min-width:2rem">#</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium" style="width:15rem">Product</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20">Capacity</th>
-                    <th class="px-3 py-2 text-center text-xs text-gray-500 font-medium w-16">Unit</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-16">PKG</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium" style="width:8rem;min-width:8rem">Expiry Date</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20">QTY(PCS)</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20">QTY(BOX)</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24">PRICE(PCS)</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24">PRICE(BOX)</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24">Location</th>
-                    <th class="px-3 py-2 text-center text-xs text-orange-400 font-medium w-16">Discount</th>
-                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-24">COST(PCS)</th>
-                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-24">COST(BOX)</th>
-                    <th class="px-3 py-2 text-left text-xs text-teal-700 font-semibold w-28">Total</th>
-                    <th class="px-3 py-2 text-left text-xs text-red-500 font-medium w-20">Damaged</th>
-                    <th class="px-3 py-2 text-left text-xs text-red-500 font-medium w-32">Damage Reason</th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium" style="width:15rem"><?php echo htmlspecialchars(t('logistics.inbound_add.product')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20"><?php echo htmlspecialchars(t('logistics.inbound_add.capacity')); ?></th>
+                    <th class="px-3 py-2 text-center text-xs text-gray-500 font-medium w-16"><?php echo htmlspecialchars(t('logistics.inbound_add.unit')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-16"><?php echo htmlspecialchars(t('logistics.inbound_add.pkg')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium" style="width:8rem;min-width:8rem"><?php echo htmlspecialchars(t('logistics.inbound_add.expiry_date')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20"><?php echo htmlspecialchars(t('logistics.inbound_add.qty_pcs')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20"><?php echo htmlspecialchars(t('logistics.inbound_add.qty_box')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24"><?php echo htmlspecialchars(t('logistics.inbound_add.price_pcs')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24"><?php echo htmlspecialchars(t('logistics.inbound_add.price_box')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24"><?php echo htmlspecialchars(t('logistics.inbound_add.location')); ?></th>
+                    <th class="px-3 py-2 text-center text-xs text-orange-400 font-medium w-16"><?php echo htmlspecialchars(t('logistics.inbound_add.discount')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-24"><?php echo htmlspecialchars(t('logistics.inbound_add.cost_pcs')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-24"><?php echo htmlspecialchars(t('logistics.inbound_add.cost_box')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-teal-700 font-semibold w-28"><?php echo htmlspecialchars(t('logistics.inbound_add.total')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-red-500 font-medium w-20"><?php echo htmlspecialchars(t('logistics.inbound_add.damaged')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-red-500 font-medium w-32"><?php echo htmlspecialchars(t('logistics.inbound_add.damage_reason')); ?></th>
                     <th class="px-3 py-2 w-7"></th>
                 </tr>
             </thead>
@@ -531,9 +531,9 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                     </td>
                     <td class="px-3 py-2">
                         <select class="row-unit-select w-full border border-gray-200 rounded px-1 py-1.5 text-xs text-center focus:outline-none focus:ring-1 focus:ring-teal-500" onchange="onRowUnitSelectChange(this)">
-                            <option value="BOX" <?php echo $r_unit === 'BOX' ? 'selected' : ''; ?>>BOX</option>
-                            <option value="PACK" <?php echo $r_unit === 'PACK' ? 'selected' : ''; ?>>PACK</option>
-                            <option value="PCS" <?php echo $r_unit === 'PCS' ? 'selected' : ''; ?>>PCS</option>
+                            <option value="BOX" <?php echo $r_unit === 'BOX' ? 'selected' : ''; ?>><?php echo htmlspecialchars(t('logistics.inbound_add.box')); ?></option>
+                            <option value="PACK" <?php echo $r_unit === 'PACK' ? 'selected' : ''; ?>><?php echo htmlspecialchars(t('logistics.inbound_add.pack')); ?></option>
+                            <option value="PCS" <?php echo $r_unit === 'PCS' ? 'selected' : ''; ?>><?php echo htmlspecialchars(t('logistics.inbound_add.pcs')); ?></option>
                         </select>
                     </td>
                     <td class="px-3 py-2">
@@ -541,33 +541,33 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                                min="1" step="1" value="<?php echo $r_ppb; ?>" oninput="onRowPpbInput(this)">
                     </td>
                     <td class="px-3 py-2" style="min-width:8rem">
-                        <input type="text" name="expiry_date[]" placeholder="YYYYMMDD" maxlength="10" autocomplete="off" value="<?php echo htmlspecialchars($r_exp); ?>" class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-teal-500">
-                        <span class="expiry-req-badge hidden text-xs font-semibold text-orange-600 mt-0.5 block">&#9888; Expiry Required</span>
+                        <input type="text" name="expiry_date[]" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.date_placeholder')); ?>" maxlength="10" autocomplete="off" value="<?php echo htmlspecialchars($r_exp); ?>" class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-teal-500">
+                        <span class="expiry-req-badge hidden text-xs font-semibold text-orange-600 mt-0.5 block"><?php echo htmlspecialchars(t('logistics.inbound_add.expiry_required_label')); ?></span>
                     </td>
                     <td class="px-3 py-2">
-                        <input type="number" placeholder="0" value="<?php echo $r_qty_pcs > 0 ? $r_qty_pcs : ''; ?>"
+                        <input type="number" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.zero')); ?>" value="<?php echo $r_qty_pcs > 0 ? $r_qty_pcs : ''; ?>"
                                class="row-qty-pcs w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
                                oninput="onRowQtyPcs(this)">
                         <span class="row-qty-pcs-dash hidden text-sm text-gray-300">-</span>
                     </td>
                     <td class="px-3 py-2">
                         <span class="row-qty-box-label text-[10px] font-semibold text-gray-400 block mb-0.5"><?php echo $r_unit === 'PACK' ? 'PACK' : 'BOX'; ?></span>
-                        <input type="number" placeholder="0" value="<?php echo $r_qty_box > 0 ? $r_qty_box : ''; ?>"
+                        <input type="number" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.zero')); ?>" value="<?php echo $r_qty_box > 0 ? $r_qty_box : ''; ?>"
                                class="row-qty-box w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
                                oninput="onRowQtyBox(this)">
                         <span class="row-qty-box-dash hidden text-sm text-gray-300">-</span>
                     </td>
                     <td class="px-3 py-2">
-                        <input type="number" step="0.01" min="0" placeholder="0.00" value="<?php echo $r_price_pcs > 0 ? htmlspecialchars((string)round($r_price_pcs, 2)) : ''; ?>"
+                        <input type="number" step="0.01" min="0" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.price_placeholder')); ?>" value="<?php echo $r_price_pcs > 0 ? htmlspecialchars((string)round($r_price_pcs, 2)) : ''; ?>"
                                class="row-price-pcs w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
                                oninput="onRowPricePcs(this)">
                     </td>
                     <td class="px-3 py-2">
-                        <input type="number" step="0.01" min="0" placeholder="0.00" value="<?php echo $r_price_box > 0 ? htmlspecialchars((string)round($r_price_box, 2)) : ''; ?>"
+                        <input type="number" step="0.01" min="0" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.price_placeholder')); ?>" value="<?php echo $r_price_box > 0 ? htmlspecialchars((string)round($r_price_box, 2)) : ''; ?>"
                                class="row-price-box w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
                                oninput="onRowPriceBox(this)">
                     </td>
-                    <td class="px-3 py-2"><input type="text" name="storage_location[]" placeholder="e.g. A-01-03" value="<?php echo htmlspecialchars($r_loc); ?>" class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-teal-500"></td>
+                    <td class="px-3 py-2"><input type="text" name="storage_location[]" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.location_placeholder')); ?>" value="<?php echo htmlspecialchars($r_loc); ?>" class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-teal-500"></td>
                     <!-- hidden fields for form submission -->
                     <input type="hidden" name="quantity[]">
                     <input type="hidden" name="unit[]" value="<?php echo htmlspecialchars($r_unit); ?>">
@@ -585,12 +585,12 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                         <span class="row-total text-sm font-bold text-teal-800">-</span>
                     </td>
                     <td class="px-3 py-2">
-                        <input type="number" name="damaged_qty[]" min="0" placeholder="0" value="<?php echo $r_damaged > 0 ? $r_damaged : ''; ?>"
+                        <input type="number" name="damaged_qty[]" min="0" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.zero')); ?>" value="<?php echo $r_damaged > 0 ? $r_damaged : ''; ?>"
                                class="row-damaged-qty w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400"
                                oninput="onRowDamagedChange(this)">
                     </td>
                     <td class="px-3 py-2">
-                        <input type="text" name="damage_reason[]" maxlength="255" placeholder="Reason" value="<?php echo htmlspecialchars($r_damage_reason); ?>"
+                        <input type="text" name="damage_reason[]" maxlength="255" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.damage_reason_placeholder')); ?>" value="<?php echo htmlspecialchars($r_damage_reason); ?>"
                                <?php echo $r_damaged > 0 ? 'required' : ''; ?>
                                class="row-damage-reason w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400">
                     </td>
@@ -602,11 +602,11 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                 ?>
                 <?php if (empty($existing_items) && !$has_restored): ?>
                 <tr id="emptyRow">
-                    <td colspan="16" class="px-4 py-6 text-center text-sm text-gray-400">Scan barcode or click Add Row to register a product.</td>
+                    <td colspan="16" class="px-4 py-6 text-center text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.inbound_add.empty')); ?></td>
                 </tr>
                 <?php else: ?>
                 <tr id="emptyRow" style="display:none">
-                    <td colspan="16" class="px-4 py-6 text-center text-sm text-gray-400">Scan barcode or click Add Row to register a product.</td>
+                    <td colspan="16" class="px-4 py-6 text-center text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.inbound_add.empty')); ?></td>
                 </tr>
                 <?php endif; ?>
             </tbody>
@@ -623,19 +623,19 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
             <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
                 <i class="fas fa-barcode text-amber-500 text-lg"></i>
             </div>
-            <h3 class="text-sm font-semibold text-gray-900">No registered product found</h3>
+            <h3 class="text-sm font-semibold text-gray-900"><?php echo htmlspecialchars(t('logistics.inbound_add.no_registered_product')); ?></h3>
         </div>
-        <p class="text-xs text-gray-500 mb-1">Scanned barcode:</p>
+        <p class="text-xs text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.scanned_barcode')); ?></p>
         <p class="font-mono font-semibold text-gray-800 text-sm mb-4" id="inboundConfirmBarcode"></p>
-        <p class="text-sm text-gray-700 mb-5">Would you like to register it as a new product?</p>
+        <p class="text-sm text-gray-700 mb-5"><?php echo htmlspecialchars(t('logistics.inbound_add.register_new_product_confirm')); ?></p>
         <div class="flex gap-2">
             <button type="button" onclick="openInboundRegisterModal()"
                     class="flex-1 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
-                <i class="fas fa-plus mr-1.5"></i>Yes
+                <i class="fas fa-plus mr-1.5"></i><?php echo htmlspecialchars(t('logistics.inbound_add.yes')); ?>
             </button>
             <button type="button" onclick="closeInboundConfirmModal()"
                     class="px-4 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
-                No
+                <?php echo htmlspecialchars(t('logistics.inbound_add.no')); ?>
             </button>
         </div>
     </div>
@@ -645,7 +645,7 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
 <div id="inboundRegisterModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
     <div class="relative bg-white rounded-xl shadow-2xl w-full mx-4 flex flex-col" style="max-height:90vh; max-width:63rem;">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-plus-circle text-teal-600 mr-2"></i>Register Product</h3>
+            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-plus-circle text-teal-600 mr-2"></i><?php echo htmlspecialchars(t('logistics.inbound_add.register_product')); ?></h3>
             <button type="button" onclick="closeInboundRegisterModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
         </div>
         <div class="overflow-y-auto px-6 py-5 flex-1">
@@ -654,10 +654,10 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
 
                 <div class="border border-teal-200 bg-teal-50 rounded-lg p-4">
-                    <h4 class="text-sm font-semibold text-teal-800 mb-1"><i class="fas fa-magic mr-1"></i>Import from Existing Product</h4>
-                    <p class="text-xs text-teal-700 mb-2">Search by barcode or product name to auto-fill the Korean/English name and units per box.</p>
+                    <h4 class="text-sm font-semibold text-teal-800 mb-1"><i class="fas fa-magic mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_add.import_existing_product')); ?></h4>
+                    <p class="text-xs text-teal-700 mb-2"><?php echo htmlspecialchars(t('logistics.inbound_add.import_existing_help')); ?></p>
                     <div class="relative">
-                        <input type="text" id="inbRegShopProductSearch" autocomplete="off" placeholder="Search barcode or product name..."
+                        <input type="text" id="inbRegShopProductSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.product_search_placeholder')); ?>"
                                class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                         <div id="inbRegShopProductDropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
                             <ul id="inbRegShopProductList" class="py-1"></ul>
@@ -666,23 +666,23 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                 </div>
 
                 <div class="border-b border-gray-100 pb-5">
-                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Product Name</h4>
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3"><?php echo htmlspecialchars(t('logistics.inbound_add.product_name')); ?></h4>
                     <div class="space-y-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">English Name <span class="text-red-500">*</span></label>
-                            <input type="text" name="name_en" id="inbReg_name_en" autocomplete="off" placeholder="E.g.: Shin Ramyun, Choco Pie"
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.english_name')); ?> <span class="text-red-500">*</span></label>
+                            <input type="text" name="name_en" id="inbReg_name_en" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.product_name_example')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Korean Name <span class="text-xs text-gray-400 font-normal">(Korean products only)</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.korean_name')); ?> <span class="text-xs text-gray-400 font-normal"><?php echo htmlspecialchars(t('logistics.inbound_add.korean_only')); ?></span></label>
                             <div class="flex gap-2">
-                                <input type="text" name="name_ko" id="inbReg_name_ko" autocomplete="off" placeholder="E.g.: Shin Ramyun, Choco Pie"
+                                <input type="text" name="name_ko" id="inbReg_name_ko" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.product_name_example')); ?>"
                                        class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-                                <button type="button" onclick="inbRegRomanize()" id="inbRegRomanizeBtn" title="한글을 영문 발음(로마자)으로 변환"
+                                <button type="button" onclick="inbRegRomanize()" id="inbRegRomanizeBtn" title="<?php echo htmlspecialchars(t('logistics.inbound_add.romanize_title')); ?>"
                                         class="px-3 py-2 text-xs font-semibold rounded-md whitespace-nowrap transition-colors"
-                                        style="background:#f3e8ff;color:#7e22ce;">발음 ▶ English</button>
+                                        style="background:#f3e8ff;color:#7e22ce;"><?php echo htmlspecialchars(t('logistics.inbound_add.romanize')); ?></button>
                                 <button type="button" onclick="inbRegTranslateToEn()" id="inbRegTransToEnBtn"
-                                        class="px-3 py-2 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 whitespace-nowrap transition-colors">Translate ▶ English</button>
+                                        class="px-3 py-2 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 whitespace-nowrap transition-colors"><?php echo htmlspecialchars(t('logistics.inbound_add.translate_english')); ?></button>
                             </div>
                         </div>
                     </div>
@@ -691,37 +691,37 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                 <div class="border-b border-gray-100 pb-5">
                     <div class="gap-4" style="display:grid; grid-template-columns:1fr 2fr 2fr; gap:1rem;">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
-                            <input type="text" name="capacity" id="inbReg_capacity" autocomplete="off" placeholder="E.g.: 500ml, 1kg, 20ea"
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.capacity')); ?></label>
+                            <input type="text" name="capacity" id="inbReg_capacity" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.capacity_example')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.brand')); ?></label>
                             <div class="flex gap-2">
                                 <div class="relative flex-1">
                                     <input type="hidden" name="brand_id" id="inbReg_brand_id">
-                                    <input type="text" id="inbRegBrandSearch" autocomplete="off" placeholder="Search brand..."
+                                    <input type="text" id="inbRegBrandSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.brand_search_placeholder')); ?>"
                                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                                     <div id="inbRegBrandDropdown" class="hidden absolute top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto" style="z-index:70">
                                         <ul id="inbRegBrandList" class="py-1"></ul>
                                     </div>
                                 </div>
-                                <button type="button" onclick="openInbRegQuick('brand')" title="Add New Brand"
+                                <button type="button" onclick="openInbRegQuick('brand')" title="<?php echo htmlspecialchars(t('logistics.inbound_add.add_brand')); ?>"
                                         class="shrink-0 px-3 py-2 bg-teal-50 border border-teal-300 text-teal-700 rounded-md hover:bg-teal-100 transition-colors text-sm"><i class="fas fa-plus"></i></button>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.category')); ?></label>
                             <div class="flex gap-2">
                                 <div class="relative flex-1">
                                     <input type="hidden" name="category_id" id="inbReg_category_id">
-                                    <input type="text" id="inbRegCatSearch" autocomplete="off" placeholder="Search category..."
+                                    <input type="text" id="inbRegCatSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.category_search_placeholder')); ?>"
                                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                                     <div id="inbRegCatDropdown" class="hidden absolute top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto" style="z-index:70">
                                         <ul id="inbRegCatList" class="py-1"></ul>
                                     </div>
                                 </div>
-                                <button type="button" onclick="openInbRegQuick('category')" title="Add New Category"
+                                <button type="button" onclick="openInbRegQuick('category')" title="<?php echo htmlspecialchars(t('logistics.inbound_add.add_category')); ?>"
                                         class="shrink-0 px-3 py-2 bg-teal-50 border border-teal-300 text-teal-700 rounded-md hover:bg-teal-100 transition-colors text-sm"><i class="fas fa-plus"></i></button>
                             </div>
                         </div>
@@ -731,15 +731,15 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                 <div class="border-b border-gray-100 pb-5">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.unit')); ?></label>
                             <select name="unit" id="inbReg_unit"
                                     class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-                                <option value="BOX">BOX</option>
-                                <option value="PCS">PCS</option>
+                                <option value="BOX"><?php echo htmlspecialchars(t('logistics.inbound_add.box')); ?></option>
+                                <option value="PCS"><?php echo htmlspecialchars(t('logistics.inbound_add.pcs')); ?></option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Units per Box(PKG)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.units_per_box')); ?></label>
                             <input type="number" name="pieces_per_box" id="inbReg_pieces_per_box" value="1" min="1"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                         </div>
@@ -749,18 +749,18 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                 <div class="border-b border-gray-100 pb-5">
                     <div class="grid grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-barcode text-gray-400 mr-1"></i>Barcode</label>
-                            <input type="text" name="barcode_unit" id="inbReg_barcode_unit" autocomplete="off" placeholder="Product Barcode"
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-barcode text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_add.barcode')); ?></label>
+                            <input type="text" name="barcode_unit" id="inbReg_barcode_unit" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.product_barcode_placeholder')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-box text-gray-400 mr-1"></i>Box Code</label>
-                            <input type="text" name="barcode_box" id="inbReg_barcode_box" autocomplete="off" placeholder="Box Unit Barcode"
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-box text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_add.box_code')); ?></label>
+                            <input type="text" name="barcode_box" id="inbReg_barcode_box" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.box_barcode_placeholder')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-warehouse text-gray-400 mr-1"></i>Logistics Code</label>
-                            <input type="text" name="barcode_logistics" id="inbReg_barcode_logistics" autocomplete="off" placeholder="Logistics Center Code"
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-warehouse text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.inbound_add.logistics_code')); ?></label>
+                            <input type="text" name="barcode_logistics" id="inbReg_barcode_logistics" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.logistics_code_placeholder')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
                         </div>
                     </div>
@@ -768,7 +768,7 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
 
                 <div class="grid grid-cols-4 gap-4 items-start pb-2">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Minimum Stock</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.minimum_stock')); ?></label>
                         <input type="number" name="min_stock" id="inbReg_min_stock" value="0" min="0"
                                class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                     </div>
@@ -776,8 +776,8 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                         <input type="checkbox" name="requires_expiry" id="inbReg_requires_expiry" value="1"
                                class="mt-0.5 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-400">
                         <label for="inbReg_requires_expiry" class="cursor-pointer">
-                            <span class="text-sm font-medium text-gray-800">Expiry Date Required</span>
-                            <p class="text-xs text-gray-500 mt-0.5">When checked, expiry date must be entered when receiving this product.</p>
+                            <span class="text-sm font-medium text-gray-800"><?php echo htmlspecialchars(t('logistics.inbound_add.expiry_required_label')); ?></span>
+                            <p class="text-xs text-gray-500 mt-0.5"><?php echo htmlspecialchars(t('logistics.inbound_add.expiry_required_help')); ?></p>
                         </label>
                     </div>
                 </div>
@@ -786,10 +786,10 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
         <div class="px-6 py-4 border-t border-gray-100 flex gap-3 shrink-0">
             <button type="button" onclick="submitInboundRegisterModal()"
                     class="flex-1 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700">
-                <i class="fas fa-save mr-2"></i>Register
+                <i class="fas fa-save mr-2"></i><?php echo htmlspecialchars(t('logistics.inbound_add.register')); ?>
             </button>
             <button type="button" onclick="closeInboundRegisterModal()"
-                    class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">Cancel</button>
+                    class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.inbound_add.cancel')); ?></button>
         </div>
     </div>
 </div>
@@ -798,37 +798,37 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
 <div id="inbRegQuickModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40" style="z-index:60">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
         <div class="flex items-center justify-between mb-4">
-            <h3 id="inbRegQuickTitle" class="text-base font-semibold text-gray-800">New Brand</h3>
+            <h3 id="inbRegQuickTitle" class="text-base font-semibold text-gray-800"><?php echo htmlspecialchars(t('logistics.inbound_add.new_brand')); ?></h3>
             <button type="button" onclick="closeInbRegQuick()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
         </div>
         <div id="inbRegQuickError" class="hidden mb-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"></div>
         <div class="space-y-3">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">English Name <span class="text-red-500">*</span></label>
-                <input type="text" id="inbRegQuickNameEn" autocomplete="off" placeholder="E.g.: Nongshim, Beverage"
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.english_name')); ?> <span class="text-red-500">*</span></label>
+                <input type="text" id="inbRegQuickNameEn" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.brand_name_example')); ?>"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();saveInbRegQuick();}">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Korean Name</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.korean_name')); ?></label>
                 <div class="flex gap-2">
-                    <input type="text" id="inbRegQuickNameKo" autocomplete="off" placeholder="E.g.: Nongshim, Beverage"
+                    <input type="text" id="inbRegQuickNameKo" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.brand_name_example')); ?>"
                            class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                            onkeydown="if(event.key==='Enter'){event.preventDefault();inbRegQuickTranslate();}">
                     <button type="button" id="inbRegQuickTransBtn" onclick="inbRegQuickTranslate()"
                             class="px-3 py-2 text-xs font-semibold rounded-md whitespace-nowrap transition-colors"
-                            style="background:#f3e8ff;color:#7e22ce;">한글→영문표기</button>
+                            style="background:#f3e8ff;color:#7e22ce;"><?php echo htmlspecialchars(t('logistics.inbound_add.romanize_short')); ?></button>
                 </div>
             </div>
         </div>
         <div class="flex gap-2 mt-5">
             <button type="button" onclick="saveInbRegQuick()"
                     class="flex-1 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
-                <i class="fas fa-plus mr-1.5"></i>Register
+                <i class="fas fa-plus mr-1.5"></i><?php echo htmlspecialchars(t('logistics.inbound_add.register')); ?>
             </button>
             <button type="button" onclick="closeInbRegQuick()"
                     class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
-                Cancel
+                <?php echo htmlspecialchars(t('logistics.inbound_add.cancel')); ?>
             </button>
         </div>
     </div>
@@ -838,40 +838,40 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
 <div id="supplierModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-semibold text-gray-800">New Supplier</h3>
+            <h3 class="text-sm font-semibold text-gray-800"><?php echo htmlspecialchars(t('logistics.inbound_add.new_supplier')); ?></h3>
             <button type="button" onclick="closeSupplierModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
         </div>
         <div id="supplierModalError" class="hidden mb-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"></div>
         <div class="space-y-3">
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Name <span class="text-red-500">*</span></label>
-                <input type="text" id="smName" placeholder="Supplier name" autocomplete="off"
+                <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.name')); ?> <span class="text-red-500">*</span></label>
+                <input type="text" id="smName" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.supplier_name_placeholder')); ?>" autocomplete="off"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Contact Person</label>
-                <input type="text" id="smContact" placeholder="-" autocomplete="off"
+                <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.contact_person')); ?></label>
+                <input type="text" id="smContact" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.dash')); ?>" autocomplete="off"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Phone</label>
-                <input type="text" id="smPhone" placeholder="-" autocomplete="off"
+                <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.phone')); ?></label>
+                <input type="text" id="smPhone" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.dash')); ?>" autocomplete="off"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Email</label>
-                <input type="email" id="smEmail" placeholder="-" autocomplete="off"
+                <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.inbound_add.email')); ?></label>
+                <input type="email" id="smEmail" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.dash')); ?>" autocomplete="off"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
         </div>
         <div class="flex gap-2 mt-5">
             <button type="button" onclick="saveSupplier()"
                     class="flex-1 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
-                <i class="fas fa-save mr-1.5"></i>Save
+                <i class="fas fa-save mr-1.5"></i><?php echo htmlspecialchars(t('logistics.inbound_add.save')); ?>
             </button>
             <button type="button" onclick="closeSupplierModal()"
                     class="px-4 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
-                Cancel
+                <?php echo htmlspecialchars(t('logistics.inbound_add.cancel')); ?>
             </button>
         </div>
     </div>
@@ -882,7 +882,7 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
     <div class="flex items-center justify-between px-4 py-3 bg-gray-900">
         <div class="flex items-center gap-2">
             <i class="fas fa-camera text-indigo-400"></i>
-            <span class="text-white text-sm font-semibold">Barcode Scan</span>
+            <span class="text-white text-sm font-semibold"><?php echo htmlspecialchars(t('logistics.inbound_add.barcode_scan')); ?></span>
         </div>
         <button type="button" onclick="closeCameraScanner()" class="text-gray-400 hover:text-white p-1">
             <i class="fas fa-times text-lg"></i>
@@ -893,12 +893,12 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div class="w-64 h-32 border-2 border-indigo-400 rounded-lg opacity-70"></div>
         </div>
-        <p id="cameraScanStatus" class="mt-4 text-sm text-gray-300 text-center px-4">Point the camera at the barcode</p>
+        <p id="cameraScanStatus" class="mt-4 text-sm text-gray-300 text-center px-4"><?php echo htmlspecialchars(t('logistics.inbound_add.camera_point')); ?></p>
     </div>
     <div class="px-4 py-3 bg-gray-900 text-center">
         <button type="button" onclick="closeCameraScanner()"
                 class="px-6 py-2 bg-gray-700 text-white text-sm font-medium rounded-lg hover:bg-gray-600">
-            Cancel
+            <?php echo htmlspecialchars(t('logistics.inbound_add.cancel')); ?>
         </button>
     </div>
 </div>
@@ -920,9 +920,9 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
         <!-- Unit (BOX/PCS 행별 선택) -->
         <td class="px-3 py-2">
             <select class="row-unit-select w-full border border-gray-200 rounded px-1 py-1.5 text-xs text-center focus:outline-none focus:ring-1 focus:ring-teal-500" onchange="onRowUnitSelectChange(this)">
-                <option value="BOX">BOX</option>
-                <option value="PACK">PACK</option>
-                <option value="PCS">PCS</option>
+                <option value="BOX"><?php echo htmlspecialchars(t('logistics.inbound_add.box')); ?></option>
+                <option value="PACK"><?php echo htmlspecialchars(t('logistics.inbound_add.pack')); ?></option>
+                <option value="PCS"><?php echo htmlspecialchars(t('logistics.inbound_add.pcs')); ?></option>
             </select>
         </td>
         <!-- PKG (1박스당 PCS 수량) -->
@@ -932,38 +932,38 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
         </td>
         <!-- Expiry Date -->
         <td class="px-3 py-2" style="min-width:8rem">
-            <input type="text" name="expiry_date[]" placeholder="YYYYMMDD" maxlength="10" autocomplete="off" class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-teal-500">
-            <span class="expiry-req-badge hidden text-xs font-semibold text-orange-600 mt-0.5 block">&#9888; Expiry Required</span>
+            <input type="text" name="expiry_date[]" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.date_placeholder')); ?>" maxlength="10" autocomplete="off" class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-teal-500">
+            <span class="expiry-req-badge hidden text-xs font-semibold text-orange-600 mt-0.5 block"><?php echo htmlspecialchars(t('logistics.inbound_add.expiry_required_label')); ?></span>
         </td>
         <!-- QTY(PCS) -->
         <td class="px-3 py-2">
-            <input type="number" placeholder="0"
+            <input type="number" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.zero')); ?>"
                    class="row-qty-pcs w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
                    oninput="onRowQtyPcs(this)">
             <span class="row-qty-pcs-dash hidden text-sm text-gray-300">-</span>
         </td>
         <!-- QTY(BOX/PACK) -->
         <td class="px-3 py-2">
-            <span class="row-qty-box-label text-[10px] font-semibold text-gray-400 block mb-0.5">BOX</span>
-            <input type="number" placeholder="0"
+            <span class="row-qty-box-label text-[10px] font-semibold text-gray-400 block mb-0.5"><?php echo htmlspecialchars(t('logistics.inbound_add.box')); ?></span>
+            <input type="number" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.zero')); ?>"
                    class="row-qty-box w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
                    oninput="onRowQtyBox(this)">
             <span class="row-qty-box-dash hidden text-sm text-gray-300">-</span>
         </td>
         <!-- PRICE(PCS) -->
         <td class="px-3 py-2">
-            <input type="number" step="0.01" min="0" placeholder="0.00"
+            <input type="number" step="0.01" min="0" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.price_placeholder')); ?>"
                    class="row-price-pcs w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
                    oninput="onRowPricePcs(this)">
         </td>
         <!-- PRICE(BOX) -->
         <td class="px-3 py-2">
-            <input type="number" step="0.01" min="0" placeholder="0.00"
+            <input type="number" step="0.01" min="0" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.price_placeholder')); ?>"
                    class="row-price-box w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
                    oninput="onRowPriceBox(this)">
         </td>
         <!-- Location -->
-        <td class="px-3 py-2"><input type="text" name="storage_location[]" placeholder="e.g. A-01-03" class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-teal-500"></td>
+        <td class="px-3 py-2"><input type="text" name="storage_location[]" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.location_placeholder')); ?>" class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-teal-500"></td>
         <!-- hidden fields for form submission -->
         <input type="hidden" name="quantity[]">
         <input type="hidden" name="unit[]" value="BOX">
@@ -988,12 +988,12 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
         </td>
         <!-- Damaged / Damage Reason (Design Ref: inbound-damage-registration.design.md §3.1) -->
         <td class="px-3 py-2">
-            <input type="number" name="damaged_qty[]" min="0" placeholder="0"
+            <input type="number" name="damaged_qty[]" min="0" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.zero')); ?>"
                    class="row-damaged-qty w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400"
                    oninput="onRowDamagedChange(this)">
         </td>
         <td class="px-3 py-2">
-            <input type="text" name="damage_reason[]" maxlength="255" placeholder="Reason"
+            <input type="text" name="damage_reason[]" maxlength="255" placeholder="<?php echo htmlspecialchars(t('logistics.inbound_add.damage_reason_placeholder')); ?>"
                    class="row-damage-reason w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400">
         </td>
         <td class="px-3 py-2 text-center"><button type="button" onclick="removeRow(this)" class="text-gray-300 hover:text-red-400 transition-colors"><i class="fas fa-times text-xs"></i></button></td>
@@ -1063,10 +1063,10 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
             var hdr = document.createElement('div');
             hdr.className = 'flex items-center justify-between px-4 py-2.5 bg-amber-500 text-white';
             hdr.innerHTML =
-                '<span class="font-semibold text-sm"><i class="fas fa-search mr-2"></i>No results</span>' +
+                '<span class="font-semibold text-sm"><i class="fas fa-search mr-2"></i><?php echo htmlspecialchars(t('logistics.inbound_add.no_results')); ?></span>' +
                 '<span class="text-xs text-amber-100 flex items-center gap-1.5">' +
-                '<kbd class="px-1.5 py-0.5 bg-amber-600 rounded text-xs">Enter</kbd> Register New ' +
-                '<kbd class="px-1.5 py-0.5 bg-amber-600 rounded text-xs ml-1">Esc</kbd> Close</span>';
+                '<kbd class="px-1.5 py-0.5 bg-amber-600 rounded text-xs"><?php echo htmlspecialchars(t('logistics.inbound_add.enter')); ?></kbd> ' + <?php echo json_encode(t('logistics.inbound_add.register_new')); ?> + ' ' +
+                '<kbd class="px-1.5 py-0.5 bg-amber-600 rounded text-xs ml-1"><?php echo htmlspecialchars(t('logistics.inbound_add.escape')); ?></kbd> ' + <?php echo json_encode(t('logistics.inbound_add.close')); ?> + '</span>';
             wrap.appendChild(hdr);
 
             var table = document.createElement('table');
@@ -1078,12 +1078,12 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                     '<span class="s-num inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-500 text-xs font-bold"><i class="fas fa-plus"></i></span>' +
                 '</td>' +
                 '<td class="px-3 py-3">' +
-                    '<p class="font-semibold text-gray-900 text-sm leading-tight">Register as new supplier</p>' +
-                    '<p class="text-xs text-gray-500 mt-0.5">No suppliers matching "' + escHtml(query) + '".</p>' +
+                    '<p class="font-semibold text-gray-900 text-sm leading-tight"><?php echo htmlspecialchars(t('logistics.inbound_add.register_new_supplier')); ?></p>' +
+                    '<p class="text-xs text-gray-500 mt-0.5">' + <?php echo json_encode(t('logistics.inbound_add.no_suppliers_matching')); ?>.replace('{query}', escHtml(query)) + '</p>' +
                 '</td>' +
                 '<td class="px-3 py-3 w-20 text-right">' +
                     '<span class="s-sel inline-flex items-center gap-1 px-3 py-1 bg-amber-500 text-white text-xs font-semibold rounded-lg">' +
-                    '<i class="fas fa-plus text-xs"></i>Register</span>' +
+                    '<i class="fas fa-plus text-xs"></i><?php echo htmlspecialchars(t('logistics.inbound_add.register')); ?></span>' +
                 '</td>';
             tr.addEventListener('mousedown', function(e) { e.preventDefault(); hidePanel(); openSupplierModal(query || ''); });
             tr.addEventListener('mouseenter', function() { if (mouseSelectEnabled) setActiveRow(0); });
@@ -1100,11 +1100,11 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
             var hdr = document.createElement('div');
             hdr.className = 'flex items-center justify-between px-4 py-2.5 bg-teal-600 text-white';
             hdr.innerHTML =
-                '<span class="font-semibold text-sm"><i class="fas fa-truck mr-2"></i>' + suppliers.length + ' supplier(s) found</span>' +
+                '<span class="font-semibold text-sm"><i class="fas fa-truck mr-2"></i>' + <?php echo json_encode(t('logistics.inbound_add.suppliers_found')); ?>.replace('{count}', suppliers.length) + '</span>' +
                 '<span class="text-xs text-teal-200 flex items-center gap-1.5">' +
-                '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs">↑↓</kbd> Move ' +
-                '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1">Enter</kbd> Select ' +
-                '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1">Esc</kbd> Close</span>';
+                '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs">↑↓</kbd> ' + <?php echo json_encode(t('logistics.inbound_add.move')); ?> + ' ' +
+                '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1"><?php echo htmlspecialchars(t('logistics.inbound_add.enter')); ?></kbd> ' + <?php echo json_encode(t('logistics.inbound_add.select')); ?> + ' ' +
+                '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1"><?php echo htmlspecialchars(t('logistics.inbound_add.escape')); ?></kbd> ' + <?php echo json_encode(t('logistics.inbound_add.close')); ?> + '</span>';
             wrap.appendChild(hdr);
 
             // 테이블
@@ -1127,7 +1127,7 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
                     '</td>' +
                     '<td class="px-3 py-3 w-20 text-right">' +
                         '<span class="s-sel inline-flex items-center gap-1 px-3 py-1 bg-teal-600 text-white text-xs font-semibold rounded-lg">' +
-                        '<i class="fas fa-check text-xs"></i>Select</span>' +
+                        '<i class="fas fa-check text-xs"></i><?php echo htmlspecialchars(t('logistics.inbound_add.select')); ?></span>' +
                     '</td>';
                 tr.addEventListener('click', function() { selectSupplier(s); });
                 tr.addEventListener('mouseenter', function() { if (mouseSelectEnabled) setActiveRow(idx); });
@@ -1143,11 +1143,11 @@ $page_label = $existing_batch_id ? 'Add Items to Inbound #' . $existing_batch_id
             // 푸터 - 신규 등록
             var footer = document.createElement('div');
             footer.className = 'px-4 py-2 border-t border-gray-100 bg-gray-50 flex items-center justify-between';
-            footer.innerHTML = '<span class="text-xs text-gray-400">Can\'t find the supplier?</span>';
+            footer.innerHTML = '<span class="text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.inbound_add.supplier_not_found')); ?></span>';
             var footerBtn = document.createElement('button');
             footerBtn.type = 'button';
             footerBtn.className = 'text-xs text-teal-600 hover:text-teal-800 font-semibold';
-            footerBtn.innerHTML = '<i class="fas fa-plus mr-1"></i>Add New Supplier';
+            footerBtn.innerHTML = '<i class="fas fa-plus mr-1"></i>' + <?php echo json_encode(t('logistics.inbound_add.add_supplier')); ?>;
             footerBtn.addEventListener('mousedown', function(e) { e.preventDefault(); hidePanel(); openSupplierModal(query || ''); });
             footer.appendChild(footerBtn);
             wrap.appendChild(footer);
@@ -1256,7 +1256,7 @@ window.saveSupplier = function() {
     var errEl   = document.getElementById('supplierModalError');
 
     if (!name) {
-        errEl.textContent = 'Supplier name is required.';
+        errEl.textContent = <?php echo json_encode(t('logistics.inbound_add.supplier_name_required')); ?>;
         errEl.classList.remove('hidden');
         document.getElementById('smName').focus();
         return;
@@ -1274,7 +1274,7 @@ window.saveSupplier = function() {
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (!data.success) {
-                errEl.textContent = data.message || 'Failed to save.';
+                errEl.textContent = data.message || <?php echo json_encode(t('logistics.inbound_add.save_failed')); ?>;
                 errEl.classList.remove('hidden');
                 return;
             }
@@ -1282,7 +1282,7 @@ window.saveSupplier = function() {
             closeSupplierModal();
         })
         .catch(function() {
-            errEl.textContent = 'Network error. Please try again.';
+            errEl.textContent = <?php echo json_encode(t('logistics.inbound_add.network_error')); ?>;
             errEl.classList.remove('hidden');
         });
 };
@@ -1365,7 +1365,7 @@ document.addEventListener('keydown', function(e) {
 
         searchInFlight = true;
         lastQuery = barcode;
-        setStatus('loading', 'Searching...');
+        setStatus('loading', <?php echo json_encode(t('logistics.inbound_add.searching')); ?>);
         hideMutli();
 
         fetch(LC_BASE + '/ajax/search_product_by_barcode.php?barcode=' + encodeURIComponent(barcode))
@@ -1373,17 +1373,17 @@ document.addEventListener('keydown', function(e) {
             .then(function(data) {
                 searchInFlight = false;
                 if (!data.success) {
-                    setStatus('warn', "No products matching '" + barcode + "'. Press Enter or click to register a new product.");
+                    setStatus('warn', <?php echo json_encode(t('logistics.inbound_add.no_products_matching_barcode')); ?>.replace('{barcode}', barcode));
                     showNoResults(barcode);
                     return;
                 }
-                setStatus('warn', data.products.length + ' product(s) found. Please select to add.');
+                setStatus('warn', data.products.length + <?php echo json_encode(t('logistics.inbound_add.products_found')); ?>);
                 multiProducts = data.products;
                 showMulti(data.products);
             })
             .catch(function() {
                 searchInFlight = false;
-                setStatus('error', '⚠ An error occurred during search.');
+                setStatus('error', <?php echo json_encode(t('logistics.inbound_add.search_error')); ?>);
             });
     };
 
@@ -1404,11 +1404,11 @@ document.addEventListener('keydown', function(e) {
         var header = document.createElement('div');
         header.className = 'flex items-center justify-between px-4 py-2.5 bg-teal-600 text-white';
         header.innerHTML =
-            '<span class="font-semibold text-sm"><i class="fas fa-boxes mr-2"></i>' + prods.length + ' products found</span>' +
+            '<span class="font-semibold text-sm"><i class="fas fa-boxes mr-2"></i>' + <?php echo json_encode(t('logistics.inbound_add.products_found')); ?>.replace('{count}', prods.length) + '</span>' +
             '<span class="text-xs text-teal-200 flex items-center gap-1.5">' +
-            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs">↑↓</kbd> Move' +
-            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1">Enter</kbd> Add' +
-            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1">Esc</kbd> Close' +
+            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs">↑↓</kbd> ' + <?php echo json_encode(t('logistics.inbound_add.move')); ?> +
+            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1"><?php echo htmlspecialchars(t('logistics.inbound_add.enter')); ?></kbd> ' + <?php echo json_encode(t('logistics.inbound_add.add')); ?> +
+            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1"><?php echo htmlspecialchars(t('logistics.inbound_add.escape')); ?></kbd> ' + <?php echo json_encode(t('logistics.inbound_add.close')); ?> +
             '</span>';
         panel.appendChild(header);
 
@@ -1436,7 +1436,7 @@ document.addEventListener('keydown', function(e) {
                 '</td>' +
                 '<td class="px-3 py-3 w-20 text-right">' +
                     '<span class="add-badge inline-flex items-center gap-1 px-3 py-1 bg-teal-600 text-white text-xs font-semibold rounded-lg">' +
-                    '<i class="fas fa-plus text-xs"></i>Add</span>' +
+                    '<i class="fas fa-plus text-xs"></i><?php echo htmlspecialchars(t('logistics.inbound_add.add')); ?></span>' +
                 '</td>';
             tr.addEventListener('click', function() { selectMulti(idx); });
             tr.addEventListener('mouseenter', function() {
@@ -1481,10 +1481,10 @@ document.addEventListener('keydown', function(e) {
         var header = document.createElement('div');
         header.className = 'flex items-center justify-between px-4 py-2.5 bg-amber-500 text-white';
         header.innerHTML =
-            '<span class="font-semibold text-sm"><i class="fas fa-search mr-2"></i>No results</span>' +
+            '<span class="font-semibold text-sm"><i class="fas fa-search mr-2"></i><?php echo htmlspecialchars(t('logistics.inbound_add.no_results')); ?></span>' +
             '<span class="text-xs text-amber-100 flex items-center gap-1.5">' +
-            '<kbd class="px-1.5 py-0.5 bg-amber-600 rounded text-xs">Enter</kbd> Register New' +
-            '<kbd class="px-1.5 py-0.5 bg-amber-600 rounded text-xs ml-1">Esc</kbd> Close' +
+            '<kbd class="px-1.5 py-0.5 bg-amber-600 rounded text-xs"><?php echo htmlspecialchars(t('logistics.inbound_add.enter')); ?></kbd> ' + <?php echo json_encode(t('logistics.inbound_add.register_new')); ?> +
+            '<kbd class="px-1.5 py-0.5 bg-amber-600 rounded text-xs ml-1"><?php echo htmlspecialchars(t('logistics.inbound_add.escape')); ?></kbd> ' + <?php echo json_encode(t('logistics.inbound_add.close')); ?> +
             '</span>';
         panel.appendChild(header);
 
@@ -1498,12 +1498,12 @@ document.addEventListener('keydown', function(e) {
                 '<span class="row-num inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-500 text-xs font-bold"><i class="fas fa-plus"></i></span>' +
             '</td>' +
             '<td class="px-3 py-3">' +
-                '<p class="font-semibold text-gray-900 text-sm leading-tight">Register as new product</p>' +
-                '<p class="text-xs text-gray-500 mt-0.5">No products matching "' + escHtml(query) + '".</p>' +
+                '<p class="font-semibold text-gray-900 text-sm leading-tight"><?php echo htmlspecialchars(t('logistics.inbound_add.register_new_product')); ?></p>' +
+                '<p class="text-xs text-gray-500 mt-0.5">' + <?php echo json_encode(t('logistics.inbound_add.no_products_matching_query')); ?>.replace('{query}', escHtml(query)) + '</p>' +
             '</td>' +
             '<td class="px-3 py-3 w-20 text-right">' +
                 '<span class="add-badge inline-flex items-center gap-1 px-3 py-1 bg-amber-500 text-white text-xs font-semibold rounded-lg">' +
-                '<i class="fas fa-plus text-xs"></i>Register</span>' +
+                '<i class="fas fa-plus text-xs"></i><?php echo htmlspecialchars(t('logistics.inbound_add.register')); ?></span>' +
             '</td>';
         tr.addEventListener('click', function() { selectMulti(0); });
         tr.addEventListener('mouseenter', function() {
@@ -1577,7 +1577,7 @@ document.addEventListener('keydown', function(e) {
             return;
         }
         addProductRow(multiProducts[idx]);
-        setStatus('success', '✓ ' + multiProducts[idx].name_en + ' Added');
+        setStatus('success', '✓ ' + multiProducts[idx].name_en + ' ' + <?php echo json_encode(t('logistics.inbound_add.add')); ?>);
         hideMutli();
         barcodeInput.value = '';
         // 포커스는 addProductRow 내부에서 Expiry Date로 이동
@@ -1909,7 +1909,7 @@ document.addEventListener('keydown', function(e) {
         var rate = parseFloat(discountRateInput.value) || 0;
         discountRateHidden.value = rate;
         if (rate > 0) {
-            discountHint.textContent = rate + '% discount applied';
+            discountHint.textContent = <?php echo json_encode(t('logistics.inbound_add.discount_applied')); ?>.replace('{rate}', rate);
             discountHint.classList.remove('hidden');
         } else {
             discountHint.classList.add('hidden');
@@ -2051,7 +2051,7 @@ document.addEventListener('keydown', function(e) {
 
     window.openCameraScanner = function() {
         document.getElementById('cameraScanModal').classList.remove('hidden');
-        document.getElementById('cameraScanStatus').textContent = 'Point the camera at the barcode';
+        document.getElementById('cameraScanStatus').textContent = <?php echo json_encode(t('logistics.inbound_add.camera_point')); ?>;
 
         scanner = new Html5Qrcode('cameraViewfinder');
 
@@ -2074,7 +2074,7 @@ document.addEventListener('keydown', function(e) {
             { facingMode: 'environment' },
             config,
             function(decodedText) {
-                document.getElementById('cameraScanStatus').textContent = 'Recognized: ' + decodedText;
+                document.getElementById('cameraScanStatus').textContent = <?php echo json_encode(t('logistics.inbound_add.camera_recognized_prefix')); ?> + decodedText;
                 closeCameraScanner();
                 var inp = document.getElementById('barcodeInput');
                 inp.value = decodedText;
@@ -2083,7 +2083,7 @@ document.addEventListener('keydown', function(e) {
             },
             function() {}
         ).catch(function(err) {
-            document.getElementById('cameraScanStatus').textContent = 'Camera access error: ' + err;
+            document.getElementById('cameraScanStatus').textContent = <?php echo json_encode(t('logistics.inbound_add.camera_error_prefix')); ?> + err;
         });
     };
 
@@ -2160,7 +2160,7 @@ document.addEventListener('keydown', function(e) {
         var en  = document.getElementById('inbReg_name_en').value.trim();
         var btn = document.getElementById('inbRegTransToKoBtn');
         if (!en) { document.getElementById('inbReg_name_en').focus(); return; }
-        btn.textContent = 'Translating…'; btn.disabled = true;
+        btn.textContent = <?php echo json_encode(t('logistics.inbound_add.translating')); ?>; btn.disabled = true;
         fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(en) + '&langpair=en|ko')
             .then(function(r) { return r.json(); })
             .then(function(data) {
@@ -2169,7 +2169,7 @@ document.addEventListener('keydown', function(e) {
                 }
             })
             .catch(function() {})
-            .finally(function() { btn.textContent = 'Translate ▶ Korean'; btn.disabled = false; });
+            .finally(function() { btn.textContent = <?php echo json_encode(t('logistics.inbound_add.translate_korean')); ?>; btn.disabled = false; });
     };
 
     // 한글 → 영문 발음(로마자) 변환: 음절을 초성/중성/종성으로 분해하여 변환
@@ -2204,7 +2204,7 @@ document.addEventListener('keydown', function(e) {
         var ko  = document.getElementById('inbReg_name_ko').value.trim();
         var btn = document.getElementById('inbRegTransToEnBtn');
         if (!ko) { document.getElementById('inbReg_name_ko').focus(); return; }
-        btn.textContent = 'Translating…'; btn.disabled = true;
+        btn.textContent = <?php echo json_encode(t('logistics.inbound_add.translating')); ?>; btn.disabled = true;
         fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(ko) + '&langpair=ko|en')
             .then(function(r) { return r.json(); })
             .then(function(data) {
@@ -2213,7 +2213,7 @@ document.addEventListener('keydown', function(e) {
                 }
             })
             .catch(function() {})
-            .finally(function() { btn.textContent = 'Translate ▶ English'; btn.disabled = false; });
+            .finally(function() { btn.textContent = <?php echo json_encode(t('logistics.inbound_add.translate_english')); ?>; btn.disabled = false; });
     };
 
     window.submitInboundRegisterModal = function() {
@@ -2221,7 +2221,7 @@ document.addEventListener('keydown', function(e) {
         var nameEn = document.getElementById('inbReg_name_en').value.trim();
         var errEl  = document.getElementById('inboundRegModalError');
         if (!nameEn) {
-            errEl.textContent = 'English product name is required.';
+            errEl.textContent = <?php echo json_encode(t('logistics.inbound_add.english_product_required')); ?>;
             errEl.classList.remove('hidden');
             document.getElementById('inbReg_name_en').focus();
             return;
@@ -2233,7 +2233,7 @@ document.addEventListener('keydown', function(e) {
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (!data.success) {
-                    errEl.textContent = data.message || 'Failed to save.';
+                    errEl.textContent = data.message || <?php echo json_encode(t('logistics.inbound_add.save_failed')); ?>;
                     errEl.classList.remove('hidden');
                     return;
                 }
@@ -2243,7 +2243,7 @@ document.addEventListener('keydown', function(e) {
                 addProductRow(data);
             })
             .catch(function() {
-                errEl.textContent = 'Network error. Please try again.';
+                errEl.textContent = <?php echo json_encode(t('logistics.inbound_add.network_error')); ?>;
                 errEl.classList.remove('hidden');
             });
     };
@@ -2260,7 +2260,7 @@ document.addEventListener('keydown', function(e) {
 
     window.openInbRegQuick = function(type) {
         inbRegQuickType = type;
-        document.getElementById('inbRegQuickTitle').textContent = type === 'brand' ? 'New Brand' : 'New Category';
+        document.getElementById('inbRegQuickTitle').textContent = type === 'brand' ? <?php echo json_encode(t('logistics.inbound_add.new_brand')); ?> : <?php echo json_encode(t('logistics.inbound_add.category')); ?>;
         document.getElementById('inbRegQuickNameEn').value = '';
         document.getElementById('inbRegQuickNameKo').value = '';
         document.getElementById('inbRegQuickError').classList.add('hidden');
@@ -2294,7 +2294,7 @@ document.addEventListener('keydown', function(e) {
                 lEl.innerHTML = ''; _fi = -1;
                 var q = (f||'').toLowerCase();
                 _filt = data.filter(function(i){ return !q||lb(i).toLowerCase().indexOf(q)!==-1; });
-                if (!_filt.length) { lEl.innerHTML='<li class="px-3 py-2 text-sm text-gray-400">No results</li>'; return; }
+                if (!_filt.length) { lEl.innerHTML='<li class="px-3 py-2 text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.inbound_add.no_results')); ?></li>'; return; }
                 _filt.forEach(function(i) {
                     var li = document.createElement('li');
                     li.className = 'px-3 py-2 text-sm cursor-pointer hover:bg-teal-50 hover:text-teal-700';
@@ -2343,7 +2343,7 @@ document.addEventListener('keydown', function(e) {
         var nameKo = document.getElementById('inbRegQuickNameKo').value.trim();
         var errEl  = document.getElementById('inbRegQuickError');
         if (!nameEn) {
-            errEl.textContent = 'English name is required.';
+            errEl.textContent = <?php echo json_encode(t('logistics.inbound_add.english_name_required')); ?>;
             errEl.classList.remove('hidden');
             document.getElementById('inbRegQuickNameEn').focus();
             return;
@@ -2359,7 +2359,7 @@ document.addEventListener('keydown', function(e) {
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (!data.success) {
-                    errEl.textContent = data.message || 'Failed to save.';
+                    errEl.textContent = data.message || <?php echo json_encode(t('logistics.inbound_add.save_failed')); ?>;
                     errEl.classList.remove('hidden');
                     return;
                 }
@@ -2374,7 +2374,7 @@ document.addEventListener('keydown', function(e) {
                 closeInbRegQuick();
             })
             .catch(function() {
-                errEl.textContent = 'Network error. Please try again.';
+                errEl.textContent = <?php echo json_encode(t('logistics.inbound_add.network_error')); ?>;
                 errEl.classList.remove('hidden');
             });
     };
@@ -2403,7 +2403,7 @@ document.addEventListener('keydown', function(e) {
     function render(products) {
         listEl.innerHTML = '';
         if (!products.length) {
-            listEl.innerHTML = '<li class="px-3 py-2 text-sm text-gray-400">No results</li>';
+            listEl.innerHTML = '<li class="px-3 py-2 text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.inbound_add.no_results')); ?></li>';
             return;
         }
         products.forEach(function(item) {
@@ -2412,7 +2412,7 @@ document.addEventListener('keydown', function(e) {
             li.innerHTML = '<div class="font-medium">' + escapeHtml(item.name_en) +
                             (item.name_ko ? ' <span class="text-gray-500">(' + escapeHtml(item.name_ko) + ')</span>' : '') + '</div>' +
                             '<div class="text-xs text-gray-400 font-mono">' + escapeHtml(item.sku) +
-                            (item.pieces_per_box ? ' &middot; ' + item.pieces_per_box + ' pcs/box' : '') + '</div>';
+                            (item.pieces_per_box ? ' &middot; ' + item.pieces_per_box + ' ' + <?php echo json_encode(t('logistics.inbound_add.pcs_per_box')); ?> : '') + '</div>';
             li.addEventListener('mousedown', function(e) { e.preventDefault(); applyProduct(item); });
             listEl.appendChild(li);
         });
@@ -2447,7 +2447,7 @@ document.addEventListener('keydown', function(e) {
                 dropEl.classList.remove('hidden');
             })
             .catch(function() {
-                listEl.innerHTML = '<li class="px-3 py-2 text-sm text-red-400">Search failed.</li>';
+                listEl.innerHTML = '<li class="px-3 py-2 text-sm text-red-400"><?php echo htmlspecialchars(t('logistics.inbound_add.search_failed')); ?></li>';
                 dropEl.classList.remove('hidden');
             });
     }
