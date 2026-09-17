@@ -1240,8 +1240,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     const styles = window.getComputedStyle(cell);
                     cell.style.setProperty('vertical-align', 'middle', 'important');
                     cell.style.setProperty('line-height', '1.3', 'important');
+                    const justifyContent = styles.textAlign === 'right' ? 'flex-end' : (styles.textAlign === 'center' ? 'center' : 'flex-start');
                     const cellContent = document.createElement('div');
-                    cellContent.style.cssText = 'display:flex;align-items:center;width:100%;box-sizing:border-box;height:' + Math.max(0, originalHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom)) + 'px;';
+                    cellContent.style.cssText = 'display:flex;align-items:center;justify-content:' + justifyContent + ';text-align:' + styles.textAlign + ';width:100%;box-sizing:border-box;height:' + Math.max(0, originalHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom)) + 'px;';
                     while (cell.firstChild) cellContent.appendChild(cell.firstChild);
                     cell.appendChild(cellContent);
                 });
