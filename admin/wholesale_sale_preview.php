@@ -1236,6 +1236,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 captureClone.querySelectorAll('th, td').forEach(function(cell) {
                     cell.style.setProperty('vertical-align', 'middle', 'important');
                     cell.style.setProperty('line-height', '1.3', 'important');
+                    const cellContent = document.createElement('div');
+                    cellContent.style.cssText = 'display:flex;align-items:center;width:100%;min-height:100%;';
+                    while (cell.firstChild) cellContent.appendChild(cell.firstChild);
+                    cell.appendChild(cellContent);
                 });
                 captureHost.appendChild(captureClone);
                 document.body.appendChild(captureHost);
