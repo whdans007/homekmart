@@ -3123,6 +3123,18 @@
     "export_csv": "CSV 내보내기"
   },
   "logistics": {
+    "ajax_quick_create_supplier": {"method_not_allowed":"허용되지 않은 요청 방식입니다.","name_required":"공급업체명을 입력해 주세요.","db_error":"DB 오류: {error}"},
+    "ajax_quick_update": {"security_error":"보안 오류입니다. 다시 시도해 주세요.","invalid_request":"잘못된 요청입니다.","invalid_target":"잘못된 대상입니다.","name_required":"영문명을 입력해 주세요.","update_failed":"업데이트에 실패했습니다.","db_error":"DB 오류: {error}"},
+    "ajax_save_supplier": {"method_not_allowed":"허용되지 않은 요청 방식입니다.","name_required":"공급업체명을 입력해 주세요.","db_error":"DB 오류: {error}"},
+    "ajax_search_product_by_barcode": {"query_required":"바코드 또는 상품명을 입력해 주세요.","no_match":"'{query}'와 일치하는 상품이 없습니다.","db_error":"DB 오류: {error}"},
+    "ajax_search_shop_product": {"query_required":"바코드 또는 상품명을 입력해 주세요.","no_match":"'{query}'와 일치하는 상품이 없습니다.","db_error":"DB 오류: {error}"},
+    "ajax_search_supplier": {"db_error":"DB 오류: {error}"},
+    "ajax_toggle_product_expiry": {"security_error":"보안 오류입니다.","invalid_request":"잘못된 요청입니다.","db_error":"DB 오류: {error}"},
+    "ajax_update_batch_supplier": {"security_error":"보안 오류입니다.","invalid_request":"잘못된 요청입니다.","locked":"입고 기록이 잠겨 있어 수정할 수 없습니다.","db_error":"DB 오류: {error}"},
+    "ajax_update_inbound_item": {"security_error":"보안 오류입니다.","invalid_request":"잘못된 요청입니다.","invalid_field":"잘못된 필드입니다: {field}","locked":"입고 기록이 잠겨 있어 수정할 수 없습니다.","invalid_date":"날짜 형식이 잘못되었습니다. YYYY-MM-DD 형식을 사용해 주세요.","expiry_required":"이 상품에는 유통기한이 필요합니다.","quantity_min":"수량은 최소 1이어야 합니다.","db_error":"DB 오류: {error}"},
+    "ajax_update_inventory_location": {"security_error":"보안 오류입니다.","invalid_request":"잘못된 요청입니다.","locked":"입고 기록이 잠겨 있어 수정할 수 없습니다.","db_error":"DB 오류: {error}"},
+    "ajax_update_order_status": {"invalid_request":"잘못된 요청입니다.","only_pending":"대기 중인 주문만 승인할 수 있습니다.","processed":"정상적으로 처리되었습니다.","db_error":"DB 오류: {error}"},
+    "ajax_update_outbound_price": {"security_error":"보안 오류입니다.","invalid_request":"잘못된 요청입니다.","db_error":"DB 오류: {error}"},
     "ajax_add_product": {"security_error":"보안 오류입니다. 다시 시도해 주세요.","name_required":"영문 상품명을 입력해 주세요.","image_error":"이미지 오류: {error}","barcode_conflict":"바코드가 중복됩니다: {details}","db_error":"DB 오류: {error}"},
     "ajax_box_break": {"invalid_product":"유효하지 않은 상품입니다.","error":"오류: {error}","unknown_action":"알 수 없는 작업입니다."},
     "ajax_branch_outbound": {"error":"오류: {error}","invalid_product":"유효하지 않은 상품입니다.","invalid_request":"유효하지 않은 요청입니다.","store_required":"도착 점포를 선택해 주세요.","cart_empty":"장바구니가 비어 있습니다.","center_not_allowed":"물류센터는 도착 점포로 선택할 수 없습니다.","no_valid_items":"유효한 상품/수량이 없습니다.","ship_items_required":"출고할 상품을 추가해 주세요.","invalid_draft":"유효하지 않은 임시 저장입니다.","not_pending":"이 출고 건은 대기 상태가 아닙니다.","edit_pending_only":"대기 상태인 출고 건만 수정할 수 있습니다.","delete_pending_only":"대기 상태인 출고 건만 삭제할 수 있습니다.","already_processed":"이미 처리되었거나 존재하지 않는 출고 건입니다.","no_items_to_ship":"출고할 상품이 없습니다.","unknown_action":"알 수 없는 작업입니다."},

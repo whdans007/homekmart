@@ -6,7 +6,7 @@ lc_require_staff();
 
 $token = $_POST['csrf_token'] ?? '';
 if (!hash_equals($_SESSION['lc_csrf'] ?? '', $token)) {
-    echo json_encode(['success' => false, 'message' => 'Security error']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inventory_location.security_error')]);
     exit;
 }
 
@@ -14,7 +14,7 @@ $inbound_id = (int)($_POST['inbound_id'] ?? 0);
 $location   = trim($_POST['storage_location'] ?? '') ?: null;
 
 if (!$inbound_id) {
-    echo json_encode(['success' => false, 'message' => 'Invalid request']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inventory_location.invalid_request')]);
     exit;
 }
 
@@ -33,12 +33,12 @@ try {
 
     if (!$row) {
         $conn->close();
-        echo json_encode(['success' => false, 'message' => 'Invalid request']);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inventory_location.invalid_request')]);
         exit;
     }
     if ($row['is_confirmed']) {
         $conn->close();
-        echo json_encode(['success' => false, 'message' => 'This inbound record is locked and cannot be edited.']);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inventory_location.locked')]);
         exit;
     }
 
@@ -49,5 +49,5 @@ try {
 
     echo json_encode(['success' => true, 'storage_location' => $location ?? '']);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inventory_location.db_error', ['error' => $e->getMessage()])]);
 }

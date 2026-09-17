@@ -7,7 +7,7 @@ lc_require_staff();
 
 $token = $_POST['csrf_token'] ?? '';
 if (!hash_equals($_SESSION['lc_csrf'] ?? '', $token)) {
-    echo json_encode(['success' => false, 'message' => 'Security error']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_outbound_price.security_error')]);
     exit;
 }
 
@@ -15,7 +15,7 @@ $item_id    = (int)($_POST['item_id'] ?? 0);
 $unit_price = $_POST['unit_price'] ?? null;
 
 if (!$item_id || !is_numeric($unit_price) || (float)$unit_price < 0) {
-    echo json_encode(['success' => false, 'message' => 'Invalid request']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_outbound_price.invalid_request')]);
     exit;
 }
 $unit_price = round((float)$unit_price, 2);
@@ -36,7 +36,7 @@ try {
 
     if (!$row || !in_array($row['status'], ['shipped', 'delivered'], true)) {
         $conn->close();
-        echo json_encode(['success' => false, 'message' => 'Invalid request']);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_outbound_price.invalid_request')]);
         exit;
     }
 
@@ -68,5 +68,5 @@ try {
     ]);
 } catch (Exception $e) {
     if (isset($conn)) { $conn->close(); }
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_outbound_price.db_error', ['error' => $e->getMessage()])]);
 }

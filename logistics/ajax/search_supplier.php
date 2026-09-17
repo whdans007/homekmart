@@ -31,5 +31,5 @@ try {
 
     echo json_encode(['success' => true, 'suppliers' => $rows]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_search_supplier.db_error', ['error' => $e->getMessage()])]);
 }

@@ -9,7 +9,7 @@ lc_require_staff();
 
 $token = $_POST['csrf_token'] ?? '';
 if (!hash_equals($_SESSION['lc_csrf'] ?? '', $token)) {
-    echo json_encode(['success' => false, 'message' => 'Security error']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inbound_item.security_error')]);
     exit;
 }
 
@@ -18,12 +18,12 @@ $fields     = json_decode($_POST['fields'] ?? '', true);
 
 $allowed_fields = ['lot_number', 'expiry_date', 'quantity', 'inbound_unit', 'pieces_per_box', 'regular_price', 'discount_rate'];
 if (!$inbound_id || !is_array($fields) || empty($fields)) {
-    echo json_encode(['success' => false, 'message' => 'Invalid request']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inbound_item.invalid_request')]);
     exit;
 }
 foreach (array_keys($fields) as $f) {
     if (!in_array($f, $allowed_fields, true)) {
-        echo json_encode(['success' => false, 'message' => 'Invalid field: ' . $f]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inbound_item.invalid_field', ['field' => $f])]);
         exit;
     }
 }
@@ -45,12 +45,12 @@ try {
 
     if (!$row) {
         $conn->close();
-        echo json_encode(['success' => false, 'message' => 'Invalid request']);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inbound_item.invalid_request')]);
         exit;
     }
     if ($row['is_confirmed']) {
         $conn->close();
-        echo json_encode(['success' => false, 'message' => 'This inbound record is locked and cannot be edited.']);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inbound_item.locked')]);
         exit;
     }
 
@@ -71,11 +71,11 @@ try {
             case 'expiry_date':
                 $v = trim((string)$value);
                 if ($v !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $v)) {
-                    echo json_encode(['success' => false, 'message' => 'Invalid date format. Use YYYY-MM-DD.']);
+                    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inbound_item.invalid_date')]);
                     exit;
                 }
                 if ($v === '' && !empty($row['requires_expiry'])) {
-                    echo json_encode(['success' => false, 'message' => 'Expiry date is required for this product.']);
+                    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inbound_item.expiry_required')]);
                     exit;
                 }
                 $expiry_date = $v ?: null;
@@ -83,7 +83,7 @@ try {
             case 'quantity':
                 $quantity = (int)$value;
                 if ($quantity <= 0) {
-                    echo json_encode(['success' => false, 'message' => 'Quantity must be at least 1.']);
+                    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inbound_item.quantity_min')]);
                     exit;
                 }
                 break;
@@ -168,5 +168,5 @@ try {
     ]);
 } catch (Exception $e) {
     if (isset($conn)) { $conn->rollback(); $conn->close(); }
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_inbound_item.db_error', ['error' => $e->getMessage()])]);
 }

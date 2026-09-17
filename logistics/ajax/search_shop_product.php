@@ -6,7 +6,7 @@ lc_require_staff();
 
 $q = trim($_GET['q'] ?? '');
 if ($q === '') {
-    echo json_encode(['success' => false, 'message' => 'Please enter a barcode or product name.']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_search_shop_product.query_required')]);
     exit;
 }
 
@@ -31,10 +31,10 @@ try {
     $conn->close();
 
     if (empty($products)) {
-        echo json_encode(['success' => false, 'message' => "No products match '{$q}'."]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_search_shop_product.no_match', ['query' => $q])]);
     } else {
         echo json_encode(['success' => true, 'products' => $products]);
     }
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'DB Error: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_search_shop_product.db_error', ['error' => $e->getMessage()])]);
 }

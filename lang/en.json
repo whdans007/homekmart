@@ -3043,6 +3043,18 @@
     "export_csv": "Export CSV"
   },
   "logistics": {
+    "ajax_quick_create_supplier": {"method_not_allowed":"Method not allowed","name_required":"Supplier name is required.","db_error":"DB Error: {error}"},
+    "ajax_quick_update": {"security_error":"Security error: Please try again.","invalid_request":"Invalid request.","invalid_target":"Invalid target.","name_required":"Please enter the English name.","update_failed":"Update failed.","db_error":"DB Error: {error}"},
+    "ajax_save_supplier": {"method_not_allowed":"Method not allowed","name_required":"Supplier name is required.","db_error":"DB Error: {error}"},
+    "ajax_search_product_by_barcode": {"query_required":"Please enter a barcode or product name.","no_match":"No products match '{query}'.","db_error":"DB Error: {error}"},
+    "ajax_search_shop_product": {"query_required":"Please enter a barcode or product name.","no_match":"No products match '{query}'.","db_error":"DB Error: {error}"},
+    "ajax_search_supplier": {"db_error":"DB Error: {error}"},
+    "ajax_toggle_product_expiry": {"security_error":"Security error","invalid_request":"Invalid request","db_error":"DB Error: {error}"},
+    "ajax_update_batch_supplier": {"security_error":"Security error","invalid_request":"Invalid request","locked":"This inbound record is locked and cannot be edited.","db_error":"DB Error: {error}"},
+    "ajax_update_inbound_item": {"security_error":"Security error","invalid_request":"Invalid request","invalid_field":"Invalid field: {field}","locked":"This inbound record is locked and cannot be edited.","invalid_date":"Invalid date format. Use YYYY-MM-DD.","expiry_required":"Expiry date is required for this product.","quantity_min":"Quantity must be at least 1.","db_error":"DB Error: {error}"},
+    "ajax_update_inventory_location": {"security_error":"Security error","invalid_request":"Invalid request","locked":"This inbound record is locked and cannot be edited.","db_error":"DB Error: {error}"},
+    "ajax_update_order_status": {"invalid_request":"Invalid request.","only_pending":"Only pending orders can be approved.","processed":"Processed successfully.","db_error":"DB Error: {error}"},
+    "ajax_update_outbound_price": {"security_error":"Security error","invalid_request":"Invalid request","db_error":"DB Error: {error}"},
     "ajax_add_product": {"security_error":"Security error: Please try again.","name_required":"Please enter the English product name.","image_error":"Image error: {error}","barcode_conflict":"Duplicate barcode: {details}","db_error":"DB Error: {error}"},
     "ajax_box_break": {"invalid_product":"Invalid product.","error":"Error: {error}","unknown_action":"Unknown action."},
     "ajax_branch_outbound": {"error":"Error: {error}","invalid_product":"Invalid product.","invalid_request":"Invalid request.","store_required":"Please select the destination store.","cart_empty":"The cart is empty.","center_not_allowed":"The Logistics Center cannot be selected as the destination store.","no_valid_items":"No valid products/quantities.","ship_items_required":"Please add products to ship.","invalid_draft":"Invalid draft.","not_pending":"This shipment is not in pending status.","edit_pending_only":"Only shipments in pending status can be edited.","delete_pending_only":"Only shipments in pending status can be deleted.","already_processed":"This shipment has already been processed or does not exist.","no_items_to_ship":"No items to ship.","unknown_action":"Unknown action."},

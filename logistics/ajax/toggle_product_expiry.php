@@ -6,13 +6,13 @@ lc_require_staff();
 
 $token = $_POST['csrf_token'] ?? '';
 if (!hash_equals($_SESSION['lc_csrf'] ?? '', $token)) {
-    echo json_encode(['success' => false, 'message' => 'Security error']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_toggle_product_expiry.security_error')]);
     exit;
 }
 
 $pid = (int)($_POST['product_id'] ?? 0);
 if (!$pid) {
-    echo json_encode(['success' => false, 'message' => 'Invalid request']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_toggle_product_expiry.invalid_request')]);
     exit;
 }
 
@@ -30,5 +30,5 @@ try {
 
     echo json_encode(['success' => true, 'requires_expiry' => $new_val]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_toggle_product_expiry.db_error', ['error' => $e->getMessage()])]);
 }

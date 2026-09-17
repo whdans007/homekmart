@@ -6,7 +6,7 @@ lc_require_staff();
 lc_verify_csrf();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_save_supplier.method_not_allowed')]);
     exit;
 }
 
@@ -18,7 +18,7 @@ $email   = trim($_POST['email']          ?? '');
 $memo    = trim($_POST['memo']           ?? '');
 
 if ($name === '') {
-    echo json_encode(['success' => false, 'message' => 'Supplier name is required.']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_save_supplier.name_required')]);
     exit;
 }
 
@@ -45,5 +45,5 @@ try {
 
     echo json_encode(['success' => true, 'id' => $new_id]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_save_supplier.db_error', ['error' => $e->getMessage()])]);
 }

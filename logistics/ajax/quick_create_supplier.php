@@ -5,7 +5,7 @@ header('Content-Type: application/json; charset=utf-8');
 lc_require_staff();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_quick_create_supplier.method_not_allowed')]);
     exit;
 }
 
@@ -17,7 +17,7 @@ $phone   = trim($_POST['phone']          ?? '');
 $email   = trim($_POST['email']          ?? '');
 
 if ($name === '') {
-    echo json_encode(['success' => false, 'message' => 'Supplier name is required.']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_quick_create_supplier.name_required')]);
     exit;
 }
 
@@ -38,5 +38,5 @@ try {
         'supplier' => ['id' => $new_id, 'name' => $name, 'contact_person' => $contact, 'phone' => $phone],
     ]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_quick_create_supplier.db_error', ['error' => $e->getMessage()])]);
 }

@@ -6,7 +6,7 @@ lc_require_staff();
 
 $q = trim($_GET['barcode'] ?? '');
 if ($q === '') {
-    echo json_encode(['success' => false, 'message' => 'Please enter a barcode or product name.']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_search_product_by_barcode.query_required')]);
     exit;
 }
 
@@ -54,7 +54,7 @@ try {
     $conn->close();
 
     if (empty($products)) {
-        echo json_encode(['success' => false, 'message' => "No products match '{$q}'."]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_search_product_by_barcode.no_match', ['query' => $q])]);
     } else {
         // 스캔 시 출고 단위 자동 결정 신호: 보유 단위가 하나뿐이면 그 단위, 공존/무재고면 null(→ 프론트 토글 폴백)
         // Design Ref: pack-unit §5 — BOX/PACK/PCS 중 재고 보유 단위가 정확히 하나면 그 단위 신호
@@ -69,5 +69,5 @@ try {
         echo json_encode(['success' => true, 'products' => $products]);
     }
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'DB Error: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_search_product_by_barcode.db_error', ['error' => $e->getMessage()])]);
 }

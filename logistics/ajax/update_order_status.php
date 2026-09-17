@@ -14,7 +14,7 @@ $uid      = lc_current_user_id();
 $now      = date('Y-m-d H:i:s');
 
 if (!$order_id || !in_array($action, ['approve','ship','deliver','cancel'])) {
-    echo json_encode(['success' => false, 'message' => 'Invalid request.']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_order_status.invalid_request')]);
     exit;
 }
 
@@ -29,7 +29,7 @@ try {
         $st->execute();
         if ($st->affected_rows < 1) {
             $st->close(); $conn->rollback();
-            echo json_encode(['success' => false, 'message' => 'Only pending orders can be approved.']);
+            echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_order_status.only_pending')]);
             exit;
         }
         $st->close();
@@ -60,8 +60,8 @@ try {
     }
 
     $conn->close();
-    echo json_encode(['success' => true, 'message' => 'Processed successfully.']);
+    echo json_encode(['success' => true, 'message' => t('logistics.ajax_update_order_status.processed')]);
 } catch (Exception $e) {
     if (isset($conn)) { $conn->rollback(); $conn->close(); }
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_update_order_status.db_error', ['error' => $e->getMessage()])]);
 }
