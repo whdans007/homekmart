@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Product Master - Logistics Center';
+$page_title = t('logistics.products.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 
@@ -77,44 +77,44 @@ main { overflow: hidden !important; }
 <div class="flex flex-col h-full gap-3 overflow-hidden">
 
 <div class="flex items-center justify-between shrink-0">
-    <h2 class="text-xl font-bold text-gray-900">Product Master</h2>
+    <h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.products.title')); ?></h2>
     <a href="<?php echo LC_BASE; ?>/product_add.php"
        class="inline-flex items-center px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
-        <i class="fas fa-plus mr-2"></i>Register Product
+        <i class="fas fa-plus mr-2"></i><?php echo htmlspecialchars(t('logistics.products.register')); ?>
     </a>
 </div>
 
 <form method="get" class="bg-white rounded-lg border border-gray-200 px-3 py-2 shrink-0">
     <div class="flex flex-wrap items-center gap-2">
         <input type="text" id="barcodeSearchInput" name="search" value="<?php echo htmlspecialchars($search); ?>"
-               placeholder="Search by name or barcode"
+               placeholder="<?php echo htmlspecialchars(t('logistics.products.search_placeholder')); ?>"
                class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-48">
         <select name="cat" style="width:9rem" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-            <option value="0">All Categories</option>
+            <option value="0"><?php echo htmlspecialchars(t('logistics.products.all_categories')); ?></option>
             <?php foreach ($categories as $c): ?>
             <option value="<?php echo $c['id']; ?>" <?php echo $cat_id == $c['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($c['name_en'] . ($c['name_ko'] ? ' ('.$c['name_ko'].')' : '')); ?></option>
             <?php endforeach; ?>
         </select>
         <select name="brand" style="width:9rem" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-            <option value="0">All Brands</option>
+            <option value="0"><?php echo htmlspecialchars(t('logistics.products.all_brands')); ?></option>
             <?php foreach ($brands as $b): ?>
             <option value="<?php echo $b['id']; ?>" <?php echo $brand_id == $b['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($b['name_en'] . ($b['name_ko'] ? ' ('.$b['name_ko'].')' : '')); ?></option>
             <?php endforeach; ?>
         </select>
         <input type="hidden" name="status" value="<?php echo htmlspecialchars($status); ?>">
-        <button type="submit" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700"><i class="fas fa-search mr-1"></i>Search</button>
-        <a href="<?php echo LC_BASE; ?>/products.php" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200">Reset</a>
+        <button type="submit" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700"><i class="fas fa-search mr-1"></i><?php echo htmlspecialchars(t('logistics.products.search')); ?></button>
+        <a href="<?php echo LC_BASE; ?>/products.php" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.products.reset')); ?></a>
         <?php $deactive_qs = http_build_query(['search'=>$search, 'cat'=>$cat_id, 'brand'=>$brand_id, 'status'=> $status === 'inactive' ? '' : 'inactive']); ?>
         <a href="<?php echo LC_BASE; ?>/products.php?<?php echo $deactive_qs; ?>"
            class="px-3 py-1.5 text-sm rounded-md transition-colors <?php echo $status === 'inactive' ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'; ?>"
-           title="비활성(DEACTIVE) 상품만 보기"><i class="fas fa-ban mr-1"></i>DEACTIVE</a>
+           title="<?php echo htmlspecialchars(t('logistics.products.inactive_only')); ?>"><i class="fas fa-ban mr-1"></i><?php echo htmlspecialchars(t('logistics.products.deactive')); ?></a>
         <a href="<?php echo LC_BASE; ?>/export_products.php?<?php echo http_build_query(['search'=>$search,'cat'=>$cat_id,'brand'=>$brand_id,'status'=>$status]); ?>"
-           class="px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"><i class="fas fa-file-excel mr-1"></i>Excel Download</a>
+           class="px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"><i class="fas fa-file-excel mr-1"></i><?php echo htmlspecialchars(t('logistics.products.excel_download')); ?></a>
         <button type="button" onclick="openPrintPreview()"
-           class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"><i class="fas fa-print mr-1"></i>Print</button>
+           class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"><i class="fas fa-print mr-1"></i><?php echo htmlspecialchars(t('logistics.products.print')); ?></button>
         <div class="ml-auto flex gap-2">
-            <a href="<?php echo LC_BASE; ?>/category_manage.php" class="px-3 py-1.5 border border-gray-300 text-gray-600 text-xs rounded-md hover:bg-gray-50"><i class="fas fa-folder mr-1"></i>Category Management</a>
-            <a href="<?php echo LC_BASE; ?>/brand_manage.php" class="px-3 py-1.5 border border-gray-300 text-gray-600 text-xs rounded-md hover:bg-gray-50"><i class="fas fa-tag mr-1"></i>Brand Management</a>
+            <a href="<?php echo LC_BASE; ?>/category_manage.php" class="px-3 py-1.5 border border-gray-300 text-gray-600 text-xs rounded-md hover:bg-gray-50"><i class="fas fa-folder mr-1"></i><?php echo htmlspecialchars(t('logistics.products.category_management')); ?></a>
+            <a href="<?php echo LC_BASE; ?>/brand_manage.php" class="px-3 py-1.5 border border-gray-300 text-gray-600 text-xs rounded-md hover:bg-gray-50"><i class="fas fa-tag mr-1"></i><?php echo htmlspecialchars(t('logistics.products.brand_management')); ?></a>
         </div>
     </div>
 </form>
@@ -124,38 +124,38 @@ main { overflow: hidden !important; }
 <?php endif; ?>
 
 <div id="tableCard" class="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
-    <div class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500 shrink-0">Total <?php echo number_format($total); ?> products</div>
+    <div class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500 shrink-0"><?php echo htmlspecialchars(t('logistics.products.total_products', ['count' => number_format($total)])); ?></div>
     <div id="tableScrollBody" class="overflow-auto flex-1 min-h-0">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 sticky top-0 z-10"><tr>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Image</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Category</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Brand</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Capacity</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Unit</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Units per Box</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Unit Barcode</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Box Barcode</th>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Expiry Required</th>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Status</th>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Manage</th>
+                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.image')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.category')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.brand')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.product_name')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.capacity')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.unit')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.units_per_box')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.unit_barcode')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.box_barcode')); ?></th>
+                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.expiry_required')); ?></th>
+                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.status')); ?></th>
+                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.manage')); ?></th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php if (empty($products)): ?>
             <tr><td colspan="12" class="px-4 py-10 text-center text-gray-400">
                 <?php if ($search): ?>
                 <i class="fas fa-search text-3xl mb-3 block text-gray-300"></i>
-                <p class="mb-1"><span class="font-medium text-gray-600">"<?php echo htmlspecialchars($search); ?>"</span> No search results found.</p>
-                <p class="text-xs text-gray-400 mb-4">Check product name, barcodes, or logistics code.</p>
+                <p class="mb-1"><?php echo htmlspecialchars(t('logistics.products.no_search_results', ['query' => $search])); ?></p>
+                <p class="text-xs text-gray-400 mb-4"><?php echo htmlspecialchars(t('logistics.products.search_hint')); ?></p>
                 <button type="button"
                         onclick="openConfirmRegister('<?php echo htmlspecialchars(addslashes($search)); ?>')"
                         class="inline-flex items-center px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
-                    <i class="fas fa-plus mr-2"></i>Register as New Product
+                    <i class="fas fa-plus mr-2"></i><?php echo htmlspecialchars(t('logistics.products.register_new')); ?>
                 </button>
                 <?php else: ?>
                 <i class="fas fa-box-open text-3xl mb-2 block text-gray-300"></i>
-                No products registered.
+                <?php echo htmlspecialchars(t('logistics.products.empty')); ?>
                 <?php endif; ?>
             </td></tr>
             <?php endif; ?>
@@ -166,7 +166,7 @@ main { overflow: hidden !important; }
                     <?php if (!empty($p['image_path'])): $img_url = LC_BASE . '/' . $p['image_path']; ?>
                     <button type="button"
                             onclick="openImageLightbox('<?php echo htmlspecialchars(addslashes($img_url), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($p['name_en']), ENT_QUOTES); ?>')"
-                            class="inline-block w-10 h-10 rounded border border-gray-200 overflow-hidden bg-gray-50 hover:ring-2 hover:ring-teal-400 align-middle" title="Click to enlarge">
+                            class="inline-block w-10 h-10 rounded border border-gray-200 overflow-hidden bg-gray-50 hover:ring-2 hover:ring-teal-400 align-middle" title="<?php echo htmlspecialchars(t('logistics.products.enlarge')); ?>">
                         <img src="<?php echo htmlspecialchars($img_url); ?>" alt="" class="w-full h-full object-cover">
                     </button>
                     <?php else: ?>
@@ -190,16 +190,16 @@ main { overflow: hidden !important; }
                     <button type="button"
                             onclick="toggleExpiry(<?php echo $p['id']; ?>, this)"
                             data-val="<?php echo (int)$p['requires_expiry']; ?>"
-                            title="Click to change"
+                            title="<?php echo htmlspecialchars(t('logistics.products.click_to_change')); ?>"
                             class="expiry-toggle inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors
                                    <?php echo $p['requires_expiry'] ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'; ?>">
                         <span class="toggle-dot w-2 h-2 rounded-full <?php echo $p['requires_expiry'] ? 'bg-orange-500' : 'bg-gray-300'; ?>"></span>
-                        <span class="toggle-label"><?php echo $p['requires_expiry'] ? 'Required' : 'Optional'; ?></span>
+                        <span class="toggle-label"><?php echo htmlspecialchars(t($p['requires_expiry'] ? 'logistics.products.required' : 'logistics.products.optional')); ?></span>
                     </button>
                 </td>
                 <td class="px-4 py-3 text-center">
                     <span class="text-xs px-2 py-1 rounded-full <?php echo $p['is_active'] ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'; ?>">
-                        <?php echo $p['is_active'] ? 'Active' : 'Inactive'; ?>
+                        <?php echo htmlspecialchars(t($p['is_active'] ? 'logistics.products.active' : 'logistics.products.inactive')); ?>
                     </span>
                 </td>
                 <td class="px-4 py-3 text-center">
@@ -209,7 +209,7 @@ main { overflow: hidden !important; }
                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
                             <input type="hidden" name="action" value="toggle_active">
                             <input type="hidden" name="product_id" value="<?php echo $p['id']; ?>">
-                            <button type="submit" class="text-gray-400 hover:text-gray-600 text-xs" title="<?php echo $p['is_active'] ? 'Deactivate' : 'Activate'; ?>">
+                            <button type="submit" class="text-gray-400 hover:text-gray-600 text-xs" title="<?php echo htmlspecialchars(t($p['is_active'] ? 'logistics.products.deactivate' : 'logistics.products.activate')); ?>">
                                 <i class="fas <?php echo $p['is_active'] ? 'fa-ban' : 'fa-check-circle'; ?>"></i>
                             </button>
                         </form>
@@ -230,7 +230,7 @@ main { overflow: hidden !important; }
     <div id="tablePagination" class="px-4 py-3 border-t border-gray-100 flex items-center justify-center gap-1 shrink-0">
         <?php if ($block_start > 1): ?>
         <a href="?page=<?php echo $block_start - $window; ?>&<?php echo http_build_query($qs); ?>"
-           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="Previous 10 pages">
+           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="<?php echo htmlspecialchars(t('logistics.products.previous_pages')); ?>">
             <i class="fas fa-angle-double-left text-xs"></i>
         </a>
         <?php endif; ?>
@@ -261,7 +261,7 @@ main { overflow: hidden !important; }
 
         <?php if ($block_end < $total_pages): ?>
         <a href="?page=<?php echo $block_end + 1; ?>&<?php echo http_build_query($qs); ?>"
-           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="Next 10 pages">
+           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="<?php echo htmlspecialchars(t('logistics.products.next_pages')); ?>">
             <i class="fas fa-angle-double-right text-xs"></i>
         </a>
         <?php endif; ?>
@@ -277,17 +277,17 @@ main { overflow: hidden !important; }
             <div class="mx-auto flex items-center justify-center w-12 h-12 rounded-full bg-yellow-100 mb-4">
                 <i class="fas fa-barcode text-yellow-600 text-xl"></i>
             </div>
-            <h3 class="text-base font-semibold text-gray-900 mb-2">No Registered Product Found</h3>
-            <p class="text-sm text-gray-500 mb-1">Scanned Barcode: <span id="confirmBarcodeText" class="font-mono font-medium text-gray-700"></span></p>
-            <p class="text-sm text-gray-500 mb-6">Would you like to register it as a new product?</p>
+            <h3 class="text-base font-semibold text-gray-900 mb-2"><?php echo htmlspecialchars(t('logistics.products.no_registered_product')); ?></h3>
+            <p class="text-sm text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.products.scanned_barcode')); ?>: <span id="confirmBarcodeText" class="font-mono font-medium text-gray-700"></span></p>
+            <p class="text-sm text-gray-500 mb-6"><?php echo htmlspecialchars(t('logistics.products.register_prompt')); ?></p>
             <div class="flex gap-3">
                 <button type="button" onclick="openRegisterModal()"
                         class="flex-1 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
-                    <i class="fas fa-plus mr-1"></i>Yes
+                    <i class="fas fa-plus mr-1"></i><?php echo htmlspecialchars(t('logistics.products.yes')); ?>
                 </button>
                 <button type="button" onclick="closeConfirmModal()"
                         class="flex-1 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
-                    No
+                    <?php echo htmlspecialchars(t('logistics.products.no')); ?>
                 </button>
             </div>
         </div>
@@ -299,11 +299,11 @@ main { overflow: hidden !important; }
     <div class="absolute inset-0 bg-black bg-opacity-50"></div>
     <div class="relative bg-white rounded-xl shadow-xl w-full max-w-5xl mx-4 flex flex-col" style="height:90vh">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-print text-blue-600 mr-2"></i>Print Preview</h3>
+            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-print text-blue-600 mr-2"></i><?php echo htmlspecialchars(t('logistics.products.print_preview')); ?></h3>
             <div class="flex items-center gap-2">
                 <button type="button" onclick="printPreviewFrame()"
                         class="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
-                    <i class="fas fa-print mr-1"></i>Print
+                    <i class="fas fa-print mr-1"></i><?php echo htmlspecialchars(t('logistics.products.print')); ?>
                 </button>
                 <button type="button" onclick="closePrintPreview()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
             </div>
@@ -319,7 +319,7 @@ main { overflow: hidden !important; }
     <div class="absolute inset-0 bg-black bg-opacity-50"></div>
     <div class="relative bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 flex flex-col" style="max-height:90vh">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-plus-circle text-teal-600 mr-2"></i>Register Product</h3>
+            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-plus-circle text-teal-600 mr-2"></i><?php echo htmlspecialchars(t('logistics.products.register')); ?></h3>
             <button type="button" onclick="closeRegisterModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
         </div>
         <div class="overflow-y-auto px-6 py-5 flex-1">
@@ -328,10 +328,10 @@ main { overflow: hidden !important; }
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
 
                 <div class="border border-teal-200 bg-teal-50 rounded-lg p-4">
-                    <h4 class="text-sm font-semibold text-teal-800 mb-1"><i class="fas fa-magic mr-1"></i>Import from Existing Product</h4>
-                    <p class="text-xs text-teal-700 mb-2">Search by barcode or product name to auto-fill the Korean/English name and units per box.</p>
+                    <h4 class="text-sm font-semibold text-teal-800 mb-1"><i class="fas fa-magic mr-1"></i><?php echo htmlspecialchars(t('logistics.products.import_title')); ?></h4>
+                    <p class="text-xs text-teal-700 mb-2"><?php echo htmlspecialchars(t('logistics.products.import_description')); ?></p>
                     <div class="relative">
-                        <input type="text" id="regShopProductSearch" autocomplete="off" placeholder="Search barcode or product name..."
+                        <input type="text" id="regShopProductSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.products.import_placeholder')); ?>"
                                class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                         <div id="regShopProductDropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
                             <ul id="regShopProductList" class="py-1"></ul>
@@ -340,39 +340,39 @@ main { overflow: hidden !important; }
                 </div>
 
                 <div class="border-b border-gray-100 pb-4">
-                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Product Name</h4>
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3"><?php echo htmlspecialchars(t('logistics.products.product_name')); ?></h4>
                     <div class="space-y-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">English Name <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.english_name')); ?> <span class="text-red-500">*</span></label>
                             <div class="flex gap-2">
-                                <input type="text" name="name_en" id="regNameEn" placeholder="E.g.: Shin Ramyun, Choco Pie"
+                                <input type="text" name="name_en" id="regNameEn" placeholder="<?php echo htmlspecialchars(t('logistics.products.name_placeholder')); ?>"
                                        class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                                 <button type="button" onclick="regTranslateToKo()"
                                         id="regTransToKoBtn"
-                                        class="px-3 py-2 bg-green-500 text-white text-xs font-semibold rounded-md hover:bg-green-600 whitespace-nowrap">Translate ▶ Korean</button>
+                                        class="px-3 py-2 bg-green-500 text-white text-xs font-semibold rounded-md hover:bg-green-600 whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.products.translate_korean')); ?></button>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Korean Name <span class="text-xs text-gray-400 font-normal">(Optional)</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.korean_name')); ?> <span class="text-xs text-gray-400 font-normal"><?php echo htmlspecialchars(t('logistics.products.optional_parenthetical')); ?></span></label>
                             <div class="flex gap-2">
-                                <input type="text" name="name_ko" id="regNameKo" placeholder="E.g.: Shin Ramyun, Choco Pie"
+                                <input type="text" name="name_ko" id="regNameKo" placeholder="<?php echo htmlspecialchars(t('logistics.products.name_placeholder')); ?>"
                                        class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                                 <button type="button" onclick="regRomanizeKoreanName()"
-                                        id="regRomanizeBtn" title="한글을 영문 발음(로마자)으로 변환"
+                                        id="regRomanizeBtn" title="<?php echo htmlspecialchars(t('logistics.products.romanize_title')); ?>"
                                         class="px-3 py-2 text-xs font-semibold rounded-md whitespace-nowrap transition-colors"
-                                        style="background:#f3e8ff;color:#7e22ce;">발음 ▶ English</button>
+                                        style="background:#f3e8ff;color:#7e22ce;"><?php echo htmlspecialchars(t('logistics.products.romanize')); ?></button>
                                 <button type="button" onclick="regTranslateToEn()"
                                         id="regTransToEnBtn"
-                                        class="px-3 py-2 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 whitespace-nowrap">Translate ▶ English</button>
+                                        class="px-3 py-2 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.products.translate_english')); ?></button>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Capacity <span class="text-xs text-gray-400 font-normal">(E.g.: 500ml, 1kg, 20ea)</span></label>
-                            <input type="text" name="capacity" id="regCapacity" placeholder="E.g.: 500ml, 1kg, 20ea"
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.capacity')); ?> <span class="text-xs text-gray-400 font-normal"><?php echo htmlspecialchars(t('logistics.products.capacity_example')); ?></span></label>
+                            <input type="text" name="capacity" id="regCapacity" placeholder="<?php echo htmlspecialchars(t('logistics.products.capacity_placeholder')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-image text-gray-400 mr-1"></i>Product Image <span class="text-xs text-gray-400 font-normal">(Optional)</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-image text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.products.product_image')); ?> <span class="text-xs text-gray-400 font-normal"><?php echo htmlspecialchars(t('logistics.products.optional_parenthetical')); ?></span></label>
                             <div class="flex items-start gap-3">
                                 <div class="w-20 h-20 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
                                     <img id="regImgPreview" src="" alt="" class="w-full h-full object-cover hidden">
@@ -381,7 +381,7 @@ main { overflow: hidden !important; }
                                 <div class="flex-1">
                                     <input type="file" name="image" id="regImageInput" accept="image/jpeg,image/png,image/webp,image/gif"
                                            class="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
-                                    <p class="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, GIF · max 5MB.</p>
+                                    <p class="text-xs text-gray-400 mt-1"><?php echo htmlspecialchars(t('logistics.products.image_help')); ?></p>
                                 </div>
                             </div>
                         </div>
@@ -389,35 +389,35 @@ main { overflow: hidden !important; }
                 </div>
 
                 <div class="border-b border-gray-100 pb-4">
-                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Classification</h4>
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3"><?php echo htmlspecialchars(t('logistics.products.classification')); ?></h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.brand')); ?></label>
                             <div class="flex gap-2">
                                 <div class="relative flex-1">
                                     <input type="hidden" name="brand_id" id="regBrandId">
-                                    <input type="text" id="regBrandSearch" autocomplete="off" placeholder="Search brand..."
+                                    <input type="text" id="regBrandSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.products.brand_placeholder')); ?>"
                                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                                     <div id="regBrandDropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                                         <ul id="regBrandList" class="py-1"></ul>
                                     </div>
                                 </div>
-                                <button type="button" onclick="openQuickCreateInModal('brand')" title="Add New Brand"
+                                <button type="button" onclick="openQuickCreateInModal('brand')" title="<?php echo htmlspecialchars(t('logistics.products.add_brand')); ?>"
                                         class="shrink-0 px-3 py-2 bg-teal-50 border border-teal-300 text-teal-700 rounded-md hover:bg-teal-100 text-sm"><i class="fas fa-plus"></i></button>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.category')); ?></label>
                             <div class="flex gap-2">
                                 <div class="relative flex-1">
                                     <input type="hidden" name="category_id" id="regCatId">
-                                    <input type="text" id="regCatSearch" autocomplete="off" placeholder="Search category..."
+                                    <input type="text" id="regCatSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.products.category_placeholder')); ?>"
                                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                                     <div id="regCatDropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                                         <ul id="regCatList" class="py-1"></ul>
                                     </div>
                                 </div>
-                                <button type="button" onclick="openQuickCreateInModal('category')" title="Add New Category"
+                                <button type="button" onclick="openQuickCreateInModal('category')" title="<?php echo htmlspecialchars(t('logistics.products.add_category')); ?>"
                                         class="shrink-0 px-3 py-2 bg-teal-50 border border-teal-300 text-teal-700 rounded-md hover:bg-teal-100 text-sm"><i class="fas fa-plus"></i></button>
                             </div>
                         </div>
@@ -425,15 +425,15 @@ main { overflow: hidden !important; }
                 </div>
 
                 <div class="border-b border-gray-100 pb-4">
-                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Unit</h4>
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3"><?php echo htmlspecialchars(t('logistics.products.unit')); ?></h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.unit')); ?></label>
                             <input type="text" name="unit" value="BOX"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Units per Box</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.units_per_box')); ?></label>
                             <input type="number" name="pieces_per_box" id="regPiecesPerBox" value="1" min="1"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                         </div>
@@ -441,22 +441,22 @@ main { overflow: hidden !important; }
                 </div>
 
                 <div class="border-b border-gray-100 pb-4">
-                    <h4 class="text-sm font-semibold text-gray-700 mb-1">Barcode / Code</h4>
-                    <p class="text-xs text-gray-400 mb-3">Enter only applicable codes.</p>
+                    <h4 class="text-sm font-semibold text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.barcode_code')); ?></h4>
+                    <p class="text-xs text-gray-400 mb-3"><?php echo htmlspecialchars(t('logistics.products.code_help')); ?></p>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-barcode text-gray-400 mr-1"></i>Barcode</label>
-                            <input type="text" name="barcode_unit" id="regBarcodeUnit" placeholder="Product Barcode"
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-barcode text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.products.barcode')); ?></label>
+                            <input type="text" name="barcode_unit" id="regBarcodeUnit" placeholder="<?php echo htmlspecialchars(t('logistics.products.product_barcode')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-box text-gray-400 mr-1"></i>Box Code</label>
-                            <input type="text" name="barcode_box" placeholder="Box Unit Barcode"
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-box text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.products.box_code')); ?></label>
+                            <input type="text" name="barcode_box" placeholder="<?php echo htmlspecialchars(t('logistics.products.box_barcode_placeholder')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-warehouse text-gray-400 mr-1"></i>Logistics Code</label>
-                            <input type="text" name="barcode_logistics" placeholder="Logistics Center Code"
+                            <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-warehouse text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.products.logistics_code')); ?></label>
+                            <input type="text" name="barcode_logistics" placeholder="<?php echo htmlspecialchars(t('logistics.products.logistics_code_placeholder')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
                         </div>
                     </div>
@@ -464,7 +464,7 @@ main { overflow: hidden !important; }
 
                 <div class="space-y-3">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Minimum Stock Threshold</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.minimum_stock')); ?></label>
                         <input type="number" name="min_stock" value="0" min="0"
                                class="w-32 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                     </div>
@@ -472,8 +472,8 @@ main { overflow: hidden !important; }
                         <input type="checkbox" name="requires_expiry" id="regRequiresExpiry" value="1"
                                class="mt-0.5 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-400">
                         <label for="regRequiresExpiry" class="cursor-pointer">
-                            <span class="text-sm font-medium text-gray-800">Expiry Date Required</span>
-                            <p class="text-xs text-gray-500 mt-0.5">When checked, expiry date must be entered when receiving this product.</p>
+                            <span class="text-sm font-medium text-gray-800"><?php echo htmlspecialchars(t('logistics.products.expiry_required')); ?></span>
+                            <p class="text-xs text-gray-500 mt-0.5"><?php echo htmlspecialchars(t('logistics.products.expiry_help')); ?></p>
                         </label>
                     </div>
                 </div>
@@ -482,10 +482,10 @@ main { overflow: hidden !important; }
         <div class="px-6 py-4 border-t border-gray-100 flex gap-3 shrink-0">
             <button type="button" id="regSubmitBtn" onclick="submitRegisterModal()"
                     class="flex-1 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700">
-                <i class="fas fa-save mr-2"></i>Register
+                <i class="fas fa-save mr-2"></i><?php echo htmlspecialchars(t('logistics.products.register')); ?>
             </button>
             <button type="button" onclick="closeRegisterModal()"
-                    class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">Cancel</button>
+                    class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.products.cancel')); ?></button>
         </div>
     </div>
 </div>
@@ -496,7 +496,7 @@ main { overflow: hidden !important; }
         <!-- 헤더: 제목 + 닫기 -->
         <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
             <span id="lightboxTitle" class="text-sm font-semibold text-gray-800 truncate pr-2"></span>
-            <button type="button" onclick="closeImageLightbox()" title="Close"
+            <button type="button" onclick="closeImageLightbox()" title="<?php echo htmlspecialchars(t('logistics.products.close')); ?>"
                     class="text-gray-400 hover:text-gray-700 text-lg flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100">
                 <i class="fas fa-times"></i>
             </button>
@@ -509,7 +509,7 @@ main { overflow: hidden !important; }
         <div class="px-4 py-3 border-t border-gray-100 flex justify-end">
             <button type="button" onclick="closeImageLightbox()"
                     class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
-                Close
+                <?php echo htmlspecialchars(t('logistics.products.close')); ?>
             </button>
         </div>
     </div>
@@ -547,7 +547,7 @@ main { overflow: hidden !important; }
         fetch(LC_BASE + '/ajax/toggle_product_expiry.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.success) { alert(data.message || 'An error occurred.'); return; }
+                if (!data.success) { alert(data.message || <?php echo json_encode(t('logistics.products.error')); ?>); return; }
                 var val = data.requires_expiry;
                 btn.dataset.val = val;
                 var dot   = btn.querySelector('.toggle-dot');
@@ -555,14 +555,14 @@ main { overflow: hidden !important; }
                 if (val) {
                     btn.className = btn.className.replace('bg-gray-100 text-gray-400 hover:bg-gray-200', 'bg-orange-100 text-orange-700 hover:bg-orange-200');
                     dot.className   = dot.className.replace('bg-gray-300', 'bg-orange-500');
-                    label.textContent = 'Required';
+                    label.textContent = <?php echo json_encode(t('logistics.products.required')); ?>;
                 } else {
                     btn.className = btn.className.replace('bg-orange-100 text-orange-700 hover:bg-orange-200', 'bg-gray-100 text-gray-400 hover:bg-gray-200');
                     dot.className   = dot.className.replace('bg-orange-500', 'bg-gray-300');
-                    label.textContent = 'Optional';
+                    label.textContent = <?php echo json_encode(t('logistics.products.optional')); ?>;
                 }
             })
-            .catch(function() { alert('Request failed.'); })
+            .catch(function() { alert(<?php echo json_encode(t('logistics.products.request_failed')); ?>); })
             .finally(function() { btn.disabled = false; });
     };
 
@@ -688,7 +688,7 @@ main { overflow: hidden !important; }
         fd.set('csrf_token', CSRF);
 
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving…';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + <?php echo json_encode(t('logistics.products.saving')); ?>;
 
         fetch(LC_BASE + '/ajax/add_product.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
@@ -697,17 +697,17 @@ main { overflow: hidden !important; }
                     closeRegisterModal();
                     window.location.reload();
                 } else {
-                    errEl.textContent = data.message || 'An error occurred.';
+                    errEl.textContent = data.message || <?php echo json_encode(t('logistics.products.error')); ?>;
                     errEl.classList.remove('hidden');
                 }
             })
             .catch(function() {
-                errEl.textContent = 'Server connection error.';
+                errEl.textContent = <?php echo json_encode(t('logistics.products.server_error')); ?>;
                 errEl.classList.remove('hidden');
             })
             .finally(function() {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-save mr-2"></i>Register';
+                btn.innerHTML = '<i class="fas fa-save mr-2"></i>' + <?php echo json_encode(t('logistics.products.register')); ?>;
             });
     };
 
@@ -761,7 +761,7 @@ main { overflow: hidden !important; }
         var en = document.getElementById('regNameEn').value.trim();
         var btn = document.getElementById('regTransToKoBtn');
         if (!en) { document.getElementById('regNameEn').focus(); return; }
-        btn.textContent = 'Translating…'; btn.disabled = true;
+        btn.textContent = <?php echo json_encode(t('logistics.products.translating')); ?>; btn.disabled = true;
         fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(en) + '&langpair=en|ko')
             .then(function(r) { return r.json(); })
             .then(function(data) {
@@ -770,14 +770,14 @@ main { overflow: hidden !important; }
                 }
             })
             .catch(function() {})
-            .finally(function() { btn.textContent = 'Translate ▶ Korean'; btn.disabled = false; });
+            .finally(function() { btn.textContent = <?php echo json_encode(t('logistics.products.translate_korean')); ?>; btn.disabled = false; });
     };
 
     window.regTranslateToEn = function() {
         var ko = document.getElementById('regNameKo').value.trim();
         var btn = document.getElementById('regTransToEnBtn');
         if (!ko) { document.getElementById('regNameKo').focus(); return; }
-        btn.textContent = 'Translating…'; btn.disabled = true;
+        btn.textContent = <?php echo json_encode(t('logistics.products.translating')); ?>; btn.disabled = true;
         fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(ko) + '&langpair=ko|en')
             .then(function(r) { return r.json(); })
             .then(function(data) {
@@ -786,7 +786,7 @@ main { overflow: hidden !important; }
                 }
             })
             .catch(function() {})
-            .finally(function() { btn.textContent = 'Translate ▶ English'; btn.disabled = false; });
+            .finally(function() { btn.textContent = <?php echo json_encode(t('logistics.products.translate_english')); ?>; btn.disabled = false; });
     };
 
     document.addEventListener('keydown', function(e) {
@@ -851,7 +851,7 @@ main { overflow: hidden !important; }
                 return !q || lbl(item).toLowerCase().indexOf(q) !== -1;
             });
             if (!_filtered.length) {
-                listEl.innerHTML = '<li class="px-3 py-2 text-sm text-gray-400">No results</li>';
+                listEl.innerHTML = '<li class="px-3 py-2 text-sm text-gray-400">' + <?php echo json_encode(t('logistics.products.no_results')); ?> + '</li>';
                 return;
             }
             _filtered.forEach(function(item) {
@@ -979,7 +979,7 @@ main { overflow: hidden !important; }
     function render(products) {
         listEl.innerHTML = '';
         if (!products.length) {
-            listEl.innerHTML = '<li class="px-3 py-2 text-sm text-gray-400">No results</li>';
+            listEl.innerHTML = '<li class="px-3 py-2 text-sm text-gray-400">' + <?php echo json_encode(t('logistics.products.no_results')); ?> + '</li>';
             return;
         }
         products.forEach(function(item) {
@@ -988,7 +988,7 @@ main { overflow: hidden !important; }
             li.innerHTML = '<div class="font-medium">' + escapeHtml(item.name_en) +
                             (item.name_ko ? ' <span class="text-gray-500">(' + escapeHtml(item.name_ko) + ')</span>' : '') + '</div>' +
                             '<div class="text-xs text-gray-400 font-mono">' + escapeHtml(item.sku) +
-                            (item.pieces_per_box ? ' &middot; ' + item.pieces_per_box + ' pcs/box' : '') + '</div>';
+                            (item.pieces_per_box ? ' &middot; ' + item.pieces_per_box + ' ' + <?php echo json_encode(t('logistics.products.pcs_box')); ?> : '') + '</div>';
             li.addEventListener('mousedown', function(e) { e.preventDefault(); applyProduct(item); });
             listEl.appendChild(li);
         });
@@ -1023,7 +1023,7 @@ main { overflow: hidden !important; }
                 dropEl.classList.remove('hidden');
             })
             .catch(function() {
-                listEl.innerHTML = '<li class="px-3 py-2 text-sm text-red-400">Search failed.</li>';
+                listEl.innerHTML = '<li class="px-3 py-2 text-sm text-red-400">' + <?php echo json_encode(t('logistics.products.search_failed')); ?> + '</li>';
                 dropEl.classList.remove('hidden');
             });
     }
@@ -1044,3 +1044,5 @@ main { overflow: hidden !important; }
 <?php require_once __DIR__ . '/partials/modal_brand_cat.php'; ?>
 <?php require __DIR__ . '/partials/inline_edit_widget.php'; // Design Ref: §5.4 ?>
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
+
+
