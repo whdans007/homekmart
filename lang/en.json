@@ -3041,5 +3041,13 @@
     "reject": "Reject",
     "confirm_reject": "Reject this mapping? (history is preserved)",
     "export_csv": "Export CSV"
+  },
+  "logistics": {
+    "nav": {
+      "main": "MAIN", "dashboard": "Dashboard", "inventory_status": "Inventory Status", "master_data": "Master Data", "product_master": "Product Master", "suppliers": "Suppliers", "brand_management": "Brand Management", "category_management": "Category Management", "inbound_outbound": "Inbound/Outbound", "inbound_management": "Inbound Management", "inbound_items": "Inbound Items", "outbound_history": "Outbound History", "damaged_goods": "Damaged Goods", "order_management": "Order Management", "order_list": "Order List", "branch_outbound": "Branch Outbound", "store_requests": "Store Requests", "orders": "Orders", "place_order": "Place Order", "my_orders": "My Orders", "logout": "Logout", "sign_out_confirm": "Sign out?", "pending_orders": "{count} order(s) awaiting (Order Received)", "pending_requests": "{count} pending request(s)", "new_store_order": "New Store Order", "view_order": "View Order", "close": "Close"
+    },
+    "common": {
+      "center": "M TOWN CENTER", "store": "Store", "center_title": "Logistics Center", "language_error": "An error occurred while changing the language.", "new_store_order_prefix": "🔔 New Store Order ", "unconfirmed_store_order_prefix": "🔔 Unconfirmed Store Order ", "count_suffix": " orders", "and_more_count": "and {count} more", "won": "₱", "item_count_suffix": " item(s)"
+    }
   }
 }

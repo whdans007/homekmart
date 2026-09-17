@@ -6,7 +6,7 @@
 <div id="newOrderToast" style="display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;background:rgba(0,0,0,0.5)">
     <div style="width:30rem;max-width:90vw;border-radius:0.75rem;overflow:hidden;border:2px solid #991b1b;box-shadow:0 20px 45px rgba(0,0,0,0.4)">
         <div style="background:#b91c1c;color:#fff;padding:0.85rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
-            <span style="font-size:1.05rem;font-weight:700"><i class="fas fa-bell" style="margin-right:0.5rem"></i><span id="noToastTitle">새 점포 주문</span></span>
+            <span style="font-size:1.05rem;font-weight:700"><i class="fas fa-bell" style="margin-right:0.5rem"></i><span id="noToastTitle"><?php echo htmlspecialchars(t('logistics.nav.new_store_order')); ?></span></span>
             <button type="button" onclick="lcCloseNewOrderToast()" style="color:#fff;opacity:0.85;background:none;border:none;cursor:pointer;font-size:1rem"><i class="fas fa-times"></i></button>
         </div>
         <div style="background:#dc2626;color:#fff;padding:1.25rem">
@@ -15,9 +15,9 @@
         </div>
         <div style="background:#b91c1c;padding:0.85rem 1.25rem;display:flex;gap:0.5rem">
             <a id="noToastViewLink" href="#" onclick="lcAckNewOrderToast()"
-               style="flex:1;text-align:center;padding:0.55rem 0;background:#fff;color:#b91c1c;font-size:0.9rem;font-weight:700;border-radius:0.375rem;text-decoration:none">주문 보기</a>
+               style="flex:1;text-align:center;padding:0.55rem 0;background:#fff;color:#b91c1c;font-size:0.9rem;font-weight:700;border-radius:0.375rem;text-decoration:none"><?php echo htmlspecialchars(t('logistics.nav.view_order')); ?></a>
             <button type="button" onclick="lcCloseNewOrderToast()"
-                    style="padding:0.55rem 1rem;background:#7f1d1d;color:#fff;font-size:0.9rem;border:none;border-radius:0.375rem;cursor:pointer">닫기</button>
+                    style="padding:0.55rem 1rem;background:#7f1d1d;color:#fff;font-size:0.9rem;border:none;border-radius:0.375rem;cursor:pointer"><?php echo htmlspecialchars(t('logistics.nav.close')); ?></button>
         </div>
     </div>
 </div>
@@ -63,10 +63,10 @@
         var first = orders[0];           // 서버가 id DESC 정렬 → 최신
         lastShownMaxId = first.id;
         var n = orders.length;
-        document.getElementById('noToastTitle').textContent = (isNew ? '🔔 새 점포 주문 ' : '🔔 미확인 점포 주문 ') + n + '건';
-        document.getElementById('noToastStore').textContent = first.store_name + (n > 1 ? ' 외 ' + (n - 1) + '건' : '');
+        document.getElementById('noToastTitle').textContent = (isNew ? <?php echo json_encode(t('logistics.common.new_store_order_prefix'), JSON_UNESCAPED_UNICODE); ?> : <?php echo json_encode(t('logistics.common.unconfirmed_store_order_prefix'), JSON_UNESCAPED_UNICODE); ?>) + n + <?php echo json_encode(t('logistics.common.count_suffix'), JSON_UNESCAPED_UNICODE); ?>;
+        document.getElementById('noToastStore').textContent = first.store_name + (n > 1 ? ' ' + <?php echo json_encode(t('logistics.common.and_more_count', ['count' => '{count}']), JSON_UNESCAPED_UNICODE); ?>.replace('{count}', n - 1) : '');
         var amount = Math.round(first.total_amount).toLocaleString();
-        document.getElementById('noToastMeta').textContent = first.order_no + ' · ' + amount + '원 · ' + first.item_count + '개 품목';
+        document.getElementById('noToastMeta').textContent = first.order_no + ' · ' + amount + <?php echo json_encode(t('logistics.common.won'), JSON_UNESCAPED_UNICODE); ?> + ' · ' + first.item_count + <?php echo json_encode(t('logistics.common.item_count_suffix'), JSON_UNESCAPED_UNICODE); ?>;
         document.getElementById('noToastViewLink').href = LC_BASE + '/orders.php?status=pending';
         document.getElementById('newOrderToast').style.display = 'flex';
         if (isNew) beep();

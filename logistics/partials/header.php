@@ -27,7 +27,7 @@ if (!empty($_SESSION['store_id'])) {
 $_lc_user_name  = $_SESSION['full_name'] ?? $_SESSION['username'] ?? '';
 $_lc_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '';
 // 직원(staff)은 실제 소속 점포와 무관하게 항상 "M TOWN CENTER"로 표시
-$_lc_store_label = $_lc_is_staff ? 'M TOWN CENTER' : ($_lc_store_name !== '' ? $_lc_store_name : 'Store');
+$_lc_store_label = $_lc_is_staff ? t('logistics.common.center') : ($_lc_store_name !== '' ? $_lc_store_name : t('logistics.common.store'));
 
 // Order List 배지용 — 처리 대기 주문 수 (pending = "Order Received")
 $_lc_pending_orders = 0;
@@ -46,11 +46,11 @@ if ($_lc_is_staff) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="ko" class="h-full">
+<html lang="<?php echo get_language(); ?>" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($page_title ?? 'Logistics Center'); ?> - Logistics Center</title>
+    <title><?php echo htmlspecialchars($page_title ?? t('logistics.common.center_title')); ?> - <?php echo htmlspecialchars(t('logistics.common.center_title')); ?></title>
     <link rel="icon" href="data:,">
     <link href="<?php echo LC_WEB_ROOT; ?>/admin/css/style.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -84,7 +84,7 @@ if ($_lc_is_staff) {
                        class="no-print flex items-center gap-2 w-full px-2 py-1.5 text-xs font-semibold rounded-md transition-colors"
                        style="background:#1e40af;color:#ffffff;"
                        onmouseover="this.style.background='#1e3a8a'" onmouseout="this.style.background='#1e40af'">
-                        <i class="fas fa-globe"></i> MAIN
+                        <i class="fas fa-globe"></i> <?php echo t('logistics.nav.main'); ?>
                     </a>
                 </div>
 
@@ -108,10 +108,14 @@ if ($_lc_is_staff) {
                             <a href="<?php echo LC_BASE; ?>/logout.php"
                                style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;padding:0.35rem 0.4rem;font-size:11px;font-weight:600;white-space:nowrap;color:#dc2626;background:#fef2f2;border-radius:0.4rem;transition:background 0.15s;"
                                onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'"
-                               onclick="return confirm('Sign out?')">
-                                <i class="fas fa-sign-out-alt"></i>Logout
+                                onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.nav.sign_out_confirm'), JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); ?>)">
+                                 <i class="fas fa-sign-out-alt"></i><?php echo t('logistics.nav.logout'); ?>
                             </a>
                         </div>
+                        <select id="language-switcher" class="w-full" style="font-size:11px;border:1px solid #99f6e4;border-radius:0.4rem;padding:0.25rem 0.4rem;background:#fff;outline:none;color:#0f766e;">
+                            <option value="ko" <?php echo get_language() === 'ko' ? 'selected' : ''; ?>>한국어</option>
+                            <option value="en" <?php echo get_language() === 'en' ? 'selected' : ''; ?>>English</option>
+                        </select>
                     </div>
                 </div>
 
@@ -123,7 +127,7 @@ if ($_lc_is_staff) {
                        class="flex items-center px-3 py-2.5 text-sm font-bold rounded-lg shadow-md transition-colors"
                        style="<?php echo $_lc_page === 'index.php' ? 'background:#4f46e5;color:#fff;' : 'background:#6366f1;color:#fff;'; ?>">
                         <i class="fas fa-tachometer-alt mr-2 w-4 text-center"></i>
-                        Dashboard
+                        <?php echo t('logistics.nav.dashboard'); ?>
                     </a>
 
                     <!-- Inventory Status 강조 섹션 -->
@@ -131,70 +135,70 @@ if ($_lc_is_staff) {
                        class="flex items-center px-3 py-2.5 mt-3 text-sm font-bold rounded-lg shadow-md transition-colors"
                        style="<?php echo $_lc_page === 'inventory.php' ? 'background:#0d9488;color:#fff;' : 'background:#14b8a6;color:#fff;'; ?>">
                         <i class="fas fa-cubes mr-2 w-4 text-center"></i>
-                        Inventory Status
+                        <?php echo t('logistics.nav.inventory_status'); ?>
                     </a>
 
                     <!-- Master Data 섹션 (blue) -->
                     <div class="rounded-lg px-1.5 py-2 mt-3" style="background:#eff6ff;">
-                        <p class="px-2 py-1 mb-1 text-xs font-semibold text-blue-700 uppercase tracking-wider rounded" style="background:#dbeafe;">Master Data</p>
+                        <p class="px-2 py-1 mb-1 text-xs font-semibold text-blue-700 uppercase tracking-wider rounded" style="background:#dbeafe;"><?php echo t('logistics.nav.master_data'); ?></p>
                         <a href="<?php echo LC_BASE; ?>/products.php"
                            class="<?php echo in_array($_lc_page, ['products.php','product_add.php','product_edit.php']) ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-box-open mr-2 text-xs w-4 text-center"></i>
-                            Product Master
+                            <?php echo t('logistics.nav.product_master'); ?>
                         </a>
                         <a href="<?php echo LC_BASE; ?>/suppliers.php"
                            class="<?php echo $_lc_page === 'suppliers.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-truck mr-2 text-xs w-4 text-center"></i>
-                            Suppliers
+                            <?php echo t('logistics.nav.suppliers'); ?>
                         </a>
                         <a href="<?php echo LC_BASE; ?>/brand_manage.php"
                            class="<?php echo $_lc_page === 'brand_manage.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-tags mr-2 text-xs w-4 text-center"></i>
-                            Brand Management
+                            <?php echo t('logistics.nav.brand_management'); ?>
                         </a>
                         <a href="<?php echo LC_BASE; ?>/category_manage.php"
                            class="<?php echo $_lc_page === 'category_manage.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-sitemap mr-2 text-xs w-4 text-center"></i>
-                            Category Management
+                            <?php echo t('logistics.nav.category_management'); ?>
                         </a>
                     </div>
 
                     <!-- Inbound/Outbound 섹션 (green) -->
                     <div class="rounded-lg px-1.5 py-2 mt-3" style="background:#f0fdf4;">
-                        <p class="px-2 py-1 mb-1 text-xs font-semibold text-green-700 uppercase tracking-wider rounded" style="background:#dcfce7;">Inbound/Outbound</p>
+                        <p class="px-2 py-1 mb-1 text-xs font-semibold text-green-700 uppercase tracking-wider rounded" style="background:#dcfce7;"><?php echo t('logistics.nav.inbound_outbound'); ?></p>
                         <a href="<?php echo LC_BASE; ?>/inbound.php"
                            class="<?php echo in_array($_lc_page, ['inbound.php','inbound_add.php']) ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-arrow-down mr-2 text-xs w-4 text-center"></i>
-                            Inbound Management
+                            <?php echo t('logistics.nav.inbound_management'); ?>
                         </a>
                         <a href="<?php echo LC_BASE; ?>/inbound_items.php"
                            class="<?php echo $_lc_page === 'inbound_items.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-list mr-2 text-xs w-4 text-center"></i>
-                            Inbound Items
+                            <?php echo t('logistics.nav.inbound_items'); ?>
                         </a>
                         <a href="<?php echo LC_BASE; ?>/outbound.php"
                            class="<?php echo $_lc_page === 'outbound.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-arrow-up mr-2 text-xs w-4 text-center"></i>
-                            Outbound History
+                            <?php echo t('logistics.nav.outbound_history'); ?>
                         </a>
                         <a href="<?php echo LC_BASE; ?>/inbound_damages.php"
                            class="<?php echo $_lc_page === 'inbound_damages.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-triangle-exclamation mr-2 text-xs w-4 text-center"></i>
-                            Damaged Goods
+                            <?php echo t('logistics.nav.damaged_goods'); ?>
                         </a>
                     </div>
 
                     <!-- Order Management 섹션 (amber) -->
                     <div class="rounded-lg px-1.5 py-2 mt-3" style="background:#fffbeb;">
-                        <p class="px-2 py-1 mb-1 text-xs font-semibold text-amber-700 uppercase tracking-wider rounded" style="background:#fef3c7;">Order Management</p>
+                        <p class="px-2 py-1 mb-1 text-xs font-semibold text-amber-700 uppercase tracking-wider rounded" style="background:#fef3c7;"><?php echo t('logistics.nav.order_management'); ?></p>
                         <a href="<?php echo LC_BASE; ?>/orders.php"
                            class="<?php echo in_array($_lc_page, ['orders.php','order_detail.php']) ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-clipboard-list mr-2 text-xs w-4 text-center"></i>
-                            Order List
+                            <?php echo t('logistics.nav.order_list'); ?>
                             <?php if ($_lc_pending_orders > 0): ?>
                             <span class="ml-auto inline-flex items-center justify-center font-bold"
                                   style="background:#dc2626;color:#fff;min-width:1.15rem;height:1.15rem;padding:0 0.3rem;border-radius:9999px;font-size:0.65rem;line-height:1"
-                                  title="<?php echo $_lc_pending_orders; ?> order(s) awaiting (Order Received)">
+                                  title="<?php echo htmlspecialchars(t('logistics.nav.pending_orders', ['count' => $_lc_pending_orders])); ?>">
                                 <?php echo $_lc_pending_orders > 99 ? '99+' : $_lc_pending_orders; ?>
                             </span>
                             <?php endif; ?>
@@ -202,21 +206,21 @@ if ($_lc_is_staff) {
                         <a href="<?php echo LC_BASE; ?>/branch_outbound_list.php"
                            class="<?php echo in_array($_lc_page, ['branch_outbound.php','branch_outbound_list.php']) ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-dolly mr-2 text-xs w-4 text-center"></i>
-                            Branch Outbound
+                            <?php echo t('logistics.nav.branch_outbound'); ?>
                         </a>
                     </div>
 
                     <!-- Store Requests 섹션 (rose) -->
                     <div class="rounded-lg px-1.5 py-2 mt-3" style="background:#fff1f2;">
-                        <p class="px-2 py-1 mb-1 text-xs font-semibold text-rose-700 uppercase tracking-wider rounded" style="background:#ffe4e6;">Store Requests</p>
+                        <p class="px-2 py-1 mb-1 text-xs font-semibold text-rose-700 uppercase tracking-wider rounded" style="background:#ffe4e6;"><?php echo t('logistics.nav.store_requests'); ?></p>
                         <a href="<?php echo LC_BASE; ?>/requests.php"
                            class="<?php echo in_array($_lc_page, ['requests.php','request_detail.php']) ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-comment-dots mr-2 text-xs w-4 text-center"></i>
-                            Store Requests
+                            <?php echo t('logistics.nav.store_requests'); ?>
                             <?php if ($_lc_pending_requests > 0): ?>
                             <span class="ml-auto inline-flex items-center justify-center font-bold"
                                   style="background:#dc2626;color:#fff;min-width:1.15rem;height:1.15rem;padding:0 0.3rem;border-radius:9999px;font-size:0.65rem;line-height:1"
-                                  title="<?php echo $_lc_pending_requests; ?> pending request(s)">
+                                  title="<?php echo htmlspecialchars(t('logistics.nav.pending_requests', ['count' => $_lc_pending_requests])); ?>">
                                 <?php echo $_lc_pending_requests > 99 ? '99+' : $_lc_pending_requests; ?>
                             </span>
                             <?php endif; ?>
@@ -226,17 +230,17 @@ if ($_lc_is_staff) {
                     <?php else: ?>
                     <!-- Store staff menu -->
                     <div class="pt-3">
-                        <p class="px-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Orders</p>
+                        <p class="px-2 text-xs font-semibold text-gray-400 uppercase tracking-wider"><?php echo t('logistics.nav.orders'); ?></p>
                     </div>
                     <a href="<?php echo LC_BASE; ?>/order_new.php"
                        class="<?php echo $_lc_page === 'order_new.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                         <i class="fas fa-cart-plus mr-2 text-xs w-4 text-center"></i>
-                        Place Order
+                        <?php echo t('logistics.nav.place_order'); ?>
                     </a>
                     <a href="<?php echo LC_BASE; ?>/orders.php"
                        class="<?php echo in_array($_lc_page, ['orders.php','order_detail.php']) ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                         <i class="fas fa-list-alt mr-2 text-xs w-4 text-center"></i>
-                        My Orders
+                        <?php echo t('logistics.nav.my_orders'); ?>
                     </a>
                     <?php endif; ?>
 
@@ -254,7 +258,7 @@ if ($_lc_is_staff) {
                 <img src="<?php echo LC_WEB_ROOT; ?>/logo/homekmart_logo.png" alt="Home K Mart" style="height:28px;">
                 <a href="<?php echo LC_WEB_ROOT; ?>/"
                    class="inline-flex items-center px-2 py-1 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md transition-colors">
-                    <i class="fas fa-globe mr-1"></i> MAIN
+                    <i class="fas fa-globe mr-1"></i> <?php echo t('logistics.nav.main'); ?>
                 </a>
             </div>
             <button id="mobile-menu-btn" class="text-gray-500 hover:text-gray-700">
@@ -265,26 +269,26 @@ if ($_lc_is_staff) {
         <!-- 모바일 드롭다운 메뉴 -->
         <div id="mobile-menu" class="hidden md:hidden bg-white border-b border-gray-200 px-4 py-3 space-y-1">
             <?php if ($_lc_is_staff): ?>
-            <a href="<?php echo LC_BASE; ?>/index.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Dashboard</a>
-            <a href="<?php echo LC_BASE; ?>/products.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Product Master</a>
-            <a href="<?php echo LC_BASE; ?>/inbound.php"   class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Inbound Management</a>
-            <a href="<?php echo LC_BASE; ?>/inventory.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Inventory Status</a>
-            <a href="<?php echo LC_BASE; ?>/outbound.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Outbound History</a>
-            <a href="<?php echo LC_BASE; ?>/inbound_damages.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Damaged Goods</a>
-            <a href="<?php echo LC_BASE; ?>/suppliers.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Suppliers</a>
-            <a href="<?php echo LC_BASE; ?>/brand_manage.php"    class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Brand Management</a>
-            <a href="<?php echo LC_BASE; ?>/category_manage.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Category Management</a>
-            <a href="<?php echo LC_BASE; ?>/orders.php"    class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Order List</a>
-            <a href="<?php echo LC_BASE; ?>/branch_outbound_list.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Branch Outbound</a>
-            <a href="<?php echo LC_BASE; ?>/requests.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Store Requests</a>
+            <a href="<?php echo LC_BASE; ?>/index.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.dashboard'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/products.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.product_master'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/inbound.php"   class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.inbound_management'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/inventory.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.inventory_status'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/outbound.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.outbound_history'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/inbound_damages.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.damaged_goods'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/suppliers.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.suppliers'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/brand_manage.php"    class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.brand_management'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/category_manage.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.category_management'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/orders.php"    class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.order_list'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/branch_outbound_list.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.branch_outbound'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/requests.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.store_requests'); ?></a>
             <?php else: ?>
-            <a href="<?php echo LC_BASE; ?>/order_new.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Place Order</a>
-            <a href="<?php echo LC_BASE; ?>/orders.php"    class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">My Orders</a>
+            <a href="<?php echo LC_BASE; ?>/order_new.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.place_order'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/orders.php"    class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.my_orders'); ?></a>
             <?php endif; ?>
             <div class="border-t border-gray-100 mt-2 pt-2">
                 <div class="px-3 py-1 text-xs text-gray-500"><i class="fas fa-store mr-2"></i><?php echo htmlspecialchars($_lc_store_label); ?></div>
                 <div class="px-3 py-1 text-sm text-gray-700"><i class="fas fa-circle-user mr-2"></i><?php echo htmlspecialchars($_lc_user_name); ?><?php if ($_lc_role_label !== ''): ?> <span class="text-xs text-teal-700">(<?php echo htmlspecialchars($_lc_role_label); ?>)</span><?php endif; ?></div>
-                <a href="<?php echo LC_BASE; ?>/logout.php" class="block px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"><i class="fas fa-sign-out-alt mr-2"></i>Logout</a>
+                <a href="<?php echo LC_BASE; ?>/logout.php" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.nav.sign_out_confirm'), JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); ?>)" class="block px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"><i class="fas fa-sign-out-alt mr-2"></i><?php echo t('logistics.nav.logout'); ?></a>
             </div>
         </div>
 
@@ -301,6 +305,20 @@ if ($_lc_is_staff) {
         <main class="flex-1 overflow-y-auto p-6">
 
 <script>
+document.getElementById('language-switcher')?.addEventListener('change', function() {
+    var languageSwitcher = this;
+    fetch('<?php echo LC_BASE; ?>/ajax_set_language.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'language=' + encodeURIComponent(this.value)
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) { window.location.reload(); }
+        else { alert('<?php echo htmlspecialchars(t('common.error'), ENT_QUOTES, 'UTF-8'); ?>: ' + data.message); languageSwitcher.value = '<?php echo get_language(); ?>'; }
+    }).catch(function() {
+        alert('<?php echo htmlspecialchars(t('logistics.common.language_error'), ENT_QUOTES, 'UTF-8'); ?>');
+        languageSwitcher.value = '<?php echo get_language(); ?>';
+    });
+});
 document.getElementById('mobile-menu-btn')?.addEventListener('click', function() {
     const menu = document.getElementById('mobile-menu');
     menu?.classList.toggle('hidden');

@@ -3121,5 +3121,13 @@
     "reject": "거부",
     "confirm_reject": "이 매핑을 거부 처리하시겠습니까? (이력은 보존됩니다)",
     "export_csv": "CSV 내보내기"
+  },
+  "logistics": {
+    "nav": {
+      "main": "메인", "dashboard": "대시보드", "inventory_status": "재고 현황", "master_data": "기초 자료", "product_master": "상품 관리", "suppliers": "공급업체", "brand_management": "브랜드 관리", "category_management": "카테고리 관리", "inbound_outbound": "입출고", "inbound_management": "입고 관리", "inbound_items": "입고 품목", "outbound_history": "출고 이력", "damaged_goods": "파손 상품", "order_management": "주문 관리", "order_list": "주문 목록", "branch_outbound": "지점 출고", "store_requests": "점포 요청", "orders": "주문", "place_order": "주문하기", "my_orders": "내 주문", "logout": "로그아웃", "sign_out_confirm": "로그아웃하시겠습니까?", "pending_orders": "대기 중인 주문 {count}건 (주문 접수)", "pending_requests": "대기 중인 요청 {count}건", "new_store_order": "새 점포 주문", "view_order": "주문 보기", "close": "닫기"
+    },
+    "common": {
+      "center": "M TOWN CENTER", "store": "점포", "center_title": "물류센터", "language_error": "언어 변경 중 오류가 발생했습니다.", "new_store_order_prefix": "🔔 새 점포 주문 ", "unconfirmed_store_order_prefix": "🔔 미확인 점포 주문 ", "count_suffix": "건", "and_more_count": "외 {count}건", "won": "원", "item_count_suffix": "개 품목"
+    }
   }
 }
