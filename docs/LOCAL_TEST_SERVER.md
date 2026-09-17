@@ -15,3 +15,9 @@ The script drops and recreates only the local database, then imports `u622428657
 ```
 
 Keep the local Laragon MySQL service running before starting the PHP site.
+
+The local test URL is:
+
+`http://127.0.0.1/homekmart/admin/login.php`
+
+Laragon's Apache service must be running. Local HTTP requests skip the production HTTPS redirect; production hosts still redirect to HTTPS.
