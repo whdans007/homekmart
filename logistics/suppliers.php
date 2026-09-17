@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Supplier Management - Logistics Center';
+$page_title = t('logistics.suppliers.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 
@@ -13,14 +13,14 @@ try {
     )->fetch_all(MYSQLI_ASSOC);
     $conn->close();
 } catch (Exception $e) {
-    lc_set_flash('error', 'DB Error: ' . $e->getMessage());
+    lc_set_flash('error', t('logistics.suppliers.db_error') . ': ' . $e->getMessage());
 }
 ?>
 
 <div class="flex items-center justify-between mb-6">
-    <h2 class="text-xl font-bold text-gray-900">Supplier Management</h2>
+    <h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.suppliers.title')); ?></h2>
     <button onclick="openModal()" class="inline-flex items-center px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">
-        <i class="fas fa-plus mr-2"></i> Add Supplier
+        <i class="fas fa-plus mr-2"></i> <?php echo htmlspecialchars(t('logistics.suppliers.add')); ?>
     </button>
 </div>
 
@@ -28,7 +28,7 @@ try {
 <div class="mb-4">
     <div class="relative max-w-xs">
         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
-        <input type="text" id="searchInput" placeholder="Search suppliers..."
+        <input type="text" id="searchInput" placeholder="<?php echo htmlspecialchars(t('logistics.suppliers.search_placeholder')); ?>"
                oninput="filterTable(this.value)"
                class="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm w-full focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
     </div>
@@ -39,12 +39,12 @@ try {
     <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Name</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Contact Person</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Phone</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Memo</th>
-                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase"><?php echo htmlspecialchars(t('logistics.suppliers.name')); ?></th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase"><?php echo htmlspecialchars(t('logistics.suppliers.contact_person')); ?></th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase"><?php echo htmlspecialchars(t('logistics.suppliers.phone')); ?></th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase"><?php echo htmlspecialchars(t('logistics.suppliers.email')); ?></th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase"><?php echo htmlspecialchars(t('logistics.suppliers.memo')); ?></th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase"><?php echo htmlspecialchars(t('logistics.suppliers.actions')); ?></th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100" id="supplierTable">
@@ -60,11 +60,11 @@ try {
                     <div class="flex gap-2 justify-end">
                         <button onclick="openModal(<?php echo htmlspecialchars(json_encode($s), ENT_QUOTES); ?>)"
                                 class="text-teal-600 hover:text-teal-800 text-sm font-medium">
-                            <i class="fas fa-edit mr-1"></i>Edit
+                            <i class="fas fa-edit mr-1"></i><?php echo htmlspecialchars(t('logistics.suppliers.edit')); ?>
                         </button>
                         <button onclick="deleteSupplier(<?php echo $s['id']; ?>, '<?php echo addslashes(htmlspecialchars($s['name'])); ?>')"
                                 class="text-red-500 hover:text-red-700 text-sm font-medium">
-                            <i class="fas fa-trash mr-1"></i>Delete
+                            <i class="fas fa-trash mr-1"></i><?php echo htmlspecialchars(t('logistics.suppliers.delete')); ?>
                         </button>
                     </div>
                 </td>
@@ -74,12 +74,12 @@ try {
             <tr id="emptyRow">
                 <td colspan="6" class="px-4 py-10 text-center text-sm text-gray-400">
                     <i class="fas fa-truck text-3xl text-gray-200 mb-3 block"></i>
-                    No suppliers yet. Click "Add Supplier" to get started.
+                    <?php echo htmlspecialchars(t('logistics.suppliers.empty')); ?>
                 </td>
             </tr>
             <?php endif; ?>
             <tr id="noResultRow" class="hidden">
-                <td colspan="6" class="px-4 py-6 text-center text-sm text-gray-400">No results found.</td>
+                <td colspan="6" class="px-4 py-6 text-center text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.suppliers.no_results')); ?></td>
             </tr>
         </tbody>
     </table>
@@ -89,7 +89,7 @@ try {
 <div id="supplierModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-            <h3 id="modalTitle" class="text-base font-semibold text-gray-900">Add Supplier</h3>
+            <h3 id="modalTitle" class="text-base font-semibold text-gray-900"><?php echo htmlspecialchars(t('logistics.suppliers.add')); ?></h3>
             <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
                 <i class="fas fa-times"></i>
             </button>
@@ -99,27 +99,27 @@ try {
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.suppliers.name')); ?> <span class="text-red-500">*</span></label>
                 <input type="text" id="supplierName" name="name" required
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.suppliers.contact_person')); ?></label>
                 <input type="text" id="supplierContact" name="contact_person"
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.suppliers.phone')); ?></label>
                 <input type="text" id="supplierPhone" name="phone"
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.suppliers.email')); ?></label>
                 <input type="email" id="supplierEmail" name="email"
                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Memo</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.suppliers.memo')); ?></label>
                 <textarea id="supplierMemo" name="memo" rows="2"
                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 resize-none"></textarea>
             </div>
@@ -129,11 +129,11 @@ try {
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeModal()"
                         class="flex-1 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                    Cancel
+                    <?php echo htmlspecialchars(t('logistics.suppliers.cancel')); ?>
                 </button>
                 <button type="submit"
                         class="flex-1 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-semibold transition-colors">
-                    Save
+                    <?php echo htmlspecialchars(t('logistics.suppliers.save')); ?>
                 </button>
             </div>
         </form>
@@ -153,7 +153,7 @@ function filterTable(q) {
 }
 
 function openModal(data) {
-    document.getElementById('modalTitle').textContent = data ? 'Edit Supplier' : 'Add Supplier';
+    document.getElementById('modalTitle').textContent = data ? <?php echo json_encode(t('logistics.suppliers.edit')); ?> : <?php echo json_encode(t('logistics.suppliers.add')); ?>;
     document.getElementById('supplierId').value        = data ? data.id : '';
     document.getElementById('supplierName').value      = data ? (data.name || '') : '';
     document.getElementById('supplierContact').value   = data ? (data.contact_person || '') : '';
@@ -181,17 +181,17 @@ document.getElementById('supplierForm').addEventListener('submit', async functio
         if (data.success) {
             location.reload();
         } else {
-            errEl.textContent = data.message || 'Save failed.';
+            errEl.textContent = data.message || <?php echo json_encode(t('logistics.suppliers.save_failed')); ?>;
             errEl.classList.remove('hidden');
         }
     } catch {
-        errEl.textContent = 'Network error.';
+        errEl.textContent = <?php echo json_encode(t('logistics.suppliers.network_error')); ?>;
         errEl.classList.remove('hidden');
     }
 });
 
 async function deleteSupplier(id, name) {
-    if (!confirm('Delete supplier "' + name + '"?\nThis cannot be undone.')) return;
+    if (!confirm(<?php echo json_encode(t('logistics.suppliers.delete_confirm')); ?>.replace('{name}', name))) return;
 
     const formData = new FormData();
     formData.append('id', id);
@@ -203,10 +203,10 @@ async function deleteSupplier(id, name) {
         if (data.success) {
             location.reload();
         } else {
-            alert(data.message || 'Delete failed.');
+            alert(data.message || <?php echo json_encode(t('logistics.suppliers.delete_failed')); ?>);
         }
     } catch {
-        alert('Network error.');
+        alert(<?php echo json_encode(t('logistics.suppliers.network_error')); ?>);
     }
 }
 

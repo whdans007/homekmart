@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Register Product - Logistics Center';
+$page_title = t('logistics.product_add.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/unit_helper.php'; // unit 검증(BOX/PCS만 허용)
@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $form['min_stock']        = max(0, (int)($_POST['min_stock'] ?? 0));
     $form['requires_expiry']  = isset($_POST['requires_expiry']) ? 1 : 0;
 
-    if ($form['name_en'] === '') $errors[] = 'Please enter the English product name.';
+    if ($form['name_en'] === '') $errors[] = t('logistics.product_add.name_required');
 
     // 바코드 중복 검증 (3개 컬럼 교차 검사) — 다른 상품과 겹치면 등록 차단
     if (empty($errors)) {
@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn_chk->close();
             if (!empty($conflicts)) $errors[] = lc_format_barcode_conflict_msg($conflicts);
         } catch (Exception $e) {
-            $errors[] = 'Barcode check error: ' . $e->getMessage();
+            $errors[] = t('logistics.product_add.barcode_check_error') . ': ' . $e->getMessage();
         }
     }
 
@@ -90,18 +90,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sh->close();
 
             $conn->close();
-            lc_set_flash('success', 'Product registered successfully.');
+            lc_set_flash('success', t('logistics.product_add.register_success'));
             header('Location: ' . LC_BASE . '/products.php');
             exit;
         } catch (Exception $e) {
-            $errors[] = 'DB Error: ' . $e->getMessage();
+            $errors[] = t('logistics.product_add.db_error') . ': ' . $e->getMessage();
         }
     }
 }
 ?>
 <div class="flex items-center gap-3 mb-6">
     <a href="<?php echo LC_BASE; ?>/products.php" class="text-gray-400 hover:text-gray-600"><i class="fas fa-arrow-left"></i></a>
-    <h2 class="text-xl font-bold text-gray-900">Register Product</h2>
+    <h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.product_add.title')); ?></h2>
 </div>
 <?php if (!empty($errors)): ?>
 <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
@@ -110,10 +110,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php endif; ?>
 <div class="bg-white rounded-lg border border-gray-200 p-6" style="max-width:63rem;">
     <div class="border border-teal-200 bg-teal-50 rounded-lg p-4 mb-5">
-        <h3 class="text-sm font-semibold text-teal-800 mb-1"><i class="fas fa-magic mr-1"></i>Import from Existing Product</h3>
-        <p class="text-xs text-teal-700 mb-2">Search by barcode or product name to auto-fill the Korean/English name and units per box.</p>
+        <h3 class="text-sm font-semibold text-teal-800 mb-1"><i class="fas fa-magic mr-1"></i><?php echo htmlspecialchars(t('logistics.product_add.import_title')); ?></h3>
+        <p class="text-xs text-teal-700 mb-2"><?php echo htmlspecialchars(t('logistics.product_add.import_description')); ?></p>
         <div class="relative">
-            <input type="text" id="shopProductSearch" autocomplete="off" placeholder="Search barcode or product name..."
+            <input type="text" id="shopProductSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.product_add.import_placeholder')); ?>"
                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             <div id="shopProductDropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
                 <ul id="shopProductList" class="py-1"></ul>
@@ -142,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     function render(products) {
         listEl.innerHTML = '';
         if (!products.length) {
-            listEl.innerHTML = '<li class="px-3 py-2 text-sm text-gray-400">No results</li>';
+            listEl.innerHTML = '<li class="px-3 py-2 text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.product_add.no_results')); ?></li>';
             return;
         }
         products.forEach(function(item) {
@@ -151,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             li.innerHTML = '<div class="font-medium">' + escapeHtml(item.name_en) +
                             (item.name_ko ? ' <span class="text-gray-500">(' + escapeHtml(item.name_ko) + ')</span>' : '') + '</div>' +
                             '<div class="text-xs text-gray-400 font-mono">' + escapeHtml(item.sku) +
-                            (item.pieces_per_box ? ' &middot; ' + item.pieces_per_box + ' pcs/box' : '') + '</div>';
+                            (item.pieces_per_box ? ' &middot; ' + item.pieces_per_box + ' <?php echo htmlspecialchars(t('logistics.product_add.pcs_box')); ?>' : '') + '</div>';
             li.addEventListener('mousedown', function(e) { e.preventDefault(); applyProduct(item); });
             listEl.appendChild(li);
         });
@@ -187,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 dropEl.classList.remove('hidden');
             })
             .catch(function() {
-                listEl.innerHTML = '<li class="px-3 py-2 text-sm text-red-400">Search failed.</li>';
+                listEl.innerHTML = '<li class="px-3 py-2 text-sm text-red-400"><?php echo htmlspecialchars(t('logistics.product_add.search_failed')); ?></li>';
                 dropEl.classList.remove('hidden');
             });
     }
@@ -214,13 +214,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
 
         <div class="border-b border-gray-100 pb-5">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3">Product Name</h3>
+            <h3 class="text-sm font-semibold text-gray-700 mb-3"><?php echo htmlspecialchars(t('logistics.product_add.product_name')); ?></h3>
             <div class="space-y-3">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">English Name <span class="text-red-500">*</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_add.english_name')); ?> <span class="text-red-500">*</span></label>
                     <div class="flex gap-2">
                         <input type="text" name="name_en" id="prodNameEn" value="<?php echo htmlspecialchars($form['name_en']); ?>" required
-                               placeholder="E.g.: Shin Ramyun, Choco Pie"
+                           placeholder="<?php echo htmlspecialchars(t('logistics.product_add.name_placeholder')); ?>"
                                class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                         <button type="button" id="prodTranslateToKoBtn" onclick="translateToKorean()"
                                 class="px-3 py-2 text-xs font-semibold rounded-md whitespace-nowrap transition-colors"
@@ -230,12 +230,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Korean Name <span class="text-xs text-gray-400 font-normal">(For Korean products only)</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_add.korean_name')); ?> <span class="text-xs text-gray-400 font-normal"><?php echo htmlspecialchars(t('logistics.product_add.korean_only')); ?></span></label>
                     <div class="flex gap-2">
                         <input type="text" name="name_ko" id="prodNameKo" value="<?php echo htmlspecialchars($form['name_ko'] ?? ''); ?>"
-                               placeholder="E.g.: Shin Ramyun, Choco Pie"
+                           placeholder="<?php echo htmlspecialchars(t('logistics.product_add.name_placeholder')); ?>"
                                class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-                        <button type="button" id="prodRomanizeBtn" onclick="romanizeKoreanName()" title="한글을 영문 발음(로마자)으로 변환"
+                    <button type="button" id="prodRomanizeBtn" onclick="romanizeKoreanName()" title="<?php echo htmlspecialchars(t('logistics.brand.romanize')); ?>"
                                 class="px-3 py-2 text-xs font-semibold rounded-md whitespace-nowrap transition-colors"
                                 style="background:#f3e8ff;color:#7e22ce;">
                             발음 ▶ English
@@ -289,7 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         var text = enInput.value.trim();
         if (!text) { enInput.focus(); return; }
 
-        btn.textContent = 'Translating…';
+        btn.textContent = <?php echo json_encode(t('logistics.product_add.translating')); ?>;
         btn.disabled = true;
 
         fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=en|ko')
@@ -299,14 +299,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     koInput.value = data.responseData.translatedText;
                     koInput.focus();
                 } else {
-                    alert('Translation failed: Please try again.');
+            alert(<?php echo json_encode(t('logistics.product_add.translation_failed')); ?>);
                 }
             })
             .catch(function() {
-                alert('Cannot connect to translation service.');
+            alert(<?php echo json_encode(t('logistics.product_add.translation_unavailable')); ?>);
             })
             .finally(function() {
-                btn.textContent = 'Translate ▶ Korean';
+        btn.textContent = <?php echo json_encode(t('logistics.product_add.translate_korean')); ?>;
                 btn.disabled = false;
             });
     };
@@ -318,7 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         var text = koInput.value.trim();
         if (!text) { koInput.focus(); return; }
 
-        btn.textContent = 'Translating…';
+        btn.textContent = <?php echo json_encode(t('logistics.product_add.translating')); ?>;
         btn.disabled = true;
 
         fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=ko|en')
@@ -328,14 +328,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     enInput.value = data.responseData.translatedText.toUpperCase();
                     enInput.focus();
                 } else {
-                    alert('Translation failed: Please try again.');
+            alert(<?php echo json_encode(t('logistics.product_add.translation_failed')); ?>);
                 }
             })
             .catch(function() {
-                alert('Cannot connect to translation service.');
+            alert(<?php echo json_encode(t('logistics.product_add.translation_unavailable')); ?>);
             })
             .finally(function() {
-                btn.textContent = 'Translate ▶ English';
+        btn.textContent = <?php echo json_encode(t('logistics.product_add.translate_english')); ?>;
                 btn.disabled = false;
             });
     };
@@ -343,7 +343,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </script>
 
         <div class="border-b border-gray-100 pb-5">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3"><i class="fas fa-image text-gray-400 mr-1"></i>Product Image</h3>
+            <h3 class="text-sm font-semibold text-gray-700 mb-3"><i class="fas fa-image text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.product_add.product_image')); ?></h3>
             <div class="flex items-start gap-4">
                 <div class="w-28 h-28 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
                     <img id="imgPreview" src="" alt="" class="w-full h-full object-cover hidden">
@@ -352,10 +352,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="flex-1">
                     <input type="file" name="image" id="imageInput" accept="image/jpeg,image/png,image/webp,image/gif"
                            class="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
-                    <p class="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, GIF · max 5MB.</p>
+                    <p class="text-xs text-gray-400 mt-1"><?php echo htmlspecialchars(t('logistics.product_add.image_help')); ?></p>
                     <button type="button" id="removeImageBtn" onclick="clearProductImage()"
                             class="mt-2 text-xs text-red-600 hover:text-red-700 hidden">
-                        <i class="fas fa-trash-alt mr-1"></i>Remove
+                        <i class="fas fa-trash-alt mr-1"></i><?php echo htmlspecialchars(t('logistics.product_add.remove')); ?>
                     </button>
                 </div>
             </div>
@@ -364,40 +364,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="border-b border-gray-100 pb-5">
             <div class="gap-4" style="display:grid; grid-template-columns:1fr 2fr 2fr; gap:1rem;">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_add.capacity')); ?></label>
                     <input type="text" name="capacity" value="<?php echo htmlspecialchars($form['capacity'] ?? ''); ?>"
-                           placeholder="E.g.: 500ml, 1kg, 20ea"
+                           placeholder="<?php echo htmlspecialchars(t('logistics.product_add.capacity_placeholder')); ?>"
                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_add.brand')); ?></label>
                     <div class="flex gap-2">
                         <div class="relative flex-1">
                             <input type="hidden" name="brand_id" id="brandIdHidden">
-                            <input type="text" id="brandSearch" autocomplete="off" placeholder="Search brand..."
+                            <input type="text" id="brandSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.product_add.brand_placeholder')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                             <div id="brandDropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                                 <ul id="brandList" class="py-1"></ul>
                             </div>
                         </div>
-                        <button type="button" onclick="openQuickCreate('brand')" title="Add New Brand"
+                        <button type="button" onclick="openQuickCreate('brand')" title="<?php echo htmlspecialchars(t('logistics.product_add.add_brand')); ?>"
                                 class="shrink-0 px-3 py-2 bg-teal-50 border border-teal-300 text-teal-700 rounded-md hover:bg-teal-100 transition-colors text-sm">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_add.category')); ?></label>
                     <div class="flex gap-2">
                         <div class="relative flex-1">
                             <input type="hidden" name="category_id" id="catIdHidden">
-                            <input type="text" id="catSearch" autocomplete="off" placeholder="Search category..."
+                            <input type="text" id="catSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.product_add.category_placeholder')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                             <div id="catDropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                                 <ul id="catList" class="py-1"></ul>
                             </div>
                         </div>
-                        <button type="button" onclick="openQuickCreate('category')" title="Add New Category"
+                        <button type="button" onclick="openQuickCreate('category')" title="<?php echo htmlspecialchars(t('logistics.product_add.add_category')); ?>"
                                 class="shrink-0 px-3 py-2 bg-teal-50 border border-teal-300 text-teal-700 rounded-md hover:bg-teal-100 transition-colors text-sm">
                             <i class="fas fa-plus"></i>
                         </button>
@@ -434,7 +434,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             listEl.innerHTML = ''; _focusIdx = -1;
             var q = (filter || '').toLowerCase();
             _filtered = data.filter(function(i) { return !q || lbl(i).toLowerCase().indexOf(q) !== -1; });
-            if (!_filtered.length) { listEl.innerHTML = '<li class="px-3 py-2 text-sm text-gray-400">No results</li>'; return; }
+            if (!_filtered.length) { listEl.innerHTML = '<li class="px-3 py-2 text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.product_add.no_results')); ?></li>'; return; }
             _filtered.forEach(function(item) {
                 var li = document.createElement('li');
                 li.className = 'px-3 py-2 text-sm cursor-pointer hover:bg-teal-50 hover:text-teal-700';
@@ -498,7 +498,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="border-b border-gray-100 pb-5">
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_add.unit')); ?></label>
                     <?php $cur_unit = $form['unit'] !== '' ? $form['unit'] : 'BOX'; ?>
                     <select name="unit"
                             class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
@@ -511,7 +511,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Units per Box(PKG)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_add.units_per_box')); ?></label>
                     <input type="number" name="pieces_per_box" id="piecesPerBoxInput" value="<?php echo $form['pieces_per_box']; ?>" min="1"
                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                 </div>
@@ -521,19 +521,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="border-b border-gray-100 pb-5">
             <div class="grid grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-barcode text-gray-400 mr-1"></i>Barcode</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-barcode text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.product_add.barcode')); ?></label>
                     <input type="text" name="barcode_unit" id="barcodeUnitInput" value="<?php echo htmlspecialchars($form['barcode_unit'] ?? ''); ?>"
                            autocomplete="off"
                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-box text-gray-400 mr-1"></i>Box Code</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-box text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.product_add.box_code')); ?></label>
                     <input type="text" name="barcode_box" id="barcodeBoxInput" value="<?php echo htmlspecialchars($form['barcode_box'] ?? ''); ?>"
                            autocomplete="off"
                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-warehouse text-gray-400 mr-1"></i>Logistics Code</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-warehouse text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.product_add.logistics_code')); ?></label>
                     <input type="text" name="barcode_logistics" id="barcodeLogisticsInput" value="<?php echo htmlspecialchars($form['barcode_logistics'] ?? ''); ?>"
                            autocomplete="off"
                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
@@ -543,7 +543,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="grid grid-cols-4 gap-4 items-start pb-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Minimum Stock</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_add.minimum_stock')); ?></label>
                 <input type="number" name="min_stock" value="<?php echo $form['min_stock']; ?>" min="0"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
@@ -552,17 +552,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                        <?php echo $form['requires_expiry'] ? 'checked' : ''; ?>
                        class="mt-0.5 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-400">
                 <label for="requiresExpiry" class="cursor-pointer">
-                    <span class="text-sm font-medium text-gray-800">Expiry Date Required</span>
-                    <p class="text-xs text-gray-500 mt-0.5">When checked, expiry date must be entered when receiving this product.</p>
+                    <span class="text-sm font-medium text-gray-800"><?php echo htmlspecialchars(t('logistics.product_add.expiry_required')); ?></span>
+                    <p class="text-xs text-gray-500 mt-0.5"><?php echo htmlspecialchars(t('logistics.product_add.expiry_help')); ?></p>
                 </label>
             </div>
         </div>
 
         <div class="flex gap-3 pt-2">
             <button type="submit" class="px-6 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700">
-                <i class="fas fa-save mr-2"></i>Register
+                <i class="fas fa-save mr-2"></i><?php echo htmlspecialchars(t('logistics.product_add.register')); ?>
             </button>
-            <a href="<?php echo LC_BASE; ?>/products.php" class="px-6 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">Cancel</a>
+            <a href="<?php echo LC_BASE; ?>/products.php" class="px-6 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.product_add.cancel')); ?></a>
         </div>
     </form>
 </div>
@@ -575,18 +575,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <i class="fas fa-exclamation-triangle text-white"></i>
             </div>
             <div>
-                <h3 class="text-sm font-semibold text-red-700">Duplicate Code Detected</h3>
+        <h3 class="text-sm font-semibold text-red-700"><?php echo htmlspecialchars(t('logistics.product_add.duplicate_code')); ?></h3>
                 <p id="duplicateCodeMessage" class="text-xs text-red-600 mt-0.5"></p>
             </div>
         </div>
         <div class="flex gap-3">
             <a id="duplicateCodeViewLink" href="#" target="_blank"
                class="flex-1 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors text-center">
-                View Product
+                <?php echo htmlspecialchars(t('logistics.product_add.view_product')); ?>
             </a>
             <button type="button" onclick="closeDuplicateCodeModal()"
                     class="flex-1 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
-                Close
+                <?php echo htmlspecialchars(t('logistics.product_add.close')); ?>
             </button>
         </div>
     </div>

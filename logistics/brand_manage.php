@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Brand Management - Logistics Center';
+$page_title = t('logistics.brand.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 
@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($name_en !== '') {
             $st = $conn->prepare("INSERT INTO lc_brands (name_en, name_ko) VALUES (?, ?)");
             $st->bind_param('ss', $name_en, $name_ko); $st->execute(); $st->close();
-            lc_set_flash('success', "Brand '{$name_en}' registered successfully");
+            lc_set_flash('success', t('logistics.brand.add_success', ['name' => $name_en]));
         }
     } elseif ($action === 'edit') {
         $bid = (int)($_POST['brand_id'] ?? 0);
@@ -24,13 +24,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($bid > 0 && $name_en !== '') {
             $st = $conn->prepare("UPDATE lc_brands SET name_en = ?, name_ko = ? WHERE id = ?");
             $st->bind_param('ssi', $name_en, $name_ko, $bid); $st->execute(); $st->close();
-            lc_set_flash('success', "Brand '{$name_en}' updated successfully");
+            lc_set_flash('success', t('logistics.brand.edit_success', ['name' => $name_en]));
         }
     } elseif ($action === 'delete') {
         $bid = (int)($_POST['brand_id'] ?? 0);
         $st = $conn->prepare("DELETE FROM lc_brands WHERE id = ?");
         $st->bind_param('i', $bid); $st->execute(); $st->close();
-        lc_set_flash('success', 'Deleted successfully.');
+        lc_set_flash('success', t('logistics.brand.delete_success'));
     }
     $conn->close();
     header('Location: ' . LC_BASE . '/brand_manage.php?' . http_build_query(['search' => trim($_GET['search'] ?? ''), 'page' => (int)($_GET['page'] ?? 1)])); exit;
@@ -82,7 +82,7 @@ main { overflow: hidden !important; }
 
 <div class="flex items-center gap-3 shrink-0">
     <a href="<?php echo LC_BASE; ?>/products.php" class="text-gray-400 hover:text-gray-600"><i class="fas fa-arrow-left"></i></a>
-    <h2 class="text-xl font-bold text-gray-900">Brand Management</h2>
+    <h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.brand.title')); ?></h2>
 </div>
 
 <!-- 신규 등록 -->
@@ -91,14 +91,14 @@ main { overflow: hidden !important; }
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
         <input type="hidden" name="action" value="add">
         <div class="flex gap-2 items-center flex-wrap">
-            <span class="text-xs font-semibold text-gray-500 mr-1"><i class="fas fa-plus-circle text-teal-500 mr-1"></i>Register Brand</span>
-            <input type="text" name="name_en" id="brandEnInput" placeholder="English name"
+            <span class="text-xs font-semibold text-gray-500 mr-1"><i class="fas fa-plus-circle text-teal-500 mr-1"></i><?php echo htmlspecialchars(t('logistics.brand.register')); ?></span>
+            <input type="text" name="name_en" id="brandEnInput" placeholder="<?php echo htmlspecialchars(t('logistics.brand.english_name')); ?>"
                    class="flex-1 min-w-0 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-            <input type="text" name="name_ko" id="brandKoInput" placeholder="Korean name (optional)"
+            <input type="text" name="name_ko" id="brandKoInput" placeholder="<?php echo htmlspecialchars(t('logistics.brand.korean_name_optional')); ?>"
                    class="flex-1 min-w-0 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-            <button type="button" onclick="romanizeBrandName()" title="한글을 영문읽기(로마자)로 변환"
-                    class="px-3 py-1.5 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 whitespace-nowrap transition-colors">한글→영문읽기</button>
-            <button type="submit" class="px-4 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700 whitespace-nowrap">Register</button>
+            <button type="button" onclick="romanizeBrandName()" title="<?php echo htmlspecialchars(t('logistics.brand.romanize')); ?>"
+                    class="px-3 py-1.5 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 whitespace-nowrap transition-colors"><?php echo htmlspecialchars(t('logistics.brand.romanize')); ?></button>
+            <button type="submit" class="px-4 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700 whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.brand.register_button')); ?></button>
         </div>
     </form>
 </div>
@@ -107,10 +107,10 @@ main { overflow: hidden !important; }
 <form method="get" class="bg-white rounded-lg border border-gray-200 px-3 py-2 shrink-0">
     <div class="flex flex-wrap items-center gap-2">
         <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>"
-               placeholder="Search by name (EN/KO)"
+               placeholder="<?php echo htmlspecialchars(t('logistics.brand.search_placeholder')); ?>"
                class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-56">
-        <button type="submit" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700"><i class="fas fa-search mr-1"></i>Search</button>
-        <a href="<?php echo LC_BASE; ?>/brand_manage.php" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200">Reset</a>
+        <button type="submit" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700"><i class="fas fa-search mr-1"></i><?php echo htmlspecialchars(t('logistics.brand.search')); ?></button>
+        <a href="<?php echo LC_BASE; ?>/brand_manage.php" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.brand.reset')); ?></a>
     </div>
 </form>
 
@@ -119,24 +119,24 @@ main { overflow: hidden !important; }
 <?php endif; ?>
 
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
-    <div class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500 shrink-0">Total <?php echo number_format($total); ?> brands</div>
+    <div class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500 shrink-0"><?php echo htmlspecialchars(t('logistics.brand.total', ['count' => number_format($total)])); ?></div>
     <div class="overflow-auto flex-1 min-h-0">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 sticky top-0 z-10"><tr>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">English Name</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Korean Name</th>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Products</th>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Manage</th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.brand.english_name')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.brand.korean_name')); ?></th>
+                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.brand.products')); ?></th>
+                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.brand.manage')); ?></th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php if (empty($brands)): ?>
             <tr><td colspan="4" class="px-4 py-10 text-center text-gray-400">
                 <?php if ($search !== ''): ?>
                 <i class="fas fa-search text-3xl mb-3 block text-gray-300"></i>
-                <span class="font-medium text-gray-600">"<?php echo htmlspecialchars($search); ?>"</span> No search results found.
+                <span class="font-medium text-gray-600">"<?php echo htmlspecialchars($search); ?>"</span> <?php echo htmlspecialchars(t('logistics.brand.no_search_results')); ?>
                 <?php else: ?>
                 <i class="fas fa-tags text-3xl mb-2 block text-gray-300"></i>
-                No brands registered.
+                <?php echo htmlspecialchars(t('logistics.brand.empty')); ?>
                 <?php endif; ?>
             </td></tr>
             <?php endif; ?>
@@ -150,16 +150,16 @@ main { overflow: hidden !important; }
                     <div class="flex items-center justify-center gap-3">
                         <button type="button"
                                 onclick="event.stopPropagation(); openEditModal(<?php echo $b['id']; ?>, <?php echo htmlspecialchars(json_encode($b['name_en']), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode($b['name_ko'] ?? ''), ENT_QUOTES); ?>)"
-                                class="text-teal-600 hover:text-teal-800 text-xs" title="Edit"><i class="fas fa-edit"></i></button>
+                                class="text-teal-600 hover:text-teal-800 text-xs" title="<?php echo htmlspecialchars(t('logistics.brand.edit')); ?>"><i class="fas fa-edit"></i></button>
                         <?php if ($b['product_count'] == 0): ?>
                         <form method="post" class="inline" onclick="event.stopPropagation()">
                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(lc_csrf_token()); ?>">
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="brand_id" value="<?php echo $b['id']; ?>">
-                            <button type="submit" onclick="return confirm('Are you sure you want to delete?')" class="text-red-400 hover:text-red-600 text-xs" title="Delete"><i class="fas fa-trash"></i></button>
+                            <button type="submit" onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.brand.delete_confirm')), ENT_QUOTES); ?>)" class="text-red-400 hover:text-red-600 text-xs" title="<?php echo htmlspecialchars(t('logistics.brand.delete')); ?>"><i class="fas fa-trash"></i></button>
                         </form>
                         <?php else: ?>
-                        <span class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-500" title="Click row to view products in use">In Use (<?php echo (int)$b['product_count']; ?>)</span>
+                        <span class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-500" title="<?php echo htmlspecialchars(t('logistics.brand.in_use_title')); ?>"><?php echo htmlspecialchars(t('logistics.brand.in_use', ['count' => (int)$b['product_count']])); ?></span>
                         <?php endif; ?>
                     </div>
                 </td>
@@ -178,7 +178,7 @@ main { overflow: hidden !important; }
     <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-center gap-1 shrink-0">
         <?php if ($block_start > 1): ?>
         <a href="?page=<?php echo $block_start - $window; ?>&<?php echo http_build_query($qs); ?>"
-           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="Previous 10 pages">
+            class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="<?php echo htmlspecialchars(t('logistics.brand.previous_pages')); ?>">
             <i class="fas fa-angle-double-left text-xs"></i>
         </a>
         <?php endif; ?>
@@ -205,7 +205,7 @@ main { overflow: hidden !important; }
         <?php endif; ?>
         <?php if ($block_end < $total_pages): ?>
         <a href="?page=<?php echo $block_end + 1; ?>&<?php echo http_build_query($qs); ?>"
-           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="Next 10 pages">
+            class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="<?php echo htmlspecialchars(t('logistics.brand.next_pages')); ?>">
             <i class="fas fa-angle-double-right text-xs"></i>
         </a>
         <?php endif; ?>
@@ -217,7 +217,7 @@ main { overflow: hidden !important; }
 <div id="editModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-40 px-4">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-gray-800">Edit Brand</h3>
+            <h3 class="text-sm font-semibold text-gray-800"><?php echo htmlspecialchars(t('logistics.brand.edit_title')); ?></h3>
             <button type="button" onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
         </div>
         <form method="post" class="p-5 space-y-4" onsubmit="return prepareEditSubmit()">
@@ -225,22 +225,22 @@ main { overflow: hidden !important; }
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="brand_id" id="editBrandId">
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Name (English) <span class="text-red-400">*</span></label>
+                <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.brand.name_english')); ?> <span class="text-red-400">*</span></label>
                 <input type="text" name="name_en" id="editNameEn" required
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Name (Korean)</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.brand.name_korean')); ?></label>
                 <div class="flex gap-2">
                     <input type="text" name="name_ko" id="editNameKo"
                            class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-                    <button type="button" onclick="romanizeEditName()" title="한글을 영문읽기(로마자)로 변환"
-                            class="px-3 py-2 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 whitespace-nowrap">한글→영문읽기</button>
+                    <button type="button" onclick="romanizeEditName()" title="<?php echo htmlspecialchars(t('logistics.brand.romanize')); ?>"
+                            class="px-3 py-2 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.brand.romanize')); ?></button>
                 </div>
             </div>
             <div class="flex justify-end gap-2 pt-2">
-                <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
-                <button type="submit" class="px-4 py-2 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700">Save</button>
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"><?php echo htmlspecialchars(t('logistics.brand.cancel')); ?></button>
+                <button type="submit" class="px-4 py-2 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700"><?php echo htmlspecialchars(t('logistics.brand.save')); ?></button>
             </div>
         </form>
     </div>
@@ -250,14 +250,14 @@ main { overflow: hidden !important; }
 <div id="productsModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-40 px-4">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-lg flex flex-col" style="max-height:80vh;">
         <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
-            <h3 class="text-sm font-semibold text-gray-800">Products using <span id="productsBrandName" class="text-teal-600"></span></h3>
+            <h3 class="text-sm font-semibold text-gray-800"><?php echo htmlspecialchars(t('logistics.brand.products_using')); ?> <span id="productsBrandName" class="text-teal-600"></span></h3>
             <button type="button" onclick="closeProductsModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
         </div>
         <div id="productsModalBody" class="p-5 overflow-auto flex-1 min-h-0">
-            <div class="text-center text-gray-400 py-8"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</div>
+            <div class="text-center text-gray-400 py-8"><i class="fas fa-spinner fa-spin mr-2"></i><?php echo htmlspecialchars(t('logistics.brand.loading')); ?></div>
         </div>
         <div class="px-5 py-3 border-t border-gray-100 flex justify-end shrink-0">
-            <button type="button" onclick="closeProductsModal()" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">Close</button>
+            <button type="button" onclick="closeProductsModal()" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"><?php echo htmlspecialchars(t('logistics.brand.close')); ?></button>
         </div>
     </div>
 </div>
@@ -325,27 +325,27 @@ main { overflow: hidden !important; }
     // 상품 수정 후 현재 페이지(검색/페이지 상태 포함)로 복귀시키기 위한 back 파라미터
     var BACK_PARAM = encodeURIComponent('brand_manage.php' + window.location.search);
     window.openProductsModal = function(brandId, brandName, count) {
-        document.getElementById('productsBrandName').textContent = brandName + ' (' + count + ')';
+        document.getElementById('productsBrandName').textContent = <?php echo json_encode(t('logistics.brand.products_count')); ?>.replace('{name}', brandName).replace('{count}', count);
         var body = document.getElementById('productsModalBody');
-        body.innerHTML = '<div class="text-center text-gray-400 py-8"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</div>';
+        body.innerHTML = '<div class="text-center text-gray-400 py-8"><i class="fas fa-spinner fa-spin mr-2"></i><?php echo htmlspecialchars(t('logistics.brand.loading')); ?></div>';
         var m = document.getElementById('productsModal');
         m.classList.remove('hidden'); m.classList.add('flex');
 
         fetch(LC_BASE + '/ajax_inuse_products.php?type=brand&id=' + encodeURIComponent(brandId))
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.ok) { body.innerHTML = '<div class="text-center text-red-500 py-8">Failed to load products.</div>'; return; }
-                if (!data.products.length) { body.innerHTML = '<div class="text-center text-gray-400 py-8">No products found.</div>'; return; }
+                if (!data.ok) { body.innerHTML = '<div class="text-center text-red-500 py-8"><?php echo htmlspecialchars(t('logistics.brand.load_failed')); ?></div>'; return; }
+                if (!data.products.length) { body.innerHTML = '<div class="text-center text-gray-400 py-8"><?php echo htmlspecialchars(t('logistics.brand.no_products')); ?></div>'; return; }
                 var html = '<table class="w-full text-sm"><thead class="bg-gray-50"><tr>'
-                    + '<th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Product</th>'
-                    + '<th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Barcode</th>'
-                    + '<th class="px-3 py-2 text-center text-xs text-gray-500 font-medium">Status</th>'
+                    + '<th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.brand.product')); ?></th>'
+                    + '<th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.brand.barcode')); ?></th>'
+                    + '<th class="px-3 py-2 text-center text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.brand.status')); ?></th>'
                     + '</tr></thead><tbody class="divide-y divide-gray-100">';
                 data.products.forEach(function(p) {
                     var name = escapeHtml(p.name_en || '') + (p.name_ko ? ' <span class="text-gray-400 text-xs">(' + escapeHtml(p.name_ko) + ')</span>' : '');
                     var badge = (parseInt(p.is_active, 10) === 1)
-                        ? '<span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Active</span>'
-                        : '<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Inactive</span>';
+                        ? '<span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700"><?php echo htmlspecialchars(t('logistics.brand.active')); ?></span>'
+                        : '<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500"><?php echo htmlspecialchars(t('logistics.brand.inactive')); ?></span>';
                     html += '<tr class="hover:bg-gray-50">'
                         + '<td class="px-3 py-2"><a href="' + LC_BASE + '/product_edit.php?id=' + p.id + '&back=' + BACK_PARAM + '" class="text-teal-600 hover:text-teal-800">' + name + '</a></td>'
                         + '<td class="px-3 py-2 text-gray-500 text-xs">' + escapeHtml(p.barcode_unit || '-') + '</td>'
@@ -355,7 +355,7 @@ main { overflow: hidden !important; }
                 html += '</tbody></table>';
                 body.innerHTML = html;
             })
-            .catch(function() { body.innerHTML = '<div class="text-center text-red-500 py-8">Failed to load products.</div>'; });
+            .catch(function() { body.innerHTML = '<div class="text-center text-red-500 py-8"><?php echo htmlspecialchars(t('logistics.brand.load_failed')); ?></div>'; });
     };
     window.closeProductsModal = function() {
         var m = document.getElementById('productsModal');
