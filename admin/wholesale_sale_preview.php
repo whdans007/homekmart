@@ -458,10 +458,10 @@ if (isset($_SESSION['flash'])) {
                         <a href="wholesale_sales.php?edit=<?php echo $sale_id; ?>" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
                             <i class="fas fa-edit mr-1.5"></i><?php echo t('common.edit'); ?>
                         </a>
-                        <button type="button" id="pdf-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button type="button" id="pdf-btn" style="background-color:#059669 !important;color:#fff !important;" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed">
                             <i class="fas fa-file-pdf mr-1.5"></i><?php echo t('wholesale_sale_preview.pdf_download_btn'); ?>
                         </button>
-                        <button type="button" id="image-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button type="button" id="image-btn" style="background-color:#7c3aed !important;color:#fff !important;" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed">
                             <i class="fas fa-image mr-1.5"></i><?php echo t('wholesale_sale_preview.image_download_btn'); ?>
                         </button>
                         <button id="print-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
@@ -975,6 +975,8 @@ if (isset($_SESSION['flash'])) {
 
 <script id="html2pdf-script" src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.3/html2pdf.bundle.min.js"
         onerror="this.onerror=null;this.src='../public/js/lib/html2pdf.bundle.min.js';"></script>
+<script id="html2canvas-script" src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+        onerror="this.onerror=null;this.src='../public/js/lib/html2canvas.min.js';"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const printBtn = document.getElementById('print-btn');
@@ -996,6 +998,21 @@ document.addEventListener('DOMContentLoaded', function() {
             script.addEventListener('load', finish, { once: true });
             script.addEventListener('error', function() { reject(new Error('PDF library failed to load')); }, { once: true });
             // Handles a script that already failed before this handler was attached.
+            setTimeout(finish, 0);
+        });
+    }
+
+    function loadHtml2Canvas() {
+        if (typeof window.html2canvas === 'function') return Promise.resolve(window.html2canvas);
+        return new Promise(function(resolve, reject) {
+            const script = document.getElementById('html2canvas-script');
+            if (!script) return reject(new Error('Image library script is missing'));
+            const finish = function() {
+                if (typeof window.html2canvas === 'function') resolve(window.html2canvas);
+                else reject(new Error('Image library did not initialize'));
+            };
+            script.addEventListener('load', finish, { once: true });
+            script.addEventListener('error', function() { reject(new Error('Image library failed to load')); }, { once: true });
             setTimeout(finish, 0);
         });
     }
@@ -1199,10 +1216,8 @@ document.addEventListener('DOMContentLoaded', function() {
         imageBtn.addEventListener('click', async function() {
             const content = renderPrintContent();
             if (!content) return;
-            let pdfFactory;
             try {
-                pdfFactory = await loadHtml2Pdf();
-                if (typeof window.html2canvas !== 'function') throw new Error('html2canvas is unavailable');
+                await loadHtml2Canvas();
             } catch (error) {
                 alert(<?php echo json_encode(t('wholesale_sale_preview.image_load_error'), JSON_UNESCAPED_UNICODE); ?>);
                 return;
