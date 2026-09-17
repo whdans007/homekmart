@@ -1233,12 +1233,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 captureClone.style.display = 'block';
                 captureClone.style.visibility = 'visible';
                 captureClone.style.width = '100%';
-                captureClone.querySelectorAll('th, td').forEach(function(cell) {
-                    cell.style.setProperty('vertical-align', 'middle', 'important');
-                    cell.style.setProperty('line-height', '1.3', 'important');
-                });
                 captureHost.appendChild(captureClone);
                 document.body.appendChild(captureHost);
+                captureClone.querySelectorAll('th, td').forEach(function(cell) {
+                    const originalHeight = cell.clientHeight;
+                    const styles = window.getComputedStyle(cell);
+                    cell.style.setProperty('vertical-align', 'middle', 'important');
+                    cell.style.setProperty('line-height', '1.3', 'important');
+                    const cellContent = document.createElement('div');
+                    cellContent.style.cssText = 'display:flex;align-items:center;width:100%;box-sizing:border-box;height:' + Math.max(0, originalHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom)) + 'px;';
+                    while (cell.firstChild) cellContent.appendChild(cell.firstChild);
+                    cell.appendChild(cellContent);
+                });
 
                 const canvas = await window.html2canvas(captureHost, {
                     scale: 2,
