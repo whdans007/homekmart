@@ -10,7 +10,7 @@ lc_require_staff();
 $search = trim($_GET['search'] ?? '');
 $filter = $_GET['filter'] ?? 'all'; // all | expiring | low | out
 
-$filter_labels = ['all' => 'All', 'expiring' => 'Expiring D-90', 'low' => 'Low Stock', 'out' => 'Out of Stock'];
+$filter_labels = ['all' => t('logistics.print_inventory.all'), 'expiring' => t('logistics.print_inventory.expiring'), 'low' => t('logistics.print_inventory.low_stock'), 'out' => t('logistics.print_inventory.out_of_stock')];
 
 try {
     $conn = get_lc_db();
@@ -97,15 +97,15 @@ $extraCss = <<<CSS
   colgroup .c-stat  { width: 16%; }
 CSS;
 
-lc_print_head('Inventory Status - Print', $extraCss);
+lc_print_head(t('logistics.print_inventory.title') . ' - ' . t('logistics.print_inventory.print'), $extraCss);
 
 $metaItems = [
-    'Printed: ' . date('Y-m-d H:i'),
-    'Total: ' . number_format(count($list)) . ' record(s)',
-    'Filter: ' . htmlspecialchars($filter_labels[$filter] ?? $filter),
+    t('logistics.print_inventory.printed') . ': ' . date('Y-m-d H:i'),
+    t('logistics.print_inventory.total') . ': ' . number_format(count($list)) . ' ' . t('logistics.print_inventory.records'),
+    t('logistics.print_inventory.filter') . ': ' . htmlspecialchars($filter_labels[$filter] ?? $filter),
 ];
-if ($search) { $metaItems[] = 'Search: "' . htmlspecialchars($search) . '"'; }
-lc_print_doc_header('Inventory Status', $metaItems);
+if ($search) { $metaItems[] = t('logistics.print_inventory.search') . ': "' . htmlspecialchars($search) . '"'; }
+lc_print_doc_header(t('logistics.print_inventory.title'), $metaItems);
 
 if (isset($db_error)): ?>
 <p style="color:#c00;"><?php echo htmlspecialchars($db_error); ?></p>
@@ -117,16 +117,16 @@ if (isset($db_error)): ?>
   </colgroup>
   <thead>
     <tr>
-      <th>Product Name</th>
-      <th>Earliest Expiry</th>
-      <th>LOT Count</th>
-      <th>Current Stock</th>
-      <th>Status</th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inventory.product_name')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inventory.earliest_expiry')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inventory.lot_count')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inventory.current_stock')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inventory.status')); ?></th>
     </tr>
   </thead>
   <tbody>
     <?php if (empty($list)): ?>
-    <tr><td colspan="5" class="center">No products found.</td></tr>
+    <tr><td colspan="5" class="center"><?php echo htmlspecialchars(t('logistics.print_inventory.empty')); ?></td></tr>
     <?php endif; ?>
     <?php foreach ($list as $row):
         $isOut = $row['total_stock'] <= 0;
@@ -134,7 +134,7 @@ if (isset($db_error)): ?>
         $days  = $row['days_left'];
         $expBadge = '';
         if ($row['earliest_expiry']) {
-            if ($days < 0)       { $expBadge = ' (Expired)'; }
+            if ($days < 0)       { $expBadge = ' (' . t('logistics.print_inventory.expired') . ')'; }
             elseif ($days <= 30) { $expBadge = ' (D-' . $days . ')'; }
             elseif ($days <= 90) { $expBadge = ' (D-' . $days . ')'; }
         }
@@ -147,7 +147,7 @@ if (isset($db_error)): ?>
       <td><?php echo $row['earliest_expiry'] ? htmlspecialchars($row['earliest_expiry'] . $expBadge) : '-'; ?></td>
       <td class="center"><?php echo number_format($row['lot_count']); ?></td>
       <td class="right"><?php echo number_format($row['total_stock']) . ' ' . htmlspecialchars($row['unit']); ?></td>
-      <td class="center"><?php echo $isOut ? 'Out of Stock' : ($isLow ? 'Low Stock' : 'Normal'); ?></td>
+      <td class="center"><?php echo htmlspecialchars($isOut ? t('logistics.print_inventory.out_of_stock') : ($isLow ? t('logistics.print_inventory.low_stock') : t('logistics.print_inventory.normal'))); ?></td>
     </tr>
     <?php endforeach; ?>
   </tbody>

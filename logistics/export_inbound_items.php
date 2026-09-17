@@ -17,8 +17,8 @@ $result = getAllFilteredInboundItems($filters);
 $items  = $result['items'] ?? [];
 
 $headers = [
-    'Category', 'Brand', 'Product Name', 'Capacity', 'Unit', 'PKG', 'Unit Barcode',
-    'Supplier', 'Cost Price', 'Qty', 'Inbound Unit', 'Inbound Date',
+    t('logistics.export_inbound_items.category'), t('logistics.export_inbound_items.brand'), t('logistics.export_inbound_items.product_name'), t('logistics.export_inbound_items.capacity'), t('logistics.export_inbound_items.unit'), t('logistics.export_inbound_items.pkg'), t('logistics.export_inbound_items.unit_barcode'),
+    t('logistics.export_inbound_items.supplier'), t('logistics.export_inbound_items.cost_price'), t('logistics.export_inbound_items.quantity'), t('logistics.export_inbound_items.inbound_unit'), t('logistics.export_inbound_items.inbound_date'),
 ];
 
 $rows = [];

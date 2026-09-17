@@ -55,10 +55,10 @@ try {
     $products = [];
 }
 ?><!DOCTYPE html>
-<html lang="ko">
+<html lang="<?php echo htmlspecialchars(get_language()); ?>">
 <head>
 <meta charset="UTF-8">
-<title>Product List - Print</title>
+<title><?php echo htmlspecialchars(t('logistics.print_products.title') . ' - ' . t('logistics.print_products.print')); ?></title>
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -130,13 +130,13 @@ try {
   <!-- 측정/페이지 분할용 원본 (화면에는 보이지 않음) -->
   <div id="srcWrap">
     <div class="doc-header">
-      <h1>Product List</h1>
+      <h1><?php echo htmlspecialchars(t('logistics.print_products.title')); ?></h1>
       <div class="meta">
-        <span>Printed: <?php echo date('Y-m-d H:i'); ?></span>
-        <span>Total: <?php echo number_format(count($products)); ?> record(s)</span>
-        <?php if ($search): ?><span>Search: "<?php echo htmlspecialchars($search); ?>"</span><?php endif; ?>
-        <?php if ($cat_name): ?><span>Category: <?php echo htmlspecialchars($cat_name); ?></span><?php endif; ?>
-        <?php if ($brand_name): ?><span>Brand: <?php echo htmlspecialchars($brand_name); ?></span><?php endif; ?>
+        <span><?php echo htmlspecialchars(t('logistics.print_products.printed')); ?>: <?php echo date('Y-m-d H:i'); ?></span>
+        <span><?php echo htmlspecialchars(t('logistics.print_products.total')); ?>: <?php echo number_format(count($products)); ?> <?php echo htmlspecialchars(t('logistics.print_products.records')); ?></span>
+        <?php if ($search): ?><span><?php echo htmlspecialchars(t('logistics.print_products.search')); ?>: "<?php echo htmlspecialchars($search); ?>"</span><?php endif; ?>
+        <?php if ($cat_name): ?><span><?php echo htmlspecialchars(t('logistics.print_products.category')); ?>: <?php echo htmlspecialchars($cat_name); ?></span><?php endif; ?>
+        <?php if ($brand_name): ?><span><?php echo htmlspecialchars(t('logistics.print_products.brand')); ?>: <?php echo htmlspecialchars($brand_name); ?></span><?php endif; ?>
       </div>
     </div>
 
@@ -151,22 +151,22 @@ try {
       </colgroup>
       <thead>
         <tr>
-          <th>Category</th>
-          <th>Brand</th>
-          <th>Product Name</th>
-          <th>Capacity</th>
-          <th>Unit</th>
-          <th>Units/Box</th>
-          <th>Unit Barcode</th>
-          <th>Box Barcode</th>
-          <th>Logistics Code</th>
-          <th>Expiry</th>
-          <th>Status</th>
+          <th><?php echo htmlspecialchars(t('logistics.print_products.category')); ?></th>
+          <th><?php echo htmlspecialchars(t('logistics.print_products.brand')); ?></th>
+          <th><?php echo htmlspecialchars(t('logistics.print_products.product_name')); ?></th>
+          <th><?php echo htmlspecialchars(t('logistics.print_products.capacity')); ?></th>
+          <th><?php echo htmlspecialchars(t('logistics.print_products.unit')); ?></th>
+          <th><?php echo htmlspecialchars(t('logistics.print_products.units_per_box')); ?></th>
+          <th><?php echo htmlspecialchars(t('logistics.print_products.unit_barcode')); ?></th>
+          <th><?php echo htmlspecialchars(t('logistics.print_products.box_barcode')); ?></th>
+          <th><?php echo htmlspecialchars(t('logistics.print_products.logistics_code')); ?></th>
+          <th><?php echo htmlspecialchars(t('logistics.print_products.expiry')); ?></th>
+          <th><?php echo htmlspecialchars(t('logistics.print_products.status')); ?></th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($products)): ?>
-        <tr><td colspan="11" class="center">No products found.</td></tr>
+        <tr><td colspan="11" class="center"><?php echo htmlspecialchars(t('logistics.print_products.empty')); ?></td></tr>
         <?php endif; ?>
         <?php foreach ($products as $p): ?>
         <tr class="<?php echo !$p['is_active'] ? 'inactive' : ''; ?>">
@@ -182,8 +182,8 @@ try {
           <td class="mono"><?php echo htmlspecialchars($p['barcode_unit'] ?? '-'); ?></td>
           <td class="mono"><?php echo htmlspecialchars($p['barcode_box'] ?? '-'); ?></td>
           <td class="mono"><?php echo htmlspecialchars($p['barcode_logistics'] ?? '-'); ?></td>
-          <td class="center"><?php echo $p['requires_expiry'] ? 'Required' : 'Optional'; ?></td>
-          <td class="center"><?php echo $p['is_active'] ? 'Active' : 'Inactive'; ?></td>
+          <td class="center"><?php echo htmlspecialchars($p['requires_expiry'] ? t('logistics.print_products.required') : t('logistics.print_products.optional')); ?></td>
+          <td class="center"><?php echo htmlspecialchars($p['is_active'] ? t('logistics.print_products.active') : t('logistics.print_products.inactive')); ?></td>
         </tr>
         <?php endforeach; ?>
       </tbody>
@@ -264,7 +264,7 @@ try {
 
         var footer = document.createElement('div');
         footer.className = 'page-footer';
-        footer.textContent = 'Page ' + (idx + 1) + ' / ' + totalPages;
+        footer.textContent = '<?php echo addslashes(t('logistics.print_products.page')); ?> ' + (idx + 1) + ' / ' + totalPages;
         pageDiv.appendChild(footer);
 
         pagesEl.appendChild(pageDiv);

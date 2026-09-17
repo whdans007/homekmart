@@ -9,7 +9,7 @@ lc_require_login();
 
 $status_filter = $_GET['status'] ?? 'all';
 $store_filter  = (int)($_GET['store'] ?? 0);
-$statuses = ['all' => 'All', 'pending' => 'Pending', 'approved' => 'Approved', 'cancel_requested' => 'Cancel Requested', 'shipped' => 'Shipped', 'delivered' => 'Delivered', 'cancelled' => 'Cancelled'];
+$statuses = ['all' => t('logistics.print_orders.all'), 'pending' => t('logistics.print_orders.pending'), 'approved' => t('logistics.print_orders.approved'), 'cancel_requested' => t('logistics.print_orders.cancel_requested'), 'shipped' => t('logistics.print_orders.shipped'), 'delivered' => t('logistics.print_orders.delivered'), 'cancelled' => t('logistics.print_orders.cancelled')];
 $store_name_filter = null;
 
 try {
@@ -74,17 +74,17 @@ $extraCss = <<<CSS
   colgroup .c-by    { width: 20%; }
 CSS;
 
-lc_print_head('Order List - Print', $extraCss);
+lc_print_head(t('logistics.print_orders.title') . ' - ' . t('logistics.print_orders.print'), $extraCss);
 
 $metaItems = [
-    'Printed: ' . date('Y-m-d H:i'),
-    'Total: ' . number_format(count($list)) . ' record(s)',
-    'Status: ' . htmlspecialchars($statuses[$status_filter] ?? $status_filter),
+    t('logistics.print_orders.printed') . ': ' . date('Y-m-d H:i'),
+    t('logistics.print_orders.total') . ': ' . number_format(count($list)) . ' ' . t('logistics.print_orders.records'),
+    t('logistics.print_orders.status') . ': ' . htmlspecialchars($statuses[$status_filter] ?? $status_filter),
 ];
 if ($store_name_filter !== null) {
-    $metaItems[] = 'Store: ' . htmlspecialchars($store_name_filter);
+    $metaItems[] = t('logistics.print_orders.store') . ': ' . htmlspecialchars($store_name_filter);
 }
-lc_print_doc_header('Order List', $metaItems);
+lc_print_doc_header(t('logistics.print_orders.title'), $metaItems);
 
 if (isset($db_error)): ?>
 <p style="color:#c00;"><?php echo htmlspecialchars($db_error); ?></p>
@@ -97,18 +97,18 @@ if (isset($db_error)): ?>
   </colgroup>
   <thead>
     <tr>
-      <th>Order Number</th>
-      <th>Order Date</th>
-      <th>Store</th>
-      <th>Status</th>
-      <th>Item Count</th>
-      <th>Total Amount</th>
-      <th>Ordered By</th>
+      <th><?php echo htmlspecialchars(t('logistics.print_orders.order_number')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_orders.order_date')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_orders.store')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_orders.status')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_orders.item_count')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_orders.total_amount')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_orders.ordered_by')); ?></th>
     </tr>
   </thead>
   <tbody>
     <?php if (empty($list)): ?>
-    <tr><td colspan="7" class="center">No orders found.</td></tr>
+    <tr><td colspan="7" class="center"><?php echo htmlspecialchars(t('logistics.print_orders.empty')); ?></td></tr>
     <?php endif; ?>
     <?php foreach ($list as $o): ?>
     <tr>

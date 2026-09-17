@@ -29,15 +29,15 @@ $expiry_sql = "SELECT CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')
 $list = $conn->query($expiry_sql)->fetch_all(MYSQLI_ASSOC);
 $conn->close();
 
-$headers = ['Product Name', 'Capacity', 'Barcode', 'Lot Number', 'Expiry Date', 'Stock', 'Status'];
+$headers = [t('logistics.export_expiry.product_name'), t('logistics.export_expiry.capacity'), t('logistics.export_expiry.barcode'), t('logistics.export_expiry.lot_number'), t('logistics.export_expiry.expiry_date'), t('logistics.export_expiry.stock'), t('logistics.export_expiry.status')];
 $textCols = [3, 4]; // Barcode, Lot Number
 
 $rows = [];
 foreach ($list as $row) {
     $d = (int)$row['days_left'];
-    if ($d < 0)       { $status = 'Expired'; }
-    elseif ($d === 0) { $status = 'D-0'; }
-    else              { $status = 'D-' . $d; }
+    if ($d < 0)       { $status = t('logistics.export_expiry.expired'); }
+    elseif ($d === 0) { $status = t('logistics.export_expiry.d_day', ['days' => 0]); }
+    else              { $status = t('logistics.export_expiry.d_day', ['days' => $d]); }
 
     $rows[] = [
         $row['name'],

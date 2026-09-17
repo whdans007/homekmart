@@ -60,15 +60,15 @@ $extraCss = <<<CSS
   colgroup .c-stat  { width: 14%; }
 CSS;
 
-lc_print_head('Inbound List - Print', $extraCss);
+lc_print_head(t('logistics.print_inbound.title') . ' - ' . t('logistics.print_inbound.print'), $extraCss);
 
 $metaItems = [
-    'Printed: ' . date('Y-m-d H:i'),
-    'Total: ' . number_format(count($list)) . ' record(s)',
+    t('logistics.print_inbound.printed') . ': ' . date('Y-m-d H:i'),
+    t('logistics.print_inbound.total') . ': ' . number_format(count($list)) . ' ' . t('logistics.print_inbound.records'),
 ];
-if ($search_supplier) { $metaItems[] = 'Supplier: "' . htmlspecialchars($search_supplier) . '"'; }
-if ($search_date)     { $metaItems[] = 'Inbound Date: ' . htmlspecialchars($search_date); }
-lc_print_doc_header('Inbound List', $metaItems);
+if ($search_supplier) { $metaItems[] = t('logistics.print_inbound.supplier') . ': "' . htmlspecialchars($search_supplier) . '"'; }
+if ($search_date)     { $metaItems[] = t('logistics.print_inbound.inbound_date') . ': ' . htmlspecialchars($search_date); }
+lc_print_doc_header(t('logistics.print_inbound.title'), $metaItems);
 
 if (isset($db_error)): ?>
 <p style="color:#c00;"><?php echo htmlspecialchars($db_error); ?></p>
@@ -81,18 +81,18 @@ if (isset($db_error)): ?>
   </colgroup>
   <thead>
     <tr>
-      <th>#</th>
-      <th>Inbound Date</th>
-      <th>Supplier</th>
-      <th>Item Count</th>
-      <th>Total Amount</th>
-      <th>Registered By</th>
-      <th>Status</th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound.number')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound.inbound_date')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound.supplier')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound.item_count')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound.total_amount')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound.registered_by')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound.status')); ?></th>
     </tr>
   </thead>
   <tbody>
     <?php if (empty($list)): ?>
-    <tr><td colspan="7" class="center">No inbound records found.</td></tr>
+    <tr><td colspan="7" class="center"><?php echo htmlspecialchars(t('logistics.print_inbound.empty')); ?></td></tr>
     <?php endif; ?>
     <?php $no = 1; foreach ($list as $row): ?>
     <tr>
@@ -105,7 +105,7 @@ if (isset($db_error)): ?>
       <td class="right"><?php echo number_format($row['item_count']); ?></td>
       <td class="right"><?php echo number_format($row['total_amount'], 2); ?></td>
       <td><?php echo htmlspecialchars($row['created_by_name'] ?? '-'); ?></td>
-      <td class="center"><?php echo $row['is_confirmed'] ? 'Locked' : 'Editable'; ?></td>
+      <td class="center"><?php echo htmlspecialchars(t($row['is_confirmed'] ? 'logistics.print_inbound.locked' : 'logistics.print_inbound.editable')); ?></td>
     </tr>
     <?php endforeach; ?>
   </tbody>

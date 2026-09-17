@@ -47,8 +47,8 @@ $st->close();
 $conn->close();
 
 $headers = [
-    'Inbound Date', 'Registered At', 'Supplier', 'Item Count', 'Total Amount',
-    'Registered By', 'Status', 'Notes',
+    t('logistics.export_inbound.inbound_date'), t('logistics.export_inbound.registered_at'), t('logistics.export_inbound.supplier'), t('logistics.export_inbound.item_count'), t('logistics.export_inbound.total_amount'),
+    t('logistics.export_inbound.registered_by'), t('logistics.export_inbound.status'), t('logistics.export_inbound.notes'),
 ];
 
 $rows = [];
@@ -60,7 +60,7 @@ foreach ($list as $row) {
         (string)$row['item_count'],
         number_format((float)$row['total_amount'], 2, '.', ''),
         $row['created_by_name'] ?? '-',
-        $row['is_confirmed'] ? 'Locked' : 'Editable',
+        $row['is_confirmed'] ? t('logistics.export_inbound.locked') : t('logistics.export_inbound.editable'),
         $row['notes'] ?? '',
     ];
 }

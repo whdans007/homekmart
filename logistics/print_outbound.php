@@ -69,14 +69,14 @@ $extraCss = <<<CSS
   colgroup .c-sub   { width: 7%; }
 CSS;
 
-lc_print_head('Outbound History - Print', $extraCss);
+lc_print_head(t('logistics.print_outbound.title') . ' - ' . t('logistics.print_outbound.print'), $extraCss);
 
 $metaItems = [
-    'Printed: ' . date('Y-m-d H:i'),
-    'Total: ' . number_format(count($list)) . ' record(s)',
+    t('logistics.print_outbound.printed') . ': ' . date('Y-m-d H:i'),
+    t('logistics.print_outbound.total') . ': ' . number_format(count($list)) . ' ' . t('logistics.print_outbound.records'),
 ];
-if ($search) { $metaItems[] = 'Search: "' . htmlspecialchars($search) . '"'; }
-lc_print_doc_header('Outbound History', $metaItems);
+if ($search) { $metaItems[] = t('logistics.print_outbound.search') . ': "' . htmlspecialchars($search) . '"'; }
+lc_print_doc_header(t('logistics.print_outbound.title'), $metaItems);
 
 if (isset($db_error)): ?>
 <p style="color:#c00;"><?php echo htmlspecialchars($db_error); ?></p>
@@ -89,21 +89,21 @@ if (isset($db_error)): ?>
   </colgroup>
   <thead>
     <tr>
-      <th>Order Number</th>
-      <th>Outbound Date/Time</th>
-      <th>Store</th>
-      <th>Product Code</th>
-      <th>Product Name</th>
-      <th>Spec</th>
-      <th>Expiry Date (by lot)</th>
-      <th>Quantity</th>
-      <th>Unit Price</th>
-      <th>Subtotal</th>
+      <th><?php echo htmlspecialchars(t('logistics.print_outbound.order_number')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_outbound.outbound_datetime')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_outbound.store')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_outbound.product_code')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_outbound.product_name')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_outbound.spec')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_outbound.expiry_by_lot')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_outbound.quantity')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_outbound.unit_price')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_outbound.subtotal')); ?></th>
     </tr>
   </thead>
   <tbody>
     <?php if (empty($list)): ?>
-    <tr><td colspan="10" class="center">No outbound history.</td></tr>
+    <tr><td colspan="10" class="center"><?php echo htmlspecialchars(t('logistics.print_outbound.empty')); ?></td></tr>
     <?php endif; ?>
     <?php foreach ($list as $row): ?>
     <tr>

@@ -191,17 +191,17 @@ if ($filter === 'out') {
 $conn->close();
 
 $headers = [
-    'Brand', 'Product Name (Korean)', 'Product Name (English)', 'Capacity', 'Barcode', 'Unit',
-    'Expiry Date', 'Current Stock', 'Min Stock', 'Supplier',
+    t('logistics.export_inventory.brand'), t('logistics.export_inventory.product_name_ko'), t('logistics.export_inventory.product_name_en'), t('logistics.export_inventory.capacity'), t('logistics.export_inventory.barcode'), t('logistics.export_inventory.unit'),
+    t('logistics.export_inventory.expiry_date'), t('logistics.export_inventory.current_stock'), t('logistics.export_inventory.min_stock'), t('logistics.export_inventory.supplier'),
 ];
 $textCols = [5]; // Barcode
 
 $titles = [
-    'low'      => 'Low Stock Products (In stock, <= Min Stock)',
-    'out'      => 'Out of Stock Products (Stock 0)',
-    'expiring' => 'Expiry Approaching/Expired (within D-90)',
+    'low'      => t('logistics.export_inventory.low_title'),
+    'out'      => t('logistics.export_inventory.out_title'),
+    'expiring' => t('logistics.export_inventory.expiring_title'),
 ];
-$title = $titles[$filter] ?? 'Inventory';
+$title = $titles[$filter] ?? t('logistics.export_inventory.title');
 
 $rows = [];
 foreach ($list as $row) {

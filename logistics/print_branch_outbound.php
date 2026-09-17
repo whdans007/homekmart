@@ -104,28 +104,28 @@ $extraCss = <<<CSS
   .pick-loc, .pick-short, .page-footer { color: #000 !important; }
 CSS;
 
-lc_print_head('Picking Order - Print', $extraCss);
+lc_print_head(t('logistics.print_branch_outbound.title') . ' - ' . t('logistics.print_branch_outbound.print'), $extraCss);
 
 $total_qty = 0;
 foreach ($items as $it) { $total_qty += (int)$it['quantity']; }
 
 $metaItems = [
-    'Printed: ' . date('Y-m-d H:i'),
+    t('logistics.print_branch_outbound.printed') . ': ' . date('Y-m-d H:i'),
 ];
 if ($header) {
-    $metaItems[] = 'No: #' . str_pad($header['id'], 4, '0', STR_PAD_LEFT);
-    $metaItems[] = 'Store: ' . htmlspecialchars($header['store_name'] ?? '-');
-    $metaItems[] = 'Outbound Date: ' . htmlspecialchars($header['order_date']);
-    $metaItems[] = 'Created By: ' . htmlspecialchars($header['created_by_name'] ?? '-');
-    $metaItems[] = 'Total Qty: ' . number_format($total_qty);
-    $metaItems[] = 'Est. Amount: ' . number_format($header['total_amount'], 2);
+    $metaItems[] = t('logistics.print_branch_outbound.number') . ': #' . str_pad($header['id'], 4, '0', STR_PAD_LEFT);
+    $metaItems[] = t('logistics.print_branch_outbound.store') . ': ' . htmlspecialchars($header['store_name'] ?? '-');
+    $metaItems[] = t('logistics.print_branch_outbound.outbound_date') . ': ' . htmlspecialchars($header['order_date']);
+    $metaItems[] = t('logistics.print_branch_outbound.created_by') . ': ' . htmlspecialchars($header['created_by_name'] ?? '-');
+    $metaItems[] = t('logistics.print_branch_outbound.total_qty') . ': ' . number_format($total_qty);
+    $metaItems[] = t('logistics.print_branch_outbound.estimated_amount') . ': ' . number_format($header['total_amount'], 2);
 }
-lc_print_doc_header('Picking Order', $metaItems);
+lc_print_doc_header(t('logistics.print_branch_outbound.title'), $metaItems);
 
 if (isset($db_error)): ?>
 <p style="color:#c00;"><?php echo htmlspecialchars($db_error); ?></p>
 <?php elseif (!$header): ?>
-<p style="color:#c00;">Pending outbound #<?php echo $draft_id; ?> not found.</p>
+<p style="color:#c00;"><?php echo htmlspecialchars(t('logistics.print_branch_outbound.not_found', ['id' => $draft_id])); ?></p>
 <?php endif; ?>
 
 <table id="srcTable">
@@ -135,20 +135,20 @@ if (isset($db_error)): ?>
   </colgroup>
   <thead>
     <tr>
-      <th>#</th>
-      <th>Barcode</th>
-      <th>Product Name</th>
-      <th class="qty-head">Qty</th>
-      <th>Unit</th>
-      <th>PKG</th>
-      <th>Unit Price</th>
-      <th>Subtotal</th>
-      <th>Picking Order (Location) / (Expiry * Qty)</th>
+      <th><?php echo htmlspecialchars(t('logistics.print_branch_outbound.number')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_branch_outbound.barcode')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_branch_outbound.product_name')); ?></th>
+      <th class="qty-head"><?php echo htmlspecialchars(t('logistics.print_branch_outbound.quantity')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_branch_outbound.unit')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_branch_outbound.pkg')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_branch_outbound.unit_price')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_branch_outbound.subtotal')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_branch_outbound.picking_order')); ?></th>
     </tr>
   </thead>
   <tbody>
     <?php if (empty($items)): ?>
-    <tr><td colspan="9" class="center">No items.</td></tr>
+    <tr><td colspan="9" class="center"><?php echo htmlspecialchars(t('logistics.print_branch_outbound.empty')); ?></td></tr>
     <?php endif; ?>
     <?php foreach ($items as $i => $row): ?>
     <tr>
@@ -177,15 +177,15 @@ if (isset($db_error)): ?>
         <?php if (!empty($row['picks'])): ?>
           <?php foreach ($row['picks'] as $pk): ?>
           <span class="pick-line">
-            (<span class="pick-loc"><?php echo $pk['storage_location'] ? htmlspecialchars($pk['storage_location']) : 'No location'; ?></span>)
-            / (<?php echo $pk['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($pk['expiry_date']))) : 'No expiry'; ?> * <?php echo number_format($pk['quantity']); ?>)
+            (<span class="pick-loc"><?php echo $pk['storage_location'] ? htmlspecialchars($pk['storage_location']) : htmlspecialchars(t('logistics.print_branch_outbound.no_location')); ?></span>)
+            / (<?php echo $pk['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($pk['expiry_date']))) : htmlspecialchars(t('logistics.print_branch_outbound.no_expiry')); ?> * <?php echo number_format($pk['quantity']); ?>)
           </span>
           <?php endforeach; ?>
           <?php if (!empty($row['shortfall']) && $row['shortfall'] > 0): ?>
-          <span class="pick-line pick-short">&#9888; Shortfall: <?php echo number_format($row['shortfall']); ?> (negative stock)</span>
+          <span class="pick-line pick-short">&#9888; <?php echo htmlspecialchars(t('logistics.print_branch_outbound.shortfall')); ?>: <?php echo number_format($row['shortfall']); ?> (<?php echo htmlspecialchars(t('logistics.print_branch_outbound.negative_stock')); ?>)</span>
           <?php endif; ?>
         <?php elseif (!empty($row['shortfall']) && $row['shortfall'] > 0): ?>
-          <span class="pick-short">&#9888; No stock — <?php echo number_format($row['shortfall']); ?> as negative stock</span>
+          <span class="pick-short">&#9888; <?php echo htmlspecialchars(t('logistics.print_branch_outbound.no_stock_shortfall', ['count' => number_format($row['shortfall'])])); ?></span>
         <?php else: ?>
           <span style="color:#999;">-</span>
         <?php endif; ?>
@@ -224,21 +224,21 @@ if (isset($db_error)): ?>
   <table class="signoff-table">
     <thead>
       <tr>
-        <th style="width:60mm;">Prepared by</th>
-        <th style="width:60mm;">Received by</th>
+        <th style="width:60mm;"><?php echo htmlspecialchars(t('logistics.print_branch_outbound.prepared_by')); ?></th>
+        <th style="width:60mm;"><?php echo htmlspecialchars(t('logistics.print_branch_outbound.received_by')); ?></th>
       </tr>
     </thead>
     <tbody>
       <tr>
         <td style="vertical-align:top;">
-          <div>Name: <strong><?php echo htmlspecialchars($prepared_by); ?></strong></div>
+          <div><?php echo htmlspecialchars(t('logistics.print_branch_outbound.name')); ?>: <strong><?php echo htmlspecialchars($prepared_by); ?></strong></div>
           <div class="sign-space"></div>
-          <div class="sign-line">Signature: _____________________</div>
+          <div class="sign-line"><?php echo htmlspecialchars(t('logistics.print_branch_outbound.signature')); ?>: _____________________</div>
         </td>
         <td style="vertical-align:top;">
-          <div>Name: _____________________</div>
+          <div><?php echo htmlspecialchars(t('logistics.print_branch_outbound.name')); ?>: _____________________</div>
           <div class="sign-space"></div>
-          <div class="sign-line">Signature: _____________________</div>
+          <div class="sign-line"><?php echo htmlspecialchars(t('logistics.print_branch_outbound.signature')); ?>: _____________________</div>
         </td>
       </tr>
     </tbody>
@@ -262,8 +262,8 @@ if (isset($db_error)): ?>
     var bar = document.createElement('div');
     bar.id = 'printToolbar';
     bar.innerHTML =
-        '<button id="btnDoPrint" onclick="window.print()"><i class="fas fa-print" style="margin-right:6px"></i>Print</button>' +
-        '<button id="btnClosePrint" onclick="window.close()">Close</button>';
+        '<button id="btnDoPrint" onclick="window.print()"><i class="fas fa-print" style="margin-right:6px"></i><?php echo addslashes(t('logistics.print_branch_outbound.print')); ?></button>' +
+        '<button id="btnClosePrint" onclick="window.close()"><?php echo addslashes(t('logistics.print_branch_outbound.close')); ?></button>';
     document.body.appendChild(bar);
 })();
 </script>

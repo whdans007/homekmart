@@ -38,9 +38,9 @@ $st->close();
 $conn->close();
 
 $headers = [
-    'Category', 'Brand', 'Product Name (EN)', 'Product Name (KO)', 'Capacity',
-    'Unit', 'Units per Box', 'Unit Barcode', 'Box Barcode', 'Logistics Code',
-    'Min Stock', 'Expiry Required', 'Status',
+    t('logistics.export_products.category'), t('logistics.export_products.brand'), t('logistics.export_products.product_name_en'), t('logistics.export_products.product_name_ko'), t('logistics.export_products.capacity'),
+    t('logistics.export_products.unit'), t('logistics.export_products.units_per_box'), t('logistics.export_products.unit_barcode'), t('logistics.export_products.box_barcode'), t('logistics.export_products.logistics_code'),
+    t('logistics.export_products.min_stock'), t('logistics.export_products.expiry_required'), t('logistics.export_products.status'),
 ];
 $textCols = [8, 9, 10]; // Unit Barcode, Box Barcode, Logistics Code
 
@@ -58,8 +58,8 @@ foreach ($products as $p) {
         $p['barcode_box'] ?? '',
         $p['barcode_logistics'] ?? '',
         (string)$p['min_stock'],
-        $p['requires_expiry'] ? 'Required' : 'Optional',
-        $p['is_active'] ? 'Active' : 'Inactive',
+        $p['requires_expiry'] ? t('logistics.export_products.required') : t('logistics.export_products.optional'),
+        $p['is_active'] ? t('logistics.export_products.active') : t('logistics.export_products.inactive'),
     ];
 }
 

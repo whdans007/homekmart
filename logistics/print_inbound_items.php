@@ -32,16 +32,16 @@ $extraCss = <<<CSS
   colgroup .c-date { width: 8%; }
 CSS;
 
-lc_print_head('Inbound Items List - Print', $extraCss);
+lc_print_head(t('logistics.print_inbound_items.title') . ' - ' . t('logistics.print_inbound_items.print'), $extraCss);
 
 $metaItems = [
-    'Printed: ' . date('Y-m-d H:i'),
-    'Total: ' . number_format(count($items)) . ' item(s)',
+    t('logistics.print_inbound_items.printed') . ': ' . date('Y-m-d H:i'),
+    t('logistics.print_inbound_items.total') . ': ' . number_format(count($items)) . ' ' . t('logistics.print_inbound_items.items'),
 ];
-if ($filters['search']) { $metaItems[] = 'Search: "' . htmlspecialchars($filters['search']) . '"'; }
-if ($filters['date_from'])          { $metaItems[] = 'From: ' . htmlspecialchars($filters['date_from']); }
-if ($filters['date_to'])            { $metaItems[] = 'To: ' . htmlspecialchars($filters['date_to']); }
-lc_print_doc_header('Inbound Items List', $metaItems);
+if ($filters['search']) { $metaItems[] = t('logistics.print_inbound_items.search') . ': "' . htmlspecialchars($filters['search']) . '"'; }
+if ($filters['date_from'])          { $metaItems[] = t('logistics.print_inbound_items.from') . ': ' . htmlspecialchars($filters['date_from']); }
+if ($filters['date_to'])            { $metaItems[] = t('logistics.print_inbound_items.to') . ': ' . htmlspecialchars($filters['date_to']); }
+lc_print_doc_header(t('logistics.print_inbound_items.title'), $metaItems);
 
 if ($db_error): ?>
 <p style="color:#c00;"><?php echo htmlspecialchars($db_error); ?></p>
@@ -55,23 +55,23 @@ if ($db_error): ?>
   </colgroup>
   <thead>
     <tr>
-      <th>#</th>
-      <th>Category</th>
-      <th>Brand</th>
-      <th>Product Name</th>
-      <th>Capacity</th>
-      <th>Unit</th>
-      <th>PKG</th>
-      <th>Unit Barcode</th>
-      <th>Supplier</th>
-      <th>Cost Price</th>
-      <th>Qty</th>
-      <th>Inbound Date</th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound_items.number')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound_items.category')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound_items.brand')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound_items.product_name')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound_items.capacity')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound_items.unit')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound_items.pkg')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound_items.unit_barcode')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound_items.supplier')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound_items.cost_price')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound_items.quantity')); ?></th>
+      <th><?php echo htmlspecialchars(t('logistics.print_inbound_items.inbound_date')); ?></th>
     </tr>
   </thead>
   <tbody>
     <?php if (empty($items)): ?>
-    <tr><td colspan="12" class="center">No inbound items found.</td></tr>
+    <tr><td colspan="12" class="center"><?php echo htmlspecialchars(t('logistics.print_inbound_items.empty')); ?></td></tr>
     <?php endif; ?>
     <?php $no = 1; foreach ($items as $row): ?>
     <?php $iu = $row['inbound_unit'] ?? 'PCS'; ?>
