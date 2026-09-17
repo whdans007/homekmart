@@ -3123,6 +3123,7 @@
     "export_csv": "CSV 내보내기"
   },
   "logistics": {
+    "inventory": {"page_title":"재고 현황 - 물류센터","title":"재고 현황","filter_all":"전체","filter_expiring":"유통기한 임박 D-90","filter_low":"재고 부족","filter_out":"품절","filter_negative":"마이너스 재고","product_types":"상품 종류","expired":"만료","expiring":"D-90 임박","low_stock":"재고 부족","out_of_stock":"품절","negative_stock":"마이너스 재고","search_placeholder":"브랜드, 상품, 바코드 또는 공급업체로 검색","search":"검색","reset":"초기화","excel_download":"엑셀 다운로드","print":"인쇄","total_products":"총 {count}개 상품","d90":"D-90","d30":"D-30","brand":"브랜드","product_name":"상품명","capacity":"용량","unit":"단위","pkg":"PKG","expiry_date":"유통기한","current_stock":"현재 재고","supplier":"공급업체","empty":"재고가 있는 상품이 없습니다.","d_day":"D-{days}","previous_pages":"이전 10페이지","next_pages":"다음 10페이지","print_preview":"인쇄 미리보기","loading":"불러오는 중…","error":"오류","request_failed":"요청에 실패했습니다.","lots_with_stock":"재고가 있는 LOT {count}개","barcode":"바코드","no_lots":"재고가 있는 LOT가 없습니다.","expiry":"유통기한","inbound_date":"입고일","cost_price":"원가","in":"입고","out":"출고","remaining":"잔여 수량","depleted":"소진","negative":"마이너스","open_bundle":"묶음 열기","open":"열기"},
     "login": {
       "title": "물류센터 로그인", "center_name": "물류센터", "subtitle": "물류 관리 시스템에 로그인하세요", "username": "아이디", "password": "비밀번호", "submit": "로그인", "admin_login": "일반 관리자 로그인", "missing_credentials": "아이디와 비밀번호를 입력해 주세요.", "invalid_credentials": "아이디 또는 비밀번호가 올바르지 않습니다.", "database_error": "데이터베이스 오류가 발생했습니다."
     },

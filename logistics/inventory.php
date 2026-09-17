@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Inventory Status - Logistics Center';
+$page_title = t('logistics.inventory.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/inventory_helper.php';
@@ -278,7 +278,13 @@ try {
     $list = []; $stats = []; $total = 0; $total_pages = 1;
 }
 
-$filter_labels = ['all' => 'All', 'expiring' => 'Expiring D-90', 'low' => 'Low Stock', 'out' => 'Out of Stock', 'negative' => 'Negative Stock'];
+$filter_labels = [
+    'all' => t('logistics.inventory.filter_all'),
+    'expiring' => t('logistics.inventory.filter_expiring'),
+    'low' => t('logistics.inventory.filter_low'),
+    'out' => t('logistics.inventory.filter_out'),
+    'negative' => t('logistics.inventory.filter_negative'),
+];
 ?>
 
 <style>
@@ -289,7 +295,7 @@ main { overflow: hidden !important; }
 
 <!-- 페이지 헤더 -->
 <div class="flex items-center justify-between shrink-0">
-    <h2 class="text-xl font-bold text-gray-900">Inventory Status</h2>
+    <h2 class="text-xl font-bold text-gray-900"><?php echo t('logistics.inventory.title'); ?></h2>
 </div>
 
 <!-- 요약 카드 -->
@@ -297,28 +303,28 @@ main { overflow: hidden !important; }
 <div class="flex flex-wrap gap-2 shrink-0">
     <a href="?filter=all" class="bg-white rounded-lg border border-gray-200 px-3 py-1.5 flex items-center gap-2 min-w-[110px] hover:bg-gray-50 transition-colors">
         <div class="w-7 h-7 bg-teal-100 rounded-lg flex items-center justify-center"><i class="fas fa-boxes text-teal-600 text-xs"></i></div>
-        <div><p class="text-xs text-gray-500">Product Types</p><p class="text-base font-bold text-gray-900"><?php echo number_format($stats['total_products']); ?></p></div>
+        <div><p class="text-xs text-gray-500"><?php echo t('logistics.inventory.product_types'); ?></p><p class="text-base font-bold text-gray-900"><?php echo number_format($stats['total_products']); ?></p></div>
     </a>
     <a href="?filter=expired" class="bg-white rounded-lg border border-red-200 px-3 py-1.5 flex items-center gap-2 min-w-[110px] hover:bg-red-50 transition-colors">
         <div class="w-7 h-7 bg-red-100 rounded-lg flex items-center justify-center"><i class="fas fa-calendar-times text-red-500 text-xs"></i></div>
-        <div><p class="text-xs text-gray-500">Expired</p><p class="text-base font-bold text-red-600"><?php echo number_format($stats['expired_count']); ?></p></div>
+        <div><p class="text-xs text-gray-500"><?php echo t('logistics.inventory.expired'); ?></p><p class="text-base font-bold text-red-600"><?php echo number_format($stats['expired_count']); ?></p></div>
     </a>
     <a href="?filter=expiring" class="bg-white rounded-lg border border-orange-200 px-3 py-1.5 flex items-center gap-2 min-w-[110px] hover:bg-orange-50 transition-colors">
         <div class="w-7 h-7 bg-orange-100 rounded-lg flex items-center justify-center"><i class="fas fa-exclamation-circle text-orange-500 text-xs"></i></div>
-        <div><p class="text-xs text-gray-500">D-90 Approaching</p><p class="text-base font-bold text-orange-600"><?php echo number_format($stats['expiring_count']); ?></p></div>
+        <div><p class="text-xs text-gray-500"><?php echo t('logistics.inventory.expiring'); ?></p><p class="text-base font-bold text-orange-600"><?php echo number_format($stats['expiring_count']); ?></p></div>
     </a>
     <a href="?filter=low" class="bg-white rounded-lg border border-yellow-200 px-3 py-1.5 flex items-center gap-2 min-w-[110px] hover:bg-yellow-50 transition-colors">
         <div class="w-7 h-7 bg-yellow-100 rounded-lg flex items-center justify-center"><i class="fas fa-exclamation-triangle text-yellow-600 text-xs"></i></div>
-        <div><p class="text-xs text-gray-500">Low Stock</p><p class="text-base font-bold text-yellow-600"><?php echo number_format($stats['low_count']); ?></p></div>
+        <div><p class="text-xs text-gray-500"><?php echo t('logistics.inventory.low_stock'); ?></p><p class="text-base font-bold text-yellow-600"><?php echo number_format($stats['low_count']); ?></p></div>
     </a>
     <a href="?filter=out" class="bg-white rounded-lg border border-red-200 px-3 py-1.5 flex items-center gap-2 min-w-[110px] hover:bg-red-50 transition-colors">
         <div class="w-7 h-7 bg-red-100 rounded-lg flex items-center justify-center"><i class="fas fa-ban text-red-600 text-xs"></i></div>
-        <div><p class="text-xs text-gray-500">Out of Stock</p><p class="text-base font-bold text-red-600"><?php echo number_format($stats['out_count'] ?? 0); ?></p></div>
+        <div><p class="text-xs text-gray-500"><?php echo t('logistics.inventory.out_of_stock'); ?></p><p class="text-base font-bold text-red-600"><?php echo number_format($stats['out_count'] ?? 0); ?></p></div>
     </a>
     <?php if (($stats['negative_count'] ?? 0) > 0): ?>
     <a href="?filter=negative" class="bg-red-50 rounded-lg border-2 border-red-300 px-3 py-1.5 flex items-center gap-2 min-w-[110px] hover:bg-red-100 transition-colors">
         <div class="w-7 h-7 bg-red-100 rounded-lg flex items-center justify-center"><i class="fas fa-minus-circle text-red-600 text-xs"></i></div>
-        <div><p class="text-xs text-red-500 font-medium">Negative Stock</p><p class="text-base font-bold text-red-600"><?php echo number_format($stats['negative_count']); ?></p></div>
+        <div><p class="text-xs text-red-500 font-medium"><?php echo t('logistics.inventory.negative_stock'); ?></p><p class="text-base font-bold text-red-600"><?php echo number_format($stats['negative_count']); ?></p></div>
     </a>
     <?php endif; ?>
 </div>
@@ -328,16 +334,16 @@ main { overflow: hidden !important; }
 <form method="get" class="bg-white rounded-lg border border-gray-200 px-3 py-2 shrink-0">
     <div class="flex flex-wrap items-center gap-2">
         <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>"
-               placeholder="Search by brand, product, barcode, or supplier"
+               placeholder="<?php echo htmlspecialchars(t('logistics.inventory.search_placeholder')); ?>"
                class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-56">
         <button type="submit" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700">
-            <i class="fas fa-search mr-1"></i>Search
+            <i class="fas fa-search mr-1"></i><?php echo t('logistics.inventory.search'); ?>
         </button>
-        <a href="?" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200">Reset</a>
+        <a href="?" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200"><?php echo t('logistics.inventory.reset'); ?></a>
         <a href="<?php echo LC_BASE; ?>/export_inventory.php?<?php echo http_build_query(['search'=>$search,'filter'=>$filter]); ?>"
-           class="px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"><i class="fas fa-file-excel mr-1"></i>Excel Download</a>
+           class="px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"><i class="fas fa-file-excel mr-1"></i><?php echo t('logistics.inventory.excel_download'); ?></a>
         <button type="button" onclick="openPrintPreview()"
-           class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"><i class="fas fa-print mr-1"></i>Print</button>
+           class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"><i class="fas fa-print mr-1"></i><?php echo t('logistics.inventory.print'); ?></button>
         <div class="flex gap-1.5 ml-1">
             <?php foreach ($filter_labels as $key => $label): ?>
             <a href="?filter=<?php echo $key; ?>&search=<?php echo urlencode($search); ?>"
@@ -357,28 +363,28 @@ main { overflow: hidden !important; }
 <!-- 테이블 카드 -->
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
     <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
-        <span class="text-sm text-gray-500">Total: <strong><?php echo number_format($total); ?></strong> products</span>
+        <span class="text-sm text-gray-500"><?php echo t('logistics.inventory.total_products', ['count' => number_format($total)]); ?></span>
         <span class="text-xs text-gray-400">
-            <span class="inline-block w-3 h-3 bg-yellow-100 border border-yellow-300 rounded-sm mr-1"></span>D-90
-            <span class="inline-block w-3 h-3 bg-orange-100 border border-orange-300 rounded-sm mx-1 ml-2"></span>D-30
-            <span class="inline-block w-3 h-3 bg-red-100 border border-red-300 rounded-sm mx-1 ml-2"></span>Expired
+            <span class="inline-block w-3 h-3 bg-yellow-100 border border-yellow-300 rounded-sm mr-1"></span><?php echo t('logistics.inventory.d90'); ?>
+            <span class="inline-block w-3 h-3 bg-orange-100 border border-orange-300 rounded-sm mx-1 ml-2"></span><?php echo t('logistics.inventory.d30'); ?>
+            <span class="inline-block w-3 h-3 bg-red-100 border border-red-300 rounded-sm mx-1 ml-2"></span><?php echo t('logistics.inventory.expired'); ?>
         </span>
     </div>
     <div class="overflow-auto flex-1 min-h-0">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 sticky top-0 z-10"><tr>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Brand</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Capacity</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Unit</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">PKG</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Expiry Date</th>
-                <th class="px-4 py-3 text-right text-xs text-pink-700 font-semibold bg-pink-100">Current Stock</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Supplier</th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.brand'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.product_name'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.capacity'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.unit'); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.pkg'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.expiry_date'); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-pink-700 font-semibold bg-pink-100"><?php echo t('logistics.inventory.current_stock'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.supplier'); ?></th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php if (empty($list)): ?>
-            <tr><td colspan="8" class="px-4 py-10 text-center text-gray-400">No products in stock.</td></tr>
+            <tr><td colspan="8" class="px-4 py-10 text-center text-gray-400"><?php echo t('logistics.inventory.empty'); ?></td></tr>
             <?php endif; ?>
             <?php foreach ($list as $row):
                 $days = $row['days_left'];
@@ -435,7 +441,7 @@ main { overflow: hidden !important; }
                         </span>
                         <?php if ($days !== null): ?>
                         <span class="ml-1 text-xs <?php echo $days < 0 ? 'text-red-500' : ($days <= 30 ? 'text-orange-500' : ($days <= 90 ? 'text-yellow-600' : 'text-gray-400')); ?>">
-                            (<?php echo $days < 0 ? 'Expired' : 'D-' . $days; ?>)
+                            (<?php echo $days < 0 ? t('logistics.inventory.expired') : t('logistics.inventory.d_day', ['days' => $days]); ?>)
                         </span>
                         <?php endif; ?>
                     <?php else: ?>
@@ -463,7 +469,7 @@ main { overflow: hidden !important; }
     <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-center gap-1 shrink-0">
         <?php if ($block_start > 1): ?>
         <a href="?page=<?php echo $block_start - $window; ?>&<?php echo http_build_query($qs); ?>"
-           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="Previous 10 pages">
+           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="<?php echo htmlspecialchars(t('logistics.inventory.previous_pages')); ?>">
             <i class="fas fa-angle-double-left text-xs"></i>
         </a>
         <?php endif; ?>
@@ -487,7 +493,7 @@ main { overflow: hidden !important; }
         <?php endif; ?>
         <?php if ($block_end < $total_pages): ?>
         <a href="?page=<?php echo $block_end + 1; ?>&<?php echo http_build_query($qs); ?>"
-           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="Next 10 pages">
+           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="<?php echo htmlspecialchars(t('logistics.inventory.next_pages')); ?>">
             <i class="fas fa-angle-double-right text-xs"></i>
         </a>
         <?php endif; ?>
@@ -502,11 +508,11 @@ main { overflow: hidden !important; }
     <div class="absolute inset-0 bg-black bg-opacity-50"></div>
     <div class="relative bg-white rounded-xl shadow-xl w-full max-w-5xl mx-4 flex flex-col" style="height:90vh">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-print text-blue-600 mr-2"></i>Print Preview</h3>
+            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-print text-blue-600 mr-2"></i><?php echo t('logistics.inventory.print_preview'); ?></h3>
             <div class="flex items-center gap-2">
                 <button type="button" onclick="printPreviewFrame()"
                         class="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
-                    <i class="fas fa-print mr-1"></i>Print
+                    <i class="fas fa-print mr-1"></i><?php echo t('logistics.inventory.print'); ?>
                 </button>
                 <button type="button" onclick="closePrintPreview()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
             </div>
@@ -539,7 +545,7 @@ main { overflow: hidden !important; }
 
     window.showInboundHistory = function(productId) {
         var modal = document.getElementById('inboundModal');
-        document.getElementById('modalTitle').textContent = 'Loading…';
+        document.getElementById('modalTitle').textContent = <?php echo json_encode(t('logistics.inventory.loading')); ?>;
         document.getElementById('modalSub').textContent = '';
         document.getElementById('modalBody').innerHTML = '<div class="text-center text-gray-400 py-8"><i class="fas fa-spinner fa-spin text-2xl"></i></div>';
         modal.classList.remove('hidden');
@@ -548,7 +554,7 @@ main { overflow: hidden !important; }
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (!data.success) {
-                    document.getElementById('modalBody').innerHTML = '<p class="text-red-500 text-sm">' + (data.message || 'Error') + '</p>';
+                    document.getElementById('modalBody').innerHTML = '<p class="text-red-500 text-sm">' + (data.message || <?php echo json_encode(t('logistics.inventory.error')); ?>) + '</p>';
                     return;
                 }
                 var p = data.product;
@@ -558,30 +564,30 @@ main { overflow: hidden !important; }
                 meta.push((p.pieces_per_box ? p.pieces_per_box : 1) + '/' + esc(p.unit || 'EA'));
                 title += ' <span class="text-sm font-normal text-gray-400 ml-1">' + meta.join(' · ') + '</span>';
                 document.getElementById('modalTitle').innerHTML = title;
-                var sub = data.lots.length + ' LOT(s) with stock';
-                if (p.barcode) sub += '  ·  Barcode: ' + p.barcode;
+                var sub = <?php echo json_encode(t('logistics.inventory.lots_with_stock', ['count' => '__COUNT__'])); ?>.replace('__COUNT__', data.lots.length);
+                if (p.barcode) sub += '  ·  ' + <?php echo json_encode(t('logistics.inventory.barcode')); ?> + ': ' + p.barcode;
                 document.getElementById('modalSub').textContent = sub;
                 renderLots(data.lots, productId);
             })
             .catch(function() {
-                document.getElementById('modalBody').innerHTML = '<p class="text-red-500 text-sm">Request failed</p>';
+                document.getElementById('modalBody').innerHTML = '<p class="text-red-500 text-sm">' + <?php echo json_encode(t('logistics.inventory.request_failed')); ?> + '</p>';
             });
     };
 
     function renderLots(lots, productId) {
         if (!lots.length) {
-            document.getElementById('modalBody').innerHTML = '<p class="text-gray-400 text-sm text-center py-6">No LOTs with stock.</p>';
+            document.getElementById('modalBody').innerHTML = '<p class="text-gray-400 text-sm text-center py-6">' + <?php echo json_encode(t('logistics.inventory.no_lots')); ?> + '</p>';
             return;
         }
         var html = '<table class="w-full text-sm">'
             + '<thead class="bg-gray-50 sticky top-0"><tr>'
-            + '<th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Expiry</th>'
-            + '<th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Supplier</th>'
-            + '<th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Inbound Date</th>'
-            + '<th class="px-3 py-2 text-right text-xs text-gray-500 font-medium">Cost Price</th>'
-            + '<th class="px-3 py-2 text-right text-xs text-gray-500 font-medium">In</th>'
-            + '<th class="px-3 py-2 text-right text-xs text-gray-500 font-medium">Out</th>'
-            + '<th class="px-3 py-2 text-right text-xs text-gray-500 font-medium">Remaining</th>'
+            + '<th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.expiry'); ?></th>'
+            + '<th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.supplier'); ?></th>'
+            + '<th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.inbound_date'); ?></th>'
+            + '<th class="px-3 py-2 text-right text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.cost_price'); ?></th>'
+            + '<th class="px-3 py-2 text-right text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.in'); ?></th>'
+            + '<th class="px-3 py-2 text-right text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.out'); ?></th>'
+            + '<th class="px-3 py-2 text-right text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.remaining'); ?></th>'
             + '</tr></thead><tbody class="divide-y divide-gray-100">';
 
         lots.forEach(function(lot) {
@@ -592,16 +598,16 @@ main { overflow: hidden !important; }
             var rowCls = isDone ? 'opacity-50' : (isNegative ? 'bg-red-50' : '');
             var daysTxt = '';
             if (!isDone && lot.expiry_date) {
-                if (days < 0)        { rowCls = 'bg-red-50';    daysTxt = '<span class="text-xs font-bold text-red-600 ml-1">Expired</span>'; }
-                else if (days <= 30) { rowCls = 'bg-orange-50'; daysTxt = '<span class="text-xs text-orange-600 ml-1">D-' + days + '</span>'; }
-                else if (days <= 90) { rowCls = 'bg-yellow-50'; daysTxt = '<span class="text-xs text-yellow-600 ml-1">D-' + days + '</span>'; }
+                if (days < 0)        { rowCls = 'bg-red-50';    daysTxt = '<span class="text-xs font-bold text-red-600 ml-1"><?php echo t('logistics.inventory.expired'); ?></span>'; }
+                else if (days <= 30) { rowCls = 'bg-orange-50'; daysTxt = '<span class="text-xs text-orange-600 ml-1"><?php echo t('logistics.inventory.d_day', ['days' => '__DAYS__']); ?></span>'.replace('__DAYS__', days); }
+                else if (days <= 90) { rowCls = 'bg-yellow-50'; daysTxt = '<span class="text-xs text-yellow-600 ml-1"><?php echo t('logistics.inventory.d_day', ['days' => '__DAYS__']); ?></span>'.replace('__DAYS__', days); }
             }
             var locHtml = lot.storage_location
                 ? '<span class="inline-flex items-center gap-1 text-xs font-mono text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded"><i class="fas fa-map-marker-alt" style="font-size:0.6rem;"></i>' + esc(lot.storage_location) + '</span>'
                 : '';
             var doneBadge = '';
-            if (isDone) doneBadge = '<span class="ml-1 text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Depleted</span>';
-            else if (isNegative) doneBadge = '<span class="ml-1 text-xs text-red-600 bg-red-100 px-1.5 py-0.5 rounded font-semibold">Negative</span>';
+            if (isDone) doneBadge = '<span class="ml-1 text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded"><?php echo t('logistics.inventory.depleted'); ?></span>';
+            else if (isNegative) doneBadge = '<span class="ml-1 text-xs text-red-600 bg-red-100 px-1.5 py-0.5 rounded font-semibold"><?php echo t('logistics.inventory.negative'); ?></span>';
             var remainHtml = isDone
                 ? '<span class="text-gray-400">0</span>'
                 : (isNegative
@@ -619,7 +625,7 @@ main { overflow: hidden !important; }
                 unitBadge = '<span class="text-xs font-normal text-gray-400">PCS</span>';
             }
             var breakLink = (isBundleLot && remain > 0)
-                ? ' <a href="' + LC_BASE + '/box_break.php?product_id=' + productId + '" class="text-xs text-amber-700 hover:underline" title="Open bundle"><i class="fas fa-box-open" style="font-size:0.6rem;"></i> Open</a>'
+                ? ' <a href="' + LC_BASE + '/box_break.php?product_id=' + productId + '" class="text-xs text-amber-700 hover:underline" title="<?php echo htmlspecialchars(t('logistics.inventory.open_bundle')); ?>"><i class="fas fa-box-open" style="font-size:0.6rem;"></i> <?php echo t('logistics.inventory.open'); ?></a>'
                 : '';
 
             // 입고 단가 (묶음 입고 후 개봉된 lot은 PCS 단가도 함께 표시)
