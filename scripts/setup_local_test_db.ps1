@@ -34,6 +34,19 @@ $command = "$quotedMysql --host=127.0.0.1 --port=$Port --user=root $Database < $
 cmd.exe /d /s /c $command
 if ($LASTEXITCODE -ne 0) { throw 'The SQL dump import failed.' }
 
+$migrations = @(
+    'create_inventory_expirations.sql',
+    'create_expiry_management_tables.sql'
+)
+foreach ($migration in $migrations) {
+    $migrationPath = Join-Path $repoRoot $migration
+    if (-not (Test-Path -LiteralPath $migrationPath -PathType Leaf)) { continue }
+    $quotedMigration = '"' + $migrationPath + '"'
+    $migrationCommand = "$quotedMysql --host=127.0.0.1 --port=$Port --user=root $Database < $quotedMigration"
+    cmd.exe /d /s /c $migrationCommand
+    if ($LASTEXITCODE -ne 0) { throw "The migration failed: $migration" }
+}
+
 $localConfigPath = Join-Path $repoRoot 'config\db_config.local.php'
  $localConfig = @"
 <?php
