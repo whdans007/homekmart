@@ -13,7 +13,7 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 // Design Ref: pack-unit §6 — 개봉 대상 lot을 묶음 단위(BOX/PACK)로 확장, i.unit 반환
 if ($action === 'get_box_lots') {
     $product_id = (int)($_GET['product_id'] ?? 0);
-    if (!$product_id) { echo json_encode(['success' => false, 'message' => 'Invalid product']); exit; }
+    if (!$product_id) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_box_break.invalid_product')]); exit; }
     try {
         $conn = get_lc_db();
         $st = $conn->prepare(
@@ -37,7 +37,7 @@ if ($action === 'get_box_lots') {
         $conn->close();
         echo json_encode(['success' => true, 'lots' => $lots, 'stock' => $stock]);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_box_break.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
@@ -63,7 +63,7 @@ if ($action === 'submit_break' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode($result);
     } catch (Exception $e) {
         if (isset($conn)) { $conn->rollback(); $conn->close(); }
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_box_break.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
@@ -96,9 +96,9 @@ if ($action === 'get_history') {
         $conn->close();
         echo json_encode(['success' => true, 'history' => $rows]);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_box_break.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
 
-echo json_encode(['success' => false, 'message' => 'Unknown action']);
+echo json_encode(['success' => false, 'message' => t('logistics.ajax_box_break.unknown_action')]);

@@ -15,7 +15,7 @@ if ($action === 'get_stores') {
         $conn->close();
         echo json_encode(['success' => true, 'stores' => $stores]);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_distribute_to_stores.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
@@ -23,7 +23,7 @@ if ($action === 'get_stores') {
 // 상품 재고 및 현재가 조회
 if ($action === 'get_product_stock') {
     $product_id = (int)($_GET['product_id'] ?? 0);
-    if (!$product_id) { echo json_encode(['success' => false, 'message' => 'Invalid product']); exit; }
+    if (!$product_id) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_distribute_to_stores.invalid_product')]); exit; }
     try {
         $conn = get_lc_db();
         $st = $conn->prepare(
@@ -46,7 +46,7 @@ if ($action === 'get_product_stock') {
         $conn->close();
         echo json_encode(['success' => true, 'product' => $product]);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_distribute_to_stores.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
@@ -55,7 +55,7 @@ if ($action === 'get_product_stock') {
 if ($action === 'distribute' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['csrf_token'] ?? '';
     if (!hash_equals($_SESSION['lc_csrf'] ?? '', $token)) {
-        echo json_encode(['success' => false, 'message' => 'Security error']);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_distribute_to_stores.security_error')]);
         exit;
     }
 
@@ -64,14 +64,14 @@ if ($action === 'distribute' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $notes      = trim($_POST['notes'] ?? '');
     $dist       = $_POST['dist'] ?? []; // [store_id => quantity]
 
-    if (!$product_id) { echo json_encode(['success' => false, 'message' => 'Product information error']); exit; }
+    if (!$product_id) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_distribute_to_stores.product_error')]); exit; }
 
     $items = [];
     foreach ($dist as $sid => $qty) {
         $sid = (int)$sid; $qty = (int)$qty;
         if ($sid > 0 && $qty > 0) $items[$sid] = $qty;
     }
-    if (empty($items)) { echo json_encode(['success' => false, 'message' => 'Please enter the store/quantity to distribute.']); exit; }
+    if (empty($items)) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_distribute_to_stores.items_required')]); exit; }
 
     try {
         $conn = get_lc_db();
@@ -83,7 +83,7 @@ if ($action === 'distribute' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if (empty($items)) {
             $conn->rollback(); $conn->close();
-            echo json_encode(['success' => false, 'message' => 'The Logistics Center cannot be selected as the destination store.']);
+            echo json_encode(['success' => false, 'message' => t('logistics.ajax_distribute_to_stores.center_not_allowed')]);
             exit;
         }
 
@@ -118,9 +118,9 @@ if ($action === 'distribute' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => true, 'created' => $created]);
     } catch (Exception $e) {
         if (isset($conn)) { $conn->rollback(); $conn->close(); }
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_distribute_to_stores.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
 
-echo json_encode(['success' => false, 'message' => 'Unknown action']);
+echo json_encode(['success' => false, 'message' => t('logistics.ajax_distribute_to_stores.unknown_action')]);

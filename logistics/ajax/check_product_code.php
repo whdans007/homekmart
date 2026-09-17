@@ -40,9 +40,9 @@ try {
     }
 
     $matched_fields = [];
-    if ($product['barcode_unit'] === $value)      $matched_fields[] = 'Barcode';
-    if ($product['barcode_box'] === $value)       $matched_fields[] = 'Box Code';
-    if ($product['barcode_logistics'] === $value) $matched_fields[] = 'Logistics Code';
+    if ($product['barcode_unit'] === $value)      $matched_fields[] = t('logistics.ajax_check_product_code.barcode');
+    if ($product['barcode_box'] === $value)       $matched_fields[] = t('logistics.ajax_check_product_code.box_code');
+    if ($product['barcode_logistics'] === $value) $matched_fields[] = t('logistics.ajax_check_product_code.logistics_code');
 
     echo json_encode([
         'success'   => true,
@@ -54,5 +54,5 @@ try {
         ],
     ]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'DB Error: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_check_product_code.db_error', ['error' => $e->getMessage()])]);
 }

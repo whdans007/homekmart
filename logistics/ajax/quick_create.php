@@ -10,17 +10,17 @@ $name_ko = trim($_POST['name_ko'] ?? '') ?: null;
 $token   = $_POST['csrf_token'] ?? '';
 
 if (!hash_equals($_SESSION['lc_csrf'] ?? '', $token)) {
-    echo json_encode(['success' => false, 'message' => 'Security error: Please try again.']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_quick_create.security_error')]);
     exit;
 }
 
 if ($name_en === '') {
-    echo json_encode(['success' => false, 'message' => 'Please enter the English name.']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_quick_create.name_required')]);
     exit;
 }
 
 if (!in_array($type, ['brand', 'category'], true)) {
-    echo json_encode(['success' => false, 'message' => 'Invalid request.']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_quick_create.invalid_request')]);
     exit;
 }
 
@@ -41,5 +41,5 @@ try {
 
     echo json_encode(['success' => true, 'id' => $new_id, 'name_en' => $name_en, 'name_ko' => $name_ko]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'DB Error: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_quick_create.db_error', ['error' => $e->getMessage()])]);
 }

@@ -6,13 +6,13 @@ lc_require_staff();
 lc_verify_csrf();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_delete_supplier.method_not_allowed')]);
     exit;
 }
 
 $id = (int)($_POST['id'] ?? 0);
 if (!$id) {
-    echo json_encode(['success' => false, 'message' => 'Invalid supplier ID.']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_delete_supplier.invalid_supplier')]);
     exit;
 }
 
@@ -28,7 +28,7 @@ try {
 
     if ($used > 0) {
         $conn->close();
-        echo json_encode(['success' => false, 'message' => "Cannot delete: this supplier is referenced in {$used} inbound record(s)."]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_delete_supplier.in_use', ['count' => $used])]);
         exit;
     }
 
@@ -40,5 +40,5 @@ try {
 
     echo json_encode(['success' => true]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_delete_supplier.error', ['error' => $e->getMessage()])]);
 }

@@ -37,7 +37,7 @@ try {
         $orders[] = [
             'id'           => (int)$r['id'],
             'order_no'     => '#' . str_pad((string)$r['id'], 4, '0', STR_PAD_LEFT),
-            'store_name'   => $r['store_name'] !== null && $r['store_name'] !== '' ? $r['store_name'] : '(Unknown store)',
+            'store_name'   => $r['store_name'] !== null && $r['store_name'] !== '' ? $r['store_name'] : t('logistics.ajax_check_new_orders.unknown_store'),
             'total_amount' => (float)$r['total_amount'],
             'item_count'   => (int)$r['item_count'],
             'created_at'   => $r['created_at'],

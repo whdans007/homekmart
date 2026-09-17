@@ -18,7 +18,7 @@ if ($action === 'get_stores') {
         $conn->close();
         echo json_encode(['success' => true, 'stores' => $stores]);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
@@ -27,7 +27,7 @@ if ($action === 'get_stores') {
 // Design Ref: box-pcs-unit §4.2 — 단위별(BOX/PCS) 재고·유효단가 분리 응답
 if ($action === 'get_product_stock') {
     $product_id = (int)($_GET['product_id'] ?? 0);
-    if (!$product_id) { echo json_encode(['success' => false, 'message' => 'Invalid product']); exit; }
+    if (!$product_id) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.invalid_product')]); exit; }
     try {
         $conn = get_lc_db();
         $st = $conn->prepare(
@@ -58,7 +58,7 @@ if ($action === 'get_product_stock') {
         $conn->close();
         echo json_encode(['success' => true, 'product' => $product]);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
@@ -69,7 +69,7 @@ if ($action === 'get_fefo_preview') {
     $product_id = (int)($_GET['product_id'] ?? 0);
     $qty        = (int)($_GET['qty'] ?? 0);
     $unit       = lc_valid_unit($_GET['unit'] ?? '', LC_UNIT_PCS);
-    if (!$product_id || $qty <= 0) { echo json_encode(['success' => false, 'message' => 'Invalid request']); exit; }
+    if (!$product_id || $qty <= 0) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.invalid_request')]); exit; }
     try {
         $conn = get_lc_db();
         // Plan SC-5 — 동일 단위 lot에서만 피킹
@@ -82,7 +82,7 @@ if ($action === 'get_fefo_preview') {
             'suggest_break' => $preview['suggest_break'],
         ]);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
@@ -95,13 +95,13 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $notes    = trim($_POST['notes'] ?? '');
     $items    = json_decode($_POST['items'] ?? '[]', true);
 
-    if (!$store_id) { echo json_encode(['success' => false, 'message' => 'Please select the destination store.']); exit; }
-    if (!is_array($items) || empty($items)) { echo json_encode(['success' => false, 'message' => 'The cart is empty.']); exit; }
+    if (!$store_id) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.store_required')]); exit; }
+    if (!is_array($items) || empty($items)) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.cart_empty')]); exit; }
 
     $conn_check = get_lc_db();
     $is_center = lc_is_center_store($conn_check, $store_id);
     $conn_check->close();
-    if ($is_center) { echo json_encode(['success' => false, 'message' => 'The Logistics Center cannot be selected as the destination store.']); exit; }
+    if ($is_center) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.center_not_allowed')]); exit; }
 
     $cart = [];
     foreach ($items as $it) {
@@ -110,7 +110,7 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $unit = lc_valid_unit($it['unit'] ?? '', LC_UNIT_PCS); // Design §4.2 — items에 unit 필드
         if ($pid > 0 && $qty > 0) $cart[] = ['product_id' => $pid, 'quantity' => $qty, 'unit' => $unit];
     }
-    if (empty($cart)) { echo json_encode(['success' => false, 'message' => 'No valid products/quantities.']); exit; }
+    if (empty($cart)) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.no_valid_items')]); exit; }
 
     try {
         $conn = get_lc_db();
@@ -179,7 +179,7 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => true, 'order_id' => $order_id]);
     } catch (Exception $e) {
         if (isset($conn)) { $conn->rollback(); $conn->close(); }
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
@@ -247,14 +247,14 @@ if ($action === 'save_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $notes    = trim($_POST['notes'] ?? '');
     $cart     = lc_bo_parse_items($_POST['items'] ?? '[]');
 
-    if (!$store_id) { echo json_encode(['success' => false, 'message' => 'Please select the destination store.']); exit; }
-    if (empty($cart)) { echo json_encode(['success' => false, 'message' => 'Please add products to ship.']); exit; }
+    if (!$store_id) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.store_required')]); exit; }
+    if (empty($cart)) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.ship_items_required')]); exit; }
 
     try {
         $conn = get_lc_db();
         if (lc_is_center_store($conn, $store_id)) {
             $conn->close();
-            echo json_encode(['success' => false, 'message' => 'The Logistics Center cannot be selected as the destination store.']); exit;
+            echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.center_not_allowed')]); exit;
         }
         $conn->autocommit(false);
 
@@ -282,7 +282,7 @@ if ($action === 'save_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => true, 'draft_id' => $draft_id]);
     } catch (Exception $e) {
         if (isset($conn)) { $conn->rollback(); $conn->close(); }
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
@@ -290,7 +290,7 @@ if ($action === 'save_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 // 수정 모드 진입 시 장바구니 복원용
 if ($action === 'get_draft') {
     $draft_id = (int)($_GET['draft_id'] ?? 0);
-    if (!$draft_id) { echo json_encode(['success' => false, 'message' => 'Invalid draft']); exit; }
+    if (!$draft_id) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.invalid_draft')]); exit; }
     try {
         $conn = get_lc_db();
 
@@ -302,7 +302,7 @@ if ($action === 'get_draft') {
 
         if (!$order || $order['status'] !== 'draft') {
             $conn->close();
-            echo json_encode(['success' => false, 'message' => 'This shipment is not in pending status.']);
+            echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.not_pending')]);
             exit;
         }
 
@@ -331,7 +331,7 @@ if ($action === 'get_draft') {
             'items' => $items
         ]]);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
@@ -345,14 +345,14 @@ if ($action === 'update_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $notes    = trim($_POST['notes'] ?? '');
     $cart     = lc_bo_parse_items($_POST['items'] ?? '[]');
 
-    if (!$draft_id || !$store_id) { echo json_encode(['success' => false, 'message' => 'Invalid request.']); exit; }
-    if (empty($cart)) { echo json_encode(['success' => false, 'message' => 'Please add products to ship.']); exit; }
+    if (!$draft_id || !$store_id) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.invalid_request')]); exit; }
+    if (empty($cart)) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.ship_items_required')]); exit; }
 
     try {
         $conn = get_lc_db();
         if (lc_is_center_store($conn, $store_id)) {
             $conn->close();
-            echo json_encode(['success' => false, 'message' => 'The Logistics Center cannot be selected as the destination store.']); exit;
+            echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.center_not_allowed')]); exit;
         }
         $conn->autocommit(false);
 
@@ -364,7 +364,7 @@ if ($action === 'update_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $st->close();
         if (!$order || $order['status'] !== 'draft') {
             $conn->rollback(); $conn->close();
-            echo json_encode(['success' => false, 'message' => 'Only shipments in pending status can be edited.']);
+            echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.edit_pending_only')]);
             exit;
         }
 
@@ -385,7 +385,7 @@ if ($action === 'update_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
         if (isset($conn)) { $conn->rollback(); $conn->close(); }
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
@@ -395,7 +395,7 @@ if ($action === 'delete_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     lc_verify_csrf();
 
     $draft_id = (int)($_POST['draft_id'] ?? 0);
-    if (!$draft_id) { echo json_encode(['success' => false, 'message' => 'Invalid request.']); exit; }
+    if (!$draft_id) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.invalid_request')]); exit; }
 
     try {
         $conn = get_lc_db();
@@ -408,7 +408,7 @@ if ($action === 'delete_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $st->close();
         if (!$order || $order['status'] !== 'draft') {
             $conn->rollback(); $conn->close();
-            echo json_encode(['success' => false, 'message' => 'Only shipments in pending status can be deleted.']);
+            echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.delete_pending_only')]);
             exit;
         }
 
@@ -427,7 +427,7 @@ if ($action === 'delete_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
         if (isset($conn)) { $conn->rollback(); $conn->close(); }
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
@@ -439,7 +439,7 @@ if ($action === 'ship_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     lc_verify_csrf();
 
     $draft_id = (int)($_POST['draft_id'] ?? 0);
-    if (!$draft_id) { echo json_encode(['success' => false, 'message' => 'Invalid request.']); exit; }
+    if (!$draft_id) { echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.invalid_request')]); exit; }
 
     try {
         $conn = get_lc_db();
@@ -453,7 +453,7 @@ if ($action === 'ship_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $st->close();
         if (lc_is_center_store($conn, $draft_store_id)) {
             $conn->rollback(); $conn->close();
-            echo json_encode(['success' => false, 'message' => 'The Logistics Center cannot be selected as the destination store.']);
+            echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.center_not_allowed')]);
             exit;
         }
 
@@ -466,7 +466,7 @@ if ($action === 'ship_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($claimed === 0) {
             $conn->rollback(); $conn->close();
-            echo json_encode(['success' => false, 'message' => 'This shipment has already been processed or does not exist.']);
+            echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.already_processed')]);
             exit;
         }
 
@@ -478,7 +478,7 @@ if ($action === 'ship_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (empty($items)) {
             $conn->rollback(); $conn->close();
-            echo json_encode(['success' => false, 'message' => 'No items to ship.']);
+            echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.no_items_to_ship')]);
             exit;
         }
 
@@ -526,9 +526,9 @@ if ($action === 'ship_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => true, 'order_id' => $draft_id]);
     } catch (Exception $e) {
         if (isset($conn)) { $conn->rollback(); $conn->close(); }
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.error', ['error' => $e->getMessage()])]);
     }
     exit;
 }
 
-echo json_encode(['success' => false, 'message' => 'Unknown action']);
+echo json_encode(['success' => false, 'message' => t('logistics.ajax_branch_outbound.unknown_action')]);

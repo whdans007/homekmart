@@ -7,7 +7,7 @@ lc_require_staff();
 
 $product_id = (int)($_GET['product_id'] ?? 0);
 if (!$product_id) {
-    echo json_encode(['success' => false, 'message' => 'Invalid request']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_product_inbound_history.invalid_request')]);
     exit;
 }
 
@@ -24,7 +24,7 @@ try {
     $st->close();
 
     if (!$product) {
-        echo json_encode(['success' => false, 'message' => 'Product not found']);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_product_inbound_history.product_not_found')]);
         exit;
     }
 
@@ -57,5 +57,5 @@ try {
         'lots'    => $lots,
     ]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_product_inbound_history.error', ['error' => $e->getMessage()])]);
 }

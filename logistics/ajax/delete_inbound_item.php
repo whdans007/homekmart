@@ -6,14 +6,14 @@ lc_require_staff();
 
 $token = $_POST['csrf_token'] ?? '';
 if (!hash_equals($_SESSION['lc_csrf'] ?? '', $token)) {
-    echo json_encode(['success' => false, 'message' => 'Security error']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_delete_inbound_item.security_error')]);
     exit;
 }
 
 $inbound_id = (int)($_POST['inbound_id'] ?? 0);
 
 if (!$inbound_id) {
-    echo json_encode(['success' => false, 'message' => 'Invalid request']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_delete_inbound_item.invalid_request')]);
     exit;
 }
 
@@ -35,17 +35,17 @@ try {
 
     if (!$row) {
         $conn->close();
-        echo json_encode(['success' => false, 'message' => 'Invalid request']);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_delete_inbound_item.invalid_request')]);
         exit;
     }
     if ($row['is_confirmed']) {
         $conn->close();
-        echo json_encode(['success' => false, 'message' => 'This inbound record is locked and cannot be edited.']);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_delete_inbound_item.locked')]);
         exit;
     }
     if ($row['quantity_out'] > 0) {
         $conn->close();
-        echo json_encode(['success' => false, 'message' => 'Cannot delete: this item has already been shipped out.']);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_delete_inbound_item.already_shipped')]);
         exit;
     }
 
@@ -65,5 +65,5 @@ try {
     echo json_encode(['success' => true, 'remaining' => (int)$remaining]);
 } catch (Exception $e) {
     if (isset($conn)) { $conn->rollback(); $conn->close(); }
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_delete_inbound_item.error', ['error' => $e->getMessage()])]);
 }

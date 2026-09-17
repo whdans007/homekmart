@@ -27,5 +27,5 @@ try {
     $conn->close();
     echo json_encode(['success' => true, 'data' => $rows, 'days' => $days]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_get_expiry_alerts.error', ['error' => $e->getMessage()])]);
 }

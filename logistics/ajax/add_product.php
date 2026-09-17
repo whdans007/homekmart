@@ -9,7 +9,7 @@ lc_require_staff();
 
 $token = $_POST['csrf_token'] ?? '';
 if (!hash_equals($_SESSION['lc_csrf'] ?? '', $token)) {
-    echo json_encode(['success' => false, 'message' => 'Security error: Please try again.']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_add_product.security_error')]);
     exit;
 }
 
@@ -27,7 +27,7 @@ $min_stock         = max(0, (int)($_POST['min_stock'] ?? 0));
 $requires_expiry   = isset($_POST['requires_expiry']) ? 1 : 0;
 
 if ($name_en === '') {
-    echo json_encode(['success' => false, 'message' => 'Please enter the English product name.']);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_add_product.name_required')]);
     exit;
 }
 
@@ -37,7 +37,7 @@ if (isset($_FILES['image']) && ($_FILES['image']['error'] ?? UPLOAD_ERR_NO_FILE)
     $img_err = '';
     $image_path = lc_handle_product_image_upload($_FILES['image'], $img_err);
     if ($image_path === null && $img_err !== '') {
-        echo json_encode(['success' => false, 'message' => $img_err]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_add_product.image_error', ['error' => $img_err])]);
         exit;
     }
 }
@@ -49,7 +49,7 @@ try {
     $conflicts = lc_find_barcode_conflicts($conn, [$barcode_unit, $barcode_box, $barcode_logistics]);
     if (!empty($conflicts)) {
         $conn->close();
-        echo json_encode(['success' => false, 'message' => lc_format_barcode_conflict_msg($conflicts)]);
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_add_product.barcode_conflict', ['details' => lc_format_barcode_conflict_msg($conflicts)])]);
         exit;
     }
 
@@ -91,5 +91,5 @@ try {
         'barcode_unit'    => $barcode_unit,
     ]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'DB Error: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_add_product.db_error', ['error' => $e->getMessage()])]);
 }

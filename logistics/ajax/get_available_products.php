@@ -21,5 +21,5 @@ try {
     $conn->close();
     echo json_encode(['success' => true, 'data' => $rows]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => t('logistics.ajax_get_available_products.error', ['error' => $e->getMessage()])]);
 }
