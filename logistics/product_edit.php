@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Edit Product - Logistics Center';
+$page_title = t('logistics.product_edit.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/unit_helper.php'; // unit 검증(BOX/PCS만 허용)
@@ -57,12 +57,12 @@ try {
     $st->execute();
     $form = $st->get_result()->fetch_assoc();
     $st->close();
-    if (!$form) { $conn->close(); lc_set_flash('error','Product not found.'); header('Location: ' . $list_url); exit; }
+    if (!$form) { $conn->close(); lc_set_flash('error', t('logistics.product_edit.product_not_found')); header('Location: ' . $list_url); exit; }
     $brands     = $conn->query("SELECT id, name_en, name_ko FROM lc_brands ORDER BY name_en ASC")->fetch_all(MYSQLI_ASSOC);
     $categories = $conn->query("SELECT id, name_en, name_ko FROM lc_categories ORDER BY name_en ASC")->fetch_all(MYSQLI_ASSOC);
     $conn->close();
 } catch (Exception $e) {
-    lc_set_flash('error', 'DB Error: ' . $e->getMessage());
+    lc_set_flash('error', t('logistics.product_edit.db_error') . ': ' . $e->getMessage());
     header('Location: ' . $list_url); exit;
 }
 
@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 
         if ($cnt > 0) {
             $conn->close();
-            lc_set_flash('error', 'Cannot delete products with inbound/inventory/order history. Use deactivation instead.');
+            lc_set_flash('error', t('logistics.product_edit.delete_blocked')); 
             header('Location: ' . LC_BASE . '/product_edit.php?id=' . $id . $ret_q . $back_q);
             exit;
         }
@@ -92,11 +92,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         $st->bind_param('i', $id);
         $st->execute();
         $conn->close();
-        lc_set_flash('success', 'Product deleted successfully.');
+        lc_set_flash('success', t('logistics.product_edit.delete_success'));
         header('Location: ' . $list_url);
         exit;
     } catch (Exception $e) {
-        lc_set_flash('error', 'DB Error: ' . $e->getMessage());
+        lc_set_flash('error', t('logistics.product_edit.db_error') . ': ' . $e->getMessage());
         header('Location: ' . LC_BASE . '/product_edit.php?id=' . $id . $ret_q . $back_q);
         exit;
     }
@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $form['min_stock']        = max(0, (int)($_POST['min_stock'] ?? 0));
     $form['requires_expiry']  = isset($_POST['requires_expiry']) ? 1 : 0;
 
-    if ($form['name_en'] === '') $errors[] = 'Please enter the English product name.';
+    if ($form['name_en'] === '') $errors[] = t('logistics.product_edit.name_required');
 
     // 바코드 중복 검증 (3개 컬럼 교차 검사, 자기 자신 제외) — 다른 상품과 겹치면 저장 차단
     if (empty($errors)) {
@@ -130,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn_chk->close();
             if (!empty($conflicts)) $errors[] = lc_format_barcode_conflict_msg($conflicts);
         } catch (Exception $e) {
-            $errors[] = 'Barcode check error: ' . $e->getMessage();
+            $errors[] = t('logistics.product_edit.barcode_check_error') . ': ' . $e->getMessage();
         }
     }
 
@@ -180,19 +180,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($categories as $c) $cat_map[$c['id']] = $c['name_en'] . ($c['name_ko'] ? ' ('.$c['name_ko'].')' : '');
 
             $tracked = [
-                'name_en'          => 'English Name',
-                'name_ko'          => 'Korean Name',
-                'capacity'         => 'Capacity',
-                'brand_id'         => 'Brand',
-                'category_id'      => 'Category',
-                'unit'             => 'Unit',
-                'pieces_per_box'   => 'Units per Box',
-                'barcode_unit'     => 'Barcode',
-                'barcode_box'      => 'Box Code',
-                'barcode_logistics'=> 'Logistics Code',
-                'min_stock'        => 'Min Stock',
-                'requires_expiry'  => 'Expiry Required',
-                'image_path'       => 'Product Image',
+                'name_en'          => t('logistics.product_edit.english_name'),
+                'name_ko'          => t('logistics.product_edit.korean_name'),
+                'capacity'         => t('logistics.product_edit.capacity'),
+                'brand_id'         => t('logistics.product_edit.brand'),
+                'category_id'      => t('logistics.product_edit.category'),
+                'unit'             => t('logistics.product_edit.unit'),
+                'pieces_per_box'   => t('logistics.product_edit.units_per_box'),
+                'barcode_unit'     => t('logistics.product_edit.barcode'),
+                'barcode_box'      => t('logistics.product_edit.box_code'),
+                'barcode_logistics'=> t('logistics.product_edit.logistics_code'),
+                'min_stock'        => t('logistics.product_edit.minimum_stock'),
+                'requires_expiry'  => t('logistics.product_edit.expiry_required'),
+                'image_path'       => t('logistics.product_edit.product_image'),
             ];
 
             $sh = $conn->prepare(
@@ -213,8 +213,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $old_raw = $old_raw ? ($cat_map[$old_raw] ?? "ID:{$old_raw}") : '';
                     $new_raw = $new_raw ? ($cat_map[$new_raw] ?? "ID:{$new_raw}") : '';
                 } elseif ($field === 'requires_expiry') {
-                    $old_raw = $old_raw ? 'Yes' : 'No';
-                    $new_raw = $new_raw ? 'Yes' : 'No';
+                    $old_raw = $old_raw ? t('logistics.product_edit.yes') : t('logistics.product_edit.no');
+                    $new_raw = $new_raw ? t('logistics.product_edit.yes') : t('logistics.product_edit.no');
                 } elseif ($field === 'image_path') {
                     // 경로 전체 대신 등록/제거 여부로 표기
                     $old_raw = $old_raw ? basename($old_raw) : '';
@@ -229,18 +229,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sh->close();
 
             $conn->close();
-            lc_set_flash('success', 'Updated successfully.');
+            lc_set_flash('success', t('logistics.product_edit.update_success'));
             header('Location: ' . $list_url);
             exit;
         } catch (Exception $e) {
-            $errors[] = 'DB Error: ' . $e->getMessage();
+            $errors[] = t('logistics.product_edit.db_error') . ': ' . $e->getMessage();
         }
     }
 }
 ?>
 <div class="flex items-center gap-3 mb-6">
     <a href="<?php echo htmlspecialchars($list_url); ?>" class="text-gray-400 hover:text-gray-600"><i class="fas fa-arrow-left"></i></a>
-    <h2 class="text-xl font-bold text-gray-900">Edit Product</h2>
+    <h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.product_edit.title')); ?></h2>
 </div>
 <?php if (!empty($errors)): ?>
 <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
@@ -255,26 +255,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <input type="hidden" name="remove_image" id="removeImageFlag" value="0">
 
         <div class="border-b border-gray-100 pb-5">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3">Product Name</h3>
+            <h3 class="text-sm font-semibold text-gray-700 mb-3"><?php echo htmlspecialchars(t('logistics.product_edit.product_name')); ?></h3>
             <div class="space-y-3">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">English Name <span class="text-red-500">*</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_edit.english_name')); ?> <span class="text-red-500">*</span></label>
                     <input type="text" name="name_en" id="prodNameEn" value="<?php echo htmlspecialchars($form['name_en']); ?>" required
                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Korean Name <span class="text-xs text-gray-400 font-normal">(Korean products only)</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_edit.korean_name')); ?> <span class="text-xs text-gray-400 font-normal"><?php echo htmlspecialchars(t('logistics.product_edit.korean_only')); ?></span></label>
                     <div class="flex gap-2">
                         <input type="text" name="name_ko" id="prodNameKo" value="<?php echo htmlspecialchars($form['name_ko'] ?? ''); ?>"
                                class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-                        <button type="button" id="prodRomanizeBtn" onclick="romanizeKoreanName()" title="한글을 영문 발음(로마자)으로 변환"
+                        <button type="button" id="prodRomanizeBtn" onclick="romanizeKoreanName()" title="<?php echo htmlspecialchars(t('logistics.product_edit.romanize_title')); ?>"
                                 class="px-3 py-2 text-xs font-semibold rounded-md whitespace-nowrap transition-colors"
                                 style="background:#f3e8ff;color:#7e22ce;">
-                            발음 ▶ English
+                            <?php echo htmlspecialchars(t('logistics.product_edit.romanize')); ?>
                         </button>
                         <button type="button" id="prodTranslateBtn" onclick="translateProdName()"
                                 class="px-3 py-2 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 whitespace-nowrap transition-colors">
-                            Translate ▶ English
+                            <?php echo htmlspecialchars(t('logistics.product_edit.translate_english')); ?>
                         </button>
                     </div>
                 </div>
@@ -282,7 +282,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <div class="border-b border-gray-100 pb-5">
-            <h3 class="text-sm font-semibold text-gray-700 mb-3"><i class="fas fa-image text-gray-400 mr-1"></i>Product Image</h3>
+            <h3 class="text-sm font-semibold text-gray-700 mb-3"><i class="fas fa-image text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.product_edit.product_image')); ?></h3>
             <div class="flex items-start gap-4">
                 <?php $cur_img = !empty($form['image_path']) ? (LC_BASE . '/' . $form['image_path']) : ''; ?>
                 <div id="imgThumbWrap" class="w-28 h-28 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0 <?php echo $cur_img ? 'cursor-pointer' : ''; ?>"
@@ -294,10 +294,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="flex-1">
                     <input type="file" name="image" id="imageInput" accept="image/jpeg,image/png,image/webp,image/gif"
                            class="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
-                    <p class="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, GIF · max 5MB. Click the thumbnail to enlarge.</p>
+                    <p class="text-xs text-gray-400 mt-1"><?php echo htmlspecialchars(t('logistics.product_edit.image_help')); ?></p>
                     <button type="button" id="removeImageBtn" onclick="removeProductImage()"
                             class="mt-2 text-xs text-red-600 hover:text-red-700 <?php echo $cur_img ? '' : 'hidden'; ?>">
-                        <i class="fas fa-trash-alt mr-1"></i>Remove image
+                        <i class="fas fa-trash-alt mr-1"></i><?php echo htmlspecialchars(t('logistics.product_edit.remove_image')); ?>
                     </button>
                 </div>
             </div>
@@ -306,40 +306,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="border-b border-gray-100 pb-5">
             <div class="gap-4" style="display:grid; grid-template-columns:1fr 2fr 2fr; gap:1rem;">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_edit.capacity')); ?></label>
                     <input type="text" name="capacity" value="<?php echo htmlspecialchars($form['capacity'] ?? ''); ?>"
-                           placeholder="E.g.: 500ml, 1kg, 20ea"
+                           placeholder="<?php echo htmlspecialchars(t('logistics.product_edit.capacity_placeholder')); ?>"
                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_edit.brand')); ?></label>
                     <div class="flex gap-2">
                         <div class="relative flex-1">
                             <input type="hidden" name="brand_id" id="brandIdHidden" value="<?php echo (int)$form['brand_id']; ?>">
-                            <input type="text" id="brandSearch" autocomplete="off" placeholder="Search brand..."
+                            <input type="text" id="brandSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.product_edit.brand_placeholder')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                             <div id="brandDropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                                 <ul id="brandList" class="py-1"></ul>
                             </div>
                         </div>
-                        <button type="button" onclick="openQuickCreate('brand')" title="Add New Brand"
+                        <button type="button" onclick="openQuickCreate('brand')" title="<?php echo htmlspecialchars(t('logistics.product_edit.add_brand')); ?>"
                                 class="shrink-0 px-3 py-2 bg-teal-50 border border-teal-300 text-teal-700 rounded-md hover:bg-teal-100 transition-colors text-sm">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_edit.category')); ?></label>
                     <div class="flex gap-2">
                         <div class="relative flex-1">
                             <input type="hidden" name="category_id" id="catIdHidden" value="<?php echo (int)$form['category_id']; ?>">
-                            <input type="text" id="catSearch" autocomplete="off" placeholder="Search category..."
+                            <input type="text" id="catSearch" autocomplete="off" placeholder="<?php echo htmlspecialchars(t('logistics.product_edit.category_placeholder')); ?>"
                                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                             <div id="catDropdown" class="hidden absolute z-10 top-full left-0 right-0 mt-0.5 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                                 <ul id="catList" class="py-1"></ul>
                             </div>
                         </div>
-                        <button type="button" onclick="openQuickCreate('category')" title="Add New Category"
+                        <button type="button" onclick="openQuickCreate('category')" title="<?php echo htmlspecialchars(t('logistics.product_edit.add_category')); ?>"
                                 class="shrink-0 px-3 py-2 bg-teal-50 border border-teal-300 text-teal-700 rounded-md hover:bg-teal-100 transition-colors text-sm">
                             <i class="fas fa-plus"></i>
                         </button>
@@ -351,7 +351,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="border-b border-gray-100 pb-5">
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_edit.unit')); ?></label>
                     <?php $cur_unit = $form['unit'] !== '' ? $form['unit'] : 'BOX'; ?>
                     <select name="unit"
                             class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
@@ -364,7 +364,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Units per Box(PKG)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_edit.units_per_box')); ?></label>
                     <input type="number" name="pieces_per_box" value="<?php echo $form['pieces_per_box']; ?>" min="1"
                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                 </div>
@@ -374,19 +374,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="border-b border-gray-100 pb-5">
             <div class="grid grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-barcode text-gray-400 mr-1"></i>Barcode</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-barcode text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.product_edit.barcode')); ?></label>
                     <input type="text" name="barcode_unit" id="barcodeUnitInput" value="<?php echo htmlspecialchars($form['barcode_unit'] ?? ''); ?>"
                            autocomplete="off"
                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-box text-gray-400 mr-1"></i>Box Code</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-box text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.product_edit.box_code')); ?></label>
                     <input type="text" name="barcode_box" id="barcodeBoxInput" value="<?php echo htmlspecialchars($form['barcode_box'] ?? ''); ?>"
                            autocomplete="off"
                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-warehouse text-gray-400 mr-1"></i>Logistics Code</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-warehouse text-gray-400 mr-1"></i><?php echo htmlspecialchars(t('logistics.product_edit.logistics_code')); ?></label>
                     <input type="text" name="barcode_logistics" id="barcodeLogisticsInput" value="<?php echo htmlspecialchars($form['barcode_logistics'] ?? ''); ?>"
                            autocomplete="off"
                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
@@ -396,7 +396,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="grid grid-cols-4 gap-4 items-start pb-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Minimum Stock</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.product_edit.minimum_stock')); ?></label>
                 <input type="number" name="min_stock" value="<?php echo $form['min_stock']; ?>" min="0"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
@@ -405,8 +405,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                        <?php echo !empty($form['requires_expiry']) ? 'checked' : ''; ?>
                        class="mt-0.5 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-400">
                 <label for="requiresExpiry" class="cursor-pointer">
-                    <span class="text-sm font-medium text-gray-800">Expiry Date Required</span>
-                    <p class="text-xs text-gray-500 mt-0.5">When checked, expiry date must be entered when receiving this product.</p>
+                    <span class="text-sm font-medium text-gray-800"><?php echo htmlspecialchars(t('logistics.product_edit.expiry_required')); ?></span>
+                    <p class="text-xs text-gray-500 mt-0.5"><?php echo htmlspecialchars(t('logistics.product_edit.expiry_help')); ?></p>
                 </label>
             </div>
         </div>
@@ -414,13 +414,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="flex items-center justify-between pt-2">
             <div class="flex gap-3">
                 <button type="submit" class="px-6 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700">
-                    <i class="fas fa-save mr-2"></i>Save
+                    <i class="fas fa-save mr-2"></i><?php echo htmlspecialchars(t('logistics.product_edit.save')); ?>
                 </button>
-                <a href="<?php echo htmlspecialchars($list_url); ?>" class="px-6 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">Cancel</a>
+                <a href="<?php echo htmlspecialchars($list_url); ?>" class="px-6 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.product_edit.cancel')); ?></a>
             </div>
             <button type="button" onclick="openDeleteModal()"
                     class="px-4 py-2 text-red-600 border border-red-200 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors">
-                <i class="fas fa-trash-alt mr-1.5"></i>Delete
+                <i class="fas fa-trash-alt mr-1.5"></i><?php echo htmlspecialchars(t('logistics.product_edit.delete')); ?>
             </button>
         </div>
     </form>
@@ -465,7 +465,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         var text = koInput.value.trim();
         if (!text) { koInput.focus(); return; }
 
-        btn.textContent = 'Translating…';
+        btn.textContent = <?php echo json_encode(t('logistics.product_edit.translating'), JSON_UNESCAPED_UNICODE); ?>;
         btn.disabled = true;
 
         fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=ko|en')
@@ -475,14 +475,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     enInput.value = data.responseData.translatedText.toUpperCase();
                     enInput.focus();
                 } else {
-                    alert('Translation failed: Please try again.');
+                    alert(<?php echo json_encode(t('logistics.product_edit.translation_failed'), JSON_UNESCAPED_UNICODE); ?>);
                 }
             })
             .catch(function() {
-                alert('Cannot connect to translation service.');
+                alert(<?php echo json_encode(t('logistics.product_edit.translation_unavailable'), JSON_UNESCAPED_UNICODE); ?>);
             })
             .finally(function() {
-                btn.textContent = 'Translate ▶ English';
+                btn.textContent = <?php echo json_encode(t('logistics.product_edit.translate_english'), JSON_UNESCAPED_UNICODE); ?>;
                 btn.disabled = false;
             });
     };
@@ -564,18 +564,18 @@ document.querySelector('form').addEventListener('keydown', function(e) {
                 <i class="fas fa-exclamation-triangle text-white"></i>
             </div>
             <div>
-                <h3 class="text-sm font-semibold text-red-700">Duplicate Code Detected</h3>
+                <h3 class="text-sm font-semibold text-red-700"><?php echo htmlspecialchars(t('logistics.product_edit.duplicate_code')); ?></h3>
                 <p id="duplicateCodeMessage" class="text-xs text-red-600 mt-0.5"></p>
             </div>
         </div>
         <div class="flex gap-3">
             <a id="duplicateCodeViewLink" href="#" target="_blank"
                class="flex-1 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors text-center">
-                View Product
+                 <?php echo htmlspecialchars(t('logistics.product_edit.view_product')); ?>
             </a>
             <button type="button" onclick="closeDuplicateCodeModal()"
                     class="flex-1 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
-                Close
+                 <?php echo htmlspecialchars(t('logistics.product_edit.close')); ?>
             </button>
         </div>
     </div>
@@ -589,20 +589,20 @@ document.querySelector('form').addEventListener('keydown', function(e) {
                 <i class="fas fa-trash-alt text-red-600"></i>
             </div>
             <div>
-                <h3 class="text-sm font-semibold text-gray-900">Delete Product</h3>
+                <h3 class="text-sm font-semibold text-gray-900"><?php echo htmlspecialchars(t('logistics.product_edit.delete_product')); ?></h3>
                 <p class="text-xs text-gray-500 mt-0.5"><?php echo htmlspecialchars($form['name_en']); ?></p>
             </div>
         </div>
-        <p class="text-sm text-gray-600 mb-1">Permanently delete this product?</p>
-        <p class="text-xs text-gray-400 mb-5">Cannot delete if inbound/inventory/order history exists.</p>
+        <p class="text-sm text-gray-600 mb-1"><?php echo htmlspecialchars(t('logistics.product_edit.delete_confirm')); ?></p>
+        <p class="text-xs text-gray-400 mb-5"><?php echo htmlspecialchars(t('logistics.product_edit.delete_history_warning')); ?></p>
         <div class="flex gap-3">
             <button type="button" onclick="confirmDelete()"
                     class="flex-1 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors">
-                Delete
+                <?php echo htmlspecialchars(t('logistics.product_edit.delete')); ?>
             </button>
             <button type="button" onclick="closeDeleteModal()"
                     class="flex-1 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
-                Cancel
+                <?php echo htmlspecialchars(t('logistics.product_edit.cancel')); ?>
             </button>
         </div>
     </div>
@@ -638,8 +638,8 @@ try {
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mt-5" style="max-width:63rem;">
     <div class="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
         <i class="fas fa-history text-gray-400 text-sm"></i>
-        <span class="text-sm font-semibold text-gray-700">Change History</span>
-        <span class="ml-auto text-xs text-gray-400"><?php echo count($history); ?> item(s)</span>
+        <span class="text-sm font-semibold text-gray-700"><?php echo htmlspecialchars(t('logistics.product_edit.change_history')); ?></span>
+        <span class="ml-auto text-xs text-gray-400"><?php echo htmlspecialchars(t('logistics.product_edit.history_count', ['count' => count($history)])); ?></span>
     </div>
     <div class="divide-y divide-gray-50">
     <?php foreach ($history as $h): ?>
@@ -661,12 +661,12 @@ try {
                 <?php if ($h['action'] === 'create'): ?>
                 <p class="text-sm text-gray-700">
                     <span class="font-medium"><?php echo htmlspecialchars($h['user_name']); ?></span>
-                    registered this product.
+                    <?php echo htmlspecialchars(t('logistics.product_edit.history_registered')); ?>
                 </p>
                 <?php else: ?>
                 <p class="text-sm text-gray-700">
                     <span class="font-medium"><?php echo htmlspecialchars($h['user_name']); ?></span>
-                    changed <span class="font-medium text-gray-900"><?php echo htmlspecialchars($h['field_label']); ?></span>.
+                    <?php echo htmlspecialchars(t('logistics.product_edit.history_changed')); ?> <span class="font-medium text-gray-900"><?php echo htmlspecialchars($h['field_label']); ?></span>.
                 </p>
                 <div class="flex items-center gap-2 mt-1 text-xs">
                     <span class="px-2 py-0.5 bg-red-50 text-red-600 rounded line-through"><?php echo htmlspecialchars($h['old_value'] ?: '(none)'); ?></span>
@@ -716,7 +716,7 @@ try {
             listEl.innerHTML = ''; _focusIdx = -1;
             var q = (filter || '').toLowerCase();
             _filtered = data.filter(function(i) { return !q || lbl(i).toLowerCase().indexOf(q) !== -1; });
-            if (!_filtered.length) { listEl.innerHTML = '<li class="px-3 py-2 text-sm text-gray-400">No results</li>'; return; }
+            if (!_filtered.length) { listEl.innerHTML = '<li class="px-3 py-2 text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.product_edit.no_results'), ENT_QUOTES); ?></li>'; return; }
             _filtered.forEach(function(item) {
                 var li = document.createElement('li');
                 li.className = 'px-3 py-2 text-sm cursor-pointer hover:bg-teal-50 hover:text-teal-700';
@@ -784,7 +784,7 @@ try {
         <!-- 헤더: 제목 + 닫기 -->
         <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
             <span id="lightboxTitle" class="text-sm font-semibold text-gray-800 truncate pr-2"></span>
-            <button type="button" onclick="closeImageLightbox()" title="Close"
+            <button type="button" onclick="closeImageLightbox()" title="<?php echo htmlspecialchars(t('logistics.product_edit.close')); ?>"
                     class="text-gray-400 hover:text-gray-700 text-lg flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100">
                 <i class="fas fa-times"></i>
             </button>
@@ -797,7 +797,7 @@ try {
         <div class="px-4 py-3 border-t border-gray-100 flex justify-end">
             <button type="button" onclick="closeImageLightbox()"
                     class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
-                Close
+                <?php echo htmlspecialchars(t('logistics.product_edit.close')); ?>
             </button>
         </div>
     </div>
