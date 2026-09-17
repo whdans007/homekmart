@@ -34,4 +34,16 @@ $command = "$quotedMysql --host=127.0.0.1 --port=$Port --user=root $Database < $
 cmd.exe /d /s /c $command
 if ($LASTEXITCODE -ne 0) { throw 'The SQL dump import failed.' }
 
+$localConfigPath = Join-Path $repoRoot 'config\db_config.local.php'
+ $localConfig = @"
+<?php
+// Generated for the local Laragon test server. This file is ignored by Git.
+define('DB_HOST', '127.0.0.1');
+define('DB_NAME', '$Database');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_CHARSET', 'utf8mb4');
+"@
+[System.IO.File]::WriteAllText($localConfigPath, $localConfig, [System.Text.UTF8Encoding]::new($false))
+
 Write-Host "Local database '$Database' is ready."
