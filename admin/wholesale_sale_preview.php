@@ -461,6 +461,9 @@ if (isset($_SESSION['flash'])) {
                         <button type="button" id="pdf-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed">
                             <i class="fas fa-file-pdf mr-1.5"></i><?php echo t('wholesale_sale_preview.pdf_download_btn'); ?>
                         </button>
+                        <button type="button" id="image-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-image mr-1.5"></i><?php echo t('wholesale_sale_preview.image_download_btn'); ?>
+                        </button>
                         <button id="print-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
                             <i class="fas fa-print mr-1.5"></i><?php echo t('common.print'); ?>
                         </button>
@@ -851,7 +854,9 @@ if (isset($_SESSION['flash'])) {
 #invoice-content,
 #invoice-content * { color: #000 !important; }
 #invoice-content #pdf-btn,
-#invoice-content #pdf-btn * { color: #fff !important; }
+#invoice-content #pdf-btn *,
+#invoice-content #image-btn,
+#invoice-content #image-btn * { color: #fff !important; }
 
 /* 인쇄 미리보기 모달 스타일 - 폰트 9px 통일 */
 .print-preview-wrapper {
@@ -1188,6 +1193,42 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // 거래명세서 화면에서 인쇄용 내용을 PNG 이미지로 저장한다.
+    const imageBtn = document.getElementById('image-btn');
+    if (imageBtn) {
+        imageBtn.addEventListener('click', async function() {
+            const content = renderPrintContent();
+            if (!content) return;
+            let pdfFactory;
+            try {
+                pdfFactory = await loadHtml2Pdf();
+                if (typeof window.html2canvas !== 'function') throw new Error('html2canvas is unavailable');
+            } catch (error) {
+                alert(<?php echo json_encode(t('wholesale_sale_preview.image_load_error'), JSON_UNESCAPED_UNICODE); ?>);
+                return;
+            }
+
+            imageBtn.disabled = true;
+            try {
+                const canvas = await window.html2canvas(content, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    logging: false
+                });
+                const link = document.createElement('a');
+                link.download = 'wholesale-sale-<?php echo (int)$sale_id; ?>.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch (error) {
+                console.error('Image download failed:', error);
+                alert(<?php echo json_encode(t('wholesale_sale_preview.image_save_error'), JSON_UNESCAPED_UNICODE); ?>);
+            } finally {
+                imageBtn.disabled = false;
+            }
+        });
+    }
+
     // 인쇄 미리보기 모달 - 인쇄 버튼
     const modalPrintBtn = document.getElementById('modal-print-btn');
     if (modalPrintBtn) {
@@ -1341,6 +1382,7 @@ document.addEventListener('DOMContentLoaded', function() {
     footer,
     .no-print,
     #pdf-btn,
+    #image-btn,
     #print-btn,
     #delete-btn,
     #delete-modal,
