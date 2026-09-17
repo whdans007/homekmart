@@ -362,12 +362,12 @@ if (isset($_SESSION['flash'])) {
                                 <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" style="width:23%;"><?php echo htmlspecialchars($tx['store_name'] ?: '-'); ?></td>
                                 <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200" style="width:12%;">전화</th>
                                 <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" style="width:18%;"><?php echo htmlspecialchars($tx['store_phone'] ?: '-'); ?></td>
-                                <td class="px-3 py-2 text-xs text-gray-500 border-b border-gray-200" style="width:35%; vertical-align: middle;">판매가격은 구매 시점에 따라 변경 될 수 있습니다.</td>
+                                <td lang="ko" translate="no" class="px-3 py-2 text-xs text-gray-500 border-b border-gray-200" style="width:35%; vertical-align: middle;">판매가격은 구매 시점에 따라 변경 될 수 있습니다.</td>
                             </tr>
                             <tr>
                                 <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-b border-r border-gray-200">주소</th>
                                 <td class="px-3 py-2 text-sm text-gray-900 border-b border-r border-gray-200" colspan="3"><?php echo htmlspecialchars($tx['store_address'] ?: '-'); ?></td>
-                                <td class="px-3 py-2 text-xs text-gray-500 border-b border-gray-200" style="vertical-align: middle;">계산대에서 개별 구매시 가격은 일치 하지 않습니다.</td>
+                                <td lang="ko" translate="no" class="px-3 py-2 text-xs text-gray-500 border-b border-gray-200" style="vertical-align: middle;">계산대에서 개별 구매시 가격은 일치 하지 않습니다.</td>
                             </tr>
                             <tr>
                                 <th class="bg-gray-50 px-2 py-2 text-left text-sm font-medium text-gray-700 border-r border-gray-200">계좌번호</th>
