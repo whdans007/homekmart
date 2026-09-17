@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Order List - Logistics Center';
+$page_title = t('logistics.orders.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/inventory_helper.php';
@@ -10,7 +10,7 @@ lc_require_login();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'restore') {
     lc_verify_csrf();
     if (!lc_is_admin()) {
-        lc_set_flash('error', 'Access denied.');
+        lc_set_flash('error', t('logistics.orders.access_denied'));
         header('Location: ' . LC_BASE . '/orders.php'); exit;
     }
     $restore_id = (int)($_POST['order_id'] ?? 0);
@@ -20,9 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'resto
         $st->bind_param('i', $restore_id);
         $st->execute();
         if ($st->affected_rows > 0) {
-            lc_set_flash('success', "Order #" . str_pad($restore_id, 4, '0', STR_PAD_LEFT) . " restored.");
+            lc_set_flash('success', t('logistics.orders.restored', ['id' => str_pad($restore_id, 4, '0', STR_PAD_LEFT)]));
         } else {
-            lc_set_flash('error', 'This order is not deleted.');
+            lc_set_flash('error', t('logistics.orders.not_deleted'));
         }
         $st->close();
         $conn->close();
@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'resto
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
     lc_verify_csrf();
     if (!lc_is_admin()) {
-        lc_set_flash('error', 'Access denied.');
+        lc_set_flash('error', t('logistics.orders.access_denied'));
         header('Location: ' . LC_BASE . '/orders.php'); exit;
     }
     $del_id = (int)($_POST['order_id'] ?? 0);
@@ -66,10 +66,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
             $st = $conn->prepare("DELETE FROM lc_orders WHERE id = ?");
             $st->bind_param('i', $del_id); $st->execute(); $st->close();
             $conn->commit(); $conn->close();
-            lc_set_flash('success', "Order #" . str_pad($del_id, 4, '0', STR_PAD_LEFT) . " deleted and inventory restored.");
+        lc_set_flash('success', t('logistics.orders.deleted_restored', ['id' => str_pad($del_id, 4, '0', STR_PAD_LEFT)]));
         } catch (Exception $e) {
             if (isset($conn)) { $conn->rollback(); $conn->close(); }
-            lc_set_flash('error', 'DB Error: ' . $e->getMessage());
+        lc_set_flash('error', t('logistics.orders.db_error', ['message' => $e->getMessage()]));
         }
     }
     $sf = (int)($_POST['store_filter'] ?? 0);
@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deliver') {
     lc_verify_csrf();
     if (!lc_is_admin()) {
-        lc_set_flash('error', 'Access denied.');
+        lc_set_flash('error', t('logistics.orders.access_denied'));
         header('Location: ' . LC_BASE . '/orders.php'); exit;
     }
     $dlv_id = (int)($_POST['order_id'] ?? 0);
@@ -97,15 +97,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deliv
             $st->bind_param('ssi', $now, $now, $dlv_id);
             $st->execute();
             if ($st->affected_rows > 0) {
-                lc_set_flash('success', "Order #" . str_pad($dlv_id, 4, '0', STR_PAD_LEFT) . " marked as delivered.");
+        lc_set_flash('success', t('logistics.orders.delivered_success', ['id' => str_pad($dlv_id, 4, '0', STR_PAD_LEFT)]));
             } else {
-                lc_set_flash('error', 'Only approved or shipped orders can be marked as delivered.');
+        lc_set_flash('error', t('logistics.orders.deliver_invalid'));
             }
             $st->close();
             $conn->close();
         } catch (Exception $e) {
             if (isset($conn)) { $conn->close(); }
-            lc_set_flash('error', 'DB Error: ' . $e->getMessage());
+        lc_set_flash('error', t('logistics.orders.db_error', ['message' => $e->getMessage()]));
         }
     }
     $sf = (int)($_POST['store_filter'] ?? 0);
@@ -195,9 +195,9 @@ try {
     $db_error = $e->getMessage(); $orders = []; $total = 0; $total_pages = 1;
 }
 
-$statuses = ['all' => 'All', 'pending' => 'Pending', 'approved' => 'Approved', 'cancel_requested' => 'Cancel Requested', 'shipped' => 'Shipped', 'delivered' => 'Delivered', 'cancelled' => 'Cancelled'];
+$statuses = ['all' => t('logistics.orders.all'), 'pending' => t('logistics.orders.pending'), 'approved' => t('logistics.orders.approved'), 'cancel_requested' => t('logistics.orders.cancel_requested'), 'shipped' => t('logistics.orders.shipped'), 'delivered' => t('logistics.orders.delivered'), 'cancelled' => t('logistics.orders.cancelled')];
 if (lc_is_admin()) {
-    $statuses['deleted'] = 'Deleted';
+    $statuses['deleted'] = t('logistics.orders.deleted');
 }
 ?>
 
@@ -209,13 +209,13 @@ main { overflow: hidden !important; }
 
 <!-- 페이지 헤더 -->
 <div class="flex items-center justify-between shrink-0">
-    <h2 class="text-xl font-bold text-gray-900">Order List</h2>
+    <h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.orders.title')); ?></h2>
     <div class="flex items-center gap-2">
         <button type="button" onclick="openPrintPreview()"
-           class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"><i class="fas fa-print mr-1"></i>Print</button>
+           class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"><i class="fas fa-print mr-1"></i><?php echo htmlspecialchars(t('logistics.orders.print')); ?></button>
         <?php if (lc_is_store_user()): ?>
         <a href="<?php echo LC_BASE; ?>/order_new.php" class="inline-flex items-center px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
-            <i class="fas fa-plus mr-2"></i>Place Order
+            <i class="fas fa-plus mr-2"></i><?php echo htmlspecialchars(t('logistics.orders.place_order')); ?>
         </a>
         <?php endif; ?>
     </div>
@@ -245,12 +245,12 @@ main { overflow: hidden !important; }
 <!-- 테이블 카드 -->
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
     <div class="px-4 py-3 border-b border-gray-100 shrink-0 flex items-center gap-3 flex-wrap">
-        <span class="text-sm text-gray-500 whitespace-nowrap">Total <?php echo number_format($total); ?></span>
+        <span class="text-sm text-gray-500 whitespace-nowrap"><?php echo htmlspecialchars(t('logistics.orders.total', ['count' => number_format($total)])); ?></span>
         <?php if (lc_is_staff() && !empty($stores)): ?>
         <div class="flex gap-1.5 flex-wrap items-center">
             <a href="?status=<?php echo urlencode($status_filter); ?>"
                class="px-2.5 py-1 text-xs rounded-full border transition-colors <?php echo $store_filter === 0 ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'; ?>">
-                <i class="fas fa-store mr-1"></i>All Stores
+                <i class="fas fa-store mr-1"></i><?php echo htmlspecialchars(t('logistics.orders.all_stores')); ?>
             </a>
             <?php foreach ($stores as $s): ?>
             <a href="?status=<?php echo urlencode($status_filter); ?>&store=<?php echo (int)$s['id']; ?>"
@@ -264,24 +264,24 @@ main { overflow: hidden !important; }
     <div class="overflow-auto flex-1 min-h-0">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 sticky top-0 z-10"><tr>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Order Number</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Order Date</th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.orders.order_number')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.orders.order_date')); ?></th>
                 <?php if (lc_is_staff()): ?>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Store</th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.orders.store')); ?></th>
                 <?php endif; ?>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Status</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Item Count</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Total Amount</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Ordered By</th>
+                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.orders.status')); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.orders.item_count')); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.orders.total_amount')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.orders.ordered_by')); ?></th>
                 <?php if (lc_is_admin()): ?>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium w-32">Actions</th>
+                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium w-32"><?php echo htmlspecialchars(t('logistics.orders.actions')); ?></th>
                 <?php endif; ?>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php if (empty($orders)): ?>
             <tr><td colspan="7" class="px-4 py-10 text-center text-gray-400">
                 <i class="fas fa-clipboard-list text-3xl mb-2 block text-gray-300"></i>
-                No orders found.
+                <?php echo htmlspecialchars(t('logistics.orders.empty')); ?>
             </td></tr>
             <?php endif; ?>
             <?php foreach ($orders as $o): ?>
@@ -298,10 +298,10 @@ main { overflow: hidden !important; }
                 <?php endif; ?>
                 <td class="px-4 py-3 text-center">
                     <span class="text-xs px-2 py-1 rounded-full font-medium <?php echo lc_status_class($o['status']); ?>">
-                        <?php echo lc_status_label($o['status']); ?>
+                        <?php echo htmlspecialchars($statuses[$o['status']] ?? $o['status']); ?>
                     </span>
                 </td>
-                <td class="px-4 py-3 text-right text-gray-600"><?php echo $o['item_count']; ?> items</td>
+                <td class="px-4 py-3 text-right text-gray-600"><?php echo htmlspecialchars(t('logistics.orders.items_count', ['count' => $o['item_count']])); ?></td>
                 <td class="px-4 py-3 text-right font-semibold"><?php echo number_format($o['total_amount'], 2); ?></td>
                 <td class="px-4 py-3 text-gray-500 text-xs"><?php echo htmlspecialchars($o['created_by_name'] ?? '-'); ?></td>
                 <?php if (lc_is_admin()): ?>
@@ -315,9 +315,9 @@ main { overflow: hidden !important; }
                         <input type="hidden" name="status_filter" value="<?php echo htmlspecialchars($status_filter); ?>">
                         <input type="hidden" name="store_filter" value="<?php echo (int)$store_filter; ?>">
                         <button type="submit"
-                                onclick="return confirm('Restore Order #<?php echo $order_num; ?>?')"
+                                 onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.orders.restore_confirm', ['id' => $order_num])), ENT_QUOTES); ?>)"
                                 class="text-green-600 hover:text-green-700 text-xs px-2 py-1 rounded hover:bg-green-50 transition-colors">
-                            <i class="fas fa-undo mr-1"></i>Restore
+                            <i class="fas fa-undo mr-1"></i><?php echo htmlspecialchars(t('logistics.orders.restore')); ?>
                         </button>
                     </form>
                     <form method="post" class="inline">
@@ -327,7 +327,7 @@ main { overflow: hidden !important; }
                         <input type="hidden" name="status_filter" value="<?php echo htmlspecialchars($status_filter); ?>">
                         <input type="hidden" name="store_filter" value="<?php echo (int)$store_filter; ?>">
                         <button type="submit"
-                                onclick="return confirm('Permanently delete Order #<?php echo $order_num; ?>?\nThis cannot be undone.')"
+                                 onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.orders.delete_confirm', ['id' => $order_num])), ENT_QUOTES); ?>)"
                                 class="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -341,10 +341,10 @@ main { overflow: hidden !important; }
                         <input type="hidden" name="status_filter" value="<?php echo htmlspecialchars($status_filter); ?>">
                         <input type="hidden" name="store_filter" value="<?php echo (int)$store_filter; ?>">
                         <button type="submit"
-                                onclick="return confirm('Order #<?php echo $order_num; ?> 주문을 배달완료 처리하시겠습니까?')"
+                                 onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.orders.deliver_confirm', ['id' => $order_num])), ENT_QUOTES); ?>)"
                                 class="text-green-600 hover:text-green-700 text-xs px-2 py-1 rounded hover:bg-green-50 transition-colors whitespace-nowrap"
-                                title="배달완료 처리">
-                            <i class="fas fa-check-double mr-1"></i>배달완료하기
+                                 title="<?php echo htmlspecialchars(t('logistics.orders.deliver_title')); ?>">
+                            <i class="fas fa-check-double mr-1"></i><?php echo htmlspecialchars(t('logistics.orders.deliver')); ?>
                         </button>
                     </form>
                     <?php endif; ?>
@@ -355,7 +355,7 @@ main { overflow: hidden !important; }
                         <input type="hidden" name="status_filter" value="<?php echo htmlspecialchars($status_filter); ?>">
                         <input type="hidden" name="store_filter" value="<?php echo (int)$store_filter; ?>">
                         <button type="submit"
-                                onclick="return confirm('Permanently delete Order #<?php echo $order_num; ?>?\nThis cannot be undone.')"
+                                 onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.orders.delete_confirm', ['id' => $order_num])), ENT_QUOTES); ?>)"
                                 class="text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -380,7 +380,7 @@ main { overflow: hidden !important; }
     <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-center gap-1 shrink-0">
         <?php if ($block_start > 1): ?>
         <a href="?page=<?php echo $block_start - $window; ?>&<?php echo http_build_query($qs); ?>"
-           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="Previous 10 pages">
+           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="<?php echo htmlspecialchars(t('logistics.orders.previous_pages')); ?>">
             <i class="fas fa-angle-double-left text-xs"></i>
         </a>
         <?php endif; ?>
@@ -404,7 +404,7 @@ main { overflow: hidden !important; }
         <?php endif; ?>
         <?php if ($block_end < $total_pages): ?>
         <a href="?page=<?php echo $block_end + 1; ?>&<?php echo http_build_query($qs); ?>"
-           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="Next 10 pages">
+           class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm transition-colors" title="<?php echo htmlspecialchars(t('logistics.orders.next_pages')); ?>">
             <i class="fas fa-angle-double-right text-xs"></i>
         </a>
         <?php endif; ?>
@@ -419,11 +419,11 @@ main { overflow: hidden !important; }
     <div class="absolute inset-0 bg-black bg-opacity-50"></div>
     <div class="relative bg-white rounded-xl shadow-xl w-full max-w-5xl mx-4 flex flex-col" style="height:90vh">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-print text-blue-600 mr-2"></i>Print Preview</h3>
+            <h3 class="text-base font-semibold text-gray-900"><i class="fas fa-print text-blue-600 mr-2"></i><?php echo htmlspecialchars(t('logistics.orders.print_preview')); ?></h3>
             <div class="flex items-center gap-2">
                 <button type="button" onclick="printPreviewFrame()"
                         class="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
-                    <i class="fas fa-print mr-1"></i>Print
+                    <i class="fas fa-print mr-1"></i><?php echo htmlspecialchars(t('logistics.orders.print')); ?>
                 </button>
                 <button type="button" onclick="closePrintPreview()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
             </div>

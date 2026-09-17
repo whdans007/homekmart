@@ -1,5 +1,5 @@
 <?php
-$page_title = 'Place Order - Logistics Center';
+$page_title = t('logistics.order_new.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/inventory_helper.php';
@@ -10,7 +10,7 @@ lc_require_login();
 // 점포 담당자 또는 관리자만 주문 가능
 $store_id = lc_current_store_id();
 if (!$store_id) {
-    lc_set_flash('error', 'No store information found. Please contact administrator.');
+    lc_set_flash('error', t('logistics.order_new.no_store'));
     header('Location: ' . LC_BASE . '/index.php');
     exit;
 }
@@ -20,7 +20,7 @@ $conn_center_check = get_lc_db();
 $is_center_account = lc_is_center_store($conn_center_check, $store_id);
 $conn_center_check->close();
 if ($is_center_account) {
-    lc_set_flash('error', 'The Logistics Center cannot place an order to itself. Use Branch Outbound instead.');
+    lc_set_flash('error', t('logistics.order_new.center_cannot_order'));
     header('Location: ' . LC_BASE . '/index.php');
     exit;
 }
@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($items)) {
-        $errors[] = 'Please enter products and quantities to order.';
+        $errors[] = t('logistics.order_new.items_required');
     }
 
     if (empty($errors)) {
@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $st->execute();
                     $pname = $st->get_result()->fetch_row()[0] ?? "#{$item['product_id']}";
                     $st->close();
-                    $errors[] = "'{$pname}' Insufficient {$item['unit']} stock (Current: {$stock} {$item['unit']})";
+                    $errors[] = t('logistics.order_new.insufficient_stock', ['name' => $pname, 'unit' => $item['unit'], 'stock' => $stock]);
                 }
                 $price = 0.00; // 단가는 입고 시 결정
                 $item['unit_price']   = $price;
@@ -111,14 +111,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $conn->commit();
                 $conn->close();
 
-                lc_set_flash('success', "Order #" . str_pad($order_id, 4, '0', STR_PAD_LEFT) . " has been placed.");
+                lc_set_flash('success', t('logistics.order_new.placed', ['id' => str_pad($order_id, 4, '0', STR_PAD_LEFT)]));
                 header('Location: ' . LC_BASE . '/orders.php');
                 exit;
             }
             $conn->close();
         } catch (Exception $e) {
             if (isset($conn)) { $conn->rollback(); $conn->close(); }
-            $errors[] = 'DB Error: ' . $e->getMessage();
+            $errors[] = t('logistics.order_new.db_error', ['message' => $e->getMessage()]);
         }
     }
 }
@@ -148,7 +148,7 @@ try {
 
 <div class="flex items-center gap-3 mb-6">
     <a href="<?php echo LC_BASE; ?>/orders.php" class="text-gray-400 hover:text-gray-600"><i class="fas fa-arrow-left"></i></a>
-    <h2 class="text-xl font-bold text-gray-900">Place Order</h2>
+    <h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.order_new.title')); ?></h2>
 </div>
 
 <?php if (!empty($errors)): ?>
@@ -160,7 +160,7 @@ try {
 <?php if (empty($available)): ?>
 <div class="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400">
     <i class="fas fa-box-open text-4xl mb-3 block"></i>
-    <p>No orderable stock available.</p>
+    <p><?php echo htmlspecialchars(t('logistics.order_new.no_stock')); ?></p>
 </div>
 <?php else: ?>
 
@@ -170,17 +170,17 @@ try {
     <!-- Product List -->
     <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
         <div class="px-4 py-3 border-b border-gray-100">
-            <h3 class="text-sm font-semibold text-gray-700">Select Order Items</h3>
-            <p class="text-xs text-gray-400 mt-1">Only products with available stock are shown. Enter quantity to add to order.</p>
+            <h3 class="text-sm font-semibold text-gray-700"><?php echo htmlspecialchars(t('logistics.order_new.select_items')); ?></h3>
+            <p class="text-xs text-gray-400 mt-1"><?php echo htmlspecialchars(t('logistics.order_new.stock_hint')); ?></p>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50"><tr>
-                    <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
-                    <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Category</th>
-                    <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Current Stock</th>
-                    <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Selling Price</th>
-                    <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Order Quantity</th>
+                    <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.order_new.product_name')); ?></th>
+                    <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.order_new.category')); ?></th>
+                    <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.order_new.current_stock')); ?></th>
+                    <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.order_new.selling_price')); ?></th>
+                    <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.order_new.order_quantity')); ?></th>
                 </tr></thead>
                 <tbody class="divide-y divide-gray-100">
                 <?php foreach ($available as $idx => $p):
@@ -230,19 +230,19 @@ try {
     <!-- Notes and Total -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div class="bg-white rounded-lg border border-gray-200 p-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-            <textarea name="notes" rows="3" placeholder="Special notes, delivery requests, etc."
+            <label class="block text-sm font-medium text-gray-700 mb-2"><?php echo htmlspecialchars(t('logistics.order_new.notes')); ?></label>
+            <textarea name="notes" rows="3" placeholder="<?php echo htmlspecialchars(t('logistics.order_new.notes_placeholder')); ?>"
                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"></textarea>
         </div>
         <div class="bg-teal-50 rounded-lg border border-teal-200 p-4 flex flex-col justify-between">
             <div>
-                <p class="text-sm text-teal-700 font-medium">Order Total</p>
+                <p class="text-sm text-teal-700 font-medium"><?php echo htmlspecialchars(t('logistics.order_new.order_total')); ?></p>
                 <p class="text-3xl font-bold text-teal-800 mt-2" id="total-display">0.00</p>
             </div>
             <button type="submit"
-                    onclick="return confirm('Do you want to place this order?')"
+                    onclick="return confirm(<?php echo htmlspecialchars(json_encode(t('logistics.order_new.place_confirm')), ENT_QUOTES); ?>)"
                     class="w-full py-3 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors mt-4">
-                <i class="fas fa-paper-plane mr-2"></i>Place Order
+                <i class="fas fa-paper-plane mr-2"></i><?php echo htmlspecialchars(t('logistics.order_new.place_order')); ?>
             </button>
         </div>
     </div>

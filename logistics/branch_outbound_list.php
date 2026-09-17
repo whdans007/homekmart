@@ -1,6 +1,6 @@
 <?php
 // Design Ref: §5.1 — 출고대기 목록 페이지 (Plan SC-2)
-$page_title = 'Pending Outbound List - Logistics Center';
+$page_title = t('logistics.branch_outbound_list.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
 
@@ -70,10 +70,10 @@ main { overflow: hidden !important; }
 
 <!-- 페이지 헤더 -->
 <div class="flex items-center justify-between shrink-0">
-    <h2 class="text-xl font-bold text-gray-900">Pending Outbound List</h2>
+    <h2 class="text-xl font-bold text-gray-900"><?php echo htmlspecialchars(t('logistics.branch_outbound_list.title')); ?></h2>
     <a href="<?php echo LC_BASE; ?>/branch_outbound.php"
        class="inline-flex items-center px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors">
-        <i class="fas fa-plus mr-2"></i>New Outbound
+        <i class="fas fa-plus mr-2"></i><?php echo htmlspecialchars(t('logistics.branch_outbound_list.new_outbound')); ?>
     </a>
 </div>
 
@@ -81,7 +81,7 @@ main { overflow: hidden !important; }
 <form method="get" class="bg-white rounded-lg border border-gray-200 px-3 py-2 shrink-0">
     <div class="flex flex-wrap items-center gap-2">
         <select name="store_id" class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white w-48">
-            <option value="">-- All Stores --</option>
+            <option value=""><?php echo htmlspecialchars(t('logistics.branch_outbound_list.all_stores')); ?></option>
             <?php foreach ($stores as $s): ?>
             <option value="<?php echo (int)$s['id']; ?>" <?php echo $search_store === (int)$s['id'] ? 'selected' : ''; ?>>
                 <?php echo htmlspecialchars($s['name']); ?>
@@ -91,9 +91,9 @@ main { overflow: hidden !important; }
         <input type="date" name="date" value="<?php echo htmlspecialchars($search_date); ?>"
                class="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
         <button type="submit" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-md hover:bg-teal-700">
-            <i class="fas fa-search mr-1"></i>Search
+            <i class="fas fa-search mr-1"></i><?php echo htmlspecialchars(t('logistics.branch_outbound_list.search')); ?>
         </button>
-        <a href="<?php echo LC_BASE; ?>/branch_outbound_list.php" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200">Reset</a>
+        <a href="<?php echo LC_BASE; ?>/branch_outbound_list.php" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm rounded-md hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.branch_outbound_list.reset')); ?></a>
     </div>
 </form>
 
@@ -105,24 +105,24 @@ main { overflow: hidden !important; }
 
 <!-- 테이블 카드 -->
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
-    <div class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500 shrink-0">Pending outbound: <strong><?php echo number_format($total); ?></strong></div>
+    <div class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500 shrink-0"><?php echo htmlspecialchars(t('logistics.branch_outbound_list.pending_outbound', ['count' => number_format($total)])); ?></div>
     <div class="overflow-auto flex-1 min-h-0">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 sticky top-0 z-10"><tr>
                 <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">#</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Created</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Store</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Items</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Total Qty</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium">Est. Amount</th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Created By</th>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium">Actions</th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.branch_outbound_list.created')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.branch_outbound_list.store')); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.branch_outbound_list.items')); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.branch_outbound_list.total_qty')); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.branch_outbound_list.est_amount')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.branch_outbound_list.created_by')); ?></th>
+                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.branch_outbound_list.actions')); ?></th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php if (empty($list)): ?>
             <tr><td colspan="8" class="px-4 py-10 text-center text-gray-400">
                 <i class="fas fa-truck text-3xl mb-2 block text-gray-300"></i>
-                No pending outbound shipments. Click [New Outbound] to create one.
+                <?php echo htmlspecialchars(t('logistics.branch_outbound_list.empty')); ?>
             </td></tr>
             <?php endif; ?>
             <?php foreach ($list as $row): ?>
@@ -141,21 +141,21 @@ main { overflow: hidden !important; }
                 <td class="px-4 py-3 text-center whitespace-nowrap" onclick="event.stopPropagation()">
                     <a href="<?php echo LC_BASE; ?>/branch_outbound.php?draft_id=<?php echo $row['id']; ?>"
                        class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-md hover:bg-teal-100 mr-1">
-                        <i class="fas fa-pen mr-1"></i>Edit
+                         <i class="fas fa-pen mr-1"></i><?php echo htmlspecialchars(t('logistics.branch_outbound_list.edit')); ?>
                     </a>
                     <a href="<?php echo LC_BASE; ?>/print_branch_outbound.php?draft_id=<?php echo $row['id']; ?>" target="_blank"
                        class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-300 rounded-md hover:bg-gray-100 mr-1">
-                        <i class="fas fa-print mr-1"></i>Print
+                         <i class="fas fa-print mr-1"></i><?php echo htmlspecialchars(t('logistics.branch_outbound_list.print')); ?>
                     </a>
                     <button type="button"
                             onclick="shipDraft(<?php echo $row['id']; ?>, '<?php echo htmlspecialchars($row['store_name'] ?? '-', ENT_QUOTES); ?>', <?php echo (int)$row['item_count']; ?>)"
                             class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-white bg-teal-600 border border-teal-600 rounded-md hover:bg-teal-700 mr-1">
-                        <i class="fas fa-check mr-1"></i>Confirm Order
+                         <i class="fas fa-check mr-1"></i><?php echo htmlspecialchars(t('logistics.branch_outbound_list.confirm_order')); ?>
                     </button>
                     <button type="button"
                             onclick="deleteDraft(<?php echo $row['id']; ?>)"
                             class="inline-flex items-center px-2.5 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100">
-                        <i class="fas fa-trash mr-1"></i>Delete
+                         <i class="fas fa-trash mr-1"></i><?php echo htmlspecialchars(t('logistics.branch_outbound_list.delete')); ?>
                     </button>
                 </td>
             </tr>
@@ -175,7 +175,7 @@ main { overflow: hidden !important; }
     <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-center gap-1 shrink-0">
         <?php if ($page > 1): ?>
         <a href="?page=<?php echo $page-1; ?>&<?php echo http_build_query($qs); ?>"
-           class="px-4 py-1.5 rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm font-medium flex items-center gap-1.5"><i class="fas fa-chevron-left text-xs"></i> Prev</a>
+           class="px-4 py-1.5 rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm font-medium flex items-center gap-1.5"><i class="fas fa-chevron-left text-xs"></i><?php echo htmlspecialchars(t('logistics.branch_outbound_list.previous')); ?></a>
         <?php endif; ?>
         <?php for ($i = $pg_start; $i <= $pg_end; $i++): ?>
         <a href="?page=<?php echo $i; ?>&<?php echo http_build_query($qs); ?>"
@@ -185,7 +185,7 @@ main { overflow: hidden !important; }
         <?php endfor; ?>
         <?php if ($page < $total_pages): ?>
         <a href="?page=<?php echo $page+1; ?>&<?php echo http_build_query($qs); ?>"
-           class="px-4 py-1.5 rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm font-medium flex items-center gap-1.5">Next <i class="fas fa-chevron-right text-xs"></i></a>
+           class="px-4 py-1.5 rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 text-sm font-medium flex items-center gap-1.5"><?php echo htmlspecialchars(t('logistics.branch_outbound_list.next')); ?> <i class="fas fa-chevron-right text-xs"></i></a>
         <?php endif; ?>
     </div>
     <?php endif; ?>
@@ -197,6 +197,18 @@ main { overflow: hidden !important; }
 (function() {
     var LC_BASE = '<?php echo LC_BASE; ?>';
     var CSRF_TOKEN = '<?php echo htmlspecialchars(lc_csrf_token()); ?>';
+    var I18N = {
+        confirmMessage: <?php echo json_encode(t('logistics.branch_outbound_list.confirm_message')); ?>,
+        deleteConfirm: <?php echo json_encode(t('logistics.branch_outbound_list.delete_confirm')); ?>,
+        confirmFailed: <?php echo json_encode(t('logistics.branch_outbound_list.confirm_failed')); ?>,
+        deleteFailed: <?php echo json_encode(t('logistics.branch_outbound_list.delete_failed')); ?>,
+        requestFailed: <?php echo json_encode(t('logistics.branch_outbound_list.request_failed')); ?>
+    };
+    function tr(key, params) {
+        var value = I18N[key] || key;
+        Object.keys(params || {}).forEach(function(k) { value = value.replace('{' + k + '}', params[k]); });
+        return value;
+    }
 
     function showError(msg) {
         var el = document.getElementById('listError');
@@ -206,7 +218,7 @@ main { overflow: hidden !important; }
 
     // Design §5.1 — 목록에서 주문 확정 (Plan SC-6)
     window.shipDraft = function(draftId, storeName, itemCount) {
-        if (!confirm('[' + storeName + '] You are about to confirm an order for ' + itemCount + ' item(s).\nStock will be deducted based on current inventory and cannot be undone.\nThe order will be created with Pending status.\nContinue?')) return;
+        if (!confirm(tr('confirmMessage', {store: storeName, count: itemCount}))) return;
 
         var fd = new FormData();
         fd.append('action', 'ship_draft');
@@ -216,15 +228,15 @@ main { overflow: hidden !important; }
         fetch(LC_BASE + '/ajax/branch_outbound.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.success) { showError(data.message || 'Failed to process the shipment.'); return; }
+                if (!data.success) { showError(data.message || I18N.confirmFailed); return; }
                 window.location.href = LC_BASE + '/order_detail.php?id=' + data.order_id;
             })
-            .catch(function() { showError('A network error occurred.'); });
+            .catch(function() { showError(I18N.requestFailed); });
     };
 
     // Design §5.1 — draft 삭제 (Plan SC-4)
     window.deleteDraft = function(draftId) {
-        if (!confirm('Are you sure you want to delete pending outbound #' + draftId + '?')) return;
+        if (!confirm(tr('deleteConfirm', {id: draftId}))) return;
 
         var fd = new FormData();
         fd.append('action', 'delete_draft');
@@ -234,10 +246,10 @@ main { overflow: hidden !important; }
         fetch(LC_BASE + '/ajax/branch_outbound.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.success) { showError(data.message || 'Failed to delete.'); return; }
+                if (!data.success) { showError(data.message || I18N.deleteFailed); return; }
                 location.reload();
             })
-            .catch(function() { showError('A network error occurred.'); });
+            .catch(function() { showError(I18N.requestFailed); });
     };
 })();
 </script>

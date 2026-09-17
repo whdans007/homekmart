@@ -1,6 +1,6 @@
 <?php
 // Design Ref: §5.2 — 지점출고 작성/수정 페이지 (draft 워크플로우: 저장 → 수정 → 최종 출고)
-$page_title = 'Branch Outbound - Logistics Center';
+$page_title = t('logistics.branch_outbound.page_title');
 require_once __DIR__ . '/partials/header.php';
 
 lc_require_staff();
@@ -23,7 +23,7 @@ try {
 <div class="flex items-center justify-between mb-5">
     <div class="flex items-center gap-3">
         <a href="<?php echo LC_BASE; ?>/branch_outbound_list.php" class="text-gray-400 hover:text-gray-600"><i class="fas fa-arrow-left"></i></a>
-        <h2 class="text-lg font-bold text-gray-900"><?php echo $draft_id ? 'Edit Pending Outbound #' . $draft_id : 'Branch Outbound'; ?></h2>
+        <h2 class="text-lg font-bold text-gray-900"><?php echo htmlspecialchars($draft_id ? t('logistics.branch_outbound.edit_title', ['id' => $draft_id]) : t('logistics.branch_outbound.title')); ?></h2>
     </div>
 </div>
 
@@ -34,23 +34,23 @@ try {
 <!-- 출고 지점 선택 -->
 <div class="flex gap-4 mb-4">
     <div class="w-72">
-        <label class="block text-xs font-medium text-gray-500 mb-1">Destination Store <span class="text-red-500">*</span></label>
+        <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.branch_outbound.destination_store')); ?> <span class="text-red-500">*</span></label>
         <select id="storeSelect" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-            <option value="">-- Select Store --</option>
+            <option value=""><?php echo htmlspecialchars(t('logistics.branch_outbound.select_store')); ?></option>
             <?php foreach ($stores as $s): ?>
             <option value="<?php echo (int)$s['id']; ?>"><?php echo htmlspecialchars($s['name']); ?></option>
             <?php endforeach; ?>
         </select>
     </div>
     <div class="flex-1">
-        <label class="block text-xs font-medium text-gray-500 mb-1">Notes</label>
-        <input type="text" id="notesInput" placeholder="-" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+        <label class="block text-xs font-medium text-gray-500 mb-1"><?php echo htmlspecialchars(t('logistics.branch_outbound.notes')); ?></label>
+        <input type="text" id="notesInput" placeholder="<?php echo htmlspecialchars(t('logistics.branch_outbound.notes_placeholder')); ?>" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
     </div>
 </div>
 
 <!-- 출고 단위 토글 (Design Ref: box-pcs-unit §5.1 — inbound_add.php와 동일하게 BOX=주황, PCS=파랑) -->
 <div class="flex flex-nowrap items-center gap-3 mb-2 overflow-x-auto whitespace-nowrap">
-    <span class="text-xs font-medium text-gray-500 shrink-0">Outbound Unit</span>
+    <span class="text-xs font-medium text-gray-500 shrink-0"><?php echo htmlspecialchars(t('logistics.branch_outbound.outbound_unit')); ?></span>
     <div id="unitToggle" class="inline-flex rounded-lg border-2 border-gray-300 overflow-hidden shadow-sm shrink-0">
         <button type="button" data-unit="BOX" onclick="setOutboundUnit('BOX')"
                 class="unit-toggle-btn px-4 py-1.5 text-sm font-extrabold bg-amber-500 text-white transition-colors">
@@ -65,20 +65,20 @@ try {
             <i class="fas fa-cube mr-1.5"></i>PCS
         </button>
     </div>
-    <span id="unitToggleHint" class="text-sm font-bold text-amber-600 shrink-0"><i class="fas fa-box mr-1"></i>Shipping in BOX units</span>
-    <span class="text-xs text-gray-400 shrink-0">Items are added to the cart in the selected unit when scanned</span>
+    <span id="unitToggleHint" class="text-sm font-bold text-amber-600 shrink-0"><i class="fas fa-box mr-1"></i><?php echo htmlspecialchars(t('logistics.branch_outbound.shipping_in', ['unit' => 'BOX'])); ?></span>
+    <span class="text-xs text-gray-400 shrink-0"><?php echo htmlspecialchars(t('logistics.branch_outbound.scan_hint')); ?></span>
 </div>
 
 <!-- 상품 검색 -->
 <div class="mb-4">
     <div class="flex gap-2">
         <input type="text" id="barcodeInput"
-               placeholder="Enter quantity then / (e.g. 8/) or scan barcode, enter product name..."
+               placeholder="<?php echo htmlspecialchars(t('logistics.branch_outbound.barcode_placeholder')); ?>"
                autocomplete="off"
                class="flex-1 border-2 border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-colors">
         <button type="button" onclick="searchBarcode()"
                 class="px-5 py-2.5 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 active:bg-teal-800 transition-colors whitespace-nowrap shadow-sm">
-            <i class="fas fa-search mr-1.5" style="margin-right:6px"></i>Search
+            <i class="fas fa-search mr-1.5" style="margin-right:6px"></i><?php echo htmlspecialchars(t('logistics.branch_outbound.search')); ?>
         </button>
     </div>
     <div id="barcodeStatus" class="mt-2 hidden"></div>
@@ -88,21 +88,21 @@ try {
 <!-- 장바구니 -->
 <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
     <div class="px-4 py-2.5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
-        <span class="text-sm font-medium text-gray-700">Outbound Product List</span>
+        <span class="text-sm font-medium text-gray-700"><?php echo htmlspecialchars(t('logistics.branch_outbound.product_list')); ?></span>
         <div class="flex gap-2">
             <button type="button" id="saveBtn" style="color:#fff;font-weight:700"
                     class="px-4 py-1.5 bg-red-600 text-white border-2 border-red-600 text-sm font-bold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                <i class="fas fa-save mr-1.5" style="margin-right:6px"></i>Save
+                <i class="fas fa-save mr-1.5" style="margin-right:6px"></i><?php echo htmlspecialchars(t('logistics.branch_outbound.save')); ?>
             </button>
             <button type="button" id="printBtn"
                     class="px-4 py-1.5 bg-white text-gray-700 border-2 border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                <i class="fas fa-print mr-1.5" style="margin-right:6px"></i>Print
+                <i class="fas fa-print mr-1.5" style="margin-right:6px"></i><?php echo htmlspecialchars(t('logistics.branch_outbound.print')); ?>
             </button>
             <button type="button" id="submitBtn"
                     class="px-4 py-1.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                <i class="fas fa-check mr-1.5" style="margin-right:6px"></i>Confirm Order
+                <i class="fas fa-check mr-1.5" style="margin-right:6px"></i><?php echo htmlspecialchars(t('logistics.branch_outbound.confirm_order')); ?>
             </button>
-            <a href="<?php echo LC_BASE; ?>/branch_outbound_list.php" class="px-4 py-1.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200">Cancel</a>
+            <a href="<?php echo LC_BASE; ?>/branch_outbound_list.php" class="px-4 py-1.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-200"><?php echo htmlspecialchars(t('logistics.branch_outbound.cancel')); ?></a>
         </div>
     </div>
     <div class="overflow-x-auto">
@@ -110,22 +110,22 @@ try {
             <thead class="bg-gray-50 border-b border-gray-100">
                 <tr>
                     <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-7">#</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-28">Barcode</th>
-                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-32">Brand</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium">Product Name</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24">Capacity</th>
-                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-20">Unit</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20">PKG</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24">Current Stock</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24">Quantity</th>
-                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-28">Avg. Cost (Est.)</th>
-                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-72">Picking Order</th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-28"><?php echo htmlspecialchars(t('logistics.branch_outbound.barcode')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-32"><?php echo htmlspecialchars(t('logistics.branch_outbound.brand')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.branch_outbound.product_name')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24"><?php echo htmlspecialchars(t('logistics.branch_outbound.capacity')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-20"><?php echo htmlspecialchars(t('logistics.branch_outbound.unit')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-20"><?php echo htmlspecialchars(t('logistics.branch_outbound.pkg')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24"><?php echo htmlspecialchars(t('logistics.branch_outbound.current_stock')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-24"><?php echo htmlspecialchars(t('logistics.branch_outbound.quantity')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-teal-600 font-medium w-28"><?php echo htmlspecialchars(t('logistics.branch_outbound.avg_cost')); ?></th>
+                    <th class="px-3 py-2 text-left text-xs text-gray-500 font-medium w-72"><?php echo htmlspecialchars(t('logistics.branch_outbound.picking_order')); ?></th>
                     <th class="px-3 py-2 text-center text-xs text-gray-500 font-medium w-12"></th>
                 </tr>
             </thead>
             <tbody id="itemsBody">
                 <tr id="emptyRow">
-                    <td colspan="12" class="px-3 py-6 text-center text-sm text-gray-400">Scan a barcode or search for a product to add it.</td>
+                    <td colspan="12" class="px-3 py-6 text-center text-sm text-gray-400"><?php echo htmlspecialchars(t('logistics.branch_outbound.empty')); ?></td>
                 </tr>
             </tbody>
         </table>
@@ -177,6 +177,44 @@ try {
     var LC_BASE = '<?php echo LC_BASE; ?>';
     var CSRF_TOKEN = '<?php echo htmlspecialchars(lc_csrf_token()); ?>';
     var DRAFT_ID = <?php echo $draft_id; ?>; // 0 = 신규, >0 = 수정 모드
+    var I18N = {
+        shippingIn: <?php echo json_encode(t('logistics.branch_outbound.shipping_in')); ?>,
+        searching: <?php echo json_encode(t('logistics.branch_outbound.searching')); ?>,
+        noProducts: <?php echo json_encode(t('logistics.branch_outbound.no_products_matching')); ?>,
+        productsFound: <?php echo json_encode(t('logistics.branch_outbound.products_found')); ?>,
+        searchError: <?php echo json_encode(t('logistics.branch_outbound.search_error')); ?>,
+        move: <?php echo json_encode(t('logistics.branch_outbound.move')); ?>,
+        add: <?php echo json_encode(t('logistics.branch_outbound.add')); ?>,
+        close: <?php echo json_encode(t('logistics.branch_outbound.close')); ?>,
+        escape: <?php echo json_encode(t('logistics.branch_outbound.escape')); ?>,
+        enter: <?php echo json_encode(t('logistics.branch_outbound.enter')); ?>,
+        added: <?php echo json_encode(t('logistics.branch_outbound.added')); ?>,
+        qtyAdded: <?php echo json_encode(t('logistics.branch_outbound.qty_added')); ?>,
+        loadingPicking: <?php echo json_encode(t('logistics.branch_outbound.loading_picking')); ?>,
+        pickingUnavailable: <?php echo json_encode(t('logistics.branch_outbound.picking_unavailable')); ?>,
+        empty: <?php echo json_encode(t('logistics.branch_outbound.empty')); ?>,
+        pcsShortage: <?php echo json_encode(t('logistics.branch_outbound.pcs_shortage')); ?>,
+        negativeStockAll: <?php echo json_encode(t('logistics.branch_outbound.negative_stock_all')); ?>,
+        pickingOrder: <?php echo json_encode(t('logistics.branch_outbound.picking_order_label')); ?>,
+        negativeStock: <?php echo json_encode(t('logistics.branch_outbound.negative_stock')); ?>,
+        confirmMessage: <?php echo json_encode(t('logistics.branch_outbound.confirm_message')); ?>,
+        storeRequired: <?php echo json_encode(t('logistics.branch_outbound.store_required')); ?>,
+        itemsRequired: <?php echo json_encode(t('logistics.branch_outbound.items_required')); ?>,
+        saveFailed: <?php echo json_encode(t('logistics.branch_outbound.save_failed')); ?>,
+        confirmFailed: <?php echo json_encode(t('logistics.branch_outbound.confirm_failed')); ?>,
+        requestFailed: <?php echo json_encode(t('logistics.branch_outbound.request_failed')); ?>,
+        stockCheckFailed: <?php echo json_encode(t('logistics.branch_outbound.stock_check_failed')); ?>
+        ,locationNone: <?php echo json_encode(t('logistics.branch_outbound.location_none')); ?>
+        ,expiryNone: <?php echo json_encode(t('logistics.branch_outbound.expiry_none')); ?>
+        ,networkError: <?php echo json_encode(t('logistics.branch_outbound.network_error')); ?>
+        ,loaded: <?php echo json_encode(t('logistics.branch_outbound.loaded')); ?>
+        ,loadFailed: <?php echo json_encode(t('logistics.branch_outbound.load_failed')); ?>
+    };
+    function tr(key, params) {
+        var value = I18N[key] || key;
+        Object.keys(params || {}).forEach(function(k) { value = value.replace('{' + k + '}', params[k]); });
+        return value;
+    }
 
     var multiProducts = [];
     var activeMultiIdx = -1;
@@ -210,10 +248,10 @@ try {
         var hint = document.getElementById('unitToggleHint');
         if (hint) {
             hint.innerHTML = unit === 'BOX'
-                ? '<i class="fas fa-box mr-1"></i>Shipping in BOX units'
+                ? '<i class="fas fa-box mr-1"></i>' + tr('shippingIn', {unit: 'BOX'})
                 : (unit === 'PACK'
-                    ? '<i class="fas fa-boxes-stacked mr-1"></i>Shipping in PACK units'
-                    : '<i class="fas fa-cube mr-1"></i>Shipping in PCS units');
+                    ? '<i class="fas fa-boxes-stacked mr-1"></i>' + tr('shippingIn', {unit: 'PACK'})
+                    : '<i class="fas fa-cube mr-1"></i>' + tr('shippingIn', {unit: 'PCS'}));
             hint.classList.toggle('text-amber-600', unit === 'BOX');
             hint.classList.toggle('text-emerald-600', unit === 'PACK');
             hint.classList.toggle('text-blue-600', unit === 'PCS');
@@ -305,7 +343,7 @@ try {
 
         searchInFlight = true;
         lastQuery = raw;
-        setStatus('loading', 'Searching...');
+        setStatus('loading', I18N.searching);
         hideMulti();
 
         fetch(LC_BASE + '/ajax/search_product_by_barcode.php?barcode=' + encodeURIComponent(query))
@@ -313,20 +351,20 @@ try {
             .then(function(data) {
                 searchInFlight = false;
                 if (!data.success) {
-                    setStatus('error', "No products matching '" + query + "'.");
+                    setStatus('error', tr('noProducts', {query: query}));
                     return;
                 }
                 if (data.products.length === 1) {
                     addToCart(data.products[0], parsed.qty, resolveScanUnit(data.products[0]));
                     return;
                 }
-                setStatus('warn', data.products.length + ' product(s) found. Please select to add.');
+                setStatus('warn', tr('productsFound', {count: data.products.length}));
                 multiProducts = data.products.map(function(p) { p.__qty = parsed.qty; return p; });
                 showMulti(data.products);
             })
             .catch(function() {
                 searchInFlight = false;
-                setStatus('error', '⚠ An error occurred during search.');
+                setStatus('error', I18N.searchError);
             });
     };
 
@@ -342,11 +380,11 @@ try {
         var header = document.createElement('div');
         header.className = 'flex items-center justify-between px-4 py-2.5 bg-teal-600 text-white';
         header.innerHTML =
-            '<span class="font-semibold text-sm"><i class="fas fa-boxes mr-2"></i>' + prods.length + ' products found</span>' +
+            '<span class="font-semibold text-sm"><i class="fas fa-boxes mr-2"></i>' + tr('productsFound', {count: prods.length}) + '</span>' +
             '<span class="text-xs text-teal-200 flex items-center gap-1.5">' +
-            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs">↑↓</kbd> Move' +
-            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1">Enter</kbd> Add' +
-            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1">Esc</kbd> Close' +
+            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs">↑↓</kbd> ' + I18N.move +
+            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1">' + I18N.enter + '</kbd> ' + I18N.add +
+            '<kbd class="px-1.5 py-0.5 bg-teal-700 rounded text-xs ml-1">' + I18N.escape + '</kbd> ' + I18N.close +
             '</span>';
         panel.appendChild(header);
 
@@ -384,7 +422,7 @@ try {
                 '</td>' +
                 '<td class="px-3 py-3 w-20 text-right">' +
                     '<span class="add-badge inline-flex items-center gap-1 px-3 py-1 bg-teal-600 text-white text-xs font-semibold rounded-lg">' +
-                    '<i class="fas fa-plus text-xs"></i>Add</span>' +
+                    '<i class="fas fa-plus text-xs"></i>' + I18N.add + '</span>' +
                 '</td>';
             tr.addEventListener('click', function() { selectMulti(idx); });
             tr.addEventListener('mouseenter', function() {
@@ -475,7 +513,7 @@ try {
             existing.qty += qty;
             idx = cart.indexOf(existing);
             renderCart();
-            setStatus('success', '✓ ' + product.name_en + ' [' + unit + '] qty +' + qty);
+            setStatus('success', tr('qtyAdded', {name: product.name_en, unit: unit, qty: qty}));
             barcodeInput.value = '';
             focusQtyInput(idx);
             updateFefoPreview(idx);
@@ -501,7 +539,7 @@ try {
         cart.push(line);
         idx = cart.length - 1;
         renderCart();
-        setStatus('success', '✓ ' + product.name_en + ' [' + unit + '] Added');
+        setStatus('success', tr('added', {name: product.name_en, unit: unit}));
         barcodeInput.value = '';
         focusQtyInput(idx);
         updateFefoPreview(idx);
@@ -556,7 +594,7 @@ try {
         if (cart.length === 0) {
             var empty = document.createElement('tr');
             empty.id = 'emptyRow';
-            empty.innerHTML = '<td colspan="11" class="px-3 py-6 text-center text-sm text-gray-400">Scan a barcode or search for a product to add it.</td>';
+            empty.innerHTML = '<td colspan="11" class="px-3 py-6 text-center text-sm text-gray-400">' + I18N.empty + '</td>';
             body.appendChild(empty);
             return;
         }
@@ -628,7 +666,7 @@ try {
 
             // Design Ref: §5 — FEFO 피킹 미리보기(위치/유통기한) 영역, 캐시된 내용 복원
             var fefoContent = clone.querySelector('.fefo-content');
-            fefoContent.innerHTML = line._fefoHtml || '<span class="text-gray-300"><i class="fas fa-circle-notch fa-spin mr-1"></i>Loading picking info...</span>';
+            fefoContent.innerHTML = line._fefoHtml || '<span class="text-gray-300"><i class="fas fa-circle-notch fa-spin mr-1"></i>' + I18N.loadingPicking + '</span>';
 
             tr.querySelector('.row-remove').addEventListener('click', function() {
                 clearTimeout(fefoTimers[idx]);
@@ -651,12 +689,12 @@ try {
             var rows = document.querySelectorAll('#itemsBody .item-row');
             var row = rows[idx];
             var content = row ? row.querySelector('.fefo-content') : null;
-            if (content) content.innerHTML = '<span class="text-gray-300"><i class="fas fa-circle-notch fa-spin mr-1"></i>Loading picking info...</span>';
+            if (content) content.innerHTML = '<span class="text-gray-300"><i class="fas fa-circle-notch fa-spin mr-1"></i>' + I18N.loadingPicking + '</span>';
 
             fetch(LC_BASE + '/ajax/branch_outbound.php?action=get_fefo_preview&product_id=' + encodeURIComponent(line.product_id) + '&qty=' + encodeURIComponent(line.qty) + '&unit=' + encodeURIComponent(line.unit))
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
-                    if (!data.success) { line._fefoHtml = '<span class="text-gray-400">Unable to load picking info.</span>'; }
+                if (!data.success) { line._fefoHtml = '<span class="text-gray-400">' + I18N.pickingUnavailable + '</span>'; }
                     else { line._fefoHtml = buildFefoHtml(data); }
                     var rows2 = document.querySelectorAll('#itemsBody .item-row');
                     var row2 = rows2[idx];
@@ -664,7 +702,7 @@ try {
                     if (content2) content2.innerHTML = line._fefoHtml;
                 })
                 .catch(function() {
-                    line._fefoHtml = '<span class="text-gray-400">Unable to load picking info.</span>';
+                line._fefoHtml = '<span class="text-gray-400">' + I18N.pickingUnavailable + '</span>';
                     var rows2 = document.querySelectorAll('#itemsBody .item-row');
                     var row2 = rows2[idx];
                     var content2 = row2 ? row2.querySelector('.fefo-content') : null;
@@ -697,7 +735,7 @@ try {
     function breakSuggestHtml(shortfall) {
         return '<a href="' + LC_BASE + '/box_break.php" target="_blank" ' +
             'class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-semibold border border-amber-200 hover:bg-amber-100">' +
-            '<i class="fas fa-box-open"></i>PCS stock shortage (' + shortfall + ') — Box break required →</a>';
+            '<i class="fas fa-box-open"></i>' + tr('pcsShortage', {count: shortfall}) + '</a>';
     }
 
     // FEFO 미리보기 응답을 HTML로 변환 (위치/유통기한/lot/수량, 유통기한 빠른 순)
@@ -706,16 +744,16 @@ try {
             if (data.shortfall > 0) {
                 if (data.suggest_break) return breakSuggestHtml(data.shortfall);
                 return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-700 font-semibold">' +
-                    '<i class="fas fa-exclamation-triangle"></i>No stock — entire quantity (' + data.shortfall + ') will be shipped as negative stock.</span>';
+                '<i class="fas fa-exclamation-triangle"></i>' + tr('negativeStockAll', {count: data.shortfall}) + '</span>';
             }
             return '<span class="text-gray-400">-</span>';
         }
         var html = '<div class="flex flex-wrap items-center gap-1.5">';
-        html += '<span class="text-gray-400"><i class="fas fa-route mr-1"></i>Picking order:</span>';
+        html += '<span class="text-gray-400"><i class="fas fa-route mr-1"></i>' + I18N.pickingOrder + '</span>';
         data.picks.forEach(function(p) {
             var cls = expiryBadgeClass(p.expiry_date);
-            var loc = p.storage_location ? escHtml(p.storage_location) : 'No location';
-            var exp = p.expiry_date ? escHtml(p.expiry_date) : 'No expiry date';
+        var loc = p.storage_location ? escHtml(p.storage_location) : I18N.locationNone;
+        var exp = p.expiry_date ? escHtml(p.expiry_date) : I18N.expiryNone;
             var lot = p.lot_number ? ' (' + escHtml(p.lot_number) + ')' : '';
             html += '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded ' + cls + '">' +
                 '<i class="fas fa-map-marker-alt"></i>' + loc + lot +
@@ -724,7 +762,7 @@ try {
         });
         if (data.shortfall > 0) {
             html += '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-700 font-semibold">' +
-                '<i class="fas fa-exclamation-triangle"></i>Stock shortage of ' + data.shortfall + ' will be processed as negative stock.</span>';
+            '<i class="fas fa-exclamation-triangle"></i>' + tr('negativeStock', {count: data.shortfall}) + '</span>';
         }
         html += '</div>';
         return html;
@@ -741,8 +779,8 @@ try {
     function validateForm() {
         document.getElementById('formError').classList.add('hidden');
         var storeId = document.getElementById('storeSelect').value;
-        if (!storeId) { showFormError('Please select the destination store.'); return null; }
-        if (cart.length === 0) { showFormError('Please add products to ship.'); return null; }
+        if (!storeId) { showFormError(I18N.storeRequired); return null; }
+        if (cart.length === 0) { showFormError(I18N.itemsRequired); return null; }
         return {
             store_id: storeId,
             notes: document.getElementById('notesInput').value.trim(),
@@ -763,11 +801,11 @@ try {
         fetch(LC_BASE + '/ajax/branch_outbound.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.success) { showFormError(data.message || 'Failed to save.'); onFail(); return; }
+                if (!data.success) { showFormError(data.message || I18N.saveFailed); onFail(); return; }
                 if (!DRAFT_ID && data.draft_id) DRAFT_ID = data.draft_id;
                 onSuccess(DRAFT_ID);
             })
-            .catch(function() { showFormError('A network error occurred.'); onFail(); });
+            .catch(function() { showFormError(I18N.networkError); onFail(); });
     }
 
     // [저장] — 출고대기 목록으로 이동
@@ -805,7 +843,7 @@ try {
         var form = validateForm();
         if (!form) return;
 
-        if (!confirm('You are about to confirm an order for ' + cart.length + ' selected item(s).\nStock will be deducted based on current inventory and cannot be undone.\nThe order will be created with Pending status.\nContinue?')) return;
+        if (!confirm(tr('confirmMessage', {count: cart.length}))) return;
 
         var btn = this;
         var saveBtn = document.getElementById('saveBtn');
@@ -822,14 +860,14 @@ try {
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     if (!data.success) {
-                        showFormError(data.message || 'Failed to process the shipment.');
+                        showFormError(data.message || I18N.confirmFailed);
                         btn.disabled = false; saveBtn.disabled = false;
                         return;
                     }
                     window.location.href = LC_BASE + '/order_detail.php?id=' + data.order_id;
                 })
                 .catch(function() {
-                    showFormError('A network error occurred.');
+                    showFormError(I18N.networkError);
                     btn.disabled = false; saveBtn.disabled = false;
                 });
         }, function() { btn.disabled = false; saveBtn.disabled = false; });
@@ -841,7 +879,7 @@ try {
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (!data.success) {
-                    showFormError(data.message || 'Unable to load the pending outbound.');
+                showFormError(data.message || I18N.loadFailed);
                     return;
                 }
                 document.getElementById('storeSelect').value = data.draft.store_id;
@@ -861,10 +899,10 @@ try {
                         unit: it.unit || ''
                     }, it.quantity, it.order_unit);
                 });
-                setStatus('success', '✓ Loaded pending outbound #' + DRAFT_ID + ' (' + data.draft.items.length + ' item(s))');
+                setStatus('success', tr('loaded', {id: DRAFT_ID, count: data.draft.items.length}));
                 barcodeInput.focus();
             })
-            .catch(function() { showFormError('An error occurred while loading the pending outbound.'); });
+            .catch(function() { showFormError(I18N.loadFailed); });
     }
 
     // ── 상태 메시지 ────────────────────────────────────────────────
