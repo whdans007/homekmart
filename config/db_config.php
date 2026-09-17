@@ -6,17 +6,22 @@
 // 매장 운영 기준 시간대: 필리핀 (UTC+8)
 date_default_timezone_set('Asia/Manila');
 
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'u622428657_main');
-define('DB_USER', 'u622428657_main');
-define('DB_PASS', '2Bbq0&2h#');
+$local_db_config = __DIR__ . '/db_config.local.php';
+if (is_file($local_db_config)) {
+    require_once $local_db_config;
+}
+
+if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
+if (!defined('DB_NAME')) define('DB_NAME', 'u622428657_main');
+if (!defined('DB_USER')) define('DB_USER', 'u622428657_main');
+if (!defined('DB_PASS')) define('DB_PASS', '2Bbq0&2h#');
 
 /**
 define('DB_USER', 'u622428657_main');
 define('DB_PASS', '2Bbq0&2h#');
 */
 
-define('DB_CHARSET', 'utf8mb4');
+if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8mb4');
 
 // Plan SC: ESP32 출퇴근 API 인증 키 (X-Api-Key 헤더)
 define('ATTENDANCE_API_KEY', 'att_change_this_to_a_strong_32char_secret');
