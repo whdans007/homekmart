@@ -1233,6 +1233,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 captureClone.style.display = 'block';
                 captureClone.style.visibility = 'visible';
                 captureClone.style.width = '100%';
+                captureClone.querySelectorAll('th, td').forEach(function(cell) {
+                    cell.style.setProperty('vertical-align', 'middle', 'important');
+                    cell.style.setProperty('line-height', '1.3', 'important');
+                });
                 captureHost.appendChild(captureClone);
                 document.body.appendChild(captureHost);
 
