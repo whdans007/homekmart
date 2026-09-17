@@ -12,7 +12,7 @@ $type = ($_GET['type'] ?? '') === 'category' ? 'category' : 'brand';
 $id   = (int)($_GET['id'] ?? 0);
 
 if ($id <= 0) {
-    echo json_encode(['ok' => false, 'error' => 'Invalid id']);
+    echo json_encode(['ok' => false, 'error' => t('logistics.ajax_inuse_products.invalid_id')]);
     exit;
 }
 
@@ -37,5 +37,5 @@ try {
         'products' => $rows,
     ], JSON_UNESCAPED_UNICODE);
 } catch (Exception $e) {
-    echo json_encode(['ok' => false, 'error' => 'Database error']);
+    echo json_encode(['ok' => false, 'error' => t('logistics.ajax_inuse_products.database_error')]);
 }

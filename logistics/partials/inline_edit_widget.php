@@ -44,7 +44,7 @@
                 var edit = document.createElement('button');
                 edit.type = 'button';
                 edit.className = 'lc-ie-edit';
-                edit.title = 'Edit';
+                edit.title = <?php echo json_encode(t('logistics.inline_edit_widget.edit'), JSON_UNESCAPED_UNICODE); ?>;
                 edit.innerHTML = '<i class="fas fa-pencil-alt"></i>';
                 edit.style.cssText = 'flex:0 0 auto;color:#9ca3af;padding:2px 6px;font-size:11px;';
                 edit.addEventListener('mouseover', function () { edit.style.color = '#0d9488'; });
@@ -70,11 +70,11 @@
                 row.style.cssText = 'display:flex;gap:4px;align-items:center;';
 
                 var en = document.createElement('input');
-                en.type = 'text'; en.value = item.name_en || ''; en.placeholder = 'English *';
+                en.type = 'text'; en.value = item.name_en || ''; en.placeholder = <?php echo json_encode(t('logistics.inline_edit_widget.english_required'), JSON_UNESCAPED_UNICODE); ?>;
                 en.style.cssText = 'flex:1;min-width:0;border:1px solid #d1d5db;border-radius:4px;padding:3px 6px;font-size:12px;';
 
                 var ko = document.createElement('input');
-                ko.type = 'text'; ko.value = item.name_ko || ''; ko.placeholder = '한글';
+                ko.type = 'text'; ko.value = item.name_ko || ''; ko.placeholder = <?php echo json_encode(t('logistics.inline_edit_widget.korean'), JSON_UNESCAPED_UNICODE); ?>;
                 ko.style.cssText = 'flex:1;min-width:0;border:1px solid #d1d5db;border-radius:4px;padding:3px 6px;font-size:12px;';
 
                 var save = document.createElement('button');
@@ -110,7 +110,7 @@
                 function doSave() {
                     var ne = en.value.trim(), nk = ko.value.trim();
                     // Plan SC-3: 영문 필수
-                    if (!ne) { err.textContent = 'English name is required.'; err.style.display = 'block'; en.focus(); return; }
+                    if (!ne) { err.textContent = <?php echo json_encode(t('logistics.inline_edit_widget.english_name_required'), JSON_UNESCAPED_UNICODE); ?>; err.style.display = 'block'; en.focus(); return; }
                     save.disabled = true; save.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
                     var fd = new FormData();
@@ -124,7 +124,7 @@
                         .then(function (r) { return r.json(); })
                         .then(function (data) {
                             if (!data.success) {
-                                err.textContent = data.message || 'Failed to save.';
+                                err.textContent = data.message || <?php echo json_encode(t('logistics.inline_edit_widget.save_failed'), JSON_UNESCAPED_UNICODE); ?>;
                                 err.style.display = 'block';
                                 save.disabled = false; save.innerHTML = '<i class="fas fa-check"></i>';
                                 return;
@@ -137,7 +137,7 @@
                             onSaved(item);
                         })
                         .catch(function () {
-                            err.textContent = 'Network error. Please try again.';
+                            err.textContent = <?php echo json_encode(t('logistics.inline_edit_widget.network_error'), JSON_UNESCAPED_UNICODE); ?>;
                             err.style.display = 'block';
                             save.disabled = false; save.innerHTML = '<i class="fas fa-check"></i>';
                         });

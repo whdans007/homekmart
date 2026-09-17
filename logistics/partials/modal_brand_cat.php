@@ -11,21 +11,21 @@
 
         <div class="space-y-3">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">English Name <span class="text-red-500">*</span></label>
-                <input type="text" id="qcNameEn" placeholder="E.g.: Nongshim, Beverage"
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.modal_brand_cat.english_name')); ?> <span class="text-red-500">*</span></label>
+                <input type="text" id="qcNameEn" placeholder="<?php echo htmlspecialchars(t('logistics.modal_brand_cat.name_placeholder')); ?>"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                        onkeydown="if(event.key==='Enter'){event.preventDefault();saveQuickCreate();}">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Korean Name</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.modal_brand_cat.korean_name')); ?></label>
                 <div class="flex gap-2">
-                    <input type="text" id="qcNameKo" placeholder="E.g.: Nongshim, Beverage"
+                    <input type="text" id="qcNameKo" placeholder="<?php echo htmlspecialchars(t('logistics.modal_brand_cat.name_placeholder')); ?>"
                            class="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                            onkeydown="if(event.key==='Enter'){event.preventDefault();translateQcName();}">
                     <button type="button" id="qcTransBtn" onclick="translateQcName()"
                             class="px-3 py-2 text-xs font-semibold rounded-md whitespace-nowrap transition-colors"
                             style="background:#f3e8ff;color:#7e22ce;">
-                        한글→영문표기
+                        <?php echo htmlspecialchars(t('logistics.modal_brand_cat.romanize')); ?>
                     </button>
                 </div>
             </div>
@@ -35,11 +35,11 @@
         <div class="flex gap-2 mt-5">
             <button type="button" id="qcSaveBtn" onclick="saveQuickCreate()"
                     class="flex-1 px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
-                <i class="fas fa-plus mr-1"></i>Register
+                <i class="fas fa-plus mr-1"></i><?php echo htmlspecialchars(t('logistics.modal_brand_cat.register')); ?>
             </button>
             <button type="button" onclick="closeQuickCreate()"
                     class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200">
-                Cancel
+                <?php echo htmlspecialchars(t('logistics.modal_brand_cat.cancel')); ?>
             </button>
         </div>
     </div>
@@ -53,7 +53,7 @@
     window.openQuickCreate = function (type, targetEl) {
         _qcType = type;
         _qcSelect = targetEl || document.getElementById(type === 'brand' ? 'brandSelect' : 'catSelect');
-        document.getElementById('qcTitle').textContent = type === 'brand' ? 'Register New Brand' : 'Register New Category';
+        document.getElementById('qcTitle').textContent = type === 'brand' ? <?php echo json_encode(t('logistics.modal_brand_cat.register_new_brand'), JSON_UNESCAPED_UNICODE); ?> : <?php echo json_encode(t('logistics.modal_brand_cat.register_new_category'), JSON_UNESCAPED_UNICODE); ?>;
         document.getElementById('qcNameKo').value = '';
         document.getElementById('qcNameEn').value = '';
         var err = document.getElementById('qcError');
@@ -99,7 +99,7 @@
         var errEl = document.getElementById('qcError');
 
         if (!name_en) {
-            errEl.textContent = 'Please enter English name.';
+            errEl.textContent = <?php echo json_encode(t('logistics.modal_brand_cat.english_name_required'), JSON_UNESCAPED_UNICODE); ?>;
             errEl.classList.remove('hidden');
             document.getElementById('qcNameEn').focus();
             return;
@@ -108,7 +108,7 @@
 
         var csrf = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
         var btn = document.getElementById('qcSaveBtn');
-        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Saving…';
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>' + <?php echo json_encode(t('logistics.modal_brand_cat.saving'), JSON_UNESCAPED_UNICODE); ?>;
 
         var fd = new FormData();
         fd.append('type', _qcType);
@@ -131,17 +131,17 @@
                     }
                     closeQuickCreate();
                 } else {
-                    errEl.textContent = data.message || 'An error occurred.';
+                    errEl.textContent = data.message || <?php echo json_encode(t('logistics.modal_brand_cat.error'), JSON_UNESCAPED_UNICODE); ?>;
                     errEl.classList.remove('hidden');
                 }
             })
             .catch(function () {
-                errEl.textContent = 'Server connection error.';
+                errEl.textContent = <?php echo json_encode(t('logistics.modal_brand_cat.server_error'), JSON_UNESCAPED_UNICODE); ?>;
                 errEl.classList.remove('hidden');
             })
             .finally(function () {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-plus mr-1"></i>Register';
+                btn.innerHTML = '<i class="fas fa-plus mr-1"></i>' + <?php echo json_encode(t('logistics.modal_brand_cat.register'), JSON_UNESCAPED_UNICODE); ?>;
             });
     };
 

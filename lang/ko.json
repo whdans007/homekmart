@@ -3123,6 +3123,9 @@
     "export_csv": "CSV 내보내기"
   },
   "logistics": {
+    "ajax_inuse_products":{"invalid_id":"유효하지 않은 ID입니다.","database_error":"데이터베이스 오류입니다."},
+    "inline_edit_widget":{"edit":"편집","english_required":"영어 *","korean":"한국어","english_name_required":"영문명을 입력해 주세요.","save_failed":"저장에 실패했습니다.","network_error":"네트워크 오류입니다. 다시 시도해 주세요."},
+    "modal_brand_cat":{"english_name":"영문명","name_placeholder":"예: Nongshim, Beverage","korean_name":"한글명","romanize":"한글→영문 표기","register":"등록","cancel":"취소","saving":"저장 중…","register_new_brand":"새 브랜드 등록","register_new_category":"새 카테고리 등록","english_name_required":"영문명을 입력해 주세요.","error":"오류가 발생했습니다.","server_error":"서버 연결 오류입니다."},
     "ajax_quick_create_supplier": {"method_not_allowed":"허용되지 않은 요청 방식입니다.","name_required":"공급업체명을 입력해 주세요.","db_error":"DB 오류: {error}"},
     "ajax_quick_update": {"security_error":"보안 오류입니다. 다시 시도해 주세요.","invalid_request":"잘못된 요청입니다.","invalid_target":"잘못된 대상입니다.","name_required":"영문명을 입력해 주세요.","update_failed":"업데이트에 실패했습니다.","db_error":"DB 오류: {error}"},
     "ajax_save_supplier": {"method_not_allowed":"허용되지 않은 요청 방식입니다.","name_required":"공급업체명을 입력해 주세요.","db_error":"DB 오류: {error}"},

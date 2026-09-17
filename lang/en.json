@@ -3043,6 +3043,9 @@
     "export_csv": "Export CSV"
   },
   "logistics": {
+    "ajax_inuse_products":{"invalid_id":"Invalid id","database_error":"Database error"},
+    "inline_edit_widget":{"edit":"Edit","english_required":"English *","korean":"Korean","english_name_required":"English name is required.","save_failed":"Failed to save.","network_error":"Network error. Please try again."},
+    "modal_brand_cat":{"english_name":"English Name","name_placeholder":"E.g.: Nongshim, Beverage","korean_name":"Korean Name","romanize":"Romanize Korean","register":"Register","cancel":"Cancel","saving":"Saving…","register_new_brand":"Register New Brand","register_new_category":"Register New Category","english_name_required":"Please enter English name.","error":"An error occurred.","server_error":"Server connection error."},
     "ajax_quick_create_supplier": {"method_not_allowed":"Method not allowed","name_required":"Supplier name is required.","db_error":"DB Error: {error}"},
     "ajax_quick_update": {"security_error":"Security error: Please try again.","invalid_request":"Invalid request.","invalid_target":"Invalid target.","name_required":"Please enter the English name.","update_failed":"Update failed.","db_error":"DB Error: {error}"},
     "ajax_save_supplier": {"method_not_allowed":"Method not allowed","name_required":"Supplier name is required.","db_error":"DB Error: {error}"},
