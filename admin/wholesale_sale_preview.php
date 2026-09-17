@@ -1231,10 +1231,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     backgroundColor: '#ffffff',
                     logging: false
                 });
+                const blob = await new Promise(function(resolve, reject) {
+                    canvas.toBlob(function(result) {
+                        if (result) resolve(result);
+                        else reject(new Error('PNG blob creation failed'));
+                    }, 'image/png');
+                });
+                const objectUrl = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.download = 'wholesale-sale-<?php echo (int)$sale_id; ?>.png';
-                link.href = canvas.toDataURL('image/png');
+                link.href = objectUrl;
+                link.style.display = 'none';
+                document.body.appendChild(link);
                 link.click();
+                link.remove();
+                setTimeout(function() { URL.revokeObjectURL(objectUrl); }, 1000);
             } catch (error) {
                 console.error('Image download failed:', error);
                 alert(<?php echo json_encode(t('wholesale_sale_preview.image_save_error'), JSON_UNESCAPED_UNICODE); ?>);
