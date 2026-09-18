@@ -137,6 +137,11 @@ if ($_lc_is_staff) {
                         <i class="fas fa-cubes mr-2 w-4 text-center"></i>
                         <?php echo t('logistics.nav.inventory_status'); ?>
                     </a>
+                    <a href="<?php echo LC_BASE; ?>/promo_products.php"
+                       class="<?php echo $_lc_page === 'promo_products.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors">
+                        <i class="fas fa-tags mr-2 w-4 text-center"></i>
+                        <?php echo t('logistics.nav.promo_products'); ?>
+                    </a>
 
                     <!-- Master Data 섹션 (blue) -->
                     <div class="rounded-lg px-1.5 py-2 mt-3" style="background:#eff6ff;">
@@ -273,6 +278,7 @@ if ($_lc_is_staff) {
             <a href="<?php echo LC_BASE; ?>/products.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.product_master'); ?></a>
             <a href="<?php echo LC_BASE; ?>/inbound.php"   class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.inbound_management'); ?></a>
             <a href="<?php echo LC_BASE; ?>/inventory.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.inventory_status'); ?></a>
+            <a href="<?php echo LC_BASE; ?>/promo_products.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.promo_products'); ?></a>
             <a href="<?php echo LC_BASE; ?>/outbound.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.outbound_history'); ?></a>
             <a href="<?php echo LC_BASE; ?>/inbound_damages.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.damaged_goods'); ?></a>
             <a href="<?php echo LC_BASE; ?>/suppliers.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md"><?php echo t('logistics.nav.suppliers'); ?></a>

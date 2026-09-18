@@ -91,6 +91,7 @@ function lc_fifo_ship_allow_negative(mysqli $conn, int $product_id, int $qty_nee
          FROM lc_inventory i
          JOIN lc_inbound b ON i.inbound_id = b.id
          WHERE i.product_id = ? AND i.quantity_remain > 0
+           AND i.id NOT IN (SELECT inventory_id FROM lc_lot_promotions WHERE status = 'active')
          ORDER BY i.expiry_date ASC, i.id ASC
          FOR UPDATE"
     );
@@ -190,6 +191,68 @@ function lc_fifo_ship_allow_negative(mysqli $conn, int $product_id, int $qty_nee
 }
 
 /**
+ * 프로모션 지정 주문 항목의 LOT 차감. 프로모션 LOT 잔량까지는 할인가로,
+ * 초과분은 같은 상품의 일반 FEFO 재고에서 정상가로 자동 분할 차감한다(FR-12).
+ * 프로모션 LOT 자체는 음수 차감을 허용하지 않는다(잔량 한도까지만).
+ * lc_fifo_ship_allow_negative()와 동일한 shape의 배열을 반환한다.
+ */
+function lc_ship_promo_lot(mysqli $conn, int $product_id, int $promotion_id, int $qty_needed): array {
+    $stmt = $conn->prepare("SELECT * FROM lc_lot_promotions WHERE id = ? AND status = 'active' FOR UPDATE");
+    $stmt->bind_param('i', $promotion_id);
+    $stmt->execute();
+    $promo = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$promo) {
+        throw new Exception("프로모션(#{$promotion_id})이 더 이상 유효하지 않습니다.");
+    }
+    if ((int)$promo['product_id'] !== $product_id) {
+        // 클라이언트가 보낸 product_id[]가 promotion_id가 실제로 가리키는 상품과 다름 — 조작/불일치 방지
+        throw new Exception("프로모션(#{$promotion_id})이 요청한 상품과 일치하지 않습니다.");
+    }
+
+    $stmt = $conn->prepare(
+        "SELECT i.id AS inventory_id, i.quantity_remain, i.storage_location, i.lot_number, i.expiry_date, b.id AS inbound_id
+         FROM lc_inventory i JOIN lc_inbound b ON i.inbound_id = b.id
+         WHERE i.id = ? FOR UPDATE"
+    );
+    $stmt->bind_param('i', $promo['inventory_id']);
+    $stmt->execute();
+    $lot = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    $deductions = [];
+    $promo_available = (int)($lot['quantity_remain'] ?? 0);
+    $promo_ship_qty = max(0, min($promo_available, $qty_needed));
+
+    if ($promo_ship_qty > 0) {
+        $upd = $conn->prepare("UPDATE lc_inventory SET quantity_out = quantity_out + ? WHERE id = ?");
+        $upd->bind_param('ii', $promo_ship_qty, $lot['inventory_id']);
+        $upd->execute();
+        $upd->close();
+
+        $deductions[] = [
+            'inventory_id'     => (int)$lot['inventory_id'],
+            'inbound_id'       => (int)$lot['inbound_id'],
+            'quantity'         => $promo_ship_qty,
+            'cost_price'       => (float)$promo['discounted_price'],
+            'storage_location' => $lot['storage_location'] ?? null,
+            'lot_number'       => $lot['lot_number'] ?? null,
+            'expiry_date'      => $lot['expiry_date'] ?? null,
+        ];
+    }
+
+    $remaining = $qty_needed - $promo_ship_qty;
+    if ($remaining > 0) {
+        // FR-12: 초과분은 같은 상품의 일반 FEFO 재고에서 정상가로 (프로모션 LOT은 이미 소진되어 자동 제외됨)
+        $fefo = lc_fifo_ship_allow_negative($conn, $product_id, $remaining);
+        $deductions = array_merge($deductions, $fefo);
+    }
+
+    return $deductions;
+}
+
+/**
  * 대책 C — 주문 접수(store/order.php) 시점 재고 차감(예약).
  * 주문의 모든 항목을 FEFO로 차감하고 lc_order_item_lots에 lot 내역을 기록한다.
  * $set_cost=true 이면 차감된 lot의 가중평균 원가로 unit_price를 갱신(접수/승인 시).
@@ -199,7 +262,7 @@ function lc_fifo_ship_allow_negative(mysqli $conn, int $product_id, int $qty_nee
 function lc_allocate_order_stock(mysqli $conn, int $order_id, bool $set_cost = true): void {
     $order_id = (int)$order_id;
     $res = $conn->query(
-        "SELECT id, product_id, quantity FROM lc_order_items WHERE order_id = $order_id"
+        "SELECT id, product_id, quantity, promotion_id FROM lc_order_items WHERE order_id = $order_id"
     );
     if ($res === false) {
         throw new Exception('lc_allocate_order_stock: order_items 조회 실패 - ' . $conn->error);
@@ -215,7 +278,10 @@ function lc_allocate_order_stock(mysqli $conn, int $order_id, bool $set_cost = t
     foreach ($items as $item) {
         $item_id = (int)$item['id'];
         // 재고 부족 시에도 음수 재고로 차감 (기존 출고 로직과 동일)
-        $lots = lc_fifo_ship_allow_negative($conn, (int)$item['product_id'], (int)$item['quantity']);
+        $promotion_id = isset($item['promotion_id']) && $item['promotion_id'] !== null ? (int)$item['promotion_id'] : 0;
+        $lots = $promotion_id > 0
+            ? lc_ship_promo_lot($conn, (int)$item['product_id'], $promotion_id, (int)$item['quantity'])
+            : lc_fifo_ship_allow_negative($conn, (int)$item['product_id'], (int)$item['quantity']);
 
         if ($set_cost) {
             $total_cost = array_sum(array_map(fn($l) => $l['quantity'] * $l['cost_price'], $lots));
