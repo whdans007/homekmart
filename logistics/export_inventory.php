@@ -45,6 +45,11 @@ if ($filter === 'out') {
                    COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                    0 AS total_stock,
                    NULL AS earliest_expiry,
+                   (SELECT latest_ib.cost_price
+                    FROM lc_inbound latest_ib
+                    WHERE latest_ib.product_id = p.id
+                    ORDER BY latest_ib.inbound_date DESC, latest_ib.id DESC
+                    LIMIT 1) AS latest_inbound_price,
                    (SELECT s.name
                     FROM lc_inventory li
                     JOIN lc_inbound ib2 ON li.inbound_id = ib2.id
@@ -100,6 +105,11 @@ if ($filter === 'out') {
                    MIN(i.expiry_date) AS earliest_expiry,
                    MAX(ib.inbound_date) AS latest_inbound,
                    MAX(i.inbound_id) AS latest_inbound_id,
+                   (SELECT latest_ib.cost_price
+                    FROM lc_inbound latest_ib
+                    WHERE latest_ib.product_id = p.id
+                    ORDER BY latest_ib.inbound_date DESC, latest_ib.id DESC
+                    LIMIT 1) AS latest_inbound_price,
                    (SELECT s.name
                     FROM lc_inventory li
                     JOIN lc_inbound ib2 ON li.inbound_id = ib2.id
@@ -167,6 +177,11 @@ if ($filter === 'out') {
                    MIN(i.expiry_date)     AS earliest_expiry,
                    MAX(ib.inbound_date)   AS latest_inbound,
                    MAX(i.inbound_id)      AS latest_inbound_id,
+                   (SELECT latest_ib.cost_price
+                    FROM lc_inbound latest_ib
+                    WHERE latest_ib.product_id = p.id
+                    ORDER BY latest_ib.inbound_date DESC, latest_ib.id DESC
+                    LIMIT 1) AS latest_inbound_price,
                    (SELECT s.name
                     FROM lc_inventory li
                     JOIN lc_inbound ib2 ON li.inbound_id = ib2.id
@@ -192,7 +207,7 @@ $conn->close();
 
 $headers = [
     t('logistics.export_inventory.brand'), t('logistics.export_inventory.product_name_ko'), t('logistics.export_inventory.product_name_en'), t('logistics.export_inventory.capacity'), t('logistics.export_inventory.barcode'), t('logistics.export_inventory.unit'),
-    t('logistics.export_inventory.expiry_date'), t('logistics.export_inventory.current_stock'), t('logistics.export_inventory.min_stock'), t('logistics.export_inventory.supplier'),
+    t('logistics.export_inventory.expiry_date'), t('logistics.export_inventory.current_stock'), (get_language() === 'ko' ? '마지막 입고 가격' : 'Last Inbound Price'), t('logistics.export_inventory.min_stock'), t('logistics.export_inventory.supplier'),
 ];
 $textCols = [5]; // Barcode
 
@@ -214,6 +229,7 @@ foreach ($list as $row) {
         $row['unit'],
         $row['earliest_expiry'] ?? '',
         (string)$row['total_stock'],
+        $row['latest_inbound_price'] !== null ? number_format((float)$row['latest_inbound_price'], 2, '.', '') : '',
         (string)$row['min_stock'],
         $row['latest_supplier'] ?? '',
     ];

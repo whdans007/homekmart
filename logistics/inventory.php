@@ -69,6 +69,11 @@ try {
                        0 AS total_stock, 0 AS box_stock, 0 AS pack_stock, 0 AS pcs_stock,
                        0 AS lot_count, NULL AS earliest_expiry, NULL AS days_left,
                        NULL AS latest_inbound, NULL AS latest_inbound_id,
+                       (SELECT latest_ib.cost_price
+                        FROM lc_inbound latest_ib
+                        WHERE latest_ib.product_id = p.id
+                        ORDER BY latest_ib.inbound_date DESC, latest_ib.id DESC
+                        LIMIT 1) AS latest_inbound_price,
                        (SELECT s.name
                         FROM lc_inventory li
                         JOIN lc_inbound ib2 ON li.inbound_id = ib2.id
@@ -138,6 +143,11 @@ try {
                        DATEDIFF(MIN(i.expiry_date), CURDATE()) AS days_left,
                        MAX(ib.inbound_date)   AS latest_inbound,
                        MAX(i.inbound_id)      AS latest_inbound_id,
+                       (SELECT latest_ib.cost_price
+                        FROM lc_inbound latest_ib
+                        WHERE latest_ib.product_id = p.id
+                        ORDER BY latest_ib.inbound_date DESC, latest_ib.id DESC
+                        LIMIT 1) AS latest_inbound_price,
                        (SELECT s.name
                         FROM lc_inventory li
                         JOIN lc_inbound ib2 ON li.inbound_id = ib2.id
@@ -200,6 +210,11 @@ try {
                        p.capacity, p.pieces_per_box, p.unit AS product_unit,
                        i.lot_number, i.expiry_date, i.quantity_remain, i.unit,
                        DATEDIFF(i.expiry_date, CURDATE()) AS days_left,
+                       (SELECT latest_ib.cost_price
+                        FROM lc_inbound latest_ib
+                        WHERE latest_ib.product_id = p.id
+                        ORDER BY latest_ib.inbound_date DESC, latest_ib.id DESC
+                        LIMIT 1) AS latest_inbound_price,
                        lp.id AS promotion_id, lp.discount_rate, lp.discounted_price
                 FROM lc_inventory i
                 JOIN lc_products p ON i.product_id = p.id
@@ -279,6 +294,11 @@ try {
                        DATEDIFF(MIN(i.expiry_date), CURDATE()) AS days_left,
                        MAX(ib.inbound_date)   AS latest_inbound,
                        MAX(i.inbound_id)      AS latest_inbound_id,
+                       (SELECT latest_ib.cost_price
+                        FROM lc_inbound latest_ib
+                        WHERE latest_ib.product_id = p.id
+                        ORDER BY latest_ib.inbound_date DESC, latest_ib.id DESC
+                        LIMIT 1) AS latest_inbound_price,
                        (SELECT s.name
                         FROM lc_inventory li
                         JOIN lc_inbound ib2 ON li.inbound_id = ib2.id
@@ -434,11 +454,12 @@ main { overflow: hidden !important; }
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.expiry_date'); ?></th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.unit'); ?></th>
                 <th class="px-4 py-3 text-right text-xs text-pink-700 font-semibold bg-pink-100"><?php echo t('logistics.inventory.remaining_quantity'); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo get_language() === 'ko' ? '마지막 입고 가격' : 'Last Inbound Price'; ?></th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.promotion'); ?></th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php if (empty($list)): ?>
-            <tr><td colspan="6" class="px-4 py-10 text-center text-gray-400"><?php echo t('logistics.inventory.empty'); ?></td></tr>
+            <tr><td colspan="7" class="px-4 py-10 text-center text-gray-400"><?php echo t('logistics.inventory.empty'); ?></td></tr>
             <?php endif; ?>
             <?php foreach ($list as $row):
                 $days = (int)$row['days_left'];
@@ -459,6 +480,7 @@ main { overflow: hidden !important; }
                 </td>
                 <td class="px-4 py-3 text-gray-600 text-xs"><?php echo htmlspecialchars($row['unit'] ?: $row['product_unit'] ?: '-'); ?></td>
                 <td class="px-4 py-3 text-right font-bold bg-pink-50 text-gray-900"><?php echo number_format((float)$row['quantity_remain'], 2); ?></td>
+                <td class="px-4 py-3 text-right font-mono text-xs text-gray-700"><?php echo $row['latest_inbound_price'] !== null ? number_format((float)$row['latest_inbound_price'], 2) : '-'; ?></td>
                 <td class="px-4 py-3" onclick="event.stopPropagation();">
                     <?php if (!empty($row['promotion_id'])): ?>
                     <div class="flex items-center gap-2 flex-wrap">
@@ -478,20 +500,23 @@ main { overflow: hidden !important; }
             </tbody>
         </table>
         <?php else: ?>
-        <table class="w-full text-sm">
+        <table class="w-full text-sm <?php echo $filter === 'out' ? 'table-fixed' : ''; ?>">
             <thead class="bg-gray-50 sticky top-0 z-10"><tr>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.brand'); ?></th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.product_name'); ?></th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.capacity'); ?></th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.unit'); ?></th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.pkg'); ?></th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.expiry_date'); ?></th>
-                <th class="px-4 py-3 text-right text-xs text-pink-700 font-semibold bg-pink-100"><?php echo t('logistics.inventory.current_stock'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"<?php echo $filter === 'out' ? ' style="width:34%;"' : ''; ?>><?php echo t('logistics.inventory.product_name'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"<?php echo $filter === 'out' ? ' style="width:90px;"' : ''; ?>><?php echo t('logistics.inventory.capacity'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium whitespace-nowrap"<?php echo $filter === 'out' ? ' style="width:60px;"' : ''; ?>><?php echo t('logistics.inventory.unit'); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium whitespace-nowrap"<?php echo $filter === 'out' ? ' style="width:55px;"' : ''; ?>><?php echo t('logistics.inventory.pkg'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium whitespace-nowrap"<?php echo $filter === 'out' ? ' style="width:90px;"' : ''; ?>><?php echo t('logistics.inventory.expiry_date'); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-pink-700 font-semibold bg-pink-100 whitespace-nowrap"<?php echo $filter === 'out' ? ' style="width:110px;"' : ''; ?>><?php echo t('logistics.inventory.current_stock'); ?></th>
+                <?php if ($filter === 'low' || $filter === 'out'): ?>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium whitespace-nowrap"<?php echo $filter === 'out' ? ' style="width:110px;"' : ''; ?>><?php echo get_language() === 'ko' ? '마지막 입고가' : 'Last Inbound Price'; ?></th>
+                <?php endif; ?>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.supplier'); ?></th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php if (empty($list)): ?>
-            <tr><td colspan="8" class="px-4 py-10 text-center text-gray-400"><?php echo t('logistics.inventory.empty'); ?></td></tr>
+            <tr><td colspan="<?php echo ($filter === 'low' || $filter === 'out') ? '9' : '8'; ?>" class="px-4 py-10 text-center text-gray-400"><?php echo t('logistics.inventory.empty'); ?></td></tr>
             <?php endif; ?>
             <?php foreach ($list as $row):
                 $days = $row['days_left'];
@@ -559,6 +584,9 @@ main { overflow: hidden !important; }
                     <?php if ($isNegative): ?><i class="fas fa-exclamation-circle mr-1"></i><?php endif; ?>
                     <?php echo htmlspecialchars($stockDisplay); ?>
                 </td>
+                <?php if ($filter === 'low' || $filter === 'out'): ?>
+                <td class="px-4 py-3 text-right font-mono text-xs text-gray-700"><?php echo $row['latest_inbound_price'] !== null ? number_format((float)$row['latest_inbound_price'], 2) : '-'; ?></td>
+                <?php endif; ?>
                 <td class="px-4 py-3 text-gray-600 text-xs"><?php echo htmlspecialchars($row['latest_supplier'] ?: '—'); ?></td>
             </tr>
             <?php endforeach; ?>
