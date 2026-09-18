@@ -112,10 +112,10 @@ if ($_lc_is_staff) {
                                  <i class="fas fa-sign-out-alt"></i><?php echo t('logistics.nav.logout'); ?>
                             </a>
                         </div>
-                        <select id="language-switcher" class="w-full" style="font-size:11px;border:1px solid #99f6e4;border-radius:0.4rem;padding:0.25rem 0.4rem;background:#fff;outline:none;color:#0f766e;">
-                            <option value="ko" <?php echo get_language() === 'ko' ? 'selected' : ''; ?>>한국어</option>
-                            <option value="en" <?php echo get_language() === 'en' ? 'selected' : ''; ?>>English</option>
-                        </select>
+                        <div id="language-switcher" style="display:flex;width:100%;border:1px solid #99f6e4;border-radius:0.4rem;overflow:hidden;font-size:11px;font-weight:600;">
+                            <button type="button" data-lang="ko" style="flex:1;padding:0.35rem 0;border:none;cursor:pointer;transition:background 0.15s,color 0.15s;<?php echo get_language() === 'ko' ? 'background:#0f766e;color:#fff;' : 'background:#fff;color:#0f766e;'; ?>">한글</button>
+                            <button type="button" data-lang="en" style="flex:1;padding:0.35rem 0;border:none;cursor:pointer;transition:background 0.15s,color 0.15s;<?php echo get_language() === 'en' ? 'background:#0f766e;color:#fff;' : 'background:#fff;color:#0f766e;'; ?>">ENGLISH</button>
+                        </div>
                     </div>
                 </div>
 
@@ -305,18 +305,20 @@ if ($_lc_is_staff) {
         <main class="flex-1 overflow-y-auto p-6">
 
 <script>
-document.getElementById('language-switcher')?.addEventListener('change', function() {
-    var languageSwitcher = this;
+document.getElementById('language-switcher')?.addEventListener('click', function(e) {
+    var btn = e.target.closest('button[data-lang]');
+    if (!btn) return;
+    var lang = btn.getAttribute('data-lang');
+    if (lang === '<?php echo get_language(); ?>') return;
     fetch('<?php echo LC_BASE; ?>/ajax_set_language.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'language=' + encodeURIComponent(this.value)
+        body: 'language=' + encodeURIComponent(lang)
     }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.success) { window.location.reload(); }
-        else { alert('<?php echo htmlspecialchars(t('common.error'), ENT_QUOTES, 'UTF-8'); ?>: ' + data.message); languageSwitcher.value = '<?php echo get_language(); ?>'; }
+        else { alert('<?php echo htmlspecialchars(t('common.error'), ENT_QUOTES, 'UTF-8'); ?>: ' + data.message); }
     }).catch(function() {
         alert('<?php echo htmlspecialchars(t('logistics.common.language_error'), ENT_QUOTES, 'UTF-8'); ?>');
-        languageSwitcher.value = '<?php echo get_language(); ?>';
     });
 });
 document.getElementById('mobile-menu-btn')?.addEventListener('click', function() {
