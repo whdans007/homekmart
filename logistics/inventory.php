@@ -159,6 +159,60 @@ try {
         $st->execute();
         $list = $st->get_result()->fetch_all(MYSQLI_ASSOC);
         $st->close();
+    } elseif ($filter === 'expiring') {
+        $conds  = ["i.quantity_remain <> 0", "i.expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 90 DAY)"];
+        $params = [];
+        $types  = '';
+
+        if ($search) {
+            $conds[] = "(p.name_en LIKE ? OR p.name_ko LIKE ? OR p.barcode_unit LIKE ? OR p.barcode_box LIKE ? OR p.barcode_logistics LIKE ?
+                        OR EXISTS (
+                            SELECT 1 FROM lc_brands search_brand
+                            WHERE search_brand.id = p.brand_id
+                              AND (search_brand.name_en LIKE ? OR search_brand.name_ko LIKE ?)
+                        )
+                        OR EXISTS (
+                            SELECT 1 FROM lc_inventory search_inventory
+                            JOIN lc_inbound search_inbound ON search_inventory.inbound_id = search_inbound.id
+                            LEFT JOIN lc_inbound_batches search_batch ON search_inbound.batch_id = search_batch.id
+                            LEFT JOIN lc_suppliers search_supplier ON search_batch.supplier_id = search_supplier.id
+                            WHERE search_inventory.product_id = p.id AND search_supplier.name LIKE ?
+                        ))";
+            $params = array_fill(0, 8, "%$search%");
+            $types  .= 'ssssssss';
+        }
+        $where = 'WHERE ' . implode(' AND ', $conds);
+
+        $cnt_sql = "SELECT COUNT(*) FROM lc_inventory i
+            JOIN lc_products p ON i.product_id = p.id
+            $where";
+        $cnt = $conn->prepare($cnt_sql);
+        if ($params) { $cnt->bind_param($types, ...$params); }
+        $cnt->execute();
+        $total = (int)$cnt->get_result()->fetch_row()[0];
+        $cnt->close();
+        $total_pages = $is_searching ? 1 : max(1, (int)ceil($total / $limit));
+
+        $sql = "SELECT i.id AS inventory_id,
+                       p.id AS product_id,
+                       CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS product_name,
+                       b.name_en AS brand_name, b.name_ko AS brand_name_ko,
+                       p.capacity, p.pieces_per_box, p.unit AS product_unit,
+                       i.lot_number, i.expiry_date, i.quantity_remain, i.unit,
+                       DATEDIFF(i.expiry_date, CURDATE()) AS days_left,
+                       lp.id AS promotion_id, lp.discount_rate, lp.discounted_price
+                FROM lc_inventory i
+                JOIN lc_products p ON i.product_id = p.id
+                LEFT JOIN lc_brands b ON p.brand_id = b.id
+                LEFT JOIN lc_lot_promotions lp ON lp.inventory_id = i.id AND lp.status = 'active'
+                $where
+                ORDER BY i.expiry_date ASC, p.name_en ASC, i.id ASC
+                $limit_clause";
+        $st = $conn->prepare($sql);
+        if ($params) { $st->bind_param($types, ...$params); }
+        $st->execute();
+        $list = $st->get_result()->fetch_all(MYSQLI_ASSOC);
+        $st->close();
     } else {
         // 상품별 재고 집계 쿼리 (음수 재고 lot 포함 — ADJUST lot으로 마이너스 표시)
         $conds  = ["i.quantity_remain <> 0"];
@@ -372,6 +426,58 @@ main { overflow: hidden !important; }
         </span>
     </div>
     <div class="overflow-auto flex-1 min-h-0">
+        <?php if ($filter === 'expiring'): ?>
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 sticky top-0 z-10"><tr>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.product_name'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.lot_number'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.expiry_date'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.unit'); ?></th>
+                <th class="px-4 py-3 text-right text-xs text-pink-700 font-semibold bg-pink-100"><?php echo t('logistics.inventory.remaining_quantity'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.promotion'); ?></th>
+            </tr></thead>
+            <tbody class="divide-y divide-gray-100">
+            <?php if (empty($list)): ?>
+            <tr><td colspan="6" class="px-4 py-10 text-center text-gray-400"><?php echo t('logistics.inventory.empty'); ?></td></tr>
+            <?php endif; ?>
+            <?php foreach ($list as $row):
+                $days = (int)$row['days_left'];
+                $rowCls = $days <= 30 ? 'bg-orange-50' : 'bg-yellow-50';
+                $dayClass = $days <= 30 ? 'text-orange-600' : 'text-yellow-700';
+            ?>
+            <tr class="<?php echo $rowCls; ?> hover:bg-teal-50 transition-colors">
+                <td class="px-4 py-3">
+                    <div class="font-medium text-gray-900"><?php echo htmlspecialchars($row['product_name']); ?></div>
+                    <?php if (!empty($row['brand_name']) || !empty($row['brand_name_ko'])): ?>
+                    <div class="text-xs text-gray-400 mt-0.5"><?php echo htmlspecialchars(trim(($row['brand_name'] ?? '') . (!empty($row['brand_name_ko']) ? ' (' . $row['brand_name_ko'] . ')' : ''))); ?></div>
+                    <?php endif; ?>
+                </td>
+                <td class="px-4 py-3 text-xs font-mono text-gray-600"><?php echo htmlspecialchars($row['lot_number'] ?: '-'); ?></td>
+                <td class="px-4 py-3 text-xs">
+                    <span class="<?php echo $dayClass; ?> font-semibold"><?php echo htmlspecialchars($row['expiry_date']); ?></span>
+                    <span class="ml-1 text-xs <?php echo $dayClass; ?>">(<?php echo t('logistics.inventory.d_day', ['days' => $days]); ?>)</span>
+                </td>
+                <td class="px-4 py-3 text-gray-600 text-xs"><?php echo htmlspecialchars($row['unit'] ?: $row['product_unit'] ?: '-'); ?></td>
+                <td class="px-4 py-3 text-right font-bold bg-pink-50 text-gray-900"><?php echo number_format((float)$row['quantity_remain'], 2); ?></td>
+                <td class="px-4 py-3" onclick="event.stopPropagation();">
+                    <?php if (!empty($row['promotion_id'])): ?>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-semibold"><?php echo t('logistics.inventory.discount_active', ['rate' => rtrim(rtrim(number_format((float)$row['discount_rate'], 2), '0'), '.')]); ?></span>
+                        <span class="text-sm font-semibold text-pink-700"><?php echo number_format((float)$row['discounted_price'], 2); ?></span>
+                        <button type="button" class="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50" onclick="cancelPromotion(<?php echo (int)$row['promotion_id']; ?>)"><?php echo t('logistics.inventory.discount_cancel'); ?></button>
+                    </div>
+                    <?php else: ?>
+                    <div class="flex items-center gap-2">
+                        <input type="number" min="0.01" max="99.99" step="0.01" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm" aria-label="<?php echo htmlspecialchars(t('logistics.inventory.discount_rate')); ?>" placeholder="<?php echo htmlspecialchars(t('logistics.inventory.discount_rate')); ?>">
+                        <button type="button" class="px-2 py-1 text-xs text-white bg-pink-600 rounded hover:bg-pink-700" onclick="registerPromotion(this, <?php echo (int)$row['inventory_id']; ?>)"><?php echo t('logistics.inventory.discount_register'); ?></button>
+                    </div>
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php else: ?>
         <table class="w-full text-sm">
             <thead class="bg-gray-50 sticky top-0 z-10"><tr>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.brand'); ?></th>
@@ -458,6 +564,7 @@ main { overflow: hidden !important; }
             <?php endforeach; ?>
             </tbody>
         </table>
+        <?php endif; ?>
     </div>
 
     <?php if ($total_pages > 1): ?>
@@ -543,6 +650,51 @@ main { overflow: hidden !important; }
 <script>
 (function() {
     var LC_BASE = '<?php echo LC_BASE; ?>';
+    var CSRF_TOKEN = '<?php echo htmlspecialchars($_SESSION['lc_csrf'] ?? '', ENT_QUOTES, 'UTF-8'); ?>';
+
+    window.registerPromotion = function(button, inventoryId) {
+        var input = button.parentNode.querySelector('input[type="number"]');
+        var discountRate = input.value;
+        if (!discountRate || parseFloat(discountRate) < 0.01 || parseFloat(discountRate) > 99.99) {
+            alert(<?php echo json_encode(t('logistics.inventory.discount_rate_invalid')); ?>);
+            return;
+        }
+        button.disabled = true;
+        var formData = new FormData();
+        formData.append('csrf_token', CSRF_TOKEN);
+        formData.append('inventory_id', inventoryId);
+        formData.append('discount_rate', discountRate);
+        fetch(LC_BASE + '/ajax/promo_register.php', { method: 'POST', body: formData })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (!data.success) {
+                    throw new Error(data.message || <?php echo json_encode(t('logistics.inventory.discount_register_failed')); ?>);
+                }
+                window.location.reload();
+            })
+            .catch(function(error) {
+                alert(error.message || <?php echo json_encode(t('logistics.inventory.request_failed')); ?>);
+                button.disabled = false;
+            });
+    };
+
+    window.cancelPromotion = function(promotionId) {
+        if (!confirm(<?php echo json_encode(t('logistics.inventory.discount_cancel_confirm')); ?>)) return;
+        var formData = new FormData();
+        formData.append('csrf_token', CSRF_TOKEN);
+        formData.append('promotion_id', promotionId);
+        fetch(LC_BASE + '/ajax/promo_cancel.php', { method: 'POST', body: formData })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                if (!data.success) {
+                    throw new Error(data.message || <?php echo json_encode(t('logistics.inventory.discount_cancel_failed')); ?>);
+                }
+                window.location.reload();
+            })
+            .catch(function(error) {
+                alert(error.message || <?php echo json_encode(t('logistics.inventory.request_failed')); ?>);
+            });
+    };
 
     window.showInboundHistory = function(productId) {
         var modal = document.getElementById('inboundModal');
