@@ -96,7 +96,7 @@ $csrf_token = lc_csrf_token();
                         <?php echo htmlspecialchars(t('logistics.promo_products.d_day_value', ['days' => (int)$row['days_left']])); ?>
                     </td>
                     <td class="px-4 py-3 text-right text-sm text-gray-700"><?php echo number_format((float)$row['quantity_remain'], 2); ?></td>
-                    <td class="px-4 py-3 text-right text-sm text-gray-700"><?php echo number_format((float)$row['base_price'], 2); ?></td>
+                    <td class="px-4 py-3 text-right text-sm text-gray-400" style="text-decoration:line-through;"><?php echo number_format((float)$row['base_price'], 2); ?></td>
                     <td class="px-4 py-3 text-right text-sm text-pink-700"><?php echo number_format((float)$row['discount_rate'], 2); ?>%</td>
                     <td class="px-4 py-3 text-right text-sm font-semibold text-pink-700"><?php echo number_format((float)$row['discounted_price'], 2); ?></td>
                     <td class="px-4 py-3 text-xs text-gray-600"><?php echo htmlspecialchars($row['registered_at']); ?></td>

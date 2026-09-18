@@ -166,7 +166,7 @@ $promo_items = [];
 try {
     $conn2 = get_lc_db();
     $promo_items = $conn2->query(
-        "SELECT lp.id AS promotion_id, lp.discount_rate, lp.discounted_price, lp.unit,
+        "SELECT lp.id AS promotion_id, lp.discount_rate, lp.base_price, lp.discounted_price, lp.unit,
                 i.lot_number, i.expiry_date, i.quantity_remain,
                 p.id AS product_id, CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS name
          FROM lc_lot_promotions lp
@@ -231,7 +231,10 @@ try {
                         <div class="text-xs text-amber-700 mt-1"><?php echo htmlspecialchars(t('logistics.order_new.promo_detail', ['lot' => $promo['lot_number'] ?: '-', 'expiry' => $promo['expiry_date'] ?: '-', 'quantity' => $promo['quantity_remain'], 'unit' => $promo['unit'], 'rate' => $promo['discount_rate']])); ?></div>
                     </td>
                     <td class="px-4 py-3 text-right font-semibold text-teal-700"><?php echo htmlspecialchars($promoStock . ' ' . $promoUnit); ?></td>
-                    <td class="px-4 py-3 text-right text-gray-700"><?php echo number_format((float)$promo['discounted_price'], 2); ?></td>
+                    <td class="px-4 py-3 text-right text-gray-700">
+                        <div class="text-gray-400 text-[10px] leading-tight" style="text-decoration:line-through;"><?php echo number_format((float)$promo['base_price'], 2); ?></div>
+                        <div class="font-semibold text-amber-700"><?php echo number_format((float)$promo['discounted_price'], 2); ?></div>
+                    </td>
                     <td class="px-4 py-3 text-center">
                         <input type="hidden" name="product_id[]" value="<?php echo (int)$promo['product_id']; ?>">
                         <input type="hidden" name="promotion_id[]" value="<?php echo (int)$promo['promotion_id']; ?>">

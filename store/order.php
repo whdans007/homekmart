@@ -254,7 +254,7 @@ try {
 
     // 프로모션(할인 등록된 LOT) 목록 — 활성 + 재고 있는 것만, 소진되면 조회 조건만으로 자동 제외
     $promo_items = $conn->query(
-        "SELECT lp.id AS promotion_id, lp.discount_rate, lp.discounted_price, lp.unit,
+        "SELECT lp.id AS promotion_id, lp.discount_rate, lp.base_price, lp.discounted_price, lp.unit,
                 i.lot_number, i.expiry_date, i.quantity_remain,
                 p.id AS product_id, p.name_en, p.name_ko, p.category_id,
                 COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
@@ -534,9 +534,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <td class="px-4 py-3 text-center text-xs whitespace-nowrap">
                 <span class="<?php echo $expClass; ?>"><?php echo $promo['expiry_date'] ? date('Y-m-d', strtotime($promo['expiry_date'])) : '-'; ?></span>
             </td>
-            <td class="px-4 py-3 text-right text-xs font-semibold" style="color:#b45309;"><?php echo $promoUnit === 'PCS' ? number_format((float)$promo['discounted_price'], 2) : '-'; ?></td>
-            <td class="px-4 py-3 text-right text-xs font-semibold" style="color:#b45309;"><?php echo $promoUnit === 'BOX' ? number_format((float)$promo['discounted_price'], 2) : '-'; ?></td>
-            <td class="px-4 py-3 text-right text-xs font-semibold" style="color:#b45309;"><?php echo $promoUnit === 'PACK' ? number_format((float)$promo['discounted_price'], 2) : '-'; ?></td>
+            <?php
+                $promoPriceCell = '<div class="text-gray-400 text-[10px] leading-tight" style="text-decoration:line-through;">' . number_format((float)$promo['base_price'], 2) . '</div>'
+                                . '<div class="font-semibold" style="color:#b45309;">' . number_format((float)$promo['discounted_price'], 2) . '</div>';
+            ?>
+            <td class="px-4 py-3 text-right text-xs"><?php echo $promoUnit === 'PCS' ? $promoPriceCell : '-'; ?></td>
+            <td class="px-4 py-3 text-right text-xs"><?php echo $promoUnit === 'BOX' ? $promoPriceCell : '-'; ?></td>
+            <td class="px-4 py-3 text-right text-xs"><?php echo $promoUnit === 'PACK' ? $promoPriceCell : '-'; ?></td>
             <td class="px-4 py-3 text-right text-xs">
                 <div><span class="font-semibold text-amber-700"><?php echo (int)$promo['quantity_remain']; ?></span> <span class="text-gray-400"><?php echo htmlspecialchars($promoUnit); ?></span></div>
             </td>
