@@ -3133,6 +3133,8 @@
     "ajax_search_shop_product": {"query_required":"바코드 또는 상품명을 입력해 주세요.","no_match":"'{query}'와 일치하는 상품이 없습니다.","db_error":"DB 오류: {error}"},
     "ajax_search_supplier": {"db_error":"DB 오류: {error}"},
     "ajax_toggle_product_expiry": {"security_error":"보안 오류입니다.","invalid_request":"잘못된 요청입니다.","db_error":"DB 오류: {error}"},
+    "ajax_promo_register": {"security_error":"보안 오류입니다.","invalid_rate":"할인율은 0보다 크고 100보다 작아야 합니다.","no_stock":"재고가 없는 LOT입니다.","already_active":"이미 할인이 등록된 LOT입니다.","no_base_price":"원가 정보가 없어 할인을 등록할 수 없습니다.","success":"할인이 등록되었습니다.","db_error":"할인 등록 중 오류가 발생했습니다."},
+    "ajax_promo_cancel": {"security_error":"보안 오류입니다.","not_active":"활성 상태의 할인만 취소할 수 있습니다.","success":"할인이 취소되었습니다.","db_error":"할인 취소 중 오류가 발생했습니다."},
     "ajax_update_batch_supplier": {"security_error":"보안 오류입니다.","invalid_request":"잘못된 요청입니다.","locked":"입고 기록이 잠겨 있어 수정할 수 없습니다.","db_error":"DB 오류: {error}"},
     "ajax_update_inbound_item": {"security_error":"보안 오류입니다.","invalid_request":"잘못된 요청입니다.","invalid_field":"잘못된 필드입니다: {field}","locked":"입고 기록이 잠겨 있어 수정할 수 없습니다.","invalid_date":"날짜 형식이 잘못되었습니다. YYYY-MM-DD 형식을 사용해 주세요.","expiry_required":"이 상품에는 유통기한이 필요합니다.","quantity_min":"수량은 최소 1이어야 합니다.","db_error":"DB 오류: {error}"},
     "ajax_update_inventory_location": {"security_error":"보안 오류입니다.","invalid_request":"잘못된 요청입니다.","locked":"입고 기록이 잠겨 있어 수정할 수 없습니다.","db_error":"DB 오류: {error}"},
