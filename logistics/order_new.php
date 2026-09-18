@@ -61,17 +61,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn = get_lc_db();
 
             // 재고 확인 및 단가 조회 — 단위별 재고 기준 (Design Ref: box-pcs-unit §5.4)
+            // 프로모션 섹션과 일반 상품 섹션에 같은 상품+단위가 각각 별도 행으로 나뉠 수 있으므로
+            // 합산 수량으로 재고를 검증한다(각 행을 독립적으로 검증하면 총합이 재고를 넘어도 통과될 수 있음)
+            $combined_qty = [];
+            foreach ($items as $it) {
+                $key = $it['product_id'] . '|' . $it['unit'];
+                $combined_qty[$key] = ($combined_qty[$key] ?? 0) + $it['quantity'];
+            }
+            $checked_keys = [];
+
             $total_amount = 0;
             foreach ($items as &$item) {
-                $stock_by_unit = lc_get_stock_by_unit($conn, $item['product_id']);
-                $stock = $stock_by_unit[$item['unit']];
-                if ($stock < $item['quantity']) {
-                    $st = $conn->prepare("SELECT CONCAT(name_en, IFNULL(CONCAT(' (', name_ko, ')'), '')) FROM lc_products WHERE id = ?");
-                    $st->bind_param('i', $item['product_id']);
-                    $st->execute();
-                    $pname = $st->get_result()->fetch_row()[0] ?? "#{$item['product_id']}";
-                    $st->close();
-                    $errors[] = t('logistics.order_new.insufficient_stock', ['name' => $pname, 'unit' => $item['unit'], 'stock' => $stock]);
+                $key = $item['product_id'] . '|' . $item['unit'];
+                if (!isset($checked_keys[$key])) {
+                    $checked_keys[$key] = true;
+                    $stock_by_unit = lc_get_stock_by_unit($conn, $item['product_id']);
+                    $stock = $stock_by_unit[$item['unit']];
+                    if ($stock < $combined_qty[$key]) {
+                        $st = $conn->prepare("SELECT CONCAT(name_en, IFNULL(CONCAT(' (', name_ko, ')'), '')) FROM lc_products WHERE id = ?");
+                        $st->bind_param('i', $item['product_id']);
+                        $st->execute();
+                        $pname = $st->get_result()->fetch_row()[0] ?? "#{$item['product_id']}";
+                        $st->close();
+                        $errors[] = t('logistics.order_new.insufficient_stock', ['name' => $pname, 'unit' => $item['unit'], 'stock' => $stock]);
+                    }
                 }
                 $price = 0.00; // 단가는 입고 시 결정
                 $item['unit_price']   = $price;

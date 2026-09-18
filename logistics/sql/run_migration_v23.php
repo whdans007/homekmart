@@ -55,11 +55,14 @@ CREATE TABLE lc_lot_promotions (
     cancelled_by    INT NULL COMMENT 'users.id',
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    active_inventory_id INT GENERATED ALWAYS AS (CASE WHEN status = 'active' THEN inventory_id ELSE NULL END) STORED
+                    COMMENT '동시 등록 경쟁조건 방지용 — status=active일 때만 inventory_id 값, 아니면 NULL(MySQL UNIQUE는 NULL끼리 충돌 안 함)',
     FOREIGN KEY (inventory_id) REFERENCES lc_inventory(id) ON DELETE RESTRICT,
     FOREIGN KEY (product_id)   REFERENCES lc_products(id)  ON DELETE RESTRICT,
     KEY idx_inventory_id (inventory_id),
     KEY idx_product_status (product_id, status),
-    KEY idx_status_expiry (status, expiry_date)
+    KEY idx_status_expiry (status, expiry_date),
+    UNIQUE KEY uq_active_inventory (active_inventory_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='LOT 단위 할인(프로모션) 등록/이력';
 SQL
         );

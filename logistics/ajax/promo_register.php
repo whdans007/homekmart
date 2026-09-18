@@ -98,6 +98,12 @@ try {
         ],
     ]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => t('logistics.ajax_promo_register.db_error')]);
+    // 동시 등록 경쟁조건 방어: DB의 uq_active_inventory 유니크 제약(status='active'인 inventory_id는 유일) 위반 시
+    // 사전 검증(§중복 등록 방지)을 통과했더라도 최종적으로 여기서 걸러진다(errno 1062 = Duplicate entry)
+    if ((int)$e->getCode() === 1062) {
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_promo_register.already_active')]);
+    } else {
+        echo json_encode(['success' => false, 'message' => t('logistics.ajax_promo_register.db_error')]);
+    }
 }
 

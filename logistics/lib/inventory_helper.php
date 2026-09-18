@@ -91,6 +91,7 @@ function lc_fifo_ship_allow_negative(mysqli $conn, int $product_id, int $qty_nee
          FROM lc_inventory i
          JOIN lc_inbound b ON i.inbound_id = b.id
          WHERE i.product_id = ? AND i.quantity_remain > 0
+           AND i.id NOT IN (SELECT inventory_id FROM lc_lot_promotions WHERE status = 'active')
          ORDER BY i.expiry_date ASC, i.id ASC
          FOR UPDATE"
     );
@@ -205,6 +206,10 @@ function lc_ship_promo_lot(mysqli $conn, int $product_id, int $promotion_id, int
     if (!$promo) {
         throw new Exception("프로모션(#{$promotion_id})이 더 이상 유효하지 않습니다.");
     }
+    if ((int)$promo['product_id'] !== $product_id) {
+        // 클라이언트가 보낸 product_id[]가 promotion_id가 실제로 가리키는 상품과 다름 — 조작/불일치 방지
+        throw new Exception("프로모션(#{$promotion_id})이 요청한 상품과 일치하지 않습니다.");
+    }
 
     $stmt = $conn->prepare(
         "SELECT i.id AS inventory_id, i.quantity_remain, i.storage_location, i.lot_number, i.expiry_date, b.id AS inbound_id
@@ -218,7 +223,7 @@ function lc_ship_promo_lot(mysqli $conn, int $product_id, int $promotion_id, int
 
     $deductions = [];
     $promo_available = (int)($lot['quantity_remain'] ?? 0);
-    $promo_ship_qty = min($promo_available, $qty_needed);
+    $promo_ship_qty = max(0, min($promo_available, $qty_needed));
 
     if ($promo_ship_qty > 0) {
         $upd = $conn->prepare("UPDATE lc_inventory SET quantity_out = quantity_out + ? WHERE id = ?");
