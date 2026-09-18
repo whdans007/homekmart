@@ -65,6 +65,8 @@ if ($_lc_is_staff) {
         #lc-inventory:hover { background: #0f766e !important; color: #ffffff !important; }
         /* Dashboard 강조 버튼 (indigo) — 기본 hover 규칙 덮어쓰기 */
         #lc-dashboard:hover { background: #4338ca !important; color: #ffffff !important; }
+        /* 프로모 상품 강조 버튼 (red) — 기본 hover 규칙 덮어쓰기 */
+        #lc-promo:hover { background: #991b1b !important; color: #ffffff !important; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -137,8 +139,9 @@ if ($_lc_is_staff) {
                         <i class="fas fa-cubes mr-2 w-4 text-center"></i>
                         <?php echo t('logistics.nav.inventory_status'); ?>
                     </a>
-                    <a href="<?php echo LC_BASE; ?>/promo_products.php"
-                       class="<?php echo $_lc_page === 'promo_products.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors">
+                    <a id="lc-promo" href="<?php echo LC_BASE; ?>/promo_products.php"
+                       class="flex items-center px-3 py-2.5 mt-3 text-sm font-bold rounded-lg shadow-md transition-colors"
+                       style="<?php echo $_lc_page === 'promo_products.php' ? 'background:#b91c1c;color:#fff;' : 'background:#dc2626;color:#fff;'; ?>">
                         <i class="fas fa-tags mr-2 w-4 text-center"></i>
                         <?php echo t('logistics.nav.promo_products'); ?>
                     </a>
