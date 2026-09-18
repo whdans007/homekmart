@@ -17,10 +17,12 @@ try {
                           COALESCE(NULLIF(p.barcode_unit,''), NULLIF(p.barcode_box,''), NULLIF(p.barcode_logistics,'')) AS barcode,
                           i.lot_number, i.expiry_date,
                           SUM(i.quantity_remain) AS stock,
-                          DATEDIFF(i.expiry_date, CURDATE()) AS days_left
+                          DATEDIFF(i.expiry_date, CURDATE()) AS days_left,
+                          MAX(lp.discount_rate) AS promo_discount_rate
                    FROM lc_inventory i
                    JOIN lc_products p ON i.product_id = p.id
                    JOIN lc_inbound ib ON i.inbound_id = ib.id
+                   LEFT JOIN lc_lot_promotions lp ON lp.inventory_id = i.id AND lp.status = 'active'
                    WHERE i.expiry_date IS NOT NULL
                      AND i.expiry_date > '1971-01-01'
                      AND i.expiry_date <= DATE_ADD(CURDATE(), INTERVAL 90 DAY)
@@ -304,6 +306,9 @@ $low_zero_count = count($low_zero);
                 ?>
                 <tr class="<?php echo lc_expiry_class($row['expiry_date']); ?>">
                     <td class="px-4 py-2 font-medium">
+                        <?php if (!empty($row['promo_discount_rate'])): ?>
+                        <span class="inline-block mr-1 px-1.5 py-0.5 rounded text-white font-bold" style="background:#dc2626;font-size:10px;"><?php echo rtrim(rtrim(number_format((float)$row['promo_discount_rate'], 2), '0'), '.'); ?>% OFF</span>
+                        <?php endif; ?>
                         <?php echo htmlspecialchars($row['name']); ?>
                         <div class="text-xs text-gray-400 font-mono"><?php echo !empty($row['barcode']) ? htmlspecialchars($row['barcode']) : '-'; ?></div>
                     </td>
