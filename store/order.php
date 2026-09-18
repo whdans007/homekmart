@@ -4,10 +4,24 @@ $edit_order_id = (int)($_GET['edit'] ?? $_POST['edit_order_id'] ?? 0);
 $page_title    = $edit_order_id ? 'Edit Order' : 'Place Order';
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../logistics/lib/inventory_helper.php';
+require_once __DIR__ . '/../logistics/lib/auth.php';
 
 $store_id   = store_current_store_id();
 $errors     = [];
 $edit_notes = '';
+
+// 물류센터(CENTER) 소속 계정은 자기 자신에게 주문할 수 없음 — logistics/branch_outbound.php 사용
+// (logistics/order_new.php에는 이미 있던 체크인데 store/order.php에는 누락되어 있었음)
+if ($store_id) {
+    $conn_center_check = get_lc_db();
+    $is_center_account = lc_is_center_store($conn_center_check, $store_id);
+    $conn_center_check->close();
+    if ($is_center_account) {
+        store_set_flash('error', 'The logistics center account cannot place orders to itself.');
+        header('Location: ' . STORE_BASE . '/index.php');
+        exit;
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     store_verify_csrf();

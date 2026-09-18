@@ -320,17 +320,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!lc_is_admin()) {
                 lc_set_flash('error', t('logistics.order_detail.access_denied'));
             } else {
+                $conn->autocommit(false);
                 $st = $conn->prepare(
                     "UPDATE lc_orders SET deleted_at=?, deleted_by=? WHERE id=? AND status IN ('cancelled','delivered') AND deleted_at IS NULL"
                 );
                 $st->bind_param('sii', $now, $uid, $id);
                 $st->execute();
-                if ($st->affected_rows > 0) {
+                $deleted = $st->affected_rows > 0;
+                $st->close();
+                if ($deleted) {
+                    // 삭제(휴지통 이동) 시 이 주문이 차감했던 LOT 재고를 즉시 복원한다.
+                    // (출고를 삭제하면 재고도 되돌아와야 한다는 요구사항 반영 — 기존에는
+                    // orders.php의 "영구 삭제" 단계에서만 복원되어 휴지통에 있는 동안
+                    // 재고가 빠진 채로 남아있는 불일치가 있었음)
+                    lc_restore_order_stock($conn, $id);
+                    $conn->commit();
                     lc_set_flash('success', t('logistics.order_detail.moved_to_trash', ['id' => str_pad($id, 4, '0', STR_PAD_LEFT)]));
                 } else {
+                    $conn->rollback();
                     lc_set_flash('error', t('logistics.order_detail.only_cancelled_delivered_delete'));
                 }
-                $st->close();
             }
 
         } elseif ($action === 'restore') {
