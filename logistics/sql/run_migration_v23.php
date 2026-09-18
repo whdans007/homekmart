@@ -15,17 +15,16 @@ try {
     $conn->set_charset(DB_CHARSET);
 
     $table_exists = function (mysqli $conn, string $table): bool {
-        $stmt = $conn->prepare('SHOW TABLES LIKE ?');
-        $stmt->bind_param('s', $table);
-        $stmt->execute();
-        return $stmt->get_result()->num_rows > 0;
+        $t = $conn->real_escape_string($table);
+        $res = $conn->query("SHOW TABLES LIKE '$t'");
+        return $res && $res->num_rows > 0;
     };
 
     $column_exists = function (mysqli $conn, string $table, string $column): bool {
-        $stmt = $conn->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
-        $stmt->bind_param('s', $column);
-        $stmt->execute();
-        return $stmt->get_result()->num_rows > 0;
+        $t = $conn->real_escape_string($table);
+        $c = $conn->real_escape_string($column);
+        $res = $conn->query("SHOW COLUMNS FROM `$t` LIKE '$c'");
+        return $res && $res->num_rows > 0;
     };
 
     $promotion_table_before = $table_exists($conn, 'lc_lot_promotions');
