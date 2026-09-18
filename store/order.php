@@ -524,7 +524,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <td class="px-4 py-3">
                 <div class="leading-tight">
                     <div class="text-sm font-medium text-gray-900">
-                        <span class="inline-block mr-1 px-1.5 py-0.5 rounded text-white font-bold" style="background:#f59e0b;font-size:10px;"><?php echo $promoRateDisplay; ?>% OFF</span>
+                        <span class="inline-block mr-1 px-1.5 py-0.5 rounded text-white font-bold" style="background:#dc2626;font-size:10px;"><?php echo $promoRateDisplay; ?>% OFF</span>
                         <?php echo htmlspecialchars($promoName); ?>
                     </div>
                     <div class="text-xs text-amber-700 mt-0.5">LOT <?php echo htmlspecialchars($promo['lot_number'] ?: '-'); ?> &middot; exp <?php echo $promo['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($promo['expiry_date']))) : '-'; ?> &middot; <?php echo (int)$promo['quantity_remain']; ?> <?php echo htmlspecialchars($promoUnit); ?> left</div>
