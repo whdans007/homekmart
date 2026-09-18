@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/auth.php';
 // Design Ref: role-permission-management - 대시보드는 물류센터 직원/관리자만 접근
 require_once __DIR__ . '/lib/auth.php';
 lc_require_staff();

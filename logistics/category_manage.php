@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/auth.php';
 $page_title = t('logistics.category.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';

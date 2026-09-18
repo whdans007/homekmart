@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/auth.php';
 // Design Ref: §5.1 — 출고대기 목록 페이지 (Plan SC-2)
 $page_title = t('logistics.branch_outbound_list.page_title');
 require_once __DIR__ . '/partials/header.php';

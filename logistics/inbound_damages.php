@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/auth.php';
 // Design Ref: docs/02-design/features/inbound-damage-registration.design.md §4
 $page_title = t('logistics.inbound_damages.page_title');
 require_once __DIR__ . '/partials/header.php';

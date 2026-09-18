@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/auth.php';
 $page_title = t('logistics.inbound_detail.page_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
@@ -476,7 +477,7 @@ $locked = (bool)$batch['is_confirmed'];
         fetch(LC_BASE + '/ajax/quick_create_supplier.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-if (!data.success) { supplierModalError(data.message || <?php echo json_encode(t('logistics.inbound_detail.create_supplier_failed')); ?>); return; }
+                if (!data.success) { supplierModalError(data.message || <?php echo json_encode(t('logistics.inbound_detail.create_supplier_failed')); ?>); return; }
                 // 새 공급처를 드롭다운에 추가하고 선택 (저장은 Save 버튼으로 확정)
                 var sel = document.getElementById('supplierSelect');
                 var opt = new Option(data.supplier.name, data.supplier.id, true, true);
@@ -486,7 +487,7 @@ if (!data.success) { supplierModalError(data.message || <?php echo json_encode(t
                 document.getElementById('supplierAddRow').classList.add('hidden');
                 document.getElementById('supplierModalError').classList.add('hidden');
             })
-.catch(function() { supplierModalError(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); })
+            .catch(function() { supplierModalError(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); })
             .finally(function() { btn.disabled = false; btn.textContent = 'Create'; });
     };
 
@@ -504,11 +505,11 @@ if (!data.success) { supplierModalError(data.message || <?php echo json_encode(t
         fetch(LC_BASE + '/ajax/update_batch_supplier.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-if (!data.success) { supplierModalError(data.message || <?php echo json_encode(t('logistics.inbound_detail.error')); ?>); return; }
+                if (!data.success) { supplierModalError(data.message || <?php echo json_encode(t('logistics.inbound_detail.error')); ?>); return; }
                 document.getElementById('supplierName').textContent = data.supplier_name || '-';
                 closeSupplierModal();
             })
-.catch(function() { supplierModalError(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); })
+            .catch(function() { supplierModalError(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); })
             .finally(function() { btn.disabled = false; btn.textContent = 'Save'; });
     };
 
@@ -518,7 +519,7 @@ if (!data.success) { supplierModalError(data.message || <?php echo json_encode(t
 
     // ── 항목 삭제 ──────────────────────────────────────────────────────
     window.deleteInboundItem = function(inboundId, btn) {
-if (!confirm(<?php echo json_encode(t('logistics.inbound_detail.delete_item_confirm')); ?>)) return;
+        if (!confirm(<?php echo json_encode(t('logistics.inbound_detail.delete_item_confirm')); ?>)) return;
         btn.disabled = true;
         var fd = new FormData();
         fd.append('csrf_token', CSRF);
@@ -526,11 +527,11 @@ if (!confirm(<?php echo json_encode(t('logistics.inbound_detail.delete_item_conf
         fetch(LC_BASE + '/ajax/delete_inbound_item.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-if (!data.success) { alert(data.message || <?php echo json_encode(t('logistics.inbound_detail.delete_failed')); ?>); btn.disabled = false; return; }
+                if (!data.success) { alert(data.message || <?php echo json_encode(t('logistics.inbound_detail.delete_failed')); ?>); btn.disabled = false; return; }
                 if (data.remaining > 0) { location.reload(); }
                 else { location.href = LC_BASE + '/inbound.php'; }
             })
-.catch(function() { alert(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); btn.disabled = false; });
+            .catch(function() { alert(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); btn.disabled = false; });
     };
 
     // ── 행 계산 헬퍼 (add 그리드 로직 이식) ─────────────────────────────
@@ -707,7 +708,7 @@ if (!data.success) { alert(data.message || <?php echo json_encode(t('logistics.i
         fetch(LC_BASE + '/ajax/update_inbound_item.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-if (!data.success) { alert(data.message || <?php echo json_encode(t('logistics.inbound_detail.save_failed')); ?>); flashRow(row, false); return; }
+                if (!data.success) { alert(data.message || <?php echo json_encode(t('logistics.inbound_detail.save_failed')); ?>); flashRow(row, false); return; }
                 // 서버 권위값으로 표시 동기화
                 var fc = row.querySelector('.row-final-cost');
                 var fb = row.querySelector('.row-final-cost-box');
@@ -720,7 +721,7 @@ if (!data.success) { alert(data.message || <?php echo json_encode(t('logistics.i
                 recalcTotals();
                 flashRow(row, true);
             })
-.catch(function() { alert(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); flashRow(row, false); });
+            .catch(function() { alert(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); flashRow(row, false); });
     }
 
     function saveLocation(row) {
@@ -732,8 +733,8 @@ if (!data.success) { alert(data.message || <?php echo json_encode(t('logistics.i
         fd.append('storage_location', val);
         fetch(LC_BASE + '/ajax/update_inventory_location.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
-.then(function(data) { flashRow(row, !!data.success); if (!data.success) alert(data.message || <?php echo json_encode(t('logistics.inbound_detail.save_failed')); ?>); })
-.catch(function() { alert(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); flashRow(row, false); });
+            .then(function(data) { flashRow(row, !!data.success); if (!data.success) alert(data.message || <?php echo json_encode(t('logistics.inbound_detail.save_failed')); ?>); })
+            .catch(function() { alert(<?php echo json_encode(t('logistics.inbound_detail.request_failed')); ?>); flashRow(row, false); });
     }
 
     // ── 자동저장 트리거 바인딩 ──────────────────────────────────────────

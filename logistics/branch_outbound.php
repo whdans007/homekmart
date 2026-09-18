@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/auth.php';
 // Design Ref: §5.2 — 지점출고 작성/수정 페이지 (draft 워크플로우: 저장 → 수정 → 최종 출고)
 $page_title = t('logistics.branch_outbound.page_title');
 require_once __DIR__ . '/partials/header.php';

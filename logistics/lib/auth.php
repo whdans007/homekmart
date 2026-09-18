@@ -1,4 +1,7 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once __DIR__ . '/../../lib/lang_helper.php';
 // Design Ref: §4.2 — Option C: 기존 permission_helper 재활용 + 물류 전용 래퍼
 require_once __DIR__ . '/../../lib/permission_helper.php';

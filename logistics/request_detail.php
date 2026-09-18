@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/auth.php';
 // Design Ref: docs/02-design/features/store-request-board.design.md §4.5
 $page_title = t('logistics.request_detail.page_title');
 require_once __DIR__ . '/partials/header.php';

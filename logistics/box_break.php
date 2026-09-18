@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/auth.php';
 // Design Ref: box-pcs-unit.design.md §5.4 — 박스 개봉 페이지 (BOX→PCS 전환 + 파손 등록)
 // Plan FR-07/FR-08: BOX lot 선택 → 박스 수·파손 수 입력 → PCS lot 생성 + 파손 이력
 $page_title = t('logistics.box_break.page_title');
@@ -212,7 +213,7 @@ try {
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 searchInFlight = false;
-if (!data.success) { setStatus('error', <?php echo json_encode(t('logistics.box_break.empty')); ?>); return; }
+if (!data.success) { setStatus('error', <?php echo json_encode(t('logistics.box_break.no_match')); ?>.replace('{query}', q)); return; }
                 if (data.products.length === 1) { selectProduct(data.products[0]); return; }
                 showMulti(data.products);
             })
@@ -407,7 +408,7 @@ showBreakError('⚠ ' + <?php echo json_encode(t('logistics.box_break.descriptio
         fetch(LC_BASE + '/ajax/box_break.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-if (!data.success) { showBreakError(data.message || <?php echo json_encode(t('logistics.box_break.empty')); ?>); btn.disabled = false; return; }
+if (!data.success) { showBreakError(data.message || <?php echo json_encode(t('logistics.box_break.submit_failed')); ?>); btn.disabled = false; return; }
                 // Success — reload the page to refresh lot list/history (keep selected product)
                 window.location.href = LC_BASE + '/box_break.php' + (currentProduct ? '?product_id=' + currentProduct.id : '');
             })
