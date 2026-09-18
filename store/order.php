@@ -12,10 +12,11 @@ $edit_notes = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     store_verify_csrf();
 
-    $product_ids = $_POST['product_id'] ?? [];
-    $quantities  = $_POST['quantity']   ?? [];
-    $order_units = $_POST['order_unit'] ?? [];
-    $notes       = trim($_POST['notes'] ?? '');
+    $product_ids   = $_POST['product_id'] ?? [];
+    $quantities    = $_POST['quantity']   ?? [];
+    $order_units   = $_POST['order_unit'] ?? [];
+    $promotion_ids = $_POST['promotion_id'] ?? [];
+    $notes         = trim($_POST['notes'] ?? '');
 
     $items = [];
     foreach ($product_ids as $i => $pid) {
@@ -25,9 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $unit = in_array($unit, ['BOX', 'PACK', 'PCS'], true) ? $unit : 'PCS';
         if ($pid > 0 && $qty > 0) {
             $items[] = [
-                'product_id' => $pid,
-                'quantity'   => $qty,
-                'order_unit' => $unit,
+                'product_id'   => $pid,
+                'quantity'     => $qty,
+                'order_unit'   => $unit,
+                'promotion_id' => (int)($promotion_ids[$i] ?? 0) ?: null,
             ];
         }
     }
@@ -43,8 +45,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // 상품 정보 + 단위별 재고/단가 검증
             // 다른 점포가 먼저 주문/승인되어 재고가 모자란 경우 주문 전체를 막지 않고
             // 남은 재고 수량만큼만 자동으로 조정해서 주문을 진행한다 (완전 품절 품목만 제외).
+            // 같은 상품+단위가 프로모션 행과 일반 행으로 나뉘어 여러 번 제출될 수 있으므로,
+            // 재고를 하나의 풀로 취급해 순서대로 소진시킨다(각 행을 독립적으로 검증하면
+            // 합산 수량이 재고를 초과해도 통과될 수 있음).
             $stock_notices = [];
             $checked_items = [];
+            $remaining_stock = [];
             foreach ($items as $item) {
                 $st = $conn->prepare(
                     "SELECT CONCAT(name_en, IFNULL(CONCAT(' (',name_ko,')'),'')) AS pname,
@@ -56,12 +62,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $item['pname']          = $pr['pname'] ?? "#{$item['product_id']}";
                 $item['pieces_per_box'] = (int)($pr['ppb'] ?? 1);
 
-                $st = $conn->prepare(
-                    "SELECT COALESCE(SUM(quantity_remain),0) FROM lc_inventory
-                     WHERE product_id = ? AND unit = ?"
-                );
-                $st->bind_param('is', $item['product_id'], $item['order_unit']); $st->execute();
-                $stock = (int)$st->get_result()->fetch_row()[0]; $st->close();
+                $stock_key = $item['product_id'] . '|' . $item['order_unit'];
+                if (!array_key_exists($stock_key, $remaining_stock)) {
+                    $st = $conn->prepare(
+                        "SELECT COALESCE(SUM(quantity_remain),0) FROM lc_inventory
+                         WHERE product_id = ? AND unit = ?"
+                    );
+                    $st->bind_param('is', $item['product_id'], $item['order_unit']); $st->execute();
+                    $remaining_stock[$stock_key] = (int)$st->get_result()->fetch_row()[0]; $st->close();
+                }
+                $stock = $remaining_stock[$stock_key];
 
                 if ($stock <= 0) {
                     $stock_notices[] = "'{$item['pname']}' is out of {$item['order_unit']} stock and was removed from the order.";
@@ -71,14 +81,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stock_notices[] = "'{$item['pname']}' quantity adjusted from {$item['quantity']} to {$stock} {$item['order_unit']} (limited stock).";
                     $item['quantity'] = $stock;
                 }
+                $remaining_stock[$stock_key] = $stock - $item['quantity'];
 
-                if ($item['order_unit'] === 'PCS') {
+                // 프로모션 지정 항목은 등록된 할인가를 미리보기 단가로 사용한다.
+                // 실제 확정 단가는 접수 직후 lc_allocate_order_stock()이 LOT 기준으로 재계산한다.
+                $promo_price = null;
+                if (!empty($item['promotion_id'])) {
+                    $stp = $conn->prepare("SELECT discounted_price FROM lc_lot_promotions WHERE id = ? AND status = 'active'");
+                    $stp->bind_param('i', $item['promotion_id']);
+                    $stp->execute();
+                    $prow = $stp->get_result()->fetch_assoc();
+                    $stp->close();
+                    $promo_price = $prow ? (float)$prow['discounted_price'] : null;
+                }
+
+                if ($promo_price !== null) {
+                    $item['unit_price'] = $promo_price;
+                } elseif ($item['order_unit'] === 'PCS') {
                     $price_sql =
                         "SELECT COALESCE(SUM(inv.quantity_remain * IF(ib.inbound_unit IN ('BOX','PACK'), ib.cost_price_pcs, ib.cost_price)) / NULLIF(SUM(inv.quantity_remain),0), 0)
                          FROM lc_inventory inv JOIN lc_inbound ib ON inv.inbound_id = ib.id
                          WHERE inv.product_id = ? AND inv.unit = 'PCS' AND inv.quantity_remain > 0";
                     $st = $conn->prepare($price_sql);
                     $st->bind_param('i', $item['product_id']);
+                    $st->execute();
+                    $item['unit_price'] = (float)$st->get_result()->fetch_row()[0]; $st->close();
                 } else {
                     // BOX/PACK: 묶음 단위는 입고 원가를 그대로 사용
                     $price_sql =
@@ -87,9 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                          WHERE inv.product_id = ? AND inv.unit = ? AND inv.quantity_remain > 0 AND ib.cost_price > 0";
                     $st = $conn->prepare($price_sql);
                     $st->bind_param('is', $item['product_id'], $item['order_unit']);
+                    $st->execute();
+                    $item['unit_price'] = (float)$st->get_result()->fetch_row()[0]; $st->close();
                 }
-                $st->execute();
-                $item['unit_price'] = (float)$st->get_result()->fetch_row()[0]; $st->close();
 
                 $checked_items[] = $item;
             }
@@ -131,10 +158,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $st->close();
 
                     $st2 = $conn->prepare(
-                        "INSERT INTO lc_order_items (order_id, product_id, quantity, order_unit, pieces_per_box, unit_price) VALUES (?,?,?,?,?,?)"
+                        "INSERT INTO lc_order_items (order_id, product_id, quantity, order_unit, pieces_per_box, unit_price, promotion_id) VALUES (?,?,?,?,?,?,?)"
                     );
                     foreach ($items as $item) {
-                        $st2->bind_param('iiisid', $edit_order_id, $item['product_id'], $item['quantity'], $item['order_unit'], $item['pieces_per_box'], $item['unit_price']);
+                        $promotion_id = $item['promotion_id'];
+                        $st2->bind_param('iiisidi', $edit_order_id, $item['product_id'], $item['quantity'], $item['order_unit'], $item['pieces_per_box'], $item['unit_price'], $promotion_id);
                         $st2->execute();
                     }
                     $st2->close();
@@ -169,10 +197,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st->close();
 
                 $st2 = $conn->prepare(
-                    "INSERT INTO lc_order_items (order_id, product_id, quantity, order_unit, pieces_per_box, unit_price) VALUES (?,?,?,?,?,?)"
+                    "INSERT INTO lc_order_items (order_id, product_id, quantity, order_unit, pieces_per_box, unit_price, promotion_id) VALUES (?,?,?,?,?,?,?)"
                 );
                 foreach ($items as $item) {
-                    $st2->bind_param('iiisid', $order_id, $item['product_id'], $item['quantity'], $item['order_unit'], $item['pieces_per_box'], $item['unit_price']);
+                    $promotion_id = $item['promotion_id'];
+                    $st2->bind_param('iiisidi', $order_id, $item['product_id'], $item['quantity'], $item['order_unit'], $item['pieces_per_box'], $item['unit_price'], $promotion_id);
                     $st2->execute();
                 }
                 $st2->close();
@@ -221,6 +250,21 @@ try {
          JOIN lc_inbound_batches bat ON ib.batch_id = bat.id
          WHERE i.quantity_remain > 0 AND p.is_active = 1
          ORDER BY c.name_en ASC"
+    )->fetch_all(MYSQLI_ASSOC);
+
+    // 프로모션(할인 등록된 LOT) 목록 — 활성 + 재고 있는 것만, 소진되면 조회 조건만으로 자동 제외
+    $promo_items = $conn->query(
+        "SELECT lp.id AS promotion_id, lp.discount_rate, lp.discounted_price, lp.unit,
+                i.lot_number, i.expiry_date, i.quantity_remain,
+                p.id AS product_id, p.name_en, p.name_ko, p.category_id,
+                COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
+                b.name_en AS brand_name, b.name_ko AS brand_name_ko
+         FROM lc_lot_promotions lp
+         JOIN lc_inventory i ON lp.inventory_id = i.id
+         JOIN lc_products p ON lp.product_id = p.id
+         LEFT JOIN lc_brands b ON p.brand_id = b.id
+         WHERE lp.status = 'active' AND i.quantity_remain > 0 AND p.is_active = 1
+         ORDER BY i.expiry_date ASC"
     )->fetch_all(MYSQLI_ASSOC);
 
     // 재고 확정 상태 상관없이 모든 재고 노출 (재고 등록 후 바로 주문 가능하도록)
@@ -272,7 +316,7 @@ try {
     $conn->close();
 } catch (Exception $e) {
     error_log('store/order.php product list query failed: ' . $e->getMessage());
-    $products = []; $categories = [];
+    $products = []; $categories = []; $promo_items = [];
 }
 
 // 수량/단위 복원: POST 실패 재표시 OR 재주문(from_order) 파라미터
@@ -354,7 +398,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 <?php endif; ?>
 
-<?php if (empty($products)): ?>
+<?php if (empty($products) && empty($promo_items)): ?>
 <div class="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400">
     <i class="fas fa-box-open text-4xl mb-3 block"></i>
     <p>No orderable stock available.</p>
@@ -445,6 +489,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200" id="productBody">
+        <?php foreach ($promo_items as $promo):
+            $promoUnit = $promo['unit'];
+            // 프로모션 항목의 max는 상품 전체 재고(해당 단위) 기준 — 초과분은 승인 시
+            // lc_ship_promo_lot()이 자동으로 일반 재고(정상가)에서 채운다.
+            $promoTotalStock = 0;
+            foreach ($products as $pp) {
+                if ((int)$pp['id'] !== (int)$promo['product_id']) continue;
+                $promoTotalStock = (int)($pp[strtolower($promoUnit) . '_stock'] ?? 0);
+                break;
+            }
+            $promoName = $promo['name_ko'] ? ($promo['name_ko'] . ($promo['name_en'] ? ' / ' . $promo['name_en'] : '')) : $promo['name_en'];
+            $promoRateDisplay = rtrim(rtrim(number_format((float)$promo['discount_rate'], 2), '0'), '.');
+            $daysLeft = $promo['expiry_date'] ? (int)floor((strtotime($promo['expiry_date']) - strtotime(date('Y-m-d'))) / 86400) : null;
+            $expClass = $daysLeft === null ? 'text-gray-300' : ($daysLeft < 0 ? 'text-red-600 font-semibold' : ($daysLeft <= 7 ? 'text-red-500 font-semibold' : 'text-amber-600'));
+        ?>
+        <tr class="product-row hover:bg-amber-100/60 transition-colors" style="background:#fffbeb;"
+            data-cat="<?php echo $promo['category_id'] ?? ''; ?>"
+            data-orig-idx="-1"
+            data-inbound="0"
+            data-name="<?php echo strtolower(($promo['name_en'] ?? '') . ' ' . ($promo['name_ko'] ?? '') . ' ' . ($promo['brand_name'] ?? '') . ' ' . ($promo['brand_name_ko'] ?? '') . ' ' . ($promo['barcode'] ?? '')); ?>">
+            <td class="px-4 py-3 text-center">
+                <span class="inline-flex items-center justify-center w-11 h-11 rounded border border-amber-200 bg-amber-100 text-amber-500"><i class="fas fa-tag text-sm"></i></span>
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-400 font-mono whitespace-nowrap">
+                <input type="hidden" name="product_id[]" value="<?php echo $promo['product_id']; ?>">
+                <input type="hidden" name="promotion_id[]" value="<?php echo $promo['promotion_id']; ?>">
+                <?php echo $promo['barcode'] ? htmlspecialchars($promo['barcode']) : '-'; ?>
+            </td>
+            <td class="px-4 py-3 text-xs">
+                <?php if ($promo['brand_name_ko']): ?><div class="text-gray-900 font-semibold leading-tight"><?php echo htmlspecialchars($promo['brand_name_ko']); ?></div><?php endif; ?>
+                <?php if ($promo['brand_name']): ?><div class="text-gray-900 leading-tight"><?php echo htmlspecialchars($promo['brand_name']); ?></div><?php endif; ?>
+            </td>
+            <td class="px-4 py-3">
+                <div class="leading-tight">
+                    <div class="text-sm font-medium text-gray-900">
+                        <span class="inline-block mr-1 px-1.5 py-0.5 rounded text-white font-bold" style="background:#f59e0b;font-size:10px;"><?php echo $promoRateDisplay; ?>% OFF</span>
+                        <?php echo htmlspecialchars($promoName); ?>
+                    </div>
+                    <div class="text-xs text-amber-700 mt-0.5">LOT <?php echo htmlspecialchars($promo['lot_number'] ?: '-'); ?> &middot; exp <?php echo $promo['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($promo['expiry_date']))) : '-'; ?> &middot; <?php echo (int)$promo['quantity_remain']; ?> <?php echo htmlspecialchars($promoUnit); ?> left</div>
+                </div>
+            </td>
+            <td class="px-4 py-3 text-right text-xs text-gray-500">-</td>
+            <td class="px-4 py-3 text-center text-xs whitespace-nowrap">
+                <span class="<?php echo $expClass; ?>"><?php echo $promo['expiry_date'] ? date('Y-m-d', strtotime($promo['expiry_date'])) : '-'; ?></span>
+            </td>
+            <td class="px-4 py-3 text-right text-xs font-semibold" style="color:#b45309;"><?php echo $promoUnit === 'PCS' ? number_format((float)$promo['discounted_price'], 2) : '-'; ?></td>
+            <td class="px-4 py-3 text-right text-xs font-semibold" style="color:#b45309;"><?php echo $promoUnit === 'BOX' ? number_format((float)$promo['discounted_price'], 2) : '-'; ?></td>
+            <td class="px-4 py-3 text-right text-xs font-semibold" style="color:#b45309;"><?php echo $promoUnit === 'PACK' ? number_format((float)$promo['discounted_price'], 2) : '-'; ?></td>
+            <td class="px-4 py-3 text-right text-xs">
+                <div><span class="font-semibold text-amber-700"><?php echo (int)$promo['quantity_remain']; ?></span> <span class="text-gray-400"><?php echo htmlspecialchars($promoUnit); ?></span></div>
+            </td>
+            <td class="px-4 py-3 text-right text-xs font-semibold text-amber-700 font-mono subtotal-cell">-</td>
+            <td class="px-2 py-2 text-center">
+                <div class="flex items-center justify-center gap-1.5">
+                    <input type="hidden" name="order_unit[]" value="<?php echo htmlspecialchars($promoUnit); ?>">
+                    <span class="text-xs text-amber-600 w-9 text-center font-semibold"><?php echo htmlspecialchars($promoUnit); ?></span>
+                    <div class="inline-flex items-center border border-amber-300 rounded-lg overflow-hidden">
+                        <button type="button" onclick="stepQty(this,-1)" class="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-amber-50 hover:text-amber-700 active:bg-amber-100 text-base font-bold select-none"><i class="fas fa-minus text-xs"></i></button>
+                        <input type="number" name="quantity[]"
+                               min="0" max="<?php echo $promoTotalStock; ?>" value="0"
+                               data-id="promo<?php echo $promo['promotion_id']; ?>"
+                               data-price="<?php echo (float)$promo['discounted_price']; ?>"
+                               oninput="onQtyChange(this)"
+                               class="qty-input w-10 text-sm text-center border-0 focus:outline-none focus:ring-0 bg-transparent font-semibold text-gray-700">
+                        <button type="button" onclick="stepQty(this,1)" class="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-amber-50 hover:text-amber-700 active:bg-amber-100 text-base font-bold select-none"><i class="fas fa-plus text-xs"></i></button>
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <?php endforeach; ?>
         <?php $__row_idx = 0; foreach ($products as $p):
             $boxStock  = (int)$p['box_stock'];
             $packStock = (int)$p['pack_stock'];
@@ -487,6 +601,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </td>
             <td class="px-4 py-3 text-xs text-gray-400 font-mono whitespace-nowrap">
                 <input type="hidden" name="product_id[]" value="<?php echo $p['id']; ?>">
+                <input type="hidden" name="promotion_id[]" value="">
                 <?php if ($p['barcode']): ?>
                 <span><i class="fas fa-barcode mr-1 opacity-50"></i><?php echo htmlspecialchars($p['barcode']); ?></span>
                 <?php else: ?>
