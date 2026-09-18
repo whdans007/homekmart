@@ -232,7 +232,7 @@ try {
                     </td>
                     <td class="px-4 py-3 text-right font-semibold text-teal-700"><?php echo htmlspecialchars($promoStock . ' ' . $promoUnit); ?></td>
                     <td class="px-4 py-3 text-right text-gray-700">
-                        <div class="text-gray-400 text-[10px] leading-tight" style="text-decoration:line-through;"><?php echo number_format((float)$promo['base_price'], 2); ?></div>
+                        <div class="text-gray-400 text-xs leading-tight" style="text-decoration:line-through;"><?php echo number_format((float)$promo['base_price'], 2); ?></div>
                         <div class="font-semibold text-amber-700"><?php echo number_format((float)$promo['discounted_price'], 2); ?></div>
                     </td>
                     <td class="px-4 py-3 text-center">

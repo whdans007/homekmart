@@ -535,7 +535,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <span class="<?php echo $expClass; ?>"><?php echo $promo['expiry_date'] ? date('Y-m-d', strtotime($promo['expiry_date'])) : '-'; ?></span>
             </td>
             <?php
-                $promoPriceCell = '<div class="text-gray-400 text-[10px] leading-tight" style="text-decoration:line-through;">' . number_format((float)$promo['base_price'], 2) . '</div>'
+                $promoPriceCell = '<div class="text-gray-400 text-xs leading-tight" style="text-decoration:line-through;">' . number_format((float)$promo['base_price'], 2) . '</div>'
                                 . '<div class="font-semibold" style="color:#b45309;">' . number_format((float)$promo['discounted_price'], 2) . '</div>';
             ?>
             <td class="px-4 py-3 text-right text-xs"><?php echo $promoUnit === 'PCS' ? $promoPriceCell : '-'; ?></td>
