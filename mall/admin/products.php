@@ -471,6 +471,9 @@ $conn->close();
         .curated-row.drag-over { border-top: 2px solid #2563eb; }
         .curated-row.is-dragging { opacity: .45; }
         .mall-category-drop-target { outline: 2px dashed #2563eb; outline-offset: 2px; background:#eff6ff !important; color:#1d4ed8 !important; }
+        .product-name-cell { width: 360px !important; min-width: 360px !important; }
+        .product-name-cell .edit-display-name,
+        .product-name-cell .edit-display-name-en { width: 100% !important; min-width: 280px !important; }
         .edit-display-order::-webkit-outer-spin-button,
         .edit-display-order::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .edit-display-order { -moz-appearance: textfield; }
@@ -570,13 +573,12 @@ $conn->close();
             <?php if ($selected_home_slot): ?>
             <p class="text-[11px] text-gray-400 mb-3"><i class="fas fa-circle-info mr-1"></i><?php echo t('mall_admin.products.slot_hint'); ?></p>
             <?php endif; ?>
-            <?php $__is_today_deals = $selected_home_slot === 'today_deals'; $__col_count = $__is_today_deals ? 12 : 11; ?>
+            <?php $__is_today_deals = $selected_home_slot === 'today_deals'; $__col_count = $__is_today_deals ? 11 : 10; ?>
             <table class="min-w-full text-xs">
                 <thead class="bg-gray-100 text-gray-600">
                     <tr>
                         <th class="px-3 py-2 text-left"><?php echo t('mall_admin.discount_rules.sort_order'); ?></th>
                         <th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.product_name'); ?></th>
-                        <th class="px-3 py-2 text-left w-52"><?php echo t('mall_admin.products.display_name'); ?></th>
                         <th class="px-1 py-2 text-right w-16 leading-tight"><?php echo t('mall_admin.products.cost_price'); ?></th>
                         <th class="px-1 py-2 text-right w-16 leading-tight"><?php echo t('mall_admin.products.wholesale_reference_price'); ?></th>
                         <th class="px-1 py-2 text-right w-16 leading-tight"><?php echo t('mall_admin.products.reference_selling_price'); ?></th>
@@ -649,15 +651,13 @@ $conn->close();
                             <i class="mall-product-drag-handle fas fa-grip-vertical text-gray-300 cursor-grab" draggable="true" title="카테고리 또는 홈 노출 목록으로 끌어서 이동하거나 순서를 변경하세요"></i>
                             <input type="number" min="0" max="999" class="edit-display-order border border-gray-300 rounded px-2 py-1 w-10" value="<?php echo (int)$c['display_order']; ?>" <?php echo $selected_home_slot ? 'title="' . htmlspecialchars(t('mall_admin.products.slot_order_title')) . '"' : ''; ?>>
                         </td>
-                        <td class="px-3 py-2">
+                        <td class="product-name-cell px-3 py-2 w-64 min-w-[16rem]">
                             <div class="text-gray-400 barcode-copy" data-barcode="<?php echo htmlspecialchars($c['sku']); ?>" title="<?php echo htmlspecialchars(t('mall_admin.products.copy_barcode_title')); ?>" style="cursor:pointer;"><?php echo htmlspecialchars($c['sku']); ?></div>
-                            <?php echo htmlspecialchars($c['name_ko']); ?>
+                            <div><span class="text-gray-400 text-[11px]">원본:</span> <?php echo htmlspecialchars($c['name_ko']); ?><?php if (trim((string)($c['name_en'] ?? '')) !== ''): ?> (<?php echo htmlspecialchars($c['name_en']); ?>)<?php endif; ?></div>
                             <?php if ($__row_type === 'fresh'): ?><span class="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700"><?php echo t('mall_fresh_products.fresh_product_label'); ?></span><?php endif; ?>
-                        </td>
-                        <td class="px-3 py-2 w-52">
                             <div class="flex flex-col gap-1">
-                                <div class="flex items-center gap-1"><span class="text-gray-400 text-[11px] flex-shrink-0"><?php echo t('mall_admin.products.lang_ko_short'); ?>:</span><input type="text" class="edit-display-name border border-gray-300 rounded px-2 py-1 w-48" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.korean')); ?>" value="<?php echo htmlspecialchars($c['display_name'] ?? ''); ?>"></div>
-                                <div class="flex items-center gap-1"><span class="text-gray-400 text-[11px] flex-shrink-0"><?php echo t('mall_admin.products.lang_en_short'); ?>:</span><input type="text" class="edit-display-name-en border border-gray-300 rounded px-2 py-1 w-48" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.english')); ?>" value="<?php echo htmlspecialchars($c['display_name_en'] ?? ''); ?>"></div>
+                                <div class="flex items-center gap-1"><span class="text-gray-400 text-[11px] flex-shrink-0">한글:</span><input type="text" class="edit-display-name border border-gray-300 rounded px-2 py-1 flex-1 min-w-0 w-full" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.korean')); ?>" value="<?php echo htmlspecialchars($c['display_name'] ?? ''); ?>"></div>
+                                <div class="flex items-center gap-1"><span class="text-gray-400 text-[11px] flex-shrink-0">ENG:</span><input type="text" class="edit-display-name-en border border-gray-300 rounded px-2 py-1 flex-1 min-w-0 w-full" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.english')); ?>" value="<?php echo htmlspecialchars($c['display_name_en'] ?? ''); ?>"></div>
                             </div>
                         </td>
                         <td class="px-1 py-2 text-right w-16">
