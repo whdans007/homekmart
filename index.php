@@ -17,7 +17,6 @@ if (!is_logged_in()) {
 
 $is_super_admin = (($_SESSION['role'] ?? '') === 'super_admin');
 $is_main_office_admin = is_main_office_admin();
-$can_access_mall_admin = has_permission('mall_management');
 $can_access_foodpang_admin = has_permission('foodpang_management');
 $current_user_info = get_user_info();
 $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role']) : '';
@@ -133,6 +132,7 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
         .card-icon.lookup    { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
         .card-icon.mainoffice { background: linear-gradient(135deg, #4f46e5, #6366f1); }
         .card-icon.malladmin { background: linear-gradient(135deg, #db2777, #f472b6); }
+        .card-icon.mallapp   { background: linear-gradient(135deg, #16a34a, #4ade80); }
         .card-icon.foodpang  { background: linear-gradient(135deg, #e11d48, #fb7185); }
         .card-icon.system    { background: linear-gradient(135deg, #475569, #64748b); }
         .card-icon.user      { background: linear-gradient(135deg, #2563eb, #3b82f6); }
@@ -142,6 +142,30 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
             font-size: 1.1rem;
             font-weight: 700;
             letter-spacing: 0.02em;
+        }
+        .beta-badge {
+            position: relative;
+            display: inline-block;
+            margin-left: 0.35rem;
+            padding: 0.15rem 0.45rem;
+            border-radius: 999px;
+            background: #fbbf24;
+            color: #78350f;
+            font-size: 0.65em;
+            font-weight: 800;
+            line-height: 1.25;
+            vertical-align: middle;
+            letter-spacing: 0;
+        }
+        .beta-badge::after {
+            content: '';
+            position: absolute;
+            left: 0.35rem;
+            bottom: -0.18rem;
+            width: 0;
+            height: 0;
+            border-top: 0.25rem solid #fbbf24;
+            border-right: 0.25rem solid transparent;
         }
         .card-desc {
             font-size: 0.8rem;
@@ -303,11 +327,9 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
             </div>
         </section>
 
-        <?php if ($can_access_mall_admin || $can_access_foodpang_admin): ?>
         <section class="menu-section">
             <h2 class="menu-section-title">쇼핑몰용</h2>
             <div class="menu-grid">
-                <?php if ($can_access_mall_admin): ?>
                 <a href="mall/admin/dashboard.php" class="menu-card">
                     <div class="card-icon malladmin"><i class="fas fa-bag-shopping"></i></div>
                     <div>
@@ -315,7 +337,13 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
                         <div class="card-desc">Mall Orders / Products<br>Members Management</div>
                     </div>
                 </a>
-                <?php endif; ?>
+                <a href="mall/app_download.php" class="menu-card">
+                    <div class="card-icon mallapp"><i class="fab fa-android"></i></div>
+                    <div>
+                        <div class="card-label">쇼핑몰 앱 <span class="beta-badge">베타</span></div>
+                        <div class="card-desc">Android Test App<br>APK Download</div>
+                    </div>
+                </a>
                 <?php if ($can_access_foodpang_admin): ?>
                 <a href="foodpang/admin/dashboard.php" class="menu-card">
                     <div class="card-icon foodpang"><i class="fas fa-motorcycle"></i></div>
@@ -327,7 +355,6 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
                 <?php endif; ?>
             </div>
         </section>
-        <?php endif; ?>
 
         <?php if ($is_main_office_admin): ?>
         <section class="menu-section">
