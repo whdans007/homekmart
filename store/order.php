@@ -281,8 +281,8 @@ try {
          ORDER BY i.expiry_date ASC"
     )->fetch_all(MYSQLI_ASSOC);
 
-    // 재고 확정 상태 상관없이 모든 재고 노출 (재고 등록 후 바로 주문 가능하도록)
-    // 단위(BOX/PCS)별 재고와 단가를 분리 집계
+    // 재고 확정 상태 상관없이 재고를 집계하되, 음수 LOT도 포함한 순재고 기준으로 노출합니다.
+    // 단위(BOX/PACK/PCS)별 재고와 단가를 분리 집계합니다.
     $products = $conn->query(
         "SELECT p.id, p.name_en, p.name_ko, p.unit, p.pieces_per_box, p.capacity,
                 {$img_select}
@@ -292,7 +292,7 @@ try {
                 SUM(CASE WHEN i.unit = 'BOX' THEN i.quantity_remain ELSE 0 END) AS box_stock,
                 SUM(CASE WHEN i.unit = 'PACK' THEN i.quantity_remain ELSE 0 END) AS pack_stock,
                 SUM(CASE WHEN i.unit = 'PCS' THEN i.quantity_remain ELSE 0 END) AS pcs_stock,
-                MIN(ib.expiry_date) AS earliest_expiry,
+                MIN(CASE WHEN i.quantity_remain > 0 THEN ib.expiry_date END) AS earliest_expiry,
                 COALESCE((
                     SELECT SUM(inv.quantity_remain * ib2.cost_price) / NULLIF(SUM(inv.quantity_remain), 0)
                     FROM lc_inventory inv
@@ -322,9 +322,14 @@ try {
          JOIN lc_inbound_batches bat ON ib.batch_id = bat.id
          LEFT JOIN lc_categories c ON p.category_id = c.id
          LEFT JOIN lc_brands b ON p.brand_id = b.id
-         WHERE i.quantity_remain > 0 AND p.is_active = 1
+         WHERE i.quantity_remain <> 0 AND p.is_active = 1
          GROUP BY p.id
-         ORDER BY (MIN(ib.expiry_date) IS NULL) ASC, MIN(ib.expiry_date) ASC, latest_inbound_at DESC, c.name_en ASC, p.name_en ASC"
+         HAVING (
+             SUM(CASE WHEN i.unit = 'BOX' THEN i.quantity_remain ELSE 0 END) > 0
+             OR SUM(CASE WHEN i.unit = 'PACK' THEN i.quantity_remain ELSE 0 END) > 0
+             OR SUM(CASE WHEN i.unit = 'PCS' THEN i.quantity_remain ELSE 0 END) > 0
+         )
+         ORDER BY (earliest_expiry IS NULL) ASC, earliest_expiry ASC, latest_inbound_at DESC, c.name_en ASC, p.name_en ASC"
     )->fetch_all(MYSQLI_ASSOC);
 
     $conn->close();
