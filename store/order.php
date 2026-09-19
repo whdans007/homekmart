@@ -519,7 +519,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $promoTotalStock = (int)($pp[strtolower($promoUnit) . '_stock'] ?? 0);
                 break;
             }
-            $promoName = $promo['name_ko'] ? ($promo['name_ko'] . ($promo['name_en'] ? ' / ' . $promo['name_en'] : '')) : $promo['name_en'];
             $promoCapacity = !empty($promo['capacity']) ? ' ' . $promo['capacity'] : '';
             $promoRateDisplay = rtrim(rtrim(number_format((float)$promo['discount_rate'], 2), '0'), '.');
             $daysLeft = $promo['expiry_date'] ? (int)floor((strtotime($promo['expiry_date']) - strtotime(date('Y-m-d'))) / 86400) : null;
@@ -546,8 +545,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="leading-tight">
                     <div class="text-sm font-medium text-gray-900">
                         <span class="inline-block mr-1 px-1.5 py-0.5 rounded text-white font-bold" style="background:#dc2626;font-size:10px;"><?php echo $promoRateDisplay; ?>% OFF</span>
-                        <?php echo htmlspecialchars($promoName . $promoCapacity); ?>
+                        <?php echo htmlspecialchars($promo['name_ko'] ?: $promo['name_en']); ?><?php echo $promoCapacity; ?>
                     </div>
+                    <?php if (!empty($promo['name_ko']) && !empty($promo['name_en'])): ?>
+                    <div class="text-xs text-gray-900"><?php echo htmlspecialchars($promo['name_en']); ?></div>
+                    <?php endif; ?>
                     <div class="text-xs text-amber-700 mt-0.5">LOT <?php echo htmlspecialchars($promo['lot_number'] ?: '-'); ?> &middot; exp <?php echo $promo['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($promo['expiry_date']))) : '-'; ?> &middot; <?php echo (int)$promo['quantity_remain']; ?> <?php echo htmlspecialchars($promoUnit); ?> left</div>
                 </div>
             </td>
