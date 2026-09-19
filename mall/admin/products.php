@@ -580,17 +580,18 @@ $conn->close();
                     $__cat_extra_qs = $__cat_fresh_code ? ['search_tab' => 'fresh', 'fresh_cat' => $__cat_fresh_code] : [];
                 ?>
                 <li>
-                    <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['cat_id' => $cat['id']], $__cat_extra_qs)); ?>" data-drop-category-id="<?php echo (int)$cat['id']; ?>"
+                    <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['cat_id' => $cat['id']], $__cat_extra_qs)); ?>" data-drop-category-id="<?php echo (int)$cat['id']; ?>" data-category-parent-id="<?php echo (int)$cat['id']; ?>"
                        class="block px-2 py-1.5 rounded text-xs font-medium <?php echo $selected_category_id === (int)$cat['id'] ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'; ?>">
                         <?php echo htmlspecialchars($cat['name']); ?> <span class="text-gray-400">(<?php echo (int)$cat['product_count']; ?>)</span>
                     </a>
                 </li>
-                <?php if ($selected_category_id === (int)$cat['id'] && !empty($sub_categories)): ?>
-                <li class="pl-3 ml-2 border-l border-gray-200 mt-1">
+                <?php $__cat_sub_categories = $sub_categories_by_parent[(int)$cat['id']] ?? []; ?>
+                <?php if (!empty($__cat_sub_categories)): ?>
+                <li class="category-subtree pl-3 ml-2 border-l border-gray-200 mt-1 <?php echo $selected_category_id === (int)$cat['id'] ? '' : 'hidden'; ?>" data-category-subtree="<?php echo (int)$cat['id']; ?>">
                     <ul class="space-y-1">
-                        <?php foreach ($sub_categories as $sub): ?>
+                        <?php foreach ($__cat_sub_categories as $sub): ?>
                         <li>
-                            <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['cat_id' => $selected_category_id, 'sub_id' => $sub['id']], $__cat_extra_qs)); ?>" data-drop-category-id="<?php echo (int)$sub['id']; ?>"
+                            <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['cat_id' => $cat['id'], 'sub_id' => $sub['id']], $__cat_extra_qs)); ?>" data-drop-category-id="<?php echo (int)$sub['id']; ?>"
                                class="block px-2 py-1 rounded text-xs font-medium <?php echo $selected_sub_id === (int)$sub['id'] ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'; ?>">
                                 <?php echo htmlspecialchars($sub['name']); ?> <span class="text-gray-400">(<?php echo (int)$sub['product_count']; ?>)</span>
                             </a>
@@ -1786,6 +1787,33 @@ function attachCuratedDragHandlers() {
 attachCuratedDragHandlers();
 
 // 정렬 그립을 좌측 카테고리에 드롭하면 일반/신선상품의 실제 카테고리를 변경한다.
+const categoryExpandTimers = new Map();
+document.querySelectorAll('aside a[data-category-parent-id]').forEach(function (categoryLink) {
+    const parentId = categoryLink.dataset.categoryParentId;
+    const subtree = document.querySelector('aside [data-category-subtree="' + parentId + '"]');
+    if (!subtree) return;
+    categoryLink.addEventListener('dragover', function (e) {
+        if (!curatedDragSrcRow) return;
+        e.preventDefault();
+        const timer = categoryExpandTimers.get(parentId);
+        if (timer) clearTimeout(timer);
+        subtree.classList.remove('hidden');
+        categoryLink.classList.add('mall-category-drop-target');
+    });
+    categoryLink.addEventListener('dragleave', function () {
+        categoryLink.classList.remove('mall-category-drop-target');
+        categoryExpandTimers.set(parentId, setTimeout(function () {
+            // 선택된 대분류는 기존처럼 계속 펼쳐 둔다.
+            if (!categoryLink.classList.contains('bg-blue-100')) subtree.classList.add('hidden');
+        }, 700));
+    });
+    subtree.addEventListener('dragover', function () {
+        const timer = categoryExpandTimers.get(parentId);
+        if (timer) clearTimeout(timer);
+        subtree.classList.remove('hidden');
+    });
+});
+
 document.querySelectorAll('aside a[data-drop-category-id]').forEach(function (categoryLink) {
     categoryLink.addEventListener('dragover', function (e) {
         if (!curatedDragSrcRow) return;
