@@ -42,6 +42,17 @@ if ($member) {
 .my-menu a, .my-menu .menu-row { display: flex; align-items: center; justify-content: space-between; padding: 14px var(--space-4); border-bottom: 1px solid var(--line-alternative); font: var(--t-label1) var(--font-sans); color: var(--label-normal); }
 .my-menu a:last-child, .my-menu .menu-row:last-child { border-bottom: none; }
 .my-menu .menu-row.disabled { color: var(--label-assistive); }
+.settings-toggle { cursor: pointer; }
+.settings-inline { padding: 0 var(--space-4) var(--space-4); background: var(--fill-normal); }
+.settings-inline[hidden] { display: none; }
+.settings-inline .settings-label { padding-top: var(--space-3); font: var(--t-caption1) var(--font-sans); color: var(--label-alternative); }
+.settings-inline .settings-options { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
+.settings-inline .settings-options a {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 40px; border: 1px solid var(--line-normal); border-radius: var(--radius-md);
+    font: var(--t-caption1) var(--font-sans); color: var(--label-neutral);
+}
+.settings-inline .settings-options a.active { background: var(--primary-bg); border-color: var(--primary-normal); color: var(--primary-strong); font-weight: 700; }
 .guest-card { margin: var(--space-5); padding: var(--space-6) var(--space-5); text-align: center; border: 1px solid var(--line-alternative); border-radius: var(--radius-xl); }
 </style>
 
@@ -111,3 +122,43 @@ if ($member) {
 <?php endif; ?>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
+<script>
+document.querySelectorAll('.my-menu > a[href="/mall/settings.php"]').forEach(function (toggle, index) {
+    var panelId = 'language-settings-' + index;
+    var currentLanguage = new URL(window.location.href).searchParams.get('lang') || 'ko';
+    var panel = document.createElement('div');
+
+    toggle.href = '#' + panelId;
+    toggle.classList.add('settings-toggle');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.setAttribute('aria-controls', panelId);
+    var toggleLabel = toggle.querySelector('span');
+    var toggleIcon = toggleLabel ? toggleLabel.querySelector('i') : null;
+    if (toggleLabel) {
+        toggleLabel.textContent = '';
+        if (toggleIcon) {
+            toggleIcon.className = 'fas fa-language';
+            toggleIcon.style.color = 'var(--label-alternative)';
+            toggleLabel.appendChild(toggleIcon);
+        }
+        toggleLabel.appendChild(document.createTextNode('\uC5B8\uC5B4 / Language'));
+    }
+    panel.id = panelId;
+    panel.className = 'settings-inline';
+    panel.hidden = false;
+    panel.innerHTML = '<div class="settings-label">&#50616;&#50612; / Language</div>' +
+        '<div class="settings-options">' +
+            '<a href="/mall/my.php?lang=ko" class="' + (currentLanguage === 'ko' ? 'active' : '') + '">' +
+                (currentLanguage === 'ko' ? '<svg style="width:16px;height:16px;"><use href="#i-check"></use></svg>' : '') + '&#54620;&#44397;&#50612;</a>' +
+            '<a href="/mall/my.php?lang=en" class="' + (currentLanguage === 'en' ? 'active' : '') + '">' +
+                (currentLanguage === 'en' ? '<svg style="width:16px;height:16px;"><use href="#i-check"></use></svg>' : '') + 'English</a>' +
+        '</div>';
+    toggle.insertAdjacentElement('afterend', panel);
+    toggle.addEventListener('click', function (event) {
+        event.preventDefault();
+        var isOpen = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!isOpen));
+        panel.hidden = isOpen;
+    });
+});
+</script>
