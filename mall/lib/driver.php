@@ -26,10 +26,11 @@ function mall_driver_session_start() {
     // Keep the driver session until the driver explicitly logs out.
     $lifetime = MALL_DRIVER_REMEMBER_LIFETIME;
     ini_set('session.gc_maxlifetime', (string)$lifetime);
+    $is_https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
     session_set_cookie_params([
         'lifetime' => $lifetime,
         'path' => '/',
-        'secure' => true,
+        'secure' => $is_https,
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
@@ -57,10 +58,10 @@ function mall_driver_session_start() {
                 $touch->bind_param('ss', $expires, $hash); $touch->execute(); $touch->close();
                 setcookie(MALL_DRIVER_REMEMBER_COOKIE, $raw, [
                     'expires' => time() + MALL_DRIVER_REMEMBER_LIFETIME,
-                    'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax'
+                    'path' => '/', 'secure' => $is_https, 'httponly' => true, 'samesite' => 'Lax'
                 ]);
             } else {
-                setcookie(MALL_DRIVER_REMEMBER_COOKIE, '', time() - 3600, '/', '', true, true);
+                setcookie(MALL_DRIVER_REMEMBER_COOKIE, '', time() - 3600, '/', '', $is_https, true);
             }
         } catch (Throwable $e) {
             // 마이그레이션 전에도 기존 세션 로그인은 계속 동작해야 한다.
@@ -78,9 +79,10 @@ function mall_driver_issue_remember_token($driver_id) {
         $stmt = $conn->prepare('INSERT INTO mall_driver_login_tokens (driver_id, token_hash, expires_at) VALUES (?, ?, ?)');
         $stmt->bind_param('iss', $driver_id, $hash, $expires);
         $stmt->execute(); $stmt->close();
+        $is_https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
         setcookie(MALL_DRIVER_REMEMBER_COOKIE, $raw, [
             'expires' => time() + MALL_DRIVER_REMEMBER_LIFETIME,
-            'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax'
+            'path' => '/', 'secure' => $is_https, 'httponly' => true, 'samesite' => 'Lax'
         ]);
     } catch (Throwable $e) {
         error_log('mall driver issue remember token: ' . $e->getMessage());
