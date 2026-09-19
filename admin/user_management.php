@@ -67,6 +67,17 @@ try {
     $error_message = t('messages.database_error');
     // error_log($e->getMessage()); // 실제 운영 환경에서는 로그 파일에 기록합니다.
 }
+
+$store_names = [];
+foreach ($users as $user) {
+    $store_name = trim((string)($user['store_name'] ?? ''));
+    if ($store_name !== '') {
+        $store_names[$store_name] = $store_name;
+    }
+}
+$store_names = array_values($store_names);
+natcasesort($store_names);
+$store_names = array_values($store_names);
 ?>
 
 <div class="w-full px-2 sm:px-3 md:px-4 py-8">
@@ -101,13 +112,37 @@ try {
         <!-- 테이블 헤더 -->
         <div class="px-6 py-4 border-b border-gray-200 bg-white flex justify-between items-center">
             <h3 class="text-lg leading-6 font-semibold text-gray-900">
-                <?php echo t('user.list'); ?> <span class="text-sm font-normal text-gray-500">(총 <?php echo count($users); ?>건)</span>
+                <?php echo t('user.list'); ?> <span id="user-count" class="text-sm font-normal text-gray-500">(총 <?php echo count($users); ?>건)</span>
             </h3>
             <div class="flex space-x-3">
                 <a href="add_user.php" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                     <i class="fas fa-user-plus mr-2"></i>
                     <?php echo t('user.add'); ?>
                 </a>
+            </div>
+        </div>
+
+        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 space-y-3">
+            <div class="flex flex-col lg:flex-row gap-3">
+                <div class="relative flex-1">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input id="user-search" type="search"
+                           class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                           placeholder="Search users by username, name, email, phone..."
+                           autocomplete="off">
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by Store Name">
+                <span class="text-sm font-semibold text-gray-700 mr-1">Store Name:</span>
+                <button type="button" class="store-filter px-3 py-1.5 rounded-full text-xs font-semibold bg-primary-600 text-white" data-store="">
+                    All Stores
+                </button>
+                <?php foreach ($store_names as $store_name): ?>
+                <button type="button" class="store-filter px-3 py-1.5 rounded-full text-xs font-semibold bg-white text-gray-600 border border-gray-300 hover:bg-gray-100"
+                        data-store="<?php echo htmlspecialchars($store_name, ENT_QUOTES, 'UTF-8'); ?>">
+                    <?php echo htmlspecialchars($store_name); ?>
+                </button>
+                <?php endforeach; ?>
             </div>
         </div>
         
@@ -130,7 +165,21 @@ try {
                 </thead>
                 <tbody class="bg-white">
                     <?php foreach ($users as $user): ?>
-                        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer" onclick="window.location.href='edit_user.php?id=<?php echo $user['id']; ?>'">
+                        <?php
+                        $user_store_name = trim((string)($user['store_name'] ?? ''));
+                        $user_search_text = implode(' ', [
+                            $user['username'] ?? '',
+                            $user['full_name'] ?? '',
+                            $user['email'] ?? '',
+                            $has_phone_column ? ($user['phone'] ?? '') : '',
+                            $user['role'] ?? '',
+                            $user_store_name
+                        ]);
+                        ?>
+                        <tr class="user-row border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                            data-search="<?php echo htmlspecialchars($user_search_text, ENT_QUOTES, 'UTF-8'); ?>"
+                            data-store="<?php echo htmlspecialchars($user_store_name, ENT_QUOTES, 'UTF-8'); ?>"
+                            onclick="window.location.href='edit_user.php?id=<?php echo $user['id']; ?>'">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($user['username']); ?></td>
                             <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($user['full_name']); ?></td>
                             <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($user['email']); ?></td>
@@ -208,6 +257,13 @@ try {
                             </td>
                         </tr>
                     <?php endforeach; ?>
+                    <tr id="no-filter-results" class="hidden">
+                        <td colspan="<?php echo $has_permissions_column ? ($has_phone_column ? '9' : '8') : ($has_phone_column ? '8' : '7'); ?>" class="px-6 py-12 text-center">
+                            <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">No matching users</h3>
+                            <p class="text-gray-600">Try another search term or Store Name.</p>
+                        </td>
+                    </tr>
                     <?php if (empty($users)): ?>
                         <tr>
                             <td colspan="<?php echo $has_permissions_column ? ($has_phone_column ? '9' : '8') : ($has_phone_column ? '8' : '7'); ?>" class="px-6 py-12 text-center">
@@ -228,5 +284,53 @@ try {
 <?php endif; ?>
 
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const searchInput = document.getElementById('user-search');
+    const countElement = document.getElementById('user-count');
+    const noResultsRow = document.getElementById('no-filter-results');
+    const rows = Array.from(document.querySelectorAll('.user-row'));
+    const storeButtons = Array.from(document.querySelectorAll('.store-filter'));
+    let selectedStore = '';
+
+    function setActiveStoreButton(activeButton) {
+        storeButtons.forEach(function (button) {
+            const isActive = button === activeButton;
+            button.classList.toggle('bg-primary-600', isActive);
+            button.classList.toggle('text-white', isActive);
+            button.classList.toggle('bg-white', !isActive);
+            button.classList.toggle('text-gray-600', !isActive);
+            button.classList.toggle('border', !isActive);
+            button.classList.toggle('border-gray-300', !isActive);
+        });
+    }
+
+    function applyFilters() {
+        const searchTerm = (searchInput.value || '').trim().toLocaleLowerCase();
+        let visibleCount = 0;
+
+        rows.forEach(function (row) {
+            const matchesSearch = !searchTerm || row.dataset.search.toLocaleLowerCase().includes(searchTerm);
+            const matchesStore = !selectedStore || row.dataset.store === selectedStore;
+            const isVisible = matchesSearch && matchesStore;
+            row.classList.toggle('hidden', !isVisible);
+            if (isVisible) visibleCount++;
+        });
+
+        countElement.textContent = '(총 ' + visibleCount + '건)';
+        if (noResultsRow) noResultsRow.classList.toggle('hidden', visibleCount !== 0 || rows.length === 0);
+    }
+
+    searchInput.addEventListener('input', applyFilters);
+    storeButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            selectedStore = button.dataset.store || '';
+            setActiveStoreButton(button);
+            applyFilters();
+        });
+    });
+});
+</script>
 
 <?php require_once __DIR__ . '/partials/system_footer.php'; ?>
