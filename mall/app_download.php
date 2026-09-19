@@ -1,4 +1,8 @@
 <?php
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
+
 $page_title = '앱 다운로드 / App Download';
 $mall_redesigned = true;
 $mall_show_back = true;

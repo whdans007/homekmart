@@ -337,7 +337,7 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
                         <div class="card-desc">Mall Orders / Products<br>Members Management</div>
                     </div>
                 </a>
-                <a href="mall/app_download.php" class="menu-card">
+                <a href="mall/app_download.php?v=2" class="menu-card">
                     <div class="card-icon mallapp"><i class="fab fa-android"></i></div>
                     <div>
                         <div class="card-label">쇼핑몰 앱 <span class="beta-badge">베타</span></div>

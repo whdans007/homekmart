@@ -55,7 +55,7 @@ if ($member) {
     </div>
 </div>
 <div class="my-menu">
-    <a href="/mall/app_download.php">
+    <a href="/mall/app_download.php?v=2">
         <span style="display:flex;align-items:center;gap:8px;"><i class="fab fa-android" aria-hidden="true" style="color:var(--brand-green);"></i>앱 다운로드 / Download App</span>
         <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg>
     </a>
@@ -95,7 +95,7 @@ if ($member) {
 <div class="my-menu">
     <a href="/mall/mypage/profile.php">회원정보수정 <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg></a>
     <a href="/mall/address.php">배송지 관리 <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg></a>
-    <a href="/mall/app_download.php">
+    <a href="/mall/app_download.php?v=2">
         <span style="display:flex;align-items:center;gap:8px;"><i class="fab fa-android" aria-hidden="true" style="color:var(--brand-green);"></i>앱 다운로드 / Download App</span>
         <svg style="width:16px;height:16px;color:var(--label-assistive);"><use href="#i-chev-right"></use></svg>
     </a>
