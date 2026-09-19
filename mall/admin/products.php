@@ -283,9 +283,10 @@ if ($selected_home_slot && !empty($home_slot_fresh_membership[$selected_home_slo
         "SELECT id, code, name_ko, name_en, sale_type, price_per_100g, status, image_url,
                 display_order, cost_price_override, selling_price_override,
                 wholesale_reference_price_override, selling_weight_reference_g,
-                display_name_override, display_name_en_override, is_sold_out,
+                display_name_override, display_name_en_override, is_sold_out, c.name AS category_name,
                 retail_discount_allowed, wholesale_discount_allowed
-         FROM mall_fresh_products WHERE id IN ({$home_fresh_placeholders})
+         FROM mall_fresh_products mfp LEFT JOIN categories c ON c.id = mfp.category_id
+         WHERE mfp.id IN ({$home_fresh_placeholders})
          ORDER BY FIELD(id, " . implode(',', array_map('intval', $home_fresh_ids)) . ")"
     );
     $home_fresh_stmt->bind_param(str_repeat('i', count($home_fresh_ids)), ...$home_fresh_ids);
@@ -293,7 +294,7 @@ if ($selected_home_slot && !empty($home_slot_fresh_membership[$selected_home_slo
     foreach ($home_fresh_stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $hf) {
         $home_fresh_curated[] = [
             'row_type' => 'fresh', 'id' => null, 'fresh_id' => (int)$hf['id'], 'product_id' => null,
-            'category_id' => null, 'sku' => $hf['code'], 'name_ko' => $hf['name_ko'], 'name_en' => $hf['name_en'],
+            'category_id' => null, 'category_name' => $hf['category_name'], 'sku' => $hf['code'], 'name_ko' => $hf['name_ko'], 'name_en' => $hf['name_en'],
             'display_name' => $hf['display_name_override'] ?? $hf['name_ko'],
             'display_name_en' => $hf['display_name_en_override'] ?? $hf['name_en'],
             'sale_type' => $hf['sale_type'], 'display_order' => (int)$hf['display_order'],
@@ -375,12 +376,13 @@ if ($selected_home_slot && empty($home_slot_membership[$selected_home_slot])) {
                 mp.retail_discount_allowed, mp.wholesale_discount_allowed,
                 mp.wholesale_reference_price AS wholesale_reference_price_override,
                 mp.cost_price_override, mp.selling_price_override,
-                p.name_ko, p.name_en, p.sku, p.category_id, inv.cost_price AS original_cost_price, inv.selling_price AS original_selling_price,
+                p.name_ko, p.name_en, p.sku, p.category_id, c.name AS category_name, inv.cost_price AS original_cost_price, inv.selling_price AS original_selling_price,
                 mp.is_sold_out, inv.quantity AS real_stock_quantity,
                 mp.promo_type, mp.promo_value,
                 (SELECT COUNT(*) FROM mall_product_images WHERE product_id = p.id) AS image_count
          FROM products p
          LEFT JOIN mall_products mp ON mp.product_id = p.id AND mp.store_id = ?
+         LEFT JOIN categories c ON c.id = p.category_id
          LEFT JOIN inventory inv ON inv.product_id = p.id AND inv.store_id = ?
          WHERE p.id IN ({$placeholders})
          ORDER BY FIELD(p.id, " . implode(',', $slot_product_ids) . ")"
@@ -423,11 +425,12 @@ if ($selected_home_slot && empty($home_slot_membership[$selected_home_slot])) {
                 mp.retail_discount_allowed, mp.wholesale_discount_allowed,
                 mp.wholesale_reference_price AS wholesale_reference_price_override,
                 mp.cost_price_override, mp.selling_price_override,
-                p.name_ko, p.name_en, p.sku, p.category_id, inv.cost_price AS original_cost_price, inv.selling_price AS original_selling_price,
+                p.name_ko, p.name_en, p.sku, p.category_id, c.name AS category_name, inv.cost_price AS original_cost_price, inv.selling_price AS original_selling_price,
                 mp.is_sold_out, inv.quantity AS real_stock_quantity,
                 (SELECT COUNT(*) FROM mall_product_images WHERE product_id = mp.product_id) AS image_count
          FROM mall_products mp
          INNER JOIN products p ON p.id = mp.product_id
+         LEFT JOIN categories c ON c.id = p.category_id
          LEFT JOIN inventory inv ON inv.product_id = p.id AND inv.store_id = ?
          WHERE " . implode(' AND ', $curated_where) . "
          ORDER BY mp.display_order, mp.id DESC
@@ -460,7 +463,7 @@ if (!$selected_home_slot) {
             'id' => null,
             'fresh_id' => (int)$fc['id'],
             'product_id' => null,
-            'category_id' => (int)$fc['category_id'],
+            'category_id' => (int)$fc['category_id'], 'category_name' => $fc['category_name'] ?? null,
             'sku' => $fc['code'],
             'name_ko' => $fc['name_ko'],
             'name_en' => $fc['name_en'],
@@ -704,6 +707,7 @@ $conn->close();
                         <td class="px-3 py-2 whitespace-nowrap">
                             <i class="mall-product-drag-handle fas fa-grip-vertical text-gray-300 cursor-grab" draggable="true" title="카테고리 또는 홈 노출 목록으로 끌어서 이동하거나 순서를 변경하세요"></i>
                             <input type="number" min="0" max="999" class="edit-display-order border border-gray-300 rounded px-2 py-1 w-10" value="<?php echo (int)$c['display_order']; ?>" <?php echo $selected_home_slot ? 'title="' . htmlspecialchars(t('mall_admin.products.slot_order_title')) . '"' : ''; ?>>
+                            <?php if (!empty($c['category_name'])): ?><div class="mt-1 max-w-24 truncate text-[10px] text-gray-400" title="<?php echo htmlspecialchars($c['category_name']); ?>"><?php echo htmlspecialchars($c['category_name']); ?></div><?php endif; ?>
                         </td>
                         <td class="product-name-cell px-3 py-2 w-64 min-w-[16rem]">
                             <div class="text-gray-400 barcode-copy" data-barcode="<?php echo htmlspecialchars($c['sku']); ?>" title="<?php echo htmlspecialchars(t('mall_admin.products.copy_barcode_title')); ?>" style="cursor:pointer;"><span class="text-gray-400 text-[11px]">원본:</span> <?php echo htmlspecialchars($c['sku']); ?></div>
