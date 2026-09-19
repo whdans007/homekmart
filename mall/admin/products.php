@@ -331,7 +331,7 @@ if ($selected_home_slot && empty($home_slot_membership[$selected_home_slot])) {
                 mp.retail_discount_allowed, mp.wholesale_discount_allowed,
                 mp.wholesale_reference_price AS wholesale_reference_price_override,
                 mp.cost_price_override, mp.selling_price_override,
-                p.name_ko, p.sku, p.category_id, inv.cost_price AS original_cost_price, inv.selling_price AS original_selling_price,
+                p.name_ko, p.name_en, p.sku, p.category_id, inv.cost_price AS original_cost_price, inv.selling_price AS original_selling_price,
                 mp.is_sold_out, inv.quantity AS real_stock_quantity,
                 mp.promo_type, mp.promo_value,
                 (SELECT COUNT(*) FROM mall_product_images WHERE product_id = p.id) AS image_count
@@ -379,7 +379,7 @@ if ($selected_home_slot && empty($home_slot_membership[$selected_home_slot])) {
                 mp.retail_discount_allowed, mp.wholesale_discount_allowed,
                 mp.wholesale_reference_price AS wholesale_reference_price_override,
                 mp.cost_price_override, mp.selling_price_override,
-                p.name_ko, p.sku, p.category_id, inv.cost_price AS original_cost_price, inv.selling_price AS original_selling_price,
+                p.name_ko, p.name_en, p.sku, p.category_id, inv.cost_price AS original_cost_price, inv.selling_price AS original_selling_price,
                 mp.is_sold_out, inv.quantity AS real_stock_quantity,
                 (SELECT COUNT(*) FROM mall_product_images WHERE product_id = mp.product_id) AS image_count
          FROM mall_products mp
@@ -475,8 +475,17 @@ $conn->close();
         .product-name-cell .edit-display-name,
         .product-name-cell .edit-display-name-en { width: 100% !important; min-width: 280px !important; }
         .edit-display-order::-webkit-outer-spin-button,
-        .edit-display-order::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .edit-display-order { -moz-appearance: textfield; }
+        .edit-display-order::-webkit-inner-spin-button,
+        .edit-cost-price::-webkit-outer-spin-button,
+        .edit-cost-price::-webkit-inner-spin-button,
+        .edit-wholesale-reference-price::-webkit-outer-spin-button,
+        .edit-wholesale-reference-price::-webkit-inner-spin-button,
+        .edit-selling-price::-webkit-outer-spin-button,
+        .edit-selling-price::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .edit-display-order,
+        .edit-cost-price,
+        .edit-wholesale-reference-price,
+        .edit-selling-price { -moz-appearance: textfield; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -652,7 +661,7 @@ $conn->close();
                             <input type="number" min="0" max="999" class="edit-display-order border border-gray-300 rounded px-2 py-1 w-10" value="<?php echo (int)$c['display_order']; ?>" <?php echo $selected_home_slot ? 'title="' . htmlspecialchars(t('mall_admin.products.slot_order_title')) . '"' : ''; ?>>
                         </td>
                         <td class="product-name-cell px-3 py-2 w-64 min-w-[16rem]">
-                            <div class="text-gray-400 barcode-copy" data-barcode="<?php echo htmlspecialchars($c['sku']); ?>" title="<?php echo htmlspecialchars(t('mall_admin.products.copy_barcode_title')); ?>" style="cursor:pointer;"><?php echo htmlspecialchars($c['sku']); ?></div>
+                            <div class="text-gray-400 barcode-copy" data-barcode="<?php echo htmlspecialchars($c['sku']); ?>" title="<?php echo htmlspecialchars(t('mall_admin.products.copy_barcode_title')); ?>" style="cursor:pointer;"><span class="text-gray-400 text-[11px]">원본:</span> <?php echo htmlspecialchars($c['sku']); ?></div>
                             <div><span class="text-gray-400 text-[11px]">원본:</span> <?php echo htmlspecialchars($c['name_ko']); ?><?php if (trim((string)($c['name_en'] ?? '')) !== ''): ?> (<?php echo htmlspecialchars($c['name_en']); ?>)<?php endif; ?></div>
                             <?php if ($__row_type === 'fresh'): ?><span class="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700"><?php echo t('mall_fresh_products.fresh_product_label'); ?></span><?php endif; ?>
                             <div class="flex flex-col gap-1">
@@ -700,12 +709,12 @@ $conn->close();
                             $__p_value = $c['promo_value'] ?? '';
                         ?>
                         <td class="px-3 py-2 whitespace-nowrap">
-                            <select class="promo-type-select border border-gray-300 rounded px-1.5 py-1 text-xs" data-product-id="<?php echo (int)$c['product_id']; ?>">
-                                <option value="none" <?php echo $__p_type === 'none' ? 'selected' : ''; ?>><?php echo t('common.none'); ?></option>
-                                <option value="1plus1" <?php echo $__p_type === '1plus1' ? 'selected' : ''; ?>>1+1</option>
-                                <option value="percent" <?php echo $__p_type === 'percent' ? 'selected' : ''; ?>><?php echo t('mall_admin.products.promo_percent'); ?></option>
-                                <option value="cost_sale" <?php echo $__p_type === 'cost_sale' ? 'selected' : ''; ?>><?php echo t('mall_admin.products.promo_cost_sale'); ?></option>
-                            </select>
+                            <div class="flex flex-col gap-1">
+                                <label class="inline-flex items-center gap-1"><input type="radio" class="promo-type-select" name="promo_type_<?php echo (int)$c['product_id']; ?>" value="none" data-product-id="<?php echo (int)$c['product_id']; ?>" <?php echo $__p_type === 'none' ? 'checked' : ''; ?>><?php echo t('common.none'); ?></label>
+                                <label class="inline-flex items-center gap-1"><input type="radio" class="promo-type-select" name="promo_type_<?php echo (int)$c['product_id']; ?>" value="1plus1" data-product-id="<?php echo (int)$c['product_id']; ?>" <?php echo $__p_type === '1plus1' ? 'checked' : ''; ?>>1+1</label>
+                                <label class="inline-flex items-center gap-1"><input type="radio" class="promo-type-select" name="promo_type_<?php echo (int)$c['product_id']; ?>" value="percent" data-product-id="<?php echo (int)$c['product_id']; ?>" <?php echo $__p_type === 'percent' ? 'checked' : ''; ?>><?php echo t('mall_admin.products.promo_percent'); ?></label>
+                                <label class="inline-flex items-center gap-1"><input type="radio" class="promo-type-select" name="promo_type_<?php echo (int)$c['product_id']; ?>" value="cost_sale" data-product-id="<?php echo (int)$c['product_id']; ?>" <?php echo $__p_type === 'cost_sale' ? 'checked' : ''; ?>><?php echo t('mall_admin.products.promo_cost_sale'); ?></label>
+                            </div>
                             <div class="promo-value-wrap mt-1" style="<?php echo $__p_type === 'percent' ? '' : 'display:none;'; ?>">
                                 <input type="number" min="1" max="99" step="1" class="promo-value-input border border-gray-300 rounded px-1.5 py-1 text-xs w-14" value="<?php echo htmlspecialchars((string)$__p_value); ?>" placeholder="%">%
                             </div>
@@ -1326,32 +1335,38 @@ function applyPromoResultToRow(select, data) {
 document.querySelectorAll('.promo-type-select').forEach(function (select) {
     const wrap = select.closest('td').querySelector('.promo-value-wrap');
     const valueInput = wrap ? wrap.querySelector('.promo-value-input') : null;
+    const getSelectedPromo = function () {
+        return select.closest('td').querySelector('.promo-type-select:checked');
+    };
 
     select.addEventListener('change', function () {
-        if (wrap) { wrap.style.display = select.value === 'percent' ? '' : 'none'; }
-        if (select.value === 'percent') {
+        const selectedPromo = getSelectedPromo();
+        if (!selectedPromo) return;
+        if (wrap) { wrap.style.display = selectedPromo.value === 'percent' ? '' : 'none'; }
+        if (selectedPromo.value === 'percent') {
             if (!valueInput.value) { return; } // 퍼센트 값을 아직 안 넣었으면 값 입력 시 저장한다.
         }
-        select.disabled = true;
-        saveTodayDealPromo(select.dataset.productId, select.value, select.value === 'percent' ? valueInput.value : null)
+        selectedPromo.disabled = true;
+        saveTodayDealPromo(selectedPromo.dataset.productId, selectedPromo.value, selectedPromo.value === 'percent' ? valueInput.value : null)
             .then(function (data) {
-                select.disabled = false;
+                selectedPromo.disabled = false;
                 if (!data.success) { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); return; }
-                applyPromoResultToRow(select, data.data);
+                applyPromoResultToRow(selectedPromo, data.data);
                 showFlash('<?php echo addslashes(t('mall_admin.products.promo_saved_msg')); ?>', 'success');
             })
-            .catch(function () { select.disabled = false; showFlash('<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); });
+            .catch(function () { selectedPromo.disabled = false; showFlash('<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); });
     });
 
     if (valueInput) {
         valueInput.addEventListener('change', function () {
-            if (select.value !== 'percent' || !valueInput.value) { return; }
+            const selectedPromo = getSelectedPromo();
+            if (!selectedPromo || selectedPromo.value !== 'percent' || !valueInput.value) { return; }
             valueInput.disabled = true;
-            saveTodayDealPromo(select.dataset.productId, 'percent', valueInput.value)
+            saveTodayDealPromo(selectedPromo.dataset.productId, 'percent', valueInput.value)
                 .then(function (data) {
                     valueInput.disabled = false;
                     if (!data.success) { showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); return; }
-                    applyPromoResultToRow(select, data.data);
+                    applyPromoResultToRow(selectedPromo, data.data);
                     showFlash('<?php echo addslashes(t('mall_admin.products.promo_saved_msg')); ?>', 'success');
                 })
                 .catch(function () { valueInput.disabled = false; showFlash('<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); });
