@@ -25,6 +25,8 @@ if ($promo_slot && $promo_slot['is_active'] && !empty($promo_slot['config'])) {
     $promo_config = is_array($decoded) ? $decoded : [];
 }
 $product_ids = $promo_config['product_ids'] ?? [];
+$fresh_product_ids = $promo_config['fresh_product_ids'] ?? [];
+$fresh_rows = mall_get_fresh_products_by_ids($fresh_product_ids);
 
 $banner_slot = mall_get_home_slot('promo_banner', 'published');
 $hero_title = $banner_slot['title'] ?? '';
@@ -94,7 +96,7 @@ $__cart_qty_map = mall_cart_get_quantities_by_product($__member_id, $__guest_tok
 <?php endif; ?>
 
 <div class="section" style="padding-top:4px;">
-    <?php if (empty($cards)): ?>
+    <?php if (empty($cards) && empty($fresh_rows)): ?>
         <p class="empty-state">아직 등록된 기획전 상품이 없습니다.</p>
     <?php else: ?>
         <?php foreach ($cards as $card): ?>
@@ -148,6 +150,7 @@ $__cart_qty_map = mall_cart_get_quantities_by_product($__member_id, $__guest_tok
                 <?php endif; ?>
             </div>
         <?php endforeach; ?>
+        <?php echo mall_render_fresh_home_cards($fresh_rows, 'promo-list'); ?>
     <?php endif; ?>
 </div>
 

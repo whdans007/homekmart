@@ -9,6 +9,28 @@
  */
 require_once __DIR__ . '/catalog.php';
 require_once __DIR__ . '/review.php';
+require_once __DIR__ . '/fresh_pricing.php';
+
+function mall_render_fresh_home_cards(array $rows, string $class = 'h-scroll'): string {
+    if (empty($rows)) return '';
+    ob_start();
+    ?><style>.fresh-home-card{display:block;position:relative;min-width:160px;max-width:220px;padding:10px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;color:inherit}.fresh-home-card img{display:block;width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px}.fresh-home-card strong,.fresh-home-card small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fresh-home-card small{color:#6b7280;margin-top:3px}.fresh-home-badge{display:inline-block;color:#047857;background:#d1fae5;border-radius:999px;font-size:10px;padding:2px 6px;margin-bottom:5px}.fresh-home-price{display:block;margin-top:7px;font-weight:700}</style><?php
+    foreach ($rows as $fresh) {
+        $price = mall_fresh_sale_unit_price($fresh);
+        $name = $fresh['display_name'] ?: '';
+        $image = $fresh['image_url'] ?: '/logo/homekmart_logo.png';
+        ?>
+        <a class="fresh-home-card" href="/mall/fresh_product.php?id=<?php echo (int)$fresh['id']; ?>">
+            <img src="<?php echo htmlspecialchars($image); ?>" alt="<?php echo htmlspecialchars($name); ?>">
+            <span class="fresh-home-badge">신선</span>
+            <strong><?php echo htmlspecialchars($name); ?></strong>
+            <?php if (!empty($fresh['display_name_en'])): ?><small><?php echo htmlspecialchars($fresh['display_name_en']); ?></small><?php endif; ?>
+            <span class="fresh-home-price"><?php echo number_format($price, 2); ?></span>
+        </a>
+        <?php
+    }
+    return ob_get_clean();
+}
 
 // 디자인 목업 순서 그대로 — 새 슬롯을 추가하려면 이 배열 + 관리자 화면 패널을 함께 늘려야 한다.
 const MALL_HOME_SLOTS = ['promo_banner', 'today_deals', 'new_arrivals'];
@@ -147,7 +169,8 @@ function mall_render_today_deals_section($section, $config, $member, $mall_lang,
     }
     $channel = ($member && $member['member_type'] === 'wholesale') ? 'wholesale' : 'retail';
     $rows = mall_get_products_by_ids($product_ids);
-    if (empty($rows)) {
+    $fresh_rows = mall_get_fresh_products_by_ids($config['fresh_product_ids'] ?? []);
+    if (empty($rows) && empty($fresh_rows)) {
         return '';
     }
     $cards = mall_build_product_cards($rows, $member, $channel, $mall_lang);
@@ -191,6 +214,7 @@ function mall_render_today_deals_section($section, $config, $member, $mall_lang,
                 <?php $__promo = $promos[(string)$card['product_id']] ?? null; ?>
                 <div class="deal-card"><?php include __DIR__ . '/../partials/deal_card.php'; ?></div>
             <?php endforeach; ?>
+            <?php echo mall_render_fresh_home_cards($fresh_rows); ?>
         </div>
     </div>
     <?php
@@ -208,7 +232,8 @@ function mall_render_new_arrivals_section($section, $config, $member, $mall_lang
     }
     $channel = ($member && $member['member_type'] === 'wholesale') ? 'wholesale' : 'retail';
     $rows = mall_get_products_by_ids($product_ids);
-    if (empty($rows)) {
+    $fresh_rows = mall_get_fresh_products_by_ids($config['fresh_product_ids'] ?? []);
+    if (empty($rows) && empty($fresh_rows)) {
         return '';
     }
     $cards = mall_build_product_cards($rows, $member, $channel, $mall_lang);
@@ -230,6 +255,7 @@ function mall_render_new_arrivals_section($section, $config, $member, $mall_lang
                 <?php $__cart = $cart_qty_map[$card['product_id']] ?? null; ?>
                 <?php include __DIR__ . '/../partials/new_arrival_card.php'; ?>
             <?php endforeach; ?>
+            <?php echo mall_render_fresh_home_cards($fresh_rows, 'new-arrival-grid'); ?>
         </div>
     </div>
     <?php

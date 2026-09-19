@@ -228,6 +228,28 @@ function mall_get_products_by_ids($product_ids) {
     return $ordered;
 }
 
+/** Return active fresh products in the configured order for home/promo sections. */
+function mall_get_fresh_products_by_ids($fresh_product_ids) {
+    $fresh_product_ids = array_values(array_filter(array_map('intval', $fresh_product_ids), fn($id) => $id > 0));
+    if (empty($fresh_product_ids)) return [];
+    $conn = mall_get_db_connection();
+    $placeholders = implode(',', array_fill(0, count($fresh_product_ids), '?'));
+    $stmt = $conn->prepare(
+        "SELECT id, COALESCE(display_name_override, name_ko) AS display_name,
+                COALESCE(display_name_en_override, name_en) AS display_name_en,
+                image_url, sale_type, price_per_100g, selling_price_override,
+                selling_weight_reference_g, is_sold_out
+         FROM mall_fresh_products WHERE id IN ({$placeholders}) AND status = 'active'
+         ORDER BY FIELD(id, " . implode(',', $fresh_product_ids) . ")"
+    );
+    $stmt->bind_param(str_repeat('i', count($fresh_product_ids)), ...$fresh_product_ids);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    $conn->close();
+    return $rows;
+}
+
 /**
  * 상품 행 목록을 화면 카드 배열로 변환합니다(가격/재고 계산 포함).
  * product_card.php 파셜이 기대하는 형태를 만든다.

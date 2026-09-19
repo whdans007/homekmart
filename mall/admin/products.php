@@ -71,12 +71,16 @@ if ($selected_home_slot) {
 // (프로모 정보는 더 이상 여기서 안 읽는다 — mall_products.promo_type/promo_value에 직접 저장되어
 // 아래 큐레이션 조회 쿼리에서 바로 가져온다. 가격처럼 저장 즉시 반영되게 하기 위함.)
 $home_slot_membership = ['today_deals' => [], 'new_arrivals' => [], 'promo_products' => []];
+$home_slot_fresh_membership = ['today_deals' => [], 'new_arrivals' => [], 'promo_products' => []];
 foreach (array_keys($home_slot_membership) as $__slot_key) {
     $__slot = mall_get_home_slot($__slot_key);
     if ($__slot && !empty($__slot['config'])) {
         $__decoded = json_decode($__slot['config'], true);
         if (is_array($__decoded) && !empty($__decoded['product_ids'])) {
             $home_slot_membership[$__slot_key] = array_map('intval', $__decoded['product_ids']);
+        }
+        if (is_array($__decoded) && !empty($__decoded['fresh_product_ids'])) {
+            $home_slot_fresh_membership[$__slot_key] = array_map('intval', $__decoded['fresh_product_ids']);
         }
     }
 }
@@ -169,9 +173,13 @@ function mall_detect_pos_date_format(string $sample): string {
 // 무관하게 전체 상품에서 찾는다(홈 노출 목록 자체가 mall_products 큐레이션과 별개로 관리되므로).
 // 이 점포에 큐레이션되어 있는지는 결과에 표시만 해준다(안 되어 있어도 진열에는 추가 가능).
 $home_slot_search_results = [];
-if ($selected_home_slot && $search !== '') {
+if ($selected_home_slot && $search_tab === 'general' && $search !== '') {
     $slot_stmt = $conn->prepare(
-        "SELECT p.id AS product_id, p.name_ko, p.sku, mp.id AS mall_product_id, mp.display_name
+        "SELECT p.id AS product_id, p.name_ko, p.name_en, p.sku, mp.id AS mall_product_id, mp.display_name,
+                COALESCE((SELECT SUM(d.pcs) FROM pos_sales_data d
+                          WHERE d.item_code = p.sku
+                            AND d.upload_id IN (SELECT id FROM pos_sales_uploads WHERE store_id = ?)
+                            AND COALESCE(STR_TO_DATE(d.sale_date, '%Y-%m-%d'), STR_TO_DATE(d.sale_date, '%m/%d/%Y'), STR_TO_DATE(d.sale_date, '%m-%d-%Y')) >= (NOW() - INTERVAL 30 DAY)), 0) AS recent_sales_qty
          FROM products p
          LEFT JOIN mall_products mp ON mp.product_id = p.id AND mp.store_id = ?
          WHERE p.is_active = 1
@@ -180,7 +188,7 @@ if ($selected_home_slot && $search !== '') {
     );
     $like = '%' . $search . '%';
     $mall_store_id = (int)MALL_STORE_ID;
-    $slot_stmt->bind_param('isss', $mall_store_id, $like, $like, $like);
+    $slot_stmt->bind_param('iisss', $mall_store_id, $mall_store_id, $like, $like, $like);
     $slot_stmt->execute();
     $home_slot_search_results = $slot_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $slot_stmt->close();
@@ -235,7 +243,7 @@ if (!$selected_home_slot && $search !== '') {
 // 일반상품과 동일하게 좌측에서 선택한 카테고리($add_target_category_id) 기준이다.
 // mall_fresh_products는 점포 구분이 없는 몰 전체 단일 카탈로그라 store_id 필터는 적용하지 않는다.
 $fresh_search_results = [];
-if (!$selected_home_slot && $search_tab === 'fresh' && ($search !== '' || $selected_fresh_cat)) {
+if ($search_tab === 'fresh' && ($search !== '' || $selected_fresh_cat)) {
     $fresh_where = ["status = 'active'"];
     $fresh_types = '';
     $fresh_params = [];
@@ -264,6 +272,42 @@ if (!$selected_home_slot && $search_tab === 'fresh' && ($search !== '' || $selec
     $fresh_search_stmt->execute();
     $fresh_search_results = $fresh_search_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $fresh_search_stmt->close();
+}
+
+// 홈 노출 슬롯에 담긴 신선상품도 일반상품과 동일하게 중앙 목록에 표시한다.
+$home_fresh_curated = [];
+if ($selected_home_slot && !empty($home_slot_fresh_membership[$selected_home_slot])) {
+    $home_fresh_ids = $home_slot_fresh_membership[$selected_home_slot];
+    $home_fresh_placeholders = implode(',', array_fill(0, count($home_fresh_ids), '?'));
+    $home_fresh_stmt = $conn->prepare(
+        "SELECT id, code, name_ko, name_en, sale_type, price_per_100g, status, image_url,
+                display_order, cost_price_override, selling_price_override,
+                wholesale_reference_price_override, selling_weight_reference_g,
+                display_name_override, display_name_en_override, is_sold_out,
+                retail_discount_allowed, wholesale_discount_allowed
+         FROM mall_fresh_products WHERE id IN ({$home_fresh_placeholders})
+         ORDER BY FIELD(id, " . implode(',', array_map('intval', $home_fresh_ids)) . ")"
+    );
+    $home_fresh_stmt->bind_param(str_repeat('i', count($home_fresh_ids)), ...$home_fresh_ids);
+    $home_fresh_stmt->execute();
+    foreach ($home_fresh_stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $hf) {
+        $home_fresh_curated[] = [
+            'row_type' => 'fresh', 'id' => null, 'fresh_id' => (int)$hf['id'], 'product_id' => null,
+            'category_id' => null, 'sku' => $hf['code'], 'name_ko' => $hf['name_ko'], 'name_en' => $hf['name_en'],
+            'display_name' => $hf['display_name_override'] ?? $hf['name_ko'],
+            'display_name_en' => $hf['display_name_en_override'] ?? $hf['name_en'],
+            'sale_type' => $hf['sale_type'], 'display_order' => (int)$hf['display_order'],
+            'cost_price_override' => $hf['cost_price_override'], 'selling_price_override' => $hf['selling_price_override'],
+            'wholesale_reference_price_override' => $hf['wholesale_reference_price_override'],
+            'selling_weight_reference_g' => $hf['selling_weight_reference_g'],
+            'original_cost_price' => null, 'original_selling_price' => $hf['price_per_100g'],
+            'is_active' => $hf['status'] === 'active' ? 1 : 0, 'is_sold_out' => (int)$hf['is_sold_out'],
+            'retail_discount_allowed' => (int)$hf['retail_discount_allowed'],
+            'wholesale_discount_allowed' => (int)$hf['wholesale_discount_allowed'],
+            'real_stock_quantity' => null, 'image_url' => $hf['image_url'],
+        ];
+    }
+    $home_fresh_stmt->close();
 }
 
 // 좌측에서 선택한 카테고리에 배정된 신선상품 — 검색 탭과 무관하게 항상 중앙 패널에 표시한다.
@@ -438,6 +482,8 @@ if (!$selected_home_slot) {
             'image_url' => $fc['image_url'],
         ];
     }
+} elseif (!empty($home_fresh_curated)) {
+    $curated = array_merge($curated, $home_fresh_curated);
 }
 
 // 상품별 이미지 목록 (삭제/정렬 UI용) — 신선상품 행(product_id 없음)은 대상이 아니므로 건너뛴다.
@@ -563,7 +609,7 @@ $conn->close();
                     <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['home_slot' => $__slot_key])); ?>"
                        data-drop-home-slot="<?php echo htmlspecialchars($__slot_key); ?>"
                        class="block px-2 py-1.5 rounded text-xs font-medium <?php echo $selected_home_slot === $__slot_key ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'; ?>">
-                        <?php echo htmlspecialchars($__slot_label); ?> <span class="text-gray-400">(<?php echo count($home_slot_membership[$__slot_key]); ?>)</span>
+                        <?php echo htmlspecialchars($__slot_label); ?> <span class="text-gray-400">(<?php echo count($home_slot_membership[$__slot_key]) + count($home_slot_fresh_membership[$__slot_key]); ?>)</span>
                     </a>
                 </li>
                 <?php endforeach; ?>
@@ -637,9 +683,7 @@ $conn->close();
                             <div class="text-gray-400 barcode-copy" data-barcode="<?php echo htmlspecialchars($c['sku']); ?>" title="<?php echo htmlspecialchars(t('mall_admin.products.copy_barcode_title')); ?>" style="cursor:pointer;"><?php echo htmlspecialchars($c['sku']); ?></div>
                             <?php echo htmlspecialchars($c['name_ko']); ?>
                         </td>
-                        <td class="px-3 py-2 text-amber-600" colspan="<?php echo $__col_count - 3; ?>">
-                            <i class="fas fa-triangle-exclamation mr-1"></i><?php echo t('mall_admin.products.not_curated_yet', ['id' => (int)MALL_STORE_ID]); ?>
-                        </td>
+                        <td class="px-3 py-2 text-amber-600" colspan="<?php echo $__col_count - 3; ?>"></td>
                         <td class="px-3 py-2 whitespace-nowrap">
                             <button class="curate-home-slot-product-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$c['product_id']; ?>"><?php echo t('mall_admin.products.curate_now'); ?></button>
                             <button class="remove-from-home-slot-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$c['product_id']; ?>"><?php echo t('mall_admin.products.remove_from_slot'); ?></button>
@@ -648,7 +692,7 @@ $conn->close();
                     <?php else: ?>
                     <tr class="curated-row border-t border-gray-100"
                         <?php if ($__row_type === 'fresh'): ?>
-                        data-row-type="fresh" data-fresh-product-id="<?php echo (int)$c['fresh_id']; ?>" data-category-id="<?php echo (int)($c['category_id'] ?? 0); ?>"
+                        data-row-type="fresh" data-fresh-product-id="<?php echo (int)$c['fresh_id']; ?>" data-category-id="<?php echo (int)($c['category_id'] ?? 0); ?>"<?php if ($selected_home_slot): ?> data-home-slot="<?php echo htmlspecialchars($selected_home_slot); ?>"<?php endif; ?>
                         data-original-cost-price="<?php echo $original_cost_price !== null ? $original_cost_price : ''; ?>"
                         data-original-selling-price="<?php echo $original_selling_price !== null ? $original_selling_price : ''; ?>"
                         data-sale-type="<?php echo htmlspecialchars($c['sale_type'] ?? ''); ?>"
@@ -684,7 +728,9 @@ $conn->close();
                         <td class="px-1 py-2 text-right w-16">
                             <input type="number" step="0.01" min="0" class="edit-selling-price border border-gray-300 rounded px-1 py-1 w-16 text-right font-mono" value="<?php echo $effective_selling_price !== null ? $effective_selling_price : ''; ?>">
                             <div class="selling-price-original-hint text-gray-400 mt-0.5" style="<?php echo $selling_price_override !== null ? '' : 'display:none;'; ?>"><?php echo t('mall_admin.products.original'); ?>: <?php echo $original_selling_price !== null ? number_format($original_selling_price, 2) : '-'; ?></div>
-                            <?php if ($__row_type === 'fresh'): ?>
+                            <?php if ($__row_type === 'fresh' && $selected_home_slot): ?>
+                            <button class="remove-fresh-from-home-slot-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-fresh-product-id="<?php echo (int)$c['fresh_id']; ?>"><?php echo t('mall_admin.products.remove_from_slot'); ?></button>
+                            <?php elseif ($__row_type === 'fresh'): ?>
                             <div class="text-gray-400 mt-0.5"><?php echo $c['sale_type'] === 'piece' ? htmlspecialchars(t('mall_fresh_products.price_label_piece')) : htmlspecialchars(t('mall_fresh_products.price_label_weight')); ?></div>
                             <button type="button" class="open-price-calc-btn mt-1 px-2 py-1 bg-blue-600 text-white rounded text-xs whitespace-nowrap" data-product-name="<?php echo htmlspecialchars($c['name_ko']); ?>"><?php echo t('mall_admin.products.price_calc_title'); ?></button>
                             <?php endif; ?>
@@ -794,37 +840,77 @@ $conn->close();
         <section class="bg-white rounded-lg border border-gray-200 p-4">
             <?php if ($selected_home_slot): ?>
             <h2 class="text-sm font-bold text-gray-700 mb-3"><?php echo t('mall_admin.products.add_to_slot', ['slot' => htmlspecialchars($home_slot_labels[$selected_home_slot])]); ?> <span class="text-gray-400 font-normal">(<?php echo t('mall_admin.products.all_products_scope'); ?>)</span></h2>
+            <div class="flex gap-1 mb-3 border-b border-gray-200">
+                <?php $__slot_search_qs = array_merge($__base_qs, ['home_slot' => $selected_home_slot]); unset($__slot_search_qs['q']); if ($selected_fresh_cat) { $__slot_search_qs['fresh_cat'] = $selected_fresh_cat; } ?>
+                <a href="?<?php echo http_build_query(array_merge($__slot_search_qs, ['search_tab' => 'general'])); ?>" class="px-3 py-2 text-xs font-semibold border-b-2 <?php echo $search_tab === 'general' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500'; ?>"><?php echo t('mall_admin.products.tab_general'); ?></a>
+                <a href="?<?php echo http_build_query(array_merge($__slot_search_qs, ['search_tab' => 'fresh'])); ?>" class="px-3 py-2 text-xs font-semibold border-b-2 <?php echo $search_tab === 'fresh' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500'; ?>"><?php echo t('mall_admin.products.tab_fresh'); ?></a>
+            </div>
+            <?php if ($search_tab === 'fresh'): ?>
+            <?php
+                $__slot_fresh_qs = array_merge($__base_qs, ['home_slot' => $selected_home_slot, 'search_tab' => 'fresh']);
+                if ($search !== '') { $__slot_fresh_qs['q'] = $search; }
+            ?>
+            <div class="flex gap-1 mb-3 flex-wrap">
+                <?php foreach (fresh_category_options() as $__fc_code => $__fc_label): ?>
+                <a href="?<?php echo http_build_query(array_merge($__slot_fresh_qs, ['fresh_cat' => $__fc_code])); ?>"
+                   class="px-3 py-1.5 rounded text-xs font-semibold border <?php echo $selected_fresh_cat === $__fc_code ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100'; ?>"><?php echo htmlspecialchars($__fc_label); ?></a>
+                <?php endforeach; ?>
+                <?php if ($selected_fresh_cat): ?>
+                <a href="?<?php echo http_build_query(array_diff_key($__slot_fresh_qs, ['fresh_cat' => true])); ?>"
+                   class="px-3 py-1.5 rounded text-xs font-semibold border bg-white text-gray-400 border-gray-200 hover:bg-gray-100"><?php echo t('common.all'); ?></a>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
             <form method="get" class="flex gap-1 mb-3">
                 <input type="hidden" name="home_slot" value="<?php echo htmlspecialchars($selected_home_slot); ?>">
+                <input type="hidden" name="search_tab" value="<?php echo htmlspecialchars($search_tab); ?>">
                 <?php if ($selected_store_id !== (int)MALL_STORE_ID): ?><input type="hidden" name="store_id" value="<?php echo (int)$selected_store_id; ?>"><?php endif; ?>
+                <?php if ($selected_fresh_cat): ?><input type="hidden" name="fresh_cat" value="<?php echo htmlspecialchars($selected_fresh_cat); ?>"><?php endif; ?>
                 <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.search_placeholder_short')); ?>"
                        class="border border-gray-300 rounded-md px-2 py-1 text-xs w-full">
                 <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md"><?php echo t('common.search'); ?></button>
             </form>
-            <?php if ($search !== ''): ?>
+            <?php if ($search_tab === 'general' && $search !== ''): ?>
             <table class="min-w-full text-xs">
                 <thead class="bg-gray-100 text-gray-600">
-                    <tr><th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.product_name'); ?></th><th class="px-3 py-2 text-left"><?php echo t('common.actions'); ?></th></tr>
+                    <tr><th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.product_name'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.recent_sales'); ?></th><th class="px-3 py-2 text-left"><?php echo t('common.actions'); ?></th></tr>
                 </thead>
                 <tbody>
                 <?php if (empty($home_slot_search_results)): ?>
-                    <tr><td colspan="2" class="px-3 py-4 text-center text-gray-400"><?php echo t('mall_admin.products.no_search_results'); ?></td></tr>
+                    <tr><td colspan="3" class="px-3 py-4 text-center text-gray-400"><?php echo t('mall_admin.products.no_search_results'); ?></td></tr>
                 <?php endif; ?>
                 <?php foreach ($home_slot_search_results as $p): ?>
                     <?php $__already_in_slot = in_array((int)$p['product_id'], $home_slot_membership[$selected_home_slot], true); ?>
                     <tr class="border-t border-gray-100">
                         <td class="px-3 py-2">
                             <div class="text-gray-400"><?php echo htmlspecialchars($p['sku']); ?></div>
-                            <?php echo htmlspecialchars($p['display_name'] ?: $p['name_ko']); ?>
-                            <?php if (!$p['mall_product_id']): ?><span class="text-amber-600" title="<?php echo htmlspecialchars(t('mall_admin.products.not_curated_at_store_title')); ?>"><?php echo t('mall_admin.products.not_curated'); ?></span><?php endif; ?>
+                            <?php echo htmlspecialchars($p['display_name'] ?: $p['name_ko']); ?><?php if (!empty($p['name_en'])): ?> <span class="text-gray-400">(<?php echo htmlspecialchars($p['name_en']); ?>)</span><?php endif; ?>
                         </td>
+                        <td class="px-3 py-2"><?php echo number_format((float)$p['recent_sales_qty']); ?></td>
                         <td class="px-3 py-2">
                             <?php if ($__already_in_slot): ?>
                                 <span class="text-gray-400"><?php echo t('mall_admin.products.already_added'); ?></span>
+                            <?php elseif (!$p['mall_product_id']): ?>
+                                <button class="curate-home-slot-product-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>">쇼핑몰에 추가</button>
                             <?php else: ?>
-                                <button class="add-to-home-slot-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>"><?php echo t('common.add'); ?></button>
+                                <button class="add-to-home-slot-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>">이동 등록</button>
                             <?php endif; ?>
                         </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
+            <?php if ($search_tab === 'fresh' && ($search !== '' || $selected_fresh_cat)): ?>
+            <table class="min-w-full text-xs">
+                <thead class="bg-gray-100 text-gray-600"><tr><th class="px-3 py-2 text-left"><?php echo t('product.name'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_fresh_products.category_label'); ?></th><th class="px-3 py-2 text-left"><?php echo t('common.actions'); ?></th></tr></thead>
+                <tbody>
+                <?php if (empty($fresh_search_results)): ?><tr><td colspan="3" class="px-3 py-4 text-center text-gray-400"><?php echo t('mall_fresh_products.no_search_results'); ?></td></tr><?php endif; ?>
+                <?php foreach ($fresh_search_results as $fp): ?>
+                    <tr class="border-t border-gray-100">
+                        <td class="px-3 py-2"><div class="text-gray-400 font-mono text-[11px]"><?php echo htmlspecialchars($fp['code']); ?></div><?php echo htmlspecialchars($fp['name_ko']); ?><?php if (!empty($fp['name_en'])): ?> <span class="text-gray-400">(<?php echo htmlspecialchars($fp['name_en']); ?>)</span><?php endif; ?></td>
+                        <td class="px-3 py-2"><?php echo htmlspecialchars(fresh_category_label($fp['fresh_category'])); ?></td>
+                        <td class="px-3 py-2"><?php if (in_array((int)$fp['id'], $home_slot_fresh_membership[$selected_home_slot], true)): ?><span class="text-gray-400"><?php echo t('mall_admin.products.already_added'); ?></span><?php else: ?><button class="add-fresh-to-home-slot-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-fresh-product-id="<?php echo (int)$fp['id']; ?>"><?php echo t('common.add'); ?></button><?php endif; ?></td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -1756,6 +1842,42 @@ document.querySelectorAll('aside a[data-drop-category-id]').forEach(function (ca
                 showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.move_register_failed')); ?>', 'error');
             }
         });
+    });
+});
+
+document.querySelectorAll('.remove-fresh-from-home-slot-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        btn.disabled = true;
+        const params = new URLSearchParams({
+            slot_key: btn.dataset.slotKey,
+            product_type: 'fresh',
+            fresh_product_id: btn.dataset.freshProductId,
+            active: '0',
+            csrf_token: window.MALL_CSRF_TOKEN
+        });
+        fetch('ajax/toggle_home_section_product.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+            .then(r => r.json()).then(function (data) {
+                if (data.success) { window.location.reload(); }
+                else { btn.disabled = false; showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); }
+            }).catch(function () { btn.disabled = false; showFlash('<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); });
+    });
+});
+
+document.querySelectorAll('.add-fresh-to-home-slot-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        btn.disabled = true;
+        const params = new URLSearchParams({
+            slot_key: btn.dataset.slotKey,
+            product_type: 'fresh',
+            fresh_product_id: btn.dataset.freshProductId,
+            active: '1',
+            csrf_token: window.MALL_CSRF_TOKEN
+        });
+        fetch('ajax/toggle_home_section_product.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+            .then(r => r.json()).then(function (data) {
+                if (data.success) { window.location.reload(); }
+                else { btn.disabled = false; showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); }
+            }).catch(function () { btn.disabled = false; showFlash('<?php echo addslashes(t('mall_admin.products.save_failed')); ?>', 'error'); });
     });
 });
 

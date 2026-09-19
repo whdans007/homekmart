@@ -41,9 +41,11 @@ $slot_key = $_POST['slot_key'] ?? '';
 if (!in_array($slot_key, $toggleable_slots, true)) {
     json_error('VALIDATION_ERROR', '유효하지 않은 슬롯입니다');
 }
+$product_type = ($_POST['product_type'] ?? 'general') === 'fresh' ? 'fresh' : 'general';
 $product_id = (int)($_POST['product_id'] ?? 0);
+$fresh_product_id = (int)($_POST['fresh_product_id'] ?? 0);
 $active = ($_POST['active'] ?? '0') === '1';
-if ($product_id <= 0) {
+if (($product_type === 'general' && $product_id <= 0) || ($product_type === 'fresh' && $fresh_product_id <= 0)) {
     json_error('VALIDATION_ERROR', '입력값을 확인해주세요');
 }
 
@@ -57,7 +59,7 @@ try {
     $conn = mall_get_db_connection();
     $store_id = MALL_STORE_ID;
 
-    if ($active) {
+    if ($active && $product_type === 'general') {
         $curated_check = $conn->prepare('SELECT id FROM mall_products WHERE product_id = ? AND store_id = ?');
         $curated_check->bind_param('ii', $product_id, $store_id);
         $curated_check->execute();
@@ -98,12 +100,25 @@ try {
     $stmt->close();
 
     $product_ids = [];
+    $fresh_product_ids = [];
     if ($row && $row['config']) {
         $decoded = json_decode($row['config'], true);
         $product_ids = is_array($decoded) && !empty($decoded['product_ids']) ? array_map('intval', $decoded['product_ids']) : [];
+        $fresh_product_ids = is_array($decoded) && !empty($decoded['fresh_product_ids']) ? array_map('intval', $decoded['fresh_product_ids']) : [];
     }
 
-    if ($active) {
+    if ($product_type === 'fresh') {
+        if ($active) {
+            $fresh_check = $conn->prepare("SELECT id FROM mall_fresh_products WHERE id = ? AND status = 'active'");
+            $fresh_check->bind_param('i', $fresh_product_id);
+            $fresh_check->execute();
+            if (!$fresh_check->get_result()->fetch_assoc()) { $fresh_check->close(); json_error('VALIDATION_ERROR', '유효하지 않은 신선상품입니다', 404); }
+            $fresh_check->close();
+            if (!in_array($fresh_product_id, $fresh_product_ids, true)) { $fresh_product_ids[] = $fresh_product_id; }
+        } else {
+            $fresh_product_ids = array_values(array_filter($fresh_product_ids, fn($id) => $id !== $fresh_product_id));
+        }
+    } elseif ($active) {
         if (!in_array($product_id, $product_ids, true)) {
             $product_ids[] = $product_id;
         }
@@ -111,7 +126,7 @@ try {
         $product_ids = array_values(array_filter($product_ids, fn($id) => $id !== $product_id));
     }
 
-    $config_json = json_encode(['product_ids' => $product_ids], JSON_UNESCAPED_UNICODE);
+    $config_json = json_encode(['product_ids' => $product_ids, 'fresh_product_ids' => $fresh_product_ids], JSON_UNESCAPED_UNICODE);
 
     if ($row) {
         $upd = $conn->prepare('UPDATE mall_home_sections SET config = ? WHERE id = ?');
@@ -129,7 +144,7 @@ try {
         $ins->close();
     }
 
-    echo json_encode(['success' => true, 'data' => ['count' => count($product_ids)]]);
+    echo json_encode(['success' => true, 'data' => ['count' => count($product_ids) + count($fresh_product_ids)]]);
 } catch (Throwable $e) {
     error_log('toggle_home_section_product.php error: ' . $e->getMessage());
     json_error('SERVER_ERROR', '처리 중 오류가 발생했습니다', 500);
