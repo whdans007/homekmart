@@ -1,0 +1,6 @@
+logistics 언어 전환 UI를 드롭다운에서 토글로 변경
+
+- select 대신 좌(한글)/우(ENGLISH) 세그먼트 토글 버튼으로 교체
+- 선택된 언어는 강조 배경으로 표시, 클릭 시 기존 ajax_set_language.php 호출 그대로 유지
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

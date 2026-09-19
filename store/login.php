@@ -1,11 +1,22 @@
 <?php
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/../logistics/lib/auth.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
+// 물류센터(CENTER) 소속 계정은 order.php에서 자기 자신에게 주문할 수 없어 order.php가
+// 다시 이곳/index.php로 돌려보낸다. 그러므로 로그인 상태를 보고 이동할 때는
+// 항상 이 계정 여부를 먼저 확인해 킴스몰 재고 페이지로 보낸다.
+function store_login_landing_url(int $store_id): string {
+    $conn = get_lc_db();
+    $is_center = lc_is_center_store($conn, $store_id);
+    $conn->close();
+    return STORE_BASE . ($is_center ? '/kimsmall_stock.php' : '/order.php');
+}
+
 // 이미 로그인된 점포 사용자라면 바로 주문 페이지로
 if (!empty($_SESSION['user_id']) && !empty($_SESSION['store_id'])) {
-    header('Location: ' . STORE_BASE . '/order.php');
+    header('Location: ' . store_login_landing_url((int)$_SESSION['store_id']));
     exit;
 }
 
@@ -38,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['full_name'] = $user['full_name'];
                     $_SESSION['role']      = $user['role'];
                     $_SESSION['store_id']  = $user['store_id'];
-                    header('Location: ' . STORE_BASE . '/order.php');
+                    header('Location: ' . store_login_landing_url((int)$user['store_id']));
                     exit;
                 }
             } else {

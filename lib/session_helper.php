@@ -5,6 +5,87 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+/**
+ * 테스트 서버에서만 자동 로그인을 허용할지 확인합니다.
+ *
+ * 운영 도메인을 기본 허용 목록에 넣지 않고, 호스트명은 정확히 일치시킵니다.
+ * 추가 테스트 호스트가 필요하면 HOMEKMART_TEST_SERVER_HOSTS 환경 변수에
+ * 쉼표로 구분해 지정할 수 있습니다.
+ */
+function is_test_server() {
+    $server_name = strtolower(trim((string)($_SERVER['SERVER_NAME'] ?? '')));
+    $http_host = strtolower(trim((string)($_SERVER['HTTP_HOST'] ?? '')));
+    $http_host = preg_replace('/:\\d+$/', '', $http_host);
+
+    $allowed_hosts = [
+        'localhost',
+        '127.0.0.1',
+        '::1',
+        'homekmart.test',
+        '192-168-0-138.philsarang.direct.quickconnect.to',
+        '192-168-1-123.philsarang.direct.quickconnect.to',
+    ];
+
+    $configured_hosts = getenv('HOMEKMART_TEST_SERVER_HOSTS');
+    if ($configured_hosts !== false && trim($configured_hosts) !== '') {
+        foreach (explode(',', $configured_hosts) as $configured_host) {
+            $configured_host = strtolower(trim($configured_host));
+            if ($configured_host !== '') {
+                $allowed_hosts[] = $configured_host;
+            }
+        }
+    }
+
+    // SERVER_NAME을 우선 사용하고, 로컬 개발 서버처럼 비어 있는 경우에만 HTTP_HOST를 사용합니다.
+    $request_host = $server_name !== '' ? $server_name : $http_host;
+    return in_array($request_host, array_unique($allowed_hosts), true);
+}
+
+/**
+ * 테스트 서버에서 활성화된 super_admin 계정으로 세션을 생성합니다.
+ * 계정의 비밀번호를 우회하지 않고, users 테이블의 실제 활성 계정만 사용합니다.
+ */
+function try_auto_login_on_test_server() {
+    if (is_logged_in() || !is_test_server()) {
+        return false;
+    }
+
+    require_once __DIR__ . '/../config/db_config.php';
+
+    try {
+        $conn = get_db_connection();
+        $stmt = $conn->prepare(
+            "SELECT id, username, full_name, role, store_id
+             FROM users
+             WHERE role = 'super_admin' AND is_active = 1
+             ORDER BY id ASC
+             LIMIT 1"
+        );
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+        $conn->close();
+
+        if (!$user) {
+            return false;
+        }
+
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = (int)$user['id'];
+        $_SESSION['username'] = $user['username'];
+        $_SESSION['full_name'] = $user['full_name'] ?? '';
+        $_SESSION['role'] = $user['role'];
+        $_SESSION['store_id'] = $user['store_id'] ?? null;
+        $_SESSION['auto_login'] = true;
+
+        return true;
+    } catch (Throwable $e) {
+        error_log('Test server auto-login failed: ' . $e->getMessage());
+        return false;
+    }
+}
+
 // 로그인 되어 있는지 확인하는 함수
 function is_logged_in() {
     return isset($_SESSION['user_id']);
@@ -164,4 +245,9 @@ function get_user_store_id() {
  */
 function has_role($role) {
     return get_user_role() === $role;
+}
+
+// session_helper.php를 사용하는 진입점 전체에서 테스트 서버 자동 로그인을 적용합니다.
+if (!is_logged_in()) {
+    try_auto_login_on_test_server();
 }

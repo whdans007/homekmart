@@ -1,0 +1,7 @@
+프로모 상품 가격 표시에 정가 취소선 추가
+
+- store/order.php, logistics/order_new.php: 프로모션 주문행 가격 셀에 정가(취소선)
+  + 할인가를 함께 표시하도록 변경(할인 전/후 가격이 한눈에 비교되도록)
+- logistics/promo_products.php: 정상가 컬럼에 취소선 스타일 적용
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

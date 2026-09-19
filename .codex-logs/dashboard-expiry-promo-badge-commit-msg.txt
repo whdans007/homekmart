@@ -1,0 +1,6 @@
+대시보드 유통기한 임박 목록에 프로모션 할인 배지 표시
+
+- logistics/index.php: 유통기한 임박 쿼리에 lc_lot_promotions LEFT JOIN 추가
+- 활성 프로모션이 등록된 LOT은 상품명 앞에 빨간 "N% OFF" 배지 표시
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

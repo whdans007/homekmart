@@ -1,0 +1,16 @@
+주문 삭제 시 재고 복원 + store/order.php CENTER 계정 주문 차단
+
+1) logistics/order_detail.php: "삭제"(soft_delete, 휴지통 이동) 액션이 재고를
+   전혀 복원하지 않던 문제 수정. lc_restore_order_stock() 호출을 추가해
+   삭제 즉시 해당 주문이 차감했던 LOT 재고를 복원하도록 변경(트랜잭션 처리).
+   기존에는 orders.php의 "영구 삭제" 단계에서만 복원되어, 휴지통에 있는 동안
+   재고가 빠진 채로 남아있는 불일치가 있었음.
+
+2) store/order.php: 물류센터(CENTER) 소속 계정이 자기 자신에게 주문할 수
+   있던 누락된 검증 추가. logistics/order_new.php에는 이미 있던
+   lc_is_center_store() 체크가 store/order.php에는 빠져있었음.
+
+3) (일회성) 이미 소프트 삭제된 주문 #1159의 재고를 수동으로 복원(DB 직접 실행,
+   코드 변경 아님) — 위 1번 수정이 소급 적용되지 않으므로 테스트 데이터 정합성만 맞춤.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

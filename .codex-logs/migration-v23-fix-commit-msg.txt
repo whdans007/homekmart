@@ -1,0 +1,9 @@
+run_migration_v23.php: SHOW 문 prepared statement 호환성 버그 수정
+
+- SHOW TABLES LIKE ?, SHOW COLUMNS ... LIKE ?를 prepared statement로 실행하면
+  이 서버의 MySQL/MariaDB에서 SQL 문법 오류 발생(테스트 서버에서 실제 실행 중 발견)
+- 기존 run_migration_v22.php와 동일한 방식(real_escape_string + 인라인 쿼리)으로 변경
+- 테스트 서버에서 재실행해 lc_lot_promotions 테이블(생성컬럼+UNIQUE 제약 포함) 및
+  lc_order_items.promotion_id 컬럼 정상 생성 확인 완료
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

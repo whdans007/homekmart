@@ -1,0 +1,5 @@
+프로모 정가(취소선) 글자 크기 확대
+
+- store/order.php, logistics/order_new.php: 10px -> 12px(text-xs)로 확대해 가독성 개선
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

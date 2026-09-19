@@ -1,0 +1,12 @@
+역할: 이 저장소(HOME K MART)의 logistics 모듈 다국어화 작업을 시작하기 전에, 아래 계획 문서에 대한 사전 검토 의견만 주세요. 코드를 수정하지 마세요 (읽기 전용 검토).
+
+다음 문서를 읽으세요:
+- docs/01-plan/features/logistics-i18n.plan.md
+
+검토 후 다음에 대해 한국어로 짧게 의견을 주세요:
+1. 배치(B0~B7) 분할이 합리적인지, 파일 수/문자열 양 기준으로 더 쪼개야 할 배치가 있는지 (logistics/*.php 실제 파일 크기를 직접 확인해서 판단)
+2. lang/ko.json, lang/en.json에 추가할 `logistics.*` 네임스페이스 하위 키 구조(logistics.nav.*, logistics.common.*, logistics.inbound.* 등)에 문제나 개선점이 있는지
+3. B0(인프라: auth.php, header.php, footer.php, ajax_set_language.php 신규)에서 놓친 위험 요소가 있는지 (특히 require 체인, 세션 공유, 기존 팝업 JS와의 충돌)
+4. print_*.php / export_*.php(B6)를 세션 언어를 따르게 하는 것이 맞는지, 아니면 인쇄물은 고정 언어로 두는 게 나을지에 대한 의견
+
+구현은 하지 말고 의견만 텍스트로 답하세요.

@@ -1,0 +1,43 @@
+역할: 이 저장소(HOME K MART, PHP + 바닐라 JS + TailwindCSS)에서 아래 설계 문서를 그대로 구현하는 작업입니다.
+
+먼저 다음 두 문서를 처음부터 끝까지 전부 읽으세요(가장 중요):
+- docs/02-design/features/fresh-curation-price-modal.design.md  (구현 스펙, 이 문서가 최우선 기준)
+- docs/01-plan/features/fresh-curation-price-modal.plan.md      (배경/왜 이렇게 설계됐는지, 특히 "Codex 사전 상의 요약" 절 — 한 번 폐기된 접근(신규 컬럼으로 패키지를 새 판매단위화)이 왜 위험한지 반드시 이해하고 그 방향으로 되돌아가지 마세요)
+
+## 반드시 지킬 제약 (매우 중요)
+
+1. **수정 가능한 파일은 아래 3개뿐입니다.** 이 외의 파일은 절대 만들거나 수정하지 마세요.
+   - `mall/admin/products.php`
+   - `lang/ko.json`
+   - `lang/en.json`
+2. **DB 스키마 변경 금지**: 신규 컬럼, 신규 테이블, 마이그레이션 스크립트를 만들지 마세요.
+3. **신규 AJAX 엔드포인트 금지**: `mall/admin/ajax/save_fresh_curation.php`는 절대 수정하지 마세요. 기존 action=update를 파라미터 변경 없이 그대로 호출합니다.
+4. **모달은 순수 클라이언트 계산기입니다.** 서버에 별도 요청을 보내지 않습니다. "표에 적용" 버튼을 누르면 계산된 값을 기존 표의 input 3개(`.edit-cost-price`, `.edit-wholesale-reference-price`, `.edit-selling-price`)에 대입하고 모달을 닫을 뿐이며, 실제 저장은 관리자가 기존 "저장" 버튼(`.save-curated-btn`)을 눌러야 이뤄집니다(기존 흐름 그대로, 변경 없음).
+5. 완료 후 반드시 `git status`로 위 3개 파일 외에 다른 파일이 변경되지 않았는지 스스로 확인하세요.
+
+## 구현 범위 요약 (design.md가 상세 기준이며 아래는 핵심만 요약)
+
+- 신선상품 큐레이션 행(`row_type='fresh'`)에만 "가격 설정" 버튼 추가
+- 클릭 시 페이지에 하나만 존재하는 공용 모달(`#price-calc-modal`)을 열고, 클릭한 행을 대상으로 상태를 초기화(design.md §6.3 "모달 상태 관리" 참고 — 행마다 모달을 만들지 말고 하나를 재사용, 이벤트 리스너는 페이지 로드 시 1회만 바인딩)
+- `sale_type='piece'`: 개수(N) 스테퍼(최소 1, 정수) + 원가/기준도매가/기준판매가 각각 "1개당" ⇄ "N개 총액" 양방향 입력쌍(한쪽을 고치면 다른 쪽이 자동 계산됨, N을 바꾸면 총액 쪽이 재계산됨)
+- `sale_type='weight'`: 무게(g, 100 단위 스텝, 최소 100) + 원가/기준도매가/기준판매가 각각 "100g당" ⇄ "선택무게 총액" 양방향 입력쌍
+- **원가/도매가/판매가 세 쌍은 서로 완전히 독립적으로 계산합니다.** 원가를 바꿔도 도매가·판매가 쌍을 자동으로 덮어쓰지 않습니다. 대신 도매가 쌍 옆에 "도매가 자동계산" 버튼을 두어, 클릭했을 때만 `ceil(원가 1개당 값 × (1 + markup/100))`으로 도매가 쌍을 재계산합니다. `markup`은 신규 전역 변수 `window.MALL_WHOLESALE_MARKUP_RATE`(아래 참고)를 사용하세요.
+- 모달을 열 때 초기값은 표에 이미 표시된 현재 값(override가 있으면 override, 없으면 오리지널)을 그대로 가져옵니다. "1개당 원가"의 자동계산 기준(오리지널)은 신선상품 `<tr>`에 신규로 추가하는 `data-original-cost-price`(비어있을 수 있음) attribute에서 읽으세요.
+- `data-original-cost-price`가 비어있으면(최근 매입원가를 확인할 수 없는 경우) "N개/선택무게 총액으로부터 원가 자동계산" 보조 기능만 비활성화하고, 1개당 원가 입력칸 자체는 계속 활성 상태로 두어 표에 이미 있는 값을 그대로 보여줍니다. 절대 값을 지우거나 0으로 만들지 마세요.
+- 반올림은 소숫점 둘째자리까지(이 프로젝트 규칙, CLAUDE.md).
+- 새 UI 텍스트("가격 설정", "표에 적용", "취소", "개수", "무게(g)", "1개당", "N개 총액", "100g당", "선택 무게 총액", "도매가 자동계산", 매입원가 확인불가 안내, 반올림 안내 등)는 하드코딩하지 말고 `t('mall_admin.products.xxx')` 같은 새 키를 만들어 `lang/ko.json`과 `lang/en.json` 양쪽에 추가하고 그 키로 출력하세요(이 파일 전체가 이미 이 패턴을 씁니다 — 기존 `mall_admin.products.*` 키들을 참고해서 같은 네임스페이스에 추가).
+
+## 기존 코드에서 반드시 참고/재사용할 부분 (design.md에 정확한 근거 있음)
+
+- 모달 오버레이 스타일: `mall/admin/products.php`의 기존 `category-manage-modal`(약 943행)과 동일한 Tailwind 클래스(`fixed inset-0 bg-gray-900 bg-opacity-50 hidden z-50 items-center justify-center p-4`, 열 때 `hidden` 제거 + `flex` 추가). 단, `category-manage-modal`의 권한 조건문 블록 안에 새 모달을 넣지 말고 별도 블록으로 추가하세요.
+- 배경 클릭으로 닫기: `image-preview-modal` 패턴(약 1012-1034행)을 참고하되, 그 패턴은 모달 내부 클릭까지 다 닫히는 구조이니 그대로 복사하지 말고 `e.target === modal`(오버레이 자체를 클릭했을 때만)일 때만 닫히도록 구현하세요. Esc 키로 닫기는 그대로 재사용해도 됩니다.
+- 저장 버튼 핸들러 구조: `.save-curated-btn` 클릭 핸들러(약 1148-1194행)의 `row_type === 'fresh'` 분기를 참고해서, 어떤 input 클래스가 무엇을 의미하는지 파악하세요. 이 핸들러 자체는 수정하지 않습니다.
+- 신선상품 `<tr>` 렌더링부(약 632-671행 근처)에 `data-original-cost-price`, `data-sale-type` attribute를 추가하세요(`$original_cost_price`, `$c['sale_type']` PHP 변수를 사용).
+- `window.MALL_WHOLESALE_MARKUP_RATE` 전역 변수는 이 파일 자체의 기존 `<script>` 블록 시작부(약 1003행 근처, `window.MALL_CSRF_TOKEN`은 이 파일이 아니라 `mall/admin/partials/sidebar.php`에서 선언되니 그건 건드리지 마세요)에 `<?php echo json_encode($wholesale_reference_markup_rate); ?>`로 추가하세요. `$wholesale_reference_markup_rate` PHP 변수는 이 파일에 이미 정의되어 있습니다(약 307-311행).
+
+## 완료 후 확인
+
+- `php -l mall/admin/products.php`
+- `php -l` 대상은 아니지만 `lang/ko.json`/`lang/en.json`이 유효한 JSON인지 확인(예: `php -r "json_decode(file_get_contents('lang/ko.json')); echo json_last_error_msg();"`)
+- `git status`로 3개 파일 외 변경 없는지 확인
+- 위 확인 결과를 마지막에 요약해서 보고하세요.

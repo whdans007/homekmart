@@ -1,0 +1,5 @@
+프로모 "N% OFF" 배지를 주황 -> 빨강으로 변경 (store/order.php)
+
+- 눈에 잘 띄도록 배경색을 red-600(#dc2626)으로 교체
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

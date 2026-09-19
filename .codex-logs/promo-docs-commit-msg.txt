@@ -1,0 +1,7 @@
+프로모 상품 기능 Plan/Design 문서 추가
+
+- docs/01-plan/features/promo-products.plan.md
+- docs/02-design/features/promo-products.design.md
+- Codex 사전 상담 + bkit Plan/Design 체크포인트(Option B 완전 자동화 선택) 반영
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

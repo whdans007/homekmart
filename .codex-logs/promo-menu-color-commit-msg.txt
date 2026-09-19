@@ -1,0 +1,6 @@
+사이드바 "프로모 상품" 메뉴에 상시 배경색 적용
+
+- Dashboard/Inventory Status와 동일한 강조 버튼 스타일(항상 색배경+흰 글씨)로 변경
+- 색상은 red 계열(#dc2626/#b91c1c)로 눈에 띄게, hover 스타일도 추가
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

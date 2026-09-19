@@ -1,0 +1,15 @@
+신선상품 큐레이션에 가격 설정 모달 추가 및 원본/큐레이션 데이터 분리
+
+- mall/admin/products.php에 신선상품 전용 "가격 설정" 모달 추가: 왼쪽에 오리지널(매입원가·마스터
+  판매가, 읽기전용), 오른쪽에 현재 적용가(수량/무게 기준 총액, 직접 수정 가능)를 표시
+- 원가/기준도매가/판매가를 admin/fresh_products.php가 보여주는 원본 데이터와 완전히 분리해
+  각각 override 컬럼(cost_price_override, wholesale_reference_price_override,
+  selling_price_override, display_name_override/_en)에만 저장하도록 변경 — 큐레이션에서
+  값을 바꿔도 원본 매입원가/상품명이 더 이상 훼손되지 않음
+- 낱개/무게 상품 모두 마지막으로 계산한 수량/무게(selling_weight_reference_g)를 기억해
+  모달을 다시 열 때 기본값 대신 그 값으로 시작
+- 진열명(Display Name)은 텍스트라 단위 문제가 없어 고객 화면에도 바로 반영, 가격 override는
+  단위(수량/무게 기준 총액) 문제로 스토어프론트가 수량 고정 판매로 개편되기 전까지 표시 전용으로 유지
+- 신규 idempotent 마이그레이션 3종 추가(sql/migrations/run_add_mall_fresh_products_*.php)
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

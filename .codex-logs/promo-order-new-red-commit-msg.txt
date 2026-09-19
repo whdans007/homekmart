@@ -1,0 +1,5 @@
+logistics/order_new.php 프로모션 상세문구 색상을 주황 -> 빨강으로 변경
+
+- store/order.php와 동일하게 눈에 잘 띄도록 red-600(#dc2626), 굵게 처리
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>

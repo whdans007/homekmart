@@ -450,7 +450,7 @@ main { overflow: hidden !important; }
         <table class="w-full text-sm">
             <thead class="bg-gray-50 sticky top-0 z-10"><tr>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.product_name'); ?></th>
-                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.lot_number'); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.capacity'); ?></th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.expiry_date'); ?></th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo t('logistics.inventory.unit'); ?></th>
                 <th class="px-4 py-3 text-right text-xs text-pink-700 font-semibold bg-pink-100"><?php echo t('logistics.inventory.remaining_quantity'); ?></th>
@@ -473,13 +473,13 @@ main { overflow: hidden !important; }
                     <div class="text-xs text-gray-400 mt-0.5"><?php echo htmlspecialchars(trim(($row['brand_name'] ?? '') . (!empty($row['brand_name_ko']) ? ' (' . $row['brand_name_ko'] . ')' : ''))); ?></div>
                     <?php endif; ?>
                 </td>
-                <td class="px-4 py-3 text-xs font-mono text-gray-600"><?php echo htmlspecialchars($row['lot_number'] ?: '-'); ?></td>
+                <td class="px-4 py-3 text-xs text-gray-600"><?php echo htmlspecialchars($row['capacity'] ?: '-'); ?></td>
                 <td class="px-4 py-3 text-xs">
                     <span class="<?php echo $dayClass; ?> font-semibold"><?php echo htmlspecialchars($row['expiry_date']); ?></span>
                     <span class="ml-1 text-xs <?php echo $dayClass; ?>">(<?php echo t('logistics.inventory.d_day', ['days' => $days]); ?>)</span>
                 </td>
                 <td class="px-4 py-3 text-gray-600 text-xs"><?php echo htmlspecialchars($row['unit'] ?: $row['product_unit'] ?: '-'); ?></td>
-                <td class="px-4 py-3 text-right font-bold bg-pink-50 text-gray-900"><?php echo number_format((float)$row['quantity_remain'], 2); ?></td>
+                <td class="px-4 py-3 text-right font-bold bg-pink-50 text-gray-900"><?php echo number_format((float)$row['quantity_remain'], 0); ?></td>
                 <td class="px-4 py-3 text-right font-mono text-xs text-gray-700"><?php echo $row['latest_inbound_price'] !== null ? number_format((float)$row['latest_inbound_price'], 2) : '-'; ?></td>
                 <td class="px-4 py-3" onclick="event.stopPropagation();">
                     <?php if (!empty($row['promotion_id'])): ?>

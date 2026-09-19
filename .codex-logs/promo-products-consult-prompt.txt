@@ -1,0 +1,37 @@
+역할: HOME K MART 저장소(logistics 물류센터 모듈)에 신규 기능을 설계하기 전, 사전 검토 의견만 주세요. 코드를 수정하지 마세요(읽기 전용 검토, 필요하면 관련 파일들을 직접 읽어서 판단해도 됩니다).
+
+## 사용자 요구사항 (원문 그대로)
+
+"재고 현황 메뉴 아랫쪽에 프로모 상품 이라는 메뉴를 만들어줘. 이 메뉴의 역할은 프로모로 등록한 상품을 보여주는 리스트야 추가 기능도 있어야해. 프로모 상품의 경우 유통기한이 임박한 상품의 LOT 재고만 할인가로 출고하는 기능을 할꺼야. 대시보드의 유통기한 임박 상품 리스트 전체보기를 하면 할인 컬럼을 만들고 할인율을 입력하고 할인등록 버튼 클릭을 하면 할인 등록이 되도록 하면 좋을꺼 같아. 이 할인 등록상품은 프로모 상품 메뉴의 리스트에 나와야해. 점포에서 오더 할때 할인상품도 표시를 해야해. 할인상품이 유통기한이 언제까지인게 몇개 몇% 할인인지. 재고가 소진이 되면 자동으로 프로모 상품에서 빠져야해."
+
+정리하면:
+1. 사이드바 "Inventory Status"(재고 현황) 메뉴 바로 아래에 "Promo Products"(프로모 상품) 메뉴 신설 — 할인 등록된 LOT 재고 리스트를 보여줌
+2. 대시보드(index.php)의 "유통기한 임박" 카드 → "전체보기"(현재 inventory.php?filter=expiring로 연결) 화면에 "할인율" 입력칸 + "할인등록" 버튼 추가 → 클릭 시 해당 LOT에 할인이 등록됨
+3. 할인 등록된 LOT은 신규 "프로모 상품" 메뉴 리스트에 노출
+4. 점포가 주문(order_new.php)할 때, 할인 등록된 상품은 할인 정보(유통기한, 남은 수량, 할인율)를 표시해야 함
+5. 할인 등록된 LOT은 "할인가"로 출고되어야 함(정상가가 아닌 할인 적용가)
+6. 해당 LOT 재고가 소진(0)되면 자동으로 프로모 상품 목록에서 빠져야 함
+
+## 관련 기존 코드/스키마 (직접 읽어서 확인해도 됩니다)
+
+- `logistics/index.php` — 대시보드, "유통기한 임박" 카드 → `inventory.php?filter=expiring` 링크
+- `logistics/inventory.php` (185~230줄 부근) — `filter=expiring`일 때 **상품(product) 단위로 GROUP BY**해서 보여줌 (`MIN(i.expiry_date)`, `SUM(i.quantity_remain)`) — LOT 단위가 아님
+- `logistics/ajax/get_expiry_alerts.php` — 대시보드 위젯용, 이건 LOT 단위(`i.lot_number`, `i.expiry_date`, `SUM(i.quantity_remain)`)로 이미 그룹핑함
+- `logistics/order_new.php` (120~145줄 부근) — 점포 주문 화면, 상품별로 전체 LOT의 재고를 유닛별(BOX/PACK/PCS)로 SUM해서 보여줌 (LOT 단위 노출 없음, `0 AS selling_price`로 현재 판매가 개념이 거의 없음)
+- `lc_inventory` 테이블(LOT 단위 재고, FIFO): `id, inbound_id, product_id, lot_number, expiry_date, quantity_in, quantity_out, quantity_remain(생성컬럼=quantity_in-quantity_out)` — `logistics/sql/run_migration.php` 참고
+- `lc_order_items` 테이블: `id, order_id, product_id, quantity, unit_price, total_amount(생성컬럼)`
+- `lc_order_item_lots` 테이블(출고 시 어느 LOT에서 얼마나 차감됐는지 원가 추적용): `id, order_item_id, inventory_id, inbound_id, quantity, cost_price` — `logistics/sql/run_migration_v8.php` 참고
+- `logistics/ajax/update_outbound_price.php` — 출고된(shipped/delivered) 주문 항목의 `unit_price`를 사후에 수동으로 인라인 수정하는 기존 기능 (즉 현재 판매단가는 주문 생성 시 자동계산이 아니라 이후 수동 입력/수정되는 구조로 보임)
+- 권한: 물류센터 직원/관리자는 `lc_require_staff()`, 일반 점포 사용자는 스태프 아닌 분기로 "Place Order"(order_new.php)/"My Orders"(orders.php) 메뉴만 봄
+
+## 검토 요청 사항 (한국어로 답변)
+
+1. **DB 스키마**: `lc_inventory`에 할인 관련 컬럼(예: `discount_rate DECIMAL`, `discounted_at`, `discounted_by`)을 직접 추가하는 방식과, 별도 `lc_lot_promotions` 같은 신규 테이블을 만드는 방식 중 어느 쪽이 이 프로젝트 기존 패턴(LOT 단위 FIFO 재고 구조)과 더 잘 맞을지, 트레이드오프는 무엇인지
+2. **`inventory.php` filter=expiring 화면**: 현재 상품(product) 단위 GROUP BY라 LOT 단위 할인 등록을 하려면 화면 구조를 어떻게 바꿔야 할지 — (a) 이 화면 자체를 LOT 단위 행으로 바꾸는 안 vs (b) 상품 행을 펼치면(expand) LOT 목록이 나오게 하는 안 vs (c) 별도의 "할인 등록" 전용 화면을 새로 만드는 안. 어느 쪽이 기존 UI 패턴과 리스크 대비 적절할지
+3. **신규 "프로모 상품" 메뉴/페이지**: 리스트에 어떤 컬럼이 있어야 유용할지(상품명, LOT번호, 유통기한, 남은수량, 할인율, 할인가, 등록일 등), 할인 해제(취소) 기능도 필요할지
+4. **점포 주문 화면(order_new.php) 반영**: 현재 상품 단위로 LOT을 합산해서 보여주는데, 특정 상품에 할인 LOT이 섞여 있을 때 화면에서 어떻게 표시하는 게 자연스러울지(예: 상품명 옆 할인 배지 + 툴팁/서브텍스트로 "유통기한 {date}까지 {qty}개 {rate}% 할인" 노출) — 이 프로젝트에 이미 있는 유사 UI 패턴이 있는지
+5. **할인가 출고 로직**: `lc_order_items.unit_price`가 현재 주문 생성 시 자동 계산되지 않고 사후 수동 입력되는 구조로 보이는데, 할인 LOT으로 출고되는 물량의 unit_price를 정상가 대비 할인율만큼 자동 반영하려면 주문 생성/승인/출고 흐름 중 어느 시점에 개입하는 게 안전할지 (기존 `lc_order_item_lots`의 LOT별 차감 로직과 어떻게 연결할지)
+6. **재고 소진 시 자동 제외**: `quantity_remain`이 생성 컬럼이므로 "할인율 있고 quantity_remain > 0"이라는 조건의 쿼리만으로 자동 제외가 가능해 보이는데, 이 방식으로 충분한지, 아니면 별도 정리(cleanup) 로직이 필요한지
+7. 그 외 이 요구사항을 구현할 때 놓치기 쉬운 위험 요소나 엣지 케이스(예: 한 상품에 할인 LOT과 정상 LOT이 동시에 있을 때 점포가 얼마나 주문할지 어떻게 구분하는지, 부분 출고 시 할인/정상 수량이 섞이는 경우 등)
+
+구현은 하지 말고 설계 의견만 한국어로 답하세요.

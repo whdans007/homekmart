@@ -1,0 +1,82 @@
+이전에 mall/admin/products.php에 구현한 "가격 설정" 모달(신선상품 큐레이션 행)에 단위 버그가 있습니다. 고쳐주세요.
+
+## 배경 (반드시 이해하고 시작하세요)
+
+`admin/add_fresh_purchase_item.php:114` 를 보면 무게(weight) 상품의 매입원가는
+`$unitCostPer100g = $totalCost / $weightKg;` 로 계산됩니다 — 즉 컬럼명은 `unit_cost_per_100g`이지만
+실제로는 **kg당 원가**입니다(총액 ÷ 무게(kg)). 반면 판매가(`mall_fresh_products.price_per_100g`)는
+`mall/lib/fresh_cart.php:96` 의 `weight_g / 100 * price_per_100g` 계산에서 보듯 진짜 **100g당 금액**입니다.
+
+즉 무게 상품은:
+- 원가(cost) / 기준도매가(wholesale, 원가 기준으로 계산됨) → **kg당** 금액
+- 기준판매가(selling) → **100g당** 금액
+
+서로 10배 다른 기준입니다. `wholesale_reference_price`는 admin 화면 내부 참고용으로만 쓰이고
+(`mall/admin/products.php`, `save_fresh_curation.php`, `save_retail_product.php`에서만 참조되고
+스토어프론트/고객 화면에서는 쓰이지 않음을 확인함) 원가와 같은 kg 기준으로 계산되는 게 기존 표 로직과
+일관됩니다. 반면 판매가는 실제 고객 결제(`fresh_cart.php`)에 쓰이므로 100g 기준을 유지해야 합니다.
+
+**이번 수정 범위는 방금 만든 가격 설정 모달(`#price-calc-modal` 관련 JS/마크업)로 한정합니다.**
+기존 표(큐레이션 테이블)의 원가/기준도매가 표시 로직, `save_fresh_curation.php`, DB 스키마는
+이번에는 건드리지 않습니다(사용자가 범위를 이렇게 확정함, 2026-09-12).
+
+## 수정 대상 파일 (이 파일들만 수정하세요)
+
+- `mall/admin/products.php`
+- `lang/ko.json`
+- `lang/en.json`
+
+## 무엇을 고쳐야 하는지
+
+무게(weight) 상품일 때, 모달의 3개 입력쌍(원가/기준도매가/기준판매가)이 서로 다른 "단위당" 기준을
+쓰도록 바꿔야 합니다:
+
+- **원가(cost) 쌍**: "kg당" 금액 ⇄ "선택 무게(g) 원가 총액". 총액 = 무게(g) ÷ 1000 × kg당원가
+- **기준도매가(wholesale) 쌍**: "kg당" 금액 ⇄ "선택 무게(g) 도매 총액". 총액 = 무게(g) ÷ 1000 × kg당도매가
+  (기존처럼 "도매가 자동계산" 버튼은 원가 1개당(=kg당) 값 × (1+markup/100)을 올림 처리 — 계산식 자체는
+  안 바뀌고, 단지 라벨과 총액 환산 분모만 1000으로 바뀝니다)
+- **기준판매가(selling) 쌍**: 지금처럼 "100g당" 금액 ⇄ "선택 무게(g) 판매 총액" 그대로 유지.
+  총액 = 무게(g) ÷ 100 × 100g당판매가 (이건 바꾸지 마세요, 이미 맞습니다)
+
+낱개(piece) 상품은 지금처럼 세 쌍 모두 "1개당" ⇄ "N개 총액", 분모 없이 그대로(현재 동작 유지, 변경 없음).
+
+즉 무게 상품에서는 같은 모달 안에서:
+- 원가/도매가 쌍의 단위 라벨: "kg당" (신규)
+- 판매가 쌍의 단위 라벨: "100g당" (기존 그대로)
+- 원가/도매가 쌍의 총액 환산: 무게(g) ÷ 1000
+- 판매가 쌍의 총액 환산: 무게(g) ÷ 100 (기존 그대로)
+
+## 구현 힌트
+
+현재 코드는 `priceCalcFactor` 하나를 모든 쌍이 공유하고 있습니다(무게 ÷ 100, 또는 개수 그대로).
+이걸 **쌍(pair)마다 다른 분모(divisor)**를 갖도록 바꾸는 게 핵심입니다. 예:
+
+- `priceCalcPairs` 배열의 각 항목에 `divisor` 속성 추가:
+  - 낱개(piece) 상품일 때는 세 쌍 모두 `divisor = 1` (기존 동작과 동일: factor = 개수)
+  - 무게(weight) 상품일 때는 `cost`/`wholesale` 쌍은 `divisor = 1000`, `selling` 쌍은 `divisor = 100`
+- 공유 `priceCalcFactor` 변수 대신, 각 쌍이 자기 `divisor`로 나눈 factor를 써서 총액을 계산하도록
+  `recalcFromUnit`/`recalcFromTotal`/`updatePriceCalcQuantity`/`recalcWholesaleFromCost`/`applyToRow`를
+  수정하세요(가장 간단한 방법은 "현재 입력된 원시 수량/무게 값"을 별도 변수로 저장해두고,
+  각 계산 시점에 `rawQuantity / pair.divisor`를 그때그때 구하는 것입니다).
+- `openPriceCalcModal(row)`에서 `row.dataset.saleType`에 따라 각 쌍의 `divisor`와 단위 라벨
+  (`.price-calc-unit-label`)을 쌍별로 다르게 설정하세요. 현재는 `.price-calc-unit-label` 전체를
+  한 번에 같은 텍스트로 덮어쓰는데, 이제 cost/wholesale 쌍과 selling 쌍이 다른 라벨을 가져야 하므로
+  쌍마다 개별적으로 라벨을 설정해야 합니다.
+- 낱개 상품에서는 위 로직이 실질적으로 지금과 똑같이 동작해야 합니다(divisor=1이면 기존 계산과
+  수학적으로 동일). 낱개 쪽 회귀가 없는지 꼭 확인하세요.
+- `lang/ko.json`/`lang/en.json`에 "kg당" / "Per kg" 같은 신규 라벨 키를 하나 추가하세요
+  (기존 `mall_admin.products.price_calc_weight_unit`="100g당"/"Per 100g" 키 옆에 비슷한 이름으로,
+  예: `price_calc_weight_cost_unit`).
+- `price_calc_rounding_hint` 문구가 지금은 "무게(g)÷100×0.01" 식으로 특정 배수를 언급하고 있는데,
+  이제 필드마다 배수가 달라지므로(원가/도매가는 ÷1000, 판매가는 ÷100) 부정확합니다. 문구를
+  "단가는 소수 둘째 자리까지 반올림되어, 재계산된 총액이 입력한 총액과 미세하게 다를 수 있습니다."
+  정도로 단순화해서 한국어/영어 모두 고치세요.
+
+## 완료 후
+
+- `php -l mall/admin/products.php`
+- `lang/ko.json`, `lang/en.json`이 유효한 JSON인지 확인
+- `git status`로 위 3개 파일 외 다른 파일이 변경되지 않았는지 확인
+- 무게 상품에서: 무게를 입력했을 때 원가/도매가 총액은 ÷1000 기준으로, 판매가 총액은 ÷100 기준으로
+  각각 올바르게 계산되는지, 낱개 상품은 기존과 동일하게 동작하는지 직접 값을 대입해 검산한 결과를
+  요약해서 보고하세요

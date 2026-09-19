@@ -1,0 +1,13 @@
+프로모 상품 기능 병합 (codex/promo-products)
+
+유통기한 임박 LOT 재고를 할인가로 등록/관리/출고하는 "프로모 상품" 기능.
+
+- lc_lot_promotions 신규 테이블 + lc_order_items.promotion_id 컬럼 (마이그레이션 미실행, 별도 실행 필요)
+- 사이드바 "프로모 상품" 메뉴, inventory.php?filter=expiring LOT 단위 전환 + 할인등록/취소 UI
+- promo_products.php 신규(활성+재고>0 프로모션 목록, 소진 시 자동 제외)
+- 할인 등록/취소 AJAX 2개
+- order_new.php 프로모션 주문 섹션 + 승인 시점 lc_ship_promo_lot()으로 자동 할인가/일반가 분할 출고
+- /code-review 반영: FEFO의 활성 프로모션 LOT 제외, 음수재고 방어, product_id 위조 방지,
+  동시등록 경쟁조건 DB 유니크 제약, 합산 재고검증
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
