@@ -271,6 +271,7 @@ try {
         "SELECT lp.id AS promotion_id, lp.discount_rate, lp.base_price, lp.discounted_price, lp.unit,
                 i.lot_number, i.expiry_date, i.quantity_remain,
                 p.id AS product_id, p.name_en, p.name_ko, p.category_id,
+                p.capacity, p.pieces_per_box,
                 COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                 b.name_en AS brand_name, b.name_ko AS brand_name_ko
          FROM lc_lot_promotions lp
@@ -519,6 +520,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
             }
             $promoName = $promo['name_ko'] ? ($promo['name_ko'] . ($promo['name_en'] ? ' / ' . $promo['name_en'] : '')) : $promo['name_en'];
+            $promoCapacity = !empty($promo['capacity']) ? ' ' . $promo['capacity'] : '';
             $promoRateDisplay = rtrim(rtrim(number_format((float)$promo['discount_rate'], 2), '0'), '.');
             $daysLeft = $promo['expiry_date'] ? (int)floor((strtotime($promo['expiry_date']) - strtotime(date('Y-m-d'))) / 86400) : null;
             $expClass = $daysLeft === null ? 'text-gray-300' : ($daysLeft < 0 ? 'text-red-600 font-semibold' : ($daysLeft <= 7 ? 'text-red-500 font-semibold' : 'text-amber-600'));
@@ -544,12 +546,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="leading-tight">
                     <div class="text-sm font-medium text-gray-900">
                         <span class="inline-block mr-1 px-1.5 py-0.5 rounded text-white font-bold" style="background:#dc2626;font-size:10px;"><?php echo $promoRateDisplay; ?>% OFF</span>
-                        <?php echo htmlspecialchars($promoName); ?>
+                        <?php echo htmlspecialchars($promoName . $promoCapacity); ?>
                     </div>
                     <div class="text-xs text-amber-700 mt-0.5">LOT <?php echo htmlspecialchars($promo['lot_number'] ?: '-'); ?> &middot; exp <?php echo $promo['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($promo['expiry_date']))) : '-'; ?> &middot; <?php echo (int)$promo['quantity_remain']; ?> <?php echo htmlspecialchars($promoUnit); ?> left</div>
                 </div>
             </td>
-            <td class="px-4 py-3 text-right text-xs text-gray-500">-</td>
+            <td class="px-4 py-3 text-right text-xs text-gray-500"><?php echo (int)($promo['pieces_per_box'] ?? 0) > 1 ? number_format((int)$promo['pieces_per_box']) : '-'; ?></td>
             <td class="px-4 py-3 text-center text-xs whitespace-nowrap">
                 <span class="<?php echo $expClass; ?>"><?php echo $promo['expiry_date'] ? date('Y-m-d', strtotime($promo['expiry_date'])) : '-'; ?></span>
             </td>
