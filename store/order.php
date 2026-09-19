@@ -324,12 +324,12 @@ try {
          LEFT JOIN lc_brands b ON p.brand_id = b.id
          WHERE i.quantity_remain <> 0 AND p.is_active = 1
          GROUP BY p.id
-         HAVING (
-             SUM(CASE WHEN i.unit = 'BOX' THEN i.quantity_remain ELSE 0 END) > 0
+         HAVING SUM(CASE WHEN i.unit = 'BOX' THEN i.quantity_remain ELSE 0 END) > 0
              OR SUM(CASE WHEN i.unit = 'PACK' THEN i.quantity_remain ELSE 0 END) > 0
              OR SUM(CASE WHEN i.unit = 'PCS' THEN i.quantity_remain ELSE 0 END) > 0
-         )
-         ORDER BY (earliest_expiry IS NULL) ASC, earliest_expiry ASC, latest_inbound_at DESC, c.name_en ASC, p.name_en ASC"
+         ORDER BY (MIN(CASE WHEN i.quantity_remain > 0 THEN ib.expiry_date END) IS NULL) ASC,
+                  MIN(CASE WHEN i.quantity_remain > 0 THEN ib.expiry_date END) ASC,
+                  MAX(ib.created_at) DESC, c.name_en ASC, p.name_en ASC"
     )->fetch_all(MYSQLI_ASSOC);
 
     $conn->close();
