@@ -139,48 +139,6 @@ if (($_SESSION['role'] ?? '') !== 'super_admin') {
             <div class="logo-subtitle">System Management</div>
         </div>
 
-        <div class="menu-grid">
-            <a href="user_management.php" class="menu-card">
-                <div class="card-icon user">
-                    <i class="fas fa-users"></i>
-                </div>
-                <div>
-                    <div class="card-label"><?php echo t('navigation.user_management'); ?></div>
-                    <div class="card-desc">User Management</div>
-                </div>
-            </a>
-
-            <a href="role_management.php" class="menu-card">
-                <div class="card-icon role">
-                    <i class="fas fa-user-shield"></i>
-                </div>
-                <div>
-                    <div class="card-label"><?php echo t('role_management.title'); ?></div>
-                    <div class="card-desc">Role &amp; Permission</div>
-                </div>
-            </a>
-
-            <a href="store_management.php" class="menu-card">
-                <div class="card-icon store">
-                    <i class="fas fa-store"></i>
-                </div>
-                <div>
-                    <div class="card-label"><?php echo t('navigation.store_management'); ?></div>
-                    <div class="card-desc">Store Management</div>
-                </div>
-            </a>
-
-            <a href="price_lookup.php" class="menu-card">
-                <div class="card-icon price">
-                    <i class="fas fa-magnifying-glass-dollar"></i>
-                </div>
-                <div>
-                    <div class="card-label">가격조회</div>
-                    <div class="card-desc">All-Store Price Lookup</div>
-                </div>
-            </a>
-        </div>
-
         <a href="../index.php" class="back-link">
             <i class="fas fa-arrow-left mr-1"></i> 홈으로 돌아가기
         </a>

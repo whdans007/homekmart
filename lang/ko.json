@@ -2480,7 +2480,7 @@
   "mall_admin": {
     "title": "쇼핑몰 관리",
     "back_to_admin": "관리자 메인으로",
-    "back_to_home": "HOME으로",
+    "back_to_main": "메인으로",
     "nav": {
       "dashboard": "대시보드",
       "home_layout": "홈 레이아웃",

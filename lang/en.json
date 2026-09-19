@@ -2400,7 +2400,7 @@
   "mall_admin": {
     "title": "Mall Management",
     "back_to_admin": "Back to Admin",
-    "back_to_home": "Back to Home",
+    "back_to_main": "Back to Main",
     "nav": {
       "dashboard": "Dashboard",
       "home_layout": "Home Layout",

@@ -81,7 +81,7 @@ $_sys_store_label = $_sys_store_name !== '' ? $_sys_store_name : 'System Admin';
                     <div class="flex items-center justify-center text-teal-700 mb-2">
                         <span class="font-bold" style="font-size:0.72rem;letter-spacing:0.02em;">SYSTEM MANAGEMENT</span>
                     </div>
-                    <a href="https://homekmart.net"
+                    <a href="../index.php"
                        class="flex items-center gap-2 w-full px-2 py-1.5 text-xs font-semibold rounded-md transition-colors"
                        style="background:#1e40af;color:#ffffff;"
                        onmouseover="this.style.background='#1e3a8a'" onmouseout="this.style.background='#1e40af'">

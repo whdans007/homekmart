@@ -67,15 +67,26 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
             text-transform: uppercase;
         }
         .menu-grid {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 1.5rem;
-            max-width: 700px;
+            max-width: 1200px;
             width: 100%;
         }
+        .menu-section {
+            width: 100%;
+            max-width: 1200px;
+            margin-bottom: 2.5rem;
+        }
+        .menu-section-title {
+            margin: 0 0 1rem;
+            color: rgba(255,255,255,0.9);
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-align: left;
+        }
         .menu-card {
-            width: calc(33.333% - 1rem);
+            width: auto;
         }
         .menu-card {
             background: rgba(255, 255, 255, 0.12);
@@ -124,6 +135,9 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
         .card-icon.malladmin { background: linear-gradient(135deg, #db2777, #f472b6); }
         .card-icon.foodpang  { background: linear-gradient(135deg, #e11d48, #fb7185); }
         .card-icon.system    { background: linear-gradient(135deg, #475569, #64748b); }
+        .card-icon.user      { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+        .card-icon.role      { background: linear-gradient(135deg, #7c3aed, #8b5cf6); }
+        .card-icon.price     { background: linear-gradient(135deg, #0891b2, #06b6d4); }
         .card-label {
             font-size: 1.1rem;
             font-weight: 700;
@@ -190,8 +204,10 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
             color: #fecaca;
         }
         @media (max-width: 600px) {
-            .menu-grid { gap: 1rem; }
-            .menu-card { width: calc(50% - 0.5rem); padding: 1.5rem 1rem; }
+            .menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+            .menu-section { margin-bottom: 2rem; }
+            .menu-section-title { font-size: 1.05rem; }
+            .menu-card { padding: 1.5rem 1rem; }
             .card-icon { width: 52px; height: 52px; font-size: 1.4rem; }
             .card-label { font-size: 1rem; }
             .user-bar { position: static; margin-bottom: 1.5rem; align-self: center; }
@@ -219,135 +235,143 @@ $current_role_label = !empty($_SESSION['role']) ? get_role_label($_SESSION['role
             <div class="logo-subtitle">Management System</div>
         </div>
 
-        <div class="menu-grid">
-            <a href="admin/" class="menu-card">
-                <div class="card-icon admin">
-                    <i class="fas fa-cogs"></i>
-                </div>
-                <div>
-                    <div class="card-label">Store Purchase</div>
-                    <div class="card-desc">Purchase / Wholesale<br>Products / Barcode</div>
-                </div>
-            </a>
+        <section class="menu-section">
+            <h2 class="menu-section-title">점포용</h2>
+            <div class="menu-grid">
+                <a href="admin/" class="menu-card">
+                    <div class="card-icon admin"><i class="fas fa-cogs"></i></div>
+                    <div>
+                        <div class="card-label">Store Purchase</div>
+                        <div class="card-desc">Purchase / Wholesale<br>Products / Barcode</div>
+                    </div>
+                </a>
+                <a href="office/" class="menu-card">
+                    <div class="card-icon office"><i class="fas fa-building"></i></div>
+                    <div>
+                        <div class="card-label">Office</div>
+                        <div class="card-desc">Expenses / Equipment<br>Schedule Management</div>
+                    </div>
+                </a>
+                <a href="pricing/" class="menu-card">
+                    <div class="card-icon pricing"><i class="fas fa-tags"></i></div>
+                    <div>
+                        <div class="card-label">Pricing</div>
+                        <div class="card-desc">Product Price Lookup<br>Price Label Management</div>
+                    </div>
+                </a>
+                <a href="store/" class="menu-card">
+                    <div class="card-icon store"><i class="fas fa-store"></i></div>
+                    <div>
+                        <div class="card-label">점포 물류센터 오더</div>
+                        <div class="card-desc">Store Orders / Stock<br>Order Management</div>
+                    </div>
+                </a>
+                <a href="order/" class="menu-card">
+                    <div class="card-icon order"><i class="fas fa-clipboard-list"></i></div>
+                    <div>
+                        <div class="card-label">재고리스트 주문</div>
+                        <div class="card-desc">Stock List / Orders<br>Inventory Management</div>
+                    </div>
+                </a>
+                <a href="admin/price_lookup.php" class="menu-card">
+                    <div class="card-icon lookup"><i class="fas fa-magnifying-glass-dollar"></i></div>
+                    <div>
+                        <div class="card-label">전점포 가격조회</div>
+                        <div class="card-desc">All-Store Price Lookup<br>원가 / 판매가 조회</div>
+                    </div>
+                </a>
+            </div>
+        </section>
 
-            <a href="office/" class="menu-card">
-                <div class="card-icon office">
-                    <i class="fas fa-building"></i>
-                </div>
-                <div>
-                    <div class="card-label">Office</div>
-                    <div class="card-desc">Expenses / Equipment<br>Schedule Management</div>
-                </div>
-            </a>
+        <section class="menu-section">
+            <h2 class="menu-section-title">창고용</h2>
+            <div class="menu-grid">
+                <a href="logistics/" class="menu-card">
+                    <div class="card-icon logistics"><i class="fas fa-truck"></i></div>
+                    <div>
+                        <div class="card-label">M TOWN 물류센터</div>
+                        <div class="card-desc">Inbound / Outbound<br>Warehouse Management</div>
+                    </div>
+                </a>
+                <a href="kimsmall_wherehouse/" class="menu-card">
+                    <div class="card-icon kimsmall"><i class="fas fa-warehouse"></i></div>
+                    <div>
+                        <div class="card-label">KIM'S MALL 창고</div>
+                        <div class="card-desc">Inbound / Outbound<br>Warehouse Management</div>
+                    </div>
+                </a>
+            </div>
+        </section>
 
-            <a href="pricing/" class="menu-card">
-                <div class="card-icon pricing">
-                    <i class="fas fa-tags"></i>
-                </div>
-                <div>
-                    <div class="card-label">Pricing</div>
-                    <div class="card-desc">Product Price Lookup<br>Price Label Management</div>
-                </div>
-            </a>
+        <?php if ($can_access_mall_admin || $can_access_foodpang_admin): ?>
+        <section class="menu-section">
+            <h2 class="menu-section-title">쇼핑몰용</h2>
+            <div class="menu-grid">
+                <?php if ($can_access_mall_admin): ?>
+                <a href="mall/admin/dashboard.php" class="menu-card">
+                    <div class="card-icon malladmin"><i class="fas fa-bag-shopping"></i></div>
+                    <div>
+                        <div class="card-label">쇼핑몰 관리자</div>
+                        <div class="card-desc">Mall Orders / Products<br>Members Management</div>
+                    </div>
+                </a>
+                <?php endif; ?>
+                <?php if ($can_access_foodpang_admin): ?>
+                <a href="foodpang/admin/dashboard.php" class="menu-card">
+                    <div class="card-icon foodpang"><i class="fas fa-motorcycle"></i></div>
+                    <div>
+                        <div class="card-label">Foodpang</div>
+                        <div class="card-desc">Foodpang Channel<br>Product Curation</div>
+                    </div>
+                </a>
+                <?php endif; ?>
+            </div>
+        </section>
+        <?php endif; ?>
 
-            <a href="store/" class="menu-card">
-                <div class="card-icon store">
-                    <i class="fas fa-store"></i>
-                </div>
-                <div>
-                    <div class="card-label">점포 물류센터 오더</div>
-                    <div class="card-desc">Store Orders / Stock<br>Order Management</div>
-                </div>
-            </a>
+        <?php if ($is_main_office_admin): ?>
+        <section class="menu-section">
+            <h2 class="menu-section-title">메인오피스용</h2>
+            <div class="menu-grid">
+                <a href="main_office/" class="menu-card">
+                    <div class="card-icon mainoffice"><i class="fas fa-building-columns"></i></div>
+                    <div>
+                        <div class="card-label">메인 오피스</div>
+                        <div class="card-desc">전 점포 입력 자료 열람<br>All-Store Data Lookup</div>
+                    </div>
+                </a>
+            </div>
+        </section>
+        <?php endif; ?>
 
-            <a href="logistics/" class="menu-card">
-                <div class="card-icon logistics">
-                    <i class="fas fa-truck"></i>
-                </div>
-                <div>
-                    <div class="card-label">M TOWN 물류센터</div>
-                    <div class="card-desc">Inbound / Outbound<br>Warehouse Management</div>
-                </div>
-            </a>
-
-            <a href="kimsmall_wherehouse/" class="menu-card">
-                <div class="card-icon kimsmall">
-                    <i class="fas fa-warehouse"></i>
-                </div>
-                <div>
-                    <div class="card-label">KIM'S MALL 창고</div>
-                    <div class="card-desc">Inbound / Outbound<br>Warehouse Management</div>
-                </div>
-            </a>
-
-            <a href="order/" class="menu-card">
-                <div class="card-icon order">
-                    <i class="fas fa-clipboard-list"></i>
-                </div>
-                <div>
-                    <div class="card-label">재고리스트 주문</div>
-                    <div class="card-desc">Stock List / Orders<br>Inventory Management</div>
-                </div>
-            </a>
-
-            <a href="admin/price_lookup.php" class="menu-card">
-                <div class="card-icon lookup">
-                    <i class="fas fa-magnifying-glass-dollar"></i>
-                </div>
-                <div>
-                    <div class="card-label">전점포 가격조회</div>
-                    <div class="card-desc">All-Store Price Lookup<br>원가 / 판매가 조회</div>
-                </div>
-            </a>
-
-            <?php if ($can_access_mall_admin): ?>
-            <a href="mall/admin/dashboard.php" class="menu-card">
-                <div class="card-icon malladmin">
-                    <i class="fas fa-bag-shopping"></i>
-                </div>
-                <div>
-                    <div class="card-label">쇼핑몰 관리자</div>
-                    <div class="card-desc">Mall Orders / Products<br>Members Management</div>
-                </div>
-            </a>
-            <?php endif; ?>
-
-            <?php if ($can_access_foodpang_admin): ?>
-            <a href="foodpang/admin/dashboard.php" class="menu-card">
-                <div class="card-icon foodpang">
-                    <i class="fas fa-motorcycle"></i>
-                </div>
-                <div>
-                    <div class="card-label">Foodpang</div>
-                    <div class="card-desc">Foodpang Channel<br>Product Curation</div>
-                </div>
-            </a>
-            <?php endif; ?>
-
-            <?php if ($is_main_office_admin): ?>
-            <a href="main_office/" class="menu-card">
-                <div class="card-icon mainoffice">
-                    <i class="fas fa-building-columns"></i>
-                </div>
-                <div>
-                    <div class="card-label">메인 오피스</div>
-                    <div class="card-desc">전 점포 입력 자료 열람<br>All-Store Data Lookup</div>
-                </div>
-            </a>
-            <?php endif; ?>
-
-            <?php if ($is_super_admin): ?>
-            <a href="admin/system_management.php" class="menu-card">
-                <div class="card-icon system">
-                    <i class="fas fa-cog"></i>
-                </div>
-                <div>
-                    <div class="card-label">관리자</div>
-                    <div class="card-desc">User / Role<br>Store Management</div>
-                </div>
-            </a>
-            <?php endif; ?>
-        </div>
+        <?php if ($is_super_admin): ?>
+        <section class="menu-section">
+            <h2 class="menu-section-title">슈퍼관리자용</h2>
+            <div class="menu-grid">
+                <a href="admin/user_management.php" class="menu-card">
+                    <div class="card-icon user"><i class="fas fa-users"></i></div>
+                    <div>
+                        <div class="card-label">User Management</div>
+                        <div class="card-desc">User Management</div>
+                    </div>
+                </a>
+                <a href="admin/role_management.php" class="menu-card">
+                    <div class="card-icon role"><i class="fas fa-user-shield"></i></div>
+                    <div>
+                        <div class="card-label">Role Management</div>
+                        <div class="card-desc">Role &amp; Permission</div>
+                    </div>
+                </a>
+                <a href="admin/store_management.php" class="menu-card">
+                    <div class="card-icon store"><i class="fas fa-store"></i></div>
+                    <div>
+                        <div class="card-label">Store Management</div>
+                        <div class="card-desc">Store Management</div>
+                    </div>
+                </a>
+            </div>
+        </section>
+        <?php endif; ?>
 
         <div class="footer-text">
             &copy; <?php echo date('Y'); ?> HOME K MART &mdash; All rights reserved

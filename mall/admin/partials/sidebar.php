@@ -73,7 +73,7 @@ $__mall_current_lang = get_language();
                 <button type="button" class="mall-lang-btn px-2 py-1 text-[11px] font-semibold whitespace-nowrap <?php echo $__mall_current_lang === 'ko' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-100'; ?>" data-lang="ko">한국어</button>
                 <button type="button" class="mall-lang-btn px-2 py-1 text-[11px] font-semibold whitespace-nowrap <?php echo $__mall_current_lang === 'en' ? 'bg-blue-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-100'; ?>" data-lang="en">English</button>
             </div>
-            <a href="https://homekmart.net/" class="text-xs text-gray-500 hover:text-gray-700 flex-shrink-0 whitespace-nowrap"><i class="fas fa-arrow-left mr-1"></i><?php echo t('mall_admin.back_to_home'); ?></a>
+            <a href="../../index.php" class="text-xs text-gray-500 hover:text-gray-700 flex-shrink-0 whitespace-nowrap"><i class="fas fa-arrow-left mr-1"></i><?php echo t('mall_admin.back_to_main'); ?></a>
         </div>
     </div>
 </div>
