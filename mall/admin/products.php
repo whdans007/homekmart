@@ -549,6 +549,7 @@ $conn->close();
                 <?php foreach ($home_slot_labels as $__slot_key => $__slot_label): ?>
                 <li>
                     <a href="products.php?<?php echo http_build_query(array_merge($__base_qs, ['home_slot' => $__slot_key])); ?>"
+                       data-drop-home-slot="<?php echo htmlspecialchars($__slot_key); ?>"
                        class="block px-2 py-1.5 rounded text-xs font-medium <?php echo $selected_home_slot === $__slot_key ? 'bg-blue-100 text-blue-800' : 'text-gray-600 hover:bg-gray-100'; ?>">
                         <?php echo htmlspecialchars($__slot_label); ?> <span class="text-gray-400">(<?php echo count($home_slot_membership[$__slot_key]); ?>)</span>
                     </a>
@@ -642,10 +643,10 @@ $conn->close();
                         data-sale-type="<?php echo htmlspecialchars($c['sale_type'] ?? ''); ?>"
                         data-selling-weight-reference-g="<?php echo $c['selling_weight_reference_g'] !== null ? (int)$c['selling_weight_reference_g'] : ''; ?>"
                         <?php else: ?>
-                        data-mall-product-id="<?php echo (int)$c['id']; ?>" data-product-id="<?php echo (int)$c['product_id']; ?>" data-category-id="<?php echo (int)($c['category_id'] ?? 0); ?>"
+                        data-mall-product-id="<?php echo (int)$c['id']; ?>" data-product-id="<?php echo (int)$c['product_id']; ?>" data-category-id="<?php echo (int)($c['category_id'] ?? 0); ?>"<?php if ($selected_home_slot): ?> data-home-slot="<?php echo htmlspecialchars($selected_home_slot); ?>"<?php endif; ?>
                         <?php endif; ?>>
                         <td class="px-3 py-2 whitespace-nowrap">
-                            <?php if (!$selected_home_slot): ?><i class="mall-product-drag-handle fas fa-grip-vertical text-gray-300 cursor-grab" draggable="true" title="카테고리로 끌어서 이동하거나 위아래로 순서를 변경하세요"></i><?php endif; ?>
+                            <i class="mall-product-drag-handle fas fa-grip-vertical text-gray-300 cursor-grab" draggable="true" title="카테고리 또는 홈 노출 목록으로 끌어서 이동하거나 순서를 변경하세요"></i>
                             <input type="number" min="0" max="999" class="edit-display-order border border-gray-300 rounded px-2 py-1 w-10" value="<?php echo (int)$c['display_order']; ?>" <?php echo $selected_home_slot ? 'title="' . htmlspecialchars(t('mall_admin.products.slot_order_title')) . '"' : ''; ?>>
                         </td>
                         <td class="px-3 py-2">
@@ -1702,7 +1703,9 @@ document.querySelectorAll('aside a[data-drop-category-id]').forEach(function (ca
 
         const movedRow = curatedDragSrcRow;
         const categoryId = parseInt(categoryLink.dataset.dropCategoryId, 10) || 0;
-        if (!categoryId || categoryId === (parseInt(movedRow.dataset.categoryId, 10) || 0)) return;
+        const sourceHomeSlot = movedRow.dataset.homeSlot || '';
+        const categoryChanged = categoryId && categoryId !== (parseInt(movedRow.dataset.categoryId, 10) || 0);
+        if (!categoryId || (!categoryChanged && !sourceHomeSlot)) return;
 
         const params = new URLSearchParams();
         params.set('category_id', categoryId);
@@ -1718,17 +1721,66 @@ document.querySelectorAll('aside a[data-drop-category-id]').forEach(function (ca
             params.set('product_id', movedRow.dataset.productId);
         }
 
-        fetch(endpoint, {
+        const categoryRequest = categoryChanged ? fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: params.toString()
-        }).then(r => r.json()).then(function (data) {
+        }).then(r => r.json()) : Promise.resolve({ success: true });
+        categoryRequest.then(function (data) {
             if (data.success) {
-                showFlash('상품 카테고리를 변경했습니다.', 'success');
-                setTimeout(function () { window.location.reload(); }, 350);
+                const removeFromSource = sourceHomeSlot && movedRow.dataset.productId
+                    ? new Promise(function (resolve) {
+                        toggleHomeSlotProduct(sourceHomeSlot, movedRow.dataset.productId, false, resolve);
+                    })
+                    : Promise.resolve();
+                removeFromSource.then(function () {
+                    showFlash('상품 이동이 완료되었습니다.', 'success');
+                    setTimeout(function () { window.location.reload(); }, 350);
+                });
             } else {
                 showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.move_register_failed')); ?>', 'error');
             }
+        });
+    });
+});
+
+// 카테고리 상품을 오늘의특가/기획전/새상품으로 끌어 놓으면 홈 노출 목록에 추가한다.
+document.querySelectorAll('aside a[data-drop-home-slot]').forEach(function (slotLink) {
+    slotLink.addEventListener('dragover', function (e) {
+        if (!curatedDragSrcRow || curatedRowType(curatedDragSrcRow) !== 'general') return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        slotLink.classList.add('mall-category-drop-target');
+    });
+    slotLink.addEventListener('dragleave', function () {
+        slotLink.classList.remove('mall-category-drop-target');
+    });
+    slotLink.addEventListener('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        slotLink.classList.remove('mall-category-drop-target');
+        if (!curatedDragSrcRow || curatedRowType(curatedDragSrcRow) !== 'general') return;
+
+        const movedRow = curatedDragSrcRow;
+        const targetSlot = slotLink.dataset.dropHomeSlot;
+        const sourceSlot = movedRow.dataset.homeSlot || '';
+        const productId = movedRow.dataset.productId;
+        if (!targetSlot || !productId || targetSlot === sourceSlot) return;
+
+        const addToTarget = new Promise(function (resolve) {
+            toggleHomeSlotProduct(targetSlot, productId, true, resolve);
+        });
+        const removeFromSource = sourceSlot
+            ? addToTarget.then(function () {
+                return new Promise(function (resolve) {
+                    toggleHomeSlotProduct(sourceSlot, productId, false, resolve);
+                });
+            })
+            : addToTarget;
+
+        removeFromSource.then(function () {
+            showFlash('홈 노출 목록으로 이동되었습니다.', 'success');
+            setTimeout(function () { window.location.reload(); }, 350);
         });
     });
 });
