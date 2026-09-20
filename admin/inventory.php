@@ -23,18 +23,30 @@ if ($store_id <= 0 && $stores) {
 $q = trim((string)($_GET['q'] ?? ''));
 $rows = [];
 if ($store_id > 0) {
+    // 운영 DB에 soft-delete 컬럼이 아직 없는 구버전도 재고 목록을 조회할 수 있도록 조건을 동적으로 적용한다.
+    $has_purchase_deleted_at = false;
+    $deleted_at_columns = $conn->query("SHOW COLUMNS FROM purchases LIKE 'deleted_at'");
+    if ($deleted_at_columns) {
+        $has_purchase_deleted_at = $deleted_at_columns->num_rows > 0;
+        $deleted_at_columns->free();
+    }
+    $purchase_deleted_condition = $has_purchase_deleted_at ? ' AND pur.deleted_at IS NULL' : '';
+
     $sql = 'SELECT p.id AS product_id, p.name_ko, p.name_en, p.sku, COALESCE(p.pieces_per_box, 1) AS pieces_per_box,
                    COALESCE(i.quantity, 0) AS quantity,
                    MAX(pur.purchase_date) AS latest_purchase_date
             FROM products p
             LEFT JOIN inventory i ON i.product_id = p.id AND i.store_id = ?
             LEFT JOIN purchase_items pi ON pi.product_id = p.id
-            LEFT JOIN purchases pur ON pur.purchase_id = pi.purchase_id AND pur.store_id = ? AND pur.deleted_at IS NULL
+            LEFT JOIN purchases pur ON pur.purchase_id = pi.purchase_id AND pur.store_id = ?' . $purchase_deleted_condition . '
             WHERE (? = "" OR p.name_ko LIKE CONCAT("%", ?, "%") OR p.sku LIKE CONCAT("%", ?, "%"))
             GROUP BY p.id, p.name_ko, p.name_en, p.sku, p.pieces_per_box, i.quantity
             ORDER BY latest_purchase_date IS NULL ASC, latest_purchase_date DESC, p.name_ko ASC
             LIMIT 500';
     $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        throw new RuntimeException('재고 목록 조회 쿼리 준비 실패: ' . $conn->error);
+    }
     $stmt->bind_param('iisss', $store_id, $store_id, $q, $q, $q);
     $stmt->execute();
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
