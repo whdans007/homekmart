@@ -11,6 +11,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/address.php';
 require_once __DIR__ . '/romanize.php';
 require_once __DIR__ . '/fresh_order.php';
+require_once __DIR__ . '/../../lib/inventory_service.php';
 
 /**
  * 회원의 장바구니를 주문으로 확정합니다.
@@ -120,9 +121,10 @@ function mall_create_order($member_id, $member, $requested_channel, $memo = '') 
         $order_id = $order_stmt->insert_id;
         $order_stmt->close();
 
-        // 몰의 재고 관리는 mall_products.is_sold_out 스위치로만 하고(mall_get_stock_quantity() 참고),
-        // 실제 inventory.quantity는 발주/이동/유통기한 로트 등 별도 프로세스가 관리해 몰 판매 시점과
-        // 안 맞을 수 있으므로 주문 확정 시 여기서 차감/검증하지 않는다.
+        // 몰 진열/품절 스위치는 여전히 mall_products.is_sold_out이 기준이지만(mall_get_stock_quantity()
+        // 참고), 실제 inventory.quantity도 주문 확정(=이 함수 성공) 시점에 공통 재고 원장을 통해
+        // MALL_OUT으로 반영한다(Design §4.3). 신선상품(mall_fresh_order_items)은 대상 외 — Plan §3 제외.
+        // COD 단일 결제 흐름이라 별도 결제 확정 단계가 없어, 주문 생성 성공이 곧 "판매 확정" 시점이다.
         $item_stmt = $conn->prepare(
             'INSERT INTO mall_order_items (order_id, product_id, product_name_snapshot, unit_price_snapshot, discount_rate_snapshot, quantity, line_total)
              VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -138,6 +140,21 @@ function mall_create_order($member_id, $member, $requested_channel, $memo = '') 
                 $unit_price, $discount_rate, $item['quantity'], $item['line_total']
             );
             $item_stmt->execute();
+            $order_item_id = $conn->insert_id;
+
+            $mall_out_result = inventory_apply_delta($conn, [
+                'store_id' => (int)$store_id,
+                'product_id' => (int)$item['product_id'],
+                'quantity_change' => -(float)$item['quantity'],
+                'event_type' => 'MALL_OUT',
+                'source_type' => 'mall_order_item',
+                'source_id' => $order_item_id,
+                'remarks' => "몰 주문 판매 (Order: {$order_number})",
+                'manage_transaction' => false,
+            ]);
+            if (!$mall_out_result['success']) {
+                throw new Exception('재고 반영 중 오류가 발생했습니다: ' . $mall_out_result['error']);
+            }
         }
         $item_stmt->close();
 

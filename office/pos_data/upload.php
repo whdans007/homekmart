@@ -6,6 +6,7 @@ $page_title      = 'Upload POS Sales Data';
 $css_base        = '../../admin/';
 $office_nav_base = '../';
 require_once __DIR__ . '/../partials/header.php';
+require_once __DIR__ . '/../../lib/inventory_service.php';
 
 $store_id = get_office_store_id();
 
@@ -96,6 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
 
                         $conn->autocommit(false);
                         $row_no = 0;
+                        $pcs_by_item_code = []; // Design §4.2: item_code(SKU)별 PCS 합계 — POS_OUT 적용용
                         foreach ($rows_data as $v) {
                             $row_no++;
                             $str = fn($x) => ($x === null || $x === '') ? null : (string)$x;
@@ -113,13 +115,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['excel_file'])) {
                                 $s20,$s21
                             );
                             $dstmt->execute();
+
+                            if ($s4 !== null && $s4 !== '' && $d9 !== null) {
+                                $pcs_by_item_code[$s4] = ($pcs_by_item_code[$s4] ?? 0.0) + $d9;
+                            }
                         }
+                        $dstmt->close();
+
+                        // Design §4.2: item_code를 products.sku로 매칭해 PCS를 POS_OUT으로 반영한다.
+                        // upload_id를 source_id로 써서, 같은 업로드를 다시 처리해도 상품별로 한 번만 반영된다.
+                        // 행 저장과 재고 반영을 하나의 트랜잭션으로 묶어, 재고 반영 실패 시 업로드 행도
+                        // 함께 롤백되게 한다(재처리 시 "저장은 됐는데 반영 안 됨" 상태가 남지 않도록).
+                        $pos_unmatched_codes = [];
+                        $pos_out_applied = 0;
+                        if (!empty($pcs_by_item_code)) {
+                            $codes = array_keys($pcs_by_item_code);
+                            $placeholders = implode(',', array_fill(0, count($codes), '?'));
+                            $prod_stmt = $conn->prepare("SELECT id, sku FROM products WHERE sku IN ($placeholders)");
+                            $prod_stmt->bind_param(str_repeat('s', count($codes)), ...$codes);
+                            $prod_stmt->execute();
+                            $sku_to_product_id = [];
+                            $prod_result = $prod_stmt->get_result();
+                            while ($prow = $prod_result->fetch_assoc()) {
+                                $sku_to_product_id[$prow['sku']] = (int)$prow['id'];
+                            }
+                            $prod_stmt->close();
+
+                            foreach ($pcs_by_item_code as $item_code => $sum_pcs) {
+                                if (abs($sum_pcs) < 0.01) {
+                                    continue;
+                                }
+                                if (!isset($sku_to_product_id[$item_code])) {
+                                    $pos_unmatched_codes[] = $item_code;
+                                    continue;
+                                }
+                                $pos_result = inventory_apply_delta($conn, [
+                                    'store_id' => $store_id,
+                                    'product_id' => $sku_to_product_id[$item_code],
+                                    'quantity_change' => -$sum_pcs,
+                                    'event_type' => 'POS_OUT',
+                                    'source_type' => 'pos_upload',
+                                    'source_id' => $upload_id,
+                                    'user_id' => $by,
+                                    'remarks' => "POS 업로드 #{$upload_id} ({$filename})",
+                                    'manage_transaction' => false,
+                                ]);
+                                if (!$pos_result['success']) {
+                                    throw new \Exception('POS 재고 반영 실패 (' . $item_code . '): ' . $pos_result['error']);
+                                }
+                                if (!$pos_result['skipped']) {
+                                    $pos_out_applied++;
+                                }
+                            }
+                        }
+
                         $conn->commit();
                         $conn->autocommit(true);
-                        $dstmt->close();
                         $conn->close();
 
                         $success = "{$filename} 업로드 완료 — {$total}건 저장됐습니다.";
+                        if ($pos_out_applied > 0) {
+                            $success .= " 재고 반영: {$pos_out_applied}개 SKU.";
+                        }
+                        if (!empty($pos_unmatched_codes)) {
+                            $success .= ' 미매칭 SKU(재고 미반영): ' . implode(', ', array_slice(array_unique($pos_unmatched_codes), 0, 20))
+                                . (count(array_unique($pos_unmatched_codes)) > 20 ? ' 외 ' . (count(array_unique($pos_unmatched_codes)) - 20) . '건' : '');
+                        }
                         $preview = array_slice($rows_data, 0, 5);
                     }
                 }

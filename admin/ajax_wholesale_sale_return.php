@@ -5,6 +5,7 @@ require_once __DIR__ . '/../lib/session_helper.php';
 require_once __DIR__ . '/../lib/permission_helper.php';
 require_once __DIR__ . '/../lib/lang_helper.php';
 require_once __DIR__ . '/../config/db_config.php';
+require_once __DIR__ . '/../lib/inventory_ledger.php';
 
 ensure_logged_in();
 
@@ -204,11 +205,6 @@ try {
     $update_returned_qty_stmt = $pdo->prepare("
         UPDATE wholesale_sale_items SET returned_quantity = returned_quantity + ? WHERE id = ?
     ");
-    $upsert_inventory_stmt = $pdo->prepare("
-        INSERT INTO inventory (product_id, store_id, quantity)
-        VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
-    ");
     $log_transaction_stmt = $pdo->prepare("
         INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks, transaction_date)
         SELECT id, ?, '반품', ?, ?, NOW() FROM inventory WHERE product_id = ? AND store_id = ?
@@ -223,6 +219,7 @@ try {
         $return_item_stmt->execute([
             $return_id, $sale_item_id, $qty, $unit_price, $amount, $is_registered_product ? 1 : 0
         ]);
+        $return_item_id = (int)$pdo->lastInsertId();
 
         $update_returned_qty_stmt->execute([$qty, $sale_item_id]);
 
@@ -233,7 +230,7 @@ try {
             }
             $restock_qty = ($si['sale_unit'] === 'box') ? round($qty * $pieces_per_box) : round($qty);
 
-            $upsert_inventory_stmt->execute([$si['product_id'], $sale['store_id'], $restock_qty]);
+            inventory_apply_delta_pdo($pdo, 'wholesale_sale_return_item', $return_item_id, (int)$sale['store_id'], (int)$si['product_id'], (float)$restock_qty, 'RETURN_IN', (int)($_SESSION['user_id'] ?? 0) ?: null, "도매판매 반품 (Return ID: {$return_id}, Sale ID: {$sale_id})");
             $log_transaction_stmt->execute([
                 $_SESSION['user_id'], $restock_qty,
                 "도매판매 반품 (Return ID: {$return_id}, Sale ID: {$sale_id})",

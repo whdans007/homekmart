@@ -196,6 +196,9 @@ if ((has_permission('product_management') || in_array($_SESSION['role'] ?? '', [
                     if (has_permission('purchase_management') || $fav_is_admin) {
                         $fav_items[] = ['href' => 'purchase_management.php', 'icon' => 'fa-shopping-cart', 'label' => t('navigation.purchase_management'), 'active' => in_array($current_page, ['purchase_management.php', 'add_purchase.php', 'edit_purchase.php'])];
                     }
+                    if (has_permission('product_management') || $fav_is_admin) {
+                        $fav_items[] = ['href' => 'inventory.php', 'icon' => 'fa-boxes-stacked', 'label' => '재고 관리', 'active' => $current_page === 'inventory.php'];
+                    }
                     if (has_permission('wholesale_management') || $fav_is_admin) {
                         $fav_items[] = ['href' => 'wholesale_sales_list.php', 'icon' => 'fa-handshake', 'label' => t('navigation.wholesale_sales_list'), 'active' => in_array($current_page, ['wholesale_sales_list.php', 'wholesale_sales.php', 'wholesale_sale_preview.php'])];
                     }
@@ -335,6 +338,9 @@ if ((has_permission('product_management') || in_array($_SESSION['role'] ?? '', [
                         </a>
                         <a href="fresh_product_history.php" class="<?php echo ($current_page == 'fresh_product_history.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
                             <i class="fas fa-history mr-2 text-xs w-4 text-center"></i><?php echo t('mall_fresh_products.product_history_title'); ?>
+                        </a>
+                        <a href="inventory.php" class="<?php echo ($current_page == 'inventory.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">
+                            <i class="fas fa-boxes-stacked mr-2 text-xs w-4 text-center"></i>재고 관리
                         </a>
                         <?php if (in_array($_SESSION['role'] ?? '', ['admin', 'super_admin'])): ?>
                         <a href="fresh_margin_management.php" class="<?php echo ($current_page == 'fresh_margin_management.php') ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md transition-colors">

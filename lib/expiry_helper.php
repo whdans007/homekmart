@@ -10,6 +10,7 @@
 if (!function_exists('get_db_connection')) {
     require_once __DIR__ . '/../config/db_config.php';
 }
+require_once __DIR__ . '/inventory_service.php';
 
 /**
  * mysqli prepare() 실패(테이블/컬럼 누락, SQL 오류 등)를 즉시 Exception으로 변환한다.
@@ -155,19 +156,14 @@ function register_disposal($conn, array $params) {
         $cost_stmt->close();
         $unit_cost = $cost_row ? (float)$cost_row['cost_price'] : 0;
 
-        // 로트 수량 차감
+        // 로트 수량 차감 (선택한 특정 로트 — inventory_apply_delta의 FIFO 모드가 아니라 사용자가
+        // 고른 로트를 그대로 차감한다)
         $update_lot = expiry_prepare($conn, "UPDATE inventory_expirations SET quantity = quantity - ? WHERE id = ?");
         $update_lot->bind_param("ii", $quantity, $lot_id);
         $update_lot->execute();
         $update_lot->close();
 
-        // 전체 재고 동기화
-        $update_inv = expiry_prepare($conn, "UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?");
-        $update_inv->bind_param("iii", $quantity, $product_id, $store_id);
-        $update_inv->execute();
-        $update_inv->close();
-
-        // 이력 저장
+        // 이력 저장 (원장 source_id로 쓰기 위해 재고 반영보다 먼저 기록)
         $insert_stmt = expiry_prepare($conn, "
             INSERT INTO product_disposals
                 (store_id, product_id, inventory_expiration_id, expiration_date, quantity, unit_cost, reason, reason_note, disposed_by)
@@ -178,7 +174,24 @@ function register_disposal($conn, array $params) {
             $store_id, $product_id, $lot_id, $lot['expiration_date'], $quantity, $unit_cost, $reason, $reason_note, $user_id
         );
         $insert_stmt->execute();
+        $disposal_id = $conn->insert_id;
         $insert_stmt->close();
+
+        // 전체 재고 동기화 — 공통 재고 서비스를 거친다(Design §3.1, §4.6).
+        $delta_result = inventory_apply_delta($conn, [
+            'store_id' => $store_id,
+            'product_id' => $product_id,
+            'quantity_change' => -$quantity,
+            'event_type' => 'DISPOSAL_OUT',
+            'source_type' => 'disposal',
+            'source_id' => $disposal_id,
+            'user_id' => $user_id ?: null,
+            'remarks' => trim($reason . ($reason_note ? " ({$reason_note})" : '')),
+            'manage_transaction' => false,
+        ]);
+        if (!$delta_result['success']) {
+            throw new Exception($delta_result['error'] ?? '재고 반영 중 오류가 발생했습니다.');
+        }
 
         $conn->commit();
         return ['success' => true, 'error' => null];
@@ -250,10 +263,20 @@ function update_disposal($conn, array $params) {
         }
 
         if ($delta !== 0) {
-            $upd_inv = expiry_prepare($conn, "UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?");
-            $upd_inv->bind_param("iii", $delta, $product_id, $store_id);
-            $upd_inv->execute();
-            $upd_inv->close();
+            // delta>0: 폐기량이 늘어남(추가 차감/DISPOSAL_OUT), delta<0: 폐기량이 줄어듦(재고 복구/RETURN_IN)
+            $delta_result = inventory_apply_delta($conn, [
+                'store_id' => $store_id,
+                'product_id' => $product_id,
+                'quantity_change' => -$delta,
+                'event_type' => $delta > 0 ? 'DISPOSAL_OUT' : 'RETURN_IN',
+                'source_type' => 'disposal_edit',
+                'source_id' => inventory_ledger_scoped_source_id($disposal_id),
+                'remarks' => '폐기 이력 수정 (Disposal ID: ' . $disposal_id . ')',
+                'manage_transaction' => false,
+            ]);
+            if (!$delta_result['success']) {
+                throw new Exception($delta_result['error'] ?? '재고 반영 중 오류가 발생했습니다.');
+            }
         }
 
         $upd_stmt = expiry_prepare($conn, "
@@ -319,10 +342,19 @@ function delete_disposal($conn, array $params) {
             }
         }
 
-        $upd_inv = expiry_prepare($conn, "UPDATE inventory SET quantity = quantity + ? WHERE product_id = ? AND store_id = ?");
-        $upd_inv->bind_param("iii", $quantity, $product_id, $store_id);
-        $upd_inv->execute();
-        $upd_inv->close();
+        $delta_result = inventory_apply_delta($conn, [
+            'store_id' => $store_id,
+            'product_id' => $product_id,
+            'quantity_change' => $quantity,
+            'event_type' => 'RETURN_IN',
+            'source_type' => 'disposal_delete',
+            'source_id' => $disposal_id,
+            'remarks' => '폐기 이력 삭제(취소) (Disposal ID: ' . $disposal_id . ')',
+            'manage_transaction' => false,
+        ]);
+        if (!$delta_result['success']) {
+            throw new Exception($delta_result['error'] ?? '재고 반영 중 오류가 발생했습니다.');
+        }
 
         $del_stmt = expiry_prepare($conn, "DELETE FROM product_disposals WHERE id = ? AND store_id = ?");
         $del_stmt->bind_param("ii", $disposal_id, $store_id);

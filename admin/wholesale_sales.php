@@ -3,6 +3,25 @@ require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = t('navigation.wholesale_sales') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
+require_once __DIR__ . '/../lib/inventory_ledger.php';
+
+/**
+ * 도매 판매 품목의 판매수량(box/piece)을 재고 원장 기준 낱개 수량으로 환산한다.
+ * Design §4.2 박스→낱개 환산과 동일 규칙: pieces_per_box가 없거나 0 이하면 1(낱개상품 취급).
+ */
+function ws_actual_piece_quantity(PDO $pdo, int $product_id, float $quantity, string $sale_unit): float
+{
+    static $pieces_cache = [];
+    if (!isset($pieces_cache[$product_id])) {
+        $stmt = $pdo->prepare('SELECT pieces_per_box FROM products WHERE id = ?');
+        $stmt->execute([$product_id]);
+        $pieces_cache[$product_id] = (int)($stmt->fetchColumn() ?: 1);
+        if ($pieces_cache[$product_id] <= 0) {
+            $pieces_cache[$product_id] = 1;
+        }
+    }
+    return $sale_unit === 'box' ? round($quantity * $pieces_cache[$product_id], 2) : round($quantity, 2);
+}
 
 // Check wholesale sales permission
 if (!has_permission('wholesale_management')) {
@@ -181,16 +200,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Update sale record
                 $update_stmt = $pdo->prepare("
-                    UPDATE wholesale_sales 
+                    UPDATE wholesale_sales
                     SET customer_id = ?, store_id = ?, sale_date = ?, total_amount = ?, final_amount = ?, updated_at = NOW()
                     WHERE id = ?
                 ");
                 $update_stmt->execute([$customer_id, $store_id, $sale_date, $total_amount, $total_amount, $edit_sale_id_post]);
-                
+
+                // Design §4.5: 기존 품목의 WHOLESALE_OUT을 원복(RETURN_IN)한 뒤 새 품목으로 다시 반영한다
+                // (품목이 delete-and-reinsert 되므로 id 대 id 매칭 대신 전체 원복 후 재적용 방식을 쓴다).
+                $old_items_stmt = $pdo->prepare("SELECT id, product_id, quantity, sale_unit FROM wholesale_sale_items WHERE sale_id = ?");
+                $old_items_stmt->execute([$edit_sale_id_post]);
+                foreach ($old_items_stmt->fetchAll(PDO::FETCH_ASSOC) as $old_item) {
+                    if (empty($old_item['product_id'])) {
+                        continue; // 수기 상품은 재고 제외(Design §4.5)
+                    }
+                    $old_actual_qty = ws_actual_piece_quantity($pdo, (int)$old_item['product_id'], (float)$old_item['quantity'], $old_item['sale_unit'] ?? 'box');
+                    if ($old_actual_qty > 0) {
+                        inventory_apply_delta_pdo($pdo, 'wholesale_sale_item_edit_restore', (int)$old_item['id'], (int)$store_id, (int)$old_item['product_id'], $old_actual_qty, 'RETURN_IN', (int)$_SESSION['user_id'], "도매 판매 수정 원복 (Sale ID: {$edit_sale_id_post})");
+                    }
+                }
+
                 // Delete existing sale items
                 $delete_stmt = $pdo->prepare("DELETE FROM wholesale_sale_items WHERE sale_id = ?");
                 $delete_stmt->execute([$edit_sale_id_post]);
-                
+
                 // Add new sale items
                 foreach ($cart_items as $sort_index => $item) {
                     $is_manual = empty($item['product_id']);
@@ -218,8 +251,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $item['remarks'] ?? '',
                         (int)$sort_index
                     ]);
+
+                    if (!$is_manual) {
+                        $new_item_id = (int)$pdo->lastInsertId();
+                        $actual_qty = ws_actual_piece_quantity($pdo, $product_id, (float)$item['quantity'], $item['sale_unit'] ?? 'box');
+                        if ($actual_qty > 0) {
+                            inventory_apply_delta_pdo($pdo, 'wholesale_sale_item', $new_item_id, (int)$store_id, $product_id, -$actual_qty, 'WHOLESALE_OUT', (int)$_SESSION['user_id'], "도매 판매 (Sale ID: {$edit_sale_id_post})");
+                        }
+                    }
                 }
-                
+
                 $sale_id = $edit_sale_id_post;
                 $success_msg = t('wholesale.sale_updated_successfully');
                 
@@ -334,6 +375,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $item['remarks'] ?? '',
                         (int)$sort_index
                     ]);
+
+                    // Design §4.5: 도매 판매 확정 시 WHOLESALE_OUT 반영. 수기 상품(product_id 없음)은 재고 제외.
+                    if (!$is_manual) {
+                        $new_item_id = (int)$pdo->lastInsertId();
+                        $actual_qty = ws_actual_piece_quantity($pdo, $product_id, (float)$item['quantity'], $item['sale_unit'] ?? 'box');
+                        if ($actual_qty > 0) {
+                            inventory_apply_delta_pdo($pdo, 'wholesale_sale_item', $new_item_id, (int)$store_id, $product_id, -$actual_qty, 'WHOLESALE_OUT', (int)$_SESSION['user_id'], "도매 판매 (Sale ID: {$sale_id})");
+                        }
+                    }
                 }
 
                 // ── 반품 항목 등록: 이 신규 전표(sale_id)에 반품 기록을 남기고, 원본 전표는 건드리지 않음 ──
@@ -353,11 +403,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $update_returned_qty_stmt = $pdo->prepare("
                         UPDATE wholesale_sale_items SET returned_quantity = returned_quantity + ? WHERE id = ?
                     ");
-                    $upsert_inventory_stmt = $pdo->prepare("
-                        INSERT INTO inventory (product_id, store_id, quantity)
-                        VALUES (?, ?, ?)
-                        ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
-                    ");
                     $log_transaction_stmt = $pdo->prepare("
                         INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks, transaction_date)
                         SELECT id, ?, '반품', ?, ?, NOW() FROM inventory WHERE product_id = ? AND store_id = ?
@@ -368,6 +413,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $return_item_stmt->execute([
                             $return_id, $rt['sale_item_id'], $rt['quantity'], $rt['unit_price'], $rt['amount'], $is_registered_product ? 1 : 0
                         ]);
+                        $return_item_id = (int)$pdo->lastInsertId();
                         $update_returned_qty_stmt->execute([$rt['quantity'], $rt['sale_item_id']]);
 
                         if ($is_registered_product) {
@@ -375,7 +421,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if ($pieces_per_box <= 0) { $pieces_per_box = 1; }
                             $restock_qty = ($rt['sale_unit'] === 'box') ? round($rt['quantity'] * $pieces_per_box) : round($rt['quantity']);
 
-                            $upsert_inventory_stmt->execute([$rt['product_id'], $rt['original_store_id'], $restock_qty]);
+                            inventory_apply_delta_pdo($pdo, 'wholesale_sale_return_item', $return_item_id, (int)$rt['original_store_id'], (int)$rt['product_id'], (float)$restock_qty, 'RETURN_IN', (int)$_SESSION['user_id'], "도매 반품 (Return ID: {$return_id}, Sale ID: {$sale_id})");
                             $log_transaction_stmt->execute([
                                 $_SESSION['user_id'], $restock_qty,
                                 "신규 판매등록시 반품 처리 (Return ID: {$return_id}, Sale ID: {$sale_id})",

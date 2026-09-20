@@ -3,6 +3,7 @@ require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = t('wholesale_sale_preview.page_title') . ' - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
+require_once __DIR__ . '/../lib/inventory_ledger.php';
 
 // 도매판매 권한 확인
 if (!has_permission('wholesale_management')) {
@@ -57,6 +58,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $pdo->beginTransaction();
                 
                 // 1. 판매 항목들 삭제
+                // 삭제/취소 전에 등록상품 재고를 복원하고 원장에 남긴다.
+                $items_stmt = $pdo->prepare('SELECT id, product_id, quantity, sale_unit FROM wholesale_sale_items WHERE sale_id = ? AND product_id IS NOT NULL');
+                $items_stmt->execute([$delete_sale_id]);
+                foreach ($items_stmt->fetchAll(PDO::FETCH_ASSOC) as $sale_item) {
+                    $pieces_stmt = $pdo->prepare('SELECT pieces_per_box FROM products WHERE id = ?');
+                    $pieces_stmt->execute([(int)$sale_item['product_id']]);
+                    $pieces_per_box = (int)($pieces_stmt->fetchColumn() ?: 1);
+                    if ($pieces_per_box <= 0) { $pieces_per_box = 1; }
+                    $restore_qty = ($sale_item['sale_unit'] === 'box')
+                        ? round((float)$sale_item['quantity'] * $pieces_per_box, 2)
+                        : round((float)$sale_item['quantity'], 2);
+                    if ($restore_qty > 0) {
+                        inventory_apply_delta_pdo($pdo, 'wholesale_sale_item_delete', (int)$sale_item['id'], (int)$sale_to_delete['store_id'], (int)$sale_item['product_id'], $restore_qty, 'RETURN_IN', (int)($_SESSION['user_id'] ?? 0) ?: null, "도매 판매 삭제 복원 (Sale ID: {$delete_sale_id})");
+                    }
+                }
+
                 $delete_items_stmt = $pdo->prepare("DELETE FROM wholesale_sale_items WHERE sale_id = ?");
                 $delete_items_stmt->execute([$delete_sale_id]);
                 

@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../lib/home_layout.php';
 require_once __DIR__ . '/../../admin/fresh_product_common.php';
+require_once __DIR__ . '/../../lib/reference_store_service.php';
 
 ensure_logged_in();
 require_permission('mall_management', '../../admin/index.php');
@@ -90,9 +91,18 @@ $conn = get_db_connection();
 // 기준 점포 선택 (기본값: MALL_STORE_ID). 목록에 없는 값이면 기본값으로 되돌린다.
 $stores = $conn->query('SELECT id, name FROM stores ORDER BY id')->fetch_all(MYSQLI_ASSOC);
 $store_ids = array_column($stores, 'id');
-$selected_store_id = isset($_GET['store_id']) ? (int)$_GET['store_id'] : MALL_STORE_ID;
+$reference_store_id = (int)MALL_STORE_ID;
+try {
+    $reference_store_id = reference_store_get_current($conn);
+} catch (Throwable $e) {
+    error_log('products.php reference store load failed: ' . $e->getMessage());
+}
+if (!in_array($reference_store_id, $store_ids, true)) {
+    $reference_store_id = (int)MALL_STORE_ID;
+}
+$selected_store_id = isset($_GET['store_id']) ? (int)$_GET['store_id'] : $reference_store_id;
 if (!in_array($selected_store_id, $store_ids, true)) {
-    $selected_store_id = MALL_STORE_ID;
+    $selected_store_id = $reference_store_id;
 }
 
 // 좌측 카테고리 메뉴 (대분류만 표시, 드래그앤드롭으로 정한 sort_order 순)
@@ -390,7 +400,7 @@ if ($selected_home_slot && empty($home_slot_membership[$selected_home_slot])) {
     $curated_types = 'ii' . str_repeat('i', count($slot_product_ids));
     // 홈 노출은 항상 실제 판매 기준 점포(MALL_STORE_ID) 큐레이션 여부를 기준으로 본다 —
     // 상단의 점포 선택 드롭다운(카테고리 큐레이션용)과는 무관하다.
-    $curated_params = array_merge([(int)MALL_STORE_ID, (int)MALL_STORE_ID], $slot_product_ids);
+    $curated_params = array_merge([(int)$selected_store_id, (int)$selected_store_id], $slot_product_ids);
     $curated_stmt->bind_param($curated_types, ...$curated_params);
 } else {
     $curated_where = ['mp.store_id = ?'];
@@ -546,7 +556,7 @@ $conn->close();
         <?php
             $__base_qs = [];
             if ($search !== '') { $__base_qs['q'] = $search; }
-            if ($selected_store_id !== (int)MALL_STORE_ID) { $__base_qs['store_id'] = $selected_store_id; }
+            if ($selected_store_id !== (int)$reference_store_id) { $__base_qs['store_id'] = $selected_store_id; }
         ?>
         <div class="mb-4 bg-white rounded-lg border border-gray-200 p-3 flex items-center gap-2 flex-wrap">
             <label for="store-select" class="text-xs font-bold text-gray-700"><?php echo t('mall_admin.products.reference_store'); ?></label>
@@ -555,8 +565,14 @@ $conn->close();
                 <option value="<?php echo (int)$s['id']; ?>" <?php echo $selected_store_id === (int)$s['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($s['name']); ?> (ID <?php echo (int)$s['id']; ?>)</option>
                 <?php endforeach; ?>
             </select>
-            <?php if ($selected_store_id !== (int)MALL_STORE_ID): ?>
-            <span class="text-xs text-amber-600"><i class="fas fa-triangle-exclamation mr-1"></i><?php echo t('mall_admin.products.store_mismatch_warning', ['id' => (int)MALL_STORE_ID]); ?></span>
+            <button type="button" id="save-reference-store" class="px-3 py-1 bg-blue-600 text-white rounded-md text-xs font-semibold hover:bg-blue-700 disabled:opacity-50">
+                <i class="fas fa-save mr-1"></i>Reference Store 저장
+            </button>
+            <span id="reference-store-status" class="text-xs text-gray-500" aria-live="polite">
+                <?php if ($selected_store_id === $reference_store_id): ?>현재 저장값<?php else: ?>임시 조회 중 (저장값: <?php echo (int)$reference_store_id; ?>)<?php endif; ?>
+            </span>
+            <?php if ($selected_store_id !== $reference_store_id): ?>
+            <span class="text-xs text-amber-600"><i class="fas fa-triangle-exclamation mr-1"></i>현재 저장된 Reference Store와 다른 점포를 임시 조회 중입니다.</span>
             <?php endif; ?>
         </div>
 
@@ -869,7 +885,7 @@ $conn->close();
             <form method="get" class="flex gap-1 mb-3">
                 <input type="hidden" name="home_slot" value="<?php echo htmlspecialchars($selected_home_slot); ?>">
                 <input type="hidden" name="search_tab" value="<?php echo htmlspecialchars($search_tab); ?>">
-                <?php if ($selected_store_id !== (int)MALL_STORE_ID): ?><input type="hidden" name="store_id" value="<?php echo (int)$selected_store_id; ?>"><?php endif; ?>
+                <?php if ($selected_store_id !== (int)$reference_store_id): ?><input type="hidden" name="store_id" value="<?php echo (int)$selected_store_id; ?>"><?php endif; ?>
                 <?php if ($selected_fresh_cat): ?><input type="hidden" name="fresh_cat" value="<?php echo htmlspecialchars($selected_fresh_cat); ?>"><?php endif; ?>
                 <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.search_placeholder_short')); ?>"
                        class="border border-gray-300 rounded-md px-2 py-1 text-xs w-full">
@@ -959,7 +975,7 @@ $conn->close();
                 <input type="hidden" name="search_tab" value="fresh">
                 <?php if ($selected_category_id): ?><input type="hidden" name="cat_id" value="<?php echo (int)$selected_category_id; ?>"><?php endif; ?>
                 <?php if ($selected_sub_id): ?><input type="hidden" name="sub_id" value="<?php echo (int)$selected_sub_id; ?>"><?php endif; ?>
-                <?php if ($selected_store_id !== (int)MALL_STORE_ID): ?><input type="hidden" name="store_id" value="<?php echo (int)$selected_store_id; ?>"><?php endif; ?>
+                <?php if ($selected_store_id !== (int)$reference_store_id): ?><input type="hidden" name="store_id" value="<?php echo (int)$selected_store_id; ?>"><?php endif; ?>
                 <?php if ($selected_fresh_cat): ?><input type="hidden" name="fresh_cat" value="<?php echo htmlspecialchars($selected_fresh_cat); ?>"><?php endif; ?>
                 <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="<?php echo htmlspecialchars(t('mall_fresh_products.search_placeholder')); ?>"
                        class="border border-gray-300 rounded-md px-2 py-1 text-xs w-full">
@@ -1000,7 +1016,7 @@ $conn->close();
             <form method="get" class="flex gap-1 mb-3">
                 <?php if ($selected_category_id): ?><input type="hidden" name="cat_id" value="<?php echo (int)$selected_category_id; ?>"><?php endif; ?>
                 <?php if ($selected_sub_id): ?><input type="hidden" name="sub_id" value="<?php echo (int)$selected_sub_id; ?>"><?php endif; ?>
-                <?php if ($selected_store_id !== (int)MALL_STORE_ID): ?><input type="hidden" name="store_id" value="<?php echo (int)$selected_store_id; ?>"><?php endif; ?>
+                <?php if ($selected_store_id !== (int)$reference_store_id): ?><input type="hidden" name="store_id" value="<?php echo (int)$selected_store_id; ?>"><?php endif; ?>
                 <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.search_placeholder_long')); ?>"
                        class="border border-gray-300 rounded-md px-2 py-1 text-xs w-full">
                 <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md"><?php echo t('common.search'); ?></button>
@@ -1217,11 +1233,44 @@ document.querySelectorAll('.barcode-copy').forEach(function (el) {
 });
 
 const storeSelect = document.getElementById('store-select');
+const saveReferenceStoreButton = document.getElementById('save-reference-store');
+const referenceStoreStatus = document.getElementById('reference-store-status');
 if (storeSelect) {
     storeSelect.addEventListener('change', function () {
         const params = new URLSearchParams(window.location.search);
         params.set('store_id', storeSelect.value);
         window.location.href = 'products.php?' + params.toString();
+    });
+}
+if (storeSelect && saveReferenceStoreButton) {
+    saveReferenceStoreButton.addEventListener('click', function () {
+        saveReferenceStoreButton.disabled = true;
+        if (referenceStoreStatus) referenceStoreStatus.textContent = '저장 중...';
+
+        const body = new URLSearchParams();
+        body.set('store_id', storeSelect.value);
+        body.set('csrf_token', window.MALL_CSRF_TOKEN || '');
+
+        fetch('ajax/save_reference_store.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
+            body: body.toString()
+        }).then(function (response) {
+            return response.json().then(function (data) {
+                return {ok: response.ok, data: data};
+            });
+        }).then(function (result) {
+            if (!result.ok || !result.data.success) {
+                throw new Error(result.data?.error?.message || 'Reference Store 저장에 실패했습니다.');
+            }
+            if (referenceStoreStatus) referenceStoreStatus.textContent = '저장되었습니다. 변경 시각부터 적용됩니다.';
+            const params = new URLSearchParams(window.location.search);
+            params.set('store_id', storeSelect.value);
+            window.location.href = 'products.php?' + params.toString();
+        }).catch(function (error) {
+            if (referenceStoreStatus) referenceStoreStatus.textContent = error.message;
+            saveReferenceStoreButton.disabled = false;
+        });
     });
 }
 

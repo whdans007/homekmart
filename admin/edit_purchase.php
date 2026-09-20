@@ -285,6 +285,7 @@ require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = t('purchase.edit_purchase_title');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
+require_once __DIR__ . '/../lib/inventory_service.php';
 
 if (!is_logged_in() || !has_permission('purchase_management')) {
     echo "<div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative' role='alert'><strong class='font-bold'>" . t('purchase.access_denied_title') . ":</strong><span class='block sm:inline'> " . t('purchase.access_denied') . "</span></div>";
@@ -432,39 +433,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     }
                     
                     // 재고에서 해당 수량 차감 (매입 삭제이므로 입고된 수량을 다시 빼야 함)
+                    // 공통 재고 서비스를 거친다(Design §3.1) — 음수 재고도 그대로 저장한다(Plan §4.2,
+                    // 기존의 max(0, ...) 바닥 처리는 음수 재고 정책과 맞지 않아 제거함).
                     if ($user_info['store_id'] && $actual_quantity > 0) {
-                        // inventory 테이블에 해당 레코드가 존재하는지 먼저 확인
-                        $check_inv_stmt = $conn->prepare("SELECT id, quantity FROM inventory WHERE product_id = ? AND store_id = ?");
-                        $check_inv_stmt->bind_param("ii", $item['product_id'], $user_info['store_id']);
-                        $check_inv_stmt->execute();
-                        $inv_result = $check_inv_stmt->get_result();
-                        $inventory_record = $inv_result->fetch_assoc();
-                        $check_inv_stmt->close();
-                        
-                        if ($inventory_record) {
-                            // 재고 업데이트 (음수가 되지 않도록 처리)
-                            $new_quantity = max(0, $inventory_record['quantity'] - $actual_quantity);
-                            $inv_stmt = $conn->prepare("UPDATE inventory SET quantity = ? WHERE product_id = ? AND store_id = ?");
-                            $inv_stmt->bind_param("iii", $new_quantity, $item['product_id'], $user_info['store_id']);
-                            
-                            if (!$inv_stmt->execute()) {
-                                throw new Exception(t('purchase.js_inventory_update_failed') . " - Product ID: {$item['product_id']}, Error: " . $inv_stmt->error);
-                            }
-                            $inv_stmt->close();
-                            
-                            // 재고 트랜잭션 로그 기록
-                            try {
+                        $remarks = "매입 내역 삭제 (Purchase ID: {$purchase_id}, Item: {$item_count})";
+                        $delta_result = inventory_apply_delta($conn, [
+                            'store_id' => (int)$user_info['store_id'],
+                            'product_id' => (int)$item['product_id'],
+                            'quantity_change' => -$actual_quantity,
+                            'event_type' => 'REVERSAL_OUT',
+                            'source_type' => 'purchase_item_delete_all',
+                            'source_id' => (int)$item['item_id'],
+                            'user_id' => $_SESSION['user_id'] ?? null,
+                            'remarks' => $remarks,
+                            'manage_transaction' => false,
+                        ]);
+                        if (!$delta_result['success']) {
+                            throw new Exception(t('purchase.js_inventory_update_failed') . " - Product ID: {$item['product_id']}, Error: " . $delta_result['error']);
+                        }
+
+                        // 기존 inventory_transactions 로그는 전환 기간 동안 그대로 보존한다(Design §8).
+                        try {
+                            $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
+                            $inv_id_stmt->bind_param("ii", $item['product_id'], $user_info['store_id']);
+                            $inv_id_stmt->execute();
+                            if ($inv_row = $inv_id_stmt->get_result()->fetch_assoc()) {
                                 $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, 'OUT', ?, ?)");
-                                $remarks = "매입 내역 삭제 (Purchase ID: {$purchase_id}, Item: {$item_count})";
                                 $quantity_change = -$actual_quantity;
-                                $trans_stmt->bind_param("iiss", $inventory_record['id'], $_SESSION['user_id'], $quantity_change, $remarks);
+                                $trans_stmt->bind_param("iiss", $inv_row['id'], $_SESSION['user_id'], $quantity_change, $remarks);
                                 $trans_stmt->execute();
                                 $trans_stmt->close();
-                            } catch (Exception $log_error) {
-                                // 로그 실패는 전체 트랜잭션을 중단하지 않음
                             }
-                        } else {
-                            // 재고 레코드가 없어도 매입 삭제는 계속 진행
+                            $inv_id_stmt->close();
+                        } catch (Exception $log_error) {
+                            // 로그 실패는 전체 트랜잭션을 중단하지 않음
                         }
                     }
                 } catch (Exception $item_error) {
@@ -581,33 +583,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         $new_actual_quantity = $new_quantity * ($old_info['pieces_per_box'] ?? 1);
                     }
                     
-                    // 재고 수량 조정
+                    // 재고 수량 조정 — 공통 재고 서비스를 거친다(Design §3.1). 같은 품목이 여러 번
+                    // 수정될 수 있으므로 scoped source_id로 "이번 수정"에만 유효한 멱등키를 부여한다.
                     if ($old_info['store_id']) {
                         $quantity_diff = $new_actual_quantity - $old_actual_quantity;
-                        
+
                         if ($quantity_diff != 0) {
-                            $inv_stmt = $conn->prepare("UPDATE inventory SET quantity = quantity + ? WHERE product_id = ? AND store_id = ?");
-                            $inv_stmt->bind_param("iii", $quantity_diff, $old_info['product_id'], $old_info['store_id']);
-                            $inv_stmt->execute();
-                            $inv_stmt->close();
-                            
-                            // 재고 트랜잭션 로그 기록
-                            try {
-                                $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
-                                $inv_id_stmt->bind_param("ii", $old_info['product_id'], $old_info['store_id']);
-                                $inv_id_stmt->execute();
-                                $inv_id_result = $inv_id_stmt->get_result();
-                                
-                                if ($inv_row = $inv_id_result->fetch_assoc()) {
-                                    $trans_type = $quantity_diff > 0 ? 'IN' : 'OUT';
-                                    $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, ?, ?, ?)");
-                                    $remarks = "매입 상품 일괄 수정 (Purchase Item ID: {$item_id})";
-                                    $trans_stmt->bind_param("iisis", $inv_row['id'], $_SESSION['user_id'], $trans_type, $quantity_diff, $remarks);
-                                    $trans_stmt->execute();
-                                    $trans_stmt->close();
+                            $remarks = "매입 상품 일괄 수정 (Purchase Item ID: {$item_id})";
+                            $delta_result = inventory_apply_delta($conn, [
+                                'store_id' => (int)$old_info['store_id'],
+                                'product_id' => (int)$old_info['product_id'],
+                                'quantity_change' => $quantity_diff,
+                                'event_type' => $quantity_diff > 0 ? 'PURCHASE_IN' : 'REVERSAL_OUT',
+                                'source_type' => 'purchase_item_bulk_edit',
+                                'source_id' => inventory_ledger_scoped_source_id($item_id),
+                                'user_id' => $_SESSION['user_id'] ?? null,
+                                'remarks' => $remarks,
+                                'manage_transaction' => false,
+                            ]);
+                            if ($delta_result['success'] && !$delta_result['skipped']) {
+                                // 기존 inventory_transactions 로그는 전환 기간 동안 그대로 보존한다(Design §8).
+                                try {
+                                    $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
+                                    $inv_id_stmt->bind_param("ii", $old_info['product_id'], $old_info['store_id']);
+                                    $inv_id_stmt->execute();
+                                    $inv_id_result = $inv_id_stmt->get_result();
+
+                                    if ($inv_row = $inv_id_result->fetch_assoc()) {
+                                        $trans_type = $quantity_diff > 0 ? 'IN' : 'OUT';
+                                        $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, ?, ?, ?)");
+                                        $trans_stmt->bind_param("iisis", $inv_row['id'], $_SESSION['user_id'], $trans_type, $quantity_diff, $remarks);
+                                        $trans_stmt->execute();
+                                        $trans_stmt->close();
+                                    }
+                                    $inv_id_stmt->close();
+                                } catch (Exception $log_error) {
                                 }
-                                $inv_id_stmt->close();
-                            } catch (Exception $log_error) {
                             }
                         }
                     }
@@ -707,10 +718,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     }
 
                     if ($item_info['store_id'] && $actual_quantity > 0) {
-                        $inv_stmt = $conn->prepare("UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?");
-                        $inv_stmt->bind_param("iii", $actual_quantity, $item_info['product_id'], $item_info['store_id']);
-                        $inv_stmt->execute();
-                        $inv_stmt->close();
+                        $remarks = "선택 항목 일괄 삭제 (Purchase Item ID: {$item_id})";
+                        $delta_result = inventory_apply_delta($conn, [
+                            'store_id' => (int)$item_info['store_id'],
+                            'product_id' => (int)$item_info['product_id'],
+                            'quantity_change' => -$actual_quantity,
+                            'event_type' => 'REVERSAL_OUT',
+                            'source_type' => 'purchase_item_bulk_delete',
+                            'source_id' => (int)$item_info['item_id'],
+                            'user_id' => $_SESSION['user_id'] ?? null,
+                            'remarks' => $remarks,
+                            'manage_transaction' => false,
+                        ]);
+                        if (!$delta_result['success']) {
+                            throw new Exception($delta_result['error'] ?? '재고 반영 중 오류가 발생했습니다.');
+                        }
 
                         try {
                             $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
@@ -718,7 +740,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             $inv_id_stmt->execute();
                             if ($inv_row = $inv_id_stmt->get_result()->fetch_assoc()) {
                                 $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, 'OUT', ?, ?)");
-                                $remarks = "선택 항목 일괄 삭제 (Purchase Item ID: {$item_id})";
                                 $quantity_change = -$actual_quantity;
                                 $trans_stmt->bind_param("iiss", $inv_row['id'], $_SESSION['user_id'], $quantity_change, $remarks);
                                 $trans_stmt->execute();
@@ -813,24 +834,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $actual_quantity = (int)$item_info['quantity'] * ($item_info['pieces_per_box'] ?? 1);
                 }
                 
-                // 재고에서 해당 수량 차감
-                if ($item_info['store_id']) {
-                    $inv_stmt = $conn->prepare("UPDATE inventory SET quantity = quantity - ? WHERE product_id = ? AND store_id = ?");
-                    $inv_stmt->bind_param("iii", $actual_quantity, $item_info['product_id'], $item_info['store_id']);
-                    $inv_stmt->execute();
-                    $inv_stmt->close();
-                    
-                    // 재고 트랜잭션 로그 기록
+                // 재고에서 해당 수량 차감 — 공통 재고 서비스를 거친다(Design §3.1).
+                if ($item_info['store_id'] && $actual_quantity > 0) {
+                    $remarks = "매입 상품 삭제 (Purchase Item ID: {$item_id})";
+                    $delta_result = inventory_apply_delta($conn, [
+                        'store_id' => (int)$item_info['store_id'],
+                        'product_id' => (int)$item_info['product_id'],
+                        'quantity_change' => -$actual_quantity,
+                        'event_type' => 'REVERSAL_OUT',
+                        'source_type' => 'purchase_item_delete',
+                        'source_id' => (int)$item_info['item_id'],
+                        'user_id' => $_SESSION['user_id'] ?? null,
+                        'remarks' => $remarks,
+                        'manage_transaction' => false,
+                    ]);
+                    if (!$delta_result['success']) {
+                        throw new Exception($delta_result['error'] ?? '재고 반영 중 오류가 발생했습니다.');
+                    }
+
+                    // 재고 트랜잭션 로그 기록 (전환 기간 동안 기존 로그도 보존, Design §8)
                     try {
                         // inventory_id를 먼저 조회
                         $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
                         $inv_id_stmt->bind_param("ii", $item_info['product_id'], $item_info['store_id']);
                         $inv_id_stmt->execute();
                         $inv_id_result = $inv_id_stmt->get_result();
-                        
+
                         if ($inv_row = $inv_id_result->fetch_assoc()) {
                             $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, 'OUT', ?, ?)");
-                            $remarks = "매입 상품 삭제 (Purchase Item ID: {$item_id})";
                             $quantity_change = -$actual_quantity;
                             $trans_stmt->bind_param("iiss", $inv_row['id'], $_SESSION['user_id'], $quantity_change, $remarks);
                             $trans_stmt->execute();
@@ -971,36 +1002,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $new_actual_quantity = $new_quantity * ($old_info['pieces_per_box'] ?? 1);
                 }
                 
-                // 재고 수량 조정
+                // 재고 수량 조정 — 공통 재고 서비스를 거친다(Design §3.1). 같은 품목이 여러 번
+                // 수정될 수 있으므로 scoped source_id로 "이번 수정"에만 유효한 멱등키를 부여한다.
                 if ($old_info['store_id']) {
                     $quantity_diff = $new_actual_quantity - $old_actual_quantity;
-                    
+
                     if ($quantity_diff != 0) {
-                        $inv_stmt = $conn->prepare("UPDATE inventory SET quantity = quantity + ? WHERE product_id = ? AND store_id = ?");
-                        $inv_stmt->bind_param("iii", $quantity_diff, $old_info['product_id'], $old_info['store_id']);
-                        $inv_stmt->execute();
-                        $inv_stmt->close();
-                        
-                        // 재고 트랜잭션 로그 기록
-                        try {
-                            // inventory_id를 먼저 조회
-                            $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
-                            $inv_id_stmt->bind_param("ii", $old_info['product_id'], $old_info['store_id']);
-                            $inv_id_stmt->execute();
-                            $inv_id_result = $inv_id_stmt->get_result();
-                            
-                            if ($inv_row = $inv_id_result->fetch_assoc()) {
-                                $trans_type = $quantity_diff > 0 ? 'IN' : 'OUT';
-                                $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, ?, ?, ?)");
-                                $remarks = "매입 상품 수정 (Purchase Item ID: {$item_id})";
-                                $trans_stmt->bind_param("iisis", $inv_row['id'], $_SESSION['user_id'], $trans_type, $quantity_diff, $remarks);
-                                $trans_stmt->execute();
-                                $trans_stmt->close();
-                            }
-                            $inv_id_stmt->close();
-                        } catch (Exception $log_error) {
-                            // 로그 기록 실패는 무시하고 계속 진행
-                            }
+                        $remarks = "매입 상품 수정 (Purchase Item ID: {$item_id})";
+                        $delta_result = inventory_apply_delta($conn, [
+                            'store_id' => (int)$old_info['store_id'],
+                            'product_id' => (int)$old_info['product_id'],
+                            'quantity_change' => $quantity_diff,
+                            'event_type' => $quantity_diff > 0 ? 'PURCHASE_IN' : 'REVERSAL_OUT',
+                            'source_type' => 'purchase_item_edit',
+                            'source_id' => inventory_ledger_scoped_source_id($item_id),
+                            'user_id' => $_SESSION['user_id'] ?? null,
+                            'remarks' => $remarks,
+                            'manage_transaction' => false,
+                        ]);
+                        if ($delta_result['success'] && !$delta_result['skipped']) {
+                            // 재고 트랜잭션 로그 기록 (전환 기간 동안 기존 로그도 보존, Design §8)
+                            try {
+                                // inventory_id를 먼저 조회
+                                $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
+                                $inv_id_stmt->bind_param("ii", $old_info['product_id'], $old_info['store_id']);
+                                $inv_id_stmt->execute();
+                                $inv_id_result = $inv_id_stmt->get_result();
+
+                                if ($inv_row = $inv_id_result->fetch_assoc()) {
+                                    $trans_type = $quantity_diff > 0 ? 'IN' : 'OUT';
+                                    $trans_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, ?, ?, ?)");
+                                    $trans_stmt->bind_param("iisis", $inv_row['id'], $_SESSION['user_id'], $trans_type, $quantity_diff, $remarks);
+                                    $trans_stmt->execute();
+                                    $trans_stmt->close();
+                                }
+                                $inv_id_stmt->close();
+                            } catch (Exception $log_error) {
+                                // 로그 기록 실패는 무시하고 계속 진행
+                                }
+                        }
                     }
                 }
                 
@@ -1322,6 +1362,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if (!$stmt_item->execute()) {
                 throw new Exception(t('purchase.js_item_save_failed_prefix') . $stmt_item->error);
             }
+            $new_item_id = $conn->insert_id; // 신규 purchase_items 행 id(원장 source_id로 사용)
             $stmt_item->close();
 
             // 3. 실제 입고 수량 계산 (박스/낱개 구분)
@@ -1338,23 +1379,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $pieces_stmt->close();
             }
             
-            // 4. inventory 테이블 업데이트
+            // 4. inventory 테이블 업데이트 — 공통 재고 서비스를 거친다(Design §3.1).
             if ($user_info && $user_info['store_id']) {
                 $store_id = $user_info['store_id'];
+                $remarks = "매입 상품 추가 (Purchase ID: {$purchase_id})";
 
-                // ON DUPLICATE KEY UPDATE를 사용하여 원자적 작업 처리
-                $inv_insert_stmt = $conn->prepare("
-                    INSERT INTO inventory (product_id, store_id, quantity, cost_price)
-                    VALUES (?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                    quantity = quantity + ?,
-                    cost_price = ?
-                ");
-                $inv_insert_stmt->bind_param("iididi", $product_id, $store_id, $actual_quantity, $final_unit_price, $actual_quantity, $final_unit_price);
-                if (!$inv_insert_stmt->execute()) {
-                    throw new Exception(t('purchase.js_inventory_update_failed') . ": " . $inv_insert_stmt->error);
+                if ($actual_quantity > 0) {
+                    $delta_result = inventory_apply_delta($conn, [
+                        'store_id' => (int)$store_id,
+                        'product_id' => (int)$product_id,
+                        'quantity_change' => $actual_quantity,
+                        'event_type' => 'PURCHASE_IN',
+                        'source_type' => 'purchase_item_add',
+                        'source_id' => (int)$new_item_id,
+                        'user_id' => $_SESSION['user_id'] ?? null,
+                        'remarks' => $remarks,
+                        'manage_transaction' => false,
+                    ]);
+                    if (!$delta_result['success']) {
+                        throw new Exception(t('purchase.js_inventory_update_failed') . ": " . $delta_result['error']);
+                    }
                 }
-                $inv_insert_stmt->close();
+
+                // 원가(cost_price)는 재고 원장과 별개로 항상 최신 매입단가로 갱신한다(기존 동작 유지).
+                $cost_stmt = $conn->prepare("
+                    INSERT INTO inventory (product_id, store_id, quantity, cost_price)
+                    VALUES (?, ?, 0, ?)
+                    ON DUPLICATE KEY UPDATE cost_price = VALUES(cost_price)
+                ");
+                $cost_stmt->bind_param("iid", $product_id, $store_id, $final_unit_price);
+                if (!$cost_stmt->execute()) {
+                    throw new Exception(t('purchase.js_inventory_update_failed') . ": " . $cost_stmt->error);
+                }
+                $cost_stmt->close();
 
                 // 방금 삽입/업데이트된 inventory 레코드의 ID 조회
                 $inv_id_stmt = $conn->prepare("SELECT id FROM inventory WHERE product_id = ? AND store_id = ?");
@@ -1368,9 +1425,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
                 $inv_id_stmt->close();
 
-                // 5. inventory_transactions 로그 기록
+                // 5. inventory_transactions 로그 기록 (전환 기간 동안 기존 로그도 보존, Design §8)
                 $transaction_stmt = $conn->prepare("INSERT INTO inventory_transactions (inventory_id, user_id, transaction_type, quantity_change, remarks) VALUES (?, ?, '입고', ?, ?)");
-                $remarks = "매입 상품 추가 (Purchase ID: {$purchase_id})";
                 $transaction_stmt->bind_param("iiis", $inventory_id, $_SESSION['user_id'], $actual_quantity, $remarks);
                 if (!$transaction_stmt->execute()) {
                     throw new Exception(t('purchase.js_transaction_log_save_failed') . $transaction_stmt->error);

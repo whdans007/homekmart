@@ -11,6 +11,7 @@ require_once __DIR__ . '/../../../lib/session_helper.php';
 require_once __DIR__ . '/../../../lib/permission_helper.php';
 require_once __DIR__ . '/../../../config/db_config.php';
 require_once __DIR__ . '/../../lib/csrf.php';
+require_once __DIR__ . '/../../../lib/inventory_service.php';
 
 function json_error($code, $message, $http = 400) {
     http_response_code($http);
@@ -43,7 +44,7 @@ $cancellable_statuses = ['pending', 'confirmed', 'preparing', 'ready'];
 try {
     $conn = get_db_connection();
 
-    $check = $conn->prepare('SELECT status FROM mall_orders WHERE id = ?');
+    $check = $conn->prepare('SELECT status, store_id, order_number FROM mall_orders WHERE id = ?');
     $check->bind_param('i', $order_id);
     $check->execute();
     $order = $check->get_result()->fetch_assoc();
@@ -58,16 +59,48 @@ try {
         json_error('INVALID_STATE_TRANSITION', '배송기사가 배정되기 전(접수대기~준비완료) 주문만 취소할 수 있습니다');
     }
 
+    $conn->begin_transaction();
+
     $stmt = $conn->prepare(
         "UPDATE mall_orders SET status = 'cancelled', cancel_reason = ?, cancelled_at = NOW() WHERE id = ?"
     );
     $stmt->bind_param('si', $reason, $order_id);
     $stmt->execute();
     $stmt->close();
+
+    // Design §4.3: 취소 시 주문 생성 시점에 반영했던 MALL_OUT을 RETURN_IN으로 복구한다.
+    // 신선상품(mall_fresh_order_items)은 재고 원장 대상 외(Plan §3 제외)라 여기서 다루지 않는다.
+    $items_stmt = $conn->prepare('SELECT id, product_id, quantity FROM mall_order_items WHERE order_id = ?');
+    $items_stmt->bind_param('i', $order_id);
+    $items_stmt->execute();
+    $items = $items_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $items_stmt->close();
+
+    foreach ($items as $order_item) {
+        $restore_result = inventory_apply_delta($conn, [
+            'store_id' => (int)$order['store_id'],
+            'product_id' => (int)$order_item['product_id'],
+            'quantity_change' => (float)$order_item['quantity'],
+            'event_type' => 'RETURN_IN',
+            'source_type' => 'mall_order_item_cancel',
+            'source_id' => (int)$order_item['id'],
+            'remarks' => "몰 주문 취소 복구 (Order: {$order['order_number']})",
+            'manage_transaction' => false,
+        ]);
+        if (!$restore_result['success']) {
+            throw new Exception('재고 복구 중 오류가 발생했습니다: ' . $restore_result['error']);
+        }
+    }
+
+    $conn->commit();
     $conn->close();
 
     echo json_encode(['success' => true, 'data' => ['order_id' => $order_id, 'status' => 'cancelled']]);
 } catch (Exception $e) {
+    if (isset($conn) && $conn->ping()) {
+        $conn->rollback();
+        $conn->close();
+    }
     error_log('cancel_order.php error: ' . $e->getMessage());
     json_error('SERVER_ERROR', '처리 중 오류가 발생했습니다', 500);
 }

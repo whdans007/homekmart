@@ -3,6 +3,23 @@ require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = '외상거래 명세 - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
+require_once __DIR__ . '/../lib/inventory_ledger.php';
+
+function ct_preview_actual_piece_quantity(PDO $pdo, int $product_id, float $quantity, string $sale_unit): float
+{
+    static $pieces_cache = [];
+    if (!array_key_exists($product_id, $pieces_cache)) {
+        $stmt = $pdo->prepare('SELECT pieces_per_box FROM products WHERE id = ?');
+        $stmt->execute([$product_id]);
+        $pieces_cache[$product_id] = (int)($stmt->fetchColumn() ?: 1);
+        if ($pieces_cache[$product_id] <= 0) {
+            $pieces_cache[$product_id] = 1;
+        }
+    }
+    return $sale_unit === 'box'
+        ? round($quantity * $pieces_cache[$product_id], 2)
+        : round($quantity, 2);
+}
 
 if (!has_permission('wholesale_management')) {
     $_SESSION['flash'] = ['type' => 'error', 'message' => t('messages.permission_denied')];
@@ -74,6 +91,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
                     ];
                 } else {
                     $pdo->beginTransaction();
+                    $delete_items_stmt = $pdo->prepare("SELECT id, product_id, quantity, sale_unit FROM credit_transaction_items WHERE transaction_id = ?");
+                    $delete_items_stmt->execute([$del_id]);
+                    $delete_items = $delete_items_stmt->fetchAll(PDO::FETCH_ASSOC);
+                    $delete_store_id_stmt = $pdo->prepare("SELECT store_id FROM credit_transactions WHERE id = ?");
+                    $delete_store_id_stmt->execute([$del_id]);
+                    $delete_store_id = (int)$delete_store_id_stmt->fetchColumn();
+
+                    // 외상판매 삭제/취소 시 확정 때 차감했던 재고를 품목별로 복원한다.
+                    foreach ($delete_items as $delete_item) {
+                        if (empty($delete_item['product_id'])) {
+                            continue;
+                        }
+                        $restore_qty = ct_preview_actual_piece_quantity(
+                            $pdo,
+                            (int)$delete_item['product_id'],
+                            (float)$delete_item['quantity'],
+                            $delete_item['sale_unit'] ?? 'box'
+                        );
+                        if ($restore_qty > 0) {
+                            inventory_apply_delta_pdo(
+                                $pdo,
+                                'credit_transaction_item_delete',
+                                (int)$delete_item['id'],
+                                $delete_store_id,
+                                (int)$delete_item['product_id'],
+                                $restore_qty,
+                                'RETURN_IN',
+                                (int)($_SESSION['user_id'] ?? 0) ?: null,
+                                "외상판매 삭제 복원 (Transaction ID: {$del_id})"
+                            );
+                        }
+                    }
                     $pdo->prepare("DELETE FROM credit_transaction_items WHERE transaction_id = ?")->execute([$del_id]);
                     $pdo->prepare("DELETE FROM credit_transactions WHERE id = ?")->execute([$del_id]);
                     $pdo->commit();

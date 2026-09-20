@@ -3,6 +3,25 @@ require_once __DIR__ . '/../lib/lang_helper.php';
 $page_title = '외상거래 입력 - ' . t('company.name');
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../config/db_config.php';
+require_once __DIR__ . '/../lib/inventory_ledger.php';
+
+/**
+ * 외상거래 품목의 판매수량(box/piece)을 재고 원장 기준 낱개 수량으로 환산한다.
+ * Design §4.2 박스→낱개 환산과 동일 규칙. admin/wholesale_sales.php의 ws_actual_piece_quantity()와 동일.
+ */
+function ct_actual_piece_quantity(PDO $pdo, int $product_id, float $quantity, string $sale_unit): float
+{
+    static $pieces_cache = [];
+    if (!isset($pieces_cache[$product_id])) {
+        $stmt = $pdo->prepare('SELECT pieces_per_box FROM products WHERE id = ?');
+        $stmt->execute([$product_id]);
+        $pieces_cache[$product_id] = (int)($stmt->fetchColumn() ?: 1);
+        if ($pieces_cache[$product_id] <= 0) {
+            $pieces_cache[$product_id] = 1;
+        }
+    }
+    return $sale_unit === 'box' ? round($quantity * $pieces_cache[$product_id], 2) : round($quantity, 2);
+}
 
 // 외상거래(도매판매) 권한 확인
 if (!has_permission('wholesale_management')) {
@@ -133,6 +152,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $update->execute([$customer_id, $store_id, $transaction_date, $total_amount, $total_amount, $notes, $edit_tx_id_post]);
 
+                // Design §4.5: 기존 품목의 CREDIT_OUT을 원복(RETURN_IN)한 뒤 새 품목으로 다시 반영한다.
+                $old_items_stmt = $pdo->prepare("SELECT id, product_id, quantity, sale_unit, transaction_id FROM credit_transaction_items WHERE transaction_id = ?");
+                $old_items_stmt->execute([$edit_tx_id_post]);
+                $old_tx_store_stmt = $pdo->prepare("SELECT store_id FROM credit_transactions WHERE id = ?");
+                $old_tx_store_stmt->execute([$edit_tx_id_post]);
+                $old_store_id = (int)($old_tx_store_stmt->fetchColumn() ?: $store_id);
+                foreach ($old_items_stmt->fetchAll(PDO::FETCH_ASSOC) as $old_item) {
+                    if (empty($old_item['product_id'])) {
+                        continue; // 수기 상품은 재고 제외(Design §4.5)
+                    }
+                    $old_actual_qty = ct_actual_piece_quantity($pdo, (int)$old_item['product_id'], (float)$old_item['quantity'], $old_item['sale_unit'] ?? 'box');
+                    if ($old_actual_qty > 0) {
+                        inventory_apply_delta_pdo($pdo, 'credit_transaction_item_edit_restore', (int)$old_item['id'], $old_store_id, (int)$old_item['product_id'], $old_actual_qty, 'RETURN_IN', (int)$_SESSION['user_id'], "외상거래 수정 원복 (Transaction ID: {$edit_tx_id_post})");
+                    }
+                }
+
                 $pdo->prepare("DELETE FROM credit_transaction_items WHERE transaction_id = ?")->execute([$edit_tx_id_post]);
                 $tx_id = $edit_tx_id_post;
                 $success_msg = '외상거래가 수정되었습니다.';
@@ -169,6 +204,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $item['remarks'] ?? '',
                     (int)$sort_index
                 ]);
+
+                // Design §4.5: 외상 확정 시 CREDIT_OUT 반영. 수기 상품(product_id 없음)은 재고 제외.
+                if (!$is_manual) {
+                    $new_item_id = (int)$pdo->lastInsertId();
+                    $actual_qty = ct_actual_piece_quantity($pdo, $product_id, (float)$item['quantity'], $item['sale_unit'] ?? 'box');
+                    if ($actual_qty > 0) {
+                        inventory_apply_delta_pdo($pdo, 'credit_transaction_item', $new_item_id, (int)$store_id, $product_id, -$actual_qty, 'CREDIT_OUT', (int)$_SESSION['user_id'], "외상거래 (Transaction ID: {$tx_id})");
+                    }
+                }
             }
 
             $pdo->commit();
@@ -780,7 +824,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('ajax_search_wholesale_products.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'q=' + encodeURIComponent(query) + '&limit=10'
+            body: 'q=' + encodeURIComponent(query) + '&limit=10&customer_id=' + ((document.getElementById('customer_id') || {}).value || 0) + '&margin_rate=' + encodeURIComponent((parseFloat(document.getElementById('margin_rate')?.value) || 15))
         })
         .then(r => r.json())
         .then(data => {
@@ -814,6 +858,36 @@ document.addEventListener('DOMContentLoaded', function() {
         bindNewCustomerBtns();
     }
 
+    function buildPriceChipsHtml(priceRef) {
+        if (!priceRef) return '';
+        const chips = [
+            { key: 'registered', label: '등록가', value: priceRef.registered ? priceRef.registered.box : null },
+            { key: 'existing', label: '기존판매가', value: priceRef.existing ? priceRef.existing.box : null },
+            { key: 'normal', label: '정상도매가', value: priceRef.normal ? priceRef.normal.box : null }
+        ];
+        let defaultKey = 'normal';
+        if (chips[0].value > 0) defaultKey = 'registered';
+        else if (chips[1].value > 0) defaultKey = 'existing';
+        return '<div class="flex flex-wrap gap-1.5 mt-1.5">' + chips.map(function(chip) {
+            const enabled = Number(chip.value) > 0;
+            const selected = enabled && chip.key === defaultKey;
+            const cls = !enabled
+                ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200'
+                : (selected ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50');
+            const attrs = enabled
+                ? 'data-price-value="' + chip.value + '" onclick="event.stopPropagation(); applyPriceChip(this);"'
+                : 'disabled';
+            return '<button type="button" class="price-chip-btn ' + cls + ' text-xs px-2 py-1 rounded border font-medium leading-tight text-left" ' + attrs + '>'
+                + chip.label + '<br><span class="font-mono">' + (enabled ? Number(chip.value).toLocaleString() : '-') + '</span></button>';
+        }).join('') + '</div>';
+    }
+
+    window.applyPriceChip = function(btn) {
+        const item = btn.closest('.product-item');
+        const price = Number(btn.dataset.priceValue) || 0;
+        if (item && price > 0) addToCartFromSearch(item, price);
+    };
+
     function displayProductResults(products) {
         let html = '';
         const fmtPrice = function(v) { return (v && Number(v) > 0) ? Number(v).toLocaleString() : '-'; };
@@ -831,6 +905,7 @@ document.addEventListener('DOMContentLoaded', function() {
                          data-id="${product.id}" data-sku="${displaySkus}" data-name-ko="${product.display_name_ko || ''}" data-name-en="${product.display_name_en || ''}"
                          data-wholesale-price="${product.wholesale_price}" data-wholesale-price-piece="${product.wholesale_price_piece || 0}" data-min-quantity="${product.min_quantity}"
                          data-cost-price="${product.cost_price || 0}" data-cost-box="${product.wp_cost_box || 0}" data-cost-piece="${product.wp_cost_piece || 0}"
+                         data-price-ref="${escapeAttr(JSON.stringify(product.price_ref || {}))}"
                          data-selling-price="${product.selling_price || 0}" data-registered="true">
                         <div class="font-medium text-gray-900">${product.display_name_en || product.display_name_ko || 'N/A'}
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 ml-2">도매상품</span></div>
@@ -852,7 +927,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="p-3 hover:bg-yellow-50 cursor-pointer border-b border-gray-100 last:border-b-0 product-item bg-yellow-50 border-l-4 border-l-yellow-400"
                          data-id="${product.id}" data-sku="${product.sku}" data-name-ko="${product.display_name_ko || ''}" data-name-en="${product.display_name_en || ''}"
                          data-cost-price="${costPrice}" data-selling-price="${product.selling_price || 0}" data-suggested-price="${suggestedPrice}"
-                         data-min-quantity="${product.product_pieces_per_box || 1}" data-registered="false">
+                         data-min-quantity="${product.product_pieces_per_box || 1}"
+                         data-price-ref="${escapeAttr(JSON.stringify(product.price_ref || {}))}" data-registered="false">
                         <div class="font-medium text-gray-900">${product.display_name_en || product.display_name_ko || 'N/A'}
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 ml-2">미등록</span></div>
                         <div class="text-sm text-gray-600">${product.display_name_ko && product.display_name_en && product.display_name_ko !== product.display_name_en ? product.display_name_ko : ''}</div>
@@ -862,16 +938,25 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         productSearchResults.innerHTML = html;
         productSearchResults.classList.remove('hidden');
+        productSearchResults.querySelectorAll('.product-item').forEach(function(item) {
+            try {
+                const priceRef = JSON.parse(item.dataset.priceRef || '{}');
+                if (priceRef && Object.keys(priceRef).length) {
+                    item.insertAdjacentHTML('beforeend', buildPriceChipsHtml(priceRef));
+                }
+            } catch (e) { /* 가격 참고값이 없으면 기존 카드만 표시 */ }
+        });
         document.querySelectorAll('.product-item').forEach(function(item) {
             item.addEventListener('click', function() { addToCartFromSearch(this); });
         });
     }
 
-    function addToCartFromSearch(item) {
+    function addToCartFromSearch(item, forcedPrice) {
         const isRegistered = item.dataset.registered === 'true';
         const productData = {
             product_id: item.dataset.id, sku: item.dataset.sku, name_ko: item.dataset.nameKo, name_en: item.dataset.nameEn,
-            min_quantity: parseInt(item.dataset.minQuantity) || 1, is_registered: isRegistered
+            min_quantity: parseInt(item.dataset.minQuantity) || 1, is_registered: isRegistered,
+            price_ref: (function() { try { return JSON.parse(item.dataset.priceRef || '{}'); } catch (e) { return null; } })()
         };
         if (isRegistered) {
             productData.wholesale_price = parseFloat(item.dataset.wholesalePrice);
@@ -889,11 +974,17 @@ document.addEventListener('DOMContentLoaded', function() {
             if (costPrice <= 0 && sellingPrice > 0) { productData.wholesale_price = Math.round(sellingPrice * 0.9); }
             else { productData.wholesale_price = parseFloat(item.dataset.suggestedPrice); }
             productData.wholesale_price_piece = 0;
+            productData.cost_piece = costPrice;
+            productData.cost_box = costPrice * (productData.min_quantity || 1);
             productData.cost_price = costPrice;
             productData.selling_price = sellingPrice;
             productData.margin_rate = marginRate;
         }
-        addProductToCartDirect(productData);
+        if (Number(forcedPrice) > 0) {
+            addToCart(productData, Number(forcedPrice));
+        } else {
+            addProductToCartDirect(productData);
+        }
         productSearchResults.classList.add('hidden');
         productSearch.value = '';
         productSearch.focus();
@@ -933,7 +1024,22 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => { console.error('Error:', error); showNotification(translations.barcode_error, 'error'); productSearch.value = ''; productSearch.focus(); });
     }
 
+    function pickPriceRefForUnit(priceRef, unit) {
+        if (!priceRef) return null;
+        const order = ['registered', 'existing', 'normal'];
+        for (let i = 0; i < order.length; i++) {
+            const ref = priceRef[order[i]];
+            const value = ref ? parseFloat(ref[unit]) : NaN;
+            if (!isNaN(value) && value > 0) return value;
+        }
+        return null;
+    }
+
     function addProductToCartDirect(product) {
+        if (product.price_ref) {
+            const defaultPrice = pickPriceRefForUnit(product.price_ref, 'box');
+            if (defaultPrice !== null) return addToCart(product, defaultPrice);
+        }
         const costPrice = parseFloat(product.cost_price) || 0;
         const sellingPrice = parseFloat(product.selling_price) || 0;
         if (product.is_registered && (costPrice > 0 || sellingPrice > 0)) {
@@ -952,12 +1058,23 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification(translations.qty_increased, 'success');
             targetIndex = existingIndex;
         } else {
+            // wholesale_price는 박스 판매가, wholesale_price_piece는 낱개 판매가로 분리한다.
+            // 박스 판매가가 비어 있는 레거시 상품은 낱개가 × 박스입수로 보정한다.
+            const piecesPerBox = Number(product.min_quantity) > 0 ? Number(product.min_quantity) : 1;
+            const piecePrice = Number(product.wholesale_price_piece) || 0;
+            // 칩에서 선택한 가격(forcedPrice/price_ref)을 기본 상품가보다 우선 적용한다.
+            let boxPrice = Number(price) > 0 ? Number(price) : (Number(product.wholesale_price) || 0);
+            if (boxPrice <= 0 && piecePrice > 0) {
+                boxPrice = piecePrice * piecesPerBox;
+            }
+            const pieceCost = Number(product.cost_piece) > 0 ? Number(product.cost_piece) : (Number(product.cost_price) || 0);
+            const boxCost = Number(product.cost_box) > 0 ? Number(product.cost_box) : pieceCost * piecesPerBox;
             cart.push({
                 product_id: product.product_id, sku: product.sku, name_ko: product.name_ko, name_en: product.name_en,
-                unit_price: price, quantity: 1, total_price: price * 1, min_quantity: product.min_quantity,
-                wholesale_price: price, wholesale_price_piece: product.wholesale_price_piece || 0,
-                cost_price: product.cost_box || product.cost_price || 0, cost_price_piece: product.cost_piece || 0,
-                selling_price: product.selling_price || 0, sale_unit: 'box'
+                unit_price: boxPrice, quantity: 1, total_price: boxPrice, min_quantity: piecesPerBox,
+                wholesale_price: boxPrice, wholesale_price_piece: piecePrice,
+                cost_price: boxCost, cost_price_piece: pieceCost,
+                selling_price: product.selling_price || 0, price_ref: product.price_ref || null, sale_unit: 'box'
             });
             if (!product.is_registered) { showNotification(translations.unregistered_margin.replace('{rate}', product.margin_rate), 'info'); }
             else { showNotification(translations.product_added, 'success'); }
@@ -1078,13 +1195,16 @@ document.addEventListener('DOMContentLoaded', function() {
     window.setCartUnit = function(index, unit) {
         const it = cart[index];
         it.sale_unit = (unit === 'piece') ? 'piece' : 'box';
-        const boxPrice = parseFloat(it.wholesale_price) || 0;
-        const piecePrice = parseFloat(it.wholesale_price_piece) || 0;
+        const refPrice = pickPriceRefForUnit(it.price_ref, it.sale_unit);
+        const boxPrice = refPrice !== null && it.sale_unit === 'box' ? refPrice : (parseFloat(it.wholesale_price) || 0);
+        const piecePrice = refPrice !== null && it.sale_unit === 'piece' ? refPrice : (parseFloat(it.wholesale_price_piece) || 0);
         if (it.sale_unit === 'piece') {
             if (piecePrice > 0) { it.unit_price = piecePrice; }
             else { showNotification('낱개 판매가가 없습니다. 판매가를 직접 입력하세요.', 'info'); }
         } else {
-            if (boxPrice > 0) { it.unit_price = boxPrice; }
+            const calculatedBoxPrice = boxPrice > 0 ? boxPrice : piecePrice * (Number(it.min_quantity) > 0 ? Number(it.min_quantity) : 1);
+            if (calculatedBoxPrice > 0) { it.unit_price = calculatedBoxPrice; }
+            else { showNotification('박스 판매가가 없습니다. 판매가를 직접 입력하세요.', 'info'); }
         }
         it.total_price = it.quantity * it.unit_price;
         updateCart();
@@ -1113,7 +1233,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadAllProducts() {
         productList.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>' + translations.loading + '</div>';
         fetch('ajax_search_wholesale_products.php', {
-            method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'q=&limit=100&show_all=1'
+            method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'q=&limit=100&show_all=1&customer_id=' + ((document.getElementById('customer_id') || {}).value || 0)
         })
         .then(r => r.json())
         .then(data => {
@@ -1164,7 +1284,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="modal-product-item p-3 border border-gray-200 rounded-md hover:bg-green-50 cursor-pointer transition-colors duration-200"
                      data-id="${product.id}" data-sku="${displaySkus}" data-name-ko="${product.display_name_ko || ''}" data-name-en="${product.display_name_en || ''}"
                      data-wholesale-price="${product.wholesale_price}" data-wholesale-price-piece="${product.wholesale_price_piece || 0}" data-min-quantity="${product.min_quantity}"
-                     data-cost-price="${product.cost_price || 0}" data-cost-box="${product.wp_cost_box || 0}" data-cost-piece="${product.wp_cost_piece || 0}" data-selling-price="${product.selling_price || 0}">
+                     data-cost-price="${product.cost_price || 0}" data-cost-box="${product.wp_cost_box || 0}" data-cost-piece="${product.wp_cost_piece || 0}" data-selling-price="${product.selling_price || 0}"
+                     data-price-ref="${escapeAttr(JSON.stringify(product.price_ref || {}))}">
                     <div class="flex items-center justify-between">
                         <div class="flex-1 min-w-0">
                             <div class="font-medium text-gray-900 text-sm truncate">${product.display_name_en || product.display_name_ko || 'N/A'}</div>
@@ -1205,13 +1326,20 @@ document.addEventListener('DOMContentLoaded', function() {
             cart[existingIndex].quantity += 1;
             cart[existingIndex].total_price = cart[existingIndex].quantity * cart[existingIndex].unit_price;
         } else {
-            const wholesalePrice = parseFloat(item.dataset.wholesalePrice);
+            const piecesPerBox = parseInt(item.dataset.minQuantity) || 1;
+            const piecePrice = parseFloat(item.dataset.wholesalePricePiece) || 0;
+            let wholesalePrice = parseFloat(item.dataset.wholesalePrice) || 0;
+            if (wholesalePrice <= 0 && piecePrice > 0) {
+                wholesalePrice = piecePrice * piecesPerBox;
+            }
             cart.push({
                 product_id: productId, sku: item.dataset.sku, name_ko: item.dataset.nameKo, name_en: item.dataset.nameEn,
-                unit_price: wholesalePrice, quantity: 1, total_price: wholesalePrice * 1, min_quantity: parseInt(item.dataset.minQuantity) || 1,
-                wholesale_price: wholesalePrice, wholesale_price_piece: parseFloat(item.dataset.wholesalePricePiece) || 0,
+                unit_price: wholesalePrice, quantity: 1, total_price: wholesalePrice, min_quantity: piecesPerBox,
+                wholesale_price: wholesalePrice, wholesale_price_piece: piecePrice,
                 cost_price: parseFloat(item.dataset.costBox) || parseFloat(item.dataset.costPrice) || 0, cost_price_piece: parseFloat(item.dataset.costPiece) || 0,
-                selling_price: parseFloat(item.dataset.sellingPrice) || 0, sale_unit: 'box'
+                selling_price: parseFloat(item.dataset.sellingPrice) || 0,
+                price_ref: (function() { try { return JSON.parse(item.dataset.priceRef || '{}'); } catch (e) { return null; } })(),
+                sale_unit: 'box'
             });
         }
         updateCart();
