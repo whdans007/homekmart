@@ -10,7 +10,7 @@ function lc_fifo_deduct(mysqli $conn, int $product_id, int $qty_needed): bool {
          FROM lc_inventory i
          JOIN lc_inbound ib ON i.inbound_id = ib.id
          WHERE i.product_id = ? AND i.quantity_remain > 0
-         ORDER BY i.expiry_date ASC, i.id ASC
+         ORDER BY COALESCE(i.expiry_date, ib.inbound_date) ASC, i.id ASC
          FOR UPDATE"
     );
     $stmt->bind_param('i', $product_id);
@@ -44,7 +44,7 @@ function lc_fifo_ship(mysqli $conn, int $product_id, int $qty_needed): array|fal
          FROM lc_inventory i
          JOIN lc_inbound b ON i.inbound_id = b.id
          WHERE i.product_id = ? AND i.quantity_remain > 0
-         ORDER BY i.expiry_date ASC, i.id ASC
+         ORDER BY COALESCE(i.expiry_date, b.inbound_date) ASC, i.id ASC
          FOR UPDATE"
     );
     $stmt->bind_param('i', $product_id);
@@ -92,7 +92,7 @@ function lc_fifo_ship_allow_negative(mysqli $conn, int $product_id, int $qty_nee
          JOIN lc_inbound b ON i.inbound_id = b.id
          WHERE i.product_id = ? AND i.quantity_remain > 0
            AND i.id NOT IN (SELECT inventory_id FROM lc_lot_promotions WHERE status = 'active')
-         ORDER BY i.expiry_date ASC, i.id ASC
+         ORDER BY COALESCE(i.expiry_date, b.inbound_date) ASC, i.id ASC
          FOR UPDATE"
     );
     $stmt->bind_param('i', $product_id);

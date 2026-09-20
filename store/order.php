@@ -284,6 +284,7 @@ try {
 
     // 재고 확정 상태 상관없이 재고를 집계하되, 음수 LOT도 포함한 순재고 기준으로 노출합니다.
     // 단위(BOX/PACK/PCS)별 재고와 단가를 분리 집계합니다.
+    $lot_prices = [];
     $products = $conn->query(
         "SELECT p.id, p.name_en, p.name_ko, p.unit, p.pieces_per_box, p.capacity,
                 {$img_select}
@@ -332,6 +333,30 @@ try {
                   MIN(CASE WHEN i.quantity_remain > 0 THEN ib.expiry_date END) ASC,
                   MAX(ib.created_at) DESC, c.name_en ASC, p.name_en ASC"
     )->fetch_all(MYSQLI_ASSOC);
+
+    // 표시 가격은 전체 재고 평균이 아니라 실제 선출고 순서의 LOT별 단가를 보여준다.
+    // 실제 출고 함수와 동일하게 유통기한 우선, 유통기한이 없으면 입고일 우선으로 정렬한다.
+    $lot_res = $conn->query(
+        "SELECT i.product_id, i.unit, i.id AS inventory_id, i.quantity_remain,
+                ib.cost_price, ib.inbound_date, ib.expiry_date
+         FROM lc_inventory i
+         JOIN lc_inbound ib ON ib.id = i.inbound_id
+         JOIN lc_products p ON p.id = i.product_id
+         WHERE i.quantity_remain > 0 AND p.is_active = 1
+         ORDER BY i.product_id, i.unit,
+                  COALESCE(ib.expiry_date, ib.inbound_date) ASC, i.id ASC"
+    );
+    if ($lot_res) {
+        while ($lot = $lot_res->fetch_assoc()) {
+            $pid = (int)$lot['product_id'];
+            $unit = strtoupper((string)$lot['unit']);
+            $lot_prices[$pid][$unit][] = [
+                'qty'   => (int)$lot['quantity_remain'],
+                'price' => (float)$lot['cost_price'],
+            ];
+        }
+        $lot_res->free();
+    }
 
     $conn->close();
 } catch (Exception $e) {
@@ -609,6 +634,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $qty          = ($prevItem && $prevItem['unit'] === $defaultUnit) ? $prevItem['qty'] : 0;
             $defaultMax   = $stockByUnit[$defaultUnit];
             $defaultPrice = $priceByUnit[$defaultUnit];
+            $defaultSubtotal = 0.0;
+            $remainingQty = $qty;
+            foreach (($lot_prices[(int)$p['id']][$defaultUnit] ?? []) as $lot) {
+                if ($remainingQty <= 0) break;
+                $take = min($remainingQty, (int)$lot['qty']);
+                $defaultSubtotal += $take * (float)$lot['price'];
+                $remainingQty -= $take;
+            }
+            if ($remainingQty > 0) $defaultSubtotal = $qty * $defaultPrice;
         ?>
         <tr class="product-row hover:bg-teal-50 transition-colors"
             data-cat="<?php echo $p['category_id'] ?? ''; ?>"
@@ -675,13 +709,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
             </td>
             <td class="px-4 py-3 text-right text-xs text-gray-500 font-mono">
-                <?php echo $p['pcs_price'] > 0 ? number_format($p['pcs_price'], 2) : '-'; ?>
+                <?php $pcsLots = $lot_prices[(int)$p['id']]['PCS'] ?? []; ?>
+                <?php if ($pcsLots): foreach ($pcsLots as $li => $lot): ?>
+                <div class="whitespace-nowrap <?php echo $li === 0 ? 'text-amber-700 font-semibold' : ''; ?>">
+                    <?php if ($li === 0): ?><span class="mr-1 text-[10px]">우선출고</span><?php endif; ?>
+                    <?php echo number_format($lot['price'], 2); ?> <span class="text-gray-400">×<?php echo number_format($lot['qty']); ?></span>
+                </div>
+                <?php endforeach; else: ?>-<?php endif; ?>
             </td>
             <td class="px-4 py-3 text-right text-xs text-gray-500 font-mono">
-                <?php echo $p['box_price'] > 0 ? number_format($p['box_price'], 2) : '-'; ?>
+                <?php $boxLots = $lot_prices[(int)$p['id']]['BOX'] ?? []; ?>
+                <?php if ($boxLots): foreach ($boxLots as $li => $lot): ?>
+                <div class="whitespace-nowrap <?php echo $li === 0 ? 'text-amber-700 font-semibold' : ''; ?>">
+                    <?php if ($li === 0): ?><span class="mr-1 text-[10px]">우선출고</span><?php endif; ?>
+                    <?php echo number_format($lot['price'], 2); ?> <span class="text-gray-400">×<?php echo number_format($lot['qty']); ?></span>
+                </div>
+                <?php endforeach; else: ?>-<?php endif; ?>
             </td>
             <td class="px-4 py-3 text-right text-xs text-gray-500 font-mono">
-                <?php echo $p['pack_price'] > 0 ? number_format($p['pack_price'], 2) : '-'; ?>
+                <?php $packLots = $lot_prices[(int)$p['id']]['PACK'] ?? []; ?>
+                <?php if ($packLots): foreach ($packLots as $li => $lot): ?>
+                <div class="whitespace-nowrap <?php echo $li === 0 ? 'text-amber-700 font-semibold' : ''; ?>">
+                    <?php if ($li === 0): ?><span class="mr-1 text-[10px]">우선출고</span><?php endif; ?>
+                    <?php echo number_format($lot['price'], 2); ?> <span class="text-gray-400">×<?php echo number_format($lot['qty']); ?></span>
+                </div>
+                <?php endforeach; else: ?>-<?php endif; ?>
             </td>
             <td class="px-4 py-3 text-right text-xs">
                 <?php if ($boxStock > 0): ?>
@@ -695,7 +747,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
             </td>
             <td class="px-4 py-3 text-right text-xs font-semibold text-teal-700 font-mono subtotal-cell">
-                <?php echo ($defaultPrice > 0 && $qty > 0) ? number_format($defaultPrice * $qty, 2) : '-'; ?>
+                <?php echo ($defaultSubtotal > 0 && $qty > 0) ? number_format($defaultSubtotal, 2) : '-'; ?>
             </td>
             <td class="px-2 py-2 text-center">
                 <div class="flex items-center justify-center gap-1.5">
@@ -703,6 +755,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <select name="order_unit[]" onchange="onUnitChange(this)"
                             data-box-stock="<?php echo $boxStock; ?>" data-pack-stock="<?php echo $packStock; ?>" data-pcs-stock="<?php echo $pcsStock; ?>"
                             data-box-price="<?php echo (float)$p['box_price']; ?>" data-pack-price="<?php echo (float)$p['pack_price']; ?>" data-pcs-price="<?php echo (float)$p['pcs_price']; ?>"
+                            data-lot-prices="<?php echo htmlspecialchars(json_encode([
+                                'BOX' => $boxLots,
+                                'PACK' => $packLots,
+                                'PCS' => $pcsLots,
+                            ], JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES); ?>"
                             class="border border-gray-300 rounded-md px-1 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500">
                         <?php foreach ($unitOpts as $u): ?>
                         <option value="<?php echo $u; ?>" <?php echo $u === $defaultUnit ? 'selected' : ''; ?>><?php echo $u; ?></option>
@@ -723,6 +780,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                value="<?php echo $qty; ?>"
                                data-id="<?php echo $p['id']; ?>"
                                data-price="<?php echo $defaultPrice; ?>"
+                               data-lot-prices="<?php echo htmlspecialchars(json_encode($lot_prices[(int)$p['id']] ?? [], JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES); ?>"
                                oninput="onQtyChange(this)"
                                class="qty-input w-10 text-sm text-center border-0 focus:outline-none focus:ring-0 bg-transparent font-semibold <?php echo $qty > 0 ? 'text-teal-700' : 'text-gray-700'; ?>">
                         <button type="button"
@@ -973,6 +1031,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         var price = parseFloat(priceMap[unit]) || 0;
         input.max = max;
         input.dataset.price = price;
+        input.dataset.lotPrices = sel.dataset.lotPrices || '{}';
         if ((parseInt(input.value) || 0) > max) input.value = max;
         onQtyChange(input);
     };
@@ -1078,6 +1137,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     };
 
     // ── 수량 변경 ──────────────────────────────────────────────────
+    function getLotSubtotal(input, qty) {
+        var unit = getRowUnit(input.closest('tr'));
+        var lots = {};
+        try { lots = JSON.parse(input.dataset.lotPrices || '{}'); } catch (e) {}
+        var remaining = qty;
+        var total = 0;
+        (lots[unit] || []).some(function(lot) {
+            if (remaining <= 0) return true;
+            var take = Math.min(remaining, parseInt(lot.qty) || 0);
+            total += take * (parseFloat(lot.price) || 0);
+            remaining -= take;
+            return remaining <= 0;
+        });
+        return remaining > 0 ? null : total;
+    }
+
     window.onQtyChange = function(input) {
         var qty   = parseInt(input.value) || 0;
         var price = parseFloat(input.dataset.price) || 0;
@@ -1085,7 +1160,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (qty > 0) {
             input.classList.add('border-teal-400', 'bg-teal-50', 'font-semibold');
             input.classList.remove('border-gray-300');
-            if (cell) cell.textContent = price > 0 ? (qty * price).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) : '-';
+            var lotSubtotal = getLotSubtotal(input, qty);
+            if (cell) cell.textContent = lotSubtotal !== null
+                ? lotSubtotal.toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2})
+                : (price > 0 ? (qty * price).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) : '-');
         } else {
             input.classList.remove('border-teal-400', 'bg-teal-50', 'font-semibold');
             input.classList.add('border-gray-300');
@@ -1113,7 +1191,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         document.querySelectorAll('.qty-input').forEach(function(inp) {
             var qty   = parseInt(inp.value) || 0;
             var price = parseFloat(inp.dataset.price) || 0;
-            if (qty > 0) { count++; totalQty += qty; totalAmt += qty * price; }
+            var lotSubtotal = qty > 0 ? getLotSubtotal(inp, qty) : null;
+            if (qty > 0) { count++; totalQty += qty; totalAmt += lotSubtotal !== null ? lotSubtotal : qty * price; }
         });
         document.getElementById('cartCount').textContent = count;
         document.getElementById('cartQty').textContent   = totalQty;
@@ -1154,7 +1233,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (qty > 0) {
                 var name  = row.querySelector('.font-medium').textContent.trim();
                 var price = parseFloat(inp.dataset.price) || 0;
-                items.push({ name: name, qty: qty, price: price, unit: getRowUnit(row) });
+                var lotSubtotal = getLotSubtotal(inp, qty);
+                items.push({ name: name, qty: qty, price: price, subtotal: lotSubtotal, unit: getRowUnit(row) });
             }
         });
 
@@ -1163,7 +1243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         var html = '';
         var grandTotal = 0;
         items.forEach(function(item) {
-            var sub = item.price > 0 ? item.qty * item.price : null;
+            var sub = item.subtotal !== null ? item.subtotal : (item.price > 0 ? item.qty * item.price : null);
             if (sub) grandTotal += sub;
             html += '<div class="py-2 flex justify-between items-center">' +
                     '<span class="text-gray-700 flex-1">' + escHtml(item.name) + '</span>' +
