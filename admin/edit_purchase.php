@@ -2329,7 +2329,9 @@ const lang = {
     js_confirm_delete_item: <?php echo json_encode(t('purchase.js_confirm_delete_item')); ?>,
     js_confirm_delete_purchase: <?php echo json_encode(t('purchase.js_confirm_delete_purchase')); ?>,
     js_discount_rate_invalid: <?php echo json_encode(t('purchase.js_discount_rate_invalid')); ?>,
-    js_confirm_apply_discount: <?php echo json_encode(t('purchase.js_confirm_apply_discount')); ?>
+    js_confirm_apply_discount: <?php echo json_encode(t('purchase.js_confirm_apply_discount')); ?>,
+    js_confirm_purchase_message: <?php echo json_encode(t('purchase.js_confirm_purchase_message')); ?>,
+    js_cancel_confirmation_message: <?php echo json_encode(t('purchase.js_cancel_confirmation_message')); ?>
 };
 // 사용자 역할 정보
 const currentUserRole = '<?php echo $_SESSION['role'] ?? ''; ?>';
@@ -2684,7 +2686,7 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmPurchaseBtn.addEventListener('click', function(e) {
             e.preventDefault();
 
-            if (confirm(t('purchase.js_confirm_purchase_message'))) {
+            if (confirm(lang.js_confirm_purchase_message)) {
                 const purchaseId = this.dataset.purchaseId;
                 handlePurchaseConfirmation(purchaseId, 'confirm');
             }
@@ -2695,7 +2697,7 @@ document.addEventListener('DOMContentLoaded', function() {
         cancelConfirmBtn.addEventListener('click', function(e) {
             e.preventDefault();
 
-            if (confirm(t('purchase.js_cancel_confirmation_message'))) {
+            if (confirm(lang.js_cancel_confirmation_message)) {
                 const purchaseId = this.dataset.purchaseId;
                 handlePurchaseConfirmation(purchaseId, 'cancel');
             }
