@@ -1142,6 +1142,12 @@ function openCancelModal(supplier) {
 function buildDetailTable(batch, supplier) {
     const paidLabel = batch.paid_date || 'Unknown date';
     const totalFmt  = fmt(batch.total);
+    const subtotal = batch.items.reduce((sum, item) => sum + Number(item.amount), 0);
+    const discountRate = batch.discount_rate != null
+        ? Number(batch.discount_rate)
+        : (subtotal > 0 ? Number(batch.discount) / subtotal * 100 : null);
+    const discountLabel = discountRate == null ? 'Discount'
+        : `Discount (${Number(discountRate.toFixed(2))}%)`;
     let rows = '';
     batch.items.forEach(item => {
         rows += `<tr>
@@ -1150,7 +1156,7 @@ function buildDetailTable(batch, supplier) {
             <td class="amount">${fmt(item.amount)}</td>
         </tr>`;
     });
-    return `<h2>Deferred Payment Detail</h2>
+    return `<h2>${supplier}</h2>
     <div class="meta">
         Supplier: <strong>${supplier}</strong> &nbsp;|&nbsp;
         Payment Date: <strong>${paidLabel}</strong> &nbsp;|&nbsp;
@@ -1159,7 +1165,12 @@ function buildDetailTable(batch, supplier) {
     <table>
         <thead><tr><th>Date</th><th>Notes</th><th style="text-align:right">Amount</th></tr></thead>
         <tbody>${rows}</tbody>
-        <tfoot>${batch.discount > 0 ? `<tr><td colspan="2">Discount${batch.discount_rate !== null ? ' ('+batch.discount_rate+'%)' : ''}</td><td class="amount">-${fmt(batch.discount)}</td></tr>` : ''}<tr class="total-row"><td colspan="2">TOTAL</td><td class="amount">${totalFmt}</td></tr></tfoot>
+        <tfoot>
+            ${batch.discount > 0 ? `<tr class="total-spacer"><td colspan="3"></td></tr>
+            <tr><td colspan="2">${discountLabel}</td><td class="amount">-${fmt(batch.discount)}</td></tr>
+            <tr class="total-spacer"><td colspan="3"></td></tr>` : ''}
+            <tr class="total-row"><td colspan="2">TOTAL</td><td class="amount">${totalFmt}</td></tr>
+        </tfoot>
     </table>`;
 }
 
@@ -1172,6 +1183,7 @@ const PRINT_CSS = `
     th { background: #f3f4f6; font-weight: 600; }
     td.amount { text-align: right; font-family: monospace; }
     .total-row td { font-weight: bold; background: #f0fdf4; }
+    .total-spacer td { height: 12px; padding: 0; border-left: 0; border-right: 0; }
     .receipt-section { margin-top: 24px; }
     .receipt-item { page-break-before: always; text-align: center; }
     .receipt-item img { max-width: 100%; max-height: 90vh; border: 1px solid #ccc; }
