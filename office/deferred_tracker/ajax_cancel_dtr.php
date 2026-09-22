@@ -25,10 +25,12 @@ $conn = get_db_connection();
 // 해당 업체의 결제 완료 배치를 전체 기간에서 최신순으로 보여준다.
 if ($action === 'preview') {
     $stmt = $conn->prepare(
-        "SELECT id, entry_date, amount, notes, paid_date, receipt_id, file_path, file_mime, entry_type
-         FROM deferred_entries
-         WHERE store_id=? AND supplier=? AND status='paid'
-         ORDER BY paid_date DESC, receipt_id DESC, entry_date ASC, id ASC"
+        "SELECT e.id, e.entry_date, e.amount, e.notes, e.paid_date, e.receipt_id,
+                e.file_path, e.file_mime, e.entry_type, r.amount AS receipt_amount, r.description AS receipt_description
+         FROM deferred_entries e
+         LEFT JOIN office_receipts r ON r.id=e.receipt_id AND r.store_id=e.store_id
+         WHERE e.store_id=? AND e.supplier=? AND e.status='paid'
+         ORDER BY e.paid_date DESC, e.receipt_id DESC, e.entry_date ASC, e.id ASC"
     );
     $stmt->bind_param('is', $store_id, $supplier);
     $stmt->execute();
@@ -47,6 +49,8 @@ if ($action === 'preview') {
                 'paid_date'  => $e['paid_date'],
                 'items'      => [],
                 'total'      => 0.0,
+                'receipt_total' => $e['receipt_amount'] !== null ? (float)$e['receipt_amount'] : null,
+                'discount_rate' => preg_match('/\| Discount: ([\d.]+)%/', $e['receipt_description'] ?? '', $discount_match) ? (float)$discount_match[1] : null,
             ];
         }
         $ts = strtotime($e['entry_date']);
@@ -60,6 +64,13 @@ if ($action === 'preview') {
         ];
         $batches[$key]['total'] += (float)$e['amount'];
     }
+
+    foreach ($batches as &$batch) {
+        $batch['discount'] = $batch['receipt_total'] === null ? 0 : max(0, round($batch['total'] - $batch['receipt_total'], 2));
+        $batch['total'] = $batch['receipt_total'] ?? $batch['total'];
+        unset($batch['receipt_total']);
+    }
+    unset($batch);
 
     echo json_encode(['success'=>true, 'batches'=>array_values($batches)]);
     exit;

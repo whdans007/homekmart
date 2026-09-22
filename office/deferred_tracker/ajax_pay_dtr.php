@@ -64,7 +64,19 @@ if ($action === 'pay') {
         echo json_encode(['success'=>false,'error'=>'미결 항목이 없습니다.']); exit;
     }
 
-    $total = array_sum(array_column($pending, 'amount'));
+    $subtotal = round(array_sum(array_column($pending, 'amount')), 2);
+    $discount_raw = $_POST['discount_rate'] ?? '0';
+    if (!is_scalar($discount_raw) || !preg_match('/^\d+(?:\.\d{1,2})?$/', (string)$discount_raw)) {
+        $conn->close();
+        echo json_encode(['success'=>false,'error'=>'Enter a valid discount rate.']); exit;
+    }
+    $discount_rate = (float)$discount_raw;
+    if ($subtotal <= 0 || $discount_rate > 100) {
+        $conn->close();
+        echo json_encode(['success'=>false,'error'=>'Discount rate must be between 0% and 100%.']); exit;
+    }
+    $discount = round($subtotal * $discount_rate / 100, 2);
+    $total = round($subtotal - $discount, 2);
 
     // Description: "5월1일 ₱2,000, 5월2일 ₱3,000"
     $parts = [];
@@ -74,6 +86,7 @@ if ($action === 'pay') {
         $parts[] = $label . '(₱' . number_format((float)$e['amount'], 0) . ')';
     }
     $description = implode(', ', $parts);
+    if ($discount > 0) $description .= ' | Discount: ' . number_format($discount_rate, 2) . '% (₱' . number_format($discount, 2) . ')';
     $by = (int)($_SESSION['user_id'] ?? 0) ?: null;
 
     $conn->begin_transaction();

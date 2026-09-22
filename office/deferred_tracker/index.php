@@ -430,6 +430,11 @@ for ($i=0;$i<12;$i++) {
             <div class="text-gray-400 text-center py-2">Select a date</div>
           </div>
         </div>
+        <div>
+          <label for="pay_discount" class="block text-xs font-medium text-gray-700 mb-1">Discount Rate (%)</label>
+          <input type="number" id="pay_discount" min="0" max="100" step="0.01" value="0" oninput="updatePayTotal()"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-right">
+        </div>
         <div class="flex justify-between items-center px-3 py-2 bg-gray-100 rounded-lg">
           <span class="text-sm font-semibold text-gray-700">Total Amount</span>
           <span id="pay_total" class="text-base font-bold text-red-600">-</span>
@@ -1006,11 +1011,24 @@ async function deleteEntry(id){
 
 // ── 결제진행 ─────────────────────────────────────────────────
 let _paySupplier = '';
+let _paySubtotal = 0;
+
+function updatePayTotal() {
+    const input = document.getElementById('pay_discount');
+    const rate = Number(input.value);
+    const valid = input.value !== '' && Number.isFinite(rate) && rate >= 0 && rate <= 100;
+    input.setCustomValidity(valid ? '' : 'Discount rate must be between 0% and 100%.');
+    const discount = Math.round(_paySubtotal * rate) / 100;
+    document.getElementById('pay_total').textContent = valid ? fmt(_paySubtotal - discount) : '-';
+    document.getElementById('pay_confirm_btn').disabled = !valid || _paySubtotal <= 0;
+}
 
 function openPayModal(supplier) {
     _paySupplier = supplier;
     document.getElementById('pay_supplier_label').textContent = supplier;
     document.getElementById('pay_date').value = '<?php echo $today; ?>';
+    document.getElementById('pay_discount').value = '0';
+    _paySubtotal = 0;
     document.getElementById('pay_error').classList.add('hidden');
     document.getElementById('pay_confirm_btn').disabled = false;
     loadPayPreview();
@@ -1022,6 +1040,8 @@ function loadPayPreview() {
     if (!date) return;
     document.getElementById('pay_items').innerHTML = '<div class="text-gray-400 text-center py-2">Loading...</div>';
     document.getElementById('pay_total').textContent = '-';
+    _paySubtotal = 0;
+    document.getElementById('pay_confirm_btn').disabled = true;
 
     const fd = new FormData();
     fd.append('action', 'preview');
@@ -1034,10 +1054,9 @@ function loadPayPreview() {
         if (!d.items.length) {
             document.getElementById('pay_items').innerHTML = '<div class="text-gray-400 text-center py-2">No pending items up to this date.</div>';
             document.getElementById('pay_total').textContent = '₱0.00';
-            document.getElementById('pay_confirm_btn').disabled = true;
+            updatePayTotal();
             return;
         }
-        document.getElementById('pay_confirm_btn').disabled = false;
         let html = '';
         d.items.forEach(item => {
             html += `<div class="flex justify-between py-1 border-b border-gray-200 last:border-0">
@@ -1046,7 +1065,8 @@ function loadPayPreview() {
             </div>`;
         });
         document.getElementById('pay_items').innerHTML = html;
-        document.getElementById('pay_total').textContent = fmt(d.total);
+        _paySubtotal = Number(d.total);
+        updatePayTotal();
     });
 }
 
@@ -1054,6 +1074,11 @@ async function confirmPayment() {
     const date   = document.getElementById('pay_date').value;
     const errDiv = document.getElementById('pay_error');
     const btn    = document.getElementById('pay_confirm_btn');
+    updatePayTotal();
+    if (!document.getElementById('pay_discount').checkValidity() || btn.disabled) {
+        document.getElementById('pay_discount').reportValidity();
+        return;
+    }
     errDiv.classList.add('hidden');
     btn.disabled = true;
     btn.textContent = 'Processing...';
@@ -1062,6 +1087,7 @@ async function confirmPayment() {
     fd.append('action', 'pay');
     fd.append('supplier', b64u(_paySupplier));
     fd.append('pay_date', date);
+    fd.append('discount_rate', document.getElementById('pay_discount').value);
 
     const res  = await fetch('ajax_pay_dtr.php', {method:'POST', body:fd});
     const data = await res.json();
@@ -1133,7 +1159,7 @@ function buildDetailTable(batch, supplier) {
     <table>
         <thead><tr><th>Date</th><th>Notes</th><th style="text-align:right">Amount</th></tr></thead>
         <tbody>${rows}</tbody>
-        <tfoot><tr class="total-row"><td colspan="2">TOTAL</td><td class="amount">${totalFmt}</td></tr></tfoot>
+        <tfoot>${batch.discount > 0 ? `<tr><td colspan="2">Discount${batch.discount_rate !== null ? ' ('+batch.discount_rate+'%)' : ''}</td><td class="amount">-${fmt(batch.discount)}</td></tr>` : ''}<tr class="total-row"><td colspan="2">TOTAL</td><td class="amount">${totalFmt}</td></tr></tfoot>
     </table>`;
 }
 
@@ -1263,6 +1289,7 @@ function renderCancelBatches(batches) {
                 <span class="font-mono text-gray-700">${fmt(item.amount)}</span>
             </div>`;
         });
+        if (batch.discount > 0) itemsHtml += `<div class="flex justify-between py-1 text-xs text-green-700"><span>Discount${batch.discount_rate !== null ? ' ('+batch.discount_rate+'%)' : ''}</span><span class="font-mono">-${fmt(batch.discount)}</span></div>`;
 
         html += `
         <div class="border border-gray-200 rounded-xl overflow-hidden">
