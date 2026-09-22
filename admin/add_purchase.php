@@ -440,9 +440,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fas fa-search text-gray-400"></i>
                         </div>
-                        <input type="text" id="supplier_search"
-                               class="block w-full pl-10 pr-3 py-1.5 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                               placeholder="<?php echo t('purchase.supplier_search_placeholder'); ?>">
+                        <textarea id="supplier_search" rows="1" wrap="off"
+                                  class="block w-full pl-10 pr-3 py-1.5 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                  style="height: 33.3333px; resize: none; overflow: hidden; white-space: nowrap;"
+                                  autocomplete="off" spellcheck="false"
+                                  placeholder="<?php echo t('purchase.supplier_search_placeholder'); ?>"></textarea>
                         <input type="hidden" id="supplier_id" name="supplier_id" required>
                     </div>
                     <div id="supplier_search_results" class="absolute z-30 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm hidden border border-gray-200"></div>
@@ -806,6 +808,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         supplierSearch.addEventListener('input', function() {
+            // Keep pasted supplier names on one line.
+            if (/[\r\n]/.test(this.value)) {
+                this.value = this.value.replace(/[\r\n]+/g, ' ');
+            }
             const searchTerm = this.value.trim();
             clearTimeout(supplierSearchTimeout);
             selectedSupplierIndex = -1; // 검색 시 선택 초기화
