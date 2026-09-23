@@ -119,12 +119,23 @@ $dept_filter = trim($_GET['dept'] ?? '');
   </div>
 
   <!-- 차트 -->
-  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5">
-    <p class="text-sm font-semibold text-gray-600 mb-3">Daily NET SALES</p>
-    <div class="relative" style="max-height:240px;">
-      <canvas id="salesChart" style="max-height:240px;"></canvas>
-      <div id="salesChart-loading" class="absolute inset-0 flex items-center justify-center text-xs text-gray-300" style="min-height:120px;">
-        <i class="fa-solid fa-spinner fa-spin mr-1"></i>불러오는 중...
+  <div class="flex gap-4 mb-5">
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex-1 min-w-0">
+      <p class="text-sm font-semibold text-gray-600 mb-3">Daily NET SALES</p>
+      <div class="relative" style="height:240px;">
+        <canvas id="salesChart" style="height:240px;"></canvas>
+        <div id="salesChart-loading" class="absolute inset-0 flex items-center justify-center text-xs text-gray-300" style="min-height:120px;">
+          <i class="fa-solid fa-spinner fa-spin mr-1"></i>불러오는 중...
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex-1 min-w-0">
+      <p class="text-sm font-semibold text-gray-600 mb-3">Daily PCS(판매 수량)</p>
+      <div class="relative" style="height:240px;">
+        <canvas id="pcsChart" style="height:240px;"></canvas>
+        <div id="pcsChart-loading" class="absolute inset-0 flex items-center justify-center text-xs text-gray-300" style="min-height:120px;">
+          <i class="fa-solid fa-spinner fa-spin mr-1"></i>불러오는 중...
+        </div>
       </div>
     </div>
   </div>
@@ -231,6 +242,37 @@ $dept_filter = trim($_GET['dept'] ?? '');
     const dateTo   = <?php echo json_encode($date_to); ?>;
     const deptFilter = <?php echo json_encode($dept_filter); ?>;
     const qs = 'from=' + encodeURIComponent(dateFrom) + '&to=' + encodeURIComponent(dateTo) + '&dept=' + encodeURIComponent(deptFilter);
+    const fromDateObj = new Date(dateFrom + 'T00:00:00');
+    const toDateObj = new Date(dateTo + 'T00:00:00');
+    const isFullMonth = fromDateObj.getDate() === 1 &&
+        fromDateObj.getFullYear() === toDateObj.getFullYear() &&
+        fromDateObj.getMonth() === toDateObj.getMonth();
+
+    let prevLabel = '';
+    let prevFetchPromise = Promise.resolve(null);
+    if (isFullMonth) {
+        let py = fromDateObj.getFullYear(), pm = fromDateObj.getMonth() - 1;
+        if (pm < 0) { pm = 11; py -= 1; }
+        prevLabel = (pm + 1) + '월';
+        const prevFrom = formatYmd(new Date(py, pm, 1));
+        const prevLastDay = new Date(py, pm + 1, 0).getDate();
+        const prevTo = formatYmd(new Date(py, pm, prevLastDay));
+        const prevQs = 'from=' + encodeURIComponent(prevFrom) + '&to=' + encodeURIComponent(prevTo) + '&dept=' + encodeURIComponent(deptFilter);
+        prevFetchPromise = fetch('ajax_report_daily.php?' + prevQs).then(r => r.json()).catch(() => null);
+    }
+
+    let prev2Label = '';
+    let prev2FetchPromise = Promise.resolve(null);
+    if (isFullMonth) {
+        let py = fromDateObj.getFullYear(), pm = fromDateObj.getMonth() - 2;
+        while (pm < 0) { pm += 12; py -= 1; }
+        prev2Label = (pm + 1) + '월';
+        const prev2From = formatYmd(new Date(py, pm, 1));
+        const prev2LastDay = new Date(py, pm + 1, 0).getDate();
+        const prev2To = formatYmd(new Date(py, pm, prev2LastDay));
+        const prev2Qs = 'from=' + encodeURIComponent(prev2From) + '&to=' + encodeURIComponent(prev2To) + '&dept=' + encodeURIComponent(deptFilter);
+        prev2FetchPromise = fetch('ajax_report_daily.php?' + prev2Qs).then(r => r.json()).catch(() => null);
+    }
 
     Chart.register(ChartDataLabels);
 
@@ -238,6 +280,34 @@ $dept_filter = trim($_GET['dept'] ?? '');
     function dowOf(ymd) {
         const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         return labels[new Date(ymd + 'T00:00:00').getDay()];
+    }
+    function pad2(n) { return String(n).padStart(2, '0'); }
+    function formatYmd(date) {
+        return date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate());
+    }
+    function formatSaleDate(date) {
+        return pad2(date.getMonth() + 1) + '-' + pad2(date.getDate()) + '-' + date.getFullYear();
+    }
+    function buildDayList(dateFrom, dateTo, rows, dateKeyField) {
+        const from = new Date(dateFrom + 'T00:00:00');
+        const to = new Date(dateTo + 'T00:00:00');
+        const isFullMonth = from.getDate() === 1 &&
+            from.getFullYear() === to.getFullYear() &&
+            from.getMonth() === to.getMonth();
+
+        if (!isFullMonth) {
+            return rows.map(row => ({ ymd: row[dateKeyField], label: row.sale_date, row: row }));
+        }
+
+        const rowsByDate = new Map(rows.map(row => [row[dateKeyField], row]));
+        const lastDay = new Date(from.getFullYear(), from.getMonth() + 1, 0).getDate();
+        const days = [];
+        for (let day = 1; day <= lastDay; day++) {
+            const date = new Date(from.getFullYear(), from.getMonth(), day);
+            const ymd = formatYmd(date);
+            days.push({ ymd: ymd, label: formatSaleDate(date), row: rowsByDate.get(ymd) || null });
+        }
+        return days;
     }
 
     // ── 요일별 평균 매출 미니 차트 ──
@@ -316,9 +386,11 @@ $dept_filter = trim($_GET['dept'] ?? '');
     }
 
     // ── 일별 집계(요약카드/차트/일별테이블) ──
-    fetch('ajax_report_daily.php?' + qs)
-        .then(r => r.json())
-        .then(res => {
+    Promise.all([
+        fetch('ajax_report_daily.php?' + qs).then(r => r.json()),
+        prevFetchPromise,
+        prev2FetchPromise
+    ]).then(([res, prevRes, prev2Res]) => {
             if (!res.success) return;
             const rows = res.rows, sums = res.sums;
             if (!rows.length) {
@@ -339,41 +411,181 @@ $dept_filter = trim($_GET['dept'] ?? '');
             document.getElementById('card-sum-pcs').textContent = nf(sums.pcs);
             document.getElementById('card-sum-pcs-sub').textContent = 'avg ' + (sums.tx > 0 ? nf(sums.pcs / sums.tx) : 0) + '/tx';
 
+            const dayList = buildDayList(dateFrom, dateTo, rows, 'parsed_date');
+            let prevNetData = null, prevPcsData = null;
+            if (isFullMonth && prevRes && prevRes.success && prevRes.rows && prevRes.rows.length > 0) {
+                const prevByDay = {};
+                prevRes.rows.forEach(r => {
+                    const day = parseInt(r.parsed_date.slice(8, 10), 10);
+                    prevByDay[day] = r;
+                });
+                prevNetData = dayList.map((d, idx) => {
+                    const r = prevByDay[idx + 1];
+                    return r ? Math.round((parseFloat(r.net_sales) || 0) * 100) / 100 : null;
+                });
+                prevPcsData = dayList.map((d, idx) => {
+                    const r = prevByDay[idx + 1];
+                    return r ? (parseFloat(r.total_pcs) || 0) : null;
+                });
+            }
+            let prev2NetData = null, prev2PcsData = null;
+            if (isFullMonth && prev2Res && prev2Res.success && prev2Res.rows && prev2Res.rows.length > 0) {
+                const prev2ByDay = {};
+                prev2Res.rows.forEach(r => {
+                    const day = parseInt(r.parsed_date.slice(8, 10), 10);
+                    prev2ByDay[day] = r;
+                });
+                prev2NetData = dayList.map((d, idx) => {
+                    const r = prev2ByDay[idx + 1];
+                    return r ? Math.round((parseFloat(r.net_sales) || 0) * 100) / 100 : null;
+                });
+                prev2PcsData = dayList.map((d, idx) => {
+                    const r = prev2ByDay[idx + 1];
+                    return r ? (parseFloat(r.total_pcs) || 0) : null;
+                });
+            }
+            const yesterdayDate = new Date();
+            yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+            const yesterdayYmd = formatYmd(yesterdayDate);
+            const salesBackgroundColors = dayList.map(d => d.ymd === yesterdayYmd ? 'rgba(245,158,11,0.85)' : 'rgba(59,130,246,0.7)');
+            const salesBorderColors = dayList.map(d => d.ymd === yesterdayYmd ? 'rgba(217,119,6,1)' : 'rgba(59,130,246,1)');
+            const pcsBackgroundColors = dayList.map(d => d.ymd === yesterdayYmd ? 'rgba(245,158,11,0.85)' : 'rgba(139,92,246,0.7)');
+            const pcsBorderColors = dayList.map(d => d.ymd === yesterdayYmd ? 'rgba(217,119,6,1)' : 'rgba(139,92,246,1)');
+
             // 메인 차트
             const loading = document.getElementById('salesChart-loading');
             if (loading) loading.remove();
             new Chart(document.getElementById('salesChart'), {
                 type: 'bar',
                 data: {
-                    labels: rows.map(r => r.sale_date),
+                    labels: dayList.map(d => d.row ? d.row.sale_date : d.label),
                     datasets: [
                         {
                             label: 'NET SALES',
-                            data: rows.map(r => Math.round((parseFloat(r.net_sales) || 0) * 100) / 100),
-                            backgroundColor: 'rgba(59,130,246,0.7)', borderColor: 'rgba(59,130,246,1)', borderWidth: 1, order: 2,
+                            data: dayList.map(d => d.row ? Math.round((parseFloat(d.row.net_sales) || 0) * 100) / 100 : null),
+                            backgroundColor: salesBackgroundColors, borderColor: salesBorderColors, borderWidth: 1, order: 2,
                             datalabels: {
                                 anchor: 'end', align: 'end', offset: 2, color: '#1d4ed8', font: { size: 9, weight: '600' },
-                                formatter: v => v >= 1000
+                                formatter: v => v === null || v === undefined ? '' : v >= 1000
                                     ? (v / 1000).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + 'K'
                                     : v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
                             }
                         },
                         {
                             label: 'Gross Profit',
-                            data: rows.map(r => Math.round((parseFloat(r.gross_profit) || 0) * 100) / 100),
+                            data: dayList.map(d => d.row ? Math.round((parseFloat(d.row.gross_profit) || 0) * 100) / 100 : null),
                             type: 'line', borderColor: 'rgba(34,197,94,0.9)', backgroundColor: 'rgba(34,197,94,0.15)',
                             borderWidth: 2, pointRadius: 3, fill: false, tension: 0.3, order: 1, yAxisID: 'y',
                             datalabels: { display: false }
-                        }
+                        },
+                        ...(prevNetData ? [{
+                            label: prevLabel,
+                            data: prevNetData,
+                            type: 'line',
+                            borderColor: 'rgba(107,114,128,0.7)',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.3,
+                            order: 3,
+                            yAxisID: 'y',
+                            datalabels: { display: false }
+                        }] : []),
+                        ...(prev2NetData ? [{
+                            label: prev2Label,
+                            data: prev2NetData,
+                            type: 'line',
+                            borderColor: 'rgba(20,184,166,0.7)',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            borderDash: [2, 3],
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.3,
+                            order: 4,
+                            yAxisID: 'y',
+                            datalabels: { display: false }
+                        }] : [])
                     ]
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     layout: { padding: { top: 20 } },
                     plugins: {
                         legend: { position: 'top', labels: { font: { size: 11 } } },
-                        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) } }
+                        tooltip: { callbacks: { label: ctx => ctx.parsed.y == null ? '' : ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) } }
+                    },
+                    scales: {
+                        x: { ticks: { font: { size: 10 }, maxRotation: 45 } },
+                        y: { ticks: { font: { size: 10 }, callback: v => v.toLocaleString() } }
+                    }
+                }
+            });
+
+            const pcsLoading = document.getElementById('pcsChart-loading');
+            if (pcsLoading) pcsLoading.remove();
+            new Chart(document.getElementById('pcsChart'), {
+                type: 'bar',
+                data: {
+                    labels: dayList.map(d => d.row ? d.row.sale_date : d.label),
+                    datasets: [
+                        {
+                            label: 'PCS',
+                            data: dayList.map(d => d.row ? (parseFloat(d.row.total_pcs) || 0) : null),
+                            backgroundColor: pcsBackgroundColors,
+                            borderColor: pcsBorderColors,
+                            borderWidth: 1,
+                            datalabels: {
+                                anchor: 'end', align: 'end', offset: 2, color: '#6d28d9', font: { size: 9, weight: '600' },
+                                formatter: v => v === null || v === undefined ? '' : v >= 1000
+                                    ? (v / 1000).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + 'K'
+                                    : v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                            }
+                        },
+                        ...(prevPcsData ? [{
+                            label: prevLabel,
+                            data: prevPcsData,
+                            type: 'line',
+                            borderColor: 'rgba(107,114,128,0.7)',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.3,
+                            order: 3,
+                            yAxisID: 'y',
+                            datalabels: { display: false }
+                        }] : []),
+                        ...(prev2PcsData ? [{
+                            label: prev2Label,
+                            data: prev2PcsData,
+                            type: 'line',
+                            borderColor: 'rgba(20,184,166,0.7)',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            borderDash: [2, 3],
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.3,
+                            order: 4,
+                            yAxisID: 'y',
+                            datalabels: { display: false }
+                        }] : [])
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    layout: { padding: { top: 20 } },
+                    plugins: {
+                        legend: { display: !!(prevPcsData || prev2PcsData), position: 'top', labels: { font: { size: 11 } } },
+                        tooltip: { callbacks: { label: ctx => ctx.parsed.y == null ? '' : ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) } }
                     },
                     scales: {
                         x: { ticks: { font: { size: 10 }, maxRotation: 45 } },
