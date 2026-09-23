@@ -143,7 +143,7 @@ function kw_unit_fifo_ship_allow_negative(mysqli $conn, int $product_id, int $qt
          FROM kw_inventory i
          JOIN kw_inbound b ON i.inbound_id = b.id
          WHERE i.product_id = ? AND i.unit = ? AND i.quantity_remain > 0
-         ORDER BY i.expiry_date ASC, i.id ASC
+         ORDER BY (i.expiry_date IS NULL), i.expiry_date ASC, i.id ASC
          FOR UPDATE"
     );
     $stmt->bind_param('is', $product_id, $unit);
@@ -254,7 +254,7 @@ function kw_unit_fefo_preview_allow_negative(mysqli $conn, int $product_id, int 
          FROM kw_inventory i
          JOIN kw_inbound ib ON i.inbound_id = ib.id
          WHERE i.product_id = ? AND i.unit = ? AND i.quantity_remain > 0
-         ORDER BY i.expiry_date ASC, i.id ASC"
+         ORDER BY (i.expiry_date IS NULL), i.expiry_date ASC, i.id ASC"
     );
     $stmt->bind_param('is', $product_id, $unit);
     $stmt->execute();

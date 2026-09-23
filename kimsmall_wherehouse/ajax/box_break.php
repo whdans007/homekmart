@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../lib/stock_count_service.php';
 // Design Ref: box-pcs-unit.design.md §4.2 — 박스 개봉 API
 // actions: get_box_lots(개봉 대상 BOX lot 목록) / submit_break(개봉 실행) / get_history(이력)
 require_once __DIR__ . '/../lib/auth.php';
@@ -25,7 +26,7 @@ if ($action === 'get_box_lots') {
              FROM kw_inventory i
              JOIN kw_inbound b ON i.inbound_id = b.id
              WHERE i.product_id = ? AND i.unit IN ('BOX','PACK') AND i.quantity_remain > 0
-             ORDER BY i.expiry_date ASC, i.id ASC"
+             ORDER BY (i.expiry_date IS NULL), i.expiry_date ASC, i.id ASC"
         );
         $st->bind_param('i', $product_id);
         $st->execute();
@@ -54,6 +55,7 @@ if ($action === 'submit_break' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $conn = get_lc_db();
         $conn->autocommit(false);
+        kw_assert_no_open_stock_count($conn);
 
         // 개봉 트랜잭션 본체는 lib/unit_helper.php — L1 테스트와 동일 경로 (Design §9 import 규칙)
         $result = kw_execute_box_break($conn, $inventory_id, $boxes, $damaged, $notes, kw_current_user_id());

@@ -184,6 +184,13 @@ if ($_lc_is_staff) {
                         </a>
                     </div>
 
+                    <!-- 재고조사 -->
+                    <div class="rounded-lg px-1.5 py-2 mt-3" style="background:#f0fdfa;">
+                        <p class="px-2 py-1 mb-1 text-xs font-semibold text-teal-700 rounded" style="background:#ccfbf1;">재고조사</p>
+                        <a href="<?php echo LC_BASE; ?>/stock_count.php" class="<?php echo $_lc_page === 'stock_count.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md"><i class="fas fa-barcode mr-2 text-xs w-4 text-center"></i>재고조사</a>
+                        <a href="<?php echo LC_BASE; ?>/stock_count_list.php" class="<?php echo $_lc_page === 'stock_count_list.php' ? 'bg-teal-100 text-teal-800' : 'text-gray-600 hover:bg-teal-50 hover:text-teal-700'; ?> flex items-center px-2 py-1.5 text-xs font-medium rounded-md"><i class="fas fa-list-check mr-2 text-xs w-4 text-center"></i>재고조사 리스트</a>
+                    </div>
+
                     <!-- Order Management 섹션 (amber) -->
                     <div class="rounded-lg px-1.5 py-2 mt-3" style="background:#fffbeb;">
                         <p class="px-2 py-1 mb-1 text-xs font-semibold text-amber-700 uppercase tracking-wider rounded" style="background:#fef3c7;">Order Management</p>
@@ -269,6 +276,8 @@ if ($_lc_is_staff) {
             <a href="<?php echo LC_BASE; ?>/products.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Product Master</a>
             <a href="<?php echo LC_BASE; ?>/inbound.php"   class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Inbound Management</a>
             <a href="<?php echo LC_BASE; ?>/inventory.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Inventory Status</a>
+            <a href="<?php echo LC_BASE; ?>/stock_count.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">재고조사</a>
+            <a href="<?php echo LC_BASE; ?>/stock_count_list.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">재고조사 리스트</a>
             <a href="<?php echo LC_BASE; ?>/outbound.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Outbound History</a>
             <a href="<?php echo LC_BASE; ?>/inbound_damages.php" class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Damaged Goods</a>
             <a href="<?php echo LC_BASE; ?>/suppliers.php"  class="block px-3 py-2 text-sm text-gray-700 hover:bg-teal-50 rounded-md">Suppliers</a>

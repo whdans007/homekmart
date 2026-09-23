@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/stock_count_service.php';
 $page_title = "Order Details - KIM'S MALL WAREHOUSE";
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
@@ -26,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // 대책 B: 승인 시점에 FEFO 재고 차감 + lot/원가 확정.
             // 승인된(확정) 주문이 즉시 가용재고에서 빠져 다른 지점의 중복 주문을 방지한다.
             $conn->autocommit(false);
+            kw_assert_no_open_stock_count($conn);
             $st = $conn->prepare(
                 "UPDATE kw_orders SET status='approved', approved_by=?, approved_at=? WHERE id=? AND status='pending'"
             );
@@ -77,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $units     = $_POST['item_unit'] ?? [];
 
                 $conn->autocommit(false);
+                kw_assert_no_open_stock_count($conn);
                 // 승인 상태만: 기존 차감(예약)을 복원 후 재차감. pending(Received)은 재고 미차감이라 생략.
                 if ($is_approved) { kw_restore_order_stock($conn, $id); }
                 $has_items = false;
@@ -145,6 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $ppb         = max(1, (int)($prod['pieces_per_box'] ?? 1));
 
                     $conn->autocommit(false);
+                    kw_assert_no_open_stock_count($conn);
                     try {
                         $unit_price = 0.0; // pending/cancelled: 승인 시 확정. deduct 상태는 아래에서 평균원가로 갱신.
                         $ins = $conn->prepare(
@@ -222,6 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'cancel') {
             // 대책 B: 승인된 주문 취소 시 차감(예약) 재고를 복원. pending 주문은 lot이 없어 무동작.
             $conn->autocommit(false);
+            kw_assert_no_open_stock_count($conn);
             $st = $conn->prepare(
                 "UPDATE kw_orders SET status='cancelled' WHERE id=? AND status IN ('pending','approved')"
             );
@@ -241,6 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'approve_cancel') {
             // 대책 B: 취소요청 승인(=주문 취소) 시 차감(예약) 재고를 복원.
             $conn->autocommit(false);
+            kw_assert_no_open_stock_count($conn);
             $st = $conn->prepare(
                 "UPDATE kw_orders SET status='cancelled' WHERE id=? AND status='cancel_requested'"
             );

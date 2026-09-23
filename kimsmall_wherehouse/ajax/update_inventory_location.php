@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../lib/stock_count_service.php';
 require_once __DIR__ . '/../lib/auth.php';
 header('Content-Type: application/json; charset=utf-8');
 
@@ -42,12 +43,16 @@ try {
         exit;
     }
 
+    $conn->begin_transaction();
+    kw_assert_no_open_stock_count($conn);
     $st = $conn->prepare("UPDATE kw_inventory SET storage_location = ? WHERE inbound_id = ?");
     $st->bind_param('si', $location, $inbound_id);
     $st->execute();
+    $conn->commit();
     $conn->close();
 
     echo json_encode(['success' => true, 'storage_location' => $location ?? '']);
 } catch (Exception $e) {
+    if (isset($conn)) { $conn->rollback(); $conn->close(); }
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }

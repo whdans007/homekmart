@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../lib/stock_count_service.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/unit_helper.php';      // Design Ref: box-pcs-unit §4.3
 require_once __DIR__ . '/../lib/inventory_helper.php'; // kw_expiry_class()
@@ -112,6 +113,7 @@ try {
         : round($cost_price, 4);
 
     $conn->autocommit(false);
+    kw_assert_no_open_stock_count($conn);
 
     $st = $conn->prepare(
         "UPDATE kw_inbound SET lot_number=?, expiry_date=?, quantity=?, inbound_unit=?, pieces_per_box=?,

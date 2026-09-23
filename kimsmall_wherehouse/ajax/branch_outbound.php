@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../lib/stock_count_service.php';
 // Design Ref: §4 — branch-outbound API (action 기반 dispatch, distribute_to_stores.php 패턴)
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/inventory_helper.php';
@@ -109,6 +110,7 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $conn = get_lc_db();
         $conn->autocommit(false);
+        kw_assert_no_open_stock_count($conn);
 
         $uid   = kw_current_user_id();
         $today = date('Y-m-d');
@@ -247,6 +249,7 @@ if ($action === 'save_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $conn = get_lc_db();
         $conn->autocommit(false);
+        kw_assert_no_open_stock_count($conn);
 
         $uid   = kw_current_user_id();
         $today = date('Y-m-d');
@@ -341,6 +344,7 @@ if ($action === 'update_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $conn = get_lc_db();
         $conn->autocommit(false);
+        kw_assert_no_open_stock_count($conn);
 
         // status='draft' 검증 (shipped 건 수정 차단)
         $st = $conn->prepare("SELECT status FROM kw_orders WHERE id = ? FOR UPDATE");
@@ -386,6 +390,7 @@ if ($action === 'delete_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $conn = get_lc_db();
         $conn->autocommit(false);
+        kw_assert_no_open_stock_count($conn);
 
         $st = $conn->prepare("SELECT status FROM kw_orders WHERE id = ? FOR UPDATE");
         $st->bind_param('i', $draft_id);
@@ -428,6 +433,7 @@ if ($action === 'ship_draft' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $conn = get_lc_db();
         $conn->autocommit(false);
+        kw_assert_no_open_stock_count($conn);
 
         // 조건부 UPDATE: status='draft'일 때만 전환 → affected_rows=0이면 이미 처리된 건
         $st = $conn->prepare("UPDATE kw_orders SET status = 'shipped', shipped_at = NOW() WHERE id = ? AND status = 'draft'");

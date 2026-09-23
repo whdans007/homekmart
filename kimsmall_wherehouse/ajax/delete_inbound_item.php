@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../lib/stock_count_service.php';
 require_once __DIR__ . '/../lib/auth.php';
 header('Content-Type: application/json; charset=utf-8');
 
@@ -52,6 +53,7 @@ try {
     $batch_id = (int)$row['batch_id'];
 
     $conn->autocommit(false);
+    kw_assert_no_open_stock_count($conn);
     $conn->query("DELETE FROM kw_inventory WHERE inbound_id = " . $inbound_id);
     $st = $conn->prepare("DELETE FROM kw_inbound WHERE id = ?");
     $st->bind_param('i', $inbound_id);

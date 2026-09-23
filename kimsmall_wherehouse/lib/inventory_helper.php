@@ -10,7 +10,7 @@ function kw_fifo_deduct(mysqli $conn, int $product_id, int $qty_needed): bool {
          FROM kw_inventory i
          JOIN kw_inbound ib ON i.inbound_id = ib.id
          WHERE i.product_id = ? AND i.quantity_remain > 0
-         ORDER BY i.expiry_date ASC, i.id ASC
+         ORDER BY (i.expiry_date IS NULL), i.expiry_date ASC, i.id ASC
          FOR UPDATE"
     );
     $stmt->bind_param('i', $product_id);
@@ -44,7 +44,7 @@ function kw_fifo_ship(mysqli $conn, int $product_id, int $qty_needed): array|fal
          FROM kw_inventory i
          JOIN kw_inbound b ON i.inbound_id = b.id
          WHERE i.product_id = ? AND i.quantity_remain > 0
-         ORDER BY i.expiry_date ASC, i.id ASC
+         ORDER BY (i.expiry_date IS NULL), i.expiry_date ASC, i.id ASC
          FOR UPDATE"
     );
     $stmt->bind_param('i', $product_id);
@@ -91,7 +91,7 @@ function kw_fifo_ship_allow_negative(mysqli $conn, int $product_id, int $qty_nee
          FROM kw_inventory i
          JOIN kw_inbound b ON i.inbound_id = b.id
          WHERE i.product_id = ? AND i.quantity_remain > 0
-         ORDER BY i.expiry_date ASC, i.id ASC
+         ORDER BY (i.expiry_date IS NULL), i.expiry_date ASC, i.id ASC
          FOR UPDATE"
     );
     $stmt->bind_param('i', $product_id);
@@ -274,7 +274,7 @@ function kw_fefo_preview(mysqli $conn, int $product_id, int $qty_needed): array|
          FROM kw_inventory i
          JOIN kw_inbound ib ON i.inbound_id = ib.id
          WHERE i.product_id = ? AND i.quantity_remain > 0
-         ORDER BY i.expiry_date ASC, i.id ASC"
+         ORDER BY (i.expiry_date IS NULL), i.expiry_date ASC, i.id ASC"
     );
     $stmt->bind_param('i', $product_id);
     $stmt->execute();
@@ -311,7 +311,7 @@ function kw_fefo_preview_allow_negative(mysqli $conn, int $product_id, int $qty_
          FROM kw_inventory i
          JOIN kw_inbound ib ON i.inbound_id = ib.id
          WHERE i.product_id = ? AND i.quantity_remain > 0
-         ORDER BY i.expiry_date ASC, i.id ASC"
+         ORDER BY (i.expiry_date IS NULL), i.expiry_date ASC, i.id ASC"
     );
     $stmt->bind_param('i', $product_id);
     $stmt->execute();
@@ -349,7 +349,7 @@ function kw_rebalance_negative_lots(mysqli $conn, int $product_id): void {
     $stmt = $conn->prepare(
         "SELECT id, quantity_remain FROM kw_inventory
          WHERE product_id = ? AND quantity_remain < 0
-         ORDER BY expiry_date ASC, id ASC
+         ORDER BY (expiry_date IS NULL), expiry_date ASC, id ASC
          FOR UPDATE"
     );
     $stmt->bind_param('i', $product_id);
@@ -366,7 +366,7 @@ function kw_rebalance_negative_lots(mysqli $conn, int $product_id): void {
         $stmt = $conn->prepare(
             "SELECT id, quantity_remain FROM kw_inventory
              WHERE product_id = ? AND id <> ? AND quantity_remain > 0
-             ORDER BY expiry_date ASC, id ASC
+             ORDER BY (expiry_date IS NULL), expiry_date ASC, id ASC
              FOR UPDATE"
         );
         $stmt->bind_param('ii', $product_id, $neg_id);

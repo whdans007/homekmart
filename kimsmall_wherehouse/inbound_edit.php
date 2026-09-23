@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/stock_count_service.php';
 $page_title = "Edit Inbound - KIM'S MALL WAREHOUSE";
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
@@ -94,6 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $conn = get_lc_db();
             $conn->autocommit(false);
+            kw_assert_no_open_stock_count($conn);
 
             // Design Ref: box-pcs-unit §3.1 — 단위·ppb·PCS원가 함께 갱신
             $st = $conn->prepare(

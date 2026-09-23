@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/stock_count_service.php';
 $page_title = "Register Inbound - KIM'S MALL WAREHOUSE";
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
@@ -192,6 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $conn = get_lc_db();
             $conn->autocommit(false);
+            kw_assert_no_open_stock_count($conn);
             $uid = kw_current_user_id();
 
             if ($existing_batch_id) {

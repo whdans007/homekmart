@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/stock_count_service.php';
 $page_title = "Inbound Details - KIM'S MALL WAREHOUSE";
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
@@ -70,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         }
 
         $conn->autocommit(false);
+        kw_assert_no_open_stock_count($conn);
         // kw_inventory 삭제 (inbound_id 기준)
         $conn->query(
             "DELETE inv FROM kw_inventory inv

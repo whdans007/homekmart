@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/lib/stock_count_service.php';
 $page_title = "Order List - KIM'S MALL WAREHOUSE";
 require_once __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/config/db.php';
@@ -43,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         try {
             $conn = get_lc_db();
             $conn->autocommit(false);
+            kw_assert_no_open_stock_count($conn);
 
             // 출고된 lot이 있으면 재고 quantity_out 복구
             $lots = $conn->query(
