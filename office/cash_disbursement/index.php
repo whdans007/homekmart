@@ -40,6 +40,8 @@ $is_future = $next_date > $today;
     gap:4px; align-items:center;
     padding:5px 8px; font-size:12px; border-bottom:1px solid #f3f4f6;
 }
+.section-row.carryover-row { background:#fffbeb; border-left:3px solid #fbbf24; }
+.section-row .date-cell { font-size:11px; white-space:nowrap; }
 .section-row:last-child { border-bottom:none; }
 .drag-handle { cursor:grab; color:#9ca3af; font-size:14px; }
 .drag-handle:active { cursor:grabbing; }
@@ -430,16 +432,18 @@ function renderSourceList() {
 }
 
 function renderSection(secKey) {
+    const cdDate = document.getElementById('cd_date').value;
     const zone = document.getElementById('section_' + secKey);
     zone.innerHTML = '';
     (sections[secKey] || []).forEach(row => {
+        const isCarryover = !!(row.date && row.date < cdDate);
         const div = document.createElement('div');
-        div.className = 'section-row';
+        div.className = 'section-row' + (isCarryover ? ' carryover-row' : '');
         div.dataset.rowId = row.id;
         div.innerHTML = `
             <span class="drag-handle"><i class="fa-solid fa-grip-lines"></i></span>
             <span class="text-gray-600 text-xs truncate">${esc(row.or_si_no)}</span>
-            <span class="text-gray-500 text-xs">${row.date}</span>
+            <span class="date-cell ${isCarryover ? 'text-orange-600 font-medium' : 'text-gray-500'}">${isCarryover ? '↩ ' : ''}${esc(row.date || '')}</span>
             <span class="text-gray-800 text-xs font-medium truncate">${esc(row.supplier)}</span>
             <span class="text-gray-500 text-xs truncate">${esc(row.details)}</span>
             <span class="text-right font-mono text-gray-800 text-xs">₱${fmt(row.amount)}</span>
