@@ -267,3 +267,32 @@ v1 이후 "미처리 항목 60일 이월" 기능이 추가됨 (`ajax_load_purcha
 - SC-07: 이월 항목이 포함된 날짜의 CD를 열었을 때, 해당 행이 같은 날짜의 다른 행과 시각적으로 구분됨
 - SC-08: 이월이 아닌 일반 행은 기존과 동일하게 보임 (회귀 없음)
 - SC-09: print_cd.php / export_cd.php 등 다른 출력물에는 영향 없음 (화면 표시 전용)
+
+---
+
+## 13. Addendum — PREPARED/APPROVED 이름 하드코딩 제거 (2026-09-23)
+
+### 13.1 배경
+디자인 피드백(수집 도구): index.php 결제란에 "PREPARED: LIZA / APPROVED: SIR MIN"이 하드코딩되어 있음 — 모든 점포/모든 담당자에게 동일한 이름이 표시됨.
+
+**중요 발견**: 같은 기능의 PRINT 버전(`print_cd.php`)은 이미 이 문제를 해결한 상태였음:
+```php
+// print_cd.php 기존 코드 (정상 동작 중)
+$prepared_by = trim($_SESSION['full_name'] ?? $_SESSION['username'] ?? '');
+$approved_by = get_store_manager_name($office_store_id); // office_helper.php
+```
+즉 화면(index.php)만 이 개선에서 누락되어 예전 하드코딩 텍스트가 남아있던 것.
+
+### 13.2 결정
+`office/lib/office_helper.php`에 이미 있는 `get_store_manager_name()` 함수와 세션의 `full_name`을 그대로 재사용 (신규 함수/DB 변경 없음). print_cd.php와 동일한 패턴을 index.php 화면에도 적용.
+
+### 13.3 요구사항
+| ID | 요구사항 |
+|----|---------|
+| F-16 | PREPARED 칸: `trim($_SESSION['full_name'] ?? $_SESSION['username'] ?? '')` — 현재 로그인한 사용자 이름 |
+| F-17 | APPROVED 칸: `get_store_manager_name($store_id)` — 해당 점포의 점장/센터장 (role='branch_manager') |
+| F-18 | 두 값 모두 비어있을 경우 빈 문자열/'-' 등으로 자연스럽게 표시 (기존 print_cd.php 관례 따름) |
+| F-19 | print_cd.php / export_cd.php 등 이미 정상 동작 중인 다른 파일은 변경하지 않음 |
+
+### 13.4 영향 파일
+- `office/cash_disbursement/index.php` — PHP 상단에서 `$prepared_by`/`$approved_by` 계산 후, "PREPARED: LIZA" / "APPROVED: SIR MIN" 하드코딩 부분을 치환

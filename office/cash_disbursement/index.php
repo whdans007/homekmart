@@ -6,6 +6,8 @@ $office_nav_base = '../';
 require_once __DIR__ . '/../partials/header.php';
 
 $store_id  = get_office_store_id();
+$prepared_by = trim($_SESSION['full_name'] ?? $_SESSION['username'] ?? '');
+$approved_by = get_store_manager_name($store_id);
 $today     = date('Y-m-d');
 $date      = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'] ?? '') ? $_GET['date'] : $today;
 $prev_date = date('Y-m-d', strtotime($date . ' -1 day'));
@@ -130,8 +132,8 @@ $is_future = $next_date > $today;
         </div>
         <div class="flex gap-6 mt-1 text-xs text-amber-700">
           <span id="form_date_label"><?php echo date('F j, Y', strtotime($date)); ?></span>
-          <span>PREPARED: <strong>LIZA</strong></span>
-          <span>APPROVED: <strong>SIR MIN</strong></span>
+          <span>PREPARED: <strong><?php echo htmlspecialchars($prepared_by); ?></strong></span>
+          <span>APPROVED: <strong><?php echo htmlspecialchars($approved_by); ?></strong></span>
         </div>
       </div>
 
