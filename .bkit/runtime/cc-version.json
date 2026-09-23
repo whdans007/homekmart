@@ -1,7 +1,7 @@
 {
-  "version": null,
+  "version": "2.1.278",
   "isOldVersion": false,
-  "detectedAt": "2026-09-19T09:49:49.629Z",
+  "detectedAt": "2026-09-22T08:21:49.189Z",
   "ttlSeconds": 3600,
-  "detectError": "spawnSync C:\\WINDOWS\\system32\\cmd.exe ETIMEDOUT"
+  "detectError": null
 }
