@@ -1138,7 +1138,7 @@ $conn->close();
                     <input type="text" name="name" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.new_category_name_placeholder')); ?>" required class="border border-gray-300 rounded-md px-2 py-1 text-xs w-40 flex-shrink-0">
                     <button type="button" class="translate-category-btn text-gray-400 hover:text-blue-600 px-1 flex-shrink-0" title="<?php echo htmlspecialchars(t('mall_admin.products.translate_category_name')); ?>"><i class="fas fa-language"></i></button>
                     <input type="text" name="name_en" placeholder="EN" class="border border-gray-300 rounded-md px-2 py-1 text-xs flex-1 min-w-0">
-                    <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md flex-shrink-0"><?php echo t('common.add'); ?></button>
+                    <button type="submit" class="px-3 py-1 text-xs font-semibold bg-blue-600 text-white rounded-md flex-shrink-0 hover:bg-blue-700"><?php echo t('common.add'); ?></button>
                 </form>
             </div>
         </div>
