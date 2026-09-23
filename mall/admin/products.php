@@ -110,7 +110,7 @@ if (!in_array($selected_store_id, $store_ids, true)) {
 // products.category_id만으로 세면 큐레이션에서 삭제된 상품(category_id는 안 지워짐)까지 잡혀서
 // 일반상품은 mall_products에 실제 등록된 건만 세고, 신선상품은 카테고리가 배정된 건을 함께 센다.
 $cat_count_stmt = $conn->prepare(
-    "SELECT c.id, c.name, c.name_en,
+    "SELECT c.id, c.name, c.name_en, c.image_url,
             COUNT(DISTINCT mp.id) + COUNT(DISTINCT mfp.id) AS product_count
      FROM categories c
      LEFT JOIN categories sub ON sub.parent_id = c.id
@@ -118,7 +118,7 @@ $cat_count_stmt = $conn->prepare(
      LEFT JOIN mall_products mp ON mp.product_id = p.id AND mp.store_id = ?
      LEFT JOIN mall_fresh_products mfp ON (mfp.category_id = c.id OR mfp.category_id = sub.id)
      WHERE c.parent_id IS NULL
-     GROUP BY c.id, c.name, c.name_en
+     GROUP BY c.id, c.name, c.name_en, c.image_url
      ORDER BY c.sort_order, c.name"
 );
 $cat_count_stmt->bind_param('i', $selected_store_id);
@@ -1071,7 +1071,7 @@ $conn->close();
 
     <?php if ($can_manage_categories): ?>
     <div id="category-manage-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden z-50 items-center justify-center p-4">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
             <div class="flex items-center justify-between p-4 border-b border-gray-100">
                 <h3 class="text-sm font-bold text-gray-800"><i class="fas fa-sitemap mr-1.5"></i><?php echo t('mall_admin.products.manage_categories'); ?></h3>
                 <button type="button" id="close-category-manage-btn" class="text-gray-400 hover:text-gray-700"><i class="fas fa-xmark"></i></button>
@@ -1085,18 +1085,28 @@ $conn->close();
                             <button type="button" class="toggle-sub-btn text-gray-400 hover:text-gray-700 px-1" title="<?php echo htmlspecialchars(t('mall_admin.products.toggle_subcategory_title')); ?>">
                                 <i class="fas fa-chevron-right"></i>
                             </button>
-                            <input type="text" class="edit-category-name border border-gray-300 rounded px-1.5 py-1 text-xs flex-1 min-w-0" data-category-id="<?php echo (int)$cat['id']; ?>" value="<?php echo htmlspecialchars($cat['name']); ?>">
-                            <input type="text" class="edit-category-name-en border border-gray-300 rounded px-1.5 py-1 text-xs w-16 flex-shrink-0" value="<?php echo htmlspecialchars($cat['name_en'] ?? ''); ?>" placeholder="EN">
+                            <input type="text" class="edit-category-name border border-gray-300 rounded px-1.5 py-1 text-xs w-40 flex-shrink-0" data-category-id="<?php echo (int)$cat['id']; ?>" value="<?php echo htmlspecialchars($cat['name']); ?>">
+                            <input type="text" class="edit-category-name-en border border-gray-300 rounded px-1.5 py-1 text-xs flex-1 min-w-0" value="<?php echo htmlspecialchars($cat['name_en'] ?? ''); ?>" placeholder="EN">
                             <span class="text-gray-400 text-[10px] flex-shrink-0">(<?php echo (int)$cat['product_count']; ?>)</span>
                             <button type="button" class="delete-category-btn text-gray-300 hover:text-red-500 px-1" data-category-id="<?php echo (int)$cat['id']; ?>" data-category-name="<?php echo htmlspecialchars($cat['name']); ?>" title="<?php echo htmlspecialchars(t('common.delete')); ?>"><i class="fas fa-xmark"></i></button>
+                        </div>
+                        <div class="category-image-controls flex items-center gap-2 px-8 pb-2" data-category-id="<?php echo (int)$cat['id']; ?>">
+                            <div class="category-image-preview w-10 h-10 rounded border border-gray-200 overflow-hidden flex items-center justify-center bg-gray-50 flex-shrink-0">
+                                <?php if (!empty($cat['image_url'])): ?><img src="/mall/<?php echo htmlspecialchars($cat['image_url']); ?>" alt="" class="w-full h-full object-cover"><?php else: ?><i class="fas fa-image text-gray-300"></i><?php endif; ?>
+                            </div>
+                            <label class="category-image-upload-btn px-2 py-1 text-[11px] font-semibold bg-gray-100 text-gray-600 rounded cursor-pointer hover:bg-gray-200">
+                                <?php echo t('mall_admin.products.upload_category_image'); ?>
+                                <input type="file" class="category-image-input hidden" accept="image/jpeg,image/png,image/webp,image/avif">
+                            </label>
+                            <button type="button" class="remove-category-image-btn text-[11px] text-red-500 hover:text-red-700<?php echo empty($cat['image_url']) ? ' hidden' : ''; ?>"><?php echo t('mall_admin.products.remove_category_image'); ?></button>
                         </div>
                         <div class="subcategory-panel hidden pl-6 pr-2 pb-2">
                             <ul class="subcategory-list space-y-1 mb-2" data-parent-id="<?php echo (int)$cat['id']; ?>">
                                 <?php foreach (($sub_categories_by_parent[$cat['id']] ?? []) as $sub): ?>
                                 <li class="category-item flex items-center gap-1" data-category-id="<?php echo (int)$sub['id']; ?>" draggable="true">
                                     <i class="fas fa-grip-vertical text-gray-300 cursor-grab" title="<?php echo htmlspecialchars(t('mall_admin.products.drag_to_reorder')); ?>"></i>
-                                    <input type="text" class="edit-category-name border border-gray-300 rounded px-1.5 py-1 text-xs flex-1 min-w-0" data-category-id="<?php echo (int)$sub['id']; ?>" value="<?php echo htmlspecialchars($sub['name']); ?>">
-                                    <input type="text" class="edit-category-name-en border border-gray-300 rounded px-1.5 py-1 text-xs w-14 flex-shrink-0" value="<?php echo htmlspecialchars($sub['name_en'] ?? ''); ?>" placeholder="EN">
+                                    <input type="text" class="edit-category-name border border-gray-300 rounded px-1.5 py-1 text-xs w-40 flex-shrink-0" data-category-id="<?php echo (int)$sub['id']; ?>" value="<?php echo htmlspecialchars($sub['name']); ?>">
+                                    <input type="text" class="edit-category-name-en border border-gray-300 rounded px-1.5 py-1 text-xs flex-1 min-w-0" value="<?php echo htmlspecialchars($sub['name_en'] ?? ''); ?>" placeholder="EN">
                                     <span class="text-gray-400 text-[10px] flex-shrink-0">(<?php echo (int)$sub['product_count']; ?>)</span>
                                     <button type="button" class="delete-category-btn text-gray-300 hover:text-red-500 px-1" data-category-id="<?php echo (int)$sub['id']; ?>" data-category-name="<?php echo htmlspecialchars($sub['name']); ?>" title="<?php echo htmlspecialchars(t('common.delete')); ?>"><i class="fas fa-xmark"></i></button>
                                 </li>
@@ -1106,8 +1116,8 @@ $conn->close();
                                 <?php endif; ?>
                             </ul>
                             <form class="add-subcategory-form flex gap-1" data-parent-id="<?php echo (int)$cat['id']; ?>">
-                                <input type="text" name="name" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.subcategory_name_placeholder')); ?>" required class="border border-gray-300 rounded px-2 py-1 text-xs flex-1 min-w-0">
-                                <input type="text" name="name_en" placeholder="EN" class="border border-gray-300 rounded px-2 py-1 text-xs w-16">
+                                <input type="text" name="name" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.subcategory_name_placeholder')); ?>" required class="border border-gray-300 rounded px-2 py-1 text-xs w-40 flex-shrink-0">
+                                <input type="text" name="name_en" placeholder="EN" class="border border-gray-300 rounded px-2 py-1 text-xs flex-1 min-w-0">
                                 <button type="submit" class="px-2 py-1 text-xs font-semibold bg-gray-500 text-white rounded flex-shrink-0"><?php echo t('common.add'); ?></button>
                             </form>
                         </div>
@@ -1121,8 +1131,8 @@ $conn->close();
                     <i class="fas fa-check mr-1"></i><?php echo t('mall_admin.products.apply_all_changes'); ?>
                 </button>
                 <form id="add-category-form" class="flex gap-1">
-                    <input type="text" name="name" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.new_category_name_placeholder')); ?>" required class="border border-gray-300 rounded-md px-2 py-1 text-xs flex-1 min-w-0">
-                    <input type="text" name="name_en" placeholder="EN" class="border border-gray-300 rounded-md px-2 py-1 text-xs w-20">
+                    <input type="text" name="name" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.new_category_name_placeholder')); ?>" required class="border border-gray-300 rounded-md px-2 py-1 text-xs w-40 flex-shrink-0">
+                    <input type="text" name="name_en" placeholder="EN" class="border border-gray-300 rounded-md px-2 py-1 text-xs flex-1 min-w-0">
                     <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md flex-shrink-0"><?php echo t('common.add'); ?></button>
                 </form>
             </div>
@@ -1590,8 +1600,8 @@ function addPendingCategoryRow(name, nameEn, parentId, targetList) {
     li.dataset.parentId = parentId || '';
     li.innerHTML =
         '<span class="text-blue-500 text-[10px] font-bold flex-shrink-0" title="<?php echo addslashes(t('mall_admin.products.not_saved_yet')); ?>">NEW</span>' +
-        '<input type="text" class="pending-name border border-blue-300 rounded px-1.5 py-1 text-xs flex-1 min-w-0" value="' + escHtml(name) + '">' +
-        '<input type="text" class="pending-name-en border border-blue-300 rounded px-1.5 py-1 text-xs w-16 flex-shrink-0" value="' + escHtml(nameEn) + '" placeholder="EN">' +
+        '<input type="text" class="pending-name border border-blue-300 rounded px-1.5 py-1 text-xs w-40 flex-shrink-0" value="' + escHtml(name) + '">' +
+        '<input type="text" class="pending-name-en border border-blue-300 rounded px-1.5 py-1 text-xs flex-1 min-w-0" value="' + escHtml(nameEn) + '" placeholder="EN">' +
         '<button type="button" class="remove-pending-btn text-gray-300 hover:text-red-500 px-1" title="<?php echo addslashes(t('common.cancel')); ?>"><i class="fas fa-xmark"></i></button>';
     li.querySelector('.remove-pending-btn').addEventListener('click', function () { li.remove(); });
     targetList.appendChild(li);
@@ -1646,6 +1656,61 @@ document.querySelectorAll('.toggle-sub-btn').forEach(function (btn) {
         panel.classList.toggle('hidden');
         btn.querySelector('i').classList.toggle('fa-chevron-right');
         btn.querySelector('i').classList.toggle('fa-chevron-down');
+    });
+});
+
+// 대분류 이미지는 선택 즉시 업로드하고 DB에 반영한다. 소분류에는 이 컨트롤을 렌더링하지 않는다.
+document.querySelectorAll('.category-image-input').forEach(function (input) {
+    input.addEventListener('change', function () {
+        const file = input.files[0];
+        if (!file) return;
+        const controls = input.closest('.category-image-controls');
+        const uploadLabel = input.closest('.category-image-upload-btn');
+        const formData = new FormData();
+        formData.append('action', 'upload_image');
+        formData.append('category_id', controls.dataset.categoryId);
+        formData.append('image', file);
+        formData.append('csrf_token', window.MALL_CSRF_TOKEN);
+        input.disabled = true;
+        uploadLabel.classList.add('opacity-50');
+        fetch('ajax/save_category.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.category_image_upload_failed')); ?>', 'error');
+                    return;
+                }
+                controls.querySelector('.category-image-preview').innerHTML = '<img src="/mall/' + escHtml(data.data.image_url) + '" alt="" class="w-full h-full object-cover">';
+                controls.querySelector('.remove-category-image-btn').classList.remove('hidden');
+                showFlash('<?php echo addslashes(t('mall_admin.products.category_image_uploaded')); ?>', 'success');
+            })
+            .catch(() => showFlash('<?php echo addslashes(t('mall_admin.products.category_image_upload_failed')); ?>', 'error'))
+            .finally(() => { input.disabled = false; input.value = ''; uploadLabel.classList.remove('opacity-50'); });
+    });
+});
+
+document.querySelectorAll('.remove-category-image-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        if (!confirm('<?php echo addslashes(t('mall_admin.products.remove_category_image_confirm')); ?>')) return;
+        const controls = btn.closest('.category-image-controls');
+        const params = new URLSearchParams();
+        params.set('action', 'remove_image');
+        params.set('category_id', controls.dataset.categoryId);
+        params.set('csrf_token', window.MALL_CSRF_TOKEN);
+        btn.disabled = true;
+        fetch('ajax/save_category.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    showFlash(data.error?.message || '<?php echo addslashes(t('mall_admin.products.category_image_remove_failed')); ?>', 'error');
+                    return;
+                }
+                controls.querySelector('.category-image-preview').innerHTML = '<i class="fas fa-image text-gray-300"></i>';
+                btn.classList.add('hidden');
+                showFlash('<?php echo addslashes(t('mall_admin.products.category_image_removed')); ?>', 'success');
+            })
+            .catch(() => showFlash('<?php echo addslashes(t('mall_admin.products.category_image_remove_failed')); ?>', 'error'))
+            .finally(() => { btn.disabled = false; });
     });
 });
 

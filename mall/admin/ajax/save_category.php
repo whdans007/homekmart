@@ -38,6 +38,78 @@ $action = $_POST['action'] ?? '';
 try {
     $conn = get_db_connection();
 
+    if ($action === 'upload_image') {
+        $category_id = (int)($_POST['category_id'] ?? 0);
+        if ($category_id <= 0 || empty($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+            json_error('VALIDATION_ERROR', '이미지 파일을 확인해주세요');
+        }
+
+        $category_check = $conn->prepare('SELECT id FROM categories WHERE id = ? AND parent_id IS NULL');
+        $category_check->bind_param('i', $category_id);
+        $category_check->execute();
+        if (!$category_check->get_result()->fetch_assoc()) {
+            $category_check->close();
+            $conn->close();
+            json_error('VALIDATION_ERROR', '유효한 대분류 카테고리가 아닙니다');
+        }
+        $category_check->close();
+
+        $allowed_mimes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/avif' => 'avif'];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $_FILES['image']['tmp_name']);
+        finfo_close($finfo);
+        if (!isset($allowed_mimes[$mime])) {
+            json_error('VALIDATION_ERROR', 'JPG/PNG/WEBP/AVIF 이미지만 업로드할 수 있습니다');
+        }
+        if ($_FILES['image']['size'] > 5 * 1024 * 1024) {
+            json_error('VALIDATION_ERROR', '이미지 크기는 5MB 이하여야 합니다');
+        }
+
+        $upload_dir = __DIR__ . '/../../uploads/categories/';
+        if (!is_dir($upload_dir) && !mkdir($upload_dir, 0755, true) && !is_dir($upload_dir)) {
+            json_error('SERVER_ERROR', '파일 저장 폴더를 만들 수 없습니다', 500);
+        }
+        $filename = bin2hex(random_bytes(16)) . '.' . $allowed_mimes[$mime];
+        if (!move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $filename)) {
+            json_error('SERVER_ERROR', '파일 저장에 실패했습니다', 500);
+        }
+
+        $image_url = 'uploads/categories/' . $filename;
+        $stmt = $conn->prepare('UPDATE categories SET image_url = ? WHERE id = ? AND parent_id IS NULL');
+        $stmt->bind_param('si', $image_url, $category_id);
+        $stmt->execute();
+        $stmt->close();
+        $conn->close();
+        echo json_encode(['success' => true, 'data' => ['image_url' => $image_url]]);
+        exit;
+    }
+
+    if ($action === 'remove_image') {
+        $category_id = (int)($_POST['category_id'] ?? 0);
+        if ($category_id <= 0) {
+            json_error('VALIDATION_ERROR', '입력값을 확인해주세요');
+        }
+        $stmt = $conn->prepare('UPDATE categories SET image_url = NULL WHERE id = ? AND parent_id IS NULL');
+        $stmt->bind_param('i', $category_id);
+        $stmt->execute();
+        if ($stmt->affected_rows === 0) {
+            $check = $conn->prepare('SELECT id FROM categories WHERE id = ? AND parent_id IS NULL');
+            $check->bind_param('i', $category_id);
+            $check->execute();
+            $valid_category = (bool)$check->get_result()->fetch_assoc();
+            $check->close();
+            if (!$valid_category) {
+                $stmt->close();
+                $conn->close();
+                json_error('VALIDATION_ERROR', '유효한 대분류 카테고리가 아닙니다');
+            }
+        }
+        $stmt->close();
+        $conn->close();
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
     if ($action === 'add') {
         $name = trim($_POST['name'] ?? '');
         $name_en = trim($_POST['name_en'] ?? '');

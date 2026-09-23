@@ -33,7 +33,7 @@ $__cart_qty_map = mall_cart_get_quantities_by_product($__home_member_id, $__home
 // 이름 첫 글자 + 고정 팔레트로 결정적으로 생성한다. 전체 대분류를 다 가져온다(8개 제한 없음).
 $__tile_palette = ['#0066FF', '#00752E', '#C8102E', '#B87503', '#7C3AED', '#0891B2', '#DB2777', '#EA580C'];
 $__conn = mall_get_db_connection();
-$__home_categories = $__conn->query('SELECT id, name, name_en FROM categories WHERE parent_id IS NULL ORDER BY sort_order, name')->fetch_all(MYSQLI_ASSOC);
+$__home_categories = $__conn->query('SELECT id, name, name_en, image_url FROM categories WHERE parent_id IS NULL ORDER BY sort_order, name')->fetch_all(MYSQLI_ASSOC);
 
 // 로그인 회원의 기본 배송지. 이전 데이터에 기본 플래그가 없더라도 최근 등록 주소를 대신 표시한다.
 $__home_address = null;
@@ -118,9 +118,13 @@ $__conn->close();
         <?php foreach ($__home_categories as $cat): ?>
             <?php $__tint = $__tile_palette[$cat['id'] % count($__tile_palette)]; ?>
             <a class="cat-tile" href="/mall/category.php?id=<?php echo (int)$cat['id']; ?>">
-                <span class="mark" style="background:<?php echo $__tint; ?>;">
-                    <?php echo htmlspecialchars(mb_substr(($mall_lang === 'en' && !empty($cat['name_en'])) ? $cat['name_en'] : $cat['name'], 0, 1)); ?>
-                </span>
+                <?php if (!empty($cat['image_url'])): ?>
+                    <span class="mark mark-image"><img src="/mall/<?php echo htmlspecialchars($cat['image_url']); ?>" alt=""></span>
+                <?php else: ?>
+                    <span class="mark" style="background:<?php echo $__tint; ?>;">
+                        <?php echo htmlspecialchars(mb_substr(($mall_lang === 'en' && !empty($cat['name_en'])) ? $cat['name_en'] : $cat['name'], 0, 1)); ?>
+                    </span>
+                <?php endif; ?>
                 <span class="label"><?php echo htmlspecialchars(($mall_lang === 'en' && !empty($cat['name_en'])) ? $cat['name_en'] : $cat['name']); ?></span>
             </a>
         <?php endforeach; ?>
