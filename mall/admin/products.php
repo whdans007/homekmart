@@ -90,7 +90,7 @@ $conn = get_db_connection();
 
 // 기준 점포 선택 (기본값: MALL_STORE_ID). 목록에 없는 값이면 기본값으로 되돌린다.
 $stores = $conn->query('SELECT id, name FROM stores ORDER BY id')->fetch_all(MYSQLI_ASSOC);
-$store_ids = array_column($stores, 'id');
+$store_ids = array_map('intval', array_column($stores, 'id'));
 $reference_store_id = (int)MALL_STORE_ID;
 try {
     $reference_store_id = reference_store_get_current($conn);

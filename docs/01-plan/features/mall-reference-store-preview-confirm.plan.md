@@ -6,6 +6,32 @@
 
 ---
 
+## Addendum (2026-09-23): "조회" 버튼을 눌러도 POSCO로 되돌아가는 실제 버그
+
+위 UX 수정을 배포한 뒤 실사용자가 재현: "이 점포로 조회" 버튼으로 SUNSET(ID 9)을 선택해도 드롭다운이 다시 POSCO(ID 1)로 리셋됨.
+
+**근본 원인** (`mall/admin/products.php:92-106`):
+```php
+$stores = $conn->query('SELECT id, name FROM stores ORDER BY id')->fetch_all(MYSQLI_ASSOC);
+$store_ids = array_column($stores, 'id');   // mysqli가 id를 문자열로 반환 ("1", "9", ...)
+...
+if (!in_array($reference_store_id, $store_ids, true)) { ... }   // (int)9 === "9" 는 false → 엄격비교 항상 실패
+...
+if (!in_array($selected_store_id, $store_ids, true)) { ... }    // 동일한 문제
+```
+`in_array(..., true)`의 엄격 비교 때문에 int와 string이 절대 일치하지 않아, **어떤 store_id를 골라도 항상 검증 실패 → 기본값(POSCO)으로 강제 리셋**됨. 이게 애초 버그 리포트("계속 posco로 나온다")의 진짜 원인이었음 — 이전 UX 수정(조회/저장 버튼 분리)은 증상을 일부만 완화했을 뿐, 이 타입 불일치 자체는 그대로 남아있었음.
+
+**수정**:
+- `mall/admin/products.php:93` 근처에서 `$store_ids`를 정수 배열로 캐스팅: `$store_ids = array_map('intval', array_column($stores, 'id'));`
+- 그 외 `in_array(..., $store_ids, true)` 호출부(2곳: `$reference_store_id`, `$selected_store_id` 검증)는 코드 변경 없이 그대로 두되, 정상 동작하는지 확인.
+- 다른 파일에 동일 패턴(`array_column(...,'id')` 결과를 `in_array(..., true)`로 정수와 비교)이 더 있는지 `mall/` 디렉터리 내에서 검색해서 같은 버그가 더 있으면 같이 고칠 것(단, 이 Plan 범위는 `mall/admin/products.php`로 한정 — 다른 파일에서 발견되면 목록만 보고하고 고치지 말 것).
+
+**Success Criteria**:
+- SC-A1: "이 점포로 조회" 버튼으로 POSCO 외 점포(예: SUNSET ID 9)를 선택하면 드롭다운이 그 점포로 유지되고 목록도 그 점포 기준으로 바뀐다.
+- SC-A2: "Reference Store 저장"으로 POSCO 외 점포를 저장한 뒤 새로고침해도 그 점포가 "현재 저장값"으로 유지된다(더 이상 POSCO로 리셋되지 않음).
+
+---
+
 ## Executive Summary
 
 | 관점 | 내용 |
