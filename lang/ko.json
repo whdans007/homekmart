@@ -2662,6 +2662,7 @@
       "recent_sales": "최근 1개월 판매량",
       "reference_selling_price": "기준판매가",
       "reference_store": "기준 점포",
+      "view_store": "이 점포로 조회",
       "remove_from_slot": "진열 제거",
       "remove_from_slot_title": "쇼핑몰 큐레이션에서는 그대로 두고 이 진열에서만 뺍니다",
       "retail_discount_title": "체크 해제 시 소매(일반) 구매 시 할인 규칙이 적용되지 않습니다",
