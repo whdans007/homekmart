@@ -1086,6 +1086,7 @@ $conn->close();
                                 <i class="fas fa-chevron-right"></i>
                             </button>
                             <input type="text" class="edit-category-name border border-gray-300 rounded px-1.5 py-1 text-xs w-40 flex-shrink-0" data-category-id="<?php echo (int)$cat['id']; ?>" value="<?php echo htmlspecialchars($cat['name']); ?>">
+                            <button type="button" class="translate-category-btn text-gray-400 hover:text-blue-600 px-1 flex-shrink-0" title="<?php echo htmlspecialchars(t('mall_admin.products.translate_category_name')); ?>"><i class="fas fa-language"></i></button>
                             <input type="text" class="edit-category-name-en border border-gray-300 rounded px-1.5 py-1 text-xs flex-1 min-w-0" value="<?php echo htmlspecialchars($cat['name_en'] ?? ''); ?>" placeholder="EN">
                             <span class="text-gray-400 text-[10px] flex-shrink-0">(<?php echo (int)$cat['product_count']; ?>)</span>
                             <button type="button" class="delete-category-btn text-gray-300 hover:text-red-500 px-1" data-category-id="<?php echo (int)$cat['id']; ?>" data-category-name="<?php echo htmlspecialchars($cat['name']); ?>" title="<?php echo htmlspecialchars(t('common.delete')); ?>"><i class="fas fa-xmark"></i></button>
@@ -1098,6 +1099,7 @@ $conn->close();
                                 <?php echo t('mall_admin.products.upload_category_image'); ?>
                                 <input type="file" class="category-image-input hidden" accept="image/jpeg,image/png,image/webp,image/avif">
                             </label>
+                            <button type="button" class="search-category-photo-btn px-2 py-1 text-[11px] font-semibold bg-gray-100 text-gray-600 rounded hover:bg-gray-200" title="<?php echo htmlspecialchars(t('mall_admin.products.search_category_photo_title')); ?>"><i class="fas fa-magnifying-glass mr-1"></i><?php echo t('mall_admin.products.search_photo'); ?></button>
                             <button type="button" class="remove-category-image-btn text-[11px] text-red-500 hover:text-red-700<?php echo empty($cat['image_url']) ? ' hidden' : ''; ?>"><?php echo t('mall_admin.products.remove_category_image'); ?></button>
                         </div>
                         <div class="subcategory-panel hidden pl-6 pr-2 pb-2">
@@ -1106,6 +1108,7 @@ $conn->close();
                                 <li class="category-item flex items-center gap-1" data-category-id="<?php echo (int)$sub['id']; ?>" draggable="true">
                                     <i class="fas fa-grip-vertical text-gray-300 cursor-grab" title="<?php echo htmlspecialchars(t('mall_admin.products.drag_to_reorder')); ?>"></i>
                                     <input type="text" class="edit-category-name border border-gray-300 rounded px-1.5 py-1 text-xs w-40 flex-shrink-0" data-category-id="<?php echo (int)$sub['id']; ?>" value="<?php echo htmlspecialchars($sub['name']); ?>">
+                                    <button type="button" class="translate-category-btn text-gray-400 hover:text-blue-600 px-1 flex-shrink-0" title="<?php echo htmlspecialchars(t('mall_admin.products.translate_category_name')); ?>"><i class="fas fa-language"></i></button>
                                     <input type="text" class="edit-category-name-en border border-gray-300 rounded px-1.5 py-1 text-xs flex-1 min-w-0" value="<?php echo htmlspecialchars($sub['name_en'] ?? ''); ?>" placeholder="EN">
                                     <span class="text-gray-400 text-[10px] flex-shrink-0">(<?php echo (int)$sub['product_count']; ?>)</span>
                                     <button type="button" class="delete-category-btn text-gray-300 hover:text-red-500 px-1" data-category-id="<?php echo (int)$sub['id']; ?>" data-category-name="<?php echo htmlspecialchars($sub['name']); ?>" title="<?php echo htmlspecialchars(t('common.delete')); ?>"><i class="fas fa-xmark"></i></button>
@@ -1117,6 +1120,7 @@ $conn->close();
                             </ul>
                             <form class="add-subcategory-form flex gap-1" data-parent-id="<?php echo (int)$cat['id']; ?>">
                                 <input type="text" name="name" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.subcategory_name_placeholder')); ?>" required class="border border-gray-300 rounded px-2 py-1 text-xs w-40 flex-shrink-0">
+                                <button type="button" class="translate-category-btn text-gray-400 hover:text-blue-600 px-1 flex-shrink-0" title="<?php echo htmlspecialchars(t('mall_admin.products.translate_category_name')); ?>"><i class="fas fa-language"></i></button>
                                 <input type="text" name="name_en" placeholder="EN" class="border border-gray-300 rounded px-2 py-1 text-xs flex-1 min-w-0">
                                 <button type="submit" class="px-2 py-1 text-xs font-semibold bg-gray-500 text-white rounded flex-shrink-0"><?php echo t('common.add'); ?></button>
                             </form>
@@ -1132,6 +1136,7 @@ $conn->close();
                 </button>
                 <form id="add-category-form" class="flex gap-1">
                     <input type="text" name="name" placeholder="<?php echo htmlspecialchars(t('mall_admin.products.new_category_name_placeholder')); ?>" required class="border border-gray-300 rounded-md px-2 py-1 text-xs w-40 flex-shrink-0">
+                    <button type="button" class="translate-category-btn text-gray-400 hover:text-blue-600 px-1 flex-shrink-0" title="<?php echo htmlspecialchars(t('mall_admin.products.translate_category_name')); ?>"><i class="fas fa-language"></i></button>
                     <input type="text" name="name_en" placeholder="EN" class="border border-gray-300 rounded-md px-2 py-1 text-xs flex-1 min-w-0">
                     <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md flex-shrink-0"><?php echo t('common.add'); ?></button>
                 </form>
@@ -1601,6 +1606,7 @@ function addPendingCategoryRow(name, nameEn, parentId, targetList) {
     li.innerHTML =
         '<span class="text-blue-500 text-[10px] font-bold flex-shrink-0" title="<?php echo addslashes(t('mall_admin.products.not_saved_yet')); ?>">NEW</span>' +
         '<input type="text" class="pending-name border border-blue-300 rounded px-1.5 py-1 text-xs w-40 flex-shrink-0" value="' + escHtml(name) + '">' +
+        '<button type="button" class="translate-category-btn text-gray-400 hover:text-blue-600 px-1 flex-shrink-0" title="<?php echo addslashes(t('mall_admin.products.translate_category_name')); ?>"><i class="fas fa-language"></i></button>' +
         '<input type="text" class="pending-name-en border border-blue-300 rounded px-1.5 py-1 text-xs flex-1 min-w-0" value="' + escHtml(nameEn) + '" placeholder="EN">' +
         '<button type="button" class="remove-pending-btn text-gray-300 hover:text-red-500 px-1" title="<?php echo addslashes(t('common.cancel')); ?>"><i class="fas fa-xmark"></i></button>';
     li.querySelector('.remove-pending-btn').addEventListener('click', function () { li.remove(); });
@@ -1656,6 +1662,57 @@ document.querySelectorAll('.toggle-sub-btn').forEach(function (btn) {
         panel.classList.toggle('hidden');
         btn.querySelector('i').classList.toggle('fa-chevron-right');
         btn.querySelector('i').classList.toggle('fa-chevron-down');
+    });
+});
+
+// 정적 행과 아직 저장되지 않은 NEW 행 모두 현재 입력값을 기준으로 번역한다.
+if (categoryManageModal) {
+    categoryManageModal.addEventListener('click', function (e) {
+        const btn = e.target.closest('.translate-category-btn');
+        if (!btn || !categoryManageModal.contains(btn)) return;
+
+        const container = btn.closest('.category-item, form');
+        const nameInput = container?.querySelector('.edit-category-name, .pending-name, [name="name"]');
+        const nameEnInput = container?.querySelector('.edit-category-name-en, .pending-name-en, [name="name_en"]');
+        const text = nameInput?.value.trim() || '';
+        if (!text || !nameEnInput) return;
+
+        const params = new URLSearchParams();
+        params.set('text', text);
+        params.set('csrf_token', window.MALL_CSRF_TOKEN || '');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.classList.add('opacity-50');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        fetch('ajax/translate_text.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
+            body: params.toString()
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success || !data.data?.translated) {
+                    throw new Error(data.error?.message || '<?php echo addslashes(t('mall_admin.products.category_translation_failed')); ?>');
+                }
+                nameEnInput.value = data.data.translated;
+            })
+            .catch(error => showFlash(error.message || '<?php echo addslashes(t('mall_admin.products.category_translation_failed')); ?>', 'error'))
+            .finally(() => {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+                btn.innerHTML = originalHtml;
+            });
+    });
+}
+
+document.querySelectorAll('.search-category-photo-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        const categoryItem = btn.closest('.category-item');
+        const nameEn = categoryItem?.querySelector('.edit-category-name-en')?.value.trim() || '';
+        if (!nameEn) return;
+        const query = encodeURIComponent(nameEn + ' 이모티콘 png');
+        window.open('https://www.google.com/search?tbm=isch&q=' + query, '_blank');
     });
 });
 
