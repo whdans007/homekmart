@@ -6,6 +6,7 @@ require_once __DIR__ . '/../partials/header.php';
 
 $store_id = get_office_store_id();
 $conn     = get_db_connection();
+$can_delete_upload = current_user_level() >= get_role_level('manager');
 
 $tbl = $conn->query("SHOW TABLES LIKE 'pos_sales_uploads'");
 if (!$tbl || $tbl->num_rows === 0) {
@@ -18,9 +19,9 @@ if (!$tbl || $tbl->num_rows === 0) {
     exit;
 }
 
-// 삭제 처리 (super_admin/admin/branch_manager만 가능 — 버튼 노출 여부와 무관하게 서버에서도 검증)
+// 삭제 처리 (manager 등급 이상만 가능 — 버튼 노출 여부와 무관하게 서버에서도 검증)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
-    if (!in_array($_SESSION['role'] ?? '', ['super_admin', 'admin', 'branch_manager'])) {
+    if (!$can_delete_upload) {
         header('Location: index.php');
         exit;
     }
@@ -89,7 +90,7 @@ $conn->close();
              class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-medium mr-1">
             <i class="fa-solid fa-table mr-1"></i>조회
           </a>
-          <?php if (in_array($_SESSION['role'] ?? '', ['super_admin', 'admin', 'branch_manager'])): ?>
+          <?php if ($can_delete_upload): ?>
           <form method="POST" class="inline"
                 onsubmit="return confirm('<?php echo number_format($r['row_count']); ?>건의 데이터를 삭제합니다. 계속하시겠습니까?')">
             <input type="hidden" name="delete_id" value="<?php echo $r['id']; ?>">
