@@ -1158,7 +1158,6 @@ function buildDetailTable(batch, supplier) {
     });
     return `<h2>${supplier}</h2>
     <div class="meta">
-        Supplier: <strong>${supplier}</strong> &nbsp;|&nbsp;
         Payment Date: <strong>${paidLabel}</strong> &nbsp;|&nbsp;
         Items: <strong>${batch.items.length}</strong>
     </div>
@@ -1167,7 +1166,7 @@ function buildDetailTable(batch, supplier) {
         <tbody>${rows}</tbody>
         <tfoot>
             ${batch.discount > 0 ? `<tr class="total-spacer"><td colspan="3"></td></tr>
-            <tr><td colspan="2">${discountLabel}</td><td class="amount">-${fmt(batch.discount)}</td></tr>
+            <tr><td colspan="2">${discountLabel}</td><td class="amount">${fmt(batch.discount)}</td></tr>
             <tr class="total-spacer"><td colspan="3"></td></tr>` : ''}
             <tr class="total-row"><td colspan="2">TOTAL</td><td class="amount">${totalFmt}</td></tr>
         </tfoot>
