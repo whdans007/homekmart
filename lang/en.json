@@ -2582,6 +2582,7 @@
       "recent_sales": "Sales (Last 30 Days)",
       "reference_selling_price": "Reference Selling Price",
       "reference_store": "Reference Store",
+      "view_store": "View This Store",
       "remove_from_slot": "Remove from Display",
       "remove_from_slot_title": "Keeps it in mall curation — only removes it from this display",
       "retail_discount_title": "When unchecked, discount rules won't apply to retail (general) purchases",

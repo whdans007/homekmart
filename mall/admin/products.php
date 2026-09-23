@@ -565,6 +565,9 @@ $conn->close();
                 <option value="<?php echo (int)$s['id']; ?>" <?php echo $selected_store_id === (int)$s['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($s['name']); ?> (ID <?php echo (int)$s['id']; ?>)</option>
                 <?php endforeach; ?>
             </select>
+            <button type="button" id="preview-store" data-selected-store-id="<?php echo (int)$selected_store_id; ?>" class="px-3 py-1 bg-gray-600 text-white rounded-md text-xs font-semibold hover:bg-gray-700 disabled:opacity-50" disabled>
+                <i class="fas fa-eye mr-1"></i><?php echo t('mall_admin.products.view_store'); ?>
+            </button>
             <button type="button" id="save-reference-store" class="px-3 py-1 bg-blue-600 text-white rounded-md text-xs font-semibold hover:bg-blue-700 disabled:opacity-50">
                 <i class="fas fa-save mr-1"></i>Reference Store 저장
             </button>
@@ -1233,10 +1236,14 @@ document.querySelectorAll('.barcode-copy').forEach(function (el) {
 });
 
 const storeSelect = document.getElementById('store-select');
+const previewStoreButton = document.getElementById('preview-store');
 const saveReferenceStoreButton = document.getElementById('save-reference-store');
 const referenceStoreStatus = document.getElementById('reference-store-status');
-if (storeSelect) {
+if (storeSelect && previewStoreButton) {
     storeSelect.addEventListener('change', function () {
+        previewStoreButton.disabled = storeSelect.value === previewStoreButton.dataset.selectedStoreId;
+    });
+    previewStoreButton.addEventListener('click', function () {
         const params = new URLSearchParams(window.location.search);
         params.set('store_id', storeSelect.value);
         window.location.href = 'products.php?' + params.toString();
