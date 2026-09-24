@@ -89,6 +89,7 @@ try {
         $existing = mall_get_home_slot($slot_key);
         $existing_config = ($existing && $existing['config']) ? json_decode($existing['config'], true) : null;
         $config['product_ids'] = (is_array($existing_config) && !empty($existing_config['product_ids'])) ? $existing_config['product_ids'] : [];
+        $config['fresh_product_ids'] = (is_array($existing_config) && !empty($existing_config['fresh_product_ids'])) ? $existing_config['fresh_product_ids'] : [];
     }
 
     $config_json = json_encode($config, JSON_UNESCAPED_UNICODE);

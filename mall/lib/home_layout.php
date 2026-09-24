@@ -40,6 +40,10 @@ const MALL_HOME_SLOTS = ['promo_banner', 'today_deals', 'new_arrivals'];
 // 섞이지 않게 한다.
 const MALL_PROMO_PAGE_SLOTS = ['promo_products'];
 
+// 상품 목록(product_ids/fresh_product_ids)만 draft/발행 절차 없이 저장 즉시 고객 화면에 반영되는 슬롯.
+// title/subtitle/is_active 등 다른 필드는 여전히 발행 절차를 거친다.
+const MALL_HOME_LIVE_PRODUCT_SLOTS = ['today_deals', 'new_arrivals', 'promo_products'];
+
 /**
  * 홈 화면 고정 슬롯 목록 조회(슬롯 순서 고정).
  * @param bool $customer_facing true면 고객 화면(발행본 + 노출 설정된 것만), false면 관리자 화면(숨김 상태도 봐야 토글 가능)
@@ -70,6 +74,55 @@ function mall_get_active_home_sections($customer_facing, $status) {
     $stmt->execute();
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
+
+    if ($status === 'published') {
+        $live_slot_keys = [];
+        foreach ($rows as $row) {
+            if (in_array($row['slot_key'], MALL_HOME_LIVE_PRODUCT_SLOTS, true)) {
+                $live_slot_keys[] = $row['slot_key'];
+            }
+        }
+
+        if (!empty($live_slot_keys)) {
+            $draft_placeholders = implode(',', array_fill(0, count($live_slot_keys), '?'));
+            $draft_stmt = $conn->prepare(
+                "SELECT slot_key, config
+                 FROM mall_home_sections
+                 WHERE store_id = ? AND status = 'draft' AND slot_key IN ({$draft_placeholders})"
+            );
+            $draft_types = 'i' . str_repeat('s', count($live_slot_keys));
+            $draft_params = array_merge([$store_id], $live_slot_keys);
+            $draft_stmt->bind_param($draft_types, ...$draft_params);
+            $draft_stmt->execute();
+            $draft_configs = [];
+            foreach ($draft_stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $draft_row) {
+                $draft_configs[$draft_row['slot_key']] = $draft_row['config'];
+            }
+            $draft_stmt->close();
+
+            foreach ($rows as $i => $row) {
+                $slot_key = $row['slot_key'];
+                if (!in_array($slot_key, MALL_HOME_LIVE_PRODUCT_SLOTS, true)) {
+                    continue;
+                }
+
+                $draft_config = isset($draft_configs[$slot_key])
+                    ? json_decode($draft_configs[$slot_key], true)
+                    : null;
+                if (!is_array($draft_config)) {
+                    error_log('mall_get_active_home_sections: invalid draft config for slot ' . $slot_key);
+                    continue;
+                }
+
+                $published_config = json_decode($row['config'], true);
+                $published_config = is_array($published_config) ? $published_config : [];
+                $published_config['product_ids'] = $draft_config['product_ids'] ?? [];
+                $published_config['fresh_product_ids'] = $draft_config['fresh_product_ids'] ?? [];
+                $rows[$i]['config'] = json_encode($published_config, JSON_UNESCAPED_UNICODE);
+            }
+        }
+    }
+
     $conn->close();
     return $rows;
 }
@@ -89,6 +142,31 @@ function mall_get_home_slot($slot_key, $status = 'draft') {
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
+
+    if ($row && $status === 'published' && in_array($slot_key, MALL_HOME_LIVE_PRODUCT_SLOTS, true)) {
+        $draft_stmt = $conn->prepare(
+            "SELECT config FROM mall_home_sections
+             WHERE store_id = ? AND slot_key = ? AND status = 'draft'"
+        );
+        $draft_stmt->bind_param('is', $store_id, $slot_key);
+        $draft_stmt->execute();
+        $draft_row = $draft_stmt->get_result()->fetch_assoc();
+        $draft_stmt->close();
+
+        $draft_config = ($draft_row && isset($draft_row['config']))
+            ? json_decode($draft_row['config'], true)
+            : null;
+        if (is_array($draft_config)) {
+            $published_config = json_decode($row['config'], true);
+            $published_config = is_array($published_config) ? $published_config : [];
+            $published_config['product_ids'] = $draft_config['product_ids'] ?? [];
+            $published_config['fresh_product_ids'] = $draft_config['fresh_product_ids'] ?? [];
+            $row['config'] = json_encode($published_config, JSON_UNESCAPED_UNICODE);
+        } else {
+            error_log('mall_get_home_slot: invalid draft config for slot ' . $slot_key);
+        }
+    }
+
     $conn->close();
     return $row ?: null;
 }
@@ -164,12 +242,13 @@ function mall_render_banner_section($section, $config, $show_placeholder) {
  */
 function mall_render_today_deals_section($section, $config, $member, $mall_lang, $cart_qty_map) {
     $product_ids = $config['product_ids'] ?? [];
-    if (empty($product_ids)) {
+    $fresh_product_ids = $config['fresh_product_ids'] ?? [];
+    if (empty($product_ids) && empty($fresh_product_ids)) {
         return '';
     }
     $channel = ($member && $member['member_type'] === 'wholesale') ? 'wholesale' : 'retail';
     $rows = mall_get_products_by_ids($product_ids);
-    $fresh_rows = mall_get_fresh_products_by_ids($config['fresh_product_ids'] ?? []);
+    $fresh_rows = mall_get_fresh_products_by_ids($fresh_product_ids);
     if (empty($rows) && empty($fresh_rows)) {
         return '';
     }
@@ -178,25 +257,28 @@ function mall_render_today_deals_section($section, $config, $member, $mall_lang,
     // 상품별 프로모(1+1/퍼센트할인/원가세일) — mall_products에 직접 저장되어 있다(상품 큐레이션 화면에서
     // 설정, ajax/save_today_deal_promo.php 참고). 판매가처럼 저장 즉시 반영되도록 draft/발행 구조를 안 거친다.
     $promos = [];
-    $promo_conn = mall_get_db_connection();
-    $promo_placeholders = implode(',', array_fill(0, count($product_ids), '?'));
-    $promo_stmt = $promo_conn->prepare(
-        "SELECT product_id, promo_type, promo_value, promo_was
-         FROM mall_products
-         WHERE store_id = ? AND product_id IN ({$promo_placeholders}) AND promo_type IS NOT NULL"
-    );
-    $promo_types = 'i' . str_repeat('i', count($product_ids));
-    $promo_params = array_merge([MALL_STORE_ID], $product_ids);
-    $promo_stmt->bind_param($promo_types, ...$promo_params);
-    $promo_stmt->execute();
-    foreach ($promo_stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $__row) {
-        $promos[(string)$__row['product_id']] = [
-            'type' => $__row['promo_type'],
-            'value' => $__row['promo_value'] !== null ? (float)$__row['promo_value'] : null,
-            'was' => $__row['promo_was'] !== null ? (float)$__row['promo_was'] : null,
-        ];
+    if (!empty($product_ids)) {
+        $promo_conn = mall_get_db_connection();
+        $promo_placeholders = implode(',', array_fill(0, count($product_ids), '?'));
+        $promo_stmt = $promo_conn->prepare(
+            "SELECT product_id, promo_type, promo_value, promo_was
+             FROM mall_products
+             WHERE store_id = ? AND product_id IN ({$promo_placeholders}) AND promo_type IS NOT NULL"
+        );
+        $promo_types = 'i' . str_repeat('i', count($product_ids));
+        $promo_params = array_merge([MALL_STORE_ID], $product_ids);
+        $promo_stmt->bind_param($promo_types, ...$promo_params);
+        $promo_stmt->execute();
+        foreach ($promo_stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $__row) {
+            $promos[(string)$__row['product_id']] = [
+                'type' => $__row['promo_type'],
+                'value' => $__row['promo_value'] !== null ? (float)$__row['promo_value'] : null,
+                'was' => $__row['promo_was'] !== null ? (float)$__row['promo_was'] : null,
+            ];
+        }
+        $promo_stmt->close();
+        $promo_conn->close();
     }
-    $promo_stmt->close();
 
     ob_start();
     ?>
@@ -227,12 +309,13 @@ function mall_render_today_deals_section($section, $config, $member, $mall_lang,
  */
 function mall_render_new_arrivals_section($section, $config, $member, $mall_lang, $cart_qty_map) {
     $product_ids = $config['product_ids'] ?? [];
-    if (empty($product_ids)) {
+    $fresh_product_ids = $config['fresh_product_ids'] ?? [];
+    if (empty($product_ids) && empty($fresh_product_ids)) {
         return '';
     }
     $channel = ($member && $member['member_type'] === 'wholesale') ? 'wholesale' : 'retail';
     $rows = mall_get_products_by_ids($product_ids);
-    $fresh_rows = mall_get_fresh_products_by_ids($config['fresh_product_ids'] ?? []);
+    $fresh_rows = mall_get_fresh_products_by_ids($fresh_product_ids);
     if (empty($rows) && empty($fresh_rows)) {
         return '';
     }
