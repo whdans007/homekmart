@@ -14,7 +14,10 @@ require_permission('mall_management', '../../admin/index.php');
 $current_page = 'products.php';
 $search = trim($_GET['q'] ?? '');
 // 상품 검색 섹션의 탭 — 일반상품(products/mall_products) / 신선상품(mall_fresh_products)
-$search_tab = ($_GET['search_tab'] ?? 'general') === 'fresh' ? 'fresh' : 'general';
+$search_tab = $_GET['search_tab'] ?? 'general';
+if (!in_array($search_tab, ['general', 'fresh', 'new'], true)) {
+    $search_tab = 'general';
+}
 // 신선상품 탭 전용: 과일/채소/정육/수산 고정 분류 버튼 — 검색어 없이도 분류 전체 상품을 바로 볼 수 있게 한다.
 $selected_fresh_cat = $_GET['fresh_cat'] ?? '';
 if (!array_key_exists($selected_fresh_cat, fresh_category_options())) {
@@ -65,6 +68,11 @@ if (!isset($home_slot_labels[$selected_home_slot])) {
 if ($selected_home_slot) {
     $selected_category_id = null;
     $selected_sub_id = null;
+}
+// "신상품" 탭은 홈 노출(오늘의특가/기획전/새상품) 모드에서만 의미가 있다. 카테고리 브라우징
+// 모드로 search_tab=new가 새어 들어오면(URL 직접 조작 등) 일반 탭으로 되돌린다.
+if (!$selected_home_slot && $search_tab === 'new') {
+    $search_tab = 'general';
 }
 
 // 오늘의특가/기획전/새상품 각각 지금 몇 개가 초안(draft)에 들어있는지 — 사이드바 카운트 + 필터링에 쓴다.
@@ -202,6 +210,26 @@ if ($selected_home_slot && $search_tab === 'general' && $search !== '') {
     $slot_stmt->execute();
     $home_slot_search_results = $slot_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $slot_stmt->close();
+}
+
+// 홈 노출 패널의 "신상품" 탭 — admin/new_products_management.php와 동일한 기준(최근 7일 이내
+// 등록된 활성 일반상품)으로 검색 없이 바로 후보를 보여준다.
+$home_slot_new_results = [];
+if ($selected_home_slot && $search_tab === 'new') {
+    $new_stmt = $conn->prepare(
+        "SELECT p.id AS product_id, p.name_ko, p.name_en, p.sku, mp.id AS mall_product_id, mp.display_name, p.created_at
+         FROM products p
+         LEFT JOIN mall_products mp ON mp.product_id = p.id AND mp.store_id = ?
+         WHERE p.is_active = 1
+           AND DATE(p.created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+         ORDER BY p.created_at DESC, p.id DESC
+         LIMIT 50"
+    );
+    $mall_store_id = (int)MALL_STORE_ID;
+    $new_stmt->bind_param('i', $mall_store_id);
+    $new_stmt->execute();
+    $home_slot_new_results = $new_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $new_stmt->close();
 }
 
 // 검색 결과 (아직 몰에 큐레이션되지 않은 상품 위주로 보여주되, 이미 등록된 것도 함께 표시)
@@ -868,6 +896,7 @@ $conn->close();
                 <?php $__slot_search_qs = array_merge($__base_qs, ['home_slot' => $selected_home_slot]); unset($__slot_search_qs['q']); if ($selected_fresh_cat) { $__slot_search_qs['fresh_cat'] = $selected_fresh_cat; } ?>
                 <a href="?<?php echo http_build_query(array_merge($__slot_search_qs, ['search_tab' => 'general'])); ?>" class="px-3 py-2 text-xs font-semibold border-b-2 <?php echo $search_tab === 'general' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500'; ?>"><?php echo t('mall_admin.products.tab_general'); ?></a>
                 <a href="?<?php echo http_build_query(array_merge($__slot_search_qs, ['search_tab' => 'fresh'])); ?>" class="px-3 py-2 text-xs font-semibold border-b-2 <?php echo $search_tab === 'fresh' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500'; ?>"><?php echo t('mall_admin.products.tab_fresh'); ?></a>
+                <a href="?<?php echo http_build_query(array_merge($__slot_search_qs, ['search_tab' => 'new'])); ?>" class="px-3 py-2 text-xs font-semibold border-b-2 <?php echo $search_tab === 'new' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500'; ?>"><?php echo t('mall_admin.products.tab_new'); ?></a>
             </div>
             <?php if ($search_tab === 'fresh'): ?>
             <?php
@@ -885,6 +914,7 @@ $conn->close();
                 <?php endif; ?>
             </div>
             <?php endif; ?>
+            <?php if ($search_tab !== 'new'): ?>
             <form method="get" class="flex gap-1 mb-3">
                 <input type="hidden" name="home_slot" value="<?php echo htmlspecialchars($selected_home_slot); ?>">
                 <input type="hidden" name="search_tab" value="<?php echo htmlspecialchars($search_tab); ?>">
@@ -894,6 +924,7 @@ $conn->close();
                        class="border border-gray-300 rounded-md px-2 py-1 text-xs w-full">
                 <button type="submit" class="px-3 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md"><?php echo t('common.search'); ?></button>
             </form>
+            <?php endif; ?>
             <?php if ($search_tab === 'general' && $search !== ''): ?>
             <table class="min-w-full text-xs">
                 <thead class="bg-gray-100 text-gray-600">
@@ -911,6 +942,37 @@ $conn->close();
                             <?php echo htmlspecialchars($p['display_name'] ?: $p['name_ko']); ?><?php if (!empty($p['name_en'])): ?> <span class="text-gray-400">(<?php echo htmlspecialchars($p['name_en']); ?>)</span><?php endif; ?>
                         </td>
                         <td class="px-3 py-2"><?php echo number_format((float)$p['recent_sales_qty']); ?></td>
+                        <td class="px-3 py-2">
+                            <?php if ($__already_in_slot): ?>
+                                <span class="text-gray-400"><?php echo t('mall_admin.products.already_added'); ?></span>
+                            <?php elseif (!$p['mall_product_id']): ?>
+                                <button class="curate-home-slot-product-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>">쇼핑몰에 추가</button>
+                            <?php else: ?>
+                                <button class="add-to-home-slot-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>">이동 등록</button>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
+            <?php if ($search_tab === 'new'): ?>
+            <table class="min-w-full text-xs">
+                <thead class="bg-gray-100 text-gray-600">
+                    <tr><th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.product_name'); ?></th><th class="px-3 py-2 text-left"><?php echo t('mall_admin.products.registration_date'); ?></th><th class="px-3 py-2 text-left"><?php echo t('common.actions'); ?></th></tr>
+                </thead>
+                <tbody>
+                <?php if (empty($home_slot_new_results)): ?>
+                    <tr><td colspan="3" class="px-3 py-4 text-center text-gray-400"><?php echo t('mall_admin.products.no_search_results'); ?></td></tr>
+                <?php endif; ?>
+                <?php foreach ($home_slot_new_results as $p): ?>
+                    <?php $__already_in_slot = in_array((int)$p['product_id'], $home_slot_membership[$selected_home_slot], true); ?>
+                    <tr class="border-t border-gray-100">
+                        <td class="px-3 py-2">
+                            <div class="text-gray-400"><?php echo htmlspecialchars($p['sku']); ?></div>
+                            <?php echo htmlspecialchars($p['display_name'] ?: $p['name_ko']); ?><?php if (!empty($p['name_en'])): ?> <span class="text-gray-400">(<?php echo htmlspecialchars($p['name_en']); ?>)</span><?php endif; ?>
+                        </td>
+                        <td class="px-3 py-2"><?php echo htmlspecialchars(date('Y-m-d', strtotime($p['created_at']))); ?></td>
                         <td class="px-3 py-2">
                             <?php if ($__already_in_slot): ?>
                                 <span class="text-gray-400"><?php echo t('mall_admin.products.already_added'); ?></span>
