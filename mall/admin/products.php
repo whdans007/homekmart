@@ -117,19 +117,20 @@ if (!in_array($selected_store_id, $store_ids, true)) {
 // product_count: 대분류 + 그 하위 소분류에 걸린 일반 큐레이션 상품과 신선상품의 합계.
 // products.category_id만으로 세면 큐레이션에서 삭제된 상품(category_id는 안 지워짐)까지 잡혀서
 // 일반상품은 mall_products에 실제 등록된 건만 세고, 신선상품은 카테고리가 배정된 건을 함께 센다.
+// 큐레이션(mall_products)은 product_id에 UNIQUE 제약이 있어 점포와 무관한 몰 전체 단일 카탈로그다.
+// Reference Store를 바꿔도 큐레이션 개수는 그대로여야 하므로 store_id로 필터링하지 않는다.
 $cat_count_stmt = $conn->prepare(
     "SELECT c.id, c.name, c.name_en, c.image_url,
             COUNT(DISTINCT mp.id) + COUNT(DISTINCT mfp.id) AS product_count
      FROM categories c
      LEFT JOIN categories sub ON sub.parent_id = c.id
      LEFT JOIN products p ON (p.category_id = c.id OR p.category_id = sub.id)
-     LEFT JOIN mall_products mp ON mp.product_id = p.id AND mp.store_id = ?
+     LEFT JOIN mall_products mp ON mp.product_id = p.id
      LEFT JOIN mall_fresh_products mfp ON (mfp.category_id = c.id OR mfp.category_id = sub.id)
      WHERE c.parent_id IS NULL
      GROUP BY c.id, c.name, c.name_en, c.image_url
      ORDER BY c.sort_order, c.name"
 );
-$cat_count_stmt->bind_param('i', $selected_store_id);
 $cat_count_stmt->execute();
 $mall_categories = $cat_count_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $cat_count_stmt->close();
@@ -141,13 +142,12 @@ $all_sub_stmt = $conn->prepare(
             COUNT(DISTINCT mp.id) + COUNT(DISTINCT mfp.id) AS product_count
      FROM categories c
      LEFT JOIN products p ON p.category_id = c.id
-     LEFT JOIN mall_products mp ON mp.product_id = p.id AND mp.store_id = ?
+     LEFT JOIN mall_products mp ON mp.product_id = p.id
      LEFT JOIN mall_fresh_products mfp ON mfp.category_id = c.id
      WHERE c.parent_id IS NOT NULL
      GROUP BY c.id, c.name, c.name_en, c.parent_id
      ORDER BY c.parent_id, c.sort_order, c.name"
 );
-$all_sub_stmt->bind_param('i', $selected_store_id);
 $all_sub_stmt->execute();
 $sub_categories_by_parent = [];
 foreach ($all_sub_stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
@@ -419,21 +419,21 @@ if ($selected_home_slot && empty($home_slot_membership[$selected_home_slot])) {
                 mp.promo_type, mp.promo_value,
                 (SELECT COUNT(*) FROM mall_product_images WHERE product_id = p.id) AS image_count
          FROM products p
-         LEFT JOIN mall_products mp ON mp.product_id = p.id AND mp.store_id = ?
+         LEFT JOIN mall_products mp ON mp.product_id = p.id
          LEFT JOIN categories c ON c.id = p.category_id
          LEFT JOIN inventory inv ON inv.product_id = p.id AND inv.store_id = ?
          WHERE p.id IN ({$placeholders})
          ORDER BY FIELD(p.id, " . implode(',', $slot_product_ids) . ")"
     );
-    $curated_types = 'ii' . str_repeat('i', count($slot_product_ids));
-    // 홈 노출은 항상 실제 판매 기준 점포(MALL_STORE_ID) 큐레이션 여부를 기준으로 본다 —
-    // 상단의 점포 선택 드롭다운(카테고리 큐레이션용)과는 무관하다.
-    $curated_params = array_merge([(int)$selected_store_id, (int)$selected_store_id], $slot_product_ids);
+    $curated_types = 'i' . str_repeat('i', count($slot_product_ids));
+    // 큐레이션(mall_products)은 점포 무관 전역이라 store_id로 거르지 않는다. inventory 가격만
+    // 선택한(또는 임시 조회 중인) Reference Store 기준으로 보여준다.
+    $curated_params = array_merge([(int)$selected_store_id], $slot_product_ids);
     $curated_stmt->bind_param($curated_types, ...$curated_params);
 } else {
-    $curated_where = ['mp.store_id = ?'];
-    $curated_params = [$selected_store_id, $selected_store_id];
-    $curated_types = 'ii';
+    $curated_where = [];
+    $curated_params = [];
+    $curated_types = '';
     if (!empty($category_filter_ids)) {
         $placeholders = implode(',', array_fill(0, count($category_filter_ids), '?'));
         $curated_where[] = "p.category_id IN ({$placeholders})";
@@ -443,14 +443,19 @@ if ($selected_home_slot && empty($home_slot_membership[$selected_home_slot])) {
         }
     }
 
+    // 큐레이션(mall_products)은 점포 무관 전역이라 store_id 조건 없이 카테고리 필터만 적용한다.
+    $curated_where_sql = !empty($curated_where) ? ('WHERE ' . implode(' AND ', $curated_where)) : '';
+
     // 총 개수(페이지네이션용) — INNER JOIN 조건은 본 조회와 동일하게 맞춘다.
     $count_stmt = $conn->prepare(
         "SELECT COUNT(*) AS cnt
          FROM mall_products mp
          INNER JOIN products p ON p.id = mp.product_id
-         WHERE " . implode(' AND ', $curated_where)
+         {$curated_where_sql}"
     );
-    $count_stmt->bind_param(substr($curated_types, 1), ...array_slice($curated_params, 1));
+    if ($curated_types !== '') {
+        $count_stmt->bind_param($curated_types, ...$curated_params);
+    }
     $count_stmt->execute();
     $curated_total = (int)($count_stmt->get_result()->fetch_assoc()['cnt'] ?? 0);
     $count_stmt->close();
@@ -470,13 +475,13 @@ if ($selected_home_slot && empty($home_slot_membership[$selected_home_slot])) {
          INNER JOIN products p ON p.id = mp.product_id
          LEFT JOIN categories c ON c.id = p.category_id
          LEFT JOIN inventory inv ON inv.product_id = p.id AND inv.store_id = ?
-         WHERE " . implode(' AND ', $curated_where) . "
+         {$curated_where_sql}
          ORDER BY mp.display_order, mp.id DESC
          LIMIT ? OFFSET ?"
     );
-    $curated_types .= 'ii';
-    $curated_params[] = $curated_per_page;
-    $curated_params[] = $curated_offset;
+    // inventory 가격 조회용 Reference Store id를 맨 앞에 추가 — 큐레이션 필터(store_id)는 더 이상 없다.
+    $curated_types = 'i' . $curated_types . 'ii';
+    $curated_params = array_merge([(int)$selected_store_id], $curated_params, [$curated_per_page, $curated_offset]);
     $curated_stmt->bind_param($curated_types, ...$curated_params);
 }
 if (isset($curated_stmt)) {
@@ -1249,6 +1254,8 @@ $conn->close();
 
 <script>
 window.MALL_WHOLESALE_MARKUP_RATE = <?php echo json_encode($wholesale_reference_markup_rate); ?>;
+// 화면에 표시 중인(=가격 비교 기준) Reference Store id. 가격 override 저장 시 서버에 그대로 전달한다.
+window.MALL_SELECTED_STORE_ID = <?php echo json_encode((int)$selected_store_id); ?>;
 
 function showFlash(message, type, duration) {
     const area = document.getElementById('flash-area');
@@ -1461,6 +1468,7 @@ document.querySelectorAll('.save-curated-btn').forEach(function (btn) {
         const params = new URLSearchParams();
         params.set('action', 'update');
         params.set('mall_product_id', row.dataset.mallProductId);
+        params.set('reference_store_id', window.MALL_SELECTED_STORE_ID);
         params.set('display_name', row.querySelector('.edit-display-name').value);
         params.set('display_name_en', row.querySelector('.edit-display-name-en').value);
         params.set('cost_price', row.querySelector('.edit-cost-price').value);

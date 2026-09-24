@@ -40,15 +40,9 @@ try {
             json_error('VALIDATION_ERROR', '입력값을 확인해주세요');
         }
 
-        // 큐레이션 기준 점포: products.php에서 선택한 점포. 존재하지 않으면 기본 점포로 되돌린다.
-        $store_id = (int)($_POST['store_id'] ?? MALL_STORE_ID);
-        $store_check = $conn->prepare('SELECT id FROM stores WHERE id = ?');
-        $store_check->bind_param('i', $store_id);
-        $store_check->execute();
-        if (!$store_check->get_result()->fetch_assoc()) {
-            $store_id = MALL_STORE_ID;
-        }
-        $store_check->close();
+        // 큐레이션(mall_products)은 점포 무관 전역 카탈로그다. store_id는 화면에서 임시로 보고 있는
+        // Reference Store와 무관하게 항상 MALL_STORE_ID로 고정 저장한다(실제 몰이 이 값을 기준으로 찾음).
+        $store_id = MALL_STORE_ID;
 
         $check = $conn->prepare('SELECT id FROM mall_products WHERE product_id = ?');
         $check->bind_param('i', $product_id);
@@ -120,7 +114,7 @@ try {
             json_error('VALIDATION_ERROR', '가격은 0 이상이어야 합니다');
         }
 
-        $lookup = $conn->prepare('SELECT product_id, store_id FROM mall_products WHERE id = ?');
+        $lookup = $conn->prepare('SELECT product_id FROM mall_products WHERE id = ?');
         $lookup->bind_param('i', $mall_product_id);
         $lookup->execute();
         $mp_row = $lookup->get_result()->fetch_assoc();
@@ -130,12 +124,23 @@ try {
             json_error('VALIDATION_ERROR', '큐레이션 상품을 찾을 수 없습니다');
         }
         $product_id = (int)$mp_row['product_id'];
-        $store_id = (int)$mp_row['store_id'];
+
+        // 화면에 표시된(=관리자가 값을 비교하며 입력한) Reference Store 기준으로 원가/판매가를 비교해야
+        // override 여부가 정확히 계산된다. mall_products.store_id는 항상 MALL_STORE_ID로 고정 저장되는
+        // 값이라 화면에서 다른 점포를 임시 조회 중이면 그 값과 어긋날 수 있어 쓰지 않는다.
+        $reference_store_id = (int)($_POST['reference_store_id'] ?? MALL_STORE_ID);
+        $store_check = $conn->prepare('SELECT id FROM stores WHERE id = ?');
+        $store_check->bind_param('i', $reference_store_id);
+        $store_check->execute();
+        if (!$store_check->get_result()->fetch_assoc()) {
+            $reference_store_id = MALL_STORE_ID;
+        }
+        $store_check->close();
 
         // 매장 재고(inventory)의 실제 원가/판매가는 건드리지 않고, 오리지널 값과 비교해
         // 값이 다를 때만 mall_products에 override로 저장한다(같으면 override 해제 = NULL).
         $inv_lookup = $conn->prepare('SELECT cost_price, selling_price FROM inventory WHERE product_id = ? AND store_id = ?');
-        $inv_lookup->bind_param('ii', $product_id, $store_id);
+        $inv_lookup->bind_param('ii', $product_id, $reference_store_id);
         $inv_lookup->execute();
         $inv_row = $inv_lookup->get_result()->fetch_assoc();
         $inv_lookup->close();
