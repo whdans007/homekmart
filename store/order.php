@@ -338,10 +338,13 @@ try {
     // 실제 출고 함수와 동일하게 유통기한 우선, 유통기한이 없으면 입고일 우선으로 정렬한다.
     $lot_res = $conn->query(
         "SELECT i.product_id, i.unit, i.id AS inventory_id, i.quantity_remain,
-                ib.cost_price, ib.inbound_date, ib.expiry_date
+                ib.cost_price, ib.inbound_date, ib.expiry_date,
+                lp.id AS promotion_id, lp.base_price AS promotion_base_price,
+                lp.discounted_price, lp.discount_rate
          FROM lc_inventory i
          JOIN lc_inbound ib ON ib.id = i.inbound_id
          JOIN lc_products p ON p.id = i.product_id
+         LEFT JOIN lc_lot_promotions lp ON lp.inventory_id = i.id AND lp.status = 'active'
          WHERE i.quantity_remain > 0 AND p.is_active = 1
          ORDER BY i.product_id, i.unit,
                   COALESCE(ib.expiry_date, ib.inbound_date) ASC, i.id ASC"
@@ -350,12 +353,27 @@ try {
         while ($lot = $lot_res->fetch_assoc()) {
             $pid = (int)$lot['product_id'];
             $unit = strtoupper((string)$lot['unit']);
-            $lot_prices[$pid][$unit][] = [
+            $lotKey = ($lot['expiry_date'] ?: 'none') . '|' . (int)($lot['promotion_id'] ?? 0) . '|' . (float)$lot['cost_price'];
+            if (isset($lot_prices[$pid][$unit][$lotKey])) {
+                $lot_prices[$pid][$unit][$lotKey]['qty'] += (int)$lot['quantity_remain'];
+                continue;
+            }
+            $lot_prices[$pid][$unit][$lotKey] = [
                 'qty'   => (int)$lot['quantity_remain'],
                 'price' => (float)$lot['cost_price'],
+                'expiry_date' => $lot['expiry_date'],
+                'promotion_id' => (int)($lot['promotion_id'] ?? 0),
+                'promotion_base_price' => isset($lot['promotion_base_price']) ? (float)$lot['promotion_base_price'] : null,
+                'discounted_price' => isset($lot['discounted_price']) ? (float)$lot['discounted_price'] : null,
+                'discount_rate' => isset($lot['discount_rate']) ? (float)$lot['discount_rate'] : null,
             ];
         }
         $lot_res->free();
+        foreach ($lot_prices as &$unitLots) {
+            foreach ($unitLots as &$lots) $lots = array_values($lots);
+            unset($lots);
+        }
+        unset($unitLots);
     }
 
     $conn->close();
@@ -524,7 +542,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium w-28">Brand</th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-16">PKG</th>
-                <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium w-24">Expiry</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-24">PCS Price</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-24">Box Price</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-24">Pack Price</th>
@@ -534,10 +551,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200" id="productBody">
-        <?php foreach ($promo_items as $promo):
-            $promoUnit = $promo['unit'];
-            // 프로모션 항목의 max는 상품 전체 재고(해당 단위) 기준 — 초과분은 승인 시
-            // lc_ship_promo_lot()이 자동으로 일반 재고(정상가)에서 채운다.
+        <?php
+        foreach ($promo_items as $promo):
+            $promoUnit = strtoupper((string)$promo['unit']);
             $promoTotalStock = 0;
             foreach ($products as $pp) {
                 if ((int)$pp['id'] !== (int)$promo['product_id']) continue;
@@ -546,13 +562,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $promoCapacity = !empty($promo['capacity']) ? ' ' . $promo['capacity'] : '';
             $promoRateDisplay = rtrim(rtrim(number_format((float)$promo['discount_rate'], 2), '0'), '.');
-            $daysLeft = $promo['expiry_date'] ? (int)floor((strtotime($promo['expiry_date']) - strtotime(date('Y-m-d'))) / 86400) : null;
-            $expClass = $daysLeft === null ? 'text-gray-300' : ($daysLeft < 0 ? 'text-red-600 font-semibold' : ($daysLeft <= 7 ? 'text-red-500 font-semibold' : 'text-amber-600'));
         ?>
         <tr class="product-row hover:bg-amber-100/60 transition-colors" style="background:#fffbeb;"
-            data-cat="<?php echo $promo['category_id'] ?? ''; ?>"
-            data-orig-idx="-1"
-            data-inbound="0"
+            data-cat="<?php echo $promo['category_id'] ?? ''; ?>" data-orig-idx="-1" data-inbound="0"
             data-name="<?php echo strtolower(($promo['name_en'] ?? '') . ' ' . ($promo['name_ko'] ?? '') . ' ' . ($promo['brand_name'] ?? '') . ' ' . ($promo['brand_name_ko'] ?? '') . ' ' . ($promo['barcode'] ?? '')); ?>">
             <td class="px-4 py-3 text-center">
                 <span class="inline-flex items-center justify-center w-11 h-11 rounded border border-amber-200 bg-amber-100 text-amber-500"><i class="fas fa-tag text-sm"></i></span>
@@ -570,42 +582,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="leading-tight">
                     <div class="text-sm font-medium text-gray-900">
                         <span class="inline-block mr-1 px-1.5 py-0.5 rounded text-white font-bold" style="background:#dc2626;font-size:10px;"><?php echo $promoRateDisplay; ?>% OFF</span>
-                        <?php echo htmlspecialchars($promo['name_ko'] ?: $promo['name_en']); ?><?php echo $promoCapacity; ?>
+                        <?php echo htmlspecialchars($promo['name_ko'] ?: $promo['name_en']); ?><?php echo htmlspecialchars($promoCapacity); ?>
                     </div>
-                    <?php if (!empty($promo['name_ko']) && !empty($promo['name_en'])): ?>
-                    <div class="text-xs text-gray-900"><?php echo htmlspecialchars($promo['name_en']); ?></div>
-                    <?php endif; ?>
-                    <div class="text-xs text-amber-700 mt-0.5">LOT <?php echo htmlspecialchars($promo['lot_number'] ?: '-'); ?> &middot; exp <?php echo $promo['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($promo['expiry_date']))) : '-'; ?> &middot; <?php echo (int)$promo['quantity_remain']; ?> <?php echo htmlspecialchars($promoUnit); ?> left</div>
+                    <?php if (!empty($promo['name_ko']) && !empty($promo['name_en'])): ?><div class="text-xs text-gray-900"><?php echo htmlspecialchars($promo['name_en']); ?></div><?php endif; ?>
+                    <div class="text-xs text-amber-700 mt-0.5">LOT <?php echo htmlspecialchars($promo['lot_number'] ?: '-'); ?> &middot; exp <?php echo $promo['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($promo['expiry_date']))) : '기한 없음'; ?> &middot; <?php echo (int)$promo['quantity_remain']; ?> <?php echo htmlspecialchars($promoUnit); ?> left</div>
                 </div>
             </td>
             <td class="px-4 py-3 text-right text-xs text-gray-500"><?php echo (int)($promo['pieces_per_box'] ?? 0) > 1 ? number_format((int)$promo['pieces_per_box']) : '-'; ?></td>
-            <td class="px-4 py-3 text-center text-xs whitespace-nowrap">
-                <span class="<?php echo $expClass; ?>"><?php echo $promo['expiry_date'] ? date('Y-m-d', strtotime($promo['expiry_date'])) : '-'; ?></span>
-            </td>
             <?php
                 $promoPriceCell = '<div class="text-gray-400 text-xs leading-tight" style="text-decoration:line-through;">' . number_format((float)$promo['base_price'], 2) . '</div>'
-                                . '<div class="font-semibold" style="color:#b45309;">' . number_format((float)$promo['discounted_price'], 2) . '</div>';
+                    . '<div class="font-semibold" style="color:#b45309;">' . number_format((float)$promo['discounted_price'], 2) . '</div>';
             ?>
             <td class="px-4 py-3 text-right text-xs"><?php echo $promoUnit === 'PCS' ? $promoPriceCell : '-'; ?></td>
             <td class="px-4 py-3 text-right text-xs"><?php echo $promoUnit === 'BOX' ? $promoPriceCell : '-'; ?></td>
             <td class="px-4 py-3 text-right text-xs"><?php echo $promoUnit === 'PACK' ? $promoPriceCell : '-'; ?></td>
-            <td class="px-4 py-3 text-right text-xs">
-                <div><span class="font-semibold text-amber-700"><?php echo (int)$promo['quantity_remain']; ?></span> <span class="text-gray-400"><?php echo htmlspecialchars($promoUnit); ?></span></div>
-            </td>
+            <td class="px-4 py-3 text-right text-xs"><span class="font-semibold text-amber-700"><?php echo (int)$promo['quantity_remain']; ?></span> <span class="text-gray-400"><?php echo htmlspecialchars($promoUnit); ?></span></td>
             <td class="px-4 py-3 text-right text-xs font-semibold text-amber-700 font-mono subtotal-cell">-</td>
             <td class="px-2 py-2 text-center">
                 <div class="flex items-center justify-center gap-1.5">
                     <input type="hidden" name="order_unit[]" value="<?php echo htmlspecialchars($promoUnit); ?>">
                     <span class="text-xs text-amber-600 w-9 text-center font-semibold"><?php echo htmlspecialchars($promoUnit); ?></span>
                     <div class="inline-flex items-center border border-amber-300 rounded-lg overflow-hidden">
-                        <button type="button" onclick="stepQty(this,-1)" class="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-amber-50 hover:text-amber-700 active:bg-amber-100 text-base font-bold select-none"><i class="fas fa-minus text-xs"></i></button>
-                        <input type="number" name="quantity[]"
-                               min="0" max="<?php echo $promoTotalStock; ?>" value="0"
-                               data-id="promo<?php echo $promo['promotion_id']; ?>"
-                               data-price="<?php echo (float)$promo['discounted_price']; ?>"
-                               oninput="onQtyChange(this)"
-                               class="qty-input w-10 text-sm text-center border-0 focus:outline-none focus:ring-0 bg-transparent font-semibold text-gray-700">
-                        <button type="button" onclick="stepQty(this,1)" class="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-amber-50 hover:text-amber-700 active:bg-amber-100 text-base font-bold select-none"><i class="fas fa-plus text-xs"></i></button>
+                        <button type="button" onclick="stepQty(this,-1)" class="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-amber-50 hover:text-amber-700"><i class="fas fa-minus text-xs"></i></button>
+                        <input type="number" name="quantity[]" min="0" max="<?php echo $promoTotalStock; ?>" value="0"
+                               data-id="promo<?php echo $promo['promotion_id']; ?>" data-price="<?php echo (float)$promo['discounted_price']; ?>"
+                               oninput="onQtyChange(this)" class="qty-input w-10 text-sm text-center border-0 focus:outline-none focus:ring-0 bg-transparent font-semibold text-gray-700">
+                        <button type="button" onclick="stepQty(this,1)" class="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-amber-50 hover:text-amber-700"><i class="fas fa-plus text-xs"></i></button>
                     </div>
                 </div>
             </td>
@@ -617,6 +619,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pcsStock  = (int)$p['pcs_stock'];
             $stockByUnit = ['BOX' => $boxStock, 'PACK' => $packStock, 'PCS' => $pcsStock];
             $priceByUnit = ['BOX' => (float)$p['box_price'], 'PACK' => (float)$p['pack_price'], 'PCS' => (float)$p['pcs_price']];
+            $promoByUnit = ['BOX' => 0, 'PACK' => 0, 'PCS' => 0];
+            foreach ($promoByUnit as $u => $_) {
+                foreach (($lot_prices[(int)$p['id']][$u] ?? []) as $lot) {
+                    if (!empty($lot['promotion_id'])) {
+                        $promoByUnit[$u] = (int)$lot['promotion_id'];
+                        $priceByUnit[$u] = (float)$lot['discounted_price'];
+                        break;
+                    }
+                }
+            }
             $unitOpts = [];
             foreach (['BOX', 'PACK', 'PCS'] as $u) { if ($stockByUnit[$u] > 0) $unitOpts[] = $u; }
             if (empty($unitOpts)) continue;
@@ -639,7 +651,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach (($lot_prices[(int)$p['id']][$defaultUnit] ?? []) as $lot) {
                 if ($remainingQty <= 0) break;
                 $take = min($remainingQty, (int)$lot['qty']);
-                $defaultSubtotal += $take * (float)$lot['price'];
+                $lotPrice = !empty($lot['promotion_id']) && $lot['discounted_price'] !== null
+                    ? (float)$lot['discounted_price']
+                    : (float)$lot['price'];
+                $defaultSubtotal += $take * $lotPrice;
                 $remainingQty -= $take;
             }
             if ($remainingQty > 0) $defaultSubtotal = $qty * $defaultPrice;
@@ -662,7 +677,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </td>
             <td class="px-4 py-3 text-xs text-gray-400 font-mono whitespace-nowrap">
                 <input type="hidden" name="product_id[]" value="<?php echo $p['id']; ?>">
-                <input type="hidden" name="promotion_id[]" value="">
+                <input type="hidden" name="promotion_id[]" value="<?php echo $promoByUnit[$defaultUnit]; ?>">
                 <?php if ($p['barcode']): ?>
                 <span><i class="fas fa-barcode mr-1 opacity-50"></i><?php echo htmlspecialchars($p['barcode']); ?></span>
                 <?php else: ?>
@@ -695,25 +710,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <td class="px-4 py-3 text-right text-xs text-gray-500">
                 <?php echo (int)$p['pieces_per_box'] > 1 ? number_format($p['pieces_per_box']) : '-'; ?>
             </td>
-            <td class="px-4 py-3 text-center text-xs whitespace-nowrap">
-                <?php if (!empty($p['earliest_expiry'])):
-                    $daysLeft = (int)floor((strtotime($p['earliest_expiry']) - strtotime(date('Y-m-d'))) / 86400);
-                    if ($daysLeft < 0)       $expClass = 'text-red-600 font-semibold';
-                    elseif ($daysLeft <= 7)  $expClass = 'text-red-500 font-semibold';
-                    elseif ($daysLeft <= 30) $expClass = 'text-amber-600';
-                    else                     $expClass = 'text-gray-500';
-                ?>
-                <span class="<?php echo $expClass; ?>"><?php echo date('Y-m-d', strtotime($p['earliest_expiry'])); ?></span>
-                <?php else: ?>
-                <span class="text-gray-300">-</span>
-                <?php endif; ?>
-            </td>
             <td class="px-4 py-3 text-right text-xs text-gray-500 font-mono">
                 <?php $pcsLots = $lot_prices[(int)$p['id']]['PCS'] ?? []; ?>
                 <?php if ($pcsLots): foreach ($pcsLots as $li => $lot): ?>
                 <div class="whitespace-nowrap <?php echo $li === 0 ? 'text-amber-700 font-semibold' : ''; ?>">
                     <?php if ($li === 0): ?><span class="mr-1 text-[10px]">우선출고</span><?php endif; ?>
-                    <?php echo number_format($lot['price'], 2); ?> <span class="text-gray-400">×<?php echo number_format($lot['qty']); ?></span>
+                    <span class="text-[10px] text-gray-500"><?php echo $lot['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($lot['expiry_date']))) : '기한 없음'; ?></span>
+                    <?php if (!empty($lot['promotion_id'])): ?>
+                    <span class="ml-1 text-[10px] font-bold text-red-600"><?php echo rtrim(rtrim(number_format((float)$lot['discount_rate'], 2), '0'), '.'); ?>% OFF</span>
+                    <span class="text-gray-400 line-through"><?php echo number_format((float)$lot['promotion_base_price'], 2); ?></span>
+                    <span class="text-amber-700 font-semibold"><?php echo number_format((float)$lot['discounted_price'], 2); ?></span>
+                    <?php else: ?><?php echo number_format($lot['price'], 2); ?><?php endif; ?>
+                    <span class="text-gray-400">×<?php echo number_format($lot['qty']); ?></span>
                 </div>
                 <?php endforeach; else: ?>-<?php endif; ?>
             </td>
@@ -722,7 +730,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php if ($boxLots): foreach ($boxLots as $li => $lot): ?>
                 <div class="whitespace-nowrap <?php echo $li === 0 ? 'text-amber-700 font-semibold' : ''; ?>">
                     <?php if ($li === 0): ?><span class="mr-1 text-[10px]">우선출고</span><?php endif; ?>
-                    <?php echo number_format($lot['price'], 2); ?> <span class="text-gray-400">×<?php echo number_format($lot['qty']); ?></span>
+                    <span class="text-[10px] text-gray-500"><?php echo $lot['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($lot['expiry_date']))) : '기한 없음'; ?></span>
+                    <?php if (!empty($lot['promotion_id'])): ?>
+                    <span class="ml-1 text-[10px] font-bold text-red-600"><?php echo rtrim(rtrim(number_format((float)$lot['discount_rate'], 2), '0'), '.'); ?>% OFF</span>
+                    <span class="text-gray-400 line-through"><?php echo number_format((float)$lot['promotion_base_price'], 2); ?></span>
+                    <span class="text-amber-700 font-semibold"><?php echo number_format((float)$lot['discounted_price'], 2); ?></span>
+                    <?php else: ?><?php echo number_format($lot['price'], 2); ?><?php endif; ?>
+                    <span class="text-gray-400">×<?php echo number_format($lot['qty']); ?></span>
                 </div>
                 <?php endforeach; else: ?>-<?php endif; ?>
             </td>
@@ -731,7 +745,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php if ($packLots): foreach ($packLots as $li => $lot): ?>
                 <div class="whitespace-nowrap <?php echo $li === 0 ? 'text-amber-700 font-semibold' : ''; ?>">
                     <?php if ($li === 0): ?><span class="mr-1 text-[10px]">우선출고</span><?php endif; ?>
-                    <?php echo number_format($lot['price'], 2); ?> <span class="text-gray-400">×<?php echo number_format($lot['qty']); ?></span>
+                    <span class="text-[10px] text-gray-500"><?php echo $lot['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($lot['expiry_date']))) : '기한 없음'; ?></span>
+                    <?php if (!empty($lot['promotion_id'])): ?>
+                    <span class="ml-1 text-[10px] font-bold text-red-600"><?php echo rtrim(rtrim(number_format((float)$lot['discount_rate'], 2), '0'), '.'); ?>% OFF</span>
+                    <span class="text-gray-400 line-through"><?php echo number_format((float)$lot['promotion_base_price'], 2); ?></span>
+                    <span class="text-amber-700 font-semibold"><?php echo number_format((float)$lot['discounted_price'], 2); ?></span>
+                    <?php else: ?><?php echo number_format($lot['price'], 2); ?><?php endif; ?>
+                    <span class="text-gray-400">×<?php echo number_format($lot['qty']); ?></span>
                 </div>
                 <?php endforeach; else: ?>-<?php endif; ?>
             </td>
@@ -754,7 +774,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php if (count($unitOpts) > 1): ?>
                     <select name="order_unit[]" onchange="onUnitChange(this)"
                             data-box-stock="<?php echo $boxStock; ?>" data-pack-stock="<?php echo $packStock; ?>" data-pcs-stock="<?php echo $pcsStock; ?>"
-                            data-box-price="<?php echo (float)$p['box_price']; ?>" data-pack-price="<?php echo (float)$p['pack_price']; ?>" data-pcs-price="<?php echo (float)$p['pcs_price']; ?>"
+                            data-box-price="<?php echo $priceByUnit['BOX']; ?>" data-pack-price="<?php echo $priceByUnit['PACK']; ?>" data-pcs-price="<?php echo $priceByUnit['PCS']; ?>"
+                            data-promo-ids="<?php echo htmlspecialchars(json_encode($promoByUnit), ENT_QUOTES); ?>"
                             data-lot-prices="<?php echo htmlspecialchars(json_encode([
                                 'BOX' => $boxLots,
                                 'PACK' => $packLots,
@@ -1032,6 +1053,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         input.max = max;
         input.dataset.price = price;
         input.dataset.lotPrices = sel.dataset.lotPrices || '{}';
+        var promoInput = row.querySelector('input[name="promotion_id[]"]');
+        if (promoInput) {
+            try {
+                var promoIds = JSON.parse(sel.dataset.promoIds || '{}');
+                promoInput.value = promoIds[unit] || '';
+            } catch (e) {
+                promoInput.value = '';
+            }
+        }
         if ((parseInt(input.value) || 0) > max) input.value = max;
         onQtyChange(input);
     };
@@ -1146,7 +1176,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         (lots[unit] || []).some(function(lot) {
             if (remaining <= 0) return true;
             var take = Math.min(remaining, parseInt(lot.qty) || 0);
-            total += take * (parseFloat(lot.price) || 0);
+            var lotPrice = lot.promotion_id && lot.discounted_price !== null
+                ? parseFloat(lot.discounted_price)
+                : parseFloat(lot.price);
+            total += take * (lotPrice || 0);
             remaining -= take;
             return remaining <= 0;
         });
