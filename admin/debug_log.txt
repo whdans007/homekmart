@@ -1904,3 +1904,5 @@
 2026-07-04 18:15:42 - 가격변동 페이지 로드 - user_id: 19, store_id: 9, store_name: SUNSET (선셋점), role: admin
 2026-07-04 18:16:14 - 가격변동 페이지 로드 - user_id: 19, store_id: 9, store_name: SUNSET (선셋점), role: admin
 2026-07-04 18:16:42 - 가격변동 페이지 로드 - user_id: 19, store_id: 9, store_name: SUNSET (선셋점), role: admin
+2026-09-20 14:33:06 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: POSCO (포스코), role: super_admin
+2026-09-20 14:33:15 - 가격변동 페이지 로드 - user_id: 1, store_id: 1, store_name: POSCO (포스코), role: super_admin

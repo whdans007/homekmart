@@ -191,7 +191,8 @@ This application is primarily in Korean (한국어) with Korean comments and UI 
 - 언어 다중화 지원 (한국어, 영어)
 
 ### 🌐 개발 URL
-- http://main.homekmart.net/
+- 테스트 서버: http://homekmart.test/ (로컬 Laragon)
+- 운영 서버: https://homekmart.net/
 
 ### 🤝 Codex/Claude Code 병렬 작업
 - OpenAI Codex와 작업을 분담할 때는 `docs/00-conventions/agent-orchestration.md` 규칙을 따를 것
