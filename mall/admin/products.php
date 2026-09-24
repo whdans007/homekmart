@@ -948,7 +948,7 @@ $conn->close();
                             <?php elseif (!$p['mall_product_id']): ?>
                                 <button class="curate-home-slot-product-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>">쇼핑몰에 추가</button>
                             <?php else: ?>
-                                <button class="add-to-home-slot-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>">이동 등록</button>
+                                <button class="add-to-home-slot-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>">진열에 추가</button>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -979,7 +979,7 @@ $conn->close();
                             <?php elseif (!$p['mall_product_id']): ?>
                                 <button class="curate-home-slot-product-btn px-2 py-1 bg-blue-600 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>">쇼핑몰에 추가</button>
                             <?php else: ?>
-                                <button class="add-to-home-slot-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>">이동 등록</button>
+                                <button class="add-to-home-slot-btn px-2 py-1 bg-amber-500 text-white rounded text-xs" data-slot-key="<?php echo htmlspecialchars($selected_home_slot); ?>" data-product-id="<?php echo (int)$p['product_id']; ?>">진열에 추가</button>
                             <?php endif; ?>
                         </td>
                     </tr>
