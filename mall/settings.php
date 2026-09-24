@@ -34,4 +34,14 @@ require_once __DIR__ . '/partials/header.php';
     </div>
 </div>
 
+<?php if ($member): ?>
+<div class="settings-group" style="margin-top:var(--space-7);">
+    <div class="group-title">계정 / Account</div>
+    <a href="/mall/delete-account.php" style="display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 14px;border:1px solid var(--line-normal);border-radius:var(--radius-md);color:var(--brand-red);">
+        <span>계정 삭제 / Delete account</span>
+        <svg style="width:16px;height:16px;"><use href="#i-chev-right"></use></svg>
+    </a>
+</div>
+<?php endif; ?>
+
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

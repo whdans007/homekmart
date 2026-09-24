@@ -10,6 +10,7 @@
       "*.homekmart.net"
     ]
   },
+  "appendUserAgent": "HOMEKMART-ANDROID-APP",
   "android": {
     "allowMixedContent": false
   },

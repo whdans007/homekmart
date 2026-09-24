@@ -23,7 +23,7 @@ require_once __DIR__ . '/partials/header.php';
 
 <div class="privacy-doc">
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: <?php echo date('F j, Y'); ?></p>
+    <p class="updated">Last updated: September 24, 2026</p>
 
     <p>HOME K MART ("we", "us", "our") operates the HOME K MART mobile app and website (the "Service"),
     an online grocery and retail shopping platform serving customers in the Philippines. This Privacy
@@ -61,8 +61,11 @@ require_once __DIR__ . '/partials/header.php';
     access, alteration, disclosure, or destruction.</p>
 
     <h2>5. Data Retention</h2>
-    <p>We retain your personal information for as long as your account is active or as needed to provide
-    the Service, comply with legal obligations, resolve disputes, and enforce our agreements.</p>
+    <p>We retain your personal information while your account is active. When you delete your account,
+    profile data, saved addresses, carts, wishlists, reviews, device tokens, and member chat messages are
+    deleted. Completed transaction records may be retained where required for accounting, fraud prevention,
+    legal compliance, or dispute resolution, but direct account and delivery identifiers are removed or
+    anonymized when they are no longer required.</p>
 
     <h2>6. Your Rights</h2>
     <p>Under the Data Privacy Act of 2012, you have the right to:</p>
@@ -73,7 +76,9 @@ require_once __DIR__ . '/partials/header.php';
         <li>Request deletion or blocking of your data, subject to legal retention requirements.</li>
         <li>File a complaint with the National Privacy Commission (NPC) if you believe your rights have been violated.</li>
     </ul>
-    <p>You can review or update most account details in <a href="/mall/my.php">My Page</a>, or contact us using the details below.</p>
+    <p>You can review or update most account details in <a href="/mall/my.php">My Page</a>. You can permanently
+    delete an account from <a href="/mall/delete-account.php">Delete account</a>, or submit a request without
+    signing in through the <a href="/mall/request-account-deletion.php">account deletion request page</a>.</p>
 
     <h2>7. Children's Privacy</h2>
     <p>The Service is not directed to children under 18. We do not knowingly collect personal information
