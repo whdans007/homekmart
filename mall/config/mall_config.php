@@ -26,7 +26,7 @@ define('MALL_BATCH_API_KEY', 'mallbatch_change_this_to_a_strong_32char_secret');
 // "OAuth 클라이언트 ID"(유형: 웹 애플리케이션)를 발급받아 아래 값을 교체한다.
 // 승인된 자바스크립트 원본(Authorized JavaScript origins)에 https://homekmart.net 등록 필요.
 // ID 토큰만 검증하는 방식이라 클라이언트 시크릿은 필요 없다(공개해도 안전한 값).
-define('MALL_GOOGLE_CLIENT_ID', '502848247391-99k1krmshe9el3408l7itpc1nd8hrni4.apps.googleusercontent.com');
+define('MALL_GOOGLE_CLIENT_ID', '704673361035-nrm2ecbn9o89ppoq7jjolui6cl5vdfpa.apps.googleusercontent.com');
 
 // 배송지 지도 핀 입력(mall/address.php)에 쓰는 구글 지도 API 키.
 // Google Cloud Console > API 및 서비스 > 사용자 인증 정보 > "API 키" 생성 후,
