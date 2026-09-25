@@ -1018,6 +1018,8 @@ $colMapPresetsJson = json_encode($colMapPresets, JSON_UNESCAPED_UNICODE);
             <button class="discount-sticker-btn" onclick="printDiscountSticker('75')" title="75% OFF 스티커 2장 출력">75%</button>
             <button class="discount-sticker-btn" onclick="printDiscountSticker('1+1')" title="1+1 스티커 2장 출력" style="font-size:11px">1+1</button>
             <button class="discount-sticker-btn" onclick="printDiscountSticker('P')" title="가격을 직접 손으로 쓰는 페소(P) 수기 스티커 2장 출력" style="font-size:11px">P 수기</button>
+            <button class="discount-sticker-btn" onclick="printDiscountSticker('EXPIRY')" title="FREE + 유통기한 오늘 스티커 2장 출력" style="font-size:10px">유통기한오늘</button>
+            <button class="discount-sticker-btn" onclick="printDiscountSticker('FREE')" title="FREE 스티커 2장 출력" style="font-size:11px">FREE</button>
             <button class="discount-sticker-btn" onclick="printLogoSticker()" title="HOME K MART 로고 스티커 4개 출력 (좌2 우2)" style="font-size:10px">로고</button>
           </div>
         </div>

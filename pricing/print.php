@@ -20,8 +20,10 @@ if ($printMode === 'logo') {
     }
 }
 $rawDiscount = trim($_GET['discount'] ?? '');
-$isPeso    = (strtoupper($rawDiscount) === 'P');
-$discount  = $isPeso ? 'P' : preg_replace('/[^0-9+%]/', '', $rawDiscount);
+$isPeso        = (strtoupper($rawDiscount) === 'P');
+$isFree        = (strtoupper($rawDiscount) === 'FREE');
+$isExpiryFree  = (strtoupper($rawDiscount) === 'EXPIRY');
+$discount  = $isPeso ? 'P' : ($isFree ? 'FREE' : ($isExpiryFree ? 'EXPIRY' : preg_replace('/[^0-9+%]/', '', $rawDiscount)));
 $autoPrint = ($_GET['autoprint'] ?? '0') === '1';
 $storeId   = (int)($_GET['store_id'] ?? 1);
 
@@ -174,6 +176,14 @@ function validateEanCheckDigit(string $code): bool {
       display: inline-block; width: 20mm; height: 0; border-bottom: 2px solid #000;
       margin-bottom: 1mm;
     }
+    .label-discount .disc-free {
+      font-size: 28pt; font-weight: 900; color: #000; line-height: 1;
+      letter-spacing: 1px;
+    }
+    .label-discount .disc-expiry-sub {
+      font-size: 11pt; font-weight: 700; color: #000; margin-top: 1mm;
+      letter-spacing: 0.5px; white-space: nowrap;
+    }
 
     /* ===== 로고스티커 모드 (1장에 2x2 = 로고 4개, 각 칸 70x30) ===== */
     .logo-sheet {
@@ -225,6 +235,11 @@ function validateEanCheckDigit(string $code): bool {
         <div class="disc-peso"><span class="disc-peso-symbol">₱</span><span class="disc-peso-line"></span></div>
         <?php elseif ($is1plus1): ?>
         <div class="disc-1plus1">1+1</div>
+        <?php elseif ($isExpiryFree): ?>
+        <div class="disc-free">FREE</div>
+        <div class="disc-expiry-sub">유통기한 오늘</div>
+        <?php elseif ($isFree): ?>
+        <div class="disc-free">FREE</div>
         <?php else: ?>
         <div class="disc-rate"><?php echo htmlspecialchars($discount); ?>%</div>
         <div class="disc-off">OFF</div>
@@ -235,6 +250,11 @@ function validateEanCheckDigit(string $code): bool {
         <div class="disc-peso"><span class="disc-peso-symbol">₱</span><span class="disc-peso-line"></span></div>
         <?php elseif ($is1plus1): ?>
         <div class="disc-1plus1">1+1</div>
+        <?php elseif ($isExpiryFree): ?>
+        <div class="disc-free">FREE</div>
+        <div class="disc-expiry-sub">유통기한 오늘</div>
+        <?php elseif ($isFree): ?>
+        <div class="disc-free">FREE</div>
         <?php else: ?>
         <div class="disc-rate"><?php echo htmlspecialchars($discount); ?>%</div>
         <div class="disc-off">OFF</div>
