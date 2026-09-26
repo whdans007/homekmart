@@ -10,9 +10,7 @@ $show_bottom_nav = true;
 $active_nav = 'my';
 require_once __DIR__ . '/partials/header.php';
 
-$apk_path = __DIR__ . '/../mall-app/dist/HOME-K-MART-test.apk';
-$apk_available = is_file($apk_path) && is_readable($apk_path);
-$apk_size = $apk_available ? number_format(filesize($apk_path) / 1024 / 1024, 1) . ' MB' : null;
+$play_store_url = 'https://play.google.com/apps/internaltest/4700117557750695226';
 $driver_apk_path = __DIR__ . '/../driver-app/android/app/build/outputs/apk/debug/app-debug.apk';
 $driver_apk_available = is_file($driver_apk_path) && is_readable($driver_apk_path);
 ?>
@@ -45,13 +43,9 @@ $driver_apk_available = is_file($driver_apk_path) && is_readable($driver_apk_pat
 <div class="app-download-card">
     <img src="/logo/homekmart_logo.png" class="app-icon" alt="HOME K MART">
     <h1>HOME K MART</h1>
-    <p class="sub">Android 테스트 앱 / Android Test App</p>
-    <div class="meta">Version 1.0 · Android 7.0 이상<?php echo $apk_size ? ' · ' . htmlspecialchars($apk_size) : ''; ?></div>
-    <?php if ($apk_available): ?>
-        <a href="/mall/download_android_app.php" class="btn btn-primary download-btn"><i class="fab fa-android"></i> 쇼핑몰 앱 APK 다운로드</a>
-    <?php else: ?>
-        <button type="button" class="btn btn-block" disabled>설치 파일 준비 중 / File unavailable</button>
-    <?php endif; ?>
+    <p class="sub">Google Play 내부 테스트 참여 / Google Play Internal Test</p>
+    <div class="meta">Version 1.0 · Android 7.0 이상</div>
+    <a href="<?php echo htmlspecialchars($play_store_url); ?>" class="btn btn-primary download-btn" target="_blank" rel="noopener noreferrer"><i class="fab fa-google-play"></i> 내부 테스트 참여하기</a>
     <?php if ($driver_apk_available): ?>
         <a href="/mall/download_driver_app.php" class="btn btn-outline-primary download-btn driver-download-btn"><i class="fas fa-motorcycle"></i> 드라이버용 앱 APK 다운로드</a>
     <?php endif; ?>
@@ -60,11 +54,13 @@ $driver_apk_available = is_file($driver_apk_path) && is_readable($driver_apk_pat
 <div class="app-install-guide">
     <h2>설치 방법 / How to install</h2>
     <ol>
-        <li>APK 다운로드 버튼을 누릅니다.</li>
-        <li>다운로드된 파일을 실행합니다.</li>
-        <li>요청 시 브라우저의 ‘알 수 없는 앱 설치’를 허용합니다.</li>
+        <li>위 버튼을 누르면 Google Play 스토어로 이동합니다.</li>
+        <li>스토어의 설치 버튼을 눌러 앱을 설치합니다.</li>
         <li>Android에서만 설치할 수 있습니다.</li>
     </ol>
+    <?php if ($driver_apk_available): ?>
+        <p style="margin:12px 0 0;">드라이버용 앱은 APK 파일로 설치합니다. 다운로드 후 실행 시 브라우저의 ‘알 수 없는 앱 설치’를 허용해주세요.</p>
+    <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
