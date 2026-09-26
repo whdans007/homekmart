@@ -94,7 +94,7 @@ define('MALL_BASE_SHIPPING_FEE', mall_load_shipping_setting('mall_base_shipping_
  * 거기는 autocommit(false) 패턴을 쓰는 곳이 있을 수 있어 전역 재사용이 위험하다).
  */
 class MallPooledConnection extends mysqli {
-    public function close(): bool {
+    public function close(): true {
         return true;
     }
 }

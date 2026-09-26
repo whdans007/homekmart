@@ -7,7 +7,7 @@ require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../lib/home_layout.php';
 
 ensure_logged_in();
-require_permission('mall_management', '../../admin/index.php');
+require_mall_permission('mall_management', '../../admin/index.php');
 
 $view = ($_GET['view'] ?? 'published') === 'draft' ? 'draft' : 'published';
 // 발행본 미리보기는 실제 고객 화면과 똑같이(비노출 섹션 제외) 보여주고,

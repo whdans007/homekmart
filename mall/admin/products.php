@@ -9,7 +9,7 @@ require_once __DIR__ . '/../../admin/fresh_product_common.php';
 require_once __DIR__ . '/../../lib/reference_store_service.php';
 
 ensure_logged_in();
-require_permission('mall_management', '../../admin/index.php');
+require_mall_permission('mall_management', '../../admin/index.php');
 
 $current_page = 'products.php';
 $search = trim($_GET['q'] ?? '');
@@ -47,7 +47,7 @@ function mall_fresh_category_code_for_name(string $category_name): ?string {
 }
 $selected_category_id = isset($_GET['cat_id']) && $_GET['cat_id'] !== '' ? (int)$_GET['cat_id'] : null;
 $selected_sub_id = isset($_GET['sub_id']) && $_GET['sub_id'] !== '' ? (int)$_GET['sub_id'] : null;
-$can_manage_categories = has_permission('category_management');
+$can_manage_categories = has_mall_permission('category_management');
 
 // 카테고리 목록(특히 "전체")은 상품이 많으면 한 번에 다 그리기엔 너무 커서 페이지네이션한다.
 // 홈 노출(오늘의특가 등) 목록은 보통 몇 개 안 되니 페이지네이션 없이 그대로 둔다.

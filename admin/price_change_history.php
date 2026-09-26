@@ -314,24 +314,24 @@ try {
                                     <?php endif; ?>
                                 </td>
                                 <td class="px-4 py-4">
+                                    <div class="flex items-center<?php echo !empty($change['product_name_en']) ? ' mb-1' : ''; ?>">
+                                        <span class="text-xs font-bold text-blue-600 mr-2 min-w-0 w-8">KOR</span>
+                                        <div class="product-name-editable flex-1 text-sm font-medium text-gray-900 hover:bg-gray-100 hover:cursor-pointer rounded px-2 py-1 transition-colors"
+                                             data-product-id="<?php echo $change['product_id']; ?>"
+                                             data-history-id="<?php echo $change['id']; ?>"
+                                             data-original-name="<?php echo htmlspecialchars($change['product_name_ko'] ?? 'N/A'); ?>"
+                                             title="<?php echo t('price_change.edit_product_name'); ?>"><?php echo htmlspecialchars($change['product_name_ko'] ?? 'N/A'); ?></div>
+                                    </div>
                                     <?php if (!empty($change['product_name_en'])): ?>
-                                        <div class="flex items-center mb-1">
+                                        <div class="flex items-center">
                                             <span class="text-xs font-bold text-green-600 mr-2 min-w-0 w-8">ENG</span>
-                                            <div class="product-name-en-editable flex-1 text-sm font-medium text-gray-900 hover:bg-gray-100 hover:cursor-pointer rounded px-2 py-1 transition-colors"
+                                            <div class="product-name-en-editable flex-1 text-xs text-gray-600 hover:bg-gray-100 hover:cursor-pointer rounded px-2 py-1 transition-colors"
                                                  data-product-id="<?php echo $change['product_id']; ?>"
                                                  data-history-id="<?php echo $change['id']; ?>"
                                                  data-original-name="<?php echo htmlspecialchars($change['product_name_en']); ?>"
                                                  title="<?php echo t('price_change.edit_product_name_en'); ?>"><?php echo htmlspecialchars($change['product_name_en']); ?></div>
                                         </div>
                                     <?php endif; ?>
-                                    <div class="flex items-center">
-                                        <span class="text-xs font-bold text-blue-600 mr-2 min-w-0 w-8">KOR</span>
-                                        <div class="product-name-editable flex-1 text-<?php echo !empty($change['product_name_en']) ? 'xs' : 'sm'; ?> <?php echo !empty($change['product_name_en']) ? 'text-gray-600' : 'font-medium text-gray-900'; ?> hover:bg-gray-100 hover:cursor-pointer rounded px-2 py-1 transition-colors"
-                                             data-product-id="<?php echo $change['product_id']; ?>"
-                                             data-history-id="<?php echo $change['id']; ?>"
-                                             data-original-name="<?php echo htmlspecialchars($change['product_name_ko'] ?? 'N/A'); ?>"
-                                             title="<?php echo t('price_change.edit_product_name'); ?>"><?php echo htmlspecialchars($change['product_name_ko'] ?? 'N/A'); ?></div>
-                                    </div>
                                 </td>
                                 <td class="px-3 py-4 whitespace-nowrap text-sm text-right">
                                     <?php if ($change['old_cost_price']): ?>

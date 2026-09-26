@@ -11,7 +11,7 @@ require_once __DIR__ . '/../config/mall_config.php';
 require_once __DIR__ . '/../lib/fresh_order.php';
 
 ensure_logged_in();
-require_permission('mall_management', '../../admin/index.php');
+require_mall_permission('mall_management', '../../admin/index.php');
 
 $order_id = (int)($_GET['id'] ?? 0);
 

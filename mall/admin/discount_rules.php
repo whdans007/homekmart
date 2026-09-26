@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../lib/lang_helper.php';
 require_once __DIR__ . '/../../config/db_config.php';
 
 ensure_logged_in();
-require_permission('mall_management', '../../admin/index.php');
+require_mall_permission('mall_management', '../../admin/index.php');
 
 $current_page = 'discount_rules.php';
 

@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../../config/db_config.php';
 require_once __DIR__ . '/../../../mall/config/mall_config.php';
 require_once __DIR__ . '/../../lib/csrf.php';
 ensure_logged_in();
-require_permission('mall_management', '../../../admin/index.php');
+require_mall_permission('mall_management', '../../../admin/index.php');
 if (!mall_csrf_verify($_POST['csrf_token'] ?? '')) { http_response_code(403); echo json_encode(['success'=>false,'error'=>['message'=>'요청이 만료되었습니다. 새로고침 후 다시 시도해주세요']]); exit; }
 $order_id = (int)($_POST['order_id'] ?? 0);
 if ($order_id <= 0) { http_response_code(400); echo json_encode(['success'=>false,'error'=>['message'=>'잘못된 주문입니다.']]); exit; }

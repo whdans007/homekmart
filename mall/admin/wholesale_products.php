@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../config/db_config.php';
 require_once __DIR__ . '/../config/mall_config.php';
 
 ensure_logged_in();
-require_permission('mall_management', '../../admin/index.php');
+require_mall_permission('mall_management', '../../admin/index.php');
 
 $current_page = 'wholesale_products.php';
 

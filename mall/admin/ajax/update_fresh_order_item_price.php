@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../../config/db_config.php';
 require_once __DIR__ . '/../../lib/csrf.php';
 require_once __DIR__ . '/../../lib/order.php';
 function fresh_price_json_error($code, $message, $http = 400) { http_response_code($http); echo json_encode(['success' => false, 'error' => ['code' => $code, 'message' => $message]]); exit; }
-if (!is_logged_in() || !has_permission('mall_management')) fresh_price_json_error('UNAUTHORIZED', '권한이 없습니다', 403);
+if (!is_logged_in() || !has_mall_permission('mall_management')) fresh_price_json_error('UNAUTHORIZED', '권한이 없습니다', 403);
 if (!mall_csrf_verify($_POST['csrf_token'] ?? '')) fresh_price_json_error('CSRF_INVALID', '요청이 만료되었습니다', 403);
 $itemId = (int)($_POST['mall_fresh_order_item_id'] ?? 0);
 $price = filter_var($_POST['unit_price'] ?? null, FILTER_VALIDATE_FLOAT);

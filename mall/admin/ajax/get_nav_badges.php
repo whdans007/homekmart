@@ -20,7 +20,7 @@ function json_error($code, $message, $http = 400) {
 if (!is_logged_in()) {
     json_error('UNAUTHORIZED', '로그인이 필요합니다', 401);
 }
-if (!has_permission('mall_management')) {
+if (!has_mall_permission('mall_management')) {
     json_error('UNAUTHORIZED', '권한이 없습니다', 403);
 }
 

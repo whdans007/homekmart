@@ -914,6 +914,87 @@ function can_approve_store_change($to_store_id = null) {
 }
 
 /**
+ * 현재 로그인 사용자가 MALL(쇼핑앱) 지점 소속인지 확인합니다.
+ * users.store_id → stores.name = 'MALL (쇼핑앱)' 이면 true
+ * @return bool
+ */
+function is_mall_store_user() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if (!isset($_SESSION['user_id'])) {
+        return false;
+    }
+
+    if (isset($_SESSION['is_mall_store'])) {
+        return (bool)$_SESSION['is_mall_store'];
+    }
+
+    try {
+        $pdo = permission_pdo();
+
+        $stmt = $pdo->prepare(
+            "SELECT s.name AS store_name
+             FROM users u
+             LEFT JOIN stores s ON u.store_id = s.id
+             WHERE u.id = ?"
+        );
+        $stmt->execute([$_SESSION['user_id']]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $is_mall = (isset($row['store_name']) && $row['store_name'] === 'MALL (쇼핑앱)');
+        $_SESSION['is_mall_store'] = $is_mall;
+
+        return $is_mall;
+
+    } catch (Exception $e) {
+        error_log("is_mall_store_user error: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * mall/admin 접근 허용 대상인지 확인합니다.
+ * MALL(쇼핑앱) 지점 소속이거나, role level이 '오피스 스텝' 이상이면 true.
+ * @return bool
+ */
+function is_mall_eligible_user() {
+    if (is_mall_store_user()) {
+        return true;
+    }
+    return current_role_at_least_label('오피스 스텝');
+}
+
+/**
+ * mall/admin 전용 권한 체크. is_mall_eligible_user()가 true인 사용자는 role/permissions
+ * 설정과 무관하게 몰 관리자 화면 전체를 사용할 수 있습니다. mall/admin/** 안에서만 사용하세요.
+ * Why: 베타 테스트 단계에서 MALL 지점 배치 직원 및 오피스 스텝 이상 role 전원이 몰 관리자
+ * 기능을 쓸 수 있어야 함 (기존엔 role 기반 mall_management/category_management 권한
+ * 보유자=super_admin/admin만 가능).
+ * @param string $permission 확인할 권한명
+ * @return bool
+ */
+function has_mall_permission($permission) {
+    if (is_mall_eligible_user()) {
+        return true;
+    }
+    return has_permission($permission);
+}
+
+/**
+ * mall/admin 전용 접근 제어. is_mall_eligible_user()면 통과, 아니면 기존 require_permission과 동일하게 동작.
+ * @param string $permission 필요한 권한
+ * @param string $redirect_url 권한 없을 때 이동할 URL
+ */
+function require_mall_permission($permission, $redirect_url = 'index.php') {
+    if (is_mall_eligible_user()) {
+        return;
+    }
+    require_permission($permission, $redirect_url);
+}
+
+/**
  * 현재 로그인 사용자가 main_office_admin 역할 이상인지 확인합니다.
  * 메인 오피스(전 점포 입력 자료 열람) 접근 권한 판정에 사용합니다.
  * super_admin은 level=100으로 항상 최상위이므로 별도 분기 없이 포함됩니다.

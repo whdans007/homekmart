@@ -8,7 +8,7 @@ require_once __DIR__ . '/../lib/order_chat.php';
 require_once __DIR__ . '/../lib/delivery.php';
 
 ensure_logged_in();
-require_permission('mall_management', '../../admin/index.php');
+require_mall_permission('mall_management', '../../admin/index.php');
 
 $current_page = 'orders.php';
 
