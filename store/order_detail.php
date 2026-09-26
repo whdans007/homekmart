@@ -80,7 +80,7 @@ $status_order = ['pending','approved','shipped','delivered'];
 $current_idx  = array_search($order['status'], $status_order);
 ?>
 
-<div class="flex items-center justify-between mb-5">
+<div class="flex items-center justify-between mb-5 no-print">
     <div class="flex items-center gap-3">
         <a href="<?php echo STORE_BASE; ?>/orders.php" class="text-gray-400 hover:text-gray-600">
             <i class="fas fa-arrow-left"></i>
@@ -92,8 +92,12 @@ $current_idx  = array_search($order['status'], $status_order);
             <?php echo store_status_label($order['status']); ?>
         </span>
     </div>
-    <?php if ($order['status'] === 'pending'): ?>
     <div class="flex items-center gap-2">
+        <button type="button" onclick="openPrintPreview()"
+                class="px-4 py-2 text-gray-600 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+            <i class="fas fa-print mr-1.5"></i>Print
+        </button>
+        <?php if ($order['status'] === 'pending'): ?>
         <a href="<?php echo STORE_BASE; ?>/order.php?edit=<?php echo $order['id']; ?>"
            class="px-4 py-2 text-teal-700 border border-teal-200 text-sm font-medium rounded-lg hover:bg-teal-50 transition-colors">
             <i class="fas fa-pen-to-square mr-1.5"></i>Edit Order
@@ -102,23 +106,95 @@ $current_idx  = array_search($order['status'], $status_order);
                 class="px-4 py-2 text-red-600 border border-red-200 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors">
             <i class="fas fa-times mr-1.5"></i>Cancel Order
         </button>
+        <?php elseif ($order['status'] === 'approved'): ?>
+        <button type="button" onclick="openCancelModal()"
+                class="px-4 py-2 text-red-600 border border-red-200 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors">
+            <i class="fas fa-times mr-1.5"></i>Cancel Order
+        </button>
+        <?php elseif ($order['status'] === 'cancel_requested'): ?>
+        <span class="px-3 py-1.5 bg-orange-100 text-orange-700 text-xs font-semibold rounded-lg">
+            <i class="fas fa-clock mr-1"></i>Awaiting cancellation approval
+        </span>
+        <?php elseif ($order['status'] === 'cancelled'): ?>
+        <a href="<?php echo STORE_BASE; ?>/order.php?from_order=<?php echo $order['id']; ?>"
+           class="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
+            <i class="fas fa-redo mr-1.5"></i>Reorder
+        </a>
+        <?php endif; ?>
     </div>
-    <?php elseif ($order['status'] === 'approved'): ?>
-    <button type="button" onclick="openCancelModal()"
-            class="px-4 py-2 text-red-600 border border-red-200 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors">
-        <i class="fas fa-times mr-1.5"></i>Cancel Order
-    </button>
-    <?php elseif ($order['status'] === 'cancel_requested'): ?>
-    <span class="px-3 py-1.5 bg-orange-100 text-orange-700 text-xs font-semibold rounded-lg">
-        <i class="fas fa-clock mr-1"></i>Awaiting cancellation approval
-    </span>
-    <?php elseif ($order['status'] === 'cancelled'): ?>
-    <a href="<?php echo STORE_BASE; ?>/order.php?from_order=<?php echo $order['id']; ?>"
-       class="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
-        <i class="fas fa-redo mr-1.5"></i>Reorder
-    </a>
-    <?php endif; ?>
 </div>
+
+<!-- 인쇄 전용 헤더 -->
+<div class="print-only" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #000;">
+        <div>
+            <div style="font-size:1.4rem;font-weight:700;">Order Details</div>
+            <div style="font-size:0.9rem;font-weight:600;margin-top:4px;"><?php echo htmlspecialchars($order['store_name'] ?? '-'); ?></div>
+            <div style="font-size:0.85rem;margin-top:4px;">
+                Order #<?php echo str_pad($order['id'], 4, '0', STR_PAD_LEFT); ?>
+                &nbsp;·&nbsp;
+                <?php echo htmlspecialchars(date('d M Y', strtotime($order['order_date']))); ?>
+                &nbsp;·&nbsp;<?php echo htmlspecialchars(store_status_label($order['status'])); ?>
+            </div>
+        </div>
+        <div style="text-align:right;font-size:0.8rem;color:#555;">
+            <div>Printed: <?php echo date('Y-m-d H:i'); ?></div>
+            <div>HOME K MART</div>
+        </div>
+    </div>
+</div>
+
+<style>
+.print-brand { display: none; }
+
+@media print {
+    .no-print, script { display: none !important; }
+    .print-only { display: block !important; }
+
+    body, body * { color: #000 !important; }
+
+    @page {
+        margin: 12mm 10mm;
+    }
+    body { font-size: 10px !important; }
+    table { font-size: 9px !important; border-collapse: collapse !important; width: 100% !important; table-layout: fixed !important; }
+    th, td { padding: 3px 6px !important; border: 1px solid #ccc !important; word-break: break-word; }
+    thead { background: #f3f4f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .text-sm { font-size: 9px !important; }
+    .text-xs { font-size: 8px !important; }
+    .text-base, .text-lg, .text-xl { font-size: 11px !important; }
+
+    /* 레이아웃 재구성: 사이드바 제거 */
+    .flex.h-screen { display: block !important; }
+    .hidden.md\\:flex { display: none !important; }
+    .flex-col.flex-1 { overflow: visible !important; }
+    main { padding: 0 !important; }
+
+    .bg-white { background: #fff !important; }
+    .rounded-xl, .rounded-lg { border-radius: 4px !important; }
+    .shadow { box-shadow: none !important; }
+
+    /* 행이 페이지 경계에서 잘리면 통째로 다음 페이지로 출력 + 헤더 반복 */
+    #orderItemsTable tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+    #orderItemsTable thead { display: table-header-group !important; }
+
+    /* Order Items 컬럼 너비 고정 (#·Barcode·Brand·Product·Capacity·Qty·Unit·PKG·Expiry·UnitPrice·Subtotal) */
+    #orderItemsTable th:nth-child(1), #orderItemsTable td:nth-child(1) { width: 22px !important; text-align: center; white-space: nowrap !important; }
+    #orderItemsTable th:nth-child(2), #orderItemsTable td:nth-child(2) { width: 120px !important; }
+    #orderItemsTable th:nth-child(3), #orderItemsTable td:nth-child(3) { width: 80px !important; }
+    #orderItemsTable th:nth-child(4), #orderItemsTable td:nth-child(4) { width: auto !important; white-space: normal !important; word-break: break-word !important; }
+    #orderItemsTable th:nth-child(5), #orderItemsTable td:nth-child(5) { width: 50px !important; text-align: center; }
+    #orderItemsTable th:nth-child(6), #orderItemsTable td:nth-child(6) { width: 36px !important; text-align: center; }
+    #orderItemsTable th:nth-child(7), #orderItemsTable td:nth-child(7) { width: 32px !important; text-align: center; }
+    #orderItemsTable th:nth-child(8), #orderItemsTable td:nth-child(8) { width: 28px !important; text-align: center; }
+    #orderItemsTable th:nth-child(9), #orderItemsTable td:nth-child(9) { width: 70px !important; text-align: center; }
+    #orderItemsTable th:nth-child(10), #orderItemsTable td:nth-child(10) { width: 50px !important; text-align: right; }
+    #orderItemsTable th:nth-child(11), #orderItemsTable td:nth-child(11) { width: 65px !important; text-align: right; }
+
+    /* 바코드: 자연 크기 유지(축소 금지) */
+    .barcode-svg { display: block; margin: 0 auto; max-width: 100%; }
+}
+</style>
 
 <!-- Order Information -->
 <div class="bg-white rounded-xl border border-gray-200 p-4 mb-4">
@@ -150,7 +226,7 @@ $current_idx  = array_search($order['status'], $status_order);
 
 <!-- Progress Status Timeline -->
 <?php if ($order['status'] !== 'cancelled'): ?>
-<div class="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+<div class="bg-white rounded-xl border border-gray-200 p-4 mb-4 no-print">
     <p class="text-xs font-semibold text-gray-500 uppercase mb-3">Progress Status</p>
     <div class="flex items-center justify-between">
     <?php foreach ($status_order as $idx => $st_key):
@@ -182,7 +258,7 @@ $current_idx  = array_search($order['status'], $status_order);
         <span class="text-sm font-semibold text-gray-700">Order Items (<?php echo count($items); ?> items)</span>
     </div>
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table id="orderItemsTable" class="w-full text-sm">
             <thead class="bg-gray-50"><tr>
                 <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:36px;white-space:nowrap;">#</th>
                 <th class="px-3 py-3 text-center text-xs text-gray-500 font-medium" style="width:130px;">Barcode</th>
@@ -255,8 +331,8 @@ $current_idx  = array_search($order['status'], $status_order);
             </tr>
             <?php endforeach; ?>
             <tr class="bg-gray-50">
-                <td colspan="10" class="px-3 py-3 text-right text-sm font-semibold text-gray-700">Total</td>
-                <td class="px-3 py-3 text-right text-base font-bold text-gray-900"><?php echo number_format($order['total_amount'] ?? array_sum(array_map(fn($i) => $i['unit_price'] * $i['quantity'], $items)), 2); ?></td>
+                <td colspan="10" class="order-total-label px-3 py-3 text-right text-sm font-semibold text-gray-700">Total</td>
+                <td class="order-total-amount px-3 py-3 text-right text-base font-bold text-gray-900"><?php echo number_format($order['total_amount'] ?? array_sum(array_map(fn($i) => $i['unit_price'] * $i['quantity'], $items)), 2); ?></td>
             </tr>
             </tbody>
         </table>
@@ -296,6 +372,102 @@ $current_idx  = array_search($order['status'], $status_order);
     } else {
         renderBarcodes();
     }
+})();
+</script>
+
+<!-- 인쇄 미리보기 모달 -->
+<div id="printPreviewModal" class="hidden fixed inset-0 z-50 flex items-center justify-center no-print" style="background:rgba(0,0,0,0.6);">
+    <div class="bg-white rounded-xl shadow-xl flex flex-col" style="width:95%;max-width:900px;height:90vh;margin:0 1rem;">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
+            <h3 class="text-sm font-semibold text-gray-900"><i class="fas fa-print mr-2 text-gray-500"></i>Print Preview</h3>
+            <button type="button" onclick="closePrintPreview()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="flex-1 overflow-hidden" style="background:#525659;">
+            <iframe id="printPreviewFrame" style="width:100%;height:100%;border:0;background:#fff;"></iframe>
+        </div>
+        <div class="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 flex-shrink-0">
+            <button type="button" onclick="closePrintPreview()"
+                    class="px-4 py-2 text-gray-600 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+                Close
+            </button>
+            <button type="button" onclick="printFromPreview()"
+                    class="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors">
+                <i class="fas fa-print mr-1.5"></i>Print
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var PRINT_CSS =
+        '*{box-sizing:border-box;}' +
+        'body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#000;margin:12mm 10mm;}' +
+        '.print-header{margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #000;}' +
+        'table{font-size:10px;border-collapse:collapse;width:100%;table-layout:fixed;}' +
+        'th,td{padding:4px 5px;border:1px solid #ccc;word-break:break-word;overflow-wrap:break-word;vertical-align:top;}' +
+        'thead{background:#f3f4f6;display:table-header-group;}' +
+        'tr{page-break-inside:avoid;}' +
+        '#orderItemsTable th:nth-child(1),#orderItemsTable td:nth-child(1){width:3% !important;text-align:center;white-space:nowrap;}' +
+        '#orderItemsTable th:nth-child(2),#orderItemsTable td:nth-child(2){width:13% !important;}' +
+        '#orderItemsTable th:nth-child(3),#orderItemsTable td:nth-child(3){width:8% !important;}' +
+        '#orderItemsTable th:nth-child(4),#orderItemsTable td:nth-child(4){width:31% !important;white-space:normal;}' +
+        '#orderItemsTable th:nth-child(5),#orderItemsTable td:nth-child(5){width:6% !important;text-align:center;white-space:nowrap;}' +
+        '#orderItemsTable th:nth-child(6),#orderItemsTable td:nth-child(6){width:5% !important;text-align:center;white-space:nowrap;}' +
+        '#orderItemsTable th:nth-child(7),#orderItemsTable td:nth-child(7){width:4% !important;text-align:center;white-space:nowrap;}' +
+        '#orderItemsTable th:nth-child(8),#orderItemsTable td:nth-child(8){width:4% !important;text-align:center;white-space:nowrap;}' +
+        '#orderItemsTable th:nth-child(9),#orderItemsTable td:nth-child(9){width:9% !important;text-align:center;}' +
+        '#orderItemsTable th:nth-child(10),#orderItemsTable td:nth-child(10){width:8% !important;text-align:right;white-space:nowrap;}' +
+        '#orderItemsTable th:nth-child(11),#orderItemsTable td:nth-child(11){width:9% !important;text-align:right;white-space:nowrap;}' +
+        '.total-block{display:flex;justify-content:flex-end;align-items:baseline;gap:14px;margin-top:10px;padding-top:8px;border-top:2px solid #000;}' +
+        '.total-block .total-label{font-size:12px;font-weight:600;}' +
+        '.total-block .total-amount{font-size:15px;font-weight:700;white-space:nowrap;}' +
+        '.barcode-svg{display:block;margin:0 auto;max-width:100%;}' +
+        '.text-gray-300,.text-gray-400,.text-gray-500{color:#555 !important;}';
+
+    window.openPrintPreview = function() {
+        var headerEl = document.querySelector('.print-only');
+        var tableEl  = document.getElementById('orderItemsTable');
+        if (!headerEl || !tableEl) { window.print(); return; }
+
+        var tableClone = tableEl.cloneNode(true);
+        var totalLabelEl = tableClone.querySelector('.order-total-label');
+        var totalRow     = totalLabelEl ? totalLabelEl.closest('tr') : null;
+        var totalAmount  = '';
+        if (totalRow) {
+            var amountEl = totalRow.querySelector('.order-total-amount');
+            totalAmount  = amountEl ? amountEl.textContent.trim() : '';
+            totalRow.parentNode.removeChild(totalRow);
+        }
+        var totalBlockHtml = '<div class="total-block">' +
+            '<span class="total-label">Total</span>' +
+            '<span class="total-amount">' + totalAmount + '</span>' +
+            '</div>';
+
+        var doc = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+            '<style>' + PRINT_CSS + '</style></head><body>' +
+            '<div class="print-header">' + headerEl.innerHTML + '</div>' +
+            tableClone.outerHTML +
+            totalBlockHtml +
+            '</body></html>';
+
+        var frame = document.getElementById('printPreviewFrame');
+        frame.srcdoc = doc;
+        document.getElementById('printPreviewModal').classList.remove('hidden');
+    };
+
+    window.closePrintPreview = function() {
+        document.getElementById('printPreviewModal').classList.add('hidden');
+    };
+
+    window.printFromPreview = function() {
+        var frame = document.getElementById('printPreviewFrame');
+        if (!frame.contentWindow) return;
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+    };
 })();
 </script>
 
