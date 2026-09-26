@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>HOME K MART</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%; margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: #ffffff; color: #1f2937;
+  }
+  .wrap {
+    height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px; text-align: center;
+  }
+  .icon { width: 72px; height: 72px; margin-bottom: 20px; color: #9ca3af; }
+  h1 { margin: 0 0 8px; font-size: 1.15rem; font-weight: 700; color: #111827; }
+  p { margin: 0 0 24px; font-size: 0.9rem; line-height: 1.6; color: #6b7280; }
+  button {
+    appearance: none; border: none; cursor: pointer;
+    padding: 12px 28px; border-radius: 999px; font-size: 0.95rem; font-weight: 600;
+    background: #dc2626; color: #ffffff;
+  }
+  button:active { background: #b91c1c; }
+  button[disabled] { background: #d1d5db; cursor: default; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="2" y1="2" x2="22" y2="22"></line>
+      <path d="M8.5 16.5a5 5 0 0 1 7 0"></path>
+      <path d="M5 12.9a10 10 0 0 1 5.17-3.7"></path>
+      <path d="M19 12.9a10 10 0 0 0-2.5-2.4"></path>
+      <path d="M1.5 8.5a16 16 0 0 1 5.5-3.6"></path>
+      <path d="M22.5 8.5a16 16 0 0 0-8-4.2"></path>
+      <line x1="12" y1="20" x2="12.01" y2="20"></line>
+    </svg>
+    <h1>인터넷 연결을 확인해주세요</h1>
+    <p>Wi-Fi 또는 데이터 연결 상태를 확인한 뒤<br>다시 시도해주세요.<br><span style="color:#9ca3af;">Please check your internet connection.</span></p>
+    <button id="retryBtn" type="button">다시 시도</button>
+  </div>
+<script>
+(function () {
+  var TARGET_URL = 'https://homekmart.net/mall/';
+  var btn = document.getElementById('retryBtn');
+  var checking = false;
+
+  function isReachable(cb) {
+    fetch(TARGET_URL, { method: 'HEAD', mode: 'no-cors', cache: 'no-store' })
+      .then(function () { cb(true); })
+      .catch(function () { cb(false); });
+  }
+
+  function retry() {
+    if (checking) return;
+    checking = true;
+    btn.disabled = true;
+    btn.textContent = '확인 중...';
+    isReachable(function (ok) {
+      if (ok) {
+        window.location.href = TARGET_URL;
+        return;
+      }
+      checking = false;
+      btn.disabled = false;
+      btn.textContent = '다시 시도';
+    });
+  }
+
+  btn.addEventListener('click', retry);
+  window.addEventListener('online', retry);
+
+  // 접속 실패로 여기 도착한 뒤에도 백그라운드에서 주기적으로 재확인해 자동 복귀 시도
+  setInterval(function () {
+    if (checking) return;
+    isReachable(function (ok) {
+      if (ok) window.location.href = TARGET_URL;
+    });
+  }, 5000);
+})();
+</script>
+</body>
+</html>

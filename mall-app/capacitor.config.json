@@ -5,6 +5,7 @@
   "server": {
     "url": "https://homekmart.net/mall/",
     "androidScheme": "https",
+    "errorPath": "offline.html",
     "allowNavigation": [
       "homekmart.net",
       "*.homekmart.net"
