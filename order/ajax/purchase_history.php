@@ -80,6 +80,7 @@ try {
 
         return [
             'purchase_date' => $r['purchase_date'],
+            'sku'           => $r['sku'] ?? '',
             'vendor_name'   => $r['vendor_name'] ?? '미지정',
             'product_name'  => $r['name_ko'] ?: $r['name_en'],
             'unit_price'    => (float)$r['unit_price'],

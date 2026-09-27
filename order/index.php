@@ -221,7 +221,10 @@ function renderHistory(items) {
             : '';
         return `
         <tr class="hover:bg-gray-50">
-            <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">${escHtml(h.purchase_date)}</td>
+            <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">
+                <div>${escHtml(h.purchase_date)}</div>
+                ${h.sku ? `<div class="text-gray-400 text-xs">${escHtml(h.sku)}</div>` : ''}
+            </td>
             <td class="px-3 py-2">
                 <div class="text-xs text-gray-500 whitespace-nowrap">${escHtml(h.vendor_name)}</div>
                 <div class="text-sm text-gray-800 whitespace-nowrap">${escHtml(h.product_name)}</div>
