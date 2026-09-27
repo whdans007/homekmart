@@ -97,6 +97,7 @@ $conn->close();
                                     <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">날짜</th>
                                     <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">업체명 / 품명</th>
                                     <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">입고가</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">재고</th>
                                 </tr>
                             </thead>
                             <tbody id="historyBody" class="divide-y divide-gray-50">
@@ -185,11 +186,11 @@ function loadPurchaseHistory(keyword) {
     const body = document.getElementById('historyBody');
     const countEl = document.getElementById('historyCount');
     if (!keyword) {
-        body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 전 점포의 입고 이력이 표시됩니다.</td></tr>';
+        body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm">검색어를 입력하면 전 점포의 입고 이력이 표시됩니다.</td></tr>';
         countEl.textContent = '';
         return;
     }
-    body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-1"></i>불러오는 중...</td></tr>';
+    body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm"><i class="fas fa-spinner fa-spin mr-1"></i>불러오는 중...</td></tr>';
 
     fetch(ORD_BASE + '/ajax/purchase_history.php', {
         method: 'POST',
@@ -198,10 +199,10 @@ function loadPurchaseHistory(keyword) {
     })
     .then(r => r.json())
     .then(res => {
-        if (!res.success) { body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-red-400 text-sm">이력을 불러오지 못했습니다.</td></tr>'; return; }
+        if (!res.success) { body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-red-400 text-sm">이력을 불러오지 못했습니다.</td></tr>'; return; }
         renderHistory(res.data);
     })
-    .catch(() => { body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-red-400 text-sm">이력을 불러오지 못했습니다.</td></tr>'; });
+    .catch(() => { body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-red-400 text-sm">이력을 불러오지 못했습니다.</td></tr>'; });
 }
 
 function renderHistory(items) {
@@ -209,11 +210,16 @@ function renderHistory(items) {
     const countEl = document.getElementById('historyCount');
     countEl.textContent = items.length ? items.length + '건' : '';
     if (!items.length) {
-        body.innerHTML = '<tr><td colspan="3" class="px-4 py-6 text-center text-gray-400 text-sm">입고 이력이 없습니다.</td></tr>';
+        body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 text-sm">입고 이력이 없습니다.</td></tr>';
         return;
     }
     const fmt = v => Number(v).toLocaleString('ko-KR', {minimumFractionDigits: 2});
-    body.innerHTML = items.map(h => `
+    const fmtStock = v => v ? Number(v).toLocaleString('ko-KR', {maximumFractionDigits: 0}) : '—';
+    body.innerHTML = items.map(h => {
+        const altPriceHtml = h.alt_price !== null
+            ? `<div class="text-xs text-gray-400">${fmt(h.alt_price)} (${h.purchase_type === 'box' ? '낱개' : '박스'})</div>`
+            : '';
+        return `
         <tr class="hover:bg-gray-50">
             <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">${escHtml(h.purchase_date)}</td>
             <td class="px-3 py-2">
@@ -221,10 +227,13 @@ function renderHistory(items) {
                 <div class="text-sm text-gray-800 whitespace-nowrap">${escHtml(h.product_name)}</div>
             </td>
             <td class="px-3 py-2 text-xs text-right text-indigo-600 font-mono whitespace-nowrap">
-                ${fmt(h.unit_price)}<span class="text-gray-400 ml-1">(${h.purchase_type === 'box' ? '박스' : '낱개'})</span>
+                <div>${fmt(h.unit_price)}<span class="text-gray-400 ml-1">(${h.purchase_type === 'box' ? '박스' : '낱개'})</span></div>
+                ${altPriceHtml}
             </td>
+            <td class="px-3 py-2 text-xs text-right text-teal-700 font-mono whitespace-nowrap">${fmtStock(h.total_stock)}</td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
 }
 
 function loadLogisticsStock(keyword) {
