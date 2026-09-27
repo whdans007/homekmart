@@ -91,13 +91,13 @@ $conn->close();
                         </span>
                     </div>
                     <div class="overflow-auto flex-1 min-h-0">
-                        <table class="min-w-full text-sm">
+                        <table class="min-w-full text-xs">
                             <thead class="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
                                 <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">날짜</th>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">업체명 / 품명</th>
-                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">입고가</th>
-                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">재고</th>
+                                    <th class="px-2 py-1 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">날짜</th>
+                                    <th class="px-2 py-1 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">업체명 / 품명</th>
+                                    <th class="px-2 py-1 text-right text-xs font-semibold text-gray-600 whitespace-nowrap">입고가</th>
+                                    <th class="px-2 py-1 text-right text-xs font-semibold text-gray-600 whitespace-nowrap">재고</th>
                                 </tr>
                             </thead>
                             <tbody id="historyBody" class="divide-y divide-gray-50">
@@ -217,23 +217,23 @@ function renderHistory(items) {
     const fmtStock = v => v ? Number(v).toLocaleString('ko-KR', {maximumFractionDigits: 0}) : '—';
     body.innerHTML = items.map(h => {
         const altPriceHtml = h.alt_price !== null
-            ? `<div class="text-xs text-gray-400">${fmt(h.alt_price)} (${h.purchase_type === 'box' ? '낱개' : '박스'})</div>`
+            ? `<div class="text-gray-400">${fmt(h.alt_price)}<span class="text-gray-500">(${h.purchase_type === 'box' ? '낱개' : '박스'})</span></div>`
             : '';
         return `
         <tr class="hover:bg-gray-50">
-            <td class="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">
-                <div>${escHtml(h.purchase_date)}</div>
-                ${h.sku ? `<div class="text-gray-400 text-xs">${escHtml(h.sku)}</div>` : ''}
+            <td class="px-2 py-1 text-gray-500 whitespace-nowrap">
+                <div class="text-xs font-medium">${escHtml(h.purchase_date)}</div>
+                ${h.sku ? `<div class="text-gray-400 text-2xs">${escHtml(h.sku)}</div>` : ''}
             </td>
-            <td class="px-3 py-2">
-                <div class="text-xs text-gray-500 whitespace-nowrap">${escHtml(h.vendor_name)}</div>
-                <div class="text-sm text-gray-800 whitespace-nowrap">${escHtml(h.product_name)}</div>
+            <td class="px-2 py-1 min-w-0">
+                <div class="text-xs text-gray-500 truncate">${escHtml(h.vendor_name)}</div>
+                <div class="text-xs text-gray-800 truncate font-medium">${escHtml(h.product_name)}</div>
             </td>
-            <td class="px-3 py-2 text-xs text-right text-indigo-600 font-mono whitespace-nowrap">
-                <div>${fmt(h.unit_price)}<span class="text-gray-400 ml-1">(${h.purchase_type === 'box' ? '박스' : '낱개'})</span></div>
+            <td class="px-2 py-1 text-right text-indigo-600 font-mono whitespace-nowrap">
+                <div class="text-xs font-medium">${fmt(h.unit_price)}<span class="text-gray-400 ml-0.5 text-xs">(${h.purchase_type === 'box' ? '박스' : '낱개'})</span></div>
                 ${altPriceHtml}
             </td>
-            <td class="px-3 py-2 text-xs text-right text-teal-700 font-mono whitespace-nowrap">${fmtStock(h.total_stock)}</td>
+            <td class="px-2 py-1 text-right text-teal-700 font-mono whitespace-nowrap text-xs font-medium">${fmtStock(h.total_stock)}</td>
         </tr>
         `;
     }).join('');
