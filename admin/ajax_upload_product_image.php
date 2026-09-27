@@ -10,6 +10,7 @@ header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../config/db_config.php';
 require_once __DIR__ . '/../lib/session_helper.php';
 require_once __DIR__ . '/../lib/permission_helper.php';
+require_once __DIR__ . '/lib/image_optimizer.php';
 
 function json_error($code, $message, $http = 400) {
     http_response_code($http);
@@ -56,17 +57,12 @@ try {
         json_error('VALIDATION_ERROR', '이미지 크기는 5MB 이하여야 합니다');
     }
 
-    $upload_dir = __DIR__ . '/../mall/uploads/products/';
-    if (!is_dir($upload_dir)) {
-        mkdir($upload_dir, 0755, true);
-    }
-
-    $filename = bin2hex(random_bytes(16)) . '.' . $allowed_mimes[$mime];
-    $dest = $upload_dir . $filename;
-
-    if (!move_uploaded_file($_FILES['image']['tmp_name'], $dest)) {
+    // 이미지 최적화 (썸네일, 상세용, 원본)
+    $error_msg = '';
+    $image_set = optimize_product_image($_FILES['image'], $error_msg);
+    if (!$image_set) {
         $conn->close();
-        json_error('SERVER_ERROR', '파일 저장에 실패했습니다', 500);
+        json_error('SERVER_ERROR', '이미지 처리 실패: ' . $error_msg, 500);
     }
 
     $next_sort = $conn->prepare('SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort FROM mall_product_images WHERE product_id = ?');
@@ -75,7 +71,8 @@ try {
     $sort_order = (int)($next_sort->get_result()->fetch_assoc()['next_sort'] ?? 0);
     $next_sort->close();
 
-    $image_path = 'uploads/products/' . $filename;
+    // 상세정보용 이미지를 기본으로 저장
+    $image_path = $image_set['detail'] ?? $image_set['original'];
     $stmt = $conn->prepare('INSERT INTO mall_product_images (product_id, image_path, sort_order) VALUES (?, ?, ?)');
     $stmt->bind_param('isi', $product_id, $image_path, $sort_order);
     $stmt->execute();
@@ -87,6 +84,11 @@ try {
         'id' => $image_id,
         'image_path' => $image_path,
         'image_url' => '/mall/' . $image_path,
+        'image_urls' => [
+            'thumb' => '/mall/' . ($image_set['thumb'] ?? $image_set['original']),
+            'detail' => '/mall/' . ($image_set['detail'] ?? $image_set['original']),
+            'original' => '/mall/' . $image_set['original'],
+        ],
         'sort_order' => $sort_order,
     ]]);
 } catch (Exception $e) {
