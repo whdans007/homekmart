@@ -116,13 +116,13 @@ $conn->close();
                         </span>
                     </div>
                     <div class="overflow-auto flex-1 min-h-0">
-                        <table class="min-w-full text-sm">
+                        <table class="min-w-full text-xs">
                             <thead class="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
                                 <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">브랜드 / 품명</th>
-                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-500 whitespace-nowrap">재고</th>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">유통기한</th>
-                                    <th class="px-3 py-2"></th>
+                                    <th class="px-2 py-1 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">상품</th>
+                                    <th class="px-2 py-1 text-right text-xs font-semibold text-gray-600 whitespace-nowrap">재고</th>
+                                    <th class="px-2 py-1 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">유통기한</th>
+                                    <th class="px-2 py-1"></th>
                                 </tr>
                             </thead>
                             <tbody id="logisticsBody" class="divide-y divide-gray-50">
@@ -284,16 +284,17 @@ function renderLogistics(items) {
         }
         return `
         <tr class="hover:bg-gray-50">
-            <td class="px-3 py-2">
-                <div class="text-xs text-gray-500 whitespace-nowrap">${escHtml(item.brand_name)}</div>
-                <div class="text-sm text-gray-800 whitespace-nowrap">${escHtml(item.product_name)}</div>
+            <td class="px-2 py-1 min-w-0">
+                <div class="text-2xs text-gray-400 truncate">${escHtml(item.barcode || '-')}</div>
+                <div class="text-xs text-gray-700 font-medium truncate">${escHtml(item.name_ko)}</div>
+                <div class="text-2xs text-gray-500 truncate">${escHtml(item.name_en)}</div>
             </td>
-            <td class="px-3 py-2 text-xs text-right text-teal-700 font-mono whitespace-nowrap">${escHtml(item.stock_display)}</td>
-            <td class="px-3 py-2 text-xs whitespace-nowrap">${expiryHtml}</td>
-            <td class="px-3 py-2 text-center whitespace-nowrap">
+            <td class="px-2 py-1 text-xs text-right text-teal-700 font-mono whitespace-nowrap">${escHtml(item.stock_display)}</td>
+            <td class="px-2 py-1 text-xs whitespace-nowrap">${expiryHtml}</td>
+            <td class="px-2 py-1 text-center whitespace-nowrap">
                 <button type="button" onclick="addToStoreOrder(${item.product_id}, this)"
-                        class="inline-flex items-center px-2 py-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-md hover:bg-teal-100 transition-colors">
-                    <i class="fas fa-cart-plus mr-1"></i>담기
+                        class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-md hover:bg-teal-100 transition-colors">
+                    <i class="fas fa-cart-plus mr-0.5"></i>담기
                 </button>
             </td>
         </tr>

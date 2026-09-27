@@ -47,8 +47,8 @@ try {
         $capacity_str = $r['capacity'] ? ' ' . $r['capacity'] : '';
         return [
             'product_id'      => (int)$r['product_id'],
-            'product_name'    => $r['name_en'] . ($r['name_ko'] ? ' (' . $r['name_ko'] . ')' : '') . $capacity_str,
-            'brand_name'      => $r['brand_name'] ?: ($r['brand_name_ko'] ?: ''),
+            'name_ko'         => $r['name_ko'] . $capacity_str,
+            'name_en'         => $r['name_en'],
             'barcode'         => $r['barcode'],
             'stock_display'   => lc_format_stock([
                 LC_UNIT_BOX  => (int)$r['box_stock'],
