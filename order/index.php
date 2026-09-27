@@ -286,8 +286,8 @@ function renderLogistics(items) {
         <tr class="hover:bg-gray-50">
             <td class="px-2 py-1 min-w-0">
                 <div class="text-2xs text-gray-400 truncate">${escHtml(item.barcode || '-')}</div>
-                <div class="text-xs text-gray-700 font-medium truncate">${escHtml(item.name_ko)}</div>
-                <div class="text-2xs text-gray-500 truncate">${escHtml(item.name_en)}</div>
+                <div class="text-xs text-gray-700 font-medium truncate">${escHtml(item.name_ko || item.product_name || '-')}</div>
+                <div class="text-2xs text-gray-500 truncate">${escHtml(item.name_en || '')}</div>
             </td>
             <td class="px-2 py-1 text-xs text-right text-teal-700 font-mono whitespace-nowrap">${escHtml(item.stock_display)}</td>
             <td class="px-2 py-1 text-xs whitespace-nowrap">${expiryHtml}</td>
