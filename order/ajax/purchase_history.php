@@ -25,7 +25,7 @@ try {
     // 상품명(한/영) 또는 바코드 일치 기준으로 전 점포 매입 이력 조회 (거래처/업체명 기준 표시)
     $sql = "
         SELECT p.purchase_date, sup.name AS vendor_name,
-               pr.id, pr.name_ko, pr.name_en, pr.sku, pr.unit_qty,
+               pr.id, pr.name_ko, pr.name_en, pr.sku,
                pi.unit_price, pi.purchase_type, pi.quantity
         FROM purchase_items pi
         JOIN purchases p ON pi.purchase_id = p.purchase_id
@@ -61,14 +61,6 @@ try {
     }
 
     $data = array_map(function ($r) use ($stock_map) {
-        $unit_qty = (int)($r['unit_qty'] ?? 0);
-        $alt_price = null;
-        if ($unit_qty > 0) {
-            $alt_price = $r['purchase_type'] === 'box'
-                ? round((float)$r['unit_price'] / $unit_qty, 2)
-                : round((float)$r['unit_price'] * $unit_qty, 2);
-        }
-
         return [
             'purchase_date' => $r['purchase_date'],
             'vendor_name'   => $r['vendor_name'] ?? '미지정',
@@ -76,8 +68,7 @@ try {
             'unit_price'    => (float)$r['unit_price'],
             'purchase_type' => $r['purchase_type'], // 'box' | 'piece'
             'quantity'      => (int)$r['quantity'],
-            'unit_qty'      => $unit_qty,
-            'alt_price'     => $alt_price,
+            'alt_price'     => null,
             'total_stock'   => $stock_map[(int)$r['id']] ?? 0,
         ];
     }, $rows);
