@@ -37,6 +37,15 @@ $images = array_column($images_stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'ima
 $images_stmt->close();
 $conn->close();
 
+// 모바일 앱에서는 썸네일 사용 (로딩 속도 개선)
+$is_app = isset($_SERVER['HTTP_USER_AGENT']) && strpos($_SERVER['HTTP_USER_AGENT'], 'HOMEKMART-ANDROID-APP') !== false;
+if ($is_app) {
+    $images = array_map(function($path) {
+        // detail_xxx.jpg → thumb_xxx.jpg 변환
+        return preg_replace('/detail_/', 'thumb_', $path, 1);
+    }, $images);
+}
+
 $page_title = $product['display_name'];
 $show_bottom_nav = true;
 require_once __DIR__ . '/partials/header.php';

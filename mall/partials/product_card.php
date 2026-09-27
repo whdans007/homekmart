@@ -7,7 +7,15 @@
 $__c = $card;
 $__price = $__c['price'];
 $__out_of_stock = $__c['stock'] <= 0;
-$__img = $__c['image_path'] ? '/mall/' . htmlspecialchars($__c['image_path']) : '/logo/homekmart_logo.png';
+
+// 모바일 앱에서는 썸네일 사용 (로딩 속도 개선)
+$is_app = isset($_SERVER['HTTP_USER_AGENT']) && strpos($_SERVER['HTTP_USER_AGENT'], 'HOMEKMART-ANDROID-APP') !== false;
+$__img_path = $__c['image_path'];
+if ($is_app && $__img_path) {
+    // detail_xxx.jpg → thumb_xxx.jpg 변환
+    $__img_path = preg_replace('/detail_/', 'thumb_', $__img_path, 1);
+}
+$__img = $__img_path ? '/mall/' . htmlspecialchars($__img_path) : '/logo/homekmart_logo.png';
 ?>
 <a href="/mall/product.php?id=<?php echo (int)$__c['product_id']; ?>" class="product-card">
     <div class="thumb-wrap<?php echo $__out_of_stock ? ' out-of-stock' : ''; ?>">
