@@ -43,22 +43,31 @@ try {
     $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 
-    // 현재 재고 조회 (모든 점포)
-    $stock_sql = "
-        SELECT product_id, SUM(quantity) as total_stock
-        FROM inventory
-        GROUP BY product_id
-    ";
-    $stock_stmt = $conn->prepare($stock_sql);
-    $stock_stmt->execute();
-    $stock_rows = $stock_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    $stock_stmt->close();
-    $conn->close();
-
+    // 현재 재고 조회 (inventory 테이블 존재 시에만)
     $stock_map = [];
-    foreach ($stock_rows as $sr) {
-        $stock_map[(int)$sr['product_id']] = (int)$sr['total_stock'];
+    try {
+        $table_check = $conn->query("SHOW TABLES LIKE 'inventory'");
+        if ($table_check && $table_check->num_rows > 0) {
+            $stock_sql = "
+                SELECT product_id, SUM(quantity) as total_stock
+                FROM inventory
+                GROUP BY product_id
+            ";
+            $stock_stmt = $conn->prepare($stock_sql);
+            if ($stock_stmt) {
+                $stock_stmt->execute();
+                $stock_rows = $stock_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stock_stmt->close();
+                foreach ($stock_rows as $sr) {
+                    $stock_map[(int)$sr['product_id']] = (int)$sr['total_stock'];
+                }
+            }
+        }
+    } catch (Exception $e) {
+        // inventory 조회 실패해도 계속 진행
+        error_log('Stock query error: ' . $e->getMessage());
     }
+    $conn->close();
 
     $data = array_map(function ($r) use ($stock_map) {
         return [
