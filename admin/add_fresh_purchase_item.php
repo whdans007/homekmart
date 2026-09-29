@@ -603,8 +603,9 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         }
         masterResults.innerHTML = matches.map(function (m, idx) {
             return '<div class="client-result px-3 py-2 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-b-0" data-idx="' + idx + '">' +
-                '<div class="font-medium text-gray-900">[' + escapeHtml(m.code) + '] ' + escapeHtml(m.name_ko) + '</div>' +
-                '<div class="text-xs text-gray-500">' + escapeHtml(m.name_en || '') + '</div>' +
+                '<div class="font-medium text-gray-900">[' + escapeHtml(m.code) + '] ' + escapeHtml(m.name_ko) +
+                (m.name_en ? ' <span class="text-xs text-gray-500 font-normal">' + escapeHtml(m.name_en) + '</span>' : '') +
+                '</div>' +
                 '</div>';
         }).join('') + freshProductRegisterButtonHtml();
         masterResults.classList.remove('hidden');

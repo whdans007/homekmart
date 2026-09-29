@@ -351,7 +351,7 @@ if (!$batch) {
 $itemsStmt = $conn->prepare(
     'SELECT fpi.id, fpi.quantity_boxes, fpi.box_cost, fpi.box_weight_kg, fpi.box_pieces_per_box, fpi.weight_kg, fpi.pieces_per_box,
             fpi.unit_cost_per_100g, fpi.unit_cost_per_piece, fpi.total_cost,
-            fp.code AS fresh_code, fp.name_ko AS fresh_name_ko, fp.sale_type, fp.unit_type,
+            fp.code AS fresh_code, fp.name_ko AS fresh_name_ko, fp.name_en AS fresh_name_en, fp.sale_type, fp.unit_type,
             fp.pkg_weight_kg AS master_pkg_weight_kg
      FROM fresh_purchase_items fpi
      JOIN mall_fresh_products fp ON fp.id = fpi.mall_fresh_product_id
@@ -467,7 +467,7 @@ function fpbdh($value): string { return htmlspecialchars((string)$value, ENT_QUO
                     ?>
                         <tr class="batch-edit-row border-b border-gray-100 hover:bg-gray-50" data-row-mode="<?php echo fpbdh($rowMode); ?>" data-unit-type="<?php echo fpbdh($unitType); ?>">
                             <td class="px-4 py-3 text-center text-sm font-semibold text-gray-500"><?php echo $itemIndex + 1; ?></td>
-                            <td class="px-4 py-3 text-sm"><div class="font-medium text-gray-900"><?php echo fpbdh($item['fresh_code']); ?></div><div class="text-xs text-gray-500"><?php echo fpbdh($item['fresh_name_ko']); ?></div></td>
+                            <td class="px-4 py-3 text-sm"><div class="font-medium text-gray-900"><?php echo fpbdh($item['fresh_code']); ?></div><div class="text-xs text-gray-500"><?php echo fpbdh($item['fresh_name_ko']); ?><?php if (!empty($item['fresh_name_en'])): ?> <span class="text-gray-400"><?php echo fpbdh($item['fresh_name_en']); ?></span><?php endif; ?></div></td>
                             <td class="px-4 py-3 text-right"><input type="number" name="items[<?php echo (int)$item['id']; ?>][quantity]" required min="0.01" step="0.01" value="<?php echo fpbdh($item['quantity_boxes']); ?>" <?php echo $focusItemId === (int)$item['id'] ? 'autofocus data-focus-new-item' : ''; ?> class="edit-quantity no-number-spinner w-24 rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"></td>
                             <td class="px-4 py-3 text-right"><input type="number" name="items[<?php echo (int)$item['id']; ?>][cost]" required min="0" step="0.01" value="<?php echo fpbdh($item['box_cost']); ?>" class="edit-cost no-number-spinner w-24 rounded-md border border-gray-300 px-2 py-1.5 text-right text-sm"></td>
                             <td class="px-4 py-3 text-right">
@@ -613,8 +613,9 @@ function fpbdh($value): string { return htmlspecialchars((string)$value, ENT_QUO
         productHighlightIndex = matches.length ? 0 : -1;
         searchResults.innerHTML = (matches.length ? matches.map(function (product, index) {
             return '<button type="button" class="product-search-result block w-full border-b border-gray-100 px-3 py-2 text-left hover:bg-blue-50 last:border-b-0" data-index="' + index + '">' +
-                '<span class="block text-sm font-medium text-gray-900">[' + escapeHtml(product.code) + '] ' + escapeHtml(product.name_ko) + '</span>' +
-                '<span class="block text-xs text-gray-500">' + escapeHtml(product.name_en || '') + '</span></button>';
+                '<span class="block text-sm font-medium text-gray-900">[' + escapeHtml(product.code) + '] ' + escapeHtml(product.name_ko) +
+                (product.name_en ? ' <span class="text-xs font-normal text-gray-500">' + escapeHtml(product.name_en) + '</span>' : '') +
+                '</span></button>';
         }).join('') : '<div class="px-3 py-3 text-sm text-gray-500">검색 결과가 없습니다.</div>') + newProductRegisterHtml();
         searchResults.classList.remove('hidden');
         searchResults.querySelectorAll('.product-search-result').forEach(function (button) {
