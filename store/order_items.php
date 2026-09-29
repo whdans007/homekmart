@@ -45,6 +45,7 @@ try {
         "SELECT oi.id, oi.order_id, oi.quantity, oi.unit_price, oi.order_unit,
                 o.order_date, o.status, o.created_at,
                 p.name_en, p.name_ko, p.unit, p.capacity,
+                COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                 b.name_en AS brand_name, b.name_ko AS brand_name_ko
          FROM lc_order_items oi
          JOIN lc_orders o ON o.id = oi.order_id
@@ -111,6 +112,7 @@ $statuses = ['all'=>'All','pending'=>'Pending','approved'=>'Approved','shipped'=
                 <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium">Order Date</th>
                 <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium">Order #</th>
                 <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium" style="width:96px;">Brand</th>
+                <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium" style="width:110px;">SKU</th>
                 <th class="px-3 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
                 <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium whitespace-nowrap" style="width:62px;">Capacity</th>
                 <th class="px-2 py-3 text-center text-xs text-gray-500 font-medium" style="width:44px;">Qty</th>
@@ -143,6 +145,7 @@ $statuses = ['all'=>'All','pending'=>'Pending','approved'=>'Approved','shipped'=
                     <span class="text-gray-300">-</span>
                     <?php endif; ?>
                 </td>
+                <td class="px-3 py-2 text-xs text-gray-400 font-mono whitespace-nowrap"><?php echo !empty($item['barcode']) ? htmlspecialchars($item['barcode']) : '-'; ?></td>
                 <td class="px-3 py-2 font-medium text-gray-900" style="line-height:1.2;">
                     <div><?php echo htmlspecialchars($item['name_en']); ?></div>
                     <?php if (!empty($item['name_ko'])): ?>
