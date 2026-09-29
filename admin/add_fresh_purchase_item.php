@@ -479,6 +479,8 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
         }
 
         inputEl.addEventListener('keydown', function (event) {
+            // 검색창에서 Enter는 폼 저장(암묵적 제출)으로 이어지지 않도록 항상 차단
+            if (event.key === 'Enter') { event.preventDefault(); }
             if (resultsEl.classList.contains('hidden')) { return; }
             if (event.key === 'ArrowDown') {
                 event.preventDefault();
@@ -488,7 +490,6 @@ function fph($value): string { return htmlspecialchars((string)$value, ENT_QUOTE
                 move(-1);
             } else if (event.key === 'Enter') {
                 if (highlightIndex < 0 || highlightIndex >= items().length) { return; }
-                event.preventDefault();
                 onSelect(highlightIndex);
             } else if (event.key === 'Escape') {
                 resultsEl.classList.add('hidden');
