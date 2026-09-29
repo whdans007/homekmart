@@ -119,14 +119,16 @@ $columns = ['mall_fresh_products.history_date', 'mall_fresh_products.history_pro
                         $referenceSelling = $referenceCost !== null ? ceil((float)$referenceCost * 1.4) : null;
                     ?>
                         <tr class="border-b border-gray-100 hover:bg-gray-50">
-                            <td class="px-6 py-2 whitespace-nowrap"><?php echo fhh($row['purchase_date']); ?></td>
+                            <td class="px-6 py-2 whitespace-nowrap">
+                                <div><?php echo fhh($row['purchase_date']); ?></div>
+                                <div class="text-xs text-gray-500"><?php echo fhh($row['code']); ?></div>
+                            </td>
                             <td class="px-6 py-2">
                                 <a href="?<?php echo fhh(http_build_query(['product_id' => (int)$row['product_id']])); ?>" class="block hover:underline">
                                 <div class="font-medium text-gray-900"><?php echo fhh($nameKo !== '' ? $nameKo : ($nameEn !== '' ? $nameEn : '-')); ?></div>
                                 <?php if ($nameKo !== '' && $nameEn !== ''): ?>
                                     <div class="text-sm text-gray-600"><?php echo fhh($nameEn); ?></div>
                                 <?php endif; ?>
-                                <div class="text-xs text-gray-500"><?php echo fhh($row['code']); ?></div>
                                 </a>
                             </td>
                             <td class="px-6 py-2 whitespace-nowrap"><?php echo $row['quantity_boxes'] !== null ? fhh(fmt_num($row['quantity_boxes'])) : '-'; ?></td>
