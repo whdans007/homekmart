@@ -585,12 +585,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php echo htmlspecialchars($promo['name_ko'] ?: $promo['name_en']); ?><?php echo htmlspecialchars($promoCapacity); ?>
                     </div>
                     <?php if (!empty($promo['name_ko']) && !empty($promo['name_en'])): ?><div class="text-xs text-gray-900"><?php echo htmlspecialchars($promo['name_en']); ?></div><?php endif; ?>
-                    <div class="text-xs text-amber-700 mt-0.5">LOT <?php echo htmlspecialchars($promo['lot_number'] ?: '-'); ?> &middot; exp <?php echo $promo['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($promo['expiry_date']))) : '기한 없음'; ?> &middot; <?php echo (int)$promo['quantity_remain']; ?> <?php echo htmlspecialchars($promoUnit); ?> left</div>
                 </div>
             </td>
             <td class="px-4 py-3 text-right text-xs text-gray-500"><?php echo (int)($promo['pieces_per_box'] ?? 0) > 1 ? number_format((int)$promo['pieces_per_box']) : '-'; ?></td>
             <?php
+                $promoLotInfo = 'LOT ' . htmlspecialchars($promo['lot_number'] ?: '-') . ' &middot; exp ' . ($promo['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($promo['expiry_date']))) : '기한 없음') . ' &middot; ' . (int)$promo['quantity_remain'] . ' ' . htmlspecialchars($promoUnit) . ' left';
                 $promoPriceCell = '<div class="text-gray-400 text-xs leading-tight" style="text-decoration:line-through;">' . number_format((float)$promo['base_price'], 2) . '</div>'
+                    . '<div class="text-[10px] text-amber-700 leading-tight whitespace-nowrap">' . $promoLotInfo . '</div>'
                     . '<div class="font-semibold" style="color:#b45309;">' . number_format((float)$promo['discounted_price'], 2) . '</div>';
             ?>
             <td class="px-4 py-3 text-right text-xs"><?php echo $promoUnit === 'PCS' ? $promoPriceCell : '-'; ?></td>
