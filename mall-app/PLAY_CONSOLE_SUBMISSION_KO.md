@@ -14,7 +14,7 @@
 | 무료 또는 유료 | 무료 |
 | 카테고리 | 쇼핑 |
 | 패키지 이름 | `net.homekmart.mall` |
-| 버전 | `1.0` (`versionCode` 1) |
+| 버전 | `1.0.2` (`versionCode` 3, 기존 Play 등록 버전보다 높은지 Console에서 확인) |
 | 최소 Android | API 24 (Android 7.0) |
 | 타깃 Android | API 36 |
 | 개인정보처리방침 | https://homekmart.net/mall/privacy.php |

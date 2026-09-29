@@ -1,0 +1,8 @@
+{
+  "detectedAt": "2026-09-27T09:33:19.145Z",
+  "toplevel": "C:/laragon/www/homekmart",
+  "gitDir": "C:\\laragon\\www\\homekmart\\.git",
+  "gitCommonDir": "C:\\laragon\\.git",
+  "issue": "https://github.com/anthropics/claude-code/issues/46808",
+  "message": "git worktree detected — Claude Code hooks may not fire (issue #46808). Run bkit from the primary repository if hook-driven automation is required."
+}
