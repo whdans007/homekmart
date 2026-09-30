@@ -58,7 +58,7 @@ $commission_payout_total  = $report['commission_payout_total'];
 </div>
 
 <!-- 항목 리스트 (총 매출 / 지출 항목들 / 총 지출) -->
-<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden max-w-2xl mx-auto">
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden max-w-3xl mx-auto">
   <!-- 총 매출 -->
   <div class="flex items-center justify-between px-6 py-4 bg-blue-50 border-b border-gray-200">
     <span class="text-base font-bold text-blue-800">총 매출</span>
@@ -165,7 +165,7 @@ $commission_payout_total  = $report['commission_payout_total'];
 </div>
 
 <!-- 요약 -->
-<div class="max-w-2xl mx-auto mt-8 border border-gray-300 rounded-xl overflow-hidden">
+<div class="max-w-3xl mx-auto mt-8 border border-gray-300 rounded-xl overflow-hidden">
   <div class="grid grid-cols-2 text-sm">
     <div class="px-4 py-2.5 font-bold text-gray-700 border-b border-r border-gray-300 bg-gray-50">총 매출</div>
     <div class="px-4 py-2.5 text-right font-mono font-bold border-b border-gray-300"><?php echo number_format($total_sales, 2); ?></div>
