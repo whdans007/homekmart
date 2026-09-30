@@ -681,6 +681,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php else: ?>
                 <span class="inline-flex items-center justify-center w-11 h-11 rounded border border-gray-100 bg-gray-50 text-gray-300 align-middle"><i class="fas fa-image text-xs"></i></span>
                 <?php endif; ?>
+                <?php if ($has_image_col && empty($p['image_path'])): ?>
+                <label class="upload-img-label block mt-1 text-[10px] text-gray-400 hover:text-teal-600 whitespace-nowrap cursor-pointer" title="Upload a product image">
+                    <i class="fas fa-upload mr-0.5"></i>Upload
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="upload-img-input hidden">
+                </label>
+                <?php endif; ?>
                 <?php
                 // 상품명(브랜드 + 한글명, 없으면 영문명)으로 구글 이미지 웹검색 — 새 탭에서 열림
                 $imgSearchQuery = trim(($p['brand_name_ko'] ?: ($p['brand_name'] ?? '')) . ' ' . ($p['name_ko'] ?: $p['name_en']) . ' ' . ($p['capacity'] ?? ''));
@@ -688,15 +694,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <a href="https://www.google.com/search?tbm=isch&q=<?php echo urlencode($imgSearchQuery); ?>"
                    target="_blank" rel="noopener noreferrer"
                    title="Search images on the web"
-                   class="block mt-1 text-[10px] text-gray-400 hover:text-teal-600 whitespace-nowrap">
+                   class="block mt-0.5 text-[10px] text-gray-400 hover:text-teal-600 whitespace-nowrap">
                     <i class="fas fa-magnifying-glass mr-0.5"></i>Web
                 </a>
-                <?php if ($has_image_col && empty($p['image_path'])): ?>
-                <label class="upload-img-label block mt-0.5 text-[10px] text-gray-400 hover:text-teal-600 whitespace-nowrap cursor-pointer" title="Upload a product image">
-                    <i class="fas fa-upload mr-0.5"></i>Upload
-                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="upload-img-input hidden">
-                </label>
-                <?php endif; ?>
             </td>
             <td class="px-4 py-3 text-xs text-gray-400 font-mono whitespace-nowrap">
                 <input type="hidden" name="product_id[]" value="<?php echo $p['id']; ?>">
