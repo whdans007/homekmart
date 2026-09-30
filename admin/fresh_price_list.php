@@ -79,8 +79,16 @@ foreach ($rows as $row) {
     }
 }
 
-$filterParams = ['q' => $search, 'fresh_category' => $categoryFilter, 'sort' => $sortDir];
-$sortToggleUrl = '?' . http_build_query(['q' => $search, 'fresh_category' => $categoryFilter, 'end' => $endDate, 'sort' => $sortDir === 'asc' ? 'desc' : 'asc']);
+// 날짜 헤더 클릭 정렬: 해당 날짜에 입고 데이터가 있는 상품을 위로 (같은 그룹 안에서는 기존 이름순 유지, PHP usort는 안정 정렬)
+$sortDate = (is_string($_GET['sortdate'] ?? null) && in_array($_GET['sortdate'], $dates, true)) ? $_GET['sortdate'] : '';
+if ($sortDate !== '') {
+    uasort($products, function ($a, $b) use ($sortDate) {
+        return (int)isset($b['prices'][$sortDate]) <=> (int)isset($a['prices'][$sortDate]);
+    });
+}
+
+$filterParams = ['q' => $search, 'fresh_category' => $categoryFilter, 'sort' => $sortDir, 'sortdate' => $sortDate];
+$sortToggleUrl = '?' . http_build_query(['q' => $search, 'fresh_category' => $categoryFilter, 'end' => $endDate, 'sort' => $sortDir === 'asc' ? 'desc' : 'asc']); // 이름 정렬 전환 시 날짜 정렬은 해제
 ?>
 <style>
 /* 행 hover 시 고정된 상품명 셀(sticky)과 오늘 열 배경까지 함께 강조 */
@@ -99,12 +107,13 @@ $sortToggleUrl = '?' . http_build_query(['q' => $search, 'fresh_category' => $ca
                     <input type="hidden" name="fresh_category" value="<?php echo fpl($categoryFilter); ?>">
                     <input type="hidden" name="end" value="<?php echo fpl($endDate); ?>">
                     <input type="hidden" name="sort" value="<?php echo fpl($sortDir); ?>">
+                    <input type="hidden" name="sortdate" value="<?php echo fpl($sortDate); ?>">
                     <input type="search" name="q" value="<?php echo fpl($search); ?>" aria-label="<?php echo fpl(t('mall_fresh_products.search_master_placeholder')); ?>" placeholder="<?php echo fpl(t('mall_fresh_products.search_master_placeholder')); ?>" class="px-3 py-2 border border-gray-300 rounded-md text-sm w-full sm:w-64">
                     <button type="submit" class="px-3 py-2 rounded-md text-sm text-white bg-primary-600 hover:bg-primary-700"><?php echo fpl(t('common.search')); ?></button>
                 </form>
                 <div class="flex flex-wrap items-center gap-2">
                     <?php foreach (['' => t('common.all')] + $categoryOptions as $categoryCode => $categoryName): ?>
-                        <a href="?<?php echo fpl(http_build_query(['fresh_category' => $categoryCode, 'q' => $search, 'end' => $endDate, 'sort' => $sortDir])); ?>"
+                        <a href="?<?php echo fpl(http_build_query(['fresh_category' => $categoryCode, 'q' => $search, 'end' => $endDate, 'sort' => $sortDir, 'sortdate' => $sortDate])); ?>"
                            <?php echo $categoryFilter === $categoryCode ? 'aria-current="true"' : ''; ?>
                            class="px-3 py-2 border rounded-md text-sm whitespace-nowrap <?php echo $categoryFilter === $categoryCode ? 'bg-primary-50 border-primary-500 text-primary-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'; ?>"><?php echo fpl($categoryName); ?></a>
                     <?php endforeach; ?>
@@ -124,7 +133,7 @@ $sortToggleUrl = '?' . http_build_query(['q' => $search, 'fresh_category' => $ca
                     <tr>
                         <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap sticky left-0 bg-gray-50"><a href="<?php echo fpl($sortToggleUrl); ?>" class="hover:underline"><?php echo fpl(t('mall_fresh_products.price_list_product')); ?><i class="fas <?php echo $sortDir === 'asc' ? 'fa-arrow-up-a-z' : 'fa-arrow-down-z-a'; ?> ml-1"></i></a></th>
                         <?php foreach ($dates as $d): ?>
-                            <th scope="col" class="px-3 py-2 text-right text-xs font-semibold whitespace-nowrap <?php echo $d === $today ? 'text-primary-600' : 'text-gray-700'; ?>"><?php echo fpl(date('m/d', strtotime($d))); ?></th>
+                            <th scope="col" class="px-3 py-2 text-right text-xs font-semibold whitespace-nowrap <?php echo $d === $today ? 'text-primary-600' : 'text-gray-700'; ?>"><a href="?<?php echo fpl(http_build_query(['q' => $search, 'fresh_category' => $categoryFilter, 'end' => $endDate, 'sort' => $sortDir, 'sortdate' => $sortDate === $d ? '' : $d])); ?>" class="hover:underline"><?php echo fpl(date('m/d', strtotime($d))); ?><?php if ($sortDate === $d): ?><i class="fas fa-arrow-down-wide-short ml-1"></i><?php endif; ?></a></th>
                         <?php endforeach; ?>
                     </tr>
                 </thead>
