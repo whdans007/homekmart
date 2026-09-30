@@ -672,7 +672,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             data-orig-idx="<?php echo $__row_idx++; ?>"
             data-inbound="<?php echo !empty($p['latest_inbound_at']) ? strtotime($p['latest_inbound_at']) : 0; ?>"
             data-name="<?php echo strtolower(($p['name_en'] ?? '') . ' ' . ($p['name_ko'] ?? '') . ' ' . ($p['brand_name'] ?? '') . ' ' . ($p['brand_name_ko'] ?? '') . ' ' . ($p['barcode'] ?? '')); ?>">
-            <td class="px-4 py-3 text-center">
+            <td class="px-4 py-3 text-center img-cell" data-product-id="<?php echo (int)$p['id']; ?>" data-name="<?php echo htmlspecialchars($p['name_en'] ?? '', ENT_QUOTES); ?>">
                 <?php if (!empty($p['image_path'])): $img_url = STORE_WEB_ROOT . '/logistics/' . $p['image_path']; ?>
                 <button type="button"
                         onclick="openImageLightbox('<?php echo htmlspecialchars(addslashes($img_url), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($p['name_en'] ?? ''), ENT_QUOTES); ?>')"
@@ -692,6 +692,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                    class="block mt-1 text-[10px] text-gray-400 hover:text-teal-600 whitespace-nowrap">
                     <i class="fas fa-magnifying-glass mr-0.5"></i>Web
                 </a>
+                <?php if ($has_image_col && empty($p['image_path'])): ?>
+                <label class="upload-img-label block mt-0.5 text-[10px] text-gray-400 hover:text-teal-600 whitespace-nowrap cursor-pointer" title="Upload a product image">
+                    <i class="fas fa-upload mr-0.5"></i>Upload
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="upload-img-input hidden">
+                </label>
+                <?php endif; ?>
             </td>
             <td class="px-4 py-3 text-xs text-gray-400 font-mono whitespace-nowrap">
                 <input type="hidden" name="product_id[]" value="<?php echo $p['id']; ?>">
@@ -1366,6 +1372,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     };
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') closeImageLightbox();
+    });
+
+    // 이미지 없는 상품 업로드 → 성공 시 해당 칸을 썸네일로 교체 (장바구니/입력값 유지를 위해 새로고침 안 함)
+    document.addEventListener('change', function(e) {
+        var input = e.target;
+        if (!input.classList || !input.classList.contains('upload-img-input')) return;
+        var file = input.files && input.files[0];
+        if (!file) return;
+        var cell = input.closest('.img-cell');
+        var label = input.closest('.upload-img-label');
+        if (file.size > 5 * 1024 * 1024) { alert('Image must be 5MB or smaller.'); input.value = ''; return; }
+
+        var fd = new FormData();
+        fd.append('csrf_token', document.querySelector('#orderForm input[name="csrf_token"]').value);
+        fd.append('product_id', cell.dataset.productId);
+        fd.append('image', file);
+
+        var origHtml = label.innerHTML;
+        label.style.pointerEvents = 'none';
+        label.innerHTML = '<i class="fas fa-spinner fa-spin mr-0.5"></i>Uploading';
+
+        fetch('<?php echo STORE_BASE; ?>/upload_product_image.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (!res.success) throw new Error(res.message || 'Upload failed.');
+                var name = cell.dataset.name || '';
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.title = 'Click to enlarge';
+                btn.className = 'inline-block w-11 h-11 rounded border border-gray-200 overflow-hidden bg-gray-50 hover:ring-2 hover:ring-teal-400 align-middle';
+                btn.onclick = function() { openImageLightbox(res.url, name); };
+                var img = document.createElement('img');
+                img.src = res.url; img.alt = ''; img.className = 'w-full h-full object-cover';
+                btn.appendChild(img);
+                var placeholder = cell.firstElementChild;
+                if (placeholder) cell.replaceChild(btn, placeholder); else cell.insertBefore(btn, cell.firstChild);
+                label.remove();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Upload failed.');
+                label.innerHTML = origHtml;
+                label.style.pointerEvents = '';
+                input.value = '';
+            });
     });
 </script>
 
