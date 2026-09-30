@@ -85,6 +85,8 @@ $sortToggleUrl = '?' . http_build_query(['q' => $search, 'fresh_category' => $ca
 <style>
 /* 행 hover 시 고정된 상품명 셀(sticky)과 오늘 열 배경까지 함께 강조 */
 .fpl-name { background-color: #fff; }
+/* 세로(열) 강조 — 행 강조보다 약한 색, 교차 셀은 행 색이 우선 */
+.fpl-table td.fpl-col-hl, .fpl-table th.fpl-col-hl { background-color: #fef08a !important; }
 .fpl-row:hover td, .fpl-row:hover td.fpl-name { background-color: #fde047 !important; }
 </style>
 <div class="w-full px-2 sm:px-3 md:px-4 py-8">
@@ -117,7 +119,7 @@ $sortToggleUrl = '?' . http_build_query(['q' => $search, 'fresh_category' => $ca
             </div>
         </div>
         <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
+            <table class="min-w-full text-sm fpl-table">
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
                         <th scope="col" class="px-4 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap sticky left-0 bg-gray-50"><a href="<?php echo fpl($sortToggleUrl); ?>" class="hover:underline"><?php echo fpl(t('mall_fresh_products.price_list_product')); ?><i class="fas <?php echo $sortDir === 'asc' ? 'fa-arrow-up-a-z' : 'fa-arrow-down-z-a'; ?> ml-1"></i></a></th>
@@ -150,4 +152,24 @@ $sortToggleUrl = '?' . http_build_query(['q' => $search, 'fresh_category' => $ca
         </div>
     </div>
 </div>
+<script>
+(function () {
+    var table = document.querySelector('.fpl-table');
+    if (!table) return;
+    var lit = [];
+    function clear() { lit.forEach(function (el) { el.classList.remove('fpl-col-hl'); }); lit = []; }
+    table.addEventListener('mouseover', function (e) {
+        var cell = e.target.closest('td, th');
+        if (!cell || !table.contains(cell)) return;
+        var idx = cell.cellIndex;
+        clear();
+        if (idx < 1) return; // 상품명 열은 행 강조만
+        table.querySelectorAll('tr').forEach(function (tr) {
+            var c = tr.cells[idx];
+            if (c) { c.classList.add('fpl-col-hl'); lit.push(c); }
+        });
+    });
+    table.addEventListener('mouseleave', clear);
+})();
+</script>
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
