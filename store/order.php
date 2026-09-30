@@ -681,11 +681,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php else: ?>
                 <span class="inline-flex items-center justify-center w-11 h-11 rounded border border-gray-100 bg-gray-50 text-gray-300 align-middle"><i class="fas fa-image text-xs"></i></span>
                 <?php endif; ?>
-                <?php if ($has_image_col && empty($p['image_path'])): ?>
-                <label class="upload-img-label block mt-1 text-[10px] text-gray-400 hover:text-teal-600 whitespace-nowrap cursor-pointer" title="Upload a product image">
+                <?php if ($has_image_col): $hasImg = !empty($p['image_path']); ?>
+                <label class="upload-img-label <?php echo $hasImg ? 'hidden' : 'block'; ?> mt-1 text-[10px] text-gray-400 hover:text-teal-600 whitespace-nowrap cursor-pointer" title="Upload a product image">
                     <i class="fas fa-upload mr-0.5"></i>Upload
                     <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,.avif" class="upload-img-input hidden">
                 </label>
+                <button type="button" class="delete-img-btn <?php echo $hasImg ? 'block mx-auto' : 'hidden'; ?> mt-1 text-[10px] text-gray-400 hover:text-red-600 whitespace-nowrap" title="Delete this product image">
+                    <i class="fas fa-trash-can mr-0.5"></i>Delete
+                </button>
                 <?php endif; ?>
                 <?php
                 // 상품명(브랜드 + 한글명, 없으면 영문명)으로 구글 이미지 웹검색 — 새 탭에서 열림
@@ -1354,7 +1357,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (e.key === 'Escape') closeImageLightbox();
     });
 
-    // 이미지 없는 상품 업로드 → 성공 시 해당 칸을 썸네일로 교체 (장바구니/입력값 유지를 위해 새로고침 안 함)
+    // 상품 이미지 업로드/삭제 — 성공 시 해당 칸만 갱신 (장바구니/입력값 유지를 위해 새로고침 안 함)
+    var IMG_ENDPOINT = '<?php echo STORE_BASE; ?>/upload_product_image.php';
+
+    // url이 있으면 썸네일 + Delete 링크, 없으면 빈 아이콘 + Upload 링크 상태로 전환
+    function setCellImage(cell, url) {
+        var media;
+        if (url) {
+            var name = cell.dataset.name || '';
+            media = document.createElement('button');
+            media.type = 'button';
+            media.title = 'Click to enlarge';
+            media.className = 'inline-block w-11 h-11 rounded border border-gray-200 overflow-hidden bg-gray-50 hover:ring-2 hover:ring-teal-400 align-middle';
+            media.onclick = function() { openImageLightbox(url, name); };
+            var img = document.createElement('img');
+            img.src = url; img.alt = ''; img.className = 'w-full h-full object-cover';
+            media.appendChild(img);
+        } else {
+            media = document.createElement('span');
+            media.className = 'inline-flex items-center justify-center w-11 h-11 rounded border border-gray-100 bg-gray-50 text-gray-300 align-middle';
+            media.innerHTML = '<i class="fas fa-image text-xs"></i>';
+        }
+        cell.replaceChild(media, cell.firstElementChild);
+
+        var up = cell.querySelector('.upload-img-label');
+        var del = cell.querySelector('.delete-img-btn');
+        if (up) { up.classList.toggle('hidden', !!url); up.classList.toggle('block', !url); }
+        if (del) { del.classList.toggle('hidden', !url); del.classList.toggle('block', !!url); del.classList.toggle('mx-auto', !!url); }
+    }
+
+    function imgRequest(fd) {
+        fd.append('csrf_token', document.querySelector('#orderForm input[name="csrf_token"]').value);
+        return fetch(IMG_ENDPOINT, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(res) { if (!res.success) throw new Error(res.message || 'Request failed.'); return res; });
+    }
+
     document.addEventListener('change', function(e) {
         var input = e.target;
         if (!input.classList || !input.classList.contains('upload-img-input')) return;
@@ -1365,7 +1403,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (file.size > 5 * 1024 * 1024) { alert('Image must be 5MB or smaller.'); input.value = ''; return; }
 
         var fd = new FormData();
-        fd.append('csrf_token', document.querySelector('#orderForm input[name="csrf_token"]').value);
         fd.append('product_id', cell.dataset.productId);
         fd.append('image', file);
 
@@ -1373,29 +1410,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         label.style.pointerEvents = 'none';
         label.innerHTML = '<i class="fas fa-spinner fa-spin mr-0.5"></i>Uploading';
 
-        fetch('<?php echo STORE_BASE; ?>/upload_product_image.php', { method: 'POST', body: fd, credentials: 'same-origin' })
-            .then(function(r) { return r.json(); })
-            .then(function(res) {
-                if (!res.success) throw new Error(res.message || 'Upload failed.');
-                var name = cell.dataset.name || '';
-                var btn = document.createElement('button');
-                btn.type = 'button';
-                btn.title = 'Click to enlarge';
-                btn.className = 'inline-block w-11 h-11 rounded border border-gray-200 overflow-hidden bg-gray-50 hover:ring-2 hover:ring-teal-400 align-middle';
-                btn.onclick = function() { openImageLightbox(res.url, name); };
-                var img = document.createElement('img');
-                img.src = res.url; img.alt = ''; img.className = 'w-full h-full object-cover';
-                btn.appendChild(img);
-                var placeholder = cell.firstElementChild;
-                if (placeholder) cell.replaceChild(btn, placeholder); else cell.insertBefore(btn, cell.firstChild);
-                label.remove();
-            })
-            .catch(function(err) {
-                alert(err.message || 'Upload failed.');
-                label.innerHTML = origHtml;
-                label.style.pointerEvents = '';
-                input.value = '';
-            });
+        imgRequest(fd)
+            .then(function(res) { setCellImage(cell, res.url); })
+            .catch(function(err) { alert(err.message || 'Upload failed.'); })
+            .then(function() { label.innerHTML = origHtml; label.style.pointerEvents = ''; });
+    });
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest ? e.target.closest('.delete-img-btn') : null;
+        if (!btn) return;
+        var cell = btn.closest('.img-cell');
+        if (!confirm('Delete this product image?\nIt will be removed for all stores.')) return;
+
+        var fd = new FormData();
+        fd.append('action', 'delete');
+        fd.append('product_id', cell.dataset.productId);
+
+        var origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-0.5"></i>Deleting';
+
+        imgRequest(fd)
+            .then(function() { setCellImage(cell, null); })
+            .catch(function(err) { alert(err.message || 'Delete failed.'); })
+            .then(function() { btn.innerHTML = origHtml; btn.disabled = false; });
     });
 </script>
 

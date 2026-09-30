@@ -15,6 +15,42 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 store_verify_csrf();
 
 $product_id = (int)($_POST['product_id'] ?? 0);
+
+// 이미지 삭제: DB 경로를 비우고 파일도 제거한다 (삭제 후 다시 업로드 가능)
+if (($_POST['action'] ?? '') === 'delete') {
+    if ($product_id <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Product not found.']);
+        exit;
+    }
+    try {
+        $conn = get_store_db();
+        $st = $conn->prepare("SELECT image_path FROM lc_products WHERE id = ? AND is_active = 1");
+        $st->bind_param('i', $product_id);
+        $st->execute();
+        $row = $st->get_result()->fetch_assoc();
+        $st->close();
+
+        if (!$row || empty($row['image_path'])) {
+            $conn->close();
+            echo json_encode(['success' => false, 'message' => 'No image to delete.']);
+            exit;
+        }
+
+        $st = $conn->prepare("UPDATE lc_products SET image_path = NULL WHERE id = ?");
+        $st->bind_param('i', $product_id);
+        $st->execute();
+        $st->close();
+        $conn->close();
+
+        lc_delete_product_image($row['image_path']);
+        echo json_encode(['success' => true]);
+    } catch (Throwable $e) {
+        error_log('store/upload_product_image.php delete failed: ' . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'Delete failed. Please try again.']);
+    }
+    exit;
+}
+
 if ($product_id <= 0 || empty($_FILES['image'])) {
     echo json_encode(['success' => false, 'message' => 'Select an image to upload.']);
     exit;
