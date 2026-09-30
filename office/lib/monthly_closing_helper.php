@@ -26,8 +26,8 @@ function get_monthly_closing_report(int $store_id, int $year, int $month): array
     $sf = $conn->prepare("SELECT korean_salary, monthly_rent FROM office_monthly_fixed WHERE store_id=? AND year=? AND month=?");
     $sf->bind_param('iii', $store_id, $year, $month); $sf->execute();
     $sf_row = $sf->get_result()->fetch_assoc(); $sf->close();
-    $rent_saved = (bool)$sf_row;
-    if ($sf_row) { $korean_salary = (float)$sf_row['korean_salary']; $monthly_rent = (float)$sf_row['monthly_rent']; }
+    // 월세는 저장값을 쓰지 않고 항상 Fixed Expenses Rent 카테고리 자동집계값을 사용한다 (아래에서 대입)
+    if ($sf_row) { $korean_salary = (float)$sf_row['korean_salary']; }
 
     // ── 1. 총 물품구매액 (원본, 이동 전) ────────────────────────────
     $total_purchase = 0.0;
@@ -171,8 +171,8 @@ function get_monthly_closing_report(int $store_id, int $year, int $month): array
 
     $conn->close();
 
-    // 저장된 월세 값이 없으면 자동분류(Rent 카테고리) 합계를 기본값으로 사용
-    if (!$rent_saved) { $monthly_rent = $total_rent; }
+    // 월세 = 자동분류(Rent 카테고리) 합계 (수동 입력/저장 없음)
+    $monthly_rent = $total_rent;
 
     // ── 총 매출 + STORE EXP — office/sales/monthly_report.php와 동일한 공용 함수(SSOT) 재사용 ──
     $sales_report     = get_monthly_sales_report($store_id, $year, $month);
@@ -254,7 +254,7 @@ function get_monthly_closing_report(int $store_id, int $year, int $month): array
         ['label' => '사무실 경비 (부속품 일체)',       'amount' => $total_office,    'input' => false],
         ['label' => '전기세',                         'amount' => $total_electric,  'input' => false],
         ['label' => '한국 직원 월급',                  'amount' => $korean_salary,   'input' => 'korean_salary'],
-        ['label' => '월세',                           'amount' => $monthly_rent,    'input' => 'monthly_rent'],
+        ['label' => '월세',                           'amount' => $monthly_rent,    'input' => false],
     ];
 
     return [

@@ -187,7 +187,7 @@ $commission_payout_total  = $report['commission_payout_total'];
 <script>
 const YEAR  = <?php echo $year; ?>;
 const MONTH = <?php echo $month; ?>;
-const AUTO_TOTAL = <?php echo $total_expense - $korean_salary - $monthly_rent; ?>; // 자동 계산 항목 합계
+const AUTO_TOTAL = <?php echo $total_expense - $korean_salary; ?>; // 자동 계산 항목 합계 (월세 포함)
 
 function fmt2(n) {
     return n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -202,8 +202,7 @@ function markChanged() {
 
 function updateGrandTotal() {
     const ks = parseFloat(document.getElementById('inp_korean_salary').value) || 0;
-    const mr = parseFloat(document.getElementById('inp_monthly_rent').value)  || 0;
-    const total = AUTO_TOTAL + ks + mr;
+    const total = AUTO_TOTAL + ks;
     document.getElementById('grand_total_display').textContent = fmt2(total);
 }
 
@@ -216,7 +215,6 @@ async function saveFixed() {
     fd.append('year',           YEAR);
     fd.append('month',          MONTH);
     fd.append('korean_salary',  document.getElementById('inp_korean_salary').value || 0);
-    fd.append('monthly_rent',   document.getElementById('inp_monthly_rent').value  || 0);
 
     const res  = await fetch('ajax_save_monthly_fixed.php', {method:'POST', body:fd});
     const data = await res.json();
@@ -285,7 +283,7 @@ function saveCommissionTax(id, amount) {
 
 <p class="text-center text-xs text-gray-400 mt-3">
   <i class="fa-solid fa-circle-info mr-1"></i>
-  인건비·전기세·월세는 Expense Report(other expenses) 키워드 기준으로 자동 분류됩니다.
+  인건비·전기세·월세는 Fixed Expenses Report(other expenses) 키워드 기준으로 자동 분류됩니다.
 </p>
 
 <?php require_once __DIR__ . '/../partials/footer.php'; ?>

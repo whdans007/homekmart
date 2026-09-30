@@ -14,7 +14,6 @@ $store_id       = get_office_store_id();
 $year           = (int)($_POST['year']           ?? 0);
 $month          = (int)($_POST['month']          ?? 0);
 $korean_salary  = (float)($_POST['korean_salary'] ?? 0);
-$monthly_rent   = (float)($_POST['monthly_rent']  ?? 0);
 
 if ($year < 2020 || $month < 1 || $month > 12) {
     echo json_encode(['success' => false, 'error' => 'Invalid params']); exit;
@@ -34,11 +33,11 @@ $conn->query("CREATE TABLE IF NOT EXISTS office_monthly_fixed (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
 $stmt = $conn->prepare(
-    "INSERT INTO office_monthly_fixed (store_id, year, month, korean_salary, monthly_rent)
-     VALUES (?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE korean_salary=VALUES(korean_salary), monthly_rent=VALUES(monthly_rent)"
+    "INSERT INTO office_monthly_fixed (store_id, year, month, korean_salary)
+     VALUES (?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE korean_salary=VALUES(korean_salary)"
 );
-$stmt->bind_param('iiidd', $store_id, $year, $month, $korean_salary, $monthly_rent);
+$stmt->bind_param('iiid', $store_id, $year, $month, $korean_salary);
 $stmt->execute();
 $stmt->close();
 $conn->close();
