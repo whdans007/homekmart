@@ -542,9 +542,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium w-28">Brand</th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium">Product Name</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-16">PKG</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-24">PCS Price</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-24">Box Price</th>
-                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-24">Pack Price</th>
+                <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-40">Price</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-28">Stock</th>
                 <th class="px-4 py-3 text-right text-xs text-gray-500 font-medium w-24">Subtotal</th>
                 <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium w-36">Quantity</th>
@@ -601,9 +599,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . '<div class="text-[10px] text-amber-700 leading-tight whitespace-nowrap">' . $promoLotInfo . '</div>'
                     . '<div class="font-semibold" style="color:#b45309;">' . number_format((float)$promo['discounted_price'], 2) . '</div>';
             ?>
-            <td class="px-4 py-3 text-right text-xs"><?php echo $promoUnit === 'PCS' ? $promoPriceCell : '-'; ?></td>
-            <td class="px-4 py-3 text-right text-xs"><?php echo $promoUnit === 'BOX' ? $promoPriceCell : '-'; ?></td>
-            <td class="px-4 py-3 text-right text-xs"><?php echo $promoUnit === 'PACK' ? $promoPriceCell : '-'; ?></td>
+            <td class="px-4 py-3 text-right text-xs">
+                <div class="text-[10px] font-semibold text-amber-600 leading-tight"><?php echo htmlspecialchars($promoUnit); ?></div>
+                <?php echo $promoPriceCell; ?>
+            </td>
             <td class="px-4 py-3 text-right text-xs"><span class="font-semibold text-amber-700"><?php echo (int)$promo['quantity_remain']; ?></span> <span class="text-gray-400"><?php echo htmlspecialchars($promoUnit); ?></span></td>
             <td class="px-4 py-3 text-right text-xs font-semibold text-amber-700 font-mono subtotal-cell">-</td>
             <td class="px-2 py-2 text-center">
@@ -735,8 +734,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php echo (int)$p['pieces_per_box'] > 1 ? number_format($p['pieces_per_box']) : '-'; ?>
             </td>
             <td class="px-4 py-3 text-right text-xs text-gray-500 font-mono">
-                <?php $pcsLots = $lot_prices[(int)$p['id']]['PCS'] ?? []; ?>
-                <?php if ($pcsLots): foreach ($pcsLots as $li => $lot): ?>
+                <?php
+                $pcsLots  = $lot_prices[(int)$p['id']]['PCS'] ?? [];
+                $boxLots  = $lot_prices[(int)$p['id']]['BOX'] ?? [];
+                $packLots = $lot_prices[(int)$p['id']]['PACK'] ?? [];
+                $priceGroups = ['BOX' => $boxLots, 'PACK' => $packLots, 'PCS' => $pcsLots];
+                $hasAnyLot = false;
+                foreach ($priceGroups as $unitLabel => $unitLots):
+                    if (!$unitLots) continue;
+                    $hasAnyLot = true;
+                ?>
+                <div class="text-[10px] font-semibold text-teal-700 leading-tight mt-1 first:mt-0"><?php echo $unitLabel; ?></div>
+                <?php foreach ($unitLots as $li => $lot): ?>
                 <div class="whitespace-nowrap <?php echo $li === 0 ? 'text-amber-700 font-semibold' : ''; ?>">
                     <?php if ($li === 0): ?><span class="mr-1 text-[10px]">우선출고</span><?php endif; ?>
                     <span class="text-[10px] text-gray-500"><?php echo $lot['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($lot['expiry_date']))) : '기한 없음'; ?></span>
@@ -747,37 +756,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php else: ?><?php echo number_format($lot['price'], 2); ?><?php endif; ?>
                     <span class="text-gray-400">×<?php echo number_format($lot['qty']); ?></span>
                 </div>
-                <?php endforeach; else: ?>-<?php endif; ?>
-            </td>
-            <td class="px-4 py-3 text-right text-xs text-gray-500 font-mono">
-                <?php $boxLots = $lot_prices[(int)$p['id']]['BOX'] ?? []; ?>
-                <?php if ($boxLots): foreach ($boxLots as $li => $lot): ?>
-                <div class="whitespace-nowrap <?php echo $li === 0 ? 'text-amber-700 font-semibold' : ''; ?>">
-                    <?php if ($li === 0): ?><span class="mr-1 text-[10px]">우선출고</span><?php endif; ?>
-                    <span class="text-[10px] text-gray-500"><?php echo $lot['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($lot['expiry_date']))) : '기한 없음'; ?></span>
-                    <?php if (!empty($lot['promotion_id'])): ?>
-                    <span class="ml-1 text-[10px] font-bold text-red-600"><?php echo rtrim(rtrim(number_format((float)$lot['discount_rate'], 2), '0'), '.'); ?>% OFF</span>
-                    <span class="text-gray-400 line-through"><?php echo number_format((float)$lot['promotion_base_price'], 2); ?></span>
-                    <span class="text-amber-700 font-semibold"><?php echo number_format((float)$lot['discounted_price'], 2); ?></span>
-                    <?php else: ?><?php echo number_format($lot['price'], 2); ?><?php endif; ?>
-                    <span class="text-gray-400">×<?php echo number_format($lot['qty']); ?></span>
-                </div>
-                <?php endforeach; else: ?>-<?php endif; ?>
-            </td>
-            <td class="px-4 py-3 text-right text-xs text-gray-500 font-mono">
-                <?php $packLots = $lot_prices[(int)$p['id']]['PACK'] ?? []; ?>
-                <?php if ($packLots): foreach ($packLots as $li => $lot): ?>
-                <div class="whitespace-nowrap <?php echo $li === 0 ? 'text-amber-700 font-semibold' : ''; ?>">
-                    <?php if ($li === 0): ?><span class="mr-1 text-[10px]">우선출고</span><?php endif; ?>
-                    <span class="text-[10px] text-gray-500"><?php echo $lot['expiry_date'] ? htmlspecialchars(date('Y-m-d', strtotime($lot['expiry_date']))) : '기한 없음'; ?></span>
-                    <?php if (!empty($lot['promotion_id'])): ?>
-                    <span class="ml-1 text-[10px] font-bold text-red-600"><?php echo rtrim(rtrim(number_format((float)$lot['discount_rate'], 2), '0'), '.'); ?>% OFF</span>
-                    <span class="text-gray-400 line-through"><?php echo number_format((float)$lot['promotion_base_price'], 2); ?></span>
-                    <span class="text-amber-700 font-semibold"><?php echo number_format((float)$lot['discounted_price'], 2); ?></span>
-                    <?php else: ?><?php echo number_format($lot['price'], 2); ?><?php endif; ?>
-                    <span class="text-gray-400">×<?php echo number_format($lot['qty']); ?></span>
-                </div>
-                <?php endforeach; else: ?>-<?php endif; ?>
+                <?php endforeach; endforeach; ?>
+                <?php if (!$hasAnyLot): ?>-<?php endif; ?>
             </td>
             <td class="px-4 py-3 text-right text-xs">
                 <?php if ($boxStock > 0): ?>
