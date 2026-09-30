@@ -236,7 +236,7 @@ $month_label = date('F Y', strtotime($month_start));
 
 <!-- 상세 테이블 -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
-  <div class="overflow-x-auto" style="max-height:65vh;overflow-y:auto">
+  <div class="overflow-x-auto">
     <table class="min-w-full text-xs divide-y divide-gray-100">
       <thead class="bg-gray-50 sticky top-0 z-10">
         <tr>
