@@ -568,6 +568,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             data-name="<?php echo strtolower(($promo['name_en'] ?? '') . ' ' . ($promo['name_ko'] ?? '') . ' ' . ($promo['brand_name'] ?? '') . ' ' . ($promo['brand_name_ko'] ?? '') . ' ' . ($promo['barcode'] ?? '')); ?>">
             <td class="px-4 py-3 text-center">
                 <span class="inline-flex items-center justify-center w-11 h-11 rounded border border-amber-200 bg-amber-100 text-amber-500"><i class="fas fa-tag text-sm"></i></span>
+                <?php $promoSearchQuery = trim(($promo['brand_name_ko'] ?: ($promo['brand_name'] ?? '')) . ' ' . ($promo['name_ko'] ?: $promo['name_en']) . $promoCapacity); ?>
+                <a href="https://www.google.com/search?tbm=isch&q=<?php echo urlencode($promoSearchQuery); ?>"
+                   target="_blank" rel="noopener noreferrer"
+                   title="Search images on the web"
+                   class="block mt-1 text-[10px] text-gray-400 hover:text-amber-600 whitespace-nowrap">
+                    <i class="fas fa-magnifying-glass mr-0.5"></i>Web
+                </a>
             </td>
             <td class="px-4 py-3 text-xs text-gray-400 font-mono whitespace-nowrap">
                 <input type="hidden" name="product_id[]" value="<?php echo $promo['product_id']; ?>">
@@ -675,6 +682,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php else: ?>
                 <span class="inline-flex items-center justify-center w-11 h-11 rounded border border-gray-100 bg-gray-50 text-gray-300 align-middle"><i class="fas fa-image text-xs"></i></span>
                 <?php endif; ?>
+                <?php
+                // 상품명(브랜드 + 한글명, 없으면 영문명)으로 구글 이미지 웹검색 — 새 탭에서 열림
+                $imgSearchQuery = trim(($p['brand_name_ko'] ?: ($p['brand_name'] ?? '')) . ' ' . ($p['name_ko'] ?: $p['name_en']) . ' ' . ($p['capacity'] ?? ''));
+                ?>
+                <a href="https://www.google.com/search?tbm=isch&q=<?php echo urlencode($imgSearchQuery); ?>"
+                   target="_blank" rel="noopener noreferrer"
+                   title="Search images on the web"
+                   class="block mt-1 text-[10px] text-gray-400 hover:text-teal-600 whitespace-nowrap">
+                    <i class="fas fa-magnifying-glass mr-0.5"></i>Web
+                </a>
             </td>
             <td class="px-4 py-3 text-xs text-gray-400 font-mono whitespace-nowrap">
                 <input type="hidden" name="product_id[]" value="<?php echo $p['id']; ?>">
