@@ -380,7 +380,7 @@ main { overflow: hidden !important; }
                                     <span id="regImgPlaceholder" class="text-gray-300 text-2xl"><i class="fas fa-image"></i></span>
                                 </div>
                                 <div class="flex-1">
-                                    <input type="file" name="image" id="regImageInput" accept="image/jpeg,image/png,image/webp,image/gif"
+                                    <input type="file" name="image" id="regImageInput" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,.avif"
                                            class="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
                                     <p class="text-xs text-gray-400 mt-1"><?php echo htmlspecialchars(t('logistics.products.image_help')); ?></p>
                                 </div>

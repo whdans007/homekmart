@@ -16,6 +16,7 @@ function lc_product_img_allowed(): array {
         'image/jpeg' => 'jpg',
         'image/png'  => 'png',
         'image/webp' => 'webp',
+        'image/avif' => 'avif',
         'image/gif'  => 'gif',
     ];
 }
@@ -45,9 +46,17 @@ function lc_handle_product_image_upload(array $file, string &$error = ''): ?stri
     $mime  = $finfo ? finfo_file($finfo, $file['tmp_name']) : null;
     if ($finfo) finfo_close($finfo);
 
+    // 구버전 libmagic은 AVIF를 octet-stream 등으로 판별하므로 ISO-BMFF 'ftyp' 브랜드로 보정
+    if ($mime !== 'image/avif') {
+        $head = @file_get_contents($file['tmp_name'], false, null, 0, 32);
+        if ($head !== false && substr($head, 4, 4) === 'ftyp' && preg_match('/avif|avis/', substr($head, 8, 24))) {
+            $mime = 'image/avif';
+        }
+    }
+
     $allowed = lc_product_img_allowed();
     if (!isset($allowed[$mime])) {
-        $error = 'Only JPG, PNG, WEBP, GIF images are allowed.';
+        $error = 'Only JPG, PNG, WEBP, AVIF, GIF images are allowed.';
         return null;
     }
     $ext = $allowed[$mime];

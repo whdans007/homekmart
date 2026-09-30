@@ -684,7 +684,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php if ($has_image_col && empty($p['image_path'])): ?>
                 <label class="upload-img-label block mt-1 text-[10px] text-gray-400 hover:text-teal-600 whitespace-nowrap cursor-pointer" title="Upload a product image">
                     <i class="fas fa-upload mr-0.5"></i>Upload
-                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="upload-img-input hidden">
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,.avif" class="upload-img-input hidden">
                 </label>
                 <?php endif; ?>
                 <?php
