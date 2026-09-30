@@ -533,6 +533,7 @@ function get_daily_other_expense_categories(mysqli $conn, int $store_id, string 
                     'details'        => $item['details'] ?? '',
                     'amount'         => (float)($item['amount'] ?? 0),
                     'category_key'   => null,
+                    'section'        => $sec_key,
                 ];
             }
         }
@@ -560,6 +561,11 @@ function get_daily_other_expense_categories(mysqli $conn, int $store_id, string 
     foreach ($source_items as $item) {
         if ($item['category_key'] !== null && isset($by_category[$item['category_key']])) {
             $by_category[$item['category_key']] += $item['amount'];
+            $total_placed += $item['amount'];
+        } elseif (($item['section'] ?? '') === 'other_exp_cash' && isset($by_category['other'])) {
+            // OTHER EXPENSES CASH(현금)는 수동 분류 전이라도 STORE EXP에서 누락되지 않도록 '기타'로 자동 합산
+            // (사용자가 카테고리로 옮기면 category_key가 생겨 위 분기로 이동하므로 중복 집계되지 않음)
+            $by_category['other'] += $item['amount'];
             $total_placed += $item['amount'];
         } else {
             $unplaced_count++;
