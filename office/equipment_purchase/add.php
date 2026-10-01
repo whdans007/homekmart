@@ -17,7 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($delivery_content === '') $errors[] = 'Description is required.';
     if ($amount <= 0)             $errors[] = 'Please enter a valid amount.';
     if (!$payment_date)           $errors[] = 'Payment date is required.';
-    if ($expense_type === 'consumable' && $supplier_name === '') $errors[] = 'Supplier name is required.';
+    if ($expense_type === 'consumable' || $supplier_name !== '') {
+        $supplier_conn = get_db_connection();
+        $resolved_supplier = resolve_supplier_name($supplier_conn, $supplier_name);
+        $supplier_conn->close();
+        if ($resolved_supplier === null) $errors[] = 'Supplier must be selected from the supplier list.';
+        else $supplier_name = $resolved_supplier;
+    }
 
     if (empty($errors)) {
         $conn = get_db_connection();
@@ -66,6 +72,9 @@ $css_base        = '../../admin/';
 $office_nav_base = '../';
 $_default_date   = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date'] ?? '') ? $_GET['date'] : date('Y-m-d');
 require_once __DIR__ . '/../partials/header.php';
+$supplier_conn = get_db_connection();
+$supplier_options = get_office_supplier_names($supplier_conn);
+$supplier_conn->close();
 ?>
 
 <div class="max-w-xl mx-auto">
@@ -134,16 +143,17 @@ require_once __DIR__ . '/../partials/header.php';
 
     <div id="supplier_section">
       <label class="block text-sm font-medium text-gray-700 mb-1">
-        Supplier <span class="text-red-500">*</span>
+        Supplier <span id="supplier_required_mark" class="text-red-500">*</span>
       </label>
       <div class="flex gap-2">
-        <input type="text" name="supplier_name" id="supplier_name" value="<?php echo htmlspecialchars($_POST['supplier_name'] ?? ''); ?>"
+        <input type="text" name="supplier_name" id="supplier_name" list="supplier_list" value="<?php echo htmlspecialchars($_POST['supplier_name'] ?? ''); ?>"
                class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
         <button type="button" onclick="openReceiptModal()"
                 class="px-3 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-xs font-medium hover:bg-indigo-100 whitespace-nowrap">
           <i class="fa-solid fa-receipt mr-1"></i>Load from Receipt
         </button>
       </div>
+      <datalist id="supplier_list"><?php foreach ($supplier_options as $supplier_option): ?><option value="<?php echo htmlspecialchars($supplier_option); ?>"><?php endforeach; ?></datalist>
     </div>
     <div>
       <label class="block text-sm font-medium text-gray-700 mb-1">Description <span class="text-red-500">*</span></label>
@@ -260,6 +270,8 @@ function escHtml(str) {
 
 function toggleExpenseType() {
     const isOther = document.getElementById('type_other').checked;
+    document.getElementById('supplier_name').required = !isOther;
+    document.getElementById('supplier_required_mark').classList.toggle('hidden', isOther);
     const btnC = document.getElementById('btn_consumable');
     const btnO = document.getElementById('btn_other');
     if (isOther) {

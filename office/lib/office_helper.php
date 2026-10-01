@@ -108,6 +108,30 @@ function office_b64_decode(string $v): string {
     return $decoded !== false ? $decoded : $v;
 }
 
+// 공급처 입력은 등록된 정식 이름으로만 저장한다.
+function resolve_supplier_name(mysqli $conn, string $name): ?string {
+    $name = trim($name);
+    if ($name === '') return null;
+
+    $stmt = $conn->prepare("SELECT name FROM suppliers WHERE name COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci");
+    if (!$stmt) return null;
+    $stmt->bind_param('s', $name);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $matches = [];
+    while ($row = $result->fetch_assoc()) $matches[] = $row['name'];
+    $stmt->close();
+    return count($matches) === 1 ? $matches[0] : null;
+}
+
+function get_office_supplier_names(mysqli $conn): array {
+    $stmt = $conn->prepare("SELECT name FROM suppliers ORDER BY name");
+    $stmt->execute();
+    $names = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'name');
+    $stmt->close();
+    return $names;
+}
+
 function require_office_permission(): void {
     if (has_office_permission()) return;
     // office/ 깊이에 무관하게 admin 루트로 리다이렉트
