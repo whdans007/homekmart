@@ -1,4 +1,53 @@
 <?php
+/** 공급처 등록 당시 사용자와 점포 정보를 조회합니다. */
+function get_supplier_audit_context($conn) {
+    static $columns_available = null;
+    static $fallback_logged = false;
+
+    if ($columns_available === null) {
+        $required_columns = ['created_by', 'created_by_name', 'created_store_id', 'created_store_name'];
+        $columns_available = true;
+        foreach ($required_columns as $column) {
+            $escaped_column = $conn->real_escape_string($column);
+            $result = $conn->query("SHOW COLUMNS FROM suppliers LIKE '{$escaped_column}'");
+            if (!$result || $result->num_rows === 0) {
+                $columns_available = false;
+                break;
+            }
+        }
+    }
+
+    if (!$columns_available) {
+        if (!$fallback_logged) {
+            error_log('공급처 등록 감사 컬럼이 없어 기존 INSERT를 사용합니다.');
+            $fallback_logged = true;
+        }
+        return null;
+    }
+
+    $user_id = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+    $user_name = trim((string)($_SESSION['full_name'] ?? ''));
+    if ($user_name === '') {
+        $user_name = trim((string)($_SESSION['username'] ?? ''));
+    }
+    $store_id = isset($_SESSION['store_id']) && $_SESSION['store_id'] !== '' ? (int)$_SESSION['store_id'] : null;
+    $store_name = null;
+
+    if ($store_id !== null) {
+        $stmt = $conn->prepare('SELECT name FROM stores WHERE id = ?');
+        if ($stmt) {
+            $stmt->bind_param('i', $store_id);
+            if ($stmt->execute()) {
+                $row = $stmt->get_result()->fetch_assoc();
+                $store_name = $row['name'] ?? null;
+            }
+            $stmt->close();
+        }
+    }
+
+    return [$user_id, $user_name !== '' ? $user_name : null, $store_id, $store_name];
+}
+
 /**
  * 권한 관리 헬퍼 함수들
  * 세분화된 사용자 권한 검사 및 관리 기능 제공

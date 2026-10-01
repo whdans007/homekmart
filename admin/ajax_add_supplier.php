@@ -56,8 +56,14 @@ try {
     }
     
     // 거래처 추가
-    $stmt = $conn->prepare("INSERT INTO suppliers (name, phone, memo) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $name, $phone, $memo);
+    $audit_context = get_supplier_audit_context($conn);
+    if ($audit_context !== null) {
+        $stmt = $conn->prepare("INSERT INTO suppliers (name, phone, memo, created_by, created_by_name, created_store_id, created_store_name) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssisis", $name, $phone, $memo, $audit_context[0], $audit_context[1], $audit_context[2], $audit_context[3]);
+    } else {
+        $stmt = $conn->prepare("INSERT INTO suppliers (name, phone, memo) VALUES (?, ?, ?)");
+        $stmt->bind_param("sss", $name, $phone, $memo);
+    }
     
     if ($stmt->execute()) {
         $supplier_id = $stmt->insert_id;

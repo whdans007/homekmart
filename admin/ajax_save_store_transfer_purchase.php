@@ -72,8 +72,14 @@ $s_stmt->close();
 if ($s_row) {
     $supplier_id = (int)$s_row['id'];
 } else {
-    $ins_s = $conn->prepare("INSERT INTO suppliers (name) VALUES (?)");
-    $ins_s->bind_param('s', $supplier_name);
+    $audit_context = get_supplier_audit_context($conn);
+    if ($audit_context !== null) {
+        $ins_s = $conn->prepare("INSERT INTO suppliers (name, created_by, created_by_name, created_store_id, created_store_name) VALUES (?, ?, ?, ?, ?)");
+        $ins_s->bind_param('sisis', $supplier_name, $audit_context[0], $audit_context[1], $audit_context[2], $audit_context[3]);
+    } else {
+        $ins_s = $conn->prepare("INSERT INTO suppliers (name) VALUES (?)");
+        $ins_s->bind_param('s', $supplier_name);
+    }
     $ins_s->execute();
     $supplier_id = (int)$conn->insert_id;
     $ins_s->close();

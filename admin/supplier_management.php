@@ -27,17 +27,29 @@ if (isset($_SESSION['flash'])) {
 }
 
 require_once __DIR__ . '/../config/db_config.php';
+require_once __DIR__ . '/../lib/permission_helper.php';
 
 $suppliers = [];
 $error_message = '';
+$show_audit_columns = current_user_level() >= LEVEL_BRANCH_MANAGER;
 
 try {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
     $pdo = new PDO($dsn, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    $stmt = $pdo->query("SELECT id, name, phone, memo, created_at FROM suppliers ORDER BY id DESC");
+    $columns = [];
+    $column_result = $pdo->query("SHOW COLUMNS FROM suppliers");
+    foreach ($column_result->fetchAll(PDO::FETCH_COLUMN) as $column_name) {
+        $columns[$column_name] = true;
+    }
+    $select_columns = 'id, name, phone, memo, created_at';
+    if ($show_audit_columns && isset($columns['created_by_name'], $columns['created_store_name'])) {
+        $select_columns .= ', created_by_name, created_store_name';
+    }
+    $stmt = $pdo->query("SELECT {$select_columns} FROM suppliers ORDER BY id DESC");
     $suppliers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $show_audit_columns = $show_audit_columns && isset($columns['created_by_name'], $columns['created_store_name']);
 
 } catch (PDOException $e) {
     $error_message = t('supplier.load_error') . ": " . $e->getMessage();
@@ -110,6 +122,10 @@ try {
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('supplier.phone'); ?></th>
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('supplier.memo'); ?></th>
                         <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('supplier.created_at'); ?></th>
+                        <?php if ($show_audit_columns): ?>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('supplier.created_by'); ?></th>
+                        <th scope="col" title="<?php echo htmlspecialchars(t('supplier.created_store_tooltip'), ENT_QUOTES); ?>" class="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"><?php echo t('supplier.created_store'); ?></th>
+                        <?php endif; ?>
                         <th scope="col" class="relative px-6 py-4">
                             <span class="sr-only"><?php echo t('common.actions'); ?></span>
                         </th>
@@ -127,7 +143,11 @@ try {
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"><?php echo htmlspecialchars($supplier['name']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($supplier['phone'] ?? '-'); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo nl2br(htmlspecialchars($supplier['memo'] ?? '-')); ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo date('Y-m-d', strtotime($supplier['created_at'])); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo date($show_audit_columns ? 'Y-m-d H:i' : 'Y-m-d', strtotime($supplier['created_at'])); ?></td>
+                            <?php if ($show_audit_columns): ?>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($supplier['created_by_name'] ?? '-') ?: '-'; ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($supplier['created_store_name'] ?? '-') ?: '-'; ?></td>
+                            <?php endif; ?>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="flex space-x-2">
                                     <a href="edit_supplier.php?id=<?php echo $supplier['id']; ?>" 
@@ -144,13 +164,13 @@ try {
                         </tr>
                     <?php endforeach; ?>
                     <tr id="search_empty" style="display:none">
-                        <td colspan="7" class="px-6 py-8 text-center text-sm text-gray-400">
+                        <td colspan="<?php echo $show_audit_columns ? 9 : 7; ?>" class="px-6 py-8 text-center text-sm text-gray-400">
                             <i class="fas fa-search mr-1"></i>검색 결과가 없습니다.
                         </td>
                     </tr>
                     <?php if (empty($suppliers)): ?>
                         <tr>
-                            <td colspan="7" class="px-6 py-12 text-center text-sm text-gray-500">
+                            <td colspan="<?php echo $show_audit_columns ? 9 : 7; ?>" class="px-6 py-12 text-center text-sm text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-truck text-4xl text-gray-300 mb-4"></i>
                                     <p><?php echo t('supplier.no_suppliers'); ?></p>

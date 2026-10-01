@@ -29,10 +29,18 @@ if ($existing) {
     exit;
 }
 
-$stmt = $conn->prepare(
-    "INSERT INTO suppliers (name, contact_person, phone, email) VALUES (?,?,?,?)"
-);
-$stmt->bind_param('ssss', $name, $contact_person, $phone, $email);
+$audit_context = get_supplier_audit_context($conn);
+if ($audit_context !== null) {
+    $stmt = $conn->prepare(
+        "INSERT INTO suppliers (name, contact_person, phone, email, created_by, created_by_name, created_store_id, created_store_name) VALUES (?,?,?,?,?,?,?,?)"
+    );
+    $stmt->bind_param('ssssisis', $name, $contact_person, $phone, $email, $audit_context[0], $audit_context[1], $audit_context[2], $audit_context[3]);
+} else {
+    $stmt = $conn->prepare(
+        "INSERT INTO suppliers (name, contact_person, phone, email) VALUES (?,?,?,?)"
+    );
+    $stmt->bind_param('ssss', $name, $contact_person, $phone, $email);
+}
 $stmt->execute();
 $id = $conn->insert_id;
 $stmt->close();

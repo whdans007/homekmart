@@ -32,8 +32,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $pdo = new PDO($dsn, DB_USER, DB_PASS);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-            $stmt = $pdo->prepare("INSERT INTO suppliers (name, phone, memo) VALUES (?, ?, ?)");
-            $stmt->execute([$name, $phone, $memo]);
+            $audit_conn = get_db_connection();
+            $audit_context = get_supplier_audit_context($audit_conn);
+            $audit_conn->close();
+            if ($audit_context !== null) {
+                $stmt = $pdo->prepare("INSERT INTO suppliers (name, phone, memo, created_by, created_by_name, created_store_id, created_store_name) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute(array_merge([$name, $phone, $memo], $audit_context));
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO suppliers (name, phone, memo) VALUES (?, ?, ?)");
+                $stmt->execute([$name, $phone, $memo]);
+            }
 
             $_SESSION['flash'] = ['type' => 'success', 'message' => str_replace('{name}', htmlspecialchars($name), t('supplier.added_successfully'))];
             header("Location: supplier_management.php");

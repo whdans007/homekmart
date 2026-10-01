@@ -315,6 +315,9 @@
     "phone": "Phone Number",
     "memo": "Important Notes",
     "created_at": "Created Date",
+    "created_by": "Registered By",
+    "created_store": "Registration Store",
+    "created_store_tooltip": "Store selected at the time of registration",
     "confirm_delete": "Are you sure you want to delete this supplier?"
   },
   "product": {

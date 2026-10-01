@@ -326,6 +326,9 @@
     "phone": "전화번호",
     "memo": "중요사항 메모",
     "created_at": "생성일",
+    "created_by": "등록자",
+    "created_store": "등록 점포",
+    "created_store_tooltip": "등록 시 선택된 점포",
     "confirm_delete": "정말로 이 공급처를 삭제하시겠습니까?"
   },
   "product": {
