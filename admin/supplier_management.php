@@ -183,6 +183,12 @@ function filterSuppliers(q) {
         q ? `(${visible} / ${total}개)` : `(총 ${total}개)`;
     const empty = document.getElementById('search_empty');
     if (empty) empty.style.display = (q && visible === 0) ? '' : 'none';
+    // 검색어 변경 시 숨겨진 행 선택 해제 및 전체선택 상태 갱신
+    if (typeof updateMergeBtn === 'function') {
+        updateMergeBtn();
+        const sa = document.getElementById('select_all');
+        if (sa) sa.checked = false;
+    }
 }
 
 // ── 공급처 통합 선택 ──────────────────────────────────────────
@@ -194,7 +200,16 @@ function checkboxes() {
     return Array.from(document.querySelectorAll('.supplier-checkbox'));
 }
 
+// 검색 필터로 숨겨지지 않은 행의 체크박스만
+function visibleCheckboxes() {
+    return checkboxes().filter(cb => cb.closest('tr').style.display !== 'none');
+}
+
 function updateMergeBtn() {
+    // 숨겨진 행의 선택은 통합 대상에서 제외
+    checkboxes().forEach(cb => {
+        if (cb.closest('tr').style.display === 'none') cb.checked = false;
+    });
     const checked = checkboxes().filter(cb => cb.checked).length;
     mergeCount.textContent = checked;
     const enabled = checked >= 2;
@@ -207,7 +222,7 @@ function updateMergeBtn() {
 
 if (selectAll) {
     selectAll.addEventListener('change', () => {
-        checkboxes().forEach(cb => { cb.checked = selectAll.checked; });
+        visibleCheckboxes().forEach(cb => { cb.checked = selectAll.checked; });
         updateMergeBtn();
     });
 }
