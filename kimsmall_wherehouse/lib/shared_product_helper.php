@@ -21,7 +21,7 @@ function kw_find_shared_product_by_sku(mysqli $conn, string $sku): ?array
         return null;
     }
     $st = $conn->prepare(
-        "SELECT p.id, p.sku, p.name_en, p.name_ko, p.is_active,
+        "SELECT p.id, p.sku, p.name_en, p.name_ko, p.is_active, p.pieces_per_box,
                 (SELECT kw.id FROM kw_products kw WHERE kw.product_id = p.id LIMIT 1) AS linked_kw_id
          FROM products p
          WHERE BINARY p.sku = BINARY ?
@@ -207,7 +207,7 @@ function kw_autolink_shared_by_barcode(mysqli $conn, string $barcode, int $uid):
             'name_en'        => $name_en,
             'name_ko'        => $shared['name_ko'] ?: null,
             'unit'           => 'PCS',
-            'pieces_per_box' => 1,
+            'pieces_per_box' => max(1, (int)($shared['pieces_per_box'] ?? 1)), // admin 상품의 박스당 포장 수량(PKG)
             'barcode_unit'   => $shared['sku'],
         ], $uid);
         return $res['id'];

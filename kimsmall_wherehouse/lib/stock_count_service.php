@@ -81,6 +81,27 @@ function kw_sc_save(mysqli $db,int $session,int $product,string $barcode,string 
         $db->commit();
     }catch(Throwable $e){$db->rollback();throw $e;}
 }
+/**
+ * 한 상품의 박스 수량과 낱개 수량을 한 번에 저장한다 (한 트랜잭션).
+ * - 빈칸(null)은 0개로 기록한다. 단, 두 값이 모두 비어 있으면 거부한다.
+ * - 박스 단위는 kw_sc_unit(...,'BOX') 규칙(BOX/PACK 해석, 혼재 시 거부)을 한 번만 적용한다.
+ */
+function kw_sc_save_both(mysqli $db,int $session,int $product,string $barcode,?int $boxQty,?int $pcsQty,int $user): void {
+    if ($boxQty===null && $pcsQty===null) throw new InvalidArgumentException('Enter a box or piece quantity.');
+    $boxQty=$boxQty??0;$pcsQty=$pcsQty??0;
+    foreach([$boxQty,$pcsQty] as $q) if ($q<0 || $q>100000000) throw new InvalidArgumentException('Quantity must be a nonnegative integer.');
+    $db->begin_transaction();try {
+        if (kw_stock_count_lock($db)!==$session || kw_sc_session($db,$session,true)['status']!=='open') throw new RuntimeException('Inventory count is closed.');
+        $p=kw_sc_product($db,$barcode);if ((int)$p['id']!==$product) throw new RuntimeException('Barcode and product do not match.');
+        $boxUnit=kw_sc_unit($db,$session,$product,'BOX');kw_sc_validate_ppb($db,$product);$ppb=max(1,(int)$p['pieces_per_box']);
+        $st=$db->prepare('INSERT INTO kw_stock_count_entries (session_id,product_id,barcode,unit,quantity,pieces_per_box,entered_by) VALUES (?,?,?,?,?,?,?)');
+        foreach([[$boxUnit,$boxQty],['PCS',$pcsQty]] as [$unit,$quantity]) {
+            $st->bind_param('iissiii',$session,$product,$barcode,$unit,$quantity,$ppb,$user);$st->execute();
+        }
+        $st->close();
+        $db->commit();
+    }catch(Throwable $e){$db->rollback();throw $e;}
+}
 function kw_sc_void_entry(mysqli $db,int $session,int $entryId,int $user,bool $isAdmin): void {
     $db->begin_transaction();try {
         if (kw_stock_count_lock($db)!==$session || kw_sc_session($db,$session,true)['status']!=='open') throw new RuntimeException('Inventory count is closed.');
@@ -109,6 +130,74 @@ function kw_sc_correct_entry(mysqli $db,int $session,int $entryId,int $quantity,
         $st=$db->prepare('INSERT INTO kw_stock_count_entries (session_id,product_id,barcode,unit,quantity,pieces_per_box,entered_by,corrected_from_entry_id) VALUES (?,?,?,?,?,?,?,?)');
         $st->bind_param('iissiiii',$session,$product,$barcode,$unit,$quantity,$ppb,$user,$entryId);$st->execute();$newId=(int)$db->insert_id;$st->close();
         $db->commit();return $newId;
+    }catch(Throwable $e){$db->rollback();throw $e;}
+}
+/**
+ * 입력 내역 한 행(박스+낱개 기록)을 한 번에 취소한다. 기록은 이력에 남고 조사 합계에서만 제외된다.
+ */
+function kw_sc_void_entries(mysqli $db,int $session,array $entryIds,int $user,bool $isAdmin): void {
+    $ids=array_values(array_unique(array_filter(array_map('intval',$entryIds),fn($i)=>$i>0)));
+    if (!$ids || count($ids)>10) throw new InvalidArgumentException('Count entry IDs are required.');
+    $db->begin_transaction();try {
+        if (kw_stock_count_lock($db)!==$session || kw_sc_session($db,$session,true)['status']!=='open') throw new RuntimeException('Inventory count is closed.');
+        $sel=$db->prepare('SELECT entered_by,voided_at FROM kw_stock_count_entries WHERE id=? AND session_id=? FOR UPDATE');
+        $upd=$db->prepare("UPDATE kw_stock_count_entries SET voided_at=NOW(),voided_by=?,void_reason='cancel' WHERE id=?");
+        foreach($ids as $id){
+            $sel->bind_param('ii',$id,$session);$sel->execute();$entry=$sel->get_result()->fetch_assoc();
+            if (!$entry) throw new RuntimeException('Count entry was not found.');
+            if ($entry['voided_at']!==null) throw new RuntimeException('Count entry is already voided.');
+            if (!$isAdmin && (int)$entry['entered_by']!==$user) throw new RuntimeException('Only your own entries can be voided.');
+            $upd->bind_param('ii',$user,$id);$upd->execute();
+        }
+        $sel->close();$upd->close();
+        $db->commit();
+    }catch(Throwable $e){$db->rollback();throw $e;}
+}
+/**
+ * 입력 내역 한 행의 박스/낱개 수량을 한 번에 수정한다 (한 트랜잭션).
+ * - 기존 기록은 '수정됨'으로 취소하고 새 기록을 추가한다(이력 보존). 새 기록은 원래 입력 시각을 유지해 행이 그대로 묶인다.
+ * - 입력 칸을 비우면(null) 그 단위는 0개로 수정한다. 원래 없던 단위는 값을 입력했을 때만 새로 기록한다.
+ * - 변경이 하나도 없으면 거부한다.
+ */
+function kw_sc_correct_row(mysqli $db,int $session,?int $boxId,?int $pcsId,?int $boxQty,?int $pcsQty,int $user,bool $isAdmin): void {
+    if (!$boxId && !$pcsId) throw new InvalidArgumentException('Count entry IDs are required.');
+    if ($boxQty===null && $pcsQty===null) throw new InvalidArgumentException('Enter a box or piece quantity.');
+    foreach([$boxQty,$pcsQty] as $q) if ($q!==null && ($q<0 || $q>100000000)) throw new InvalidArgumentException('Quantity must be a nonnegative integer.');
+    $db->begin_transaction();try {
+        if (kw_stock_count_lock($db)!==$session || kw_sc_session($db,$session,true)['status']!=='open') throw new RuntimeException('Inventory count is closed.');
+        $load=function(?int $id,bool $isBox) use($db,$session,$user,$isAdmin){
+            if (!$id) return null;
+            $st=$db->prepare('SELECT * FROM kw_stock_count_entries WHERE id=? AND session_id=? FOR UPDATE');
+            $st->bind_param('ii',$id,$session);$st->execute();$e=$st->get_result()->fetch_assoc();$st->close();
+            if (!$e) throw new RuntimeException('Count entry was not found.');
+            if ($e['voided_at']!==null) throw new RuntimeException('Voided entries cannot be corrected.');
+            if (!$isAdmin && (int)$e['entered_by']!==$user) throw new RuntimeException('Only your own entries can be corrected.');
+            if (($e['unit']==='PCS')===$isBox) throw new RuntimeException('Count entry unit does not match.');
+            return $e;
+        };
+        $box=$load($boxId,true);$pcs=$load($pcsId,false);
+        if ($box && $pcs && (int)$box['product_id']!==(int)$pcs['product_id']) throw new RuntimeException('Count entries belong to different products.');
+        $base=$box??$pcs;$product=(int)$base['product_id'];$barcode=(string)$base['barcode'];$ppb=(int)$base['pieces_per_box'];
+        $scanned=($box&&$pcs)?min($box['scanned_at'],$pcs['scanned_at']):$base['scanned_at'];
+        $void=$db->prepare("UPDATE kw_stock_count_entries SET voided_at=NOW(),voided_by=?,void_reason='correction' WHERE id=?");
+        $ins=$db->prepare('INSERT INTO kw_stock_count_entries (session_id,product_id,barcode,unit,quantity,pieces_per_box,entered_by,scanned_at,corrected_from_entry_id) VALUES (?,?,?,?,?,?,?,?,?)');
+        $changed=false;$validated=false;
+        foreach([[$box,$boxQty,true],[$pcs,$pcsQty,false]] as [$old,$qty,$isBox]){
+            if ($old) {
+                $new=$qty??0;if ($new===(int)$old['quantity']) continue;
+                $oldId=(int)$old['id'];$unit=(string)$old['unit'];
+                $void->bind_param('ii',$user,$oldId);$void->execute();
+            } else {
+                if ($qty===null) continue;
+                if (!$validated){kw_sc_validate_ppb($db,$product);$validated=true;}
+                $unit=$isBox?kw_sc_unit($db,$session,$product,'BOX'):'PCS';$new=$qty;$oldId=null;
+            }
+            $ins->bind_param('iissiiisi',$session,$product,$barcode,$unit,$new,$ppb,$user,$scanned,$oldId);$ins->execute();
+            $changed=true;
+        }
+        $void->close();$ins->close();
+        if (!$changed) throw new InvalidArgumentException('No changes to save.');
+        $db->commit();
     }catch(Throwable $e){$db->rollback();throw $e;}
 }
 function kw_sc_line_metrics(array $book,array $count): array {
@@ -141,7 +230,7 @@ function kw_sc_list(mysqli $db,int $id,?int $enteredBy=null): array {
             $totals[$pid]['sku']=$e['barcode_unit']?:($e['barcode_box']?:($e['barcode_logistics']?:$e['barcode']));$totals[$pid]['ppb']=(int)$e['pieces_per_box'];
         }
         $sku=$e['barcode_unit']?:($e['barcode_box']?:($e['barcode_logistics']?:$e['barcode']));
-        $date=substr($e['scanned_at'],0,10);$dates[$date][]=['id'=>(int)$e['id'],'product_id'=>$pid,'sku'=>$sku,'product_name_ko'=>$e['name_ko']??'','product_name_en'=>$e['name_en']??'','entered_by'=>(int)$e['entered_by'],'entered_by_name'=>$e['entered_by_name'],'scanned_at'=>$e['scanned_at'],'product_name'=>$name,'unit'=>$u,'quantity'=>(int)$e['quantity'],'barcode'=>$e['barcode'],'voided'=>$e['voided_at']!==null,'voided_at'=>$e['voided_at'],'voided_by'=>$e['voided_by']===null?null:(int)$e['voided_by'],'void_reason'=>$e['void_reason']??null,'corrected_from_entry_id'=>$e['corrected_from_entry_id']===null?null:(int)$e['corrected_from_entry_id']];
+        $date=substr($e['scanned_at'],0,10);$dates[$date][]=['id'=>(int)$e['id'],'product_id'=>$pid,'sku'=>$sku,'product_name_ko'=>$e['name_ko']??'','product_name_en'=>$e['name_en']??'','entered_by'=>(int)$e['entered_by'],'entered_by_name'=>$e['entered_by_name'],'scanned_at'=>$e['scanned_at'],'product_name'=>$name,'unit'=>$u,'quantity'=>(int)$e['quantity'],'pieces_per_box'=>(int)$e['pieces_per_box'],'barcode'=>$e['barcode'],'voided'=>$e['voided_at']!==null,'voided_at'=>$e['voided_at'],'voided_by'=>$e['voided_by']===null?null:(int)$e['voided_by'],'void_reason'=>$e['void_reason']??null,'corrected_from_entry_id'=>$e['corrected_from_entry_id']===null?null:(int)$e['corrected_from_entry_id']];
     }
     $lines=[];foreach($totals as $pid=>$t){
         $lines[]=['product_id'=>$pid,'sku'=>$t['sku'],'product_name'=>$t['name'],'product_name_ko'=>$t['name_ko'],'product_name_en'=>$t['name_en']]+kw_sc_line_metrics($books[$pid]??[],$t);

@@ -5,12 +5,15 @@ header('Content-Type: application/json; charset=utf-8');
 kw_require_staff();
 try {
     $action=(string)($_POST['action']??$_GET['action']??'');
-    $write=in_array($action,['start','save','finalize','cancel','void_entry','correct_entry'],true);
+    $write=in_array($action,['start','save','save_both','void_row','correct_row','finalize','cancel','void_entry','correct_entry'],true);
     if($write){if($_SERVER['REQUEST_METHOD']!=='POST')throw new InvalidArgumentException('POST required.');kw_verify_csrf();}
     elseif($_SERVER['REQUEST_METHOD']!=='GET')throw new InvalidArgumentException('GET required.');
     if(in_array($action,['start','finalize','cancel'],true) && !kw_is_admin()) { http_response_code(403); throw new RuntimeException('Administrator permission required.'); }
     $db=get_lc_db();$user=kw_current_user_id();
     $sid=filter_var($_POST['session_id']??$_GET['session_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])?:0;
+    // 빈 문자열은 "비어 있음"(null), 그 외 값은 0 이상의 정수여야 한다
+    $parseQty=function($raw){$raw=trim((string)$raw);if($raw==='')return null;$v=filter_var($raw,FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);if($v===false)throw new InvalidArgumentException('Quantity must be a nonnegative integer.');return $v;};
+    $optId=function($raw){$v=filter_var($raw,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);return $v===false?null:$v;};
     switch($action){
       case 'status':$data=['session'=>kw_sc_open($db)];break;
       case 'sessions':$data=['sessions'=>kw_sc_sessions($db)];break;
@@ -21,6 +24,18 @@ try {
         $qty=filter_var($_POST['quantity']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);
         if(!$sid||!$pid||$qty===false||$qty===null)throw new InvalidArgumentException('Invalid count entry.');
         kw_sc_save($db,$sid,$pid,trim((string)($_POST['barcode']??'')),(string)($_POST['unit']??''),$qty,$user);$data=['session_id'=>$sid];break;
+      case 'save_both':
+        $pid=filter_var($_POST['product_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        // 빈 문자열은 "비어 있음"(null)으로, 그 외 값은 0 이상의 정수여야 한다
+        $box=$parseQty($_POST['box_quantity']??'');$pcs=$parseQty($_POST['pcs_quantity']??'');
+        if(!$sid||!$pid)throw new InvalidArgumentException('Invalid count entry.');
+        kw_sc_save_both($db,$sid,$pid,trim((string)($_POST['barcode']??'')),$box,$pcs,$user);$data=['session_id'=>$sid];break;
+      case 'void_row':
+        if(!$sid)throw new InvalidArgumentException('Session ID required.');
+        kw_sc_void_entries($db,$sid,explode(',',(string)($_POST['entry_ids']??'')),$user,kw_is_admin());$data=['session_id'=>$sid];break;
+      case 'correct_row':
+        if(!$sid)throw new InvalidArgumentException('Session ID required.');
+        kw_sc_correct_row($db,$sid,$optId($_POST['box_entry_id']??null),$optId($_POST['pcs_entry_id']??null),$parseQty($_POST['box_quantity']??''),$parseQty($_POST['pcs_quantity']??''),$user,kw_is_admin());$data=['session_id'=>$sid];break;
       case 'void_entry':
         $entryId=filter_var($_POST['entry_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
         if (!$sid||!$entryId) throw new InvalidArgumentException('Session and entry IDs required.');
