@@ -19,7 +19,7 @@ version: 1.3
 | Perspective | Content |
 |-------------|---------|
 | **Problem** | 창고가 별도 상품 DB(`kw_products`, 1,250건)로 상품을 입력·관리해 사용이 불편하고, admin 상품(51,196건)과 이름·분류·이미지가 따로 관리되어 중복 입력과 불일치가 생긴다. |
-| **Solution** | `kw_products.id`는 유지하고 `product_id` 컬럼으로 admin `products.id`와 연결한다. 이름·바코드(sku)·브랜드·카테고리·이미지는 admin에서 읽고, 창고 전용 값(unit, pieces_per_box, min_stock, requires_expiry, 박스/물류 바코드, is_active)은 `kw_products`에 둔다. |
+| **Solution** | `kw_products.id`는 유지하고 `product_id` 컬럼으로 admin `products.id`와 연결한다. **1차 범위: 이름(name_en/name_ko)·바코드(sku)·이미지만 admin에서 읽는다.** 브랜드·카테고리는 창고 자체 분류(`kw_brands`/`kw_categories`)를 유지하고, 창고 전용 값(unit, pieces_per_box, min_stock, requires_expiry, 박스/물류 바코드, is_active)도 `kw_products`에 둔다. |
 | **Function/UX Effect** | 창고 화면의 상품 검색 대상이 admin 전체 상품이 된다. 창고에 처음 쓰는 상품을 고르면 `kw_products` 연결 행이 자동 생성되어 상품정보 재입력이 없다. 신규 상품은 admin 상품정보에 등록한다. |
 | **Core Value** | 상품 마스터 단일화로 입력 부담과 데이터 불일치를 줄이면서, 재고(FIFO)·입출고·실사 데이터는 건드리지 않아 위험을 최소화한다. |
 
@@ -48,8 +48,11 @@ version: 1.3
 | `kw_products.barcode_unit = products.sku` 일치 | **1,244 / 1,250** |
 | 미일치 6건 | id 105, 488, 945, 1147, 1168, 1170 — 4건은 `barcode_unit`에 바코드 대신 영문 상품명, 2건은 NULL |
 | `kw_products.barcode_box` 보유 | 3건 (id 769는 값이 `` ` `` 로 무효), `barcode_logistics` 0건, `barcode` 컬럼 미사용 |
-| `kw_brands` / admin `brands` | 149 / 119 |
-| `kw_categories` / admin `categories` | 28 / 63 (parent_id, default_margin_rate 보유) |
+| `kw_brands` / admin `brands` | 149 / 119 (이름 자동 매칭 26건) |
+| `kw_categories` / admin `categories` | 28 / 63 (admin은 한글 계층형, 이름 자동 매칭 2건) |
+| 일치 1,244건 중 admin 브랜드/카테고리 보유 | 181 / 74건 (창고는 1,211 / 1,243건) → admin으로 이전 불가 |
+| 일치 건 name_en 동일 / name_ko 동일 / pieces_per_box 동일 | 910 / 543 / 495 (admin 이름이 보통 더 상세, pieces_per_box는 의미 다름) |
+| 이미지 | 창고 0건, admin 4건 |
 | `kw_products`를 FK로 참조하는 테이블 | kw_inbound, kw_inventory, kw_order_items, kw_product_history, kw_box_breaks, kw_stock_count_* 등 |
 
 ### 1.2 박스 물류 코드 (결정 사항)
@@ -71,7 +74,7 @@ version: 1.3
 
 ### 2.1 In Scope
 - [ ] 마이그레이션 `sql/run_migration_v23.php`: `kw_products.product_id` 추가(인덱스, 초기 NULL 허용), 연결 매핑
-- [ ] 브랜드/카테고리 매핑표 테이블(`kw_brand_map`, `kw_category_map`) 및 예외 보고
+- [ ] (1차 제외) 브랜드/카테고리는 창고 분류 유지 — 매핑표는 후속 작업
 - [ ] 로컬 전용 진단/매핑 리포트 스크립트 (미일치 6건, 중복 sku, 매핑 예외)
 - [ ] 읽기 경로 전환: 목록·검색·스캔·재고·입고·주문·출고·출력·내보내기에서 이름/브랜드/카테고리/이미지를 `products` JOIN으로 변경
 - [ ] 신규 등록 흐름 변경: admin 상품 검색→선택→창고 전용 값(unit/pieces_per_box/min_stock/requires_expiry/박스 바코드) 입력, `kw_products` 연결 행 자동 생성, 중복 연결 방지
@@ -79,6 +82,7 @@ version: 1.3
 - [ ] 다국어(한/영) 문구 처리
 
 ### 2.2 Out of Scope
+- 브랜드/카테고리의 admin 통합 (후속)
 - `kw_*` 업무 테이블의 FK 변경, `kw_products.id` 재매핑
 - admin `products` 스키마 변경(박스 코드 컬럼 추가 등)
 - `kw_products` 중복 컬럼(name, image 등) 삭제 — 안정화 후 별도 작업
@@ -92,7 +96,10 @@ version: 1.3
 2. **자동 연결은 sku 정확 일치만**: `kw_products.barcode_unit = products.sku` 1,244건만 자동 연결. 나머지 6건은 예외 목록으로 사용자 확인 후 처리.
 3. **ID 직접 이식 금지**: 브랜드·카테고리는 이름 기준 후보 → 매핑표 → 사용자 확인.
 4. **롤백 가능성 유지**: 마이그레이션은 컬럼·매핑표 추가만 한다. 기존 컬럼·FK·데이터는 변경/삭제하지 않는다.
-5. **collation 주의**: `products`(utf8mb4_unicode_ci)와 `kw_*`/`lc_*`(utf8mb4_general_ci) 조인 시 `Illegal mix of collations` 발생 확인됨 → JOIN에서 `COLLATE` 명시 또는 비교 컬럼 정합화.
+5. **collation 주의**: `kw_products`와 `products`는 둘 다 utf8mb4_unicode_ci라 충돌 없음(충돌은 `lc_products`(general_ci)와 JOIN할 때). 단 `=`는 대소문자 무시이므로 sku 매칭은 TRIM 후 바이너리(`BINARY`) 비교로 정확일치를 확인하고, 빈 sku·중복 sku는 예외로 집계한다.
+6. **VIEW 규칙**: `kw_products_v`는 읽기 전용. 이름은 admin 우선, 빈 문자열/NULL이면 창고 값(`COALESCE(NULLIF(p.name_en,''), kw.name_en)`). `kw_products.name_en`은 NOT NULL이므로 신규 등록 시 kw 연결 행에도 name_en을 채운다.
+7. **마이그레이션 안전장치**: 기본 DRY-RUN, 적용은 명시 플래그 + 로그인(super_admin) 필요, 사전검증 실패 시 쓰기 시작 안 함, 이미 연결된 행은 덮어쓰지 않음.
+8. **신규 등록**: admin `products` INSERT와 `kw_products` INSERT를 하나의 트랜잭션으로 묶는다. `last_modified_by_user_id`는 창고 로그인 사용자 ID 공간이 admin과 같은지 확인한 뒤 결정한다.
 
 ---
 
