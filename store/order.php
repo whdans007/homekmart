@@ -1,4 +1,14 @@
 <?php
+// lc_products.min_order_qty 컬럼 존재 시에만 사용 (마이그레이션 미적용 환경 호환)
+function store_moq_select(mysqli $conn, string $alias = ''): string {
+    $col = $alias !== '' ? $alias . '.min_order_qty' : 'min_order_qty';
+    try {
+        $rc = $conn->query("SHOW COLUMNS FROM lc_products LIKE 'min_order_qty'");
+        if ($rc && $rc->num_rows > 0) return "GREATEST(1, IFNULL({$col},1))";
+    } catch (Throwable $e) { /* 감지 실패 시 기본값 1 */ }
+    return '1';
+}
+
 // 편집 모드: 센터 승인 전(pending) 주문의 품목 추가/삭제/수량변경
 $edit_order_id = (int)($_GET['edit'] ?? $_POST['edit_order_id'] ?? 0);
 $page_title    = $edit_order_id ? 'Edit Order' : 'Place Order';
@@ -55,6 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         try {
             $conn = get_store_db();
+            $moq_select = store_moq_select($conn);
 
             // 상품 정보 + 단위별 재고/단가 검증
             // 다른 점포가 먼저 주문/승인되어 재고가 모자란 경우 주문 전체를 막지 않고
@@ -69,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st = $conn->prepare(
                     "SELECT CONCAT(name_en, IFNULL(CONCAT(' (',name_ko,')'),'')) AS pname,
                             GREATEST(1, IFNULL(pieces_per_box,1)) AS ppb,
-                            GREATEST(1, IFNULL(min_order_qty,1)) AS moq
+                            {$moq_select} AS moq
                      FROM lc_products WHERE id = ?"
                 );
                 $st->bind_param('i', $item['product_id']); $st->execute();
@@ -266,6 +277,7 @@ try {
         $has_image_col = $rc && $rc->num_rows > 0;
     } catch (Exception $e) { /* 감지 실패 시 미지원으로 처리 */ }
     $img_select = $has_image_col ? "p.image_path," : "NULL AS image_path,";
+    $moq_select_p = store_moq_select($conn, 'p');
 
     $categories = $conn->query(
         "SELECT DISTINCT c.id, c.name_en, c.name_ko
@@ -284,7 +296,7 @@ try {
                 i.lot_number, i.expiry_date, i.quantity_remain,
                 p.id AS product_id, p.name_en, p.name_ko, p.category_id,
                 p.capacity, p.pieces_per_box,
-                GREATEST(1, IFNULL(p.min_order_qty,1)) AS min_order_qty,
+                {$moq_select_p} AS min_order_qty,
                 COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                 b.name_en AS brand_name, b.name_ko AS brand_name_ko
          FROM lc_lot_promotions lp
@@ -300,7 +312,7 @@ try {
     $lot_prices = [];
     $products = $conn->query(
         "SELECT p.id, p.name_en, p.name_ko, p.unit, p.pieces_per_box, p.capacity,
-                GREATEST(1, IFNULL(p.min_order_qty,1)) AS min_order_qty,
+                {$moq_select_p} AS min_order_qty,
                 {$img_select}
                 COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                 p.category_id, c.name_en AS cat_name,
@@ -628,7 +640,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="inline-flex items-center border border-amber-300 rounded-lg overflow-hidden">
                         <button type="button" onclick="stepQty(this,-1)" class="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-amber-50 hover:text-amber-700"><i class="fas fa-minus text-xs"></i></button>
                         <input type="number" name="quantity[]" min="0" max="<?php echo $promoTotalStock; ?>" value="0"
-                               data-id="promo<?php echo $promo['promotion_id']; ?>" data-min="<?php echo (int)$promo['min_order_qty']; ?>"data-price="<?php echo (float)$promo['discounted_price']; ?>"
+                               data-id="promo<?php echo $promo['promotion_id']; ?>" data-min="<?php echo (int)$promo['min_order_qty']; ?>" data-price="<?php echo (float)$promo['discounted_price']; ?>"
                                oninput="onQtyChange(this)" class="qty-input w-10 text-sm text-center border-0 focus:outline-none focus:ring-0 bg-transparent font-semibold text-gray-700">
                         <button type="button" onclick="stepQty(this,1)" class="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-amber-50 hover:text-amber-700"><i class="fas fa-plus text-xs"></i></button>
                     </div>
