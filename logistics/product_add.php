@@ -14,7 +14,7 @@ $prefill_barcode = trim($_GET['barcode'] ?? '');
 $form = ['name_en'=>'','name_ko'=>'','capacity'=>'','brand_id'=>'','category_id'=>'',
          'unit'=>'BOX','pieces_per_box'=>1,
          'barcode_unit'=>$prefill_barcode,'barcode_box'=>'','barcode_logistics'=>'',
-         'min_stock'=>0,'requires_expiry'=>0];
+         'min_stock'=>0,'min_order_qty'=>1,'requires_expiry'=>0];
 
 try {
     $conn = get_lc_db();
@@ -36,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $form['barcode_box']      = trim($_POST['barcode_box'] ?? '') ?: null;
     $form['barcode_logistics']= trim($_POST['barcode_logistics'] ?? '') ?: null;
     $form['min_stock']        = max(0, (int)($_POST['min_stock'] ?? 0));
+    $form['min_order_qty']    = max(1, (int)($_POST['min_order_qty'] ?? 1));
     $form['requires_expiry']  = isset($_POST['requires_expiry']) ? 1 : 0;
 
     if ($form['name_en'] === '') $errors[] = t('logistics.product_add.name_required');
@@ -68,15 +69,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $st = $conn->prepare(
                 "INSERT INTO lc_products
                  (name_en, name_ko, capacity, brand_id, category_id, unit, pieces_per_box,
-                  barcode_unit, barcode_box, barcode_logistics, min_stock, requires_expiry, image_path, created_by)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                  barcode_unit, barcode_box, barcode_logistics, min_stock, min_order_qty, requires_expiry, image_path, created_by)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
             );
             $uid = lc_current_user_id();
-            $st->bind_param('sssiisisssiisi',
+            $st->bind_param('sssiisisssiiisi',
                 $form['name_en'], $form['name_ko'], $form['capacity'], $form['brand_id'], $form['category_id'],
                 $form['unit'], $form['pieces_per_box'],
                 $form['barcode_unit'], $form['barcode_box'], $form['barcode_logistics'],
-                $form['min_stock'], $form['requires_expiry'], $image_path, $uid
+                $form['min_stock'], $form['min_order_qty'], $form['requires_expiry'], $image_path, $uid
             );
             $st->execute();
             $new_id = $conn->insert_id;
@@ -548,7 +549,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="number" name="min_stock" value="<?php echo $form['min_stock']; ?>" min="0"
                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
-            <div class="col-span-3 flex items-start gap-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.min_order_qty')); ?></label>
+                <input type="number" name="min_order_qty" value="<?php echo max(1, (int)$form['min_order_qty']); ?>" min="1"
+                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                <p class="text-xs text-gray-500 mt-1"><?php echo htmlspecialchars(t('logistics.products.min_order_qty_help')); ?></p>
+            </div>
+            <div class="col-span-2 flex items-start gap-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                 <input type="checkbox" name="requires_expiry" id="requiresExpiry" value="1"
                        <?php echo $form['requires_expiry'] ? 'checked' : ''; ?>
                        class="mt-0.5 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-400">

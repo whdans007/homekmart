@@ -773,7 +773,13 @@ $page_label = $existing_batch_id ? t('logistics.inbound_add.add_items_title', ['
                         <input type="number" name="min_stock" id="inbReg_min_stock" value="0" min="0"
                                class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                     </div>
-                    <div class="col-span-3 flex items-start gap-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.min_order_qty')); ?></label>
+                        <input type="number" name="min_order_qty" id="inbReg_min_order_qty" value="1" min="1"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        <p class="text-xs text-gray-500 mt-1"><?php echo htmlspecialchars(t('logistics.products.min_order_qty_help')); ?></p>
+                    </div>
+                    <div class="col-span-2 flex items-start gap-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                         <input type="checkbox" name="requires_expiry" id="inbReg_requires_expiry" value="1"
                                class="mt-0.5 w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-400">
                         <label for="inbReg_requires_expiry" class="cursor-pointer">
@@ -2145,6 +2151,7 @@ document.addEventListener('keydown', function(e) {
         document.getElementById('inbReg_barcode_box').value           = '';
         document.getElementById('inbReg_barcode_logistics').value     = '';
         document.getElementById('inbReg_min_stock').value             = '0';
+        document.getElementById('inbReg_min_order_qty').value         = '1';
         document.getElementById('inbReg_requires_expiry').checked     = false;
         document.getElementById('inbRegShopProductSearch').value      = '';
         document.getElementById('inbRegShopProductDropdown').classList.add('hidden');
