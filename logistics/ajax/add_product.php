@@ -24,6 +24,7 @@ $barcode_unit      = trim($_POST['barcode_unit'] ?? '') ?: null;
 $barcode_box       = trim($_POST['barcode_box'] ?? '') ?: null;
 $barcode_logistics = trim($_POST['barcode_logistics'] ?? '') ?: null;
 $min_stock         = max(0, (int)($_POST['min_stock'] ?? 0));
+$min_order_qty     = max(1, (int)($_POST['min_order_qty'] ?? 1));
 $requires_expiry   = isset($_POST['requires_expiry']) ? 1 : 0;
 
 if ($name_en === '') {
@@ -56,15 +57,15 @@ try {
     $st = $conn->prepare(
         "INSERT INTO lc_products
          (name_en, name_ko, capacity, brand_id, category_id, unit, pieces_per_box,
-          barcode_unit, barcode_box, barcode_logistics, min_stock, requires_expiry, image_path, created_by)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+          barcode_unit, barcode_box, barcode_logistics, min_stock, min_order_qty, requires_expiry, image_path, created_by)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
     );
     $uid = lc_current_user_id();
-    $st->bind_param('sssiisisssiisi',
+    $st->bind_param('sssiisisssiiisi',
         $name_en, $name_ko, $capacity, $brand_id, $category_id,
         $unit, $pieces_per_box,
         $barcode_unit, $barcode_box, $barcode_logistics,
-        $min_stock, $requires_expiry, $image_path, $uid
+        $min_stock, $min_order_qty, $requires_expiry, $image_path, $uid
     );
     $st->execute();
     $new_id = $conn->insert_id;

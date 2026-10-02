@@ -68,13 +68,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($items as $item) {
                 $st = $conn->prepare(
                     "SELECT CONCAT(name_en, IFNULL(CONCAT(' (',name_ko,')'),'')) AS pname,
-                            GREATEST(1, IFNULL(pieces_per_box,1)) AS ppb
+                            GREATEST(1, IFNULL(pieces_per_box,1)) AS ppb,
+                            GREATEST(1, IFNULL(min_order_qty,1)) AS moq
                      FROM lc_products WHERE id = ?"
                 );
                 $st->bind_param('i', $item['product_id']); $st->execute();
                 $pr = $st->get_result()->fetch_assoc(); $st->close();
                 $item['pname']          = $pr['pname'] ?? "#{$item['product_id']}";
                 $item['pieces_per_box'] = (int)($pr['ppb'] ?? 1);
+                $moq                    = (int)($pr['moq'] ?? 1);
+
+                if ($item['quantity'] % $moq !== 0) {
+                    $errors[] = "'{$item['pname']}' must be ordered in multiples of {$moq} {$item['order_unit']}.";
+                    continue;
+                }
 
                 $stock_key = $item['product_id'] . '|' . $item['order_unit'];
                 if (!array_key_exists($stock_key, $remaining_stock)) {
@@ -92,8 +99,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     continue;
                 }
                 if ($stock < $item['quantity']) {
-                    $stock_notices[] = "'{$item['pname']}' quantity adjusted from {$item['quantity']} to {$stock} {$item['order_unit']} (limited stock).";
-                    $item['quantity'] = $stock;
+                    $adjusted = $stock - ($stock % $moq);
+                    if ($adjusted <= 0) {
+                        $stock_notices[] = "'{$item['pname']}' has less than the minimum order quantity ({$moq} {$item['order_unit']}) in stock and was removed from the order.";
+                        continue;
+                    }
+                    $stock_notices[] = "'{$item['pname']}' quantity adjusted from {$item['quantity']} to {$adjusted} {$item['order_unit']} (limited stock).";
+                    $item['quantity'] = $adjusted;
                 }
                 $remaining_stock[$stock_key] = $stock - $item['quantity'];
 
@@ -272,6 +284,7 @@ try {
                 i.lot_number, i.expiry_date, i.quantity_remain,
                 p.id AS product_id, p.name_en, p.name_ko, p.category_id,
                 p.capacity, p.pieces_per_box,
+                GREATEST(1, IFNULL(p.min_order_qty,1)) AS min_order_qty,
                 COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                 b.name_en AS brand_name, b.name_ko AS brand_name_ko
          FROM lc_lot_promotions lp
@@ -287,6 +300,7 @@ try {
     $lot_prices = [];
     $products = $conn->query(
         "SELECT p.id, p.name_en, p.name_ko, p.unit, p.pieces_per_box, p.capacity,
+                GREATEST(1, IFNULL(p.min_order_qty,1)) AS min_order_qty,
                 {$img_select}
                 COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                 p.category_id, c.name_en AS cat_name,
@@ -476,6 +490,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 .qty-input::-webkit-outer-spin-button,
 .qty-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
 .qty-input { -moz-appearance:textfield; }
+.qty-input.moq-invalid { color:#e11d48 !important; background:#fff1f2 !important; }
 #productBody tr.product-row                 { background-color: #ffffff; }
 #productBody tr.product-row:hover           { background-color: #ccfbf1 !important; }
 #productBody tr.product-row.row-focused     { background-color: #fef08a !important; outline: 2px solid #eab308; }
@@ -603,7 +618,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="text-[10px] font-semibold text-amber-600 leading-tight"><?php echo htmlspecialchars($promoUnit); ?></div>
                 <?php echo $promoPriceCell; ?>
             </td>
-            <td class="px-4 py-3 text-right text-xs"><span class="font-semibold text-amber-700"><?php echo (int)$promo['quantity_remain']; ?></span> <span class="text-gray-400"><?php echo htmlspecialchars($promoUnit); ?></span></td>
+            <td class="px-4 py-3 text-right text-xs"><span class="font-semibold text-amber-700"><?php echo (int)$promo['quantity_remain']; ?></span> <span class="text-gray-400"><?php echo htmlspecialchars($promoUnit); ?></span>
+                <?php if ((int)$promo['min_order_qty'] > 1): ?><div class="text-[10px] font-semibold text-rose-600">Min <?php echo (int)$promo['min_order_qty']; ?></div><?php endif; ?></td>
             <td class="px-4 py-3 text-right text-xs font-semibold text-amber-700 font-mono subtotal-cell">-</td>
             <td class="px-2 py-2 text-center">
                 <div class="flex items-center justify-center gap-1.5">
@@ -612,7 +628,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="inline-flex items-center border border-amber-300 rounded-lg overflow-hidden">
                         <button type="button" onclick="stepQty(this,-1)" class="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-amber-50 hover:text-amber-700"><i class="fas fa-minus text-xs"></i></button>
                         <input type="number" name="quantity[]" min="0" max="<?php echo $promoTotalStock; ?>" value="0"
-                               data-id="promo<?php echo $promo['promotion_id']; ?>" data-price="<?php echo (float)$promo['discounted_price']; ?>"
+                               data-id="promo<?php echo $promo['promotion_id']; ?>" data-min="<?php echo (int)$promo['min_order_qty']; ?>"data-price="<?php echo (float)$promo['discounted_price']; ?>"
                                oninput="onQtyChange(this)" class="qty-input w-10 text-sm text-center border-0 focus:outline-none focus:ring-0 bg-transparent font-semibold text-gray-700">
                         <button type="button" onclick="stepQty(this,1)" class="w-8 h-9 flex items-center justify-center text-gray-500 hover:bg-amber-50 hover:text-amber-700"><i class="fas fa-plus text-xs"></i></button>
                     </div>
@@ -731,6 +747,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php else: ?>
                     <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($p['name_en']) . $cap; ?></div>
                     <?php endif; ?>
+                    <?php if ((int)$p['min_order_qty'] > 1): ?>
+                    <div class="mt-0.5 text-[11px] font-semibold text-rose-600"><i class="fas fa-layer-group mr-0.5"></i>Min order <?php echo (int)$p['min_order_qty']; ?> (multiples)</div>
+                    <?php endif; ?>
                 </div>
             </td>
             <td class="px-4 py-3 text-right text-xs text-gray-500">
@@ -807,6 +826,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                min="0" max="<?php echo $defaultMax; ?>"
                                value="<?php echo $qty; ?>"
                                data-id="<?php echo $p['id']; ?>"
+                               data-min="<?php echo (int)$p['min_order_qty']; ?>"
                                data-price="<?php echo $defaultPrice; ?>"
                                data-lot-prices="<?php echo htmlspecialchars(json_encode($lot_prices[(int)$p['id']] ?? [], JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES); ?>"
                                oninput="onQtyChange(this)"
@@ -1070,6 +1090,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         if ((parseInt(input.value) || 0) > max) input.value = max;
+        snapQty(input);
         onQtyChange(input);
     };
 
@@ -1111,6 +1132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (hasOpt && sel.value !== d.unit) { sel.value = d.unit; onUnitChange(sel); }
                     }
                     inp.value = d.qty;
+                    snapQty(inp);
                     onQtyChange(inp);
                     restored++;
                 }
@@ -1169,9 +1191,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         var input = btn.closest('div').querySelector('.qty-input');
         var val   = parseInt(input.value) || 0;
         var max   = parseInt(input.max) || 99999;
-        input.value = Math.min(max, Math.max(0, val + delta));
+        var min   = getMinQty(input);
+        var maxM  = max - (max % min);
+        var next  = delta > 0 ? (Math.floor(val / min) + 1) * min : (Math.ceil(val / min) - 1) * min;
+        input.value = Math.min(maxM, Math.max(0, next));
+        input.classList.remove("moq-invalid");
         onQtyChange(input);
     };
+
+    // ── 최소 주문 수량(배수) 보정 ─────────────────────────────────
+    function getMinQty(input) {
+        return Math.max(1, parseInt(input.dataset.min) || 1);
+    }
+
+    // 입력값을 최소 주문 수량의 배수로 맞춘다 (올림, 재고 상한 초과 시 상한 이하 최대 배수로 내림)
+    function snapQty(input) {
+        var val = parseInt(input.value) || 0;
+        if (val <= 0) { input.value = 0; return; }
+        var min  = getMinQty(input);
+        var max  = parseInt(input.max) || 99999;
+        var maxM = max - (max % min);
+        var snapped = Math.ceil(val / min) * min;
+        if (snapped > maxM) snapped = maxM;
+        input.value = Math.max(0, snapped);
+    }
+
+    document.querySelectorAll('.qty-input').forEach(function(input) {
+        input.addEventListener('change', function() {
+            var before = parseInt(this.value) || 0;
+            snapQty(this);
+            this.classList.remove('moq-invalid');
+            if (before > 0 && before !== (parseInt(this.value) || 0)) {
+                showDraftToast('Quantity adjusted to a multiple of ' + getMinQty(this) + '.');
+            }
+            onQtyChange(this);
+        });
+        var q = parseInt(input.value) || 0;
+        if (q > 0 && q % getMinQty(input) !== 0) input.classList.add('moq-invalid');
+    });
 
     // ── 수량 변경 ──────────────────────────────────────────────────
     function getLotSubtotal(input, qty) {

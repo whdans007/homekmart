@@ -136,6 +136,7 @@ main { overflow: hidden !important; }
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.capacity')); ?></th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.unit')); ?></th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.units_per_box')); ?></th>
+                <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.min_order_qty')); ?></th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.unit_barcode')); ?></th>
                 <th class="px-4 py-3 text-left text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.box_barcode')); ?></th>
                 <th class="px-4 py-3 text-center text-xs text-gray-500 font-medium"><?php echo htmlspecialchars(t('logistics.products.expiry_required')); ?></th>
@@ -144,7 +145,7 @@ main { overflow: hidden !important; }
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             <?php if (empty($products)): ?>
-            <tr><td colspan="12" class="px-4 py-10 text-center text-gray-400">
+            <tr><td colspan="13" class="px-4 py-10 text-center text-gray-400">
                 <?php if ($search): ?>
                 <i class="fas fa-search text-3xl mb-3 block text-gray-300"></i>
                 <p class="mb-1"><?php echo htmlspecialchars(t('logistics.products.no_search_results', ['query' => $search])); ?></p>
@@ -185,6 +186,7 @@ main { overflow: hidden !important; }
                 <td class="px-4 py-3 text-gray-600 text-xs"><?php echo htmlspecialchars($p['capacity'] ?? '-'); ?></td>
                 <td class="px-4 py-3 text-gray-600 text-xs"><?php echo htmlspecialchars($p['unit']); ?></td>
                 <td class="px-4 py-3 text-gray-600 text-xs text-center"><?php echo $p['pieces_per_box'] > 1 ? $p['pieces_per_box'] : '-'; ?></td>
+                <td class="px-4 py-3 text-gray-600 text-xs text-center"><?php echo (int)($p['min_order_qty'] ?? 1) > 1 ? (int)$p['min_order_qty'] : '-'; ?></td>
                 <td class="px-4 py-3 font-mono text-xs text-gray-500"><?php echo htmlspecialchars($p['barcode_unit'] ?? '-'); ?></td>
                 <td class="px-4 py-3 font-mono text-xs text-gray-500"><?php echo htmlspecialchars($p['barcode_box'] ?? '-'); ?></td>
                 <td class="px-4 py-3 text-center">
@@ -468,6 +470,12 @@ main { overflow: hidden !important; }
                         <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.minimum_stock')); ?></label>
                         <input type="number" name="min_stock" value="0" min="0"
                                class="w-32 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1"><?php echo htmlspecialchars(t('logistics.products.min_order_qty')); ?></label>
+                        <input type="number" name="min_order_qty" value="1" min="1"
+                               class="w-32 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        <p class="text-xs text-gray-500 mt-1"><?php echo htmlspecialchars(t('logistics.products.min_order_qty_help')); ?></p>
                     </div>
                     <div class="flex items-start gap-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                         <input type="checkbox" name="requires_expiry" id="regRequiresExpiry" value="1"
@@ -1045,5 +1053,4 @@ main { overflow: hidden !important; }
 <?php require_once __DIR__ . '/partials/modal_brand_cat.php'; ?>
 <?php require __DIR__ . '/partials/inline_edit_widget.php'; // Design Ref: §5.4 ?>
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
-
 
