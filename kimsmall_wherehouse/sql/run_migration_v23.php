@@ -93,6 +93,21 @@ try {
     echo 'kw_products.product_id 컬럼: ' . ($hasProductId ? '있음' : '없음') . "\n";
     echo 'kw_products.product_id 인덱스: ' . ($hasProductIdIndex ? '있음' : '없음') . "\n";
 
+    // collation 진단 (운영/로컬 DB 차이 확인용)
+    echo "
+[컬럼 collation]
+";
+    $stmt = $conn->prepare("SELECT table_name AS tbl, column_name AS col, collation_name AS coll FROM information_schema.columns WHERE table_schema = DATABASE() AND ((table_name = 'products' AND column_name IN ('sku','name_en','name_ko')) OR (table_name = 'kw_products' AND column_name IN ('barcode_unit','name_en','name_ko'))) ORDER BY table_name, column_name");
+    $stmt->execute();
+    $rs = $stmt->get_result();
+    while ($r = $rs->fetch_assoc()) echo htmlspecialchars($r['tbl'] . '.' . $r['col'] . ' => ' . ($r['coll'] ?? ''), ENT_QUOTES, 'UTF-8') . "
+";
+    $stmt->close();
+    $cs = $conn->query("SELECT @@collation_connection AS cc, @@collation_database AS cd")->fetch_assoc();
+    echo '연결 collation: ' . htmlspecialchars($cs['cc'], ENT_QUOTES, 'UTF-8') . ' / DB collation: ' . htmlspecialchars($cs['cd'], ENT_QUOTES, 'UTF-8') . "
+
+";
+
     $required = [
         'kw_products'  => ['id', 'name_en', 'name_ko', 'barcode_unit', 'is_active'],
         'products'     => ['id', 'sku', 'name_en', 'name_ko', 'image_url'],
@@ -227,8 +242,9 @@ try {
         $projection = [];
         foreach ($columns as $columnRow) {
             $column = $columnRow['column_name'] ?? $columnRow['COLUMN_NAME'];
-            if ($column === 'name_en')      $projection[] = "COALESCE(NULLIF(TRIM(p.name_en), ''), kw.name_en) AS `name_en`";
-            elseif ($column === 'name_ko')  $projection[] = "COALESCE(NULLIF(TRIM(p.name_ko), ''), kw.name_ko) AS `name_ko`";
+            // 서버/컬럼 collation 이 달라도 오류가 나지 않도록 리터럴 비교 없이 CHAR_LENGTH 로 판정하고, 두 값을 같은 charset 으로 변환
+            if ($column === 'name_en')      $projection[] = "COALESCE(CASE WHEN CHAR_LENGTH(TRIM(p.name_en)) > 0 THEN CONVERT(TRIM(p.name_en) USING utf8mb4) END, CONVERT(kw.name_en USING utf8mb4)) AS `name_en`";
+            elseif ($column === 'name_ko')  $projection[] = "COALESCE(CASE WHEN CHAR_LENGTH(TRIM(p.name_ko)) > 0 THEN CONVERT(TRIM(p.name_ko) USING utf8mb4) END, CONVERT(kw.name_ko USING utf8mb4)) AS `name_ko`";
             else                            $projection[] = "kw.`{$column}` AS `{$column}`";
         }
         $projection[] = 'p.sku AS sku';
@@ -238,18 +254,37 @@ try {
 
         // ── 적용 후 검증 ──
         echo "\n[적용 후 검증]\n";
-        $linked        = $countQuery($conn, 'SELECT COUNT(*) FROM kw_products WHERE product_id IS NOT NULL');
-        $unlinked      = $countQuery($conn, 'SELECT COUNT(*) FROM kw_products WHERE product_id IS NULL');
-        $mismatch      = $countQuery($conn, "SELECT COUNT(*) FROM kw_products kw JOIN products p ON p.id = kw.product_id WHERE BINARY TRIM(p.sku) <> BINARY TRIM(kw.barcode_unit) OR p.sku IS NULL OR kw.barcode_unit IS NULL");
-        $shared        = $countQuery($conn, 'SELECT COUNT(*) FROM (SELECT product_id FROM kw_products WHERE product_id IS NOT NULL GROUP BY product_id HAVING COUNT(*) > 1) d');
-        $viewCount     = $countQuery($conn, 'SELECT COUNT(*) FROM kw_products_v');
-        $viewEmptyName = $countQuery($conn, "SELECT COUNT(*) FROM kw_products_v WHERE name_en IS NULL OR TRIM(name_en) = ''");
-        echo "연결 수: {$linked}\n";
-        echo "미연결 수: {$unlinked}\n";
-        echo "sku와 barcode_unit(TRIM) 불일치 연결: {$mismatch} (0이어야 정상)\n";
-        echo "같은 product_id를 공유하는 kw 그룹 수: {$shared} (0이어야 정상)\n";
-        echo 'VIEW 조회: ' . ($viewCount === $kwRows ? '성공' : '행 수 불일치') . " (VIEW {$viewCount} / kw_products {$kwRows})\n";
-        echo "VIEW name_en NULL/공백 수: {$viewEmptyName}\n";
+        $safe = static function (string $label, callable $fn): string {
+            try { return (string)$fn(); } catch (Throwable $e) { return '검증 쿼리 오류(' . $label . '): ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'); }
+        };
+        echo '연결 수: ' . $safe('linked', fn() => $countQuery($conn, 'SELECT COUNT(*) FROM kw_products WHERE product_id IS NOT NULL')) . "
+";
+        echo '미연결 수: ' . $safe('unlinked', fn() => $countQuery($conn, 'SELECT COUNT(*) FROM kw_products WHERE product_id IS NULL')) . "
+";
+        // sku ↔ barcode_unit 일치 검증은 collation 영향을 받지 않도록 PHP 에서 비교
+        echo 'sku와 barcode_unit(TRIM) 불일치 연결: ' . $safe('mismatch', function () use ($conn) {
+            $res = $conn->query('SELECT p.sku AS sku, kw.barcode_unit AS barcode_unit FROM kw_products kw JOIN products p ON p.id = kw.product_id');
+            $bad = 0;
+            while ($r = $res->fetch_assoc()) {
+                if ($r['sku'] === null || $r['barcode_unit'] === null || trim((string)$r['sku']) !== trim((string)$r['barcode_unit'])) $bad++;
+            }
+            return $bad;
+        }) . " (0이어야 정상)
+";
+        echo '같은 product_id를 공유하는 kw 그룹 수: ' . $safe('shared', fn() => $countQuery($conn, 'SELECT COUNT(*) FROM (SELECT product_id FROM kw_products WHERE product_id IS NOT NULL GROUP BY product_id HAVING COUNT(*) > 1) d')) . " (0이어야 정상)
+";
+        $viewCount = $safe('viewCount', fn() => $countQuery($conn, 'SELECT COUNT(*) FROM kw_products_v'));
+        echo 'VIEW 조회: ' . ((string)$kwRows === $viewCount ? '성공' : '확인 필요') . " (VIEW {$viewCount} / kw_products {$kwRows})
+";
+        echo 'VIEW name_en NULL/공백 수: ' . $safe('viewEmptyName', fn() => $countQuery($conn, 'SELECT COUNT(*) FROM kw_products_v WHERE name_en IS NULL OR CHAR_LENGTH(TRIM(name_en)) = 0')) . "
+";
+        echo 'VIEW 이름 샘플: ' . $safe('viewSample', function () use ($conn) {
+            $res = $conn->query('SELECT id, name_en, name_ko FROM kw_products_v ORDER BY id LIMIT 3');
+            $out = [];
+            while ($r = $res->fetch_assoc()) $out[] = "#{$r['id']} " . htmlspecialchars((string)$r['name_en'], ENT_QUOTES, 'UTF-8');
+            return implode(' | ', $out);
+        }) . "
+";
     }
 
     $conn->close();
