@@ -16,7 +16,7 @@ try {
     $conn = get_lc_db();
 
     $sql = "SELECT id, name_en, name_ko, barcode_unit, barcode_box, barcode_logistics
-            FROM kw_products
+            FROM kw_products_v
             WHERE (barcode_unit = ? OR barcode_box = ? OR barcode_logistics = ?)";
     $params = [$value, $value, $value];
     $types  = 'sss';

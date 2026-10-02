@@ -3,6 +3,7 @@ require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/unit_helper.php'; // unit 검증(BOX/PCS만 허용)
 require_once __DIR__ . '/../lib/image_helper.php'; // 상품 대표 이미지 업로드 처리
 require_once __DIR__ . '/../lib/barcode_helper.php'; // 바코드 중복 검증
+require_once __DIR__ . '/../lib/shared_product_helper.php'; // admin 공용 상품 연결/생성
 header('Content-Type: application/json; charset=utf-8');
 
 kw_require_staff();
@@ -53,30 +54,17 @@ try {
         exit;
     }
 
-    $st = $conn->prepare(
-        "INSERT INTO kw_products
-         (name_en, name_ko, capacity, brand_id, category_id, unit, pieces_per_box,
-          barcode_unit, barcode_box, barcode_logistics, min_stock, requires_expiry, image_path, created_by)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-    );
-    $uid = kw_current_user_id();
-    $st->bind_param('sssiisisssiisi',
-        $name_en, $name_ko, $capacity, $brand_id, $category_id,
-        $unit, $pieces_per_box,
-        $barcode_unit, $barcode_box, $barcode_logistics,
-        $min_stock, $requires_expiry, $image_path, $uid
-    );
-    $st->execute();
-    $new_id = $conn->insert_id;
-    $st->close();
-
-    $uname = $_SESSION['name'] ?? ($_SESSION['username'] ?? 'Unknown');
-    $sh = $conn->prepare(
-        "INSERT INTO kw_product_history (product_id, user_id, user_name, action) VALUES (?,?,?,'create')"
-    );
-    $sh->bind_param('iis', $new_id, $uid, $uname);
-    $sh->execute();
-    $sh->close();
+    // 공용 상품(admin products) 연결 또는 신규 생성 + 창고 상품 등록 (한 트랜잭션)
+    $res = kw_register_product($conn, [
+        'name_en' => $name_en, 'name_ko' => $name_ko, 'capacity' => $capacity,
+        'brand_id' => $brand_id, 'category_id' => $category_id,
+        'unit' => $unit, 'pieces_per_box' => $pieces_per_box,
+        'barcode_unit' => $barcode_unit, 'barcode_box' => $barcode_box, 'barcode_logistics' => $barcode_logistics,
+        'min_stock' => $min_stock, 'requires_expiry' => $requires_expiry, 'image_path' => $image_path,
+    ], kw_current_user_id());
+    $new_id  = $res['id'];
+    $name_en = $res['name_en'];
+    $name_ko = $res['name_ko'];
 
     $conn->close();
     echo json_encode([
@@ -89,7 +77,11 @@ try {
         'pieces_per_box'  => $pieces_per_box,
         'requires_expiry' => $requires_expiry,
         'barcode_unit'    => $barcode_unit,
+        'linked_existing' => $res['linked_existing'],
+        'created_shared'  => $res['created_shared'],
     ]);
+} catch (RuntimeException $e) {
+    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => 'DB Error: ' . $e->getMessage()]);
 }

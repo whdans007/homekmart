@@ -16,7 +16,7 @@ $existing_items = [];   // try 밖에 선언 → 예외 발생해도 항상 정�
 try {
     $conn      = get_lc_db();
     $products  = $conn->query(
-        "SELECT id, name_en, name_ko, unit, capacity, pieces_per_box, requires_expiry, barcode_unit, barcode FROM kw_products WHERE is_active = 1 ORDER BY name_en ASC"
+        "SELECT id, name_en, name_ko, unit, capacity, pieces_per_box, requires_expiry, barcode_unit, barcode FROM kw_products_v WHERE is_active = 1 ORDER BY name_en ASC"
     )->fetch_all(MYSQLI_ASSOC);
     $suppliers  = $conn->query(
         "SELECT id, name FROM kw_suppliers ORDER BY name ASC"
@@ -53,7 +53,7 @@ try {
                             IFNULL(i.pieces_per_box, 1)           AS pieces_per_box,
                             IFNULL(i.cost_price_pcs, 0)           AS cost_price_pcs
                      FROM kw_inbound i
-                     JOIN kw_products p ON i.product_id = p.id
+                     JOIN kw_products_v p ON i.product_id = p.id
                      WHERE i.batch_id = ?
                      ORDER BY i.id ASC"
                 );
@@ -69,7 +69,7 @@ try {
                             i.cost_price AS regular_price, 0 AS discount_rate,
                             'PCS' AS inbound_unit, 1 AS pieces_per_box, 0 AS cost_price_pcs
                      FROM kw_inbound i
-                     JOIN kw_products p ON i.product_id = p.id
+                     JOIN kw_products_v p ON i.product_id = p.id
                      WHERE i.batch_id = ?
                      ORDER BY i.id ASC"
                 );

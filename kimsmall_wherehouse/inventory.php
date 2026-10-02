@@ -33,7 +33,7 @@ try {
         $where = 'WHERE ' . implode(' AND ', $conds);
 
         $cnt_sql = "SELECT COUNT(*) FROM (
-            SELECT p.id FROM kw_products p
+            SELECT p.id FROM kw_products_v p
             LEFT JOIN kw_inventory i ON i.product_id = p.id AND i.quantity_remain > 0
             $where
             GROUP BY p.id
@@ -54,7 +54,7 @@ try {
                        0 AS total_stock, 0 AS box_stock, 0 AS pack_stock, 0 AS pcs_stock,
                        0 AS lot_count, NULL AS earliest_expiry, NULL AS days_left,
                        NULL AS latest_inbound, NULL AS latest_inbound_id
-                FROM kw_products p
+                FROM kw_products_v p
                 LEFT JOIN kw_brands b ON p.brand_id = b.id
                 LEFT JOIN kw_inventory i ON i.product_id = p.id AND i.quantity_remain > 0
                 $where
@@ -95,7 +95,7 @@ try {
 
         $cnt_sql = "SELECT COUNT(*) FROM (
             SELECT p.id FROM kw_inventory i
-            JOIN kw_products p ON i.product_id = p.id
+            JOIN kw_products_v p ON i.product_id = p.id
             JOIN kw_inbound ib ON i.inbound_id = ib.id
             $where
             GROUP BY p.id $having
@@ -122,7 +122,7 @@ try {
                        MAX(ib.inbound_date)   AS latest_inbound,
                        MAX(i.inbound_id)      AS latest_inbound_id
                 FROM kw_inventory i
-                JOIN kw_products p ON i.product_id = p.id
+                JOIN kw_products_v p ON i.product_id = p.id
                 JOIN kw_inbound ib ON i.inbound_id = ib.id
                 LEFT JOIN kw_brands b ON p.brand_id = b.id
                 $where
@@ -143,7 +143,7 @@ try {
                 SUM(CASE WHEN sub.earliest < CURDATE() THEN 1 ELSE 0 END) AS expired_count,
                 SUM(CASE WHEN sub.earliest BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 90 DAY) THEN 1 ELSE 0 END) AS expiring_count,
                 SUM(CASE WHEN sub.stock < 0 THEN 1 ELSE 0 END) AS negative_count
-         FROM kw_products p
+         FROM kw_products_v p
          JOIN (SELECT i.product_id, SUM(i.quantity_remain) AS stock, MIN(i.expiry_date) AS earliest
                FROM kw_inventory i
                JOIN kw_inbound ib ON i.inbound_id = ib.id
@@ -153,7 +153,7 @@ try {
     // 재고 0 상품 수 (kw_inventory에 lot이 아예 없는 상품도 포함되도록 별도 집계)
     $stats['out_count'] = (int)$conn->query(
         "SELECT COUNT(*) FROM (
-            SELECT p.id FROM kw_products p
+            SELECT p.id FROM kw_products_v p
             LEFT JOIN kw_inventory i ON i.product_id = p.id AND i.quantity_remain > 0
             WHERE p.is_active = 1 AND p.min_stock > 0
             GROUP BY p.id

@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stock_by_unit = kw_get_stock_by_unit($conn, $item['product_id']);
                 $stock = $stock_by_unit[$item['unit']];
                 if ($stock < $item['quantity']) {
-                    $st = $conn->prepare("SELECT CONCAT(name_en, IFNULL(CONCAT(' (', name_ko, ')'), '')) FROM kw_products WHERE id = ?");
+                    $st = $conn->prepare("SELECT CONCAT(name_en, IFNULL(CONCAT(' (', name_ko, ')'), '')) FROM kw_products_v WHERE id = ?");
                     $st->bind_param('i', $item['product_id']);
                     $st->execute();
                     $pname = $st->get_result()->fetch_row()[0] ?? "#{$item['product_id']}";
@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // 주문 상세 — order_unit + ppb 스냅샷 기록 (Design Ref: box-pcs-unit §3.1, FR-09)
                 $ppb_map = [];
                 $pid_in = implode(',', array_unique(array_map(fn($it) => (int)$it['product_id'], $items)));
-                $res = $conn->query("SELECT id, GREATEST(1, IFNULL(pieces_per_box, 1)) AS ppb FROM kw_products WHERE id IN ($pid_in)");
+                $res = $conn->query("SELECT id, GREATEST(1, IFNULL(pieces_per_box, 1)) AS ppb FROM kw_products_v WHERE id IN ($pid_in)");
                 foreach ($res->fetch_all(MYSQLI_ASSOC) as $r) $ppb_map[(int)$r['id']] = (int)$r['ppb'];
 
                 $st2 = $conn->prepare(
@@ -124,7 +124,7 @@ try {
                 SUM(CASE WHEN i.unit = 'PACK' THEN i.quantity_remain ELSE 0 END) AS pack_stock,
                 SUM(CASE WHEN i.unit = 'PCS'  THEN i.quantity_remain ELSE 0 END) AS pcs_stock
          FROM kw_inventory i
-         JOIN kw_products p ON i.product_id = p.id
+         JOIN kw_products_v p ON i.product_id = p.id
          JOIN kw_categories c ON p.category_id = c.id
          WHERE i.quantity_remain > 0 AND p.is_active = 1
          GROUP BY p.id

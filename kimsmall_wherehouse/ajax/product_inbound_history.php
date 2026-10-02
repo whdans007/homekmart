@@ -16,7 +16,7 @@ try {
 
     // 상품 기본 정보
     $st = $conn->prepare(
-        "SELECT name_en, name_ko, unit, capacity, pieces_per_box, barcode FROM kw_products WHERE id = ?"
+        "SELECT name_en, name_ko, unit, capacity, pieces_per_box, barcode FROM kw_products_v WHERE id = ?"
     );
     $st->bind_param('i', $product_id);
     $st->execute();

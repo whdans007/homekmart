@@ -47,14 +47,14 @@ try {
     if ($status === 'inactive') { $conds[] = "p.is_active = 0"; } // 비활성(DEACTIVE) 상품만
     $where = $conds ? 'WHERE ' . implode(' AND ', $conds) : '';
 
-    $cnt = $conn->prepare("SELECT COUNT(*) FROM kw_products p $where");
+    $cnt = $conn->prepare("SELECT COUNT(*) FROM kw_products_v p $where");
     if ($params) { $cnt->bind_param($types, ...$params); }
     $cnt->execute();
     $total = (int)$cnt->get_result()->fetch_row()[0]; $cnt->close();
     $total_pages = max(1, (int)ceil($total / $limit));
 
     $sql = "SELECT p.*, b.name_en AS brand_name, c.name_en AS category_name
-            FROM kw_products p
+            FROM kw_products_v p
             LEFT JOIN kw_brands b ON p.brand_id = b.id
             LEFT JOIN kw_categories c ON p.category_id = c.id
             $where ORDER BY p.is_active DESC, p.id DESC LIMIT $limit OFFSET $offset";

@@ -32,7 +32,7 @@ if ($action === 'get_product_stock') {
                     COALESCE(
                         SUM(i.quantity_remain * ib.cost_price) / NULLIF(SUM(i.quantity_remain), 0)
                     , 0) AS avg_cost
-             FROM kw_products p
+             FROM kw_products_v p
              LEFT JOIN kw_inventory i ON i.product_id = p.id AND i.quantity_remain > 0
              LEFT JOIN kw_inbound ib ON i.inbound_id = ib.id
              WHERE p.id = ?

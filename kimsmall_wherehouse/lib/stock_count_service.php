@@ -28,7 +28,7 @@ function kw_sc_start(mysqli $db,int $user,bool $inboundClosedAck): array {
         if (kw_stock_count_lock($db)!==null) throw new RuntimeException('An inventory count is already open.');
         $st=$db->prepare('INSERT INTO kw_stock_count_sessions (opened_by,inbound_closed_ack_at,inbound_closed_ack_by) VALUES (?,NOW(),?)');
         $st->bind_param('ii',$user,$user); $st->execute(); $id=$db->insert_id; $st->close();
-        $st=$db->prepare("INSERT INTO kw_stock_count_baseline (session_id,product_id,unit,quantity,pieces_per_box) SELECT ?,i.product_id,i.unit,SUM(i.quantity_remain),COALESCE(NULLIF(p.pieces_per_box,0),1) FROM kw_inventory i JOIN kw_products p ON p.id=i.product_id GROUP BY i.product_id,i.unit,p.pieces_per_box");
+        $st=$db->prepare("INSERT INTO kw_stock_count_baseline (session_id,product_id,unit,quantity,pieces_per_box) SELECT ?,i.product_id,i.unit,SUM(i.quantity_remain),COALESCE(NULLIF(p.pieces_per_box,0),1) FROM kw_inventory i JOIN kw_products_v p ON p.id=i.product_id GROUP BY i.product_id,i.unit,p.pieces_per_box");
         $st->bind_param('i',$id); $st->execute(); $st->close();
         $st=$db->prepare('UPDATE kw_stock_count_control SET open_session_id=? WHERE id=1');
         $st->bind_param('i',$id); $st->execute(); $st->close();
@@ -37,7 +37,7 @@ function kw_sc_start(mysqli $db,int $user,bool $inboundClosedAck): array {
 }
 function kw_sc_product(mysqli $db,string $barcode): array {
     if ($barcode==='' || strlen($barcode)>100) throw new InvalidArgumentException('Enter a valid barcode.');
-    $st=$db->prepare('SELECT id,name_ko,name_en,pieces_per_box,barcode_unit,barcode_box,barcode_logistics FROM kw_products WHERE is_active=1 AND (barcode_unit=? OR barcode_box=? OR barcode_logistics=?)');
+    $st=$db->prepare('SELECT id,name_ko,name_en,pieces_per_box,barcode_unit,barcode_box,barcode_logistics FROM kw_products_v WHERE is_active=1 AND (barcode_unit=? OR barcode_box=? OR barcode_logistics=?)');
     $st->bind_param('sss',$barcode,$barcode,$barcode); $st->execute(); $rows=$st->get_result()->fetch_all(MYSQLI_ASSOC); $st->close();
     if (count($rows)!==1) throw new RuntimeException(count($rows) ? 'Barcode matches multiple products.' : 'Barcode was not found.');
     return $rows[0];
@@ -56,7 +56,7 @@ function kw_sc_unit(mysqli $db,int $session,int $product,string $requested): str
     return $past[0]['unit'] ?? 'BOX';
 }
 function kw_sc_validate_ppb(mysqli $db,int $product): void {
-    $st=$db->prepare("SELECT COUNT(*) AS mismatches FROM kw_inventory i JOIN kw_inbound b ON b.id=i.inbound_id JOIN kw_products p ON p.id=i.product_id WHERE i.product_id=? AND i.quantity_remain>0 AND i.unit IN ('BOX','PACK') AND b.pieces_per_box<>p.pieces_per_box");
+    $st=$db->prepare("SELECT COUNT(*) AS mismatches FROM kw_inventory i JOIN kw_inbound b ON b.id=i.inbound_id JOIN kw_products_v p ON p.id=i.product_id WHERE i.product_id=? AND i.quantity_remain>0 AND i.unit IN ('BOX','PACK') AND b.pieces_per_box<>p.pieces_per_box");
     $st->bind_param('i',$product);$st->execute();$n=(int)$st->get_result()->fetch_assoc()['mismatches'];$st->close();
     if($n)throw new RuntimeException('Bundle lot pack size differs from product pack size; resolve before counting.');
 }
@@ -124,12 +124,12 @@ function kw_sc_list(mysqli $db,int $id,?int $enteredBy=null): array {
     $session=kw_sc_session($db,$id);
     $contributorsSt=$db->prepare("SELECT e.entered_by,COALESCE(NULLIF(u.full_name,''),u.username,CONCAT('User #',e.entered_by)) AS entered_by_name,COUNT(*) AS entry_count FROM kw_stock_count_entries e LEFT JOIN users u ON u.id=e.entered_by WHERE e.session_id=? AND e.voided_at IS NULL GROUP BY e.entered_by,u.full_name,u.username ORDER BY entered_by_name");
     $contributorsSt->bind_param('i',$id);$contributorsSt->execute();$contributors=$contributorsSt->get_result()->fetch_all(MYSQLI_ASSOC);$contributorsSt->close();
-    $sql="SELECT e.*,p.name_ko,p.name_en,p.barcode_unit,p.barcode_box,p.barcode_logistics,COALESCE(NULLIF(u.full_name,''),u.username,CONCAT('User #',e.entered_by)) AS entered_by_name FROM kw_stock_count_entries e LEFT JOIN kw_products p ON p.id=e.product_id LEFT JOIN users u ON u.id=e.entered_by WHERE e.session_id=?";
+    $sql="SELECT e.*,p.name_ko,p.name_en,p.barcode_unit,p.barcode_box,p.barcode_logistics,COALESCE(NULLIF(u.full_name,''),u.username,CONCAT('User #',e.entered_by)) AS entered_by_name FROM kw_stock_count_entries e LEFT JOIN kw_products_v p ON p.id=e.product_id LEFT JOIN users u ON u.id=e.entered_by WHERE e.session_id=?";
     if($enteredBy!==null)$sql.=' AND e.entered_by=?';
     $sql.=' ORDER BY e.scanned_at,e.id';$st=$db->prepare($sql);
     if($enteredBy===null)$st->bind_param('i',$id);else $st->bind_param('ii',$id,$enteredBy);
     $st->execute();$entries=$st->get_result()->fetch_all(MYSQLI_ASSOC);$st->close();
-    $st=$db->prepare('SELECT b.*,p.name_ko,p.name_en FROM kw_stock_count_baseline b LEFT JOIN kw_products p ON p.id=b.product_id WHERE b.session_id=?');
+    $st=$db->prepare('SELECT b.*,p.name_ko,p.name_en FROM kw_stock_count_baseline b LEFT JOIN kw_products_v p ON p.id=b.product_id WHERE b.session_id=?');
     $st->bind_param('i',$id);$st->execute();$baseline=$st->get_result()->fetch_all(MYSQLI_ASSOC);$st->close();
     $books=[];foreach($baseline as $b){$pid=(int)$b['product_id'];$books[$pid][$b['unit']]=(int)$b['quantity'];$books[$pid]['ppb']=(int)$b['pieces_per_box'];}
     $totals=[];$dates=[];
@@ -147,7 +147,7 @@ function kw_sc_list(mysqli $db,int $id,?int $enteredBy=null): array {
         $lines[]=['product_id'=>$pid,'sku'=>$t['sku'],'product_name'=>$t['name'],'product_name_ko'=>$t['name_ko'],'product_name_en'=>$t['name_en']]+kw_sc_line_metrics($books[$pid]??[],$t);
     }
     $grouped=[];foreach($dates as $date=>$items)$grouped[]=['date'=>$date,'entries'=>$items];
-    $active=(int)$db->query('SELECT COUNT(*) FROM kw_products WHERE is_active=1')->fetch_row()[0];
+    $active=(int)$db->query('SELECT COUNT(*) FROM kw_products_v WHERE is_active=1')->fetch_row()[0];
     $uncounted=max(0,$active-count($totals));
     return ['session'=>$session,'lines'=>$lines,'dates'=>$grouped,'contributors'=>$contributors,'selected_user_id'=>$enteredBy,'uncounted_count'=>$uncounted];
 }
@@ -163,7 +163,7 @@ function kw_sc_adjust(mysqli $db,int $sid,int $pid,string $unit,int $target): vo
         }
         if($needed)throw new RuntimeException('Inventory changed during count.');
     }elseif($delta>0){
-            $st=$db->prepare('SELECT COALESCE(NULLIF(pieces_per_box,0),1) FROM kw_products WHERE id=?');$st->bind_param('i',$pid);$st->execute();$ppb=(int)$st->get_result()->fetch_row()[0];$st->close();
+            $st=$db->prepare('SELECT COALESCE(NULLIF(pieces_per_box,0),1) FROM kw_products_v WHERE id=?');$st->bind_param('i',$pid);$st->execute();$ppb=(int)$st->get_result()->fetch_row()[0];$st->close();
             $lot='SC-'.$sid.'-'.$pid.'-'.$unit;$today=date('Y-m-d');
             $st=$db->prepare('SELECT cost_price,cost_price_pcs FROM kw_inbound WHERE product_id=? AND inbound_unit=? ORDER BY id DESC LIMIT 1');
             $st->bind_param('is',$pid,$unit);$st->execute();$costRow=$st->get_result()->fetch_assoc();$st->close();

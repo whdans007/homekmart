@@ -27,7 +27,7 @@ try {
     $cnt = $conn->prepare(
         "SELECT COUNT(*) FROM kw_order_items oi
          JOIN kw_orders o ON oi.order_id = o.id
-         JOIN kw_products p ON oi.product_id = p.id
+         JOIN kw_products_v p ON oi.product_id = p.id
          JOIN stores s ON o.store_id = s.id
          $where"
     );
@@ -58,7 +58,7 @@ try {
                       AND inv3.expiry_date IS NOT NULL) AS expiry_info
             FROM kw_order_items oi
             JOIN kw_orders o ON oi.order_id = o.id
-            JOIN kw_products p ON oi.product_id = p.id
+            JOIN kw_products_v p ON oi.product_id = p.id
             JOIN stores s ON o.store_id = s.id
             $where
             ORDER BY o.shipped_at DESC, o.id DESC

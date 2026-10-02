@@ -13,7 +13,7 @@ try {
         "SELECT p.id, CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS name, p.unit, 0 AS selling_price,
                 SUM(i.quantity_remain) AS stock
          FROM kw_inventory i
-         JOIN kw_products p ON i.product_id = p.id
+         JOIN kw_products_v p ON i.product_id = p.id
          WHERE i.quantity_remain > 0 AND p.is_active = 1
          GROUP BY p.id
          ORDER BY p.name_en ASC"

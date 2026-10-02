@@ -57,7 +57,7 @@ try {
     $total_pages = max(1, (int)ceil($total / $limit));
 
     $sql = "SELECT c.id, c.name_en, c.name_ko, COUNT(p.id) AS product_count
-            FROM kw_categories c LEFT JOIN kw_products p ON p.category_id = c.id
+            FROM kw_categories c LEFT JOIN kw_products_v p ON p.category_id = c.id
             $where
             GROUP BY c.id, c.name_en, c.name_ko
             ORDER BY c.name_en ASC

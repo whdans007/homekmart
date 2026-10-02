@@ -64,7 +64,7 @@ function getFilteredInboundItems($filters = [], $page = 1, $limit = 20) {
         SELECT COUNT(*) AS total
         FROM kw_inbound i
         LEFT JOIN kw_suppliers s ON i.supplier_id = s.id
-        LEFT JOIN kw_products p ON i.product_id = p.id
+        LEFT JOIN kw_products_v p ON i.product_id = p.id
         WHERE 1=1 {$where_clause}
     ";
 
@@ -108,7 +108,7 @@ function getFilteredInboundItems($filters = [], $page = 1, $limit = 20) {
             COALESCE(p.unit, '') AS product_unit
         FROM kw_inbound i
         LEFT JOIN kw_suppliers s ON i.supplier_id = s.id
-        LEFT JOIN kw_products p ON i.product_id = p.id
+        LEFT JOIN kw_products_v p ON i.product_id = p.id
         LEFT JOIN kw_categories c ON p.category_id = c.id
         LEFT JOIN kw_brands b ON p.brand_id = b.id
         WHERE 1=1 {$where_clause}
@@ -210,7 +210,7 @@ function getAllFilteredInboundItems($filters = []) {
             COALESCE(p.unit, '') AS product_unit
         FROM kw_inbound i
         LEFT JOIN kw_suppliers s ON i.supplier_id = s.id
-        LEFT JOIN kw_products p ON i.product_id = p.id
+        LEFT JOIN kw_products_v p ON i.product_id = p.id
         LEFT JOIN kw_categories c ON p.category_id = c.id
         LEFT JOIN kw_brands b ON p.brand_id = b.id
         WHERE 1=1 {$where_clause}
@@ -288,7 +288,7 @@ function getFilteredInboundDamages($filters = [], $page = 1, $limit = 20) {
     $base_from = "
         FROM kw_inbound_damages d
         JOIN kw_inbound  i ON d.inbound_id = i.id
-        JOIN kw_products p ON d.product_id = p.id
+        JOIN kw_products_v p ON d.product_id = p.id
         LEFT JOIN kw_suppliers s ON d.supplier_id = s.id
         WHERE 1=1 {$where_clause}
     ";

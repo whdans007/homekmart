@@ -160,3 +160,25 @@ version: 1.3
 - ✅ 결정(2026-10-02): 신규 상품은 **창고 화면에서 직접 등록**한다 (admin `products` INSERT + `kw_products` 연결 행 생성). 창고 직원이 admin `products`에 쓸 수 있도록 창고 로그인 사용자 권한/`last_modified_by_user_id` 처리 방식 확인 필요
 - `barcode_box` 무효값(id 769 `` ` ``) 정리 방법
 - 창고 화면에 노출할 카테고리 계층(admin `parent_id`) 범위
+
+---
+
+## 9. 진행 현황 (2026-10-02)
+
+| 단계 | 상태 | 비고 |
+|------|------|------|
+| 0 백업/분류 | ✅ | `docs/03-analysis/kimsmall-shared-products.step0-inventory.md` |
+| 1 마이그레이션 | ✅ | `kimsmall_wherehouse/sql/run_migration_v23.php` (로컬 적용·재실행 검증 완료) |
+| 3 읽기 경로 | ✅ | 36개 파일 `kw_products` → `kw_products_v` (INSERT/UPDATE/DELETE 제외) |
+| 4 등록/검색 | ✅ | `lib/shared_product_helper.php` 신설. `product_add.php`, `ajax/add_product.php`: admin 연결/생성+창고 등록 단일 트랜잭션. `ajax/search_product_by_barcode.php`: 창고에 없고 admin sku에 있는 바코드는 자동 연결. `product_edit.php`: 연결 상품은 이름을 admin에도 반영, 낱개 바코드(sku) 변경 잠금 |
+| 5 검증 | ✅ | 로컬 DB: 주요 화면 실행, 자동연결/중복차단/신규생성/롤백/수정동기화 검증, `test_box_pcs_unit`(33/33), `test_pack_unit`(30/30) 통과 |
+
+### 결정/참고
+- 예외 6건(id 105, 488, 945, 1147, 1168, 1170)은 **연결하지 않고 무시**(사용자 결정). 창고 전용 상품으로 계속 동작(`product_id` NULL, 이름은 창고 값).
+- 기존 UI "Import from Existing Product"(`ajax/search_shop_product.php`)는 이미 admin products 검색·자동입력을 제공하며, 서버 저장 시 연결/생성으로 이어진다.
+- 알려진 기존 이슈(이번 범위 아님): `ajax/get_expiry_alerts.php`, `ajax/get_available_products.php` 는 `../../lib/auth.php` 경로가 잘못되어 호출 불가(호출처 없음).
+
+### 운영 배포 순서 (중요)
+1. **먼저** `sql/run_migration_v23.php` 만 업로드 → 브라우저로 DRY-RUN 확인 → `?apply=1&confirm=KW-V23` 로 적용 (창고 관리자 로그인 필요)
+2. 적용 결과에서 `VIEW 조회: 성공`, 불일치 0, 공유 0 확인
+3. **그 다음** 나머지 코드 업로드 (`kw_products_v` 가 없으면 화면이 오류 남)

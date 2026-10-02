@@ -51,7 +51,7 @@ try {
     $sections['① 동일 바코드 상품 목록 (행이 2개 이상이면 중복 등록 = 유력 원인)'] = q($conn,
         "SELECT p.id, p.name_en, p.name_ko, p.is_active,
                 p.barcode_unit, p.barcode_box, p.barcode_logistics, p.created_at
-         FROM kw_products p
+         FROM kw_products_v p
          WHERE p.barcode_unit = ? OR p.barcode_box = ? OR p.barcode_logistics = ?
          ORDER BY p.is_active DESC, p.id",
         'sss', [$barcode, $barcode, $barcode]);
@@ -63,7 +63,7 @@ try {
                 (SELECT COALESCE(SUM(i.quantity_out),0)    FROM kw_inventory i WHERE i.product_id = p.id) AS total_out,
                 (SELECT COALESCE(SUM(i.quantity_remain),0) FROM kw_inventory i WHERE i.product_id = p.id) AS stock_remain,
                 (SELECT COUNT(*) FROM kw_order_items oi WHERE oi.product_id = p.id) AS order_items_cnt
-         FROM kw_products p
+         FROM kw_products_v p
          WHERE p.barcode_unit = ? OR p.barcode_box = ? OR p.barcode_logistics = ?
          ORDER BY p.is_active DESC, p.id",
         'sss', [$barcode, $barcode, $barcode]);
@@ -73,7 +73,7 @@ try {
         "SELECT i.id AS inventory_id, i.product_id, i.unit, i.lot_number, i.expiry_date,
                 i.quantity_in, i.quantity_out, i.quantity_remain, i.storage_location
          FROM kw_inventory i
-         JOIN kw_products p ON i.product_id = p.id
+         JOIN kw_products_v p ON i.product_id = p.id
          WHERE p.barcode_unit = ? OR p.barcode_box = ? OR p.barcode_logistics = ?
          ORDER BY i.product_id, i.expiry_date, i.id",
         'sss', [$barcode, $barcode, $barcode]);
@@ -85,7 +85,7 @@ try {
                 (SELECT COALESCE(SUM(l.quantity),0) FROM kw_order_item_lots l WHERE l.order_item_id = oi.id) AS deducted_qty
          FROM kw_order_items oi
          JOIN kw_orders o    ON oi.order_id = o.id
-         JOIN kw_products p  ON oi.product_id = p.id
+         JOIN kw_products_v p  ON oi.product_id = p.id
          WHERE (p.barcode_unit = ? OR p.barcode_box = ? OR p.barcode_logistics = ?)
            AND o.deleted_at IS NULL
          ORDER BY o.id DESC, oi.id",
@@ -98,7 +98,7 @@ try {
                 ib.created_at, ib.notes,
                 inv.id AS inventory_id, inv.quantity_in, inv.quantity_out, inv.quantity_remain
          FROM kw_inbound ib
-         JOIN kw_products p    ON ib.product_id = p.id
+         JOIN kw_products_v p    ON ib.product_id = p.id
          LEFT JOIN kw_inventory inv ON inv.inbound_id = ib.id
          WHERE p.barcode_unit = ? OR p.barcode_box = ? OR p.barcode_logistics = ?
          ORDER BY ib.inbound_date, ib.id",

@@ -30,7 +30,7 @@ if ($filter === 'out') {
                    p.unit, p.min_stock,
                    COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode,
                    0 AS total_stock, 0 AS lot_count, NULL AS earliest_expiry, NULL AS days_left
-            FROM kw_products p
+            FROM kw_products_v p
             LEFT JOIN kw_inventory i ON i.product_id = p.id AND i.quantity_remain > 0
             $where
             GROUP BY p.id
@@ -79,7 +79,7 @@ if ($filter === 'out') {
                    MAX(ib.inbound_date)   AS latest_inbound,
                    MAX(i.inbound_id)      AS latest_inbound_id
             FROM kw_inventory i
-            JOIN kw_products p ON i.product_id = p.id
+            JOIN kw_products_v p ON i.product_id = p.id
             JOIN kw_inbound ib ON i.inbound_id = ib.id
             $where
             GROUP BY p.id $having

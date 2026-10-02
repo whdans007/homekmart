@@ -71,7 +71,7 @@ try {
                        WHERE i.product_id = p.id AND i.unit = 'PACK' AND i.quantity_remain > 0) AS pack_stock,
                     (SELECT COALESCE(SUM(i.quantity_remain), 0) FROM kw_inventory i
                        WHERE i.product_id = p.id AND i.unit = 'PCS' AND i.quantity_remain > 0) AS pcs_stock
-             FROM kw_products p
+             FROM kw_products_v p
              WHERE p.name_en LIKE ? OR p.name_ko LIKE ?
              ORDER BY p.id"
         );

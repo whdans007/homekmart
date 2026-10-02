@@ -23,7 +23,7 @@ try {
                 p.barcode_unit, p.barcode_box, p.pieces_per_box AS product_ppb,
                 inv.storage_location, b.is_confirmed
          FROM kw_inbound i
-         JOIN kw_products p ON i.product_id = p.id
+         JOIN kw_products_v p ON i.product_id = p.id
          JOIN kw_inbound_batches b ON i.batch_id = b.id
          LEFT JOIN kw_inventory inv ON inv.inbound_id = i.id
          WHERE i.id = ?"
@@ -47,7 +47,7 @@ try {
     $inv = $st->get_result()->fetch_assoc(); $st->close();
     $has_outbound = $inv && $inv['quantity_out'] > 0;
 
-    $products  = $conn->query("SELECT id, name_en, name_ko, unit, pieces_per_box, requires_expiry FROM kw_products WHERE is_active = 1 ORDER BY name_en ASC")->fetch_all(MYSQLI_ASSOC);
+    $products  = $conn->query("SELECT id, name_en, name_ko, unit, pieces_per_box, requires_expiry FROM kw_products_v WHERE is_active = 1 ORDER BY name_en ASC")->fetch_all(MYSQLI_ASSOC);
     $suppliers = $conn->query("SELECT id, name FROM kw_suppliers ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
     $conn->close();
 } catch (Exception $e) {

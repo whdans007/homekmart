@@ -142,7 +142,7 @@ try {
                 COALESCE(NULLIF(p.barcode_unit,''), NULLIF(p.barcode_box,''), NULLIF(p.barcode_logistics,'')) AS barcode,
                 inv.storage_location
          FROM kw_inbound i
-         JOIN kw_products p ON i.product_id = p.id
+         JOIN kw_products_v p ON i.product_id = p.id
          LEFT JOIN kw_inventory inv ON inv.inbound_id = i.id
          WHERE i.batch_id = ?
          ORDER BY i.id ASC"

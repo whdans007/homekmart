@@ -52,7 +52,7 @@ $errors = [];
 
 try {
     $conn = get_lc_db();
-    $st = $conn->prepare("SELECT * FROM kw_products WHERE id = ?");
+    $st = $conn->prepare("SELECT * FROM kw_products_v WHERE id = ?");
     $st->bind_param('i', $id);
     $st->execute();
     $form = $st->get_result()->fetch_assoc();
@@ -113,6 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $form['unit']             = kw_valid_unit($_POST['unit'] ?? '', LC_UNIT_PCS); // BOX/PCS 외 값은 PCS로
     $form['pieces_per_box']   = max(1, (int)($_POST['pieces_per_box'] ?? 1));
     $form['barcode_unit']     = trim($_POST['barcode_unit'] ?? '') ?: null;
+    // 공용 상품과 연결된 경우 낱개 바코드(=products.sku)는 여기서 변경하지 않는다
+    if (!empty($old_form['product_id'])) $form['barcode_unit'] = $old_form['barcode_unit'];
     $form['barcode_box']      = trim($_POST['barcode_box'] ?? '') ?: null;
     $form['barcode_logistics']= trim($_POST['barcode_logistics'] ?? '') ?: null;
     $form['min_stock']        = max(0, (int)($_POST['min_stock'] ?? 0));
@@ -156,6 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         try {
             $conn = get_lc_db();
+            $conn->begin_transaction();
             $st = $conn->prepare(
                 "UPDATE kw_products SET
                  name_en=?, name_ko=?, capacity=?, brand_id=?, category_id=?, unit=?, pieces_per_box=?,
@@ -169,6 +172,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $form['min_stock'], $form['requires_expiry'], $form['image_path'], $id
             );
             $st->execute();
+
+            // 공용 상품(admin products)과 연결된 경우 이름은 공용 상품에도 반영 (이름의 원본은 admin)
+            if (!empty($old_form['product_id'])
+                && ($form['name_en'] !== ($old_form['name_en'] ?? '') || ($form['name_ko'] ?? '') !== ($old_form['name_ko'] ?? ''))) {
+                $shared_ko  = $form['name_ko'] ?: $form['name_en']; // products.name_ko 는 NOT NULL
+                $shared_uid = kw_current_user_id() ?: null;
+                $sp = $conn->prepare("UPDATE products SET name_en = ?, name_ko = ?, last_modified_by_user_id = ? WHERE id = ?");
+                $sp->bind_param('ssii', $form['name_en'], $shared_ko, $shared_uid, $old_form['product_id']);
+                $sp->execute();
+                $sp->close();
+            }
 
             // 변경 이력 기록
             $uid   = kw_current_user_id();
@@ -228,6 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $sh->close();
 
+            $conn->commit();
             $conn->close();
             kw_set_flash('success', 'Updated successfully.');
             header('Location: ' . $list_url);
@@ -376,8 +391,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-barcode text-gray-400 mr-1"></i>Barcode</label>
                     <input type="text" name="barcode_unit" id="barcodeUnitInput" value="<?php echo htmlspecialchars($form['barcode_unit'] ?? ''); ?>"
-                           autocomplete="off"
-                           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500">
+                           autocomplete="off" <?php echo !empty($form['product_id']) ? 'readonly title="Linked to the shared catalog (SKU) - cannot be changed here"' : ''; ?>
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-teal-500<?php echo !empty($form['product_id']) ? ' bg-gray-100 text-gray-500' : ''; ?>">
+                    <?php if (!empty($form['product_id'])): ?><p class="text-xs text-gray-400 mt-0.5"><i class="fas fa-link mr-1"></i>Shared catalog SKU</p><?php endif; ?>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1"><i class="fas fa-box text-gray-400 mr-1"></i>Box Code</label>

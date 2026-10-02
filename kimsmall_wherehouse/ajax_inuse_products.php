@@ -21,7 +21,7 @@ $column = $type === 'category' ? 'category_id' : 'brand_id';
 try {
     $conn = get_lc_db();
     $sql = "SELECT id, name_en, name_ko, barcode_unit, is_active
-            FROM kw_products
+            FROM kw_products_v
             WHERE {$column} = ?
             ORDER BY is_active DESC, name_en ASC";
     $st = $conn->prepare($sql);

@@ -39,7 +39,7 @@ function kw_find_barcode_conflicts(mysqli $conn, array $barcodes, int $exclude_p
     // 3개 컬럼 각각에 대해 IN(...) 조회
     $ph     = implode(',', array_fill(0, count($vals), '?'));
     $sql    = "SELECT id, name_en, name_ko, barcode_unit, barcode_box, barcode_logistics
-               FROM kw_products
+               FROM kw_products_v
                WHERE (barcode_unit IN ($ph)
                    OR barcode_box IN ($ph)
                    OR barcode_logistics IN ($ph))";

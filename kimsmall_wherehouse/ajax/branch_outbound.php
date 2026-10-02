@@ -33,7 +33,7 @@ if ($action === 'get_product_stock') {
         $st = $conn->prepare(
             "SELECT p.id, CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS name,
                     p.unit, GREATEST(1, IFNULL(p.pieces_per_box, 1)) AS pieces_per_box
-             FROM kw_products p
+             FROM kw_products_v p
              WHERE p.id = ?"
         );
         $st->bind_param('i', $product_id);
@@ -197,7 +197,7 @@ function kw_bo_ppb_map(mysqli $conn, array $product_ids): array {
     if (empty($product_ids)) return [];
     $in = implode(',', $product_ids);
     $map = [];
-    $res = $conn->query("SELECT id, GREATEST(1, IFNULL(pieces_per_box, 1)) AS ppb FROM kw_products WHERE id IN ($in)");
+    $res = $conn->query("SELECT id, GREATEST(1, IFNULL(pieces_per_box, 1)) AS ppb FROM kw_products_v WHERE id IN ($in)");
     foreach ($res->fetch_all(MYSQLI_ASSOC) as $r) $map[(int)$r['id']] = (int)$r['ppb'];
     return $map;
 }
@@ -306,7 +306,7 @@ if ($action === 'get_draft') {
                     p.barcode_unit, p.barcode_box, p.barcode_logistics,
                     b.name_en AS brand_en, b.name_ko AS brand_ko
              FROM kw_order_items oi
-             LEFT JOIN kw_products p ON oi.product_id = p.id
+             LEFT JOIN kw_products_v p ON oi.product_id = p.id
              LEFT JOIN kw_brands b ON p.brand_id = b.id
              WHERE oi.order_id = ?
              ORDER BY oi.id ASC"

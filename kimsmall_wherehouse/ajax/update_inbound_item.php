@@ -36,7 +36,7 @@ try {
         "SELECT i.*, b.is_confirmed, p.requires_expiry
          FROM kw_inbound i
          JOIN kw_inbound_batches b ON i.batch_id = b.id
-         JOIN kw_products p ON i.product_id = p.id
+         JOIN kw_products_v p ON i.product_id = p.id
          WHERE i.id = ?"
     );
     $st->bind_param('i', $inbound_id);

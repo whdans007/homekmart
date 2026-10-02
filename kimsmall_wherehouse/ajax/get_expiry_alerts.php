@@ -16,7 +16,7 @@ try {
                 SUM(i.quantity_remain) AS stock,
                 DATEDIFF(i.expiry_date, CURDATE()) AS days_left
          FROM kw_inventory i
-         JOIN kw_products p ON i.product_id = p.id
+         JOIN kw_products_v p ON i.product_id = p.id
          WHERE i.expiry_date IS NOT NULL
            AND i.expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL $days DAY)
            AND i.quantity_remain > 0

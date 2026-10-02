@@ -38,7 +38,7 @@ try {
                     b.name_en AS brand_en, b.name_ko AS brand_ko,
                     COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS product_code
              FROM kw_order_items oi
-             LEFT JOIN kw_products p ON oi.product_id = p.id
+             LEFT JOIN kw_products_v p ON oi.product_id = p.id
              LEFT JOIN kw_brands b ON p.brand_id = b.id
              WHERE oi.order_id = ?
              ORDER BY oi.id ASC"

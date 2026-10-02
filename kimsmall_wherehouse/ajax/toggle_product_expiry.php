@@ -22,7 +22,7 @@ try {
     $st->bind_param('i', $pid);
     $st->execute();
 
-    $st2 = $conn->prepare("SELECT requires_expiry FROM kw_products WHERE id = ?");
+    $st2 = $conn->prepare("SELECT requires_expiry FROM kw_products_v WHERE id = ?");
     $st2->bind_param('i', $pid);
     $st2->execute();
     $new_val = (int)$st2->get_result()->fetch_assoc()['requires_expiry'];

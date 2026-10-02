@@ -135,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($product_id <= 0 || $qty <= 0) {
                 kw_set_flash('error', 'Please select a product and enter a quantity of 1 or more.');
             } else {
-                $stp = $conn->prepare("SELECT unit, pieces_per_box FROM kw_products WHERE id = ?");
+                $stp = $conn->prepare("SELECT unit, pieces_per_box FROM kw_products_v WHERE id = ?");
                 $stp->bind_param('i', $product_id); $stp->execute();
                 $prod = $stp->get_result()->fetch_assoc(); $stp->close();
 
@@ -367,7 +367,7 @@ try {
                 b.name_en AS brand_name, b.name_ko AS brand_name_ko,
                 COALESCE(p.barcode_unit, p.barcode_box, p.barcode_logistics) AS barcode
          FROM kw_order_items oi
-         JOIN kw_products p ON oi.product_id = p.id
+         JOIN kw_products_v p ON oi.product_id = p.id
          LEFT JOIN kw_brands b ON p.brand_id = b.id
          WHERE oi.order_id = $id"
     )->fetch_all(MYSQLI_ASSOC);

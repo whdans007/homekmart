@@ -49,7 +49,7 @@ try {
                     p.name_en,
                     (SELECT COALESCE(SUM(l.quantity),0) FROM kw_order_item_lots l WHERE l.order_item_id = oi.id) AS deducted_qty
              FROM kw_order_items oi
-             JOIN kw_products p ON oi.product_id = p.id
+             JOIN kw_products_v p ON oi.product_id = p.id
              WHERE oi.order_id = " . (int)$order_id
         )->fetch_all(MYSQLI_ASSOC);
 

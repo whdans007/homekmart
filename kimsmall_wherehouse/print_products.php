@@ -41,7 +41,7 @@ try {
     $where = $conds ? 'WHERE ' . implode(' AND ', $conds) : '';
 
     $sql = "SELECT p.*, b.name_en AS brand_name, c.name_en AS category_name
-            FROM kw_products p
+            FROM kw_products_v p
             LEFT JOIN kw_brands b ON p.brand_id = b.id
             LEFT JOIN kw_categories c ON p.category_id = c.id
             $where ORDER BY p.is_active DESC, p.name_en ASC";

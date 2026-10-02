@@ -17,7 +17,7 @@ $prefill_product = null;
 try {
     $conn = get_lc_db();
     if ($prefill_product_id) {
-        $st = $conn->prepare("SELECT id, name_en, name_ko FROM kw_products WHERE id = ?");
+        $st = $conn->prepare("SELECT id, name_en, name_ko FROM kw_products_v WHERE id = ?");
         $st->bind_param('i', $prefill_product_id);
         $st->execute();
         $prefill_product = $st->get_result()->fetch_assoc();
@@ -27,7 +27,7 @@ try {
         "SELECT bb.*, CONCAT(p.name_en, IFNULL(CONCAT(' (', p.name_ko, ')'), '')) AS product_name,
                 u.full_name AS created_by_name
          FROM kw_box_breaks bb
-         JOIN kw_products p ON bb.product_id = p.id
+         JOIN kw_products_v p ON bb.product_id = p.id
          LEFT JOIN users u ON bb.created_by = u.id
          ORDER BY bb.id DESC
          LIMIT 20"

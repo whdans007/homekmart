@@ -5,6 +5,7 @@ require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/lib/unit_helper.php'; // unit 검증(BOX/PCS만 허용)
 require_once __DIR__ . '/lib/image_helper.php'; // 상품 대표 이미지 업로드 처리
 require_once __DIR__ . '/lib/barcode_helper.php'; // 바코드 중복 검증
+require_once __DIR__ . '/lib/shared_product_helper.php'; // admin 공용 상품 연결/생성
 
 kw_require_staff();
 
@@ -64,35 +65,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         try {
             $conn = get_lc_db();
-            $st = $conn->prepare(
-                "INSERT INTO kw_products
-                 (name_en, name_ko, capacity, brand_id, category_id, unit, pieces_per_box,
-                  barcode_unit, barcode_box, barcode_logistics, min_stock, requires_expiry, image_path, created_by)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-            );
+            // 공용 상품(admin products) 연결 또는 신규 생성 + 창고 상품 등록 (한 트랜잭션)
             $uid = kw_current_user_id();
-            $st->bind_param('sssiisisssiisi',
-                $form['name_en'], $form['name_ko'], $form['capacity'], $form['brand_id'], $form['category_id'],
-                $form['unit'], $form['pieces_per_box'],
-                $form['barcode_unit'], $form['barcode_box'], $form['barcode_logistics'],
-                $form['min_stock'], $form['requires_expiry'], $image_path, $uid
-            );
-            $st->execute();
-            $new_id = $conn->insert_id;
-
-            // 등록 이력
-            $uname = $_SESSION['name'] ?? ($_SESSION['username'] ?? 'Unknown');
-            $sh = $conn->prepare(
-                "INSERT INTO kw_product_history (product_id, user_id, user_name, action) VALUES (?,?,?,'create')"
-            );
-            $sh->bind_param('iis', $new_id, $uid, $uname);
-            $sh->execute();
-            $sh->close();
+            $res = kw_register_product($conn, $form + ['image_path' => $image_path], $uid);
 
             $conn->close();
-            kw_set_flash('success', 'Product registered successfully.');
+            kw_set_flash('success', $res['linked_existing']
+                ? 'Product linked to the shared catalog and registered successfully.'
+                : ($res['created_shared'] ? 'Product registered in the shared catalog and warehouse successfully.' : 'Product registered successfully.'));
             header('Location: ' . LC_BASE . '/products.php');
             exit;
+        } catch (RuntimeException $e) {
+            $errors[] = $e->getMessage();
         } catch (Exception $e) {
             $errors[] = 'DB Error: ' . $e->getMessage();
         }

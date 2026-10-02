@@ -25,7 +25,7 @@ try {
                           SUM(i.quantity_remain) AS stock,
                           DATEDIFF(i.expiry_date, CURDATE()) AS days_left
                    FROM kw_inventory i
-                   JOIN kw_products p ON i.product_id = p.id
+                   JOIN kw_products_v p ON i.product_id = p.id
                    JOIN kw_inbound ib ON i.inbound_id = ib.id
                    WHERE i.expiry_date IS NOT NULL
                      AND i.expiry_date > '1971-01-01'
@@ -54,7 +54,7 @@ try {
     )->fetch_row()[0];
 
     // 전체 상품 수 / 재고 있는 상품 수
-    $total_products = (int)$conn->query("SELECT COUNT(*) FROM kw_products WHERE is_active = 1")->fetch_row()[0];
+    $total_products = (int)$conn->query("SELECT COUNT(*) FROM kw_products_v WHERE is_active = 1")->fetch_row()[0];
     $stocked_products = (int)$conn->query(
         "SELECT COUNT(DISTINCT i.product_id) FROM kw_inventory i
          JOIN kw_inbound ib ON i.inbound_id = ib.id
@@ -67,7 +67,7 @@ try {
                 COALESCE(NULLIF(p.barcode_unit,''), NULLIF(p.barcode_box,''), NULLIF(p.barcode_logistics,'')) AS barcode,
                 p.unit, p.min_stock,
                 COALESCE(SUM(i.quantity_remain), 0) AS total_stock
-         FROM kw_products p
+         FROM kw_products_v p
          LEFT JOIN kw_inventory i ON i.product_id = p.id AND i.quantity_remain > 0
          WHERE p.is_active = 1 AND p.min_stock > 0
          GROUP BY p.id
