@@ -2396,37 +2396,33 @@ function loadAndGenerateCategoryHTML(callback) {
     fetch('ajax_get_all_categories.php')
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                const categories = data.grouped;
-                let html = "<div style=\"flex: 1; padding-right: 5px;\">";
-                
-                // 왼쪽 컬럼: 신선식품, 가공식품, 간식/음료
-                ['신선식품', '가공식품', '간식/음료'].forEach(groupName => {
-                    if (categories[groupName]) {
-                        html += generateCategoryGroup(groupName, categories[groupName]);
-                    }
+            if (data.success && Array.isArray(data.categories)) {
+                // Group the current subcategories by their parent. Parent names
+                // are data now, so category changes do not depend on old labels.
+                const grouped = new Map();
+                data.categories.forEach(category => {
+                    const parentName = category.parent_name || '기타';
+                    if (!grouped.has(parentName)) grouped.set(parentName, []);
+                    grouped.get(parentName).push(category);
                 });
-                
-                html += "</div><div style=\"flex: 1; padding-left: 5px;\">";
-                
-                // 오른쪽 컬럼: 생활용품, 주방/가정용품, 기타
-                ['생활용품', '주방/가정용품', '기타'].forEach(groupName => {
-                    if (categories[groupName]) {
-                        html += generateCategoryGroup(groupName, categories[groupName]);
-                    }
-                });
-                
-                html += "</div>";
-                
-                if (callback) callback(html);
+                const groups = Array.from(grouped.entries());
+                if (!groups.length) {
+                    callback('<div style="text-align:center;padding:20px;color:#6b7280;">등록된 소분류가 없습니다.</div>');
+                    return;
+                }
+                const columns = [[], []];
+                groups.forEach((group, index) => columns[index % 2].push(group));
+                callback(columns.map((column, index) =>
+                    `<div style="flex:1;${index ? 'padding-left:5px;' : 'padding-right:5px;'}">${column.map(([name, items]) => generateCategoryGroup(name, items)).join('')}</div>`
+                ).join(''));
             } else {
                 console.error('카테고리 로드 실패:', data.message);
-                if (callback) callback(generateFallbackCategories());
+                callback(generateFallbackCategories());
             }
         })
         .catch(error => {
             console.error('카테고리 로드 오류:', error);
-            if (callback) callback(generateFallbackCategories());
+            callback(generateFallbackCategories());
         });
 }
 
@@ -2438,14 +2434,12 @@ function generateFallbackCategories() {
 }
 
 function generateCategoryGroup(title, categoryData) {
-    // categoryData가 새로운 구조인지 확인
-    const nameEn = categoryData.name_en || '';
-    const items = categoryData.items || categoryData;
+    const items = Array.isArray(categoryData) ? categoryData : (categoryData.items || []);
     
     let html = `
         <div style="border: 1px solid #d1d5db; border-radius: 4px; padding: 6px; background-color: #f9fafb; margin-bottom: 6px;">
             <h3 style="font-weight: 600; margin-bottom: 4px; color: #1e40af; font-size: 12px; padding: 2px 4px; background-color: #dbeafe; border-radius: 2px;">
-                ${title} ${nameEn ? `<span style="color: #000000; font-weight: normal;">(${nameEn})</span>` : ''}
+                ${escapeCategoryHTML(title)}
             </h3>
             <div style="display: flex; flex-direction: column; gap: 1px;">
     `;
@@ -2455,16 +2449,22 @@ function generateCategoryGroup(title, categoryData) {
         const fullEn = item.name_en || '';
         html += `
             <div class="category-item" style="display: flex; align-items: center; padding: 4px 6px; border-radius: 2px; cursor: pointer; border: 1px solid transparent; transition: all 0.1s; font-size: 13px;" 
-                 data-category-id="${item.id}" data-category-name="${item.name}" data-category-name-en="${item.name_en}">
+                 data-category-id="${item.id}" data-category-name="${escapeCategoryHTML(item.name)}" data-category-name-en="${escapeCategoryHTML(item.name_en || '')}">
                 <span style="color: #6b7280; margin-right: 3px; font-size: 12px;">▸</span>
-                <span style="color: #111827; font-weight: 500;">${item.name}</span>
-                <span style="color: #000000; margin-left: 4px; font-size: 12px;">(${fullEn})</span>
+                <span style="color: #111827; font-weight: 500;">${escapeCategoryHTML(item.name)}</span>
+                <span style="color: #000000; margin-left: 4px; font-size: 12px;">(${escapeCategoryHTML(fullEn)})</span>
             </div>
         `;
     });
     
     html += "</div></div>";
     return html;
+}
+
+function escapeCategoryHTML(value) {
+    return String(value || '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    })[character]);
 }
 
 // 카테고리 팝업 관리 클래스
@@ -2714,32 +2714,6 @@ function initBulkCategoryUpdate() {
                     document.getElementById('bulk-update-form').submit();
                 }
             });
-            
-            // 백업 클릭 핸들러
-            setTimeout(() => {
-                const categoryItems = document.querySelectorAll('.category-item');
-                categoryItems.forEach(item => {
-                    item.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        const category = {
-                            id: this.dataset.categoryId,
-                            name: this.dataset.categoryName,
-                            name_en: this.dataset.categoryNameEn
-                        };
-                        
-                        categoryPopup.close();
-                        
-                        // 폼 제출
-                        document.getElementById('bulk_action').value = 'update_category';
-                        document.getElementById('hidden_category_id').value = category.id;
-                        
-                        const categoryName = category.name || category.name_en;
-                        if (confirm(`선택된 ${selectedProductIds.length}개 상품의 카테고리를 '${categoryName}'로 변경하시겠습니까?`)) {
-                            document.getElementById('bulk-update-form').submit();
-                        }
-                    }, { once: true });
-                });
-            }, 500);
         } else {
             alert('카테고리 선택 기능을 사용할 수 없습니다.');
         }
